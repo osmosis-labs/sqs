@@ -1,0 +1,16 @@
+quiet: False
+keeptree: True
+disable-version-string: True
+with-expecter: True
+mockname: "{{.InterfaceName}}"
+filename: "{{.MockName}}.go"
+outpkg: mocks
+dir: "domain/mocks"
+packages:
+  github.com/osmosis-labs/router/domain:
+    interfaces:
+      PoolI:
+      CFMMPoolI:
+      ConcentratedPoolI:
+      CosmWasmPoolI:
+# Lots more config...
