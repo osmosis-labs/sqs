@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo"
-	"github.com/osmosis-labs/router/domain"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/sirupsen/logrus"
 )
 

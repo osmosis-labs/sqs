@@ -12,3 +12,11 @@ var (
 	// ErrBadParamInput will throw if the given request-body or params is not valid
 	ErrBadParamInput = errors.New("given Param is not valid")
 )
+
+type InvalidPoolTypeError struct {
+	PoolType int32
+}
+
+func (e InvalidPoolTypeError) Error() string {
+	return "invalid pool type: " + string(e.PoolType)
+}

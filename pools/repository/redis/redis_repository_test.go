@@ -22,9 +22,9 @@ import (
 	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/stableswap"
 	"github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
-	"github.com/osmosis-labs/router/domain"
-	"github.com/osmosis-labs/router/domain/mocks"
-	"github.com/osmosis-labs/router/pools/repository/redis"
+	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqs/pools/repository/redis"
 )
 
 const (

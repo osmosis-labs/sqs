@@ -30,7 +30,7 @@ type CosmWasmPoolI interface {
 
 // PoolsUsecase represent the pool's usecases
 type PoolsUsecase interface {
-	GetAllPools(ctx context.Context, poolID uint64, tokenIn string, tokenOutDenom string, swapFee string) (amount string, err error)
+	GetAllPools(ctx context.Context) ([]PoolI, error)
 }
 
 // PoolsRepository represent the pool's repository contract

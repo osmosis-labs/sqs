@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/osmosis-labs/router/domain"
+	"github.com/osmosis-labs/sqs/domain"
 )
 
 type quoteUsecase struct {

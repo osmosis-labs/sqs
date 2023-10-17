@@ -7,7 +7,7 @@ filename: "{{.MockName}}.go"
 outpkg: mocks
 dir: "domain/mocks"
 packages:
-  github.com/osmosis-labs/router/domain:
+  github.com/osmosis-labs/sqs/domain:
     interfaces:
       PoolI:
       CFMMPoolI:

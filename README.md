@@ -1,4 +1,4 @@
-# 
+# Sidecar Query Server (SQS)
 
 ## TODOs
 

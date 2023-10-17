@@ -1,7 +1,7 @@
 {
     "debug": true,
     "server": {
-      "address": ":9091"
+      "address": ":9092"
     },
     "context":{
       "timeout":2
@@ -12,6 +12,10 @@
         "user": "user",
         "pass": "password",
         "name": "article"
+    },
+    "chain": {
+        "id": "localosmosis",
+        "node_uri": "tcp://localhost:26657"
     }
   
   }

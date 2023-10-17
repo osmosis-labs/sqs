@@ -15,7 +15,7 @@ import (
 	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/balancer"
 	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/stableswap"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
-	domain "github.com/osmosis-labs/router/domain"
+	domain "github.com/osmosis-labs/sqs/domain"
 )
 
 type redisPoolsRepo struct {
