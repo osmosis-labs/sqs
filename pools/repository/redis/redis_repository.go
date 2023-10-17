@@ -50,7 +50,6 @@ func (r *redisPoolsRepo) GetAllCFMM(ctx context.Context) ([]domain.CFMMPoolI, er
 
 	pools := make([]domain.CFMMPoolI, 0, len(poolMapByID))
 	for key, v := range poolMapByID {
-
 		var pool domain.CFMMPoolI
 		if strings.HasPrefix(key, balancerPrefix) {
 			pool = &balancer.Pool{}
@@ -121,7 +120,9 @@ func (r *redisPoolsRepo) GetAllCosmWasm(ctx context.Context) ([]domain.CosmWasmP
 		// TODO: avoid casting after removing dependency on the chain types
 		// Currently, CosmWasmPool does not implement this method and panics due
 		// to serialization issues.
+		// nolint: forcetypeassert
 		poolI := pools[i].(*cosmwasmpool.CosmWasmPool)
+		// nolint: forcetypeassert
 		poolJ := pools[j].(*cosmwasmpool.CosmWasmPool)
 
 		return poolI.PoolId < poolJ.PoolId
@@ -138,15 +139,20 @@ func (r *redisPoolsRepo) StoreCFMM(ctx context.Context, pools []domain.CFMMPoolI
 			poolType       = pool.GetType()
 		)
 		if poolType == poolmanagertypes.Balancer {
-			balancerPool := pool.(*balancer.Pool)
+			balancerPool, ok := pool.(*balancer.Pool)
+			if !ok {
+				return InvalidPoolTypeError{PoolType: int32(poolType)}
+			}
 
 			serializedPool, err = json.Marshal(balancerPool)
 			if err != nil {
 				return err
 			}
-
 		} else if poolType == poolmanagertypes.Stableswap {
-			stableswapPool := pool.(*stableswap.Pool)
+			stableswapPool, ok := pool.(*stableswap.Pool)
+			if !ok {
+				return InvalidPoolTypeError{PoolType: int32(poolType)}
+			}
 
 			serializedPool, err = json.Marshal(stableswapPool)
 			if err != nil {

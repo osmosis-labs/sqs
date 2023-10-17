@@ -173,13 +173,10 @@ func updatePoolStateWorker(ctx context.Context, exitChan chan os.Signal, chainCl
 					fallthrough
 				case poolmanagertypes.Stableswap:
 					cfmmPools = append(cfmmPools, pool)
-					break
 				case poolmanagertypes.Concentrated:
 					concentratedPools = append(concentratedPools, pool)
-					break
 				case poolmanagertypes.CosmWasm:
 					cosmWasmPools = append(cosmWasmPools, pool)
-					break
 				default:
 					return domain.InvalidPoolTypeError{PoolType: int32(pool.GetType())}
 				}

@@ -36,7 +36,6 @@ type chainClient struct {
 }
 
 func NewClient(chainID string, nodeURI string) (Client, error) {
-
 	rpcClient, err := client.NewClientFromNode(nodeURI)
 	if err != nil {
 		return nil, err

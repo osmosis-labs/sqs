@@ -27,3 +27,7 @@ redis-start:
 
 redis-stop:
 	docker container rm -f redis-stack
+
+lint:
+	@echo "--> Running linter"
+	golangci-lint run --timeout=10m
