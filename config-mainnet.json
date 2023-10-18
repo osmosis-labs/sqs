@@ -15,7 +15,7 @@
     },
     "chain": {
         "id": "localosmosis",
-        "node_uri": "tcp://localhost:26657"
+        "node_uri": "https://rpc.osmosis.zone:443"
     }
   }
   
