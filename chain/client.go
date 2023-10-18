@@ -54,6 +54,7 @@ func NewClient(chainID string, nodeURI string) (Client, error) {
 	// If grpc is enabled, configure grpc client for grpc gateway.
 	grpcClient, err := grpc.Dial(
 		"localhost:9090", // TODO: get from config
+		// nolint: staticcheck
 		grpc.WithInsecure(),
 		grpc.WithDefaultCallOptions(
 			grpc.ForceCodec(encoding.GetCodec(proto.Name)),
