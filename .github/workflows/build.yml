@@ -1,0 +1,65 @@
+name: Docker-Build
+
+on:
+  push:
+    branches: [ "main", "production" ]
+  pull_request:
+    branches: [ "main", "production" ]
+
+jobs:
+  build_prod:
+    if: github.ref == 'refs/heads/production'
+    env:
+      docker_org: "osmolabs"
+      docker_repo: "sqs"
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set Docker-Tag to Commit Sha
+      run: echo "docker_tag=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
+
+    - name: "DOCKER:BUILD:CHECK:PUSH"
+      uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
+      with:
+        docker_username: "${{ secrets.docker_username }}"
+        docker_password: "${{ secrets.docker_password }}"
+        docker_org: "${{ env.docker_org }}"
+        docker_image: "${{ env.docker_repo }}"
+        docker_tag: "${{ env.docker_tag }}"
+        docker_file_location: "./"
+
+    - name: "DOCKER:IMAGE:SCAN:ANCHORE"
+      if: contains(github.event.head_commit.message, '[docker scan]')
+      uses: iDevOps-io/idevops-git-actions/execute_docker_scan_grype@main
+      with:
+        docker_image_name: "${{ env.docker_org }}/${{ env.docker_repo }}:${{ env.docker_tag }}"
+
+  build_dev:
+    if: github.ref == 'refs/heads/main'
+    env:
+      docker_org: "osmolabs"
+      docker_repo: "sqs-dev"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set Docker-Tag to Commit Sha
+      run: echo "docker_tag=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
+
+    - name: "DOCKER:BUILD:CHECK:PUSH"
+      uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
+      with:
+        docker_username: "${{ secrets.docker_username }}"
+        docker_password: "${{ secrets.docker_password }}"
+        docker_org: "${{ env.docker_org }}"
+        docker_image: "${{ env.docker_repo }}"
+        docker_tag: "${{ env.docker_tag }}"
+        docker_file_location: "./"
+
+    - name: "DOCKER:IMAGE:SCAN:ANCHORE"
+      if: contains(github.event.head_commit.message, '[docker scan]')
+      uses: iDevOps-io/idevops-git-actions/execute_docker_scan_grype@main
+      with:
+        docker_image_name: "${{ env.docker_org }}/${{ env.docker_repo }}:${{ env.docker_tag }}"

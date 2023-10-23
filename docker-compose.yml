@@ -1,0 +1,42 @@
+version: "3"
+
+services:
+  localosmosis:
+    image: osmolabs/osmosis:20.1.0-alpine
+    container_name: localosmosis
+    volumes:
+      - ./localnet/scripts/setup.sh:/osmosis/setup.sh
+      - $HOME/.localosmosis/:/osmosis/.osmosisd/
+    entrypoint:
+      - /osmosis/setup.sh
+    ports:
+      - 26657:26657
+      - 1317:1317
+      - 9090:9090
+      - 9091:9091
+      - 6060:6060
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: on-failure
+    ports:
+      - 6379:6379
+
+  sqs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sqs
+    environment:
+      DEBUG: "true"
+    volumes:
+      - ./localnet/scripts/healthcheck_downstream_services_dockercompose.sh:/osmosis/healthcheck_downstream_services_dockercompose.sh
+      - ./config.json:/osmosis/config.json
+    restart: on-failure
+    depends_on:
+      - localosmosis
+      - redis
+    ports:
+      - 9092:9092
+

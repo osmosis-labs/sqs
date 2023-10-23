@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/encoding/proto"
+	"github.com/spf13/viper"
 
 	clpoolmodel "github.com/osmosis-labs/osmosis/v19/x/concentrated-liquidity/model"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v19/x/cosmwasmpool/model"
@@ -53,7 +54,7 @@ func NewClient(chainID string, nodeURI string) (Client, error) {
 
 	// If grpc is enabled, configure grpc client for grpc gateway.
 	grpcClient, err := grpc.Dial(
-		"localhost:9090", // TODO: get from config
+		viper.GetString(`chain.node_grpc`), // TODO: get from config
 		// nolint: staticcheck
 		grpc.WithInsecure(),
 		grpc.WithDefaultCallOptions(
@@ -111,4 +112,12 @@ func (c chainClient) GetAllPools(ctx context.Context, desiredHeight uint64) ([]d
 	}
 
 	return pools, nil
+}
+
+func init() {
+	viper.SetConfigFile(`config.json`)
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
 }
