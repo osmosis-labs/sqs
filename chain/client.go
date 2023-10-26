@@ -7,6 +7,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/spf13/viper"
 	"github.com/tendermint/tendermint/rpc/client/http"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding"
@@ -53,7 +54,7 @@ func NewClient(chainID string, nodeURI string) (Client, error) {
 
 	// If grpc is enabled, configure grpc client for grpc gateway.
 	grpcClient, err := grpc.Dial(
-		"localhost:9090", // TODO: get from config
+		viper.GetString(`chain.node_grpc`), // TODO: get from config
 		// nolint: staticcheck
 		grpc.WithInsecure(),
 		grpc.WithDefaultCallOptions(
@@ -111,4 +112,12 @@ func (c chainClient) GetAllPools(ctx context.Context, desiredHeight uint64) ([]d
 	}
 
 	return pools, nil
+}
+
+func init() {
+	viper.SetConfigFile(`config.json`)
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
 }

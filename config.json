@@ -7,7 +7,7 @@
       "timeout":2
     },
     "database": {
-        "host": "localhost",
+        "host": "redis",
         "port": "6379",
         "user": "user",
         "pass": "password",
@@ -15,7 +15,8 @@
     },
     "chain": {
         "id": "localosmosis",
-        "node_uri": "tcp://localhost:26657"
+        "node_uri": "tcp://localosmosis:26657",
+        "node_grpc": "localosmosis:9090"
     }
   }
   
