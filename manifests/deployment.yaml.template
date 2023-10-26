@@ -79,7 +79,7 @@ spec:
                 path: config.json
       containers:
       - name: -=app_name=-
-        image: -=docker_org=-/-=docker_image=-:-=docker_tag=-
+        image: -=docker_org=-/-=docker_repo=-:-=docker_tag=-
         volumeMounts:
         - mountPath: "/osmosis/"
           name: -=app_name=-
@@ -133,7 +133,7 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: -=app_name=--secret-redis
+  name: -=app_name=--redis-secret
   namespace: -=kubernetes_namespace=-
 stringData:
   REDIS_PASSWORD: "-=redis_password=-"
