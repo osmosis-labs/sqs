@@ -68,12 +68,17 @@ jobs:
         echo "${{ secrets.PROD_KUBECONFIG }}" > temp_config.yaml
         echo "KUBECONFIG=$(pwd)/temp_config.yaml" >> ${GITHUB_ENV}
 
-    # This builds and pushes docker image.
-    - name: "SET:SECRET:ENV:VARS"
-      run: |
-        docker build -t ${docker_org}/${docker_repo}:${docker_tag} .
-        docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }}
-        docker push ${docker_org}/${docker_repo}:${docker_tag}
+    # This step checks to see if the docker tag you are pushing exists.
+    # If the docker image doesn't exist it will build and push it.
+    - name: "DOCKER:BUILD:CHECK:PUSH"
+      uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
+      with:
+        docker_username: "${{ secrets.DOCKER_USERNAME }}"
+        docker_password: "${{ secrets.DOCKER_PASSWORD }}"
+        docker_org: "${{ env.docker_org }}"
+        docker_image: "${{ env.docker_repo }}"
+        docker_tag: "${{ env.docker_tag }}"
+        docker_file_location: "./"
 
     # This is the docker image scan it will use anchore grype scanning
     # This will scan the docker image for vulnerbilities if [docker scan] is in the comment.
@@ -188,6 +193,18 @@ jobs:
         docker build -t ${docker_org}/${docker_repo}:${docker_tag} .
         docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }}
         docker push ${docker_org}/${docker_repo}:${docker_tag}
+
+    # This step checks to see if the docker tag you are pushing exists.
+    # If the docker image doesn't exist it will build and push it.
+    - name: "DOCKER:BUILD:CHECK:PUSH"
+      uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
+      with:
+        docker_username: "${{ secrets.DOCKER_USERNAME }}"
+        docker_password: "${{ secrets.DOCKER_PASSWORD }}"
+        docker_org: "${{ env.docker_org }}"
+        docker_image: "${{ env.docker_repo }}"
+        docker_tag: "${{ env.docker_tag }}"
+        docker_file_location: "./"
 
     # This is the docker image scan it will use anchore grype scanning 
     # This will scan the docker image for vulnerbilities if [docker scan] is in the comment.
