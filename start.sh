@@ -6,7 +6,10 @@
 # The docker-compose automatically sets it to debug.
 # One thing to add is to make the code load its debug value from this as well.
 # When its Kubernetes deployment you can't mount directly to osmosis dir so we have to copy if the file and directory exist.
+echo "Copy the config from the mount point to the osmosis application directory."
 cp /osmosis-mount/config.json /osmosis/config.json || echo "not kubernetes deployment"
+echo "Strip new line characters if they exist because it will cause a panic."
+cat /osmosis/config.json | tr -d '\n' > /osmosis/config.json
 if [ "${DEBUG}" == "true" ]; then
   echo "look at contents of the osmosis directory."
   ls -lah /osmosis/
@@ -15,7 +18,7 @@ if [ "${DEBUG}" == "true" ]; then
   echo "keep node alive on failure for debugging" >> status
   echo "sleep for 30 seconds to let other services start"
   sleep 30
-  # we do this so when debug is true the container will statt.
+  echo "start process with debug and keep container running for troubleshooting purposes."
   /bin/sqsd || echo "failed to start" && tail -f status
 else
   /bin/sqsd
