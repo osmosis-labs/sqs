@@ -81,7 +81,7 @@ spec:
       - name: -=app_name=-
         image: -=docker_org=-/-=docker_repo=-:-=docker_tag=-
         volumeMounts:
-        - mountPath: "/osmosis/"
+        - mountPath: "/osmosis-mount/"
           name: -=app_name=-
         ports:
         - containerPort: -=container_port=-
