@@ -24,7 +24,7 @@ jobs:
         echo "redis_docker_image=bitnami/redis:latest" >> ${GITHUB_ENV}
         echo "redis_port=6379" >> ${GITHUB_ENV}
         echo "redis_user=default" >> ${GITHUB_ENV}
-        echo "redis_password=${{ secrets.prod_sqs_redis_password }}" >> ${GITHUB_ENV}
+        echo "redis_password=${{ secrets.PROD_SQS_REDIS_PASSWORD }}" >> ${GITHUB_ENV}
         echo "redis_name=article" >> ${GITHUB_ENV}
         echo "redis_initial_delay_seconds=10" >> ${GITHUB_ENV}
         echo "redis_period_seconds=10" >> ${GITHUB_ENV}
@@ -43,12 +43,14 @@ jobs:
         echo "node_grpc=grpc.osmosis.zone:9090" >> ${GITHUB_ENV}
         echo "domain_name=sqs.osmosis.zone" >> ${GITHUB_ENV}
         echo "path=/" >> ${GITHUB_ENV}
+        echo "${{ secrets.PROD_KUBECONFIG }}" > temp_config.yaml
+        echo "KUBECONFIG=$(pwd)/temp_config.yaml" >> ${GITHUB_ENV}
 
     - name: "DOCKER:BUILD:CHECK:PUSH"
       uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
       with:
-        docker_username: "${{ secrets.docker_username }}"
-        docker_password: "${{ secrets.docker_password }}"
+        docker_username: "${{ secrets.DOCKER_USERNAME }}"
+        docker_password: "${{ secrets.DOCKER_PASSWORD }}"
         docker_org: "${{ env.docker_org }}"
         docker_image: "${{ env.docker_repo }}"
         docker_tag: "${{ env.docker_tag }}"
@@ -70,8 +72,8 @@ jobs:
         
         kubectl create secret docker-registry ${image_pull_secret} \
         --docker-server="${docker_server_url}" \
-        --docker-username="${{ secrets.docker_username }}" \
-        --docker-password="${{ secrets.docker_password }}" \
+        --docker-username="${{ secrets.DOCKER_USERNAME }}" \
+        --docker-password="${{ secrets.DOCKER_PASSWORD }}" \
         --namespace ${kubernetes_namespace}
 
     - name: "EXECUTE:TEMPLATE:REPLACEMENT:ON:FILE"
@@ -116,7 +118,7 @@ jobs:
         echo "redis_docker_image=bitnami/redis:latest" >> ${GITHUB_ENV}
         echo "redis_port=6379" >> ${GITHUB_ENV}
         echo "redis_user=default" >> ${GITHUB_ENV}
-        echo "redis_password=${{ secrets.dev_sqs_redis_password }}" >> ${GITHUB_ENV}
+        echo "redis_password=${{ secrets.DEV_SQS_REDIS_PASSWORD }}" >> ${GITHUB_ENV}
         echo "redis_name=article" >> ${GITHUB_ENV}
         echo "redis_initial_delay_seconds=10" >> ${GITHUB_ENV}
         echo "redis_period_seconds=10" >> ${GITHUB_ENV}
@@ -136,12 +138,14 @@ jobs:
         echo "domain_name=sqs.dev-osmosis.zone" >> ${GITHUB_ENV}
         echo "path=/" >> ${GITHUB_ENV}
         echo "docker_server_url=https://index.docker.io/v1/" >> ${GITHUB_ENV}
+        echo "${{ secrets.DEV_KUBECONFIG }}" > temp_config.yaml
+        echo "KUBECONFIG=$(pwd)/temp_config.yaml" >> ${GITHUB_ENV}
 
     - name: "DOCKER:BUILD:CHECK:PUSH"
       uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
       with:
-        docker_username: "${{ secrets.docker_username }}"
-        docker_password: "${{ secrets.docker_password }}"
+        docker_username: "${{ secrets.DOCKER_USERNAME }}"
+        docker_password: "${{ secrets.DOCKER_PASSWORD }}"
         docker_org: "${{ env.docker_org }}"
         docker_image: "${{ env.docker_repo }}"
         docker_tag: "${{ env.docker_tag }}"
@@ -163,8 +167,8 @@ jobs:
         
         kubectl create secret docker-registry ${image_pull_secret} \
         --docker-server="${docker_server_url}" \
-        --docker-username="${{ secrets.docker_username }}" \
-        --docker-password="${{ secrets.docker_password }}" \
+        --docker-username="${{ secrets.DOCKER_USERNAME }}" \
+        --docker-password="${{ secrets.DOCKER_PASSWORD }}" \
         --namespace ${kubernetes_namespace}
 
     - name: "EXECUTE:TEMPLATE:REPLACEMENT:ON:FILE"
