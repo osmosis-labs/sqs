@@ -21,6 +21,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     env:
       docker_org: "osmolabs"
+      docker_server_url: "https://index.docker.io/v1/"
       docker_repo: "sqs"
       app_name: "sqs" 
       kubernetes_namespace: "sqs" 
@@ -52,7 +53,7 @@ jobs:
       chain_id: "osmosis-1" 
       node_rpc: "https://rpc.osmosis.zone:443" 
       node_grpc: "grpc.osmosis.zone:9090" 
-      domain_name: "sqs.osmosis.zone" 
+      domain_name: "sqs.osmosis.zone"
       path: "/" 
         
     runs-on: ubuntu-latest
@@ -67,17 +68,12 @@ jobs:
         echo "${{ secrets.PROD_KUBECONFIG }}" > temp_config.yaml
         echo "KUBECONFIG=$(pwd)/temp_config.yaml" >> ${GITHUB_ENV}
 
-    # This step checks to see if the docker tag you are pushing exists.
-    # If the docker image doesn't exist it will build and push it.
-    - name: "DOCKER:BUILD:CHECK:PUSH"
-      uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
-      with:
-        docker_username: "${{ secrets.DOCKER_USERNAME }}"
-        docker_password: "${{ secrets.DOCKER_PASSWORD }}"
-        docker_org: "${{ env.docker_org }}"
-        docker_image: "${{ env.docker_repo }}"
-        docker_tag: "${{ env.docker_tag }}"
-        docker_file_location: "./"
+    # This builds and pushes docker image.
+    - name: "SET:SECRET:ENV:VARS"
+      run: |
+        docker build -t ${docker_org}/${docker_repo}:${docker_tag} .
+        docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }}
+        docker push ${docker_org}/${docker_repo}:${docker_tag}
 
     # This is the docker image scan it will use anchore grype scanning
     # This will scan the docker image for vulnerbilities if [docker scan] is in the comment.
@@ -186,17 +182,12 @@ jobs:
         echo "${{ secrets.DEV_KUBECONFIG }}" > temp_config.yaml
         echo "KUBECONFIG=$(pwd)/temp_config.yaml" >> ${GITHUB_ENV}
 
-    # This step checks to see if the docker tag you are pushing exists.
-    # If the docker image doesn't exist it will build and push it.
-    - name: "DOCKER:BUILD:CHECK:PUSH"
-      uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
-      with:
-        docker_username: "${{ secrets.DOCKER_USERNAME }}"
-        docker_password: "${{ secrets.DOCKER_PASSWORD }}"
-        docker_org: "${{ env.docker_org }}"
-        docker_image: "${{ env.docker_repo }}"
-        docker_tag: "${{ env.docker_tag }}"
-        docker_file_location: "./"
+    # This builds and pushes docker image.
+    - name: "SET:SECRET:ENV:VARS"
+      run: |
+        docker build -t ${docker_org}/${docker_repo}:${docker_tag} .
+        docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }}
+        docker push ${docker_org}/${docker_repo}:${docker_tag}
 
     # This is the docker image scan it will use anchore grype scanning 
     # This will scan the docker image for vulnerbilities if [docker scan] is in the comment.
