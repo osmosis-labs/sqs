@@ -70,15 +70,15 @@ spec:
       labels:
         app: -=app_name=-
     spec:
+      volumes:
+        - name: -=app_name=-
+          secret:
+            secretName: -=app_name=--secret
+            items:
+              - key: config.json
+                path: config.json
       containers:
       - name: -=app_name=-
-        volumes:
-          - name: -=app_name=-
-            secret:
-              secretName: -=app_name=--secret
-              items:
-                - key: config.json
-                  path: config.json
         image: -=docker_org=-/-=docker_image=-:-=docker_tag=-
         volumeMounts:
         - mountPath: "/osmosis/"
