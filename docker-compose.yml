@@ -31,7 +31,6 @@ services:
     environment:
       DEBUG: "true"
     volumes:
-      - ./localnet/scripts/healthcheck_downstream_services_dockercompose.sh:/osmosis/healthcheck_downstream_services_dockercompose.sh
       - ./config.json:/osmosis/config.json
     restart: on-failure
     depends_on:
