@@ -2,50 +2,73 @@ name: "CI/CD:BUILD:AND:DEPLOY"
 
 on:
   push:
-    branches: [ "main", "production" ]
+    branches: [ "main", "v*.*.*" ]
   pull_request:
-    branches: [ "main", "production" ]
+    branches: [ "main", "v*.*.*" ]
 
 jobs:
+  # This job deploys to prod.
+  # This job will do the following and deploy to job on the production trigger.
+  # This builds the docker image
+  # This then scans the docker image if you pass [docker scan]
+  # This will then template the kubernetes manifest with the environment variables set in the pipeline.
+  # After templating the manifest it will deploy it into Kubernetes.
+  # The pipeline will wait for the deployment to start and report that its ready 1/1
+  # The rolling update strategy will ensure the pod passes its health check ensuring you didn't deploy bad code and there is no outage.
+  # The manifest deploys both the redis deployment and the sqs container as two separate deployments.
+  # Then it uses ZAProxy to do an OWASP Top 10 scan passive and active attack against the end point if you pass [zap scan]
   build_prod:
-    if: github.ref == 'refs/heads/production'
+    if: github.ref == 'refs/heads/main'
     env:
       docker_org: "osmolabs"
       docker_repo: "sqs"
+      app_name: "sqs" 
+      kubernetes_namespace: "sqs" 
+      redis_docker_image: "bitnami/redis:latest" 
+      redis_port: "6379" 
+      redis_user: "default" 
+      redis_name: "article" 
+      # initial delay is how long the health check waits before checking its active for reds.
+      redis_initial_delay_seconds: "10" 
+      # period is how often the health check runs for redis.
+      redis_period_seconds: "10" 
+      # specifies the number of redis pods to run for redis.
+      replicas: "1" 
+      # min ready seaconds is the minimum time before the pod can report ready.
+      min_ready_seconds: "30" 
+      # max unavailable is the number of unavailble pods during a rolling update. You set this to 0 so it leaves current one running.
+      max_unavailable: "0" 
+      # max surge is the number of pods the manifest can search to perform a rollin gupdate.
+      max_surge: "2" 
+      image_pull_secret: "sqs" 
+      container_port: "9092" 
+      service_port: "80" 
+      # the initial delay of the health check for the sqs pod.
+      initial_delay_seconds: "30" 
+      # how often the health check goes off for the sqs deployment.
+      period_seconds: "10" 
+      #this sets debug for the container which makes it wait to start.
+      debug: "false" 
+      chain_id: "osmosis-1" 
+      node_rpc: "https://rpc.osmosis.zone:443" 
+      node_grpc: "grpc.osmosis.zone:9090" 
+      domain_name: "sqs.osmosis.zone" 
+      path: "/" 
+        
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
 
+    # We use this to set the environment variables for the job that we cant set at the job level.
     - name: "SET:ENV:VARS"
       run: |
         echo "docker_tag=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
-        echo "app_name=sqs" >> ${GITHUB_ENV}
-        echo "kubernetes_namespace=sqs" >> ${GITHUB_ENV}
-        echo "redis_docker_image=bitnami/redis:latest" >> ${GITHUB_ENV}
-        echo "redis_port=6379" >> ${GITHUB_ENV}
-        echo "redis_user=default" >> ${GITHUB_ENV}
         echo "redis_password=${{ secrets.PROD_SQS_REDIS_PASSWORD }}" >> ${GITHUB_ENV}
-        echo "redis_name=article" >> ${GITHUB_ENV}
-        echo "redis_initial_delay_seconds=10" >> ${GITHUB_ENV}
-        echo "redis_period_seconds=10" >> ${GITHUB_ENV}
-        echo "replicas=1" >> ${GITHUB_ENV}
-        echo "min_ready_seconds=30" >> ${GITHUB_ENV}
-        echo "max_unavailable=0" >> ${GITHUB_ENV}
-        echo "max_surge=2" >> ${GITHUB_ENV}
-        echo "image_pull_secret=sqs" >> ${GITHUB_ENV}
-        echo "container_port=9092" >> ${GITHUB_ENV}
-        echo "service_port=80" >> ${GITHUB_ENV}
-        echo "initial_delay_seconds=30" >> ${GITHUB_ENV}
-        echo "period_seconds=10" >> ${GITHUB_ENV}
-        echo "debug=true" >> ${GITHUB_ENV}
-        echo "chain_id=osmosis-1" >> ${GITHUB_ENV}
-        echo "node_rpc=https://rpc.osmosis.zone:443" >> ${GITHUB_ENV}
-        echo "node_grpc=grpc.osmosis.zone:9090" >> ${GITHUB_ENV}
-        echo "domain_name=sqs.osmosis.zone" >> ${GITHUB_ENV}
-        echo "path=/" >> ${GITHUB_ENV}
         echo "${{ secrets.PROD_KUBECONFIG }}" > temp_config.yaml
         echo "KUBECONFIG=$(pwd)/temp_config.yaml" >> ${GITHUB_ENV}
 
+    # This step checks to see if the docker tag you are pushing exists.
+    # If the docker image doesn't exist it will build and push it.
     - name: "DOCKER:BUILD:CHECK:PUSH"
       uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
       with:
@@ -56,12 +79,16 @@ jobs:
         docker_tag: "${{ env.docker_tag }}"
         docker_file_location: "./"
 
+    # This is the docker image scan it will use anchore grype scanning
+    # This will scan the docker image for vulnerbilities if [docker scan] is in the comment.
+    # It will print a report in the pipeline.
     - name: "DOCKER:IMAGE:SCAN:ANCHORE"
       if: contains(github.event.head_commit.message, '[docker scan]')
       uses: iDevOps-io/idevops-git-actions/execute_docker_scan_grype@main
       with:
         docker_image_name: "${{ env.docker_org }}/${{ env.docker_repo }}:${{ env.docker_tag }}"
 
+    # This steap creates the namespace if it doesn't exist and then re-creates the docker pull secret incase credentials have changed.
     - name: "CREATE:DOCKER:SECRET:NAMESPACE"
       run: |
         echo "Create namespace if it doesn't exist."
@@ -76,17 +103,20 @@ jobs:
         --docker-password="${{ secrets.DOCKER_PASSWORD }}" \
         --namespace ${kubernetes_namespace}
 
+    # This step template replaces variables in the file with -=VAR_NAME=- syntax with environment variables that match VAR_NAME
     - name: "EXECUTE:TEMPLATE:REPLACEMENT:ON:FILE"
       uses: iDevOps-io/idevops-git-actions/template_replace_file@main
       with:
         input_file: "manifests/deployment.yaml.template"
         output_file: "manifests/deployment.yaml"
 
+    # This will apply the redis manifest and the sqs manifest after templating them.
     - name: "APPLY:KUBECONFIG"
       run: |
         echo "Apply the manifest and deploy the application and redis updates to the cluster"
         kubectl apply -f manifests/deployment.yaml -n ${kubernetes_namespace}
 
+    # This step waits for the new deployment to return 1/1 ready status meaning it succeded for both redis and sqs.
     - name: "CHECK:DEPLOYMENT:STATUS"
       run: |
         echo "Check the rollout status of redis. This will force pipeline to wait until its serving"
@@ -95,52 +125,69 @@ jobs:
         echo "Check the rollout status of the deployment to prevent pipeline from continuing until new release is rolled out."
         kubectl rollout status deployment/${app_name} -n ${kubernetes_namespace}
 
+    # This step triggers when [zap scan] is added to the commit message.
+    # This will trigger an OWASP top 10 Passinve and Active attack against the endpoint using ZAProxy.
     - name: "ZAProxy Scan Active/Passive OWASP TOP 10 Security"
       if: contains(github.event.head_commit.message, '[zap scan]')
       uses: iDevOps-io/idevops-git-actions/execute_zaproxy_owasp_security_can_on_endpoint@main
       with:
         web_url: "https://${{ env.domain_name }}"
 
+
+  # This job deploys to dev.
+  # This job will do the following and deploy to job on the production trigger.
+  # This builds the docker image
+  # This then scans the docker image if you pass [docker scan]
+  # This will then template the kubernetes manifest with the environment variables set in the pipeline.
+  # After templating the manifest it will deploy it into Kubernetes.
+  # The pipeline will wait for the deployment to start and report that its ready 1/1
+  # The rolling update strategy will ensure the pod passes its health check ensuring you didn't deploy bad code and there is no outage.
+  # The manifest deploys both the redis deployment and the sqs container as two separate deployments.
+  # Then it uses ZAProxy to do an OWASP Top 10 scan passive and active attack against the end point if you pass [zap scan]
   build_dev:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref != 'refs/heads/main'
     env:
       docker_org: "osmolabs"
       docker_repo: "sqs-dev"
+      app_name: "sqs"
+      kubernetes_namespace: "sqs"
+      redis_docker_image: "bitnami/redis:latest"
+      redis_port: "6379"
+      redis_user: "default"
+      redis_name: "article"
+      redis_initial_delay_seconds: "10"
+      redis_period_seconds: "10"
+      replicas: "1"
+      min_ready_seconds: "30"
+      max_unavailable: "0"
+      max_surge: "2"
+      image_pull_secret: "sqs"
+      container_port: "9092"
+      service_port: "80"
+      initial_delay_seconds: "30"
+      period_seconds: "10"
+      debug: "true"
+      chain_id: "osmosis-1"
+      node_rpc: "https://rpc.testnet.osmosis.zone:443"
+      node_grpc: "grpc.testnet.osmosis.zone:9090"
+      domain_name: "sqs.dev-osmosis.zone"
+      path: "/"
+      docker_server_url: "https://index.docker.io/v1/"
+      
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
 
-    - name: "SET:ENV:VARS"
+    # We use this to set the environment variables for the job that we cant set at the job level.
+    - name: "SET:SECRET:ENV:VARS"
       run: |
         echo "docker_tag=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
-        echo "app_name=sqs" >> ${GITHUB_ENV}
-        echo "kubernetes_namespace=sqs" >> ${GITHUB_ENV}
-        echo "redis_docker_image=bitnami/redis:latest" >> ${GITHUB_ENV}
-        echo "redis_port=6379" >> ${GITHUB_ENV}
-        echo "redis_user=default" >> ${GITHUB_ENV}
         echo "redis_password=${{ secrets.DEV_SQS_REDIS_PASSWORD }}" >> ${GITHUB_ENV}
-        echo "redis_name=article" >> ${GITHUB_ENV}
-        echo "redis_initial_delay_seconds=10" >> ${GITHUB_ENV}
-        echo "redis_period_seconds=10" >> ${GITHUB_ENV}
-        echo "replicas=1" >> ${GITHUB_ENV}
-        echo "min_ready_seconds=30" >> ${GITHUB_ENV}
-        echo "max_unavailable=0" >> ${GITHUB_ENV}
-        echo "max_surge=2" >> ${GITHUB_ENV}
-        echo "image_pull_secret=sqs" >> ${GITHUB_ENV}
-        echo "container_port=9092" >> ${GITHUB_ENV}
-        echo "service_port=80" >> ${GITHUB_ENV}
-        echo "initial_delay_seconds=30" >> ${GITHUB_ENV}
-        echo "period_seconds=10" >> ${GITHUB_ENV}
-        echo "debug=true" >> ${GITHUB_ENV}
-        echo "chain_id=osmosis-1" >> ${GITHUB_ENV}
-        echo "node_rpc=https://rpc.testnet.osmosis.zone:443" >> ${GITHUB_ENV}
-        echo "node_grpc=grpc.testnet.osmosis.zone:9090" >> ${GITHUB_ENV}
-        echo "domain_name=sqs.dev-osmosis.zone" >> ${GITHUB_ENV}
-        echo "path=/" >> ${GITHUB_ENV}
-        echo "docker_server_url=https://index.docker.io/v1/" >> ${GITHUB_ENV}
         echo "${{ secrets.DEV_KUBECONFIG }}" > temp_config.yaml
         echo "KUBECONFIG=$(pwd)/temp_config.yaml" >> ${GITHUB_ENV}
 
+    # This step checks to see if the docker tag you are pushing exists.
+    # If the docker image doesn't exist it will build and push it.
     - name: "DOCKER:BUILD:CHECK:PUSH"
       uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
       with:
@@ -151,12 +198,16 @@ jobs:
         docker_tag: "${{ env.docker_tag }}"
         docker_file_location: "./"
 
+    # This is the docker image scan it will use anchore grype scanning 
+    # This will scan the docker image for vulnerbilities if [docker scan] is in the comment.
+    # It will print a report in the pipeline.
     - name: "DOCKER:IMAGE:SCAN:ANCHORE"
       if: contains(github.event.head_commit.message, '[docker scan]')
       uses: iDevOps-io/idevops-git-actions/execute_docker_scan_grype@main
       with:
         docker_image_name: "${{ env.docker_org }}/${{ env.docker_repo }}:${{ env.docker_tag }}"
 
+    # This steap creates the namespace if it doesn't exist and then re-creates the docker pull secret incase credentials have changed.
     - name: "CREATE:DOCKER:SECRET:NAMESPACE"
       run: |
         echo "Create namespace if it doesn't exist."
@@ -171,17 +222,20 @@ jobs:
         --docker-password="${{ secrets.DOCKER_PASSWORD }}" \
         --namespace ${kubernetes_namespace}
 
+    # This step template replaces variables in the file with -=VAR_NAME=- syntax with environment variables that match VAR_NAME
     - name: "EXECUTE:TEMPLATE:REPLACEMENT:ON:FILE"
       uses: iDevOps-io/idevops-git-actions/template_replace_file@main
       with:
         input_file: "manifests/deployment.yaml.template"
         output_file: "manifests/deployment.yaml"
 
+    # This will apply the redis manifest and the sqs manifest after templating them.
     - name: "APPLY:KUBECONFIG"
       run: |
         echo "Apply the manifest and deploy the application and redis updates to the cluster"
         kubectl apply -f manifests/deployment.yaml -n ${kubernetes_namespace}
 
+    # This step waits for the new deployment to return 1/1 ready status meaning it succeded for both redis and sqs.
     - name: "CHECK:DEPLOYMENT:STATUS"
       run: |
         echo "Check the rollout status of redis. This will force pipeline to wait until its serving"
@@ -190,6 +244,8 @@ jobs:
         echo "Check the rollout status of the deployment to prevent pipeline from continuing until new release is rolled out."
         kubectl rollout status deployment/${app_name} -n ${kubernetes_namespace}
 
+    # This step triggers when [zap scan] is added to the commit message.
+    # This will trigger an OWASP top 10 Passinve and Active attack against the endpoint using ZAProxy.
     - name: "ZAProxy Scan Active/Passive OWASP TOP 10 Security"
       if: contains(github.event.head_commit.message, '[zap scan]')
       uses: iDevOps-io/idevops-git-actions/execute_zaproxy_owasp_security_can_on_endpoint@main

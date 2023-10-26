@@ -7,11 +7,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/spf13/viper"
 	"github.com/tendermint/tendermint/rpc/client/http"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/encoding/proto"
-	"github.com/spf13/viper"
 
 	clpoolmodel "github.com/osmosis-labs/osmosis/v19/x/concentrated-liquidity/model"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v19/x/cosmwasmpool/model"
