@@ -169,7 +169,7 @@ jobs:
       period_seconds: "10"
       debug: "true"
       chain_id: "osmosis-1"
-      node_rpc: "https://rpc.osmosis.zone:443"
+      node_rpc: "tcp://rpc.osmosis.zone:443"
       node_grpc: "grpc.osmosis.zone:9090"
       domain_name: "sqs.dev-osmosis.zone"
       path: "/"
