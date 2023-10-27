@@ -179,7 +179,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    # We use this to set the environment variables for the job that we cant set at the job level.
+    # We use this to set the environment variables for the job that we cant set at the job level
     - name: "SET:SECRET:ENV:VARS"
       run: |
         echo "docker_tag=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
