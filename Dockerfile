@@ -39,6 +39,8 @@ RUN BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
 # --------------------------------------------------------
 
 FROM ${RUNNER_IMAGE}
+RUN apt update && \
+    apt install curl wget nano -y
 COPY --chmod=777 ./start.sh /osmosis/start-sqs.sh
 COPY --from=builder /osmosis/build/sqsd /bin/sqsd
 ENV HOME /osmosis
