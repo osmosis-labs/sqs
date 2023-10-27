@@ -27,9 +27,12 @@ spec:
             port: -=redis_port=-
           initialDelaySeconds: -=redis_initial_delay_seconds=-
           periodSeconds: -=redis_period_seconds=-
-        envFrom:
-          - secretRef:
-              name: -=app_name=--redis-secret
+        env:
+          - name: ALLOW_EMPTY_PASSWORD
+            value: "yes"
+        #envFrom:
+        #  - secretRef:
+        #      name: -=app_name=--redis-secret
 
 ---
 apiVersion: v1
@@ -70,18 +73,18 @@ spec:
       labels:
         app: -=app_name=-
     spec:
+      volumes:
+        - name: -=app_name=-
+          secret:
+            secretName: -=app_name=--secret
+            items:
+              - key: config.json
+                path: config.json
       containers:
       - name: -=app_name=-
-        volumes:
-          - name: -=app_name=-
-            secret:
-              secretName: -=app_name=--secret
-              items:
-                - key: config.json
-                  path: config.json
-        image: -=docker_org=-/-=docker_image=-:-=docker_tag=-
+        image: -=docker_org=-/-=docker_repo=-:-=docker_tag=-
         volumeMounts:
-        - mountPath: "/osmosis/"
+        - mountPath: "/osmosis-mount/"
           name: -=app_name=-
         ports:
         - containerPort: -=container_port=-
@@ -123,7 +126,7 @@ stringData:
         },
         "chain": {
             "id": "-=chain_id=-",
-            "node_uri": "-=node_rpc=-
+            "node_uri": "-=node_rpc=-",
             "node_grpc": "-=node_grpc=-"
         }
     }
@@ -133,7 +136,7 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: -=app_name=--secret-redis
+  name: -=app_name=--redis-secret
   namespace: -=kubernetes_namespace=-
 stringData:
   REDIS_PASSWORD: "-=redis_password=-"
