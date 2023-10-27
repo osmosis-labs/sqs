@@ -124,10 +124,10 @@ func main() {
 	go func() {
 		defer workerWaitGroup.Done()
 
-		err := updatePoolStateWorker(ctx, exitChan, chainClient, poolsRepository)
-		if err != nil {
-			panic(err)
-		}
+		// err := updatePoolStateWorker(ctx, exitChan, chainClient, poolsRepository)
+		// if err != nil {
+		// 	panic(err)
+		// }
 	}()
 
 	err = e.Start(viper.GetString("server.address"))
