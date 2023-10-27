@@ -154,7 +154,7 @@ jobs:
       kubernetes_namespace: "sqs"
       redis_docker_image: "bitnami/redis:latest"
       redis_port: "6379"
-      redis_user: "default"
+      redis_user: "user"
       redis_name: "article"
       redis_initial_delay_seconds: "10"
       redis_period_seconds: "10"
