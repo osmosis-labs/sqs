@@ -126,8 +126,7 @@ stringData:
         },
         "chain": {
             "id": "-=chain_id=-",
-            "node_uri": "-=node_rpc=-",
-            //"node_grpc": "-=node_grpc=-"
+            "node_uri": "-=node_rpc=-"
         }
     }
 
