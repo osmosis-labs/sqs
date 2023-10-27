@@ -27,6 +27,9 @@ spec:
             port: -=redis_port=-
           initialDelaySeconds: -=redis_initial_delay_seconds=-
           periodSeconds: -=redis_period_seconds=-
+        env:
+          - name: ALLOW_EMPTY_PASSWORD
+            value: "yes"
         #envFrom:
         #  - secretRef:
         #      name: -=app_name=--redis-secret
