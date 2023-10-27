@@ -8,8 +8,6 @@
 # When its Kubernetes deployment you can't mount directly to osmosis dir so we have to copy if the file and directory exist.
 echo "Copy the config from the mount point to the osmosis application directory."
 cp /osmosis-mount/config.json /osmosis/config.json || echo "not kubernetes deployment"
-echo "Strip new line characters if they exist because it will cause a panic."
-cat /osmosis/config.json | tr -d '\n' > /osmosis/config.json
 if [ "${DEBUG}" == "true" ]; then
   echo "look at contents of the osmosis directory."
   ls -lah /osmosis/
