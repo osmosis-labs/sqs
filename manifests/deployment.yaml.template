@@ -27,9 +27,9 @@ spec:
             port: -=redis_port=-
           initialDelaySeconds: -=redis_initial_delay_seconds=-
           periodSeconds: -=redis_period_seconds=-
-        envFrom:
-          - secretRef:
-              name: -=app_name=--redis-secret
+        #envFrom:
+        #  - secretRef:
+        #      name: -=app_name=--redis-secret
 
 ---
 apiVersion: v1
