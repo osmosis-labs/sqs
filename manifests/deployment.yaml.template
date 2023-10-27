@@ -87,11 +87,11 @@ spec:
         - mountPath: "/osmosis-mount/"
           name: -=app_name=-
         ports:
-        - containerPort: -=container_port=-
+        - containerPort: -=service_port=-
           protocol: TCP
         readinessProbe:
           tcpSocket:
-            port: -=container_port=-
+            port: -=service_port=-
           initialDelaySeconds: -=initial_delay_seconds=-
           periodSeconds: -=period_seconds=-
         envFrom:
@@ -153,7 +153,7 @@ spec:
   ports:
     - protocol: TCP
       port: -=service_port=-
-      targetPort: -=container_port=-
+      targetPort: -=service_port=-
   type: ClusterIP
 
 ---
