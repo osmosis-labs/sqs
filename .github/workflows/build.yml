@@ -52,7 +52,7 @@ jobs:
       debug: "false" 
       chain_id: "osmosis-1" 
       node_rpc: "https://rpc.osmosis.zone:443"
-      node_grpc: "https://rpc.osmosis.zone:443"
+      node_grpc: "rpc.osmosis.zone:443"
       domain_name: "sqs.osmosis.zone"
       path: "/" 
         
@@ -170,7 +170,7 @@ jobs:
       debug: "true"
       chain_id: "osmosis-1"
       node_rpc: "https://rpc.osmosis.zone:443"
-      node_grpc: "https://rpc.osmosis.zone:443"
+      node_grpc: "rpc.osmosis.zone:443"
       domain_name: "sqs.dev-osmosis.zone"
       path: "/"
       docker_server_url: "https://index.docker.io/v1/"
