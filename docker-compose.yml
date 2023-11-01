@@ -2,13 +2,14 @@ version: "3"
 
 services:
   localosmosis:
-    image: osmolabs/osmosis:20.1.0-alpine
+    build:
+      context: .
+      dockerfile: localnet/Dockerfile
+      args:
+        GIT_REF: "roman/sqs-poc-v20"
     container_name: localosmosis
     volumes:
-      - ./localnet/scripts/setup.sh:/osmosis/setup.sh
-      - $HOME/.localosmosis/:/osmosis/.osmosisd/
-    entrypoint:
-      - /osmosis/setup.sh
+      - $HOME/.localosmosisstate/:/osmosis/.osmosisd/
     ports:
       - 26657:26657
       - 1317:1317
@@ -16,26 +17,26 @@ services:
       - 9091:9091
       - 6060:6060
 
-  redis:
-    image: redis:latest
-    container_name: redis
-    restart: on-failure
-    ports:
-      - 6379:6379
-
-  sqs:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: sqs
-    environment:
-      DEBUG: "true"
-    volumes:
-      - ./config.json:/osmosis/config.json
-    restart: on-failure
-    depends_on:
-      - localosmosis
-      - redis
-    ports:
-      - 9092:9092
-
+#  redis:
+#    image: redis:latest
+#    container_name: redis
+#    restart: on-failure
+#    ports:
+#      - 6379:6379
+#
+#  sqs:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    container_name: sqs
+#    environment:
+#      DEBUG: "true"
+#    volumes:
+#      - ./config.json:/osmosis/config.json
+#    restart: on-failure
+#    depends_on:
+#      - localosmosis
+#      - redis
+#    ports:
+#      - 9092:9092
+#
