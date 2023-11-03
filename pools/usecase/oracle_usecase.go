@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"github.com/gorilla/websocket"
 	concentrated "github.com/osmosis-labs/osmosis/v19/x/concentrated-liquidity/model"
 	"github.com/osmosis-labs/sqs/chain"
 	"time"
@@ -10,13 +11,17 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 )
 
+// WebSocket client holder
+var wsClient *websocket.Conn
+
 type oracleUseCase struct {
 	contextTimeout time.Duration
 	client         chain.Client
+	wsClient       *WebSocketClient
 }
 
 // NewPoolsUsecase will create a new pools use case object
-func NewOracleUseCase(timeout time.Duration, client chain.Client) domain.OracleUsecase {
+func NewOracleUseCase(timeout time.Duration, client chain.Client, wsClient *WebSocketClient) domain.OracleUsecase {
 	return &oracleUseCase{
 		contextTimeout: timeout,
 		client:         client,
@@ -63,6 +68,17 @@ func (a *oracleUseCase) UpdatePrices(ctx context.Context) error {
 	// i.e.: call update_price on the websocket api of the pyth-agent: https://docs.pyth.network/documentation/publish-data/pyth-client-websocket-api#update_price
 	// Account, Price, Conf (confidence), Status
 	fmt.Println("price: ", price, "conf: ", conf)
+
+	a.wsClient.Run(ctx)
+
+	// Wait for the WebSocket connection to be established.
+	time.Sleep(2 * time.Second)
+
+	// Call the update_price endpoint.
+	err = a.wsClient.SendUpdatePrice("CrZCEEt3awgkGLnVbsv45Pp4aLhr7fZfZr3ubzrbNXaq", price, conf, "trading")
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

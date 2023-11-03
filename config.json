@@ -17,6 +17,9 @@
         "id": "localosmosis",
         "node_uri": "tcp://osmosisd.localosmosis.orb.local:26657",
         "node_grpc": "osmosisd.localosmosis.orb.local:9090"
+    },
+    "pyth-agent": {
+        "ws_url": "wss://your-api-endpoint"
     }
   }
   

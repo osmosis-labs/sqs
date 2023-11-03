@@ -22,7 +22,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/middleware"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
 	poolsRedisRepository "github.com/osmosis-labs/sqs/pools/repository/redis"
-	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
+	"github.com/osmosis-labs/sqs/pools/usecase"
 
 	_quoteHttpDelivery "github.com/osmosis-labs/sqs/quote/delivery/http"
 	_quoteUseCase "github.com/osmosis-labs/sqs/quote/usecase"
@@ -96,10 +96,14 @@ func main() {
 	// Pools
 
 	poolsRepository := poolsRedisRepository.NewRedisPoolsRepo(client)
-	poolsUsecase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository)
-	poolsHttpDelivery.NewPoolsHandler(e, poolsUsecase)
+	poolsUseCase := usecase.NewPoolsUsecase(timeoutContext, poolsRepository)
+	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 
-	oracleUseCase := poolsUseCase.NewOracleUseCase(timeoutContext, chainClient)
+	wsURL := viper.GetString("pyth-agent.ws_url")
+	wsClient := usecase.NewWebSocketClient(wsURL)
+	wsClient.Run(ctx)
+	defer wsClient.Close()
+	oracleUseCase := usecase.NewOracleUseCase(timeoutContext, chainClient, wsClient)
 	poolsHttpDelivery.NewOracleHandler(e, oracleUseCase)
 
 	workerWaitGroup := &sync.WaitGroup{}
