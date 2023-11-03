@@ -33,6 +33,11 @@ type PoolsUsecase interface {
 	GetAllPools(ctx context.Context) ([]PoolI, error)
 }
 
+// OracleUsecase represent the oracle's usecases
+type OracleUsecase interface {
+	UpdatePrices(ctx context.Context) error
+}
+
 // PoolsRepository represent the pool's repository contract
 type PoolsRepository interface {
 	// GetAllConcentrated returns concentrated pools sorted by ID.

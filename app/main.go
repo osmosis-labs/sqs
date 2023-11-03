@@ -96,8 +96,11 @@ func main() {
 	// Pools
 
 	poolsRepository := poolsRedisRepository.NewRedisPoolsRepo(client)
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository)
-	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
+	poolsUsecase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository)
+	poolsHttpDelivery.NewPoolsHandler(e, poolsUsecase)
+
+	oracleUseCase := poolsUseCase.NewOracleUseCase(timeoutContext, chainClient)
+	poolsHttpDelivery.NewOracleHandler(e, oracleUseCase)
 
 	workerWaitGroup := &sync.WaitGroup{}
 
