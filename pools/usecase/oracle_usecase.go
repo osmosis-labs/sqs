@@ -3,8 +3,10 @@ package usecase
 import (
 	"context"
 	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/gorilla/websocket"
 	concentrated "github.com/osmosis-labs/osmosis/v19/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/balancer"
 	"github.com/osmosis-labs/sqs/chain"
 	"time"
 
@@ -25,6 +27,7 @@ func NewOracleUseCase(timeout time.Duration, client chain.Client, wsClient *WebS
 	return &oracleUseCase{
 		contextTimeout: timeout,
 		client:         client,
+		wsClient:       wsClient,
 	}
 }
 
@@ -59,7 +62,7 @@ func (a *oracleUseCase) UpdatePrices(ctx context.Context) error {
 	}
 
 	// TODO: Calculate the price
-	price, conf, err := calculateCLPrice(osmoPool)
+	price, conf, err := calculateBalancerPrice(osmoPool)
 	if err != nil {
 		return err
 	}
@@ -69,10 +72,9 @@ func (a *oracleUseCase) UpdatePrices(ctx context.Context) error {
 	// Account, Price, Conf (confidence), Status
 	fmt.Println("price: ", price, "conf: ", conf)
 
-	a.wsClient.Run(ctx)
-
-	// Wait for the WebSocket connection to be established.
-	time.Sleep(2 * time.Second)
+	if a.wsClient == nil {
+		return fmt.Errorf("websocket client is nil")
+	}
 
 	// Call the update_price endpoint.
 	err = a.wsClient.SendUpdatePrice("CrZCEEt3awgkGLnVbsv45Pp4aLhr7fZfZr3ubzrbNXaq", price, conf, "trading")
@@ -91,4 +93,18 @@ func calculateCLPrice(pool domain.PoolI) (int64, uint64, error) {
 
 	// TODO: Much better price calculations here
 	return cl.CurrentSqrtPrice.RoundInt64(), 0, nil
+}
+
+func calculateBalancerPrice(pool domain.PoolI) (int64, uint64, error) {
+	gamm, ok := pool.(*balancer.Pool)
+	if !ok {
+		panic("invalid pool type")
+	}
+
+	// TODO: Much better price calculations here
+	price, err := gamm.SpotPrice(sdk.Context{}, "uosmo", "uion")
+	if err != nil {
+		return 0, 0, err
+	}
+	return price.RoundInt64(), 0, nil
 }
