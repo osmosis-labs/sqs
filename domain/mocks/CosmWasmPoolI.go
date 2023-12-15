@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	types "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
+	types "github.com/osmosis-labs/osmosis/v20/x/poolmanager/types"
 	mock "github.com/stretchr/testify/mock"
 )
 

@@ -3,7 +3,7 @@ package redis
 import (
 	"fmt"
 
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v20/x/poolmanager/types"
 )
 
 type InvalidPoolTypeError struct {

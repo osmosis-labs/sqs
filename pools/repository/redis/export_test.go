@@ -1,6 +1,6 @@
 package redis
 
-import poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
+import poolmanagertypes "github.com/osmosis-labs/osmosis/v20/x/poolmanager/types"
 
 const (
 	CfmmPoolKey         = cfmmPoolKey

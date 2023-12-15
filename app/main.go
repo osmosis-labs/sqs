@@ -17,7 +17,7 @@ import (
 	"github.com/osmosis-labs/sqs/chain"
 	"github.com/osmosis-labs/sqs/domain"
 
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v20/x/poolmanager/types"
 
 	"github.com/osmosis-labs/sqs/domain/middleware"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"

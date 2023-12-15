@@ -10,12 +10,13 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	concentrated "github.com/osmosis-labs/osmosis/v19/x/concentrated-liquidity/model"
-	cosmwasmpool "github.com/osmosis-labs/osmosis/v19/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/stableswap"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
 	domain "github.com/osmosis-labs/sqs/domain"
+
+	concentrated "github.com/osmosis-labs/osmosis/v20/x/concentrated-liquidity/model"
+	cosmwasmpool "github.com/osmosis-labs/osmosis/v20/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v20/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v20/x/gamm/pool-models/stableswap"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v20/x/poolmanager/types"
 )
 
 type redisPoolsRepo struct {

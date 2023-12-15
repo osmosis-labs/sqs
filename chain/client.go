@@ -13,13 +13,14 @@ import (
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/encoding/proto"
 
-	clpoolmodel "github.com/osmosis-labs/osmosis/v19/x/concentrated-liquidity/model"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v19/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/stableswap"
-	poolmanagerqueryproto "github.com/osmosis-labs/osmosis/v19/x/poolmanager/client/queryproto"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
+
+	clpoolmodel "github.com/osmosis-labs/osmosis/v20/x/concentrated-liquidity/model"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v20/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v20/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v20/x/gamm/pool-models/stableswap"
+	poolmanagerqueryproto "github.com/osmosis-labs/osmosis/v20/x/poolmanager/client/queryproto"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v20/x/poolmanager/types"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"

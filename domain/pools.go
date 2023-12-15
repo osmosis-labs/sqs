@@ -3,7 +3,7 @@ package domain
 import (
 	"context"
 
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v20/x/poolmanager/types"
 )
 
 // PoolI represents a generalized Pool interface.

@@ -15,16 +15,17 @@ import (
 
 	redisdb "github.com/redis/go-redis/v9"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
-	concentrated "github.com/osmosis-labs/osmosis/v19/x/concentrated-liquidity/model"
-	cosmwasmpool "github.com/osmosis-labs/osmosis/v19/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v19/x/gamm/pool-models/stableswap"
-	"github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/pools/repository/redis"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
+	concentrated "github.com/osmosis-labs/osmosis/v20/x/concentrated-liquidity/model"
+	cosmwasmpool "github.com/osmosis-labs/osmosis/v20/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v20/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v20/x/gamm/pool-models/stableswap"
+	"github.com/osmosis-labs/osmosis/v20/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v20/x/poolmanager/types"
 )
 
 const (
