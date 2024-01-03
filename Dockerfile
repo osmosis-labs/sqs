@@ -40,7 +40,8 @@ COPY --from=builder /osmosis/build/sqsd /bin/sqsd
 ENV HOME /osmosis
 WORKDIR $HOME
 EXPOSE 9092
-RUN apt-get install curl vim nano 
+RUN apt-get update && \
+    apt-get install curl vim nano -y
 
 ENTRYPOINT ["/bin/sqsd"]
 
