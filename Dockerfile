@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
-ARG GO_VERSION="1.20"
+ARG GO_VERSION="1.21"
 ARG RUNNER_IMAGE="ubuntu"
 
 # --------------------------------------------------------
 # Builder
 # --------------------------------------------------------
 
-FROM golang:1.20-alpine as builder
+FROM golang:1.21-alpine as builder
 
 ARG GIT_VERSION
 ARG GIT_COMMIT
@@ -32,7 +32,7 @@ RUN ARCH=$(uname -m) && WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm |
 RUN BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
     -tags "netgo,ledger,muslc" \
     -ldflags "-w -s -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
-    -v -o /osmosis/build/sqsd /osmosis/app/main.go 
+    -v -o /osmosis/build/sqsd /osmosis/app/*.go 
 
 # --------------------------------------------------------
 # Runner
@@ -44,5 +44,7 @@ COPY --from=builder /osmosis/build/sqsd /bin/sqsd
 ENV HOME /osmosis
 WORKDIR $HOME
 EXPOSE 9092
+RUN apt-get install curl
+
 ENTRYPOINT ["/osmosis/start-sqs.sh"]
 

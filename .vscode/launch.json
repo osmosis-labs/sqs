@@ -9,7 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/app/main.go",
+            "program": "${workspaceFolder}/app/main.go ${workspaceFolder}/app/sidecar_query_server.go ${workspaceFolder}/app/sqs_config.go",
             "cwd": "${workspaceFolder}",
         }
     ]

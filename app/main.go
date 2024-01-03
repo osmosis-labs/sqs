@@ -6,26 +6,13 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
-	"time"
 
-	"github.com/labstack/echo"
+	"github.com/osmosis-labs/osmosis/v21/app"
+	"github.com/osmosis-labs/sqs/chain_info/client"
+	sqslog "github.com/osmosis-labs/sqs/log"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
-
-	"github.com/osmosis-labs/sqs/chain"
-	"github.com/osmosis-labs/sqs/domain"
-
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v19/x/poolmanager/types"
-
-	"github.com/osmosis-labs/sqs/domain/middleware"
-	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
-	poolsRedisRepository "github.com/osmosis-labs/sqs/pools/repository/redis"
-	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
-
-	_quoteHttpDelivery "github.com/osmosis-labs/sqs/quote/delivery/http"
-	_quoteUseCase "github.com/osmosis-labs/sqs/quote/usecase"
 )
 
 func init() {
@@ -55,13 +42,13 @@ func main() {
 		}
 	}()
 
-	client := redis.NewClient(&redis.Options{
+	redisClient := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", dbHost, dbPort),
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
 
-	redisStatus := client.Ping(context.Background())
+	redisStatus := redisClient.Ping(context.Background())
 	_, err := redisStatus.Result()
 	if err != nil {
 		panic(err)
@@ -70,7 +57,7 @@ func main() {
 	chainID := viper.GetString(`chain.id`)
 	chainNodeURI := viper.GetString(`chain.node_uri`)
 
-	chainClient, err := chain.NewClient(chainID, chainNodeURI)
+	chainClient, err := client.NewClient(chainID, chainNodeURI)
 	if err != nil {
 		panic(err)
 	}
@@ -83,35 +70,31 @@ func main() {
 		panic(err)
 	}
 
-	e := echo.New()
+	config := DefaultConfig
 
-	middleware := middleware.InitMiddleware()
-	e.Use(middleware.CORS)
+	encCfg := app.MakeEncodingConfig()
 
-	// Quotes
-	timeoutContext := time.Duration(viper.GetInt("context.timeout")) * time.Second
-	qu := _quoteUseCase.NewQuoteUsecase(timeoutContext)
-	_quoteHttpDelivery.NewQuoteHandler(e, qu)
+	// logger
+	logger, err := sqslog.NewLogger(config.LoggerIsProduction, config.LoggerFilename, config.LoggerLevel)
+	if err != nil {
+		panic(fmt.Errorf("error while creating logger: %s", err))
+	}
+	logger.Info("Starting sidecar query server")
 
-	// Pools
-
-	poolsRepository := poolsRedisRepository.NewRedisPoolsRepo(client)
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository)
-	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
-
-	workerWaitGroup := &sync.WaitGroup{}
+	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, *config.Router, dbHost, dbPort, config.ServerAddress, config.ChainGRPCGatewayEndpoint, config.ServerTimeoutDurationSecs, logger)
+	if err != nil {
+		panic(err)
+	}
 
 	go func() {
 		<-exitChan
 		cancel() // Trigger shutdown
 
-		workerWaitGroup.Wait()
-
-		if err := client.Close(); err != nil {
+		if err := redisClient.Close(); err != nil {
 			log.Fatal(err)
 		}
 
-		err := e.Shutdown(ctx)
+		err := sidecarQueryServer.Shutdown(ctx)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -119,88 +102,7 @@ func main() {
 		os.Exit(0)
 	}()
 
-	workerWaitGroup.Add(1)
-
-	go func() {
-		defer workerWaitGroup.Done()
-
-		// err := updatePoolStateWorker(ctx, exitChan, chainClient, poolsRepository)
-		// if err != nil {
-		// 	panic(err)
-		// }
-	}()
-
-	err = e.Start(viper.GetString("server.address"))
-	if err != nil {
+	if err := sidecarQueryServer.Start(ctx); err != nil {
 		panic(err)
-	}
-}
-
-func updatePoolStateWorker(ctx context.Context, exitChan chan os.Signal, chainClient chain.Client, poolsRepository domain.PoolsRepository) error {
-	defer func() { exitChan <- syscall.SIGTERM }()
-
-	currentHeight, err := chainClient.GetLatestHeight(ctx)
-	if err != nil {
-		return err
-	}
-
-	// TODO: refactor retrieval and storage of pools for better parallelization.
-
-	for {
-		select {
-		case <-ctx.Done():
-			// Exit if context is cancelled
-			return nil
-		default:
-			fmt.Println("currentHeight: ", currentHeight)
-
-			allPools, err := chainClient.GetAllPools(ctx, currentHeight)
-			if err != nil {
-				return err
-			}
-
-			// Create channel to wait for block time before requirying
-			blockTimeWait := time.After(5 * time.Second)
-
-			cfmmPools := []domain.CFMMPoolI{}
-			concentratedPools := []domain.ConcentratedPoolI{}
-			cosmWasmPools := []domain.CosmWasmPoolI{}
-
-			// In the meantime, store pools in redis
-			for _, pool := range allPools {
-				switch pool.GetType() {
-				case poolmanagertypes.Balancer:
-					fallthrough
-				case poolmanagertypes.Stableswap:
-					cfmmPools = append(cfmmPools, pool)
-				case poolmanagertypes.Concentrated:
-					concentratedPools = append(concentratedPools, pool)
-				case poolmanagertypes.CosmWasm:
-					cosmWasmPools = append(cosmWasmPools, pool)
-				default:
-					return domain.InvalidPoolTypeError{PoolType: int32(pool.GetType())}
-				}
-			}
-
-			err = poolsRepository.StoreCFMM(ctx, cfmmPools)
-			if err != nil {
-				return err
-			}
-
-			err = poolsRepository.StoreConcentrated(ctx, concentratedPools)
-			if err != nil {
-				return err
-			}
-
-			err = poolsRepository.StoreCosmWasm(ctx, cosmWasmPools)
-			if err != nil {
-				return err
-			}
-
-			<-blockTimeWait
-			currentHeight++
-
-			fmt.Println("got all pools")
-		}
 	}
 }

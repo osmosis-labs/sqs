@@ -1,0 +1,5 @@
+{"level":"info","ts":1704236820.122696,"msg":"log level","is_debug":false,"log_level":"info"}
+{"level":"info","ts":1704236820.122966,"msg":"Starting sidecar query server"}
+{"level":"info","ts":1704236820.1231086,"msg":"Pinging redis","redis_address":"0.0.0.0:6379"}
+{"level":"info","ts":1704236820.124375,"msg":"Starting sidecar query server","address":":9092"}
+{"level":"info","ts":1704236820.1244254,"msg":"Starting profiling server"}

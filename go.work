@@ -1,0 +1,7 @@
+go 1.21
+
+use .
+
+// replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.37.2
+
+// replace github.com/osmosis-labs/osmosis/ => ../osmosis/

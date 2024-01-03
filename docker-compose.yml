@@ -1,20 +1,21 @@
 version: "3"
 
 services:
-  localosmosis:
-    image: osmolabs/osmosis:20.1.0-alpine
-    container_name: localosmosis
+  osmosis-service:
+    image: osmolabs/osmosis-dev:sqs-out-v0
+    container_name: osmosis
     volumes:
-      - ./localnet/scripts/setup.sh:/osmosis/setup.sh
-      - $HOME/.localosmosis/:/osmosis/.osmosisd/
-    entrypoint:
-      - /osmosis/setup.sh
+      - $HOME/.osmosisd/:/osmosis/.osmosisd/
     ports:
       - 26657:26657
       - 1317:1317
       - 9090:9090
       - 9091:9091
       - 6060:6060
+    networks:
+      - mynetwork
+    command: ["start", "--home", "/osmosis/.osmosisd/"]
+
 
   redis:
     image: redis:latest
@@ -22,20 +23,27 @@ services:
     restart: on-failure
     ports:
       - 6379:6379
+    networks:
+      - mynetwork
 
-  sqs:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: sqs
-    environment:
-      DEBUG: "true"
-    volumes:
-      - ./config.json:/osmosis/config.json
-    restart: on-failure
-    depends_on:
-      - localosmosis
-      - redis
-    ports:
-      - 9092:9092
+  # sqs:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: sqs
+  #   environment:
+  #     DEBUG: "true"
+  #   volumes:
+  #     - ./config.json:/osmosis/config.json
+  #   restart: on-failure
+  #   depends_on:
+  #     - osmosis-service
+  #     - redis
+  #   ports:
+  #     - 9092:9092
+  #   networks:
+  #     - mynetwork
+# networks:
+#   mynetwork:
+#     driver: bridge
 
