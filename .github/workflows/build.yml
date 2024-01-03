@@ -39,6 +39,6 @@ jobs:
       with:
         docker_image_name: "${{ env.docker_org }}/${{ env.docker_repo }}:${{ env.docker_tag }}"
 
-    - name: "SET:ENV:VARS"
+    - name: "OUTPUT:DOCKER_IMAGE_NAME"
       run: |
         echo "DOCKER_IMAGE_NAME: ${{ env.docker_org }}/${{ env.docker_repo }}:${docker_tag}"
