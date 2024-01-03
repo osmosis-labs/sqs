@@ -12,15 +12,12 @@ FROM golang:1.21-alpine as builder
 ARG GIT_VERSION
 ARG GIT_COMMIT
 
-
 WORKDIR /osmosis
 
 COPY go.mod go.sum ./
 COPY . .
 
 RUN set -eux; apk add --no-cache ca-certificates build-base linux-headers && \
-    #--mount=type=cache,target=/root/.cache/go-build \
-    #--mount=type=cache,target=/root/go/pkg/mod \
     go mod download
 
 RUN ARCH=$(uname -m) && WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm | sed 's/.* //') && \
@@ -39,12 +36,11 @@ RUN BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
 # --------------------------------------------------------
 
 FROM ${RUNNER_IMAGE}
-COPY --chmod=777 ./start.sh /osmosis/start-sqs.sh
 COPY --from=builder /osmosis/build/sqsd /bin/sqsd
 ENV HOME /osmosis
 WORKDIR $HOME
 EXPOSE 9092
-RUN apt-get install curl
+RUN apt-get install curl vim nano 
 
-ENTRYPOINT ["/osmosis/start-sqs.sh"]
+ENTRYPOINT ["/bin/sqsd"]
 
