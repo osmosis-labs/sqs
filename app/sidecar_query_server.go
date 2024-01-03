@@ -104,7 +104,6 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 
 // NewSideCarQueryServer creates a new sidecar query server (SQS).
 func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfig, dbHost, dbPort, sideCarQueryServerAddress, grpcAddress string, useCaseTimeoutDuration int, logger log.Logger) (SideCarQueryServer, error) {
-
 	// Setup echo server
 	e := echo.New()
 	middleware := middleware.InitMiddleware()
