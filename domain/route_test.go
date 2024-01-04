@@ -6,11 +6,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	"github.com/osmosis-labs/sqsdomain/mocks"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 )
@@ -88,22 +88,22 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 	testcases := map[string]struct {
 		route route.RouteImpl
 
-		expectedPools []domain.RoutablePool
+		expectedPools []sqsdomain.RoutablePool
 	}{
 		"empty route": {
 			route: emptyRoute,
 
-			expectedPools: []domain.RoutablePool{},
+			expectedPools: []sqsdomain.RoutablePool{},
 		},
 		"single balancer pool in route": {
 			route: WithRoutePools(
 				emptyRoute,
-				[]domain.RoutablePool{
+				[]sqsdomain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultPool, DenomOne), balancerPool),
 				},
 			),
 
-			expectedPools: []domain.RoutablePool{
+			expectedPools: []sqsdomain.RoutablePool{
 				pools.NewRoutableResultPool(
 					balancerPoolID,
 					poolmanagertypes.Balancer,
@@ -132,6 +132,6 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 	}
 }
 
-func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
+func WithRoutePools(r route.RouteImpl, pools []sqsdomain.RoutablePool) route.RouteImpl {
 	return routertesting.WithRoutePools(r, pools)
 }

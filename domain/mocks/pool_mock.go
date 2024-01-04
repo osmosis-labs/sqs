@@ -4,12 +4,11 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
-	"github.com/osmosis-labs/sqs/domain"
 )
 
 type MockRoutablePool struct {
@@ -27,7 +26,7 @@ type MockRoutablePool struct {
 	mockedTokenOut sdk.Coin
 }
 
-// CalcSpotPrice implements domain.RoutablePool.
+// CalcSpotPrice implements sqsdomain.RoutablePool.
 func (mp *MockRoutablePool) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	if mp.PoolType == poolmanagertypes.CosmWasm {
 		return osmomath.OneBigDec(), nil
@@ -41,12 +40,12 @@ func (mp *MockRoutablePool) CalcSpotPrice(baseDenom string, quoteDenom string) (
 	return spotPrice, nil
 }
 
-// GetSpreadFactor implements domain.RoutablePool.
+// GetSpreadFactor implements sqsdomain.RoutablePool.
 func (mp *MockRoutablePool) GetSpreadFactor() math.LegacyDec {
 	return mp.SpreadFactor
 }
 
-// SetTokenOutDenom implements domain.RoutablePool.
+// SetTokenOutDenom implements sqsdomain.RoutablePool.
 func (*MockRoutablePool) SetTokenOutDenom(tokenOutDenom string) {
 	panic("unimplemented")
 }
@@ -54,7 +53,7 @@ func (*MockRoutablePool) SetTokenOutDenom(tokenOutDenom string) {
 var DefaultSpreadFactor = osmomath.MustNewDecFromStr("0.005")
 
 var (
-	_ domain.RoutablePool = &MockRoutablePool{}
+	_ sqsdomain.RoutablePool = &MockRoutablePool{}
 )
 
 // GetUnderlyingPool implements routerusecase.RoutablePool.
@@ -92,12 +91,12 @@ func (mp *MockRoutablePool) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Co
 	return balancerPool.CalcOutAmtGivenIn(sdk.Context{}, sdk.NewCoins(tokenIn), mp.TokenOutDenom, mp.SpreadFactor)
 }
 
-// String implements domain.RoutablePool.
+// String implements sqsdomain.RoutablePool.
 func (*MockRoutablePool) String() string {
 	panic("unimplemented")
 }
 
-// GetTickModel implements domain.RoutablePool.
+// GetTickModel implements sqsdomain.RoutablePool.
 func (mp *MockRoutablePool) GetTickModel() (*sqsdomain.TickModel, error) {
 	return mp.TickModel, nil
 }
@@ -119,7 +118,7 @@ func (mp *MockRoutablePool) GetTokenOutDenom() string {
 	return mp.TokenOutDenom
 }
 
-// ChargeTakerFee implements domain.RoutablePool.
+// ChargeTakerFee implements sqsdomain.RoutablePool.
 func (mp *MockRoutablePool) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	return tokenIn.Sub(sdk.NewCoin(tokenIn.Denom, mp.TakerFee.Mul(tokenIn.Amount.ToLegacyDec()).TruncateInt()))
 }
@@ -130,7 +129,7 @@ func (mp *MockRoutablePool) GetTakerFee() math.LegacyDec {
 }
 
 var _ sqsdomain.PoolI = &MockRoutablePool{}
-var _ domain.RoutablePool = &MockRoutablePool{}
+var _ sqsdomain.RoutablePool = &MockRoutablePool{}
 
 // GetId implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) GetId() uint64 {

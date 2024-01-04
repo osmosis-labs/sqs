@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/osmosis-labs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -12,8 +12,8 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
-	"github.com/osmosis-labs/sqsdomain/repository"
-	poolsredisrepo "github.com/osmosis-labs/sqsdomain/repository/redis/pools"
+	"github.com/osmosis-labs/sqs/sqsdomain/repository"
+	poolsredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/pools"
 )
 
 type poolsUseCase struct {
@@ -47,7 +47,7 @@ func (p *poolsUseCase) GetAllPools(ctx context.Context) ([]sqsdomain.PoolI, erro
 }
 
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRoutes route.CandidateRoutes, takerFeeMap sqsdomain.TakerFeeMap, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
+func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, takerFeeMap sqsdomain.TakerFeeMap, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
 	// Get all pools
 	poolsData, err := p.poolsRepository.GetPools(ctx, candidateRoutes.UniquePoolIDs)
 	if err != nil {
@@ -73,7 +73,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 	routes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
 		previousTokenOutDenom := tokenInDenom
-		routablePools := make([]domain.RoutablePool, 0, len(candidateRoute.Pools))
+		routablePools := make([]sqsdomain.RoutablePool, 0, len(candidateRoute.Pools))
 		for _, candidatePool := range candidateRoute.Pools {
 			// Get the pool data for routing
 			pool, ok := poolsData[candidatePool.ID]

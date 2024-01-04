@@ -3,10 +3,10 @@ package usecase_test
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/osmosis-labs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqsdomain/mocks"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -126,7 +126,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			// Route 1
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
+					Pools: []sqsdomain.RoutablePool{
 						pools.NewRoutablePool(
 							sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
 							USDT,
@@ -147,7 +147,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			// Route 2
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
+					Pools: []sqsdomain.RoutablePool{
 						pools.NewRoutablePool(
 							sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
 							USDC,
@@ -168,7 +168,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 		// Route 1
 		&usecase.RouteWithOutAmount{
 			RouteImpl: route.RouteImpl{
-				Pools: []domain.RoutablePool{
+				Pools: []sqsdomain.RoutablePool{
 					pools.NewRoutableResultPool(
 						poolIDOne,
 						poolmanagertypes.Balancer,
@@ -193,7 +193,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 		// Route 2
 		&usecase.RouteWithOutAmount{
 			RouteImpl: route.RouteImpl{
-				Pools: []domain.RoutablePool{
+				Pools: []sqsdomain.RoutablePool{
 					pools.NewRoutableResultPool(
 						poolIDThree,
 						poolmanagertypes.Balancer,
@@ -279,7 +279,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 			// Route 1
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
+					Pools: []sqsdomain.RoutablePool{
 						mocks.WithMockedTokenOut(
 							mocks.WithTokenOutDenom(
 								mocks.WithChainPoolModel(DefaultMockPool, poolOne), USDC),

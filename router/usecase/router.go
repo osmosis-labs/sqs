@@ -3,8 +3,8 @@ package usecase
 import (
 	"sort"
 
-	"github.com/osmosis-labs/sqsdomain"
-	routerredisrepo "github.com/osmosis-labs/sqsdomain/repository/redis/router"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/sqs/domain/mvc"

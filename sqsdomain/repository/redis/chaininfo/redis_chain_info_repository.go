@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/osmosis-labs/sqsdomain/repository"
+	"github.com/osmosis-labs/sqs/sqsdomain/repository"
 )
 
 // ChainInfoRepository represents the contract for a repository handling chain information

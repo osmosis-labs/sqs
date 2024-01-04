@@ -6,15 +6,16 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/pools/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	"github.com/osmosis-labs/sqsdomain/mocks"
+	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 )
 
 type PoolsUsecaseTestSuite struct {
@@ -65,10 +66,10 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		defaultPool,
 	}
 
-	validCandidateRoutes := route.CandidateRoutes{
-		Routes: []route.CandidateRoute{
+	validCandidateRoutes := sqsdomain.CandidateRoutes{
+		Routes: []sqsdomain.CandidateRoute{
 			{
-				Pools: []route.CandidatePool{
+				Pools: []sqsdomain.CandidatePool{
 					{
 						ID:            defaultPoolID,
 						TokenOutDenom: denomTwo,
@@ -89,7 +90,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		name string
 
 		pools           []sqsdomain.PoolI
-		candidateRoutes route.CandidateRoutes
+		candidateRoutes sqsdomain.CandidateRoutes
 		takerFeeMap     sqsdomain.TakerFeeMap
 		tokenInDenom    string
 		tokenOutDenom   string
@@ -110,7 +111,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 
 			expectedRoutes: []route.RouteImpl{
 				{
-					Pools: []domain.RoutablePool{
+					Pools: []sqsdomain.RoutablePool{
 						pools.NewRoutablePool(defaultPool, denomTwo, defaultTakerFee),
 					},
 				},
@@ -130,7 +131,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 
 			expectedRoutes: []route.RouteImpl{
 				{
-					Pools: []domain.RoutablePool{
+					Pools: []sqsdomain.RoutablePool{
 						pools.NewRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee),
 					},
 				},
@@ -163,7 +164,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		s.Run(tc.name, func() {
 
 			// Create repository mock
-			poolsRepository := &mocks.RedisPoolsRepositoryMock{
+			poolsRepository := &sqsdomainmocks.RedisPoolsRepositoryMock{
 				Pools: tc.pools,
 			}
 

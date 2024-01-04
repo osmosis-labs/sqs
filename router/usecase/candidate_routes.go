@@ -2,7 +2,7 @@ package usecase
 
 import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
-	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 // candidatePoolWrapper is an intermediary internal data
@@ -12,13 +12,13 @@ import (
 // a unque list of concentrated pools for knowing which pools require
 // a tick model.
 type candidatePoolWrapper struct {
-	route.CandidatePool
+	sqsdomain.CandidatePool
 	PoolDenoms []string
 	PoolType   poolmanagertypes.PoolType
 }
 
 // GetCandidateRoutes returns candidate routes from tokenInDenom to tokenOutDenom using BFS.
-func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (route.CandidateRoutes, error) {
+func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
 	var routes [][]candidatePoolWrapper
 	var visited = make(map[uint64]bool)
 
@@ -86,7 +86,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (route.Ca
 					copy(newPath, currentRoute)
 
 					newPath = append(newPath, candidatePoolWrapper{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            pool.GetId(),
 							TokenOutDenom: denom,
 						},

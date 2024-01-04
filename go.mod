@@ -6,12 +6,10 @@ require (
 	cosmossdk.io/math v1.1.3-rc.1
 	github.com/cosmos/cosmos-sdk v0.50.1
 	github.com/go-redis/redis v6.15.9+incompatible
-	github.com/json-iterator/go v1.1.12
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20231230033922-af0ba43e918a
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20231230033922-af0ba43e918a
 	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240101030300-a42faab1a51d
-	github.com/osmosis-labs/sqsdomain v0.0.0-0.20231230033922-af0ba43e918a
 	github.com/prometheus/client_golang v1.17.0
 	github.com/redis/go-redis/v9 v9.3.1
 	github.com/sirupsen/logrus v1.9.3
@@ -26,6 +24,7 @@ require (
 	github.com/creachadair/taskgroup v0.4.2 // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/gtank/ristretto255 v0.1.2 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20210601165009-122bf33a46e0 // indirect
 )
 
@@ -218,8 +217,6 @@ replace (
 
 	github.com/cosmos/gogoproto => github.com/cosmos/gogoproto v1.4.10
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-
-	github.com/osmosis-labs/sqsdomain => ./sqsdomain
 
 	// github.com/osmosis-labs/osmosis/osmomath => ../osmosis/osmomath
 

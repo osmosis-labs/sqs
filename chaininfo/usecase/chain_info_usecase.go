@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqsdomain/repository"
-	chaininforedisrepo "github.com/osmosis-labs/sqsdomain/repository/redis/chaininfo"
+	"github.com/osmosis-labs/sqs/sqsdomain/repository"
+	chaininforedisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/chaininfo"
 
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )

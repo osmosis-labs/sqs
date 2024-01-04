@@ -7,6 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
@@ -14,7 +15,7 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 )
 
-var _ domain.RoutablePool = &routableTransmuterPoolImpl{}
+var _ sqsdomain.RoutablePool = &routableTransmuterPoolImpl{}
 
 type routableTransmuterPoolImpl struct {
 	ChainPool     *cwpoolmodel.CosmWasmPool "json:\"pool\""
@@ -24,27 +25,27 @@ type routableTransmuterPoolImpl struct {
 	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
 }
 
-// GetId implements domain.RoutablePool.
+// GetId implements sqsdomain.RoutablePool.
 func (r *routableTransmuterPoolImpl) GetId() uint64 {
 	return r.ChainPool.PoolId
 }
 
-// GetPoolDenoms implements domain.RoutablePool.
+// GetPoolDenoms implements sqsdomain.RoutablePool.
 func (r *routableTransmuterPoolImpl) GetPoolDenoms() []string {
 	return osmoutils.CoinsDenoms(r.Balances)
 }
 
-// GetType implements domain.RoutablePool.
+// GetType implements sqsdomain.RoutablePool.
 func (*routableTransmuterPoolImpl) GetType() poolmanagertypes.PoolType {
 	return poolmanagertypes.CosmWasm
 }
 
-// GetSpreadFactor implements domain.RoutablePool.
+// GetSpreadFactor implements sqsdomain.RoutablePool.
 func (r *routableTransmuterPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
 }
 
-// CalculateTokenOutByTokenIn implements domain.RoutablePool.
+// CalculateTokenOutByTokenIn implements sqsdomain.RoutablePool.
 // It calculates the amount of token out given the amount of token in for a transmuter pool.
 // Transmuter pool allows no slippage swaps. It just returns the same amount of token out as token in
 // Returns error if:
@@ -81,12 +82,12 @@ func (r *routableTransmuterPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
-// String implements domain.RoutablePool.
+// String implements sqsdomain.RoutablePool.
 func (r *routableTransmuterPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
 }
 
-// ChargeTakerFeeExactIn implements domain.RoutablePool.
+// ChargeTakerFeeExactIn implements sqsdomain.RoutablePool.
 // Returns tokenInAmount and does not charge any fee for transmuter pools.
 func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
 	return tokenIn
@@ -107,17 +108,17 @@ func validateBalance(tokenInAmount osmomath.Int, balances sdk.Coins, denomToVali
 	return nil
 }
 
-// GetTakerFee implements domain.RoutablePool.
+// GetTakerFee implements sqsdomain.RoutablePool.
 func (r *routableTransmuterPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
 }
 
-// SetTokenOutDenom implements domain.RoutablePool.
+// SetTokenOutDenom implements sqsdomain.RoutablePool.
 func (r *routableTransmuterPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 	r.TokenOutDenom = tokenOutDenom
 }
 
-// CalcSpotPrice implements domain.RoutablePool.
+// CalcSpotPrice implements sqsdomain.RoutablePool.
 func (r *routableTransmuterPoolImpl) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	return osmomath.OneBigDec(), nil
 }

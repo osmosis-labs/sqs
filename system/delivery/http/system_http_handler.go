@@ -14,7 +14,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqsdomain/json"
+	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
 	"github.com/labstack/echo"
 )

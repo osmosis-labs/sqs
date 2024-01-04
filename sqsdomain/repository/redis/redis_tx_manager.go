@@ -1,7 +1,7 @@
 package redisrepo
 
 import (
-	"github.com/osmosis-labs/sqsdomain/repository"
+	"github.com/osmosis-labs/sqs/sqsdomain/repository"
 	"github.com/redis/go-redis/v9"
 )
 

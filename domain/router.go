@@ -2,43 +2,18 @@ package domain
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 )
 
-type RoutablePool interface {
-	GetId() uint64
-
-	GetType() poolmanagertypes.PoolType
-
-	GetPoolDenoms() []string
-
-	GetTokenOutDenom() string
-
-	CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error)
-
-	CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error)
-	ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin)
-
-	// SetTokenOutDenom sets the token out denom on the routable pool.
-	SetTokenOutDenom(tokenOutDenom string)
-
-	GetTakerFee() osmomath.Dec
-
-	GetSpreadFactor() osmomath.Dec
-
-	String() string
-}
-
 type RoutableResultPool interface {
-	RoutablePool
+	sqsdomain.RoutablePool
 	GetBalances() sdk.Coins
 }
 
 type Route interface {
-	GetPools() []RoutablePool
+	GetPools() []sqsdomain.RoutablePool
 	// AddPool adds pool to route.
 	AddPool(pool sqsdomain.PoolI, tokenOut string, takerFee osmomath.Dec)
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.

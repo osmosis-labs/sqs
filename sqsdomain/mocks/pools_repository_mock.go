@@ -3,9 +3,9 @@ package mocks
 import (
 	"context"
 
-	"github.com/osmosis-labs/sqsdomain"
-	"github.com/osmosis-labs/sqsdomain/repository"
-	poolsredisrepo "github.com/osmosis-labs/sqsdomain/repository/redis/pools"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/repository"
+	poolsredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/pools"
 )
 
 type RedisPoolsRepositoryMock struct {

@@ -6,9 +6,8 @@ import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/osmosis-labs/sqs/domain"
-
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/v21/x/poolmanager"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
@@ -16,7 +15,7 @@ import (
 	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
 )
 
-var _ domain.RoutablePool = &routableBalancerPoolImpl{}
+var _ sqsdomain.RoutablePool = &routableBalancerPoolImpl{}
 
 type routableBalancerPoolImpl struct {
 	ChainPool     *balancer.Pool "json:\"pool\""
@@ -39,49 +38,49 @@ func (r *routableBalancerPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
-// String implements domain.RoutablePool.
+// String implements sqsdomain.RoutablePool.
 func (r *routableBalancerPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v), token out (%s)", r.ChainPool.Id, poolmanagertypes.Balancer, r.ChainPool.GetPoolDenoms(sdk.Context{}), r.TokenOutDenom)
 }
 
-// ChargeTakerFee implements domain.RoutablePool.
+// ChargeTakerFee implements sqsdomain.RoutablePool.
 // Charges the taker fee for the given token in and returns the token in after the fee has been charged.
 func (r *routableBalancerPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.TakerFee)
 	return tokenInAfterTakerFee
 }
 
-// GetTakerFee implements domain.RoutablePool.
+// GetTakerFee implements sqsdomain.RoutablePool.
 func (r *routableBalancerPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
 }
 
-// SetTokenOutDenom implements domain.RoutablePool.
+// SetTokenOutDenom implements sqsdomain.RoutablePool.
 func (r *routableBalancerPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 	r.TokenOutDenom = tokenOutDenom
 }
 
-// GetSpreadFactor implements domain.RoutablePool.
+// GetSpreadFactor implements sqsdomain.RoutablePool.
 func (r *routableBalancerPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.ChainPool.GetSpreadFactor(sdk.Context{})
 }
 
-// GetId implements domain.RoutablePool.
+// GetId implements sqsdomain.RoutablePool.
 func (r *routableBalancerPoolImpl) GetId() uint64 {
 	return r.ChainPool.Id
 }
 
-// GetPoolDenoms implements domain.RoutablePool.
+// GetPoolDenoms implements sqsdomain.RoutablePool.
 func (r *routableBalancerPoolImpl) GetPoolDenoms() []string {
 	return r.ChainPool.GetPoolDenoms(sdk.Context{})
 }
 
-// GetType implements domain.RoutablePool.
+// GetType implements sqsdomain.RoutablePool.
 func (*routableBalancerPoolImpl) GetType() poolmanagertypes.PoolType {
 	return poolmanagertypes.Balancer
 }
 
-// CalcSpotPrice implements domain.RoutablePool.
+// CalcSpotPrice implements sqsdomain.RoutablePool.
 func (r *routableBalancerPoolImpl) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
 	if err != nil {

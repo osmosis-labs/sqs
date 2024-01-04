@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqsdomain"
-	"github.com/osmosis-labs/sqsdomain/json"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
 	concentratedmodel "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v21/x/cosmwasmpool/model"
