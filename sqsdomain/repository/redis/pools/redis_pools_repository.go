@@ -9,14 +9,31 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/osmosis-labs/sqsdomain"
 
-	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/json"
-	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqsdomain/json"
 	"github.com/osmosis-labs/sqsdomain/repository"
 
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 )
+
+// PoolsRepository represent the pool's repository contract
+type PoolsRepository interface {
+	// GetAllPools atomically reads and returns all on-chain pools sorted by ID.
+	// Note that this does NOT return tick models for the concentrated pools
+	GetAllPools(context.Context) ([]sqsdomain.PoolI, error)
+
+	// GetPools atomically reads and returns the pools with the given IDs.
+	// Note that this does NOT return tick models for the concentrated pools
+	GetPools(ctx context.Context, poolIDs map[uint64]struct{}) (map[uint64]sqsdomain.PoolI, error)
+
+	GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]sqsdomain.TickModel, error)
+
+	// StorePools atomically stores the given pools.
+	StorePools(ctx context.Context, tx repository.Tx, pools []sqsdomain.PoolI) error
+	// ClearAllPools atomically clears all pools.
+	ClearAllPools(ctx context.Context, tx repository.Tx) error
+}
 
 type redisPoolsRepo struct {
 	appCodec          codec.Codec
@@ -29,7 +46,7 @@ type poolTicks struct {
 }
 
 var (
-	_ mvc.PoolsRepository = &redisPoolsRepo{}
+	_ PoolsRepository = &redisPoolsRepo{}
 )
 
 const (
@@ -37,7 +54,7 @@ const (
 )
 
 // New will create an implementation of pools.Repository
-func New(appCodec codec.Codec, repositoryManager repository.TxManager) mvc.PoolsRepository {
+func New(appCodec codec.Codec, repositoryManager repository.TxManager) PoolsRepository {
 	return &redisPoolsRepo{
 		appCodec:          appCodec,
 		repositoryManager: repositoryManager,
@@ -46,7 +63,7 @@ func New(appCodec codec.Codec, repositoryManager repository.TxManager) mvc.Pools
 
 // GetAllPools implements mvc.PoolsRepository.
 // Atomically reads all pools from Redis.
-func (r *redisPoolsRepo) GetAllPools(ctx context.Context) ([]domain.PoolI, error) {
+func (r *redisPoolsRepo) GetAllPools(ctx context.Context) ([]sqsdomain.PoolI, error) {
 	tx := r.repositoryManager.StartTx()
 
 	sqsPoolMapByIDCmd, chainPoolMapByIDCmd, err := r.requestPoolsAtomically(ctx, tx, poolsKey)
@@ -72,7 +89,7 @@ func (r *redisPoolsRepo) GetAllPools(ctx context.Context) ([]domain.PoolI, error
 }
 
 // GetPools implements mvc.PoolsRepository.
-func (r *redisPoolsRepo) GetPools(ctx context.Context, poolIDs map[uint64]struct{}) (map[uint64]domain.PoolI, error) {
+func (r *redisPoolsRepo) GetPools(ctx context.Context, poolIDs map[uint64]struct{}) (map[uint64]sqsdomain.PoolI, error) {
 	tx := r.repositoryManager.StartTx()
 
 	redisTx, err := tx.AsRedisTx()
@@ -106,10 +123,10 @@ func (r *redisPoolsRepo) GetPools(ctx context.Context, poolIDs map[uint64]struct
 		return nil, err
 	}
 
-	pools := make(map[uint64]domain.PoolI, len(poolCmds))
+	pools := make(map[uint64]sqsdomain.PoolI, len(poolCmds))
 	for _, poolCmd := range poolCmds {
-		pool := &domain.PoolWrapper{
-			SQSModel: domain.SQSPool{},
+		pool := &sqsdomain.PoolWrapper{
+			SQSModel: sqsdomain.SQSPool{},
 		}
 
 		err := json.Unmarshal([]byte(poolCmd.sqsPoolCmd.Val()), &pool.SQSModel)
@@ -128,7 +145,7 @@ func (r *redisPoolsRepo) GetPools(ctx context.Context, poolIDs map[uint64]struct
 	return pools, nil
 }
 
-func (r *redisPoolsRepo) StorePools(ctx context.Context, tx repository.Tx, pools []domain.PoolI) error {
+func (r *redisPoolsRepo) StorePools(ctx context.Context, tx repository.Tx, pools []sqsdomain.PoolI) error {
 	if err := r.addPoolsTx(ctx, tx, poolsKey, pools); err != nil {
 		return err
 	}
@@ -175,15 +192,15 @@ func (r *redisPoolsRepo) requestPoolsAtomically(ctx context.Context, tx reposito
 }
 
 // getPools returns pools from Redis by storeKey.
-func (r *redisPoolsRepo) getPools(sqsPoolMapByID, chainPoolMapByID map[string]string) ([]domain.PoolI, error) {
+func (r *redisPoolsRepo) getPools(sqsPoolMapByID, chainPoolMapByID map[string]string) ([]sqsdomain.PoolI, error) {
 	if len(sqsPoolMapByID) != len(chainPoolMapByID) {
 		return nil, fmt.Errorf("pools count mismatch: sqsPoolMapByID: %d, chainPoolMapByID: %d", len(sqsPoolMapByID), len(chainPoolMapByID))
 	}
 
-	pools := make([]domain.PoolI, 0, len(sqsPoolMapByID))
+	pools := make([]sqsdomain.PoolI, 0, len(sqsPoolMapByID))
 	for poolIDKeyStr, sqsPoolModelBytes := range sqsPoolMapByID {
-		pool := &domain.PoolWrapper{
-			SQSModel: domain.SQSPool{},
+		pool := &sqsdomain.PoolWrapper{
+			SQSModel: sqsdomain.SQSPool{},
 		}
 
 		err := json.Unmarshal([]byte(sqsPoolModelBytes), &pool.SQSModel)
@@ -213,7 +230,7 @@ func (r *redisPoolsRepo) getPools(sqsPoolMapByID, chainPoolMapByID map[string]st
 }
 
 // addPoolsTx pipelines the given pools at the given storeKey to be executed atomically in a transaction.
-func (r *redisPoolsRepo) addPoolsTx(ctx context.Context, tx repository.Tx, storeKey string, pools []domain.PoolI) error {
+func (r *redisPoolsRepo) addPoolsTx(ctx context.Context, tx repository.Tx, storeKey string, pools []sqsdomain.PoolI) error {
 	redisTx, err := tx.AsRedisTx()
 	if err != nil {
 		return err
@@ -300,7 +317,7 @@ func (r *redisPoolsRepo) deletePoolsTx(ctx context.Context, tx repository.Tx, st
 
 // GetTickModelForPools implements mvc.PoolsRepository.
 // CONTRACT: pools must be concentrated
-func (r *redisPoolsRepo) GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]domain.TickModel, error) {
+func (r *redisPoolsRepo) GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]sqsdomain.TickModel, error) {
 	tx := r.repositoryManager.StartTx()
 
 	redixTx, err := tx.AsRedisTx()
@@ -326,10 +343,10 @@ func (r *redisPoolsRepo) GetTickModelForPools(ctx context.Context, pools []uint6
 		return nil, err
 	}
 
-	result := make(map[uint64]domain.TickModel, len(poolTickData))
+	result := make(map[uint64]sqsdomain.TickModel, len(poolTickData))
 
 	for _, tickCmdData := range poolTickData {
-		var tickData domain.TickModel
+		var tickData sqsdomain.TickModel
 		err = json.Unmarshal([]byte(tickCmdData.Cmd.Val()), &tickData)
 		if err != nil {
 			return nil, err

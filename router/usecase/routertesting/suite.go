@@ -6,8 +6,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqsdomain"
+	"github.com/osmosis-labs/sqsdomain/mocks"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v21/app/apptesting"
@@ -39,8 +40,8 @@ var (
 	DefaultLiquidityAmt = apptesting.DefaultLiquidityAmt
 
 	// router specific variables
-	DefaultTickModel = &domain.TickModel{
-		Ticks:            []domain.LiquidityDepthsWithRange{},
+	DefaultTickModel = &sqsdomain.TickModel{
+		Ticks:            []sqsdomain.LiquidityDepthsWithRange{},
 		CurrentTickIndex: 0,
 		HasNoLiquidity:   false,
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/osmosis-labs/sqsdomain"
+
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -11,18 +13,19 @@ import (
 
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 	"github.com/osmosis-labs/sqsdomain/repository"
+	poolsredisrepo "github.com/osmosis-labs/sqsdomain/repository/redis/pools"
 )
 
 type poolsUseCase struct {
 	contextTimeout         time.Duration
-	poolsRepository        mvc.PoolsRepository
+	poolsRepository        poolsredisrepo.PoolsRepository
 	redisRepositoryManager repository.TxManager
 }
 
 var _ mvc.PoolsUsecase = &poolsUseCase{}
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(timeout time.Duration, poolsRepository mvc.PoolsRepository, redisRepositoryManager repository.TxManager) mvc.PoolsUsecase {
+func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.PoolsRepository, redisRepositoryManager repository.TxManager) mvc.PoolsUsecase {
 	return &poolsUseCase{
 		contextTimeout:         timeout,
 		poolsRepository:        poolsRepository,
@@ -31,7 +34,7 @@ func NewPoolsUsecase(timeout time.Duration, poolsRepository mvc.PoolsRepository,
 }
 
 // GetAllPools returns all pools from the repository.
-func (p *poolsUseCase) GetAllPools(ctx context.Context) ([]domain.PoolI, error) {
+func (p *poolsUseCase) GetAllPools(ctx context.Context) ([]sqsdomain.PoolI, error) {
 	ctx, cancel := context.WithTimeout(ctx, p.contextTimeout)
 	defer cancel()
 
@@ -44,7 +47,7 @@ func (p *poolsUseCase) GetAllPools(ctx context.Context) ([]domain.PoolI, error) 
 }
 
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRoutes route.CandidateRoutes, takerFeeMap domain.TakerFeeMap, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
+func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRoutes route.CandidateRoutes, takerFeeMap sqsdomain.TakerFeeMap, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
 	// Get all pools
 	poolsData, err := p.poolsRepository.GetPools(ctx, candidateRoutes.UniquePoolIDs)
 	if err != nil {
@@ -108,7 +111,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 }
 
 // GetTickModelMap implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]domain.TickModel, error) {
+func (p *poolsUseCase) GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]sqsdomain.TickModel, error) {
 	ctx, cancel := context.WithTimeout(ctx, p.contextTimeout)
 	defer cancel()
 
@@ -121,7 +124,7 @@ func (p *poolsUseCase) GetTickModelMap(ctx context.Context, poolIDs []uint64) (m
 }
 
 // GetPool implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetPool(ctx context.Context, poolID uint64) (domain.PoolI, error) {
+func (p *poolsUseCase) GetPool(ctx context.Context, poolID uint64) (sqsdomain.PoolI, error) {
 	pools, err := p.poolsRepository.GetPools(ctx, map[uint64]struct {
 	}{
 		poolID: {},

@@ -3,8 +3,10 @@ package usecase_test
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/osmosis-labs/sqsdomain"
+
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqsdomain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -126,12 +128,12 @@ func (s *RouterTestSuite) TestPrepareResult() {
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						pools.NewRoutablePool(
-							domain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
+							sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
 							USDT,
 							takerFeeOne,
 						),
 						pools.NewRoutablePool(
-							domain.NewPool(poolTwo, poolTwo.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
+							sqsdomain.NewPool(poolTwo, poolTwo.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
 							USDC,
 							takerFeeTwo,
 						),
@@ -147,7 +149,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						pools.NewRoutablePool(
-							domain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
+							sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
 							USDC,
 							takerFeeThree,
 						),

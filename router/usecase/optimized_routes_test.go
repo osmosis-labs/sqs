@@ -6,6 +6,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/coinutil"
@@ -13,7 +14,7 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
-	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqsdomain/mocks"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
@@ -734,7 +735,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_Mainnet_UOSMOUION() {
 // - setting the pool use case on the router (called during GetCandidateRoutes() method)
 // - converting candidate routes to routes with all the necessary data.
 // COTRACT: router is initialized with setupMainnetRouter(...) or setupDefaultMainnetRouter(...)
-func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]domain.TickModel, takerFeeMap domain.TakerFeeMap) []route.RouteImpl {
+func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]sqsdomain.TickModel, takerFeeMap sqsdomain.TakerFeeMap) []route.RouteImpl {
 	_, poolsUsecase := s.setupRouterAndPoolsUsecase(router, tokenInDenom, tokenOutDenom, tickMap, takerFeeMap, cache.New())
 
 	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
@@ -748,7 +749,7 @@ func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.
 
 // Sets up and returns usecases for router and pools by mocking the mainnet data
 // from json files.
-func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]domain.TickModel, takerFeeMap domain.TakerFeeMap, cache *cache.Cache) (mvc.RouterUsecase, mvc.PoolsUsecase) {
+func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]sqsdomain.TickModel, takerFeeMap sqsdomain.TakerFeeMap, cache *cache.Cache) (mvc.RouterUsecase, mvc.PoolsUsecase) {
 	// Setup router repository mock
 	routerRepositoryMock := mocks.RedisRouterRepositoryMock{}
 	routerusecase.WithRouterRepository(router, &routerRepositoryMock)

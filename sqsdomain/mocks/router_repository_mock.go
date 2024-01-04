@@ -5,19 +5,19 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqsdomain"
 	"github.com/osmosis-labs/sqsdomain/repository"
+	routerredisrepo "github.com/osmosis-labs/sqsdomain/repository/redis/router"
 )
 
 type RedisRouterRepositoryMock struct {
-	TakerFees domain.TakerFeeMap
-	Routes    map[domain.DenomPair]route.CandidateRoutes
+	TakerFees sqsdomain.TakerFeeMap
+	Routes    map[sqsdomain.DenomPair]route.CandidateRoutes
 }
 
 // GetAllTakerFees implements domain.RouterRepository.
-func (r *RedisRouterRepositoryMock) GetAllTakerFees(ctx context.Context) (domain.TakerFeeMap, error) {
+func (r *RedisRouterRepositoryMock) GetAllTakerFees(ctx context.Context) (sqsdomain.TakerFeeMap, error) {
 	return r.TakerFees, nil
 }
 
@@ -28,7 +28,7 @@ func (r *RedisRouterRepositoryMock) GetRoutes(ctx context.Context, denom0 string
 		denom0, denom1 = denom1, denom0
 	}
 
-	routes := r.Routes[domain.DenomPair{Denom0: denom0, Denom1: denom1}]
+	routes := r.Routes[sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1}]
 	return routes, nil
 }
 
@@ -39,7 +39,7 @@ func (r *RedisRouterRepositoryMock) GetTakerFee(ctx context.Context, denom0 stri
 		denom0, denom1 = denom1, denom0
 	}
 
-	return r.TakerFees[domain.DenomPair{Denom0: denom0, Denom1: denom1}], nil
+	return r.TakerFees[sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1}], nil
 }
 
 // SetRoutes implements domain.RouterRepository.
@@ -49,7 +49,7 @@ func (r *RedisRouterRepositoryMock) SetRoutes(ctx context.Context, denom0 string
 		denom0, denom1 = denom1, denom0
 	}
 
-	r.Routes[domain.DenomPair{Denom0: denom0, Denom1: denom1}] = routes
+	r.Routes[sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1}] = routes
 	return nil
 }
 
@@ -60,7 +60,7 @@ func (r *RedisRouterRepositoryMock) SetRoutesTx(ctx context.Context, tx reposito
 		denom0, denom1 = denom1, denom0
 	}
 
-	r.Routes[domain.DenomPair{Denom0: denom0, Denom1: denom1}] = routes
+	r.Routes[sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1}] = routes
 	return nil
 }
 
@@ -71,8 +71,8 @@ func (r *RedisRouterRepositoryMock) SetTakerFee(ctx context.Context, tx reposito
 		denom0, denom1 = denom1, denom0
 	}
 
-	r.TakerFees[domain.DenomPair{Denom0: denom0, Denom1: denom1}] = takerFee
+	r.TakerFees[sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1}] = takerFee
 	return nil
 }
 
-var _ mvc.RouterRepository = &RedisRouterRepositoryMock{}
+var _ routerredisrepo.RouterRepository = &RedisRouterRepositoryMock{}

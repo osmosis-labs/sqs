@@ -23,7 +23,6 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
-	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
 
@@ -38,9 +37,9 @@ import (
 // and exposes endpoints for querying formatter and processed data from frontend.
 type SideCarQueryServer interface {
 	GetTxManager() repository.TxManager
-	GetPoolsRepository() mvc.PoolsRepository
-	GetChainInfoRepository() mvc.ChainInfoRepository
-	GetRouterRepository() mvc.RouterRepository
+	GetPoolsRepository() poolsredisrepo.PoolsRepository
+	GetChainInfoRepository() chaininforedisrepo.ChainInfoRepository
+	GetRouterRepository() routerredisrepo.RouterRepository
 	GetTokensUseCase() domain.TokensUsecase
 	GetLogger() log.Logger
 	Shutdown(context.Context) error
@@ -49,9 +48,9 @@ type SideCarQueryServer interface {
 
 type sideCarQueryServer struct {
 	txManager           repository.TxManager
-	poolsRepository     mvc.PoolsRepository
-	chainInfoRepository mvc.ChainInfoRepository
-	routerRepository    mvc.RouterRepository
+	poolsRepository     poolsredisrepo.PoolsRepository
+	chainInfoRepository chaininforedisrepo.ChainInfoRepository
+	routerRepository    routerredisrepo.RouterRepository
 	tokensUseCase       domain.TokensUsecase
 	e                   *echo.Echo
 	sqsAddress          string
@@ -64,16 +63,16 @@ func (sqs *sideCarQueryServer) GetTokensUseCase() domain.TokensUsecase {
 }
 
 // GetPoolsRepository implements SideCarQueryServer.
-func (sqs *sideCarQueryServer) GetPoolsRepository() mvc.PoolsRepository {
+func (sqs *sideCarQueryServer) GetPoolsRepository() poolsredisrepo.PoolsRepository {
 	return sqs.poolsRepository
 }
 
-func (sqs *sideCarQueryServer) GetChainInfoRepository() mvc.ChainInfoRepository {
+func (sqs *sideCarQueryServer) GetChainInfoRepository() chaininforedisrepo.ChainInfoRepository {
 	return sqs.chainInfoRepository
 }
 
 // GetRouterRepository implements SideCarQueryServer.
-func (sqs *sideCarQueryServer) GetRouterRepository() mvc.RouterRepository {
+func (sqs *sideCarQueryServer) GetRouterRepository() routerredisrepo.RouterRepository {
 	return sqs.routerRepository
 }
 

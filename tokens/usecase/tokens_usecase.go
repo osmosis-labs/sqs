@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/json"
+	"github.com/osmosis-labs/sqsdomain/json"
 )
 
 type tokensUseCase struct {

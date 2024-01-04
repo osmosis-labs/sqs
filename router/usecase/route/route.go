@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -75,7 +76,7 @@ func (r *RouteImpl) GetPools() []domain.RoutablePool {
 	return r.Pools
 }
 
-func (r *RouteImpl) AddPool(pool domain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) {
+func (r *RouteImpl) AddPool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) {
 	r.Pools = append(r.Pools, pools.NewRoutablePool(pool, tokenOutDenom, takerFee))
 }
 

@@ -6,6 +6,7 @@ import (
 	"cosmossdk.io/math"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
 
@@ -21,7 +22,7 @@ var _ domain.RoutablePool = &routableConcentratedPoolImpl{}
 
 type routableConcentratedPoolImpl struct {
 	ChainPool     *concentratedmodel.Pool "json:\"cl_pool\""
-	TickModel     *domain.TickModel       "json:\"tick_model\""
+	TickModel     *sqsdomain.TickModel    "json:\"tick_model\""
 	TokenOutDenom string                  "json:\"token_out_denom\""
 	TakerFee      osmomath.Dec            "json:\"taker_fee\""
 }

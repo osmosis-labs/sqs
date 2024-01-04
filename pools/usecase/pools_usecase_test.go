@@ -6,14 +6,15 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqsdomain"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/pools/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
+	"github.com/osmosis-labs/sqsdomain/mocks"
 )
 
 type PoolsUsecaseTestSuite struct {
@@ -60,7 +61,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		ID:             defaultPoolID,
 	}
 
-	validPools := []domain.PoolI{
+	validPools := []sqsdomain.PoolI{
 		defaultPool,
 	}
 
@@ -77,8 +78,8 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		},
 	}
 
-	validTakerFeeMap := domain.TakerFeeMap{
-		domain.DenomPair{
+	validTakerFeeMap := sqsdomain.TakerFeeMap{
+		sqsdomain.DenomPair{
 			Denom0: denomOne,
 			Denom1: denomTwo,
 		}: defaultTakerFee,
@@ -87,9 +88,9 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	tests := []struct {
 		name string
 
-		pools           []domain.PoolI
+		pools           []sqsdomain.PoolI
 		candidateRoutes route.CandidateRoutes
-		takerFeeMap     domain.TakerFeeMap
+		takerFeeMap     sqsdomain.TakerFeeMap
 		tokenInDenom    string
 		tokenOutDenom   string
 
@@ -122,7 +123,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			candidateRoutes: validCandidateRoutes,
 
 			// empty map
-			takerFeeMap: domain.TakerFeeMap{},
+			takerFeeMap: sqsdomain.TakerFeeMap{},
 
 			tokenInDenom:  denomOne,
 			tokenOutDenom: denomTwo,
@@ -130,14 +131,14 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						pools.NewRoutablePool(defaultPool, denomTwo, domain.DefaultTakerFee),
+						pools.NewRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee),
 					},
 				},
 			},
 		},
 		{
 			name:  "error: no pool in state",
-			pools: []domain.PoolI{},
+			pools: []sqsdomain.PoolI{},
 
 			candidateRoutes: validCandidateRoutes,
 

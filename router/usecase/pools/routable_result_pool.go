@@ -6,6 +6,7 @@ import (
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
 
@@ -58,8 +59,8 @@ func (r *routableResultPoolImpl) GetPoolDenoms() []string {
 }
 
 // GetSQSPoolModel implements domain.RoutablePool.
-func (r *routableResultPoolImpl) GetSQSPoolModel() domain.SQSPool {
-	return domain.SQSPool{
+func (r *routableResultPoolImpl) GetSQSPoolModel() sqsdomain.SQSPool {
+	return sqsdomain.SQSPool{
 		Balances:     r.Balances,
 		PoolDenoms:   r.GetPoolDenoms(),
 		SpreadFactor: r.SpreadFactor,
@@ -67,7 +68,7 @@ func (r *routableResultPoolImpl) GetSQSPoolModel() domain.SQSPool {
 }
 
 // GetTickModel implements domain.RoutablePool.
-func (r *routableResultPoolImpl) GetTickModel() (*domain.TickModel, error) {
+func (r *routableResultPoolImpl) GetTickModel() (*sqsdomain.TickModel, error) {
 	return nil, errors.New("not implemented")
 }
 

@@ -8,10 +8,11 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
-	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqsdomain/mocks"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
@@ -40,9 +41,9 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	balancerPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
 	s.Require().NoError(err)
 
-	defaultPool := &domain.PoolWrapper{
+	defaultPool := &sqsdomain.PoolWrapper{
 		ChainModel: balancerPool,
-		SQSModel: domain.SQSPool{
+		SQSModel: sqsdomain.SQSPool{
 			TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity + 1)),
 			PoolDenoms:           []string{tokenInDenom, tokenOutDenom},
 			Balances:             balancerCoins,
@@ -61,7 +62,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			},
 		)
 
-		defaultSinglePools = []domain.PoolI{defaultPool}
+		defaultSinglePools = []sqsdomain.PoolI{defaultPool}
 
 		singleDefaultRoutes = route.CandidateRoutes{
 			Routes: []route.CandidateRoute{defaultRoute},
@@ -70,7 +71,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			},
 		}
 
-		emptyPools = []domain.PoolI{}
+		emptyPools = []sqsdomain.PoolI{}
 
 		emptyRoutes = route.CandidateRoutes{}
 
@@ -92,8 +93,8 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		name string
 
 		repositoryRoutes route.CandidateRoutes
-		repositoryPools  []domain.PoolI
-		takerFeeMap      domain.TakerFeeMap
+		repositoryPools  []sqsdomain.PoolI
+		takerFeeMap      sqsdomain.TakerFeeMap
 		isCacheDisabled  bool
 
 		expectedCandidateRoutes route.CandidateRoutes
@@ -147,7 +148,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		s.Run(tc.name, func() {
 
 			routerRepositoryMock := &mocks.RedisRouterRepositoryMock{
-				Routes: map[domain.DenomPair]route.CandidateRoutes{
+				Routes: map[sqsdomain.DenomPair]route.CandidateRoutes{
 					// These are the routes that are stored in cache and returned by the call to GetRoutes.
 					{Denom0: tokenOutDenom, Denom1: tokenInDenom}: tc.repositoryRoutes,
 				},
@@ -198,7 +199,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			}
 
 			// Check that router repository was updated
-			s.Require().Equal(tc.expectedCandidateRoutes, routerRepositoryMock.Routes[domain.DenomPair{Denom0: tokenOutDenom, Denom1: tokenInDenom}])
+			s.Require().Equal(tc.expectedCandidateRoutes, routerRepositoryMock.Routes[sqsdomain.DenomPair{Denom0: tokenOutDenom, Denom1: tokenInDenom}])
 		})
 	}
 }

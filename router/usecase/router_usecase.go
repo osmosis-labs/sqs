@@ -15,6 +15,8 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
+	"github.com/osmosis-labs/sqsdomain"
+	routerredisrepo "github.com/osmosis-labs/sqsdomain/repository/redis/router"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
@@ -24,7 +26,7 @@ var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 
 type routerUseCaseImpl struct {
 	contextTimeout   time.Duration
-	routerRepository mvc.RouterRepository
+	routerRepository routerredisrepo.RouterRepository
 	poolsUsecase     mvc.PoolsUsecase
 	config           domain.RouterConfig
 	logger           log.Logger
@@ -33,7 +35,7 @@ type routerUseCaseImpl struct {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(timeout time.Duration, routerRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
 		contextTimeout:   timeout,
 		routerRepository: routerRepository,
@@ -364,20 +366,20 @@ func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom
 }
 
 // GetTakerFee implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]domain.TakerFeeForPair, error) {
+func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]sqsdomain.TakerFeeForPair, error) {
 	takerFees, err := r.routerRepository.GetAllTakerFees(ctx)
 	if err != nil {
-		return []domain.TakerFeeForPair{}, err
+		return []sqsdomain.TakerFeeForPair{}, err
 	}
 
 	pool, err := r.poolsUsecase.GetPool(ctx, poolID)
 	if err != nil {
-		return []domain.TakerFeeForPair{}, err
+		return []sqsdomain.TakerFeeForPair{}, err
 	}
 
 	poolDenoms := pool.GetPoolDenoms()
 
-	result := make([]domain.TakerFeeForPair, 0)
+	result := make([]sqsdomain.TakerFeeForPair, 0)
 
 	for i := range poolDenoms {
 		for j := i + 1; j < len(poolDenoms); j++ {
@@ -386,7 +388,7 @@ func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]d
 
 			takerFee := takerFees.GetTakerFee(denom0, denom1)
 
-			result = append(result, domain.TakerFeeForPair{
+			result = append(result, sqsdomain.TakerFeeForPair{
 				Denom0:   denom0,
 				Denom1:   denom1,
 				TakerFee: takerFee,
