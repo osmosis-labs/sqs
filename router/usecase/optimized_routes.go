@@ -43,10 +43,13 @@ func (r *Router) estimateAndRankSingleRouteQuote(routes []route.RouteImpl, token
 
 	routesWithAmountOut := make([]RouteWithOutAmount, 0, len(routes))
 
+	errors := []error{}
+
 	for _, route := range routes {
 		directRouteTokenOut, err := route.CalculateTokenOutByTokenIn(tokenIn)
 		if err != nil {
 			r.logger.Debug("skipping single route due to error in estimate", zap.Error(err))
+			errors = append(errors, err)
 			continue
 		}
 
@@ -59,6 +62,11 @@ func (r *Router) estimateAndRankSingleRouteQuote(routes []route.RouteImpl, token
 			InAmount:  tokenIn.Amount,
 			OutAmount: directRouteTokenOut.Amount,
 		})
+	}
+
+	// If we skipped all routes due to errors, return the first error
+	if len(routesWithAmountOut) == 0 && len(errors) > 0 {
+		return nil, nil, errors[0]
 	}
 
 	// Sort by amount out in descending order

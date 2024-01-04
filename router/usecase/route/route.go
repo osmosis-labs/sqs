@@ -93,6 +93,11 @@ func (r *RouteImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (tokenOut sdk.C
 	for _, pool := range r.Pools {
 		// Charge taker fee
 		tokenIn = pool.ChargeTakerFeeExactIn(tokenIn)
+		tokenInAmt := tokenIn.Amount.ToLegacyDec()
+
+		if tokenInAmt.IsNil() || tokenInAmt.IsZero() {
+			return sdk.Coin{}, nil
+		}
 
 		tokenOut, err = pool.CalculateTokenOutByTokenIn(tokenIn)
 		if err != nil {

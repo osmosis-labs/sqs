@@ -9,7 +9,7 @@ require (
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20231230033922-af0ba43e918a
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20231230033922-af0ba43e918a
-	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240101030300-a42faab1a51d
+	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240104204421-6b55d8fda179
 	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240104023234-1209f788ec4c
 	github.com/prometheus/client_golang v1.17.0
 	github.com/redis/go-redis/v9 v9.3.1
