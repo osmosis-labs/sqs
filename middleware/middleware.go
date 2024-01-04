@@ -5,9 +5,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/osmosis-labs/osmosis/v21/ingest/sqs/domain"
 )
 
 // GoMiddleware represent the data-struct for middleware

@@ -64,6 +64,10 @@ func (r *Router) GetSplitQuote(routes []route.RouteImpl, tokenIn sdk.Coin) (doma
 		return nil, err
 	}
 
+	if bestSplit.amountOut.IsZero() {
+		return nil, errors.New("amount out is zero, try increasing amount in")
+	}
+
 	totalIncrementsInSplits := uint8(0)
 	resultRoutes := make([]domain.SplitRoute, 0, len(routes))
 	totalAmoutOutFromSplits := osmomath.ZeroInt()
@@ -207,6 +211,12 @@ func getAmountOut(route route.RouteImpl, memoRouteIndex uint8, memo []map[uint8]
 		coinOut, err := route.CalculateTokenOutByTokenIn(sdk.NewCoin(tokenInDenom, amtIn))
 		if err != nil {
 			return osmomath.Int{}, err
+		}
+
+		if coinOut.Amount.IsNil() || coinOut.Amount.IsZero() {
+			zeroResult := osmomath.ZeroInt()
+			memo[memoRouteIndex][currentIncrement] = zeroResult
+			return zeroResult, nil
 		}
 
 		currentAmtOut = coinOut.Amount
