@@ -6,6 +6,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -14,6 +15,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
+	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 )
 
 type PoolsUsecaseTestSuite struct {
@@ -60,14 +62,14 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		ID:             defaultPoolID,
 	}
 
-	validPools := []domain.PoolI{
+	validPools := []sqsdomain.PoolI{
 		defaultPool,
 	}
 
-	validCandidateRoutes := route.CandidateRoutes{
-		Routes: []route.CandidateRoute{
+	validCandidateRoutes := sqsdomain.CandidateRoutes{
+		Routes: []sqsdomain.CandidateRoute{
 			{
-				Pools: []route.CandidatePool{
+				Pools: []sqsdomain.CandidatePool{
 					{
 						ID:            defaultPoolID,
 						TokenOutDenom: denomTwo,
@@ -77,8 +79,8 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		},
 	}
 
-	validTakerFeeMap := domain.TakerFeeMap{
-		domain.DenomPair{
+	validTakerFeeMap := sqsdomain.TakerFeeMap{
+		sqsdomain.DenomPair{
 			Denom0: denomOne,
 			Denom1: denomTwo,
 		}: defaultTakerFee,
@@ -87,9 +89,9 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	tests := []struct {
 		name string
 
-		pools           []domain.PoolI
-		candidateRoutes route.CandidateRoutes
-		takerFeeMap     domain.TakerFeeMap
+		pools           []sqsdomain.PoolI
+		candidateRoutes sqsdomain.CandidateRoutes
+		takerFeeMap     sqsdomain.TakerFeeMap
 		tokenInDenom    string
 		tokenOutDenom   string
 
@@ -109,7 +111,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 
 			expectedRoutes: []route.RouteImpl{
 				{
-					Pools: []domain.RoutablePool{
+					Pools: []sqsdomain.RoutablePool{
 						pools.NewRoutablePool(defaultPool, denomTwo, defaultTakerFee),
 					},
 				},
@@ -122,22 +124,22 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			candidateRoutes: validCandidateRoutes,
 
 			// empty map
-			takerFeeMap: domain.TakerFeeMap{},
+			takerFeeMap: sqsdomain.TakerFeeMap{},
 
 			tokenInDenom:  denomOne,
 			tokenOutDenom: denomTwo,
 
 			expectedRoutes: []route.RouteImpl{
 				{
-					Pools: []domain.RoutablePool{
-						pools.NewRoutablePool(defaultPool, denomTwo, domain.DefaultTakerFee),
+					Pools: []sqsdomain.RoutablePool{
+						pools.NewRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee),
 					},
 				},
 			},
 		},
 		{
 			name:  "error: no pool in state",
-			pools: []domain.PoolI{},
+			pools: []sqsdomain.PoolI{},
 
 			candidateRoutes: validCandidateRoutes,
 
@@ -162,7 +164,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		s.Run(tc.name, func() {
 
 			// Create repository mock
-			poolsRepository := &mocks.RedisPoolsRepositoryMock{
+			poolsRepository := &sqsdomainmocks.RedisPoolsRepositoryMock{
 				Pools: tc.pools,
 			}
 

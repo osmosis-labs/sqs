@@ -2,7 +2,7 @@ package usecase_test
 
 import (
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 // Validates that the router returns the correct routes for the given token pair.
@@ -123,7 +123,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_Top10VolumePairs() {
 	}
 }
 
-func (s *RouterTestSuite) validateExpectedPoolIDOneHopRoute(route route.CandidateRoute, expectedPoolID uint64) {
+func (s *RouterTestSuite) validateExpectedPoolIDOneHopRoute(route sqsdomain.CandidateRoute, expectedPoolID uint64) {
 	routePools := route.Pools
 	s.Require().Equal(1, len(routePools))
 	s.Require().Equal(expectedPoolID, routePools[0].ID)

@@ -1,4 +1,4 @@
-package redis
+package routerredisrepo
 
 import (
 	"context"
@@ -10,14 +10,33 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/json"
-	"github.com/osmosis-labs/sqs/domain/mvc"
-	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/json"
+	"github.com/osmosis-labs/sqs/sqsdomain/repository"
 )
 
+// RouterRepository represent the router's repository contract
+type RouterRepository interface {
+	GetTakerFee(ctx context.Context, denom0, denom1 string) (osmomath.Dec, error)
+	GetAllTakerFees(ctx context.Context) (sqsdomain.TakerFeeMap, error)
+	SetTakerFee(ctx context.Context, tx repository.Tx, denom0, denom1 string, takerFee osmomath.Dec) error
+	// SetRoutesTx sets the routes for the given denoms in the given transaction.
+	// Sorts denom0 and denom1 lexicographically before setting the routes.
+	// Returns error if the transaction fails.
+	SetRoutesTx(ctx context.Context, tx repository.Tx, denom0, denom1 string, routes sqsdomain.CandidateRoutes) error
+	// SetRoutes sets the routes for the given denoms. Creates a new transaction and executes it.
+	// Sorts denom0 and denom1 lexicographically before setting the routes.
+	// Returns error if the transaction fails.
+	SetRoutes(ctx context.Context, denom0, denom1 string, routes sqsdomain.CandidateRoutes) error
+	// GetRoutes returns the routes for the given denoms.
+	// Sorts denom0 and denom1 lexicographically before setting the routes.
+	// Returns empty slice and no error if no routes are present.
+	// Returns error if the routes are not found.
+	GetRoutes(ctx context.Context, denom0, denom1 string) (sqsdomain.CandidateRoutes, error)
+}
+
 type redisRouterRepo struct {
-	repositoryManager        mvc.TxManager
+	repositoryManager        repository.TxManager
 	routerCacheExpirySeconds uint64
 }
 
@@ -30,11 +49,11 @@ const (
 )
 
 var (
-	_ mvc.RouterRepository = &redisRouterRepo{}
+	_ RouterRepository = &redisRouterRepo{}
 )
 
-// NewRedisRouterRepo will create an implementation of pools.Repository
-func NewRedisRouterRepo(repositoryManager mvc.TxManager, routesCacheExpirySeconds uint64) mvc.RouterRepository {
+// New will create an implementation of pools.Repository
+func New(repositoryManager repository.TxManager, routesCacheExpirySeconds uint64) RouterRepository {
 	return &redisRouterRepo{
 		repositoryManager:        repositoryManager,
 		routerCacheExpirySeconds: routesCacheExpirySeconds,
@@ -42,7 +61,7 @@ func NewRedisRouterRepo(repositoryManager mvc.TxManager, routesCacheExpirySecond
 }
 
 // GetAllTakerFees implements mvc.RouterRepository.
-func (r *redisRouterRepo) GetAllTakerFees(ctx context.Context) (domain.TakerFeeMap, error) {
+func (r *redisRouterRepo) GetAllTakerFees(ctx context.Context) (sqsdomain.TakerFeeMap, error) {
 	tx := r.repositoryManager.StartTx()
 
 	redisTx, err := tx.AsRedisTx()
@@ -68,7 +87,7 @@ func (r *redisRouterRepo) GetAllTakerFees(ctx context.Context) (domain.TakerFeeM
 	}
 
 	// Parse taker fee map
-	takerFeeMap := make(domain.TakerFeeMap, len(resultMap))
+	takerFeeMap := make(sqsdomain.TakerFeeMap, len(resultMap))
 	for denomPairStr, takerFeeStr := range resultMap {
 		takerFee, err := osmomath.NewDecFromStr(takerFeeStr)
 		if err != nil {
@@ -85,7 +104,7 @@ func (r *redisRouterRepo) GetAllTakerFees(ctx context.Context) (domain.TakerFeeM
 			return nil, fmt.Errorf("invalid denom pair string key %s. must be in increasing lexicographic order", denomPairStr)
 		}
 
-		takerFeeMap[domain.DenomPair{
+		takerFeeMap[sqsdomain.DenomPair{
 			Denom0: denoms[0],
 			Denom1: denoms[1],
 		}] = takerFee
@@ -129,7 +148,7 @@ func (r *redisRouterRepo) GetTakerFee(ctx context.Context, denom0 string, denom1
 }
 
 // SetTakerFee sets taker fee for a denom pair.
-func (r *redisRouterRepo) SetTakerFee(ctx context.Context, tx mvc.Tx, denom0, denom1 string, takerFee osmomath.Dec) error {
+func (r *redisRouterRepo) SetTakerFee(ctx context.Context, tx repository.Tx, denom0, denom1 string, takerFee osmomath.Dec) error {
 	// Ensure increasing lexicographic order.
 	if denom1 < denom0 {
 		denom0, denom1 = denom1, denom0
@@ -153,7 +172,7 @@ func (r *redisRouterRepo) SetTakerFee(ctx context.Context, tx mvc.Tx, denom0, de
 }
 
 // SetRoutesTx implements mvc.RouterRepository.
-func (r *redisRouterRepo) SetRoutesTx(ctx context.Context, tx mvc.Tx, denom0, denom1 string, routes route.CandidateRoutes) error {
+func (r *redisRouterRepo) SetRoutesTx(ctx context.Context, tx repository.Tx, denom0, denom1 string, routes sqsdomain.CandidateRoutes) error {
 	redisTx, err := tx.AsRedisTx()
 	if err != nil {
 		return err
@@ -179,7 +198,7 @@ func (r *redisRouterRepo) SetRoutesTx(ctx context.Context, tx mvc.Tx, denom0, de
 }
 
 // SetRoutes implements mvc.RouterRepository.
-func (r *redisRouterRepo) SetRoutes(ctx context.Context, denom0, denom1 string, routes route.CandidateRoutes) error {
+func (r *redisRouterRepo) SetRoutes(ctx context.Context, denom0, denom1 string, routes sqsdomain.CandidateRoutes) error {
 	// Create transaction
 	tx := r.repositoryManager.StartTx()
 
@@ -197,18 +216,18 @@ func (r *redisRouterRepo) SetRoutes(ctx context.Context, denom0, denom1 string, 
 }
 
 // GetRoutes implements mvc.RouterRepository.
-func (r *redisRouterRepo) GetRoutes(ctx context.Context, denom0, denom1 string) (route.CandidateRoutes, error) {
+func (r *redisRouterRepo) GetRoutes(ctx context.Context, denom0, denom1 string) (sqsdomain.CandidateRoutes, error) {
 	// Create transaction
 	tx := r.repositoryManager.StartTx()
 
 	redisTx, err := tx.AsRedisTx()
 	if err != nil {
-		return route.CandidateRoutes{}, err
+		return sqsdomain.CandidateRoutes{}, err
 	}
 
 	pipeliner, err := redisTx.GetPipeliner(ctx)
 	if err != nil {
-		return route.CandidateRoutes{}, err
+		return sqsdomain.CandidateRoutes{}, err
 	}
 
 	// Create command to retrieve results.
@@ -217,16 +236,16 @@ func (r *redisRouterRepo) GetRoutes(ctx context.Context, denom0, denom1 string) 
 	_, err = pipeliner.Exec(ctx)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return route.CandidateRoutes{}, nil
+			return sqsdomain.CandidateRoutes{}, nil
 		}
-		return route.CandidateRoutes{}, err
+		return sqsdomain.CandidateRoutes{}, err
 	}
 
 	// Parse routes
-	var routes route.CandidateRoutes
+	var routes sqsdomain.CandidateRoutes
 	err = json.Unmarshal([]byte(getCmd.Val()), &routes)
 	if err != nil {
-		return route.CandidateRoutes{}, err
+		return sqsdomain.CandidateRoutes{}, err
 	}
 
 	return routes, nil

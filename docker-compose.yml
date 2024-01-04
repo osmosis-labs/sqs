@@ -2,7 +2,7 @@ version: "3"
 
 services:
   osmosis-service:
-    image: osmolabs/osmosis-dev:sqs-out-v0
+    image: osmolabs/osmosis-dev:sqs-out-v0.1
     container_name: osmosis
     volumes:
       - $HOME/.osmosisd/:/osmosis/.osmosisd/

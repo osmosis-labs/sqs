@@ -10,6 +10,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -84,10 +85,10 @@ func (r *Router) estimateAndRankSingleRouteQuote(routes []route.RouteImpl, token
 // - the previous pool token out denom is in the current pool.
 // - the current pool token out denom is in the current pool.
 // Returns error if not. Nil otherwise.
-func (r *Router) validateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string) (route.CandidateRoutes, error) {
+func (r *Router) validateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string) (sqsdomain.CandidateRoutes, error) {
 	var (
 		tokenOutDenom  string
-		filteredRoutes []route.CandidateRoute
+		filteredRoutes []sqsdomain.CandidateRoute
 	)
 
 	uniquePoolIDs := make(map[uint64]struct{})
@@ -95,7 +96,7 @@ func (r *Router) validateAndFilterRoutes(candidateRoutes [][]candidatePoolWrappe
 ROUTE_LOOP:
 	for i, candidateRoute := range candidateRoutes {
 		if len(candidateRoute) == 0 {
-			return route.CandidateRoutes{}, NoPoolsInRouteError{RouteIndex: i}
+			return sqsdomain.CandidateRoutes{}, NoPoolsInRouteError{RouteIndex: i}
 		}
 
 		lastPool := candidateRoute[len(candidateRoute)-1]
@@ -150,12 +151,12 @@ ROUTE_LOOP:
 
 			// Ensure that the previous pool token out denom is in the current pool.
 			if !foundPreviousTokenOut {
-				return route.CandidateRoutes{}, PreviousTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, PreviousTokenOutDenom: previousTokenOut}
+				return sqsdomain.CandidateRoutes{}, PreviousTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, PreviousTokenOutDenom: previousTokenOut}
 			}
 
 			// Ensure that the current pool token out denom is in the current pool.
 			if !foundCurrentTokenOut {
-				return route.CandidateRoutes{}, CurrentTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, CurrentTokenOutDenom: currentPoolTokenOutDenom}
+				return sqsdomain.CandidateRoutes{}, CurrentTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, CurrentTokenOutDenom: currentPoolTokenOutDenom}
 			}
 
 			// Update previous token out denom
@@ -165,20 +166,20 @@ ROUTE_LOOP:
 		if i > 0 {
 			// Ensure that all routes have the same final token out denom
 			if currentRouteTokenOutDenom != tokenOutDenom {
-				return route.CandidateRoutes{}, TokenOutMismatchBetweenRoutesError{TokenOutDenomRouteA: tokenOutDenom, TokenOutDenomRouteB: currentRouteTokenOutDenom}
+				return sqsdomain.CandidateRoutes{}, TokenOutMismatchBetweenRoutesError{TokenOutDenomRouteA: tokenOutDenom, TokenOutDenomRouteB: currentRouteTokenOutDenom}
 			}
 		}
 
 		tokenOutDenom = currentRouteTokenOutDenom
 
 		// Update filtered routes if this route passed all checks
-		filteredRoute := route.CandidateRoute{
-			Pools: make([]route.CandidatePool, 0, len(candidateRoute)),
+		filteredRoute := sqsdomain.CandidateRoute{
+			Pools: make([]sqsdomain.CandidatePool, 0, len(candidateRoute)),
 		}
 
 		// Convert route to the final output format
 		for _, pool := range candidateRoute {
-			filteredRoute.Pools = append(filteredRoute.Pools, route.CandidatePool{
+			filteredRoute.Pools = append(filteredRoute.Pools, sqsdomain.CandidatePool{
 				ID:            pool.ID,
 				TokenOutDenom: pool.TokenOutDenom,
 			})
@@ -188,10 +189,10 @@ ROUTE_LOOP:
 	}
 
 	if tokenOutDenom == tokenInDenom {
-		return route.CandidateRoutes{}, TokenOutDenomMatchesTokenInDenomError{Denom: tokenOutDenom}
+		return sqsdomain.CandidateRoutes{}, TokenOutDenomMatchesTokenInDenomError{Denom: tokenOutDenom}
 	}
 
-	return route.CandidateRoutes{
+	return sqsdomain.CandidateRoutes{
 		Routes:        filteredRoutes,
 		UniquePoolIDs: uniquePoolIDs,
 	}, nil

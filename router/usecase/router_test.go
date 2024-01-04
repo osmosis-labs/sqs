@@ -12,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -59,8 +60,8 @@ var (
 	DefaultLiquidityAmt = routertesting.DefaultLiquidityAmt
 
 	// router specific variables
-	defaultTickModel = &domain.TickModel{
-		Ticks:            []domain.LiquidityDepthsWithRange{},
+	defaultTickModel = &sqsdomain.TickModel{
+		Ticks:            []sqsdomain.LiquidityDepthsWithRange{},
 		CurrentTickIndex: 0,
 		HasNoLiquidity:   false,
 	}
@@ -121,29 +122,29 @@ func (s *RouterTestSuite) TestNewRouter() {
 		maxSplitIterations = 10
 		minOsmoLiquidity   = 2
 		logger, _          = log.NewLogger(false, "", "")
-		defaultAllPools    = []domain.PoolI{
-			&domain.PoolWrapper{
+		defaultAllPools    = []sqsdomain.PoolI{
+			&sqsdomain.PoolWrapper{
 				ChainModel: balancerPool,
-				SQSModel: domain.SQSPool{
+				SQSModel: sqsdomain.SQSPool{
 					TotalValueLockedUSDC: osmomath.NewInt(5 * usecase.OsmoPrecisionMultiplier), // 5
 					PoolDenoms:           defaultDenoms,
 				},
 			},
-			&domain.PoolWrapper{
+			&sqsdomain.PoolWrapper{
 				ChainModel: stableswapPool,
-				SQSModel: domain.SQSPool{
+				SQSModel: sqsdomain.SQSPool{
 					TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity) - 1), // 1
 					PoolDenoms:           defaultDenoms,
 				},
 			},
-			&domain.PoolWrapper{
+			&sqsdomain.PoolWrapper{
 				ChainModel: concentratedPool,
-				SQSModel: domain.SQSPool{
+				SQSModel: sqsdomain.SQSPool{
 					TotalValueLockedUSDC: osmomath.NewInt(4 * usecase.OsmoPrecisionMultiplier), // 4
 					PoolDenoms:           defaultDenoms,
 				},
-				TickModel: &domain.TickModel{
-					Ticks: []domain.LiquidityDepthsWithRange{
+				TickModel: &sqsdomain.TickModel{
+					Ticks: []sqsdomain.LiquidityDepthsWithRange{
 						{
 							LowerTick:       0,
 							UpperTick:       100,
@@ -154,9 +155,9 @@ func (s *RouterTestSuite) TestNewRouter() {
 					HasNoLiquidity:   false,
 				},
 			},
-			&domain.PoolWrapper{
+			&sqsdomain.PoolWrapper{
 				ChainModel: cosmWasmPool,
-				SQSModel: domain.SQSPool{
+				SQSModel: sqsdomain.SQSPool{
 					TotalValueLockedUSDC: osmomath.NewInt(3 * usecase.OsmoPrecisionMultiplier), // 3
 					PoolDenoms:           defaultDenoms,
 				},
@@ -165,17 +166,17 @@ func (s *RouterTestSuite) TestNewRouter() {
 			// Note that the pools below have higher TVL.
 			// However, since they have TVL error flag set, they
 			// should be sorted after other pools, unless overriden by preferredPoolIDs.
-			&domain.PoolWrapper{
+			&sqsdomain.PoolWrapper{
 				ChainModel: secondBalancerPool,
-				SQSModel: domain.SQSPool{
+				SQSModel: sqsdomain.SQSPool{
 					TotalValueLockedUSDC:  osmomath.NewInt(10 * usecase.OsmoPrecisionMultiplier), // 10
 					PoolDenoms:            defaultDenoms,
 					TotalValueLockedError: dummyTotalValueLockedErrorStr,
 				},
 			},
-			&domain.PoolWrapper{
+			&sqsdomain.PoolWrapper{
 				ChainModel: thirdBalancerPool,
-				SQSModel: domain.SQSPool{
+				SQSModel: sqsdomain.SQSPool{
 					TotalValueLockedUSDC:  osmomath.NewInt(11 * usecase.OsmoPrecisionMultiplier), // 11
 					PoolDenoms:            defaultDenoms,
 					TotalValueLockedError: dummyTotalValueLockedErrorStr,
@@ -213,8 +214,8 @@ func (s *RouterTestSuite) TestNewRouter() {
 }
 
 // getTakerFeeMapForAllPoolTokenPairs returns a map of all pool token pairs to their taker fees.
-func (s *RouterTestSuite) getTakerFeeMapForAllPoolTokenPairs(pools []domain.PoolI) domain.TakerFeeMap {
-	pairs := make(domain.TakerFeeMap, 0)
+func (s *RouterTestSuite) getTakerFeeMapForAllPoolTokenPairs(pools []sqsdomain.PoolI) sqsdomain.TakerFeeMap {
+	pairs := make(sqsdomain.TakerFeeMap, 0)
 
 	for _, pool := range pools {
 		poolDenoms := pool.GetPoolDenoms()
@@ -238,15 +239,15 @@ func (s *RouterTestSuite) getTakerFeeMapForAllPoolTokenPairs(pools []domain.Pool
 	return pairs
 }
 
-func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
+func WithRoutePools(r route.RouteImpl, pools []sqsdomain.RoutablePool) route.RouteImpl {
 	return routertesting.WithRoutePools(r, pools)
 }
 
-func WithCandidateRoutePools(r route.CandidateRoute, pools []route.CandidatePool) route.CandidateRoute {
+func WithCandidateRoutePools(r sqsdomain.CandidateRoute, pools []sqsdomain.CandidatePool) sqsdomain.CandidateRoute {
 	return routertesting.WithCandidateRoutePools(r, pools)
 }
 
-func (s *RouterTestSuite) setupDefaultMainnetRouter() (*usecase.Router, map[uint64]domain.TickModel, domain.TakerFeeMap) {
+func (s *RouterTestSuite) setupDefaultMainnetRouter() (*usecase.Router, map[uint64]sqsdomain.TickModel, sqsdomain.TakerFeeMap) {
 	routerConfig := domain.RouterConfig{
 		PreferredPoolIDs:          []uint64{},
 		MaxRoutes:                 4,
@@ -260,7 +261,7 @@ func (s *RouterTestSuite) setupDefaultMainnetRouter() (*usecase.Router, map[uint
 	return s.setupMainnetRouter(routerConfig)
 }
 
-func (s *RouterTestSuite) setupMainnetRouter(config domain.RouterConfig) (*routerusecase.Router, map[uint64]domain.TickModel, domain.TakerFeeMap) {
+func (s *RouterTestSuite) setupMainnetRouter(config domain.RouterConfig) (*routerusecase.Router, map[uint64]sqsdomain.TickModel, sqsdomain.TakerFeeMap) {
 	pools, tickMap, err := parsing.ReadPools(relativePathMainnetFiles + poolsFileName)
 	s.Require().NoError(err)
 

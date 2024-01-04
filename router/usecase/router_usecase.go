@@ -15,6 +15,8 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
@@ -24,7 +26,7 @@ var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 
 type routerUseCaseImpl struct {
 	contextTimeout   time.Duration
-	routerRepository mvc.RouterRepository
+	routerRepository routerredisrepo.RouterRepository
 	poolsUsecase     mvc.PoolsUsecase
 	config           domain.RouterConfig
 	logger           log.Logger
@@ -33,7 +35,7 @@ type routerUseCaseImpl struct {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(timeout time.Duration, routerRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
 		contextTimeout:   timeout,
 		routerRepository: routerRepository,
@@ -72,7 +74,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	router := r.initializeRouter()
 
 	if hasRankedRoutesInCache {
-		rankedCandidateRoutes, ok := rankedRoutesData.(route.CandidateRoutes)
+		rankedCandidateRoutes, ok := rankedRoutesData.(sqsdomain.CandidateRoutes)
 		if !ok {
 			return nil, fmt.Errorf("error casting ranked routes from cache")
 		}
@@ -204,7 +206,7 @@ func filterDuplicatePoolIDRoutes(rankedRoutes []route.RouteImpl) []route.RouteIm
 // - fails to read taker fees
 // - fails to convert candidate routes to routes
 // - fails to estimate direct quotes
-func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, router *Router, candidateRoutes route.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, router *Router, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, []route.RouteImpl, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
 	// TODO: this can be refactored to only retrieve the relevant taker fees.
@@ -352,32 +354,32 @@ func (r *routerUseCaseImpl) GetCustomQuote(ctx context.Context, tokenIn sdk.Coin
 }
 
 // GetCandidateRoutes implements domain.RouterUsecase.
-func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (route.CandidateRoutes, error) {
+func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
 	router := r.initializeRouter()
 
 	routes, err := r.handleCandidateRoutes(ctx, router, tokenInDenom, tokenOutDenom)
 	if err != nil {
-		return route.CandidateRoutes{}, err
+		return sqsdomain.CandidateRoutes{}, err
 	}
 
 	return routes, nil
 }
 
 // GetTakerFee implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]domain.TakerFeeForPair, error) {
+func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]sqsdomain.TakerFeeForPair, error) {
 	takerFees, err := r.routerRepository.GetAllTakerFees(ctx)
 	if err != nil {
-		return []domain.TakerFeeForPair{}, err
+		return []sqsdomain.TakerFeeForPair{}, err
 	}
 
 	pool, err := r.poolsUsecase.GetPool(ctx, poolID)
 	if err != nil {
-		return []domain.TakerFeeForPair{}, err
+		return []sqsdomain.TakerFeeForPair{}, err
 	}
 
 	poolDenoms := pool.GetPoolDenoms()
 
-	result := make([]domain.TakerFeeForPair, 0)
+	result := make([]sqsdomain.TakerFeeForPair, 0)
 
 	for i := range poolDenoms {
 		for j := i + 1; j < len(poolDenoms); j++ {
@@ -386,7 +388,7 @@ func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]d
 
 			takerFee := takerFees.GetTakerFee(denom0, denom1)
 
-			result = append(result, domain.TakerFeeForPair{
+			result = append(result, sqsdomain.TakerFeeForPair{
 				Denom0:   denom0,
 				Denom1:   denom1,
 				TakerFee: takerFee,
@@ -398,14 +400,14 @@ func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]d
 }
 
 // GetCachedCandidateRoutes implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (route.CandidateRoutes, error) {
+func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
 	if !r.config.RouteCacheEnabled {
-		return route.CandidateRoutes{}, fmt.Errorf("route cache is disabled")
+		return sqsdomain.CandidateRoutes{}, fmt.Errorf("route cache is disabled")
 	}
 
 	cachedCandidateRoutes, err := r.routerRepository.GetRoutes(ctx, tokenInDenom, tokenOutDenom)
 	if err != nil {
-		return route.CandidateRoutes{}, err
+		return sqsdomain.CandidateRoutes{}, err
 	}
 
 	return cachedCandidateRoutes, nil
@@ -431,14 +433,14 @@ func (r *routerUseCaseImpl) initializeRouter() *Router {
 // - there is an error retrieving routes from cache
 // - there are no routes cached and there is an error computing them
 // - fails to persist the computed routes in cache
-func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *Router, tokenInDenom, tokenOutDenom string) (candidateRoutes route.CandidateRoutes, err error) {
+func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *Router, tokenInDenom, tokenOutDenom string) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
 	r.logger.Debug("getting routes")
 
 	// Check cache for routes if enabled
 	if r.config.RouteCacheEnabled {
 		candidateRoutes, err = r.routerRepository.GetRoutes(ctx, tokenInDenom, tokenOutDenom)
 		if err != nil {
-			return route.CandidateRoutes{}, err
+			return sqsdomain.CandidateRoutes{}, err
 		}
 	}
 
@@ -449,14 +451,14 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 		r.logger.Debug("calculating routes")
 		allPools, err := r.poolsUsecase.GetAllPools(ctx)
 		if err != nil {
-			return route.CandidateRoutes{}, err
+			return sqsdomain.CandidateRoutes{}, err
 		}
 		r.logger.Debug("retrieved pools", zap.Int("num_pools", len(allPools)))
 		router = WithSortedPools(router, allPools)
 
 		candidateRoutes, err = router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
 		if err != nil {
-			return route.CandidateRoutes{}, err
+			return sqsdomain.CandidateRoutes{}, err
 		}
 
 		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
@@ -465,7 +467,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 		if len(candidateRoutes.Routes) > 0 && r.config.RouteCacheEnabled {
 			r.logger.Debug("persisting routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
 			if err := r.routerRepository.SetRoutes(ctx, tokenInDenom, tokenOutDenom, candidateRoutes); err != nil {
-				return route.CandidateRoutes{}, err
+				return sqsdomain.CandidateRoutes{}, err
 			}
 		}
 	}
@@ -518,19 +520,19 @@ func formatRankedRouteCacheKey(tokenInDenom string, tokenOutDenom string, tokenI
 
 // convertRankedToCandidateRoutes converts the given ranked routes to candidate routes.
 // The primary use case for this is to keep minimal data for caching.
-func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) route.CandidateRoutes {
-	candidateRoutes := route.CandidateRoutes{
-		Routes:        make([]route.CandidateRoute, 0, len(rankedRoutes)),
+func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.CandidateRoutes {
+	candidateRoutes := sqsdomain.CandidateRoutes{
+		Routes:        make([]sqsdomain.CandidateRoute, 0, len(rankedRoutes)),
 		UniquePoolIDs: map[uint64]struct{}{},
 	}
 
 	for _, rankedRoute := range rankedRoutes {
-		candidateRoute := route.CandidateRoute{
-			Pools: make([]route.CandidatePool, 0, len(rankedRoute.GetPools())),
+		candidateRoute := sqsdomain.CandidateRoute{
+			Pools: make([]sqsdomain.CandidatePool, 0, len(rankedRoute.GetPools())),
 		}
 
 		for _, randkedPool := range rankedRoute.GetPools() {
-			candidatePool := route.CandidatePool{
+			candidatePool := sqsdomain.CandidatePool{
 				ID:            randkedPool.GetId(),
 				TokenOutDenom: randkedPool.GetTokenOutDenom(),
 			}

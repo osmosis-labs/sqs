@@ -1,4 +1,4 @@
-package domain
+package sqsdomain
 
 import (
 	"fmt"
@@ -42,6 +42,14 @@ type PoolI interface {
 	Validate(minUOSMOTVL osmomath.Int) error
 }
 
+type LiquidityDepthsWithRange = clqueryproto.LiquidityDepthWithRange
+
+type TickModel struct {
+	Ticks            []LiquidityDepthsWithRange `json:"ticks,omitempty"`
+	CurrentTickIndex int64                      `json:"current_tick_index,omitempty"`
+	HasNoLiquidity   bool                       `json:"has_no_liquidity,omitempty"`
+}
+
 type SQSPool struct {
 	TotalValueLockedUSDC  osmomath.Int `json:"total_value_locked_uosmo"`
 	TotalValueLockedError string       `json:"total_value_locked_error,omitempty"`
@@ -49,14 +57,6 @@ type SQSPool struct {
 	Balances     sdk.Coins    `json:"balances"`
 	PoolDenoms   []string     `json:"pool_denoms"`
 	SpreadFactor osmomath.Dec `json:"spread_factor"`
-}
-
-type LiquidityDepthsWithRange = clqueryproto.LiquidityDepthWithRange
-
-type TickModel struct {
-	Ticks            []LiquidityDepthsWithRange `json:"ticks,omitempty"`
-	CurrentTickIndex int64                      `json:"current_tick_index,omitempty"`
-	HasNoLiquidity   bool                       `json:"has_no_liquidity,omitempty"`
 }
 
 type PoolWrapper struct {

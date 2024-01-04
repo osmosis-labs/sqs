@@ -7,6 +7,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 type (
@@ -22,7 +23,7 @@ const (
 	NoTotalValueLockedError = noTotalValueLockedError
 )
 
-func (r *Router) ValidateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string) (route.CandidateRoutes, error) {
+func (r *Router) ValidateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string) (sqsdomain.CandidateRoutes, error) {
 	return r.validateAndFilterRoutes(candidateRoutes, tokenInDenom)
 }
 
@@ -30,7 +31,7 @@ func (r *routerUseCaseImpl) InitializeRouter() *Router {
 	return r.initializeRouter()
 }
 
-func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, router *Router, tokenInDenom, tokenOutDenom string) (candidateRoutes route.CandidateRoutes, err error) {
+func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, router *Router, tokenInDenom, tokenOutDenom string) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
 	return r.handleCandidateRoutes(ctx, router, tokenInDenom, tokenOutDenom)
 }
 
@@ -53,7 +54,7 @@ func FilterDuplicatePoolIDRoutes(rankedRoutes []route.RouteImpl) []route.RouteIm
 	return filterDuplicatePoolIDRoutes(rankedRoutes)
 }
 
-func ConvertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) route.CandidateRoutes {
+func ConvertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.CandidateRoutes {
 	return convertRankedToCandidateRoutes(rankedRoutes)
 }
 

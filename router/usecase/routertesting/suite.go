@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v21/app/apptesting"
@@ -39,8 +40,8 @@ var (
 	DefaultLiquidityAmt = apptesting.DefaultLiquidityAmt
 
 	// router specific variables
-	DefaultTickModel = &domain.TickModel{
-		Ticks:            []domain.LiquidityDepthsWithRange{},
+	DefaultTickModel = &sqsdomain.TickModel{
+		Ticks:            []sqsdomain.LiquidityDepthsWithRange{},
 		CurrentTickIndex: 0,
 		HasNoLiquidity:   false,
 	}
@@ -79,9 +80,9 @@ func denomNum(i int) string {
 }
 
 // Note that it does not deep copy pools
-func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
+func WithRoutePools(r route.RouteImpl, pools []sqsdomain.RoutablePool) route.RouteImpl {
 	newRoute := route.RouteImpl{
-		Pools: make([]domain.RoutablePool, 0, len(pools)),
+		Pools: make([]sqsdomain.RoutablePool, 0, len(pools)),
 	}
 
 	newRoute.Pools = append(newRoute.Pools, pools...)
@@ -90,9 +91,9 @@ func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteI
 }
 
 // Note that it does not deep copy pools
-func WithCandidateRoutePools(r route.CandidateRoute, pools []route.CandidatePool) route.CandidateRoute {
-	newRoute := route.CandidateRoute{
-		Pools: make([]route.CandidatePool, 0, len(pools)),
+func WithCandidateRoutePools(r sqsdomain.CandidateRoute, pools []sqsdomain.CandidatePool) sqsdomain.CandidateRoute {
+	newRoute := sqsdomain.CandidateRoute{
+		Pools: make([]sqsdomain.CandidatePool, 0, len(pools)),
 	}
 
 	newRoute.Pools = append(newRoute.Pools, pools...)
@@ -107,7 +108,7 @@ func WithCandidateRoutePools(r route.CandidateRoute, pools []route.CandidatePool
 // - Spread Factor
 // - Token Out Denom
 // - Taker Fee
-func (s *RouterTestHelper) ValidateRoutePools(expectedPools []domain.RoutablePool, actualPools []domain.RoutablePool) {
+func (s *RouterTestHelper) ValidateRoutePools(expectedPools []sqsdomain.RoutablePool, actualPools []sqsdomain.RoutablePool) {
 	s.Require().Equal(len(expectedPools), len(actualPools))
 
 	for i, expectedPool := range expectedPools {

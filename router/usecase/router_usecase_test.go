@@ -12,6 +12,8 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
@@ -40,9 +42,9 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	balancerPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
 	s.Require().NoError(err)
 
-	defaultPool := &domain.PoolWrapper{
+	defaultPool := &sqsdomain.PoolWrapper{
 		ChainModel: balancerPool,
-		SQSModel: domain.SQSPool{
+		SQSModel: sqsdomain.SQSPool{
 			TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity + 1)),
 			PoolDenoms:           []string{tokenInDenom, tokenOutDenom},
 			Balances:             balancerCoins,
@@ -53,7 +55,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	var (
 		defaultRoute = WithCandidateRoutePools(
 			EmptyCandidateRoute,
-			[]route.CandidatePool{
+			[]sqsdomain.CandidatePool{
 				{
 					ID:            defaultPool.GetId(),
 					TokenOutDenom: tokenOutDenom,
@@ -61,18 +63,18 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			},
 		)
 
-		defaultSinglePools = []domain.PoolI{defaultPool}
+		defaultSinglePools = []sqsdomain.PoolI{defaultPool}
 
-		singleDefaultRoutes = route.CandidateRoutes{
-			Routes: []route.CandidateRoute{defaultRoute},
+		singleDefaultRoutes = sqsdomain.CandidateRoutes{
+			Routes: []sqsdomain.CandidateRoute{defaultRoute},
 			UniquePoolIDs: map[uint64]struct{}{
 				defaultPool.GetId(): {},
 			},
 		}
 
-		emptyPools = []domain.PoolI{}
+		emptyPools = []sqsdomain.PoolI{}
 
-		emptyRoutes = route.CandidateRoutes{}
+		emptyRoutes = sqsdomain.CandidateRoutes{}
 
 		defaultRouterConfig = domain.RouterConfig{
 			// Only these config values are relevant for this test
@@ -91,12 +93,12 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	testCases := []struct {
 		name string
 
-		repositoryRoutes route.CandidateRoutes
-		repositoryPools  []domain.PoolI
-		takerFeeMap      domain.TakerFeeMap
+		repositoryRoutes sqsdomain.CandidateRoutes
+		repositoryPools  []sqsdomain.PoolI
+		takerFeeMap      sqsdomain.TakerFeeMap
 		isCacheDisabled  bool
 
-		expectedCandidateRoutes route.CandidateRoutes
+		expectedCandidateRoutes sqsdomain.CandidateRoutes
 
 		expectedError error
 	}{
@@ -146,8 +148,8 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		tc := tc
 		s.Run(tc.name, func() {
 
-			routerRepositoryMock := &mocks.RedisRouterRepositoryMock{
-				Routes: map[domain.DenomPair]route.CandidateRoutes{
+			routerRepositoryMock := &sqsdomainmocks.RedisRouterRepositoryMock{
+				Routes: map[sqsdomain.DenomPair]sqsdomain.CandidateRoutes{
 					// These are the routes that are stored in cache and returned by the call to GetRoutes.
 					{Denom0: tokenOutDenom, Denom1: tokenInDenom}: tc.repositoryRoutes,
 				},
@@ -156,7 +158,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				// set on the router for this test.
 			}
 
-			poolsUseCaseMock := &mocks.PoolsUsecaseMock{
+			poolsUseCaseMock := &sqsdomainmocks.PoolsUsecaseMock{
 				// These are the pools returned by the call to GetAllPools
 				Pools: tc.repositoryPools,
 			}
@@ -198,7 +200,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			}
 
 			// Check that router repository was updated
-			s.Require().Equal(tc.expectedCandidateRoutes, routerRepositoryMock.Routes[domain.DenomPair{Denom0: tokenOutDenom, Denom1: tokenInDenom}])
+			s.Require().Equal(tc.expectedCandidateRoutes, routerRepositoryMock.Routes[sqsdomain.DenomPair{Denom0: tokenOutDenom, Denom1: tokenInDenom}])
 		})
 	}
 }
@@ -215,7 +217,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 
 		otherPool = &mocks.MockRoutablePool{ID: defaultPoolID + 1}
 
-		defaultSingleRoute = WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+		defaultSingleRoute = WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 			deafaultPool,
 		})
 	)
@@ -242,14 +244,14 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 
 		"single route two different pools": {
 			routes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					deafaultPool,
 					otherPool,
 				}),
 			},
 
 			expectedRoutes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					deafaultPool,
 					otherPool,
 				}),
@@ -261,14 +263,14 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		// in the router logic.
 		"single route two same pools (have no effect on filtering)": {
 			routes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					deafaultPool,
 					deafaultPool,
 				}),
 			},
 
 			expectedRoutes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					deafaultPool,
 					deafaultPool,
 				}),
@@ -279,7 +281,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 			routes: []route.RouteImpl{
 				defaultSingleRoute,
 
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					otherPool,
 				}),
 			},
@@ -287,7 +289,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 			expectedRoutes: []route.RouteImpl{
 				defaultSingleRoute,
 
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					otherPool,
 				}),
 			},
@@ -309,12 +311,12 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 			routes: []route.RouteImpl{
 				defaultSingleRoute,
 
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					deafaultPool, // first and second overlap
 					otherPool,    // second and third overlap
 				}),
 
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					otherPool,
 				}),
 			},
@@ -322,7 +324,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 			expectedRoutes: []route.RouteImpl{
 				defaultSingleRoute,
 
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					otherPool,
 				}),
 			},
@@ -345,26 +347,26 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 	tests := map[string]struct {
 		rankedRoutes []route.RouteImpl
 
-		expectedCandidateRoutes route.CandidateRoutes
+		expectedCandidateRoutes sqsdomain.CandidateRoutes
 	}{
 		"empty ranked routes": {
 			rankedRoutes: []route.RouteImpl{},
 
-			expectedCandidateRoutes: route.CandidateRoutes{
-				Routes:        []route.CandidateRoute{},
+			expectedCandidateRoutes: sqsdomain.CandidateRoutes{
+				Routes:        []sqsdomain.CandidateRoute{},
 				UniquePoolIDs: map[uint64]struct{}{},
 			},
 		},
 		"single route": {
 			rankedRoutes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID),
 				}),
 			},
 
-			expectedCandidateRoutes: route.CandidateRoutes{
-				Routes: []route.CandidateRoute{
-					WithCandidateRoutePools(route.CandidateRoute{}, []route.CandidatePool{
+			expectedCandidateRoutes: sqsdomain.CandidateRoutes{
+				Routes: []sqsdomain.CandidateRoute{
+					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
 						{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomOne,
@@ -378,23 +380,23 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 		},
 		"two routes": {
 			rankedRoutes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID),
 				}),
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID+1),
 				}),
 			},
 
-			expectedCandidateRoutes: route.CandidateRoutes{
-				Routes: []route.CandidateRoute{
-					WithCandidateRoutePools(route.CandidateRoute{}, []route.CandidatePool{
+			expectedCandidateRoutes: sqsdomain.CandidateRoutes{
+				Routes: []sqsdomain.CandidateRoute{
+					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
 						{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomOne,
 						},
 					}),
-					WithCandidateRoutePools(route.CandidateRoute{}, []route.CandidatePool{
+					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
 						{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomOne,
@@ -452,7 +454,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache() {
 	)
 
 	tests := map[string]struct {
-		preCachedRoutes              route.CandidateRoutes
+		preCachedRoutes              sqsdomain.CandidateRoutes
 		cacheOrderOfMagnitudeTokenIn int
 
 		cacheExpiryDuration time.Duration
@@ -471,10 +473,10 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache() {
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountIn,
 
-			preCachedRoutes: route.CandidateRoutes{
-				Routes: []route.CandidateRoute{
+			preCachedRoutes: sqsdomain.CandidateRoutes{
+				Routes: []sqsdomain.CandidateRoute{
 					{
-						Pools: []route.CandidatePool{
+						Pools: []sqsdomain.CandidatePool{
 							{
 								ID:            poolIDOneBalancer,
 								TokenOutDenom: ATOM,
@@ -497,10 +499,10 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache() {
 		"cache is set to balancer but for a different order of magnitude - computes new routes": {
 			amountIn: defaultAmountIn,
 
-			preCachedRoutes: route.CandidateRoutes{
-				Routes: []route.CandidateRoute{
+			preCachedRoutes: sqsdomain.CandidateRoutes{
+				Routes: []sqsdomain.CandidateRoute{
 					{
-						Pools: []route.CandidatePool{
+						Pools: []sqsdomain.CandidatePool{
 							{
 								ID:            poolIDOneBalancer,
 								TokenOutDenom: ATOM,
@@ -524,10 +526,10 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache() {
 		"cache is expired - overwrites computed": {
 			amountIn: defaultAmountIn,
 
-			preCachedRoutes: route.CandidateRoutes{
-				Routes: []route.CandidateRoute{
+			preCachedRoutes: sqsdomain.CandidateRoutes{
+				Routes: []sqsdomain.CandidateRoute{
 					{
-						Pools: []route.CandidatePool{
+						Pools: []sqsdomain.CandidatePool{
 							{
 								ID:            poolIDOneBalancer,
 								TokenOutDenom: ATOM,

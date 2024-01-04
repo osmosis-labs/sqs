@@ -3,9 +3,10 @@ package usecase
 import (
 	"sort"
 
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
 	"go.uber.org/zap"
 
-	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 
@@ -15,7 +16,7 @@ import (
 
 type Router struct {
 	preferredPoolIDS []uint64
-	sortedPools      []domain.PoolI
+	sortedPools      []sqsdomain.PoolI
 	// The maximum number of hops to route through.
 	maxHops int
 	// The maximum number of routes to return.
@@ -30,7 +31,7 @@ type Router struct {
 
 	minOSMOTVL int
 
-	routerRepository mvc.RouterRepository
+	routerRepository routerredisrepo.RouterRepository
 
 	poolsUsecase mvc.PoolsUsecase
 
@@ -39,7 +40,7 @@ type Router struct {
 }
 
 type ratedPool struct {
-	pool   domain.PoolI
+	pool   sqsdomain.PoolI
 	rating osmomath.Int
 }
 
@@ -93,13 +94,13 @@ func (r Router) GetLogger() log.Logger {
 	return r.logger
 }
 
-func (r Router) GetSortedPools() []domain.PoolI {
+func (r Router) GetSortedPools() []sqsdomain.PoolI {
 	return r.sortedPools
 }
 
-func WithSortedPools(router *Router, allPools []domain.PoolI) *Router {
+func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 	// TODO: consider mutating directly on allPools
-	router.sortedPools = make([]domain.PoolI, 0)
+	router.sortedPools = make([]sqsdomain.PoolI, 0)
 	totalTVL := osmomath.ZeroInt()
 
 	minUOSMOTVL := osmomath.NewInt(int64(router.minOSMOTVL * osmoPrecisionMultiplier))
@@ -128,7 +129,7 @@ func WithSortedPools(router *Router, allPools []domain.PoolI) *Router {
 }
 
 // WithRouterRepository instruments router by setting a router repository on it and returns the router.
-func WithRouterRepository(router *Router, routerRepository mvc.RouterRepository) *Router {
+func WithRouterRepository(router *Router, routerRepository routerredisrepo.RouterRepository) *Router {
 	router.routerRepository = routerRepository
 	return router
 }
@@ -156,7 +157,7 @@ func WithPoolsUsecase(router *Router, poolsUsecase mvc.PoolsUsecase) *Router {
 // - Pools with no error in TVL are prioritized by getting an even smaller boost.
 //
 // These heuristics are imperfect and subject to change.
-func sortPools(pools []domain.PoolI, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []domain.PoolI {
+func sortPools(pools []sqsdomain.PoolI, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []sqsdomain.PoolI {
 	logger.Debug("total tvl", zap.Stringer("total_tvl", totalTVL))
 
 	ratedPools := make([]ratedPool, 0, len(pools))

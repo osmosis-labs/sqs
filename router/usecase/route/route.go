@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -15,7 +16,7 @@ import (
 var _ domain.Route = &RouteImpl{}
 
 type RouteImpl struct {
-	Pools []domain.RoutablePool "json:\"pools\""
+	Pools []sqsdomain.RoutablePool "json:\"pools\""
 }
 
 // PrepareResultPools implements domain.Route.
@@ -71,11 +72,11 @@ func (r *RouteImpl) PrepareResultPools(tokenIn sdk.Coin) (osmomath.Dec, osmomath
 }
 
 // GetPools implements Route.
-func (r *RouteImpl) GetPools() []domain.RoutablePool {
+func (r *RouteImpl) GetPools() []sqsdomain.RoutablePool {
 	return r.Pools
 }
 
-func (r *RouteImpl) AddPool(pool domain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) {
+func (r *RouteImpl) AddPool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) {
 	r.Pools = append(r.Pools, pools.NewRoutablePool(pool, tokenOutDenom, takerFee))
 }
 

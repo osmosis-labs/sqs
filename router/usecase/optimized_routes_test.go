@@ -6,6 +6,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/coinutil"
@@ -21,6 +22,8 @@ import (
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
+
+	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 )
 
 const (
@@ -58,7 +61,7 @@ var (
 		SpreadFactor:         DefaultSpreadFactor,
 	}
 	EmptyRoute          = route.RouteImpl{}
-	EmptyCandidateRoute = route.CandidateRoute{}
+	EmptyCandidateRoute = sqsdomain.CandidateRoute{}
 
 	// Test denoms
 	DenomOne   = routertesting.DenomOne
@@ -126,7 +129,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 	}{
 		"valid single route": {
 			routes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				})},
 			tokenIn: sdk.NewCoin(DenomTwo, sdk.NewInt(100)),
@@ -138,12 +141,12 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 		"valid two route single hop": {
 			routes: []route.RouteImpl{
 				// Route 1
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				}),
 
 				// Route 2
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), secondBalancerPoolSameDenoms), 2),
 				}),
 			},
@@ -160,17 +163,17 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 		"valid three route single hop": {
 			routes: []route.RouteImpl{
 				// Route 1
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				}),
 
 				// Route 2
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), thirdBalancerPoolSameDenoms), 3),
 				}),
 
 				// Route 3
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), secondBalancerPoolSameDenoms), 2),
 				}),
 			},
@@ -269,7 +272,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 
 	defaultDenomOneTwoOutTwoPool := usecase.CandidatePoolWrapper{
-		CandidatePool: route.CandidatePool{
+		CandidatePool: sqsdomain.CandidatePool{
 			ID:            defaultPoolID,
 			TokenOutDenom: DenomTwo,
 		},
@@ -297,7 +300,7 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				{
 					defaultDenomOneTwoOutTwoPool,
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomThree,
 						},
@@ -315,14 +318,14 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				},
 				{
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomThree,
 						},
 						PoolDenoms: []string{DenomOne, DenomThree},
 					},
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 2,
 							TokenOutDenom: DenomTwo,
 						},
@@ -352,7 +355,7 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				},
 				{
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomThree,
 						},
@@ -369,7 +372,7 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 			routes: [][]usecase.CandidatePoolWrapper{
 				{
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomOne,
 						},
@@ -386,7 +389,7 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 			routes: [][]usecase.CandidatePoolWrapper{
 				{
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomOne,
 						},
@@ -402,7 +405,7 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 			routes: [][]usecase.CandidatePoolWrapper{
 				{
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomThree,
 						},
@@ -420,35 +423,35 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 			routes: [][]usecase.CandidatePoolWrapper{
 				{
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomTwo,
 						},
 						PoolDenoms: []string{DenomOne, DenomTwo},
 					},
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomTwo,
 						},
 						PoolDenoms: []string{DenomTwo, DenomFour},
 					},
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 2,
 							TokenOutDenom: DenomFour,
 						},
 						PoolDenoms: []string{DenomTwo, DenomFour},
 					},
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 3,
 							TokenOutDenom: DenomThree,
 						},
 						PoolDenoms: []string{DenomFour, DenomOne},
 					},
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 4,
 							TokenOutDenom: DenomThree,
 						},
@@ -464,21 +467,21 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 			routes: [][]usecase.CandidatePoolWrapper{
 				{
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomTwo,
 						},
 						PoolDenoms: []string{DenomOne, DenomTwo},
 					},
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomTwo,
 						},
 						PoolDenoms: []string{DenomTwo, DenomFour},
 					},
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID + 2,
 							TokenOutDenom: DenomTwo,
 						},
@@ -494,14 +497,14 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 			routes: [][]usecase.CandidatePoolWrapper{
 				{
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomTwo,
 						},
 						PoolDenoms: []string{DenomOne, DenomTwo},
 					},
 					{
-						CandidatePool: route.CandidatePool{
+						CandidatePool: sqsdomain.CandidatePool{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomFour,
 						},
@@ -694,13 +697,13 @@ func (s *RouterTestSuite) TestGetCustomQuote_Mainnet_UOSMOUION() {
 	router, tickMap, takerFeeMap := s.setupMainnetRouter(config)
 
 	// Setup router repository mock
-	routerRepositoryMock := mocks.RedisRouterRepositoryMock{
+	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{
 		TakerFees: takerFeeMap,
 	}
 	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
 
 	// Setup pools usecase mock.
-	poolsRepositoryMock := mocks.RedisPoolsRepositoryMock{
+	poolsRepositoryMock := sqsdomainmocks.RedisPoolsRepositoryMock{
 		Pools:     router.GetSortedPools(),
 		TickModel: tickMap,
 	}
@@ -734,7 +737,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_Mainnet_UOSMOUION() {
 // - setting the pool use case on the router (called during GetCandidateRoutes() method)
 // - converting candidate routes to routes with all the necessary data.
 // COTRACT: router is initialized with setupMainnetRouter(...) or setupDefaultMainnetRouter(...)
-func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]domain.TickModel, takerFeeMap domain.TakerFeeMap) []route.RouteImpl {
+func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]sqsdomain.TickModel, takerFeeMap sqsdomain.TakerFeeMap) []route.RouteImpl {
 	_, poolsUsecase := s.setupRouterAndPoolsUsecase(router, tokenInDenom, tokenOutDenom, tickMap, takerFeeMap, cache.New())
 
 	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
@@ -748,13 +751,13 @@ func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.
 
 // Sets up and returns usecases for router and pools by mocking the mainnet data
 // from json files.
-func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]domain.TickModel, takerFeeMap domain.TakerFeeMap, cache *cache.Cache) (mvc.RouterUsecase, mvc.PoolsUsecase) {
+func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]sqsdomain.TickModel, takerFeeMap sqsdomain.TakerFeeMap, cache *cache.Cache) (mvc.RouterUsecase, mvc.PoolsUsecase) {
 	// Setup router repository mock
-	routerRepositoryMock := mocks.RedisRouterRepositoryMock{}
+	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{}
 	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
 
 	// Setup pools usecase mock.
-	poolsRepositoryMock := mocks.RedisPoolsRepositoryMock{
+	poolsRepositoryMock := sqsdomainmocks.RedisPoolsRepositoryMock{
 		Pools:     router.GetSortedPools(),
 		TickModel: tickMap,
 	}

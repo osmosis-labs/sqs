@@ -6,11 +6,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
@@ -118,7 +118,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 
 		route route.RouteImpl
 
-		expectedPools []domain.RoutablePool
+		expectedPools []sqsdomain.RoutablePool
 
 		expectedSpotPriceInOverOut osmomath.Dec
 
@@ -129,7 +129,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 
 			route: emptyRoute,
 
-			expectedPools: []domain.RoutablePool{},
+			expectedPools: []sqsdomain.RoutablePool{},
 
 			expectedSpotPriceInOverOut:          osmomath.OneDec(),
 			expectedEffectiveSpotPriceInOverOut: osmomath.OneDec(),
@@ -139,12 +139,12 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 
 			route: WithRoutePools(
 				emptyRoute,
-				[]domain.RoutablePool{
+				[]sqsdomain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultPool, DenomOne), balancerPool),
 				},
 			),
 
-			expectedPools: []domain.RoutablePool{
+			expectedPools: []sqsdomain.RoutablePool{
 				pools.NewRoutableResultPool(
 					balancerPoolID,
 					poolmanagertypes.Balancer,
@@ -163,13 +163,13 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 
 			route: WithRoutePools(
 				emptyRoute,
-				[]domain.RoutablePool{
+				[]sqsdomain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultPool, DenomOne), balancerPool),
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultPool, DenomThree), transmuter),
 				},
 			),
 
-			expectedPools: []domain.RoutablePool{
+			expectedPools: []sqsdomain.RoutablePool{
 				pools.NewRoutableResultPool(
 					balancerPoolID,
 					poolmanagertypes.Balancer,
@@ -208,6 +208,6 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 	}
 }
 
-func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
+func WithRoutePools(r route.RouteImpl, pools []sqsdomain.RoutablePool) route.RouteImpl {
 	return routertesting.WithRoutePools(r, pools)
 }

@@ -12,9 +12,9 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/osmosis-labs/sqs/domain/json"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
 	"github.com/labstack/echo"
 )

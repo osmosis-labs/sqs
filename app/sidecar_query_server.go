@@ -11,18 +11,18 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
-	chainInfoRepository "github.com/osmosis-labs/sqs/chain_info/repository/redis"
-	chainInfoUseCase "github.com/osmosis-labs/sqs/chain_info/usecase"
+	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
-	poolsRedisRepository "github.com/osmosis-labs/sqs/pools/repository/redis"
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
-	redisrepo "github.com/osmosis-labs/sqs/repository/redis"
-	routerRedisRepository "github.com/osmosis-labs/sqs/router/repository/redis"
+	"github.com/osmosis-labs/sqs/sqsdomain/repository"
+	redisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis"
+	chaininforedisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/chaininfo"
+	poolsredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/pools"
+	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
 	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
-	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
 
@@ -36,10 +36,10 @@ import (
 // It encapsulates all logic for ingesting chain data into the server
 // and exposes endpoints for querying formatter and processed data from frontend.
 type SideCarQueryServer interface {
-	GetTxManager() mvc.TxManager
-	GetPoolsRepository() mvc.PoolsRepository
-	GetChainInfoRepository() mvc.ChainInfoRepository
-	GetRouterRepository() mvc.RouterRepository
+	GetTxManager() repository.TxManager
+	GetPoolsRepository() poolsredisrepo.PoolsRepository
+	GetChainInfoRepository() chaininforedisrepo.ChainInfoRepository
+	GetRouterRepository() routerredisrepo.RouterRepository
 	GetTokensUseCase() domain.TokensUsecase
 	GetLogger() log.Logger
 	Shutdown(context.Context) error
@@ -47,10 +47,10 @@ type SideCarQueryServer interface {
 }
 
 type sideCarQueryServer struct {
-	txManager           mvc.TxManager
-	poolsRepository     mvc.PoolsRepository
-	chainInfoRepository mvc.ChainInfoRepository
-	routerRepository    mvc.RouterRepository
+	txManager           repository.TxManager
+	poolsRepository     poolsredisrepo.PoolsRepository
+	chainInfoRepository chaininforedisrepo.ChainInfoRepository
+	routerRepository    routerredisrepo.RouterRepository
 	tokensUseCase       domain.TokensUsecase
 	e                   *echo.Echo
 	sqsAddress          string
@@ -63,21 +63,21 @@ func (sqs *sideCarQueryServer) GetTokensUseCase() domain.TokensUsecase {
 }
 
 // GetPoolsRepository implements SideCarQueryServer.
-func (sqs *sideCarQueryServer) GetPoolsRepository() mvc.PoolsRepository {
+func (sqs *sideCarQueryServer) GetPoolsRepository() poolsredisrepo.PoolsRepository {
 	return sqs.poolsRepository
 }
 
-func (sqs *sideCarQueryServer) GetChainInfoRepository() mvc.ChainInfoRepository {
+func (sqs *sideCarQueryServer) GetChainInfoRepository() chaininforedisrepo.ChainInfoRepository {
 	return sqs.chainInfoRepository
 }
 
 // GetRouterRepository implements SideCarQueryServer.
-func (sqs *sideCarQueryServer) GetRouterRepository() mvc.RouterRepository {
+func (sqs *sideCarQueryServer) GetRouterRepository() routerredisrepo.RouterRepository {
 	return sqs.routerRepository
 }
 
 // GetTxManager implements SideCarQueryServer.
-func (sqs *sideCarQueryServer) GetTxManager() mvc.TxManager {
+func (sqs *sideCarQueryServer) GetTxManager() repository.TxManager {
 	return sqs.txManager
 }
 
@@ -135,19 +135,19 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 	redisTxManager := redisrepo.NewTxManager(redisClient)
 
 	// Initialize pools repository, usecase and HTTP handler
-	poolsRepository := poolsRedisRepository.NewRedisPoolsRepo(appCodec, redisTxManager)
+	poolsRepository := poolsredisrepo.New(appCodec, redisTxManager)
 	timeoutContext := time.Duration(useCaseTimeoutDuration) * time.Second
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository, redisTxManager)
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 
 	// Initialize router repository, usecase and HTTP handler
-	routerRepository := routerRedisRepository.NewRedisRouterRepo(redisTxManager, routerConfig.RouteCacheExpirySeconds)
+	routerRepository := routerredisrepo.New(redisTxManager, routerConfig.RouteCacheExpirySeconds)
 	routerUsecase := routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, routerConfig, logger, cache.New())
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, logger)
 
 	// Initialize system handler
-	chainInfoRepository := chainInfoRepository.NewChainInfoRepo(redisTxManager)
-	chainInfoUseCase := chainInfoUseCase.NewChainInfoUsecase(timeoutContext, chainInfoRepository, redisTxManager)
+	chainInfoRepository := chaininforedisrepo.New(redisTxManager)
+	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(timeoutContext, chainInfoRepository, redisTxManager)
 	systemhttpdelivery.NewSystemHandler(e, redisAddress, grpcAddress, logger, chainInfoUseCase)
 
 	// Initialized tokens usecase

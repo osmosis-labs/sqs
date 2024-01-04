@@ -6,14 +6,16 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/sqsdomain/repository"
+	chaininforedisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/chaininfo"
 
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
 
 type chainInfoUseCase struct {
 	contextTimeout         time.Duration
-	chainInfoRepository    mvc.ChainInfoRepository
-	redisRepositoryManager mvc.TxManager
+	chainInfoRepository    chaininforedisrepo.ChainInfoRepository
+	redisRepositoryManager repository.TxManager
 
 	// N.B. sometimes the node gets stuck and does not make progress.
 	// However, it returns 200 OK for the status endpoint and claims to be not catching up.
@@ -31,7 +33,7 @@ const MaxAllowedHeightUpdateTimeDeltaSecs = 30
 
 var _ mvc.ChainInfoUsecase = &chainInfoUseCase{}
 
-func NewChainInfoUsecase(timeout time.Duration, chainInfoRepository mvc.ChainInfoRepository, redisRepositoryManager mvc.TxManager) mvc.ChainInfoUsecase {
+func NewChainInfoUsecase(timeout time.Duration, chainInfoRepository chaininforedisrepo.ChainInfoRepository, redisRepositoryManager repository.TxManager) mvc.ChainInfoUsecase {
 	return &chainInfoUseCase{
 		contextTimeout:         timeout,
 		chainInfoRepository:    chainInfoRepository,

@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/json"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
 	concentratedmodel "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v21/x/cosmwasmpool/model"
@@ -18,12 +19,12 @@ import (
 type SerializedPool struct {
 	Type      poolmanagertypes.PoolType `json:"type"`
 	ChainPool json.RawMessage           `json:"data"`
-	SQSModel  domain.SQSPool            `json:"sqs_model"`
-	TickModel *domain.TickModel         `json:"tick_model,omitempty"`
+	SQSModel  sqsdomain.SQSPool         `json:"sqs_model"`
+	TickModel *sqsdomain.TickModel      `json:"tick_model,omitempty"`
 }
 
 // StorePools stores the pools to a file.
-func StorePools(actualPools []domain.PoolI, tickModelMap map[uint64]domain.TickModel, poolsFile string) error {
+func StorePools(actualPools []sqsdomain.PoolI, tickModelMap map[uint64]sqsdomain.TickModel, poolsFile string) error {
 	_, err := os.Stat(poolsFile)
 	if os.IsNotExist(err) {
 		file, err := os.Create(poolsFile)
@@ -72,7 +73,7 @@ func StorePools(actualPools []domain.PoolI, tickModelMap map[uint64]domain.TickM
 }
 
 // StoreTakerFees stores the taker fees to a file.
-func StoreTakerFees(takerFeesFile string, takerFeesMap domain.TakerFeeMap) error {
+func StoreTakerFees(takerFeesFile string, takerFeesMap sqsdomain.TakerFeeMap) error {
 	_, err := os.Stat(takerFeesFile)
 	if os.IsNotExist(err) {
 		file, err := os.Create(takerFeesFile)
@@ -96,7 +97,7 @@ func StoreTakerFees(takerFeesFile string, takerFeesMap domain.TakerFeeMap) error
 }
 
 // ReadPools reads the pools from a file and returns them
-func ReadPools(poolsFile string) ([]domain.PoolI, map[uint64]domain.TickModel, error) {
+func ReadPools(poolsFile string) ([]sqsdomain.PoolI, map[uint64]sqsdomain.TickModel, error) {
 	poolBytes, err := os.ReadFile(poolsFile)
 	if err != nil {
 		return nil, nil, err
@@ -108,9 +109,9 @@ func ReadPools(poolsFile string) ([]domain.PoolI, map[uint64]domain.TickModel, e
 		return nil, nil, err
 	}
 
-	actualPools := make([]domain.PoolI, 0, len(serializedPools))
+	actualPools := make([]sqsdomain.PoolI, 0, len(serializedPools))
 
-	tickMap := make(map[uint64]domain.TickModel)
+	tickMap := make(map[uint64]sqsdomain.TickModel)
 
 	for _, pool := range serializedPools {
 		poolWrapper, err := UnmarshalPool(pool)
@@ -129,13 +130,13 @@ func ReadPools(poolsFile string) ([]domain.PoolI, map[uint64]domain.TickModel, e
 }
 
 // ReadTakerFees reads the taker fees from a file and returns them
-func ReadTakerFees(takerFeeFileName string) (domain.TakerFeeMap, error) {
+func ReadTakerFees(takerFeeFileName string) (sqsdomain.TakerFeeMap, error) {
 	takerFeeBytes, err := os.ReadFile(takerFeeFileName)
 	if err != nil {
 		return nil, err
 	}
 
-	takerFeeMap := domain.TakerFeeMap{}
+	takerFeeMap := sqsdomain.TakerFeeMap{}
 	err = json.Unmarshal(takerFeeBytes, &takerFeeMap)
 	if err != nil {
 		return nil, err
@@ -145,7 +146,7 @@ func ReadTakerFees(takerFeeFileName string) (domain.TakerFeeMap, error) {
 }
 
 // MarshalPool marshals a pool to JSON.
-func MarshalPool(pool domain.PoolI) (json.RawMessage, error) {
+func MarshalPool(pool sqsdomain.PoolI) (json.RawMessage, error) {
 	poolType := pool.GetType()
 
 	underlyingPool := pool.GetUnderlyingPool()
@@ -155,7 +156,7 @@ func MarshalPool(pool domain.PoolI) (json.RawMessage, error) {
 		return nil, err
 	}
 
-	var tickModel *domain.TickModel
+	var tickModel *sqsdomain.TickModel
 	if poolType == poolmanagertypes.Concentrated {
 		tickModel, err = pool.GetTickModel()
 		if err != nil {
@@ -179,7 +180,7 @@ func MarshalPool(pool domain.PoolI) (json.RawMessage, error) {
 }
 
 // UnmarshalPool unmarshals a pool from JSON.
-func UnmarshalPool(serializedPool SerializedPool) (domain.PoolI, error) {
+func UnmarshalPool(serializedPool SerializedPool) (sqsdomain.PoolI, error) {
 	var (
 		chainModel poolmanagertypes.PoolI
 	)
@@ -217,7 +218,7 @@ func UnmarshalPool(serializedPool SerializedPool) (domain.PoolI, error) {
 		return nil, domain.InvalidPoolTypeError{PoolType: int32(serializedPool.Type)}
 	}
 
-	poolWrapper := domain.PoolWrapper{
+	poolWrapper := sqsdomain.PoolWrapper{
 		ChainModel: chainModel,
 		SQSModel:   serializedPool.SQSModel,
 		TickModel:  serializedPool.TickModel,

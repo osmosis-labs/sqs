@@ -4,28 +4,29 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/osmosis-labs/sqs/sqsdomain"
+
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 )
 
 type PoolsUsecaseMock struct {
-	Pools        []domain.PoolI
-	TickModelMap map[uint64]domain.TickModel
+	Pools        []sqsdomain.PoolI
+	TickModelMap map[uint64]sqsdomain.TickModel
 }
 
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
 // Note that taker fee are ignored and not set
 // Note that tick models are not set
-func (pm *PoolsUsecaseMock) GetRoutesFromCandidates(ctx context.Context, candidateRoutes route.CandidateRoutes, takerFeeMap domain.TakerFeeMap, tokenInDenom string, tokenOutDenom string) ([]route.RouteImpl, error) {
+func (pm *PoolsUsecaseMock) GetRoutesFromCandidates(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, takerFeeMap sqsdomain.TakerFeeMap, tokenInDenom string, tokenOutDenom string) ([]route.RouteImpl, error) {
 	finalRoutes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
-		routablePools := make([]domain.RoutablePool, 0, len(candidateRoute.Pools))
+		routablePools := make([]sqsdomain.RoutablePool, 0, len(candidateRoute.Pools))
 		for _, candidatePool := range candidateRoute.Pools {
 			// Get the pool data for routing
-			var foundPool domain.PoolI
+			var foundPool sqsdomain.PoolI
 			for _, pool := range pm.Pools {
 				if pool.GetId() == candidatePool.ID {
 					foundPool = pool
@@ -50,17 +51,17 @@ func (pm *PoolsUsecaseMock) GetRoutesFromCandidates(ctx context.Context, candida
 }
 
 // GetAllPools implements domain.PoolsUsecase.
-func (pm *PoolsUsecaseMock) GetAllPools(ctx context.Context) ([]domain.PoolI, error) {
+func (pm *PoolsUsecaseMock) GetAllPools(ctx context.Context) ([]sqsdomain.PoolI, error) {
 	return pm.Pools, nil
 }
 
 // GetTickModelMap implements mvc.PoolsUsecase.
-func (pm *PoolsUsecaseMock) GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]domain.TickModel, error) {
+func (pm *PoolsUsecaseMock) GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]sqsdomain.TickModel, error) {
 	return pm.TickModelMap, nil
 }
 
 // GetPool implements mvc.PoolsUsecase.
-func (pm *PoolsUsecaseMock) GetPool(ctx context.Context, poolID uint64) (domain.PoolI, error) {
+func (pm *PoolsUsecaseMock) GetPool(ctx context.Context, poolID uint64) (sqsdomain.PoolI, error) {
 	panic("unimplemented")
 }
 

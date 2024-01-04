@@ -7,35 +7,36 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v21/app/apptesting"
 	concentratedmodel "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
 )
 
-func deepCopyTickModel(tickModel *domain.TickModel) *domain.TickModel {
-	ticks := make([]domain.LiquidityDepthsWithRange, len(tickModel.Ticks))
+func deepCopyTickModel(tickModel *sqsdomain.TickModel) *sqsdomain.TickModel {
+	ticks := make([]sqsdomain.LiquidityDepthsWithRange, len(tickModel.Ticks))
 	copy(ticks, tickModel.Ticks)
-	return &domain.TickModel{
+	return &sqsdomain.TickModel{
 		Ticks:            ticks,
 		CurrentTickIndex: tickModel.CurrentTickIndex,
 		HasNoLiquidity:   tickModel.HasNoLiquidity,
 	}
 }
 
-func withHasNoLiquidity(tickModel *domain.TickModel) *domain.TickModel {
+func withHasNoLiquidity(tickModel *sqsdomain.TickModel) *sqsdomain.TickModel {
 	tickModel = deepCopyTickModel(tickModel)
 	tickModel.HasNoLiquidity = true
 	return tickModel
 }
 
-func withCurrentTickIndex(tickModel *domain.TickModel, currentTickIndex int64) *domain.TickModel {
+func withCurrentTickIndex(tickModel *sqsdomain.TickModel, currentTickIndex int64) *sqsdomain.TickModel {
 	tickModel = deepCopyTickModel(tickModel)
 	tickModel.CurrentTickIndex = currentTickIndex
 	return tickModel
 }
 
-func withTicks(tickModel *domain.TickModel, ticks []domain.LiquidityDepthsWithRange) *domain.TickModel {
+func withTicks(tickModel *sqsdomain.TickModel, ticks []sqsdomain.LiquidityDepthsWithRange) *sqsdomain.TickModel {
 	tickModel = deepCopyTickModel(tickModel)
 	tickModel.Ticks = ticks
 	return tickModel
@@ -72,14 +73,14 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 			ticks, currentTickIndex, err := s.App.ConcentratedLiquidityKeeper.GetTickLiquidityForFullRange(s.Ctx, concentratedPool.GetId())
 			s.Require().NoError(err)
 
-			poolWrapper := &domain.PoolWrapper{
+			poolWrapper := &sqsdomain.PoolWrapper{
 				ChainModel: concentratedPool,
-				TickModel: &domain.TickModel{
+				TickModel: &sqsdomain.TickModel{
 					Ticks:            ticks,
 					CurrentTickIndex: currentTickIndex,
 					HasNoLiquidity:   false,
 				},
-				SQSModel: domain.SQSPool{
+				SQSModel: sqsdomain.SQSPool{
 					TotalValueLockedUSDC:  osmomath.NewInt(100),
 					TotalValueLockedError: "",
 					Balances:              sdk.Coins{},
@@ -106,7 +107,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 		tokenIn       sdk.Coin
 		tokenOutDenom string
 
-		tickModelOverwrite          *domain.TickModel
+		tickModelOverwrite          *sqsdomain.TickModel
 		isTickModelNil              bool
 		shouldCreateDefaultPosition bool
 
@@ -161,7 +162,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 			tokenIn:       DefaultCoin1,
 			tokenOutDenom: Denom0,
 
-			tickModelOverwrite: withTicks(defaultTickModel, []domain.LiquidityDepthsWithRange{
+			tickModelOverwrite: withTicks(defaultTickModel, []sqsdomain.LiquidityDepthsWithRange{
 				{
 					LowerTick:       defaultCurrentTick - 2,
 					UpperTick:       defaultCurrentTick - 1,
@@ -179,8 +180,8 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 			tokenIn:       DefaultCoin1,
 			tokenOutDenom: Denom0,
 
-			tickModelOverwrite: &domain.TickModel{
-				Ticks: []domain.LiquidityDepthsWithRange{
+			tickModelOverwrite: &sqsdomain.TickModel{
+				Ticks: []sqsdomain.LiquidityDepthsWithRange{
 					{
 						LowerTick:       defaultCurrentTick,
 						UpperTick:       defaultCurrentTick + 1,
@@ -203,7 +204,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 
 			shouldCreateDefaultPosition: true,
 
-			tickModelOverwrite: withTicks(defaultTickModel, []domain.LiquidityDepthsWithRange{
+			tickModelOverwrite: withTicks(defaultTickModel, []sqsdomain.LiquidityDepthsWithRange{
 				{
 					LowerTick:       DefaultCurrentTick,
 					UpperTick:       DefaultCurrentTick + 1,
@@ -223,7 +224,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 			s.SetupTest()
 
 			var (
-				tickModel *domain.TickModel
+				tickModel *sqsdomain.TickModel
 				err       error
 			)
 
@@ -252,7 +253,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 				ticks, currentTickIndex, err := s.App.ConcentratedLiquidityKeeper.GetTickLiquidityForFullRange(s.Ctx, concentratedPool.Id)
 				s.Require().NoError(err)
 
-				tickModel = &domain.TickModel{
+				tickModel = &sqsdomain.TickModel{
 					Ticks:            ticks,
 					CurrentTickIndex: currentTickIndex,
 					HasNoLiquidity:   false,
