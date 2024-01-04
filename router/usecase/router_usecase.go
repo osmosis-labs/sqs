@@ -10,6 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -18,9 +20,6 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
-
-	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 )
 
 var _ mvc.RouterUsecase = &routerUseCaseImpl{}
@@ -485,8 +484,17 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 
 	r.logger.Debug("cached routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
 
+	// Get request path for metrics
+	requestURLPath, err := domain.GetURLPathFromContext(ctx)
+	if err != nil {
+		return sqsdomain.CandidateRoutes{}, err
+	}
+
 	// If no routes are cached, find them
 	if len(candidateRoutes.Routes) == 0 {
+		// Increase cache misses
+		cacheMisses.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom).Inc()
+
 		r.logger.Debug("calculating routes")
 		allPools, err := r.poolsUsecase.GetAllPools(ctx)
 		if err != nil {
@@ -509,6 +517,8 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 				return sqsdomain.CandidateRoutes{}, err
 			}
 		}
+	} else {
+		cacheHits.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom).Inc()
 	}
 
 	return candidateRoutes, nil
