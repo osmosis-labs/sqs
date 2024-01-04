@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqsdomain/repository"
 )
 
 type RedisRouterRepositoryMock struct {
@@ -53,7 +54,7 @@ func (r *RedisRouterRepositoryMock) SetRoutes(ctx context.Context, denom0 string
 }
 
 // SetRoutesTx implements domain.RouterRepository.
-func (r *RedisRouterRepositoryMock) SetRoutesTx(ctx context.Context, tx mvc.Tx, denom0 string, denom1 string, routes route.CandidateRoutes) error {
+func (r *RedisRouterRepositoryMock) SetRoutesTx(ctx context.Context, tx repository.Tx, denom0 string, denom1 string, routes route.CandidateRoutes) error {
 	// Ensure increasing lexicographic order.
 	if denom1 < denom0 {
 		denom0, denom1 = denom1, denom0
@@ -64,7 +65,7 @@ func (r *RedisRouterRepositoryMock) SetRoutesTx(ctx context.Context, tx mvc.Tx, 
 }
 
 // SetTakerFee implements domain.RouterRepository.
-func (r *RedisRouterRepositoryMock) SetTakerFee(ctx context.Context, tx mvc.Tx, denom0 string, denom1 string, takerFee math.LegacyDec) error {
+func (r *RedisRouterRepositoryMock) SetTakerFee(ctx context.Context, tx repository.Tx, denom0 string, denom1 string, takerFee math.LegacyDec) error {
 	// Ensure increasing lexicographic order.
 	if denom1 < denom0 {
 		denom0, denom1 = denom1, denom0

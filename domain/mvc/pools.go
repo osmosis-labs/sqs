@@ -5,6 +5,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqsdomain/repository"
 )
 
 // PoolsRepository represent the pool's repository contract
@@ -20,9 +21,9 @@ type PoolsRepository interface {
 	GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]domain.TickModel, error)
 
 	// StorePools atomically stores the given pools.
-	StorePools(ctx context.Context, tx Tx, pools []domain.PoolI) error
+	StorePools(ctx context.Context, tx repository.Tx, pools []domain.PoolI) error
 	// ClearAllPools atomically clears all pools.
-	ClearAllPools(ctx context.Context, tx Tx) error
+	ClearAllPools(ctx context.Context, tx repository.Tx) error
 }
 
 // PoolsUsecase represent the pool's usecases

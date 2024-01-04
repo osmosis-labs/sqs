@@ -1,4 +1,4 @@
-package redis
+package routerredisrepo
 
 import (
 	"context"
@@ -14,10 +14,11 @@ import (
 	"github.com/osmosis-labs/sqs/domain/json"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqsdomain/repository"
 )
 
 type redisRouterRepo struct {
-	repositoryManager        mvc.TxManager
+	repositoryManager        repository.TxManager
 	routerCacheExpirySeconds uint64
 }
 
@@ -33,8 +34,8 @@ var (
 	_ mvc.RouterRepository = &redisRouterRepo{}
 )
 
-// NewRedisRouterRepo will create an implementation of pools.Repository
-func NewRedisRouterRepo(repositoryManager mvc.TxManager, routesCacheExpirySeconds uint64) mvc.RouterRepository {
+// New will create an implementation of pools.Repository
+func New(repositoryManager repository.TxManager, routesCacheExpirySeconds uint64) mvc.RouterRepository {
 	return &redisRouterRepo{
 		repositoryManager:        repositoryManager,
 		routerCacheExpirySeconds: routesCacheExpirySeconds,
@@ -129,7 +130,7 @@ func (r *redisRouterRepo) GetTakerFee(ctx context.Context, denom0 string, denom1
 }
 
 // SetTakerFee sets taker fee for a denom pair.
-func (r *redisRouterRepo) SetTakerFee(ctx context.Context, tx mvc.Tx, denom0, denom1 string, takerFee osmomath.Dec) error {
+func (r *redisRouterRepo) SetTakerFee(ctx context.Context, tx repository.Tx, denom0, denom1 string, takerFee osmomath.Dec) error {
 	// Ensure increasing lexicographic order.
 	if denom1 < denom0 {
 		denom0, denom1 = denom1, denom0
@@ -153,7 +154,7 @@ func (r *redisRouterRepo) SetTakerFee(ctx context.Context, tx mvc.Tx, denom0, de
 }
 
 // SetRoutesTx implements mvc.RouterRepository.
-func (r *redisRouterRepo) SetRoutesTx(ctx context.Context, tx mvc.Tx, denom0, denom1 string, routes route.CandidateRoutes) error {
+func (r *redisRouterRepo) SetRoutesTx(ctx context.Context, tx repository.Tx, denom0, denom1 string, routes route.CandidateRoutes) error {
 	redisTx, err := tx.AsRedisTx()
 	if err != nil {
 		return err

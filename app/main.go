@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/osmosis-labs/osmosis/v21/app"
-	"github.com/osmosis-labs/sqs/chain_info/client"
+	"github.com/osmosis-labs/sqs/chaininfo/client"
 	sqslog "github.com/osmosis-labs/sqs/log"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"

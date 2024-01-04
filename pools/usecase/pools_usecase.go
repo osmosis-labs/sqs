@@ -10,18 +10,19 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
+	"github.com/osmosis-labs/sqsdomain/repository"
 )
 
 type poolsUseCase struct {
 	contextTimeout         time.Duration
 	poolsRepository        mvc.PoolsRepository
-	redisRepositoryManager mvc.TxManager
+	redisRepositoryManager repository.TxManager
 }
 
 var _ mvc.PoolsUsecase = &poolsUseCase{}
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(timeout time.Duration, poolsRepository mvc.PoolsRepository, redisRepositoryManager mvc.TxManager) mvc.PoolsUsecase {
+func NewPoolsUsecase(timeout time.Duration, poolsRepository mvc.PoolsRepository, redisRepositoryManager repository.TxManager) mvc.PoolsUsecase {
 	return &poolsUseCase{
 		contextTimeout:         timeout,
 		poolsRepository:        poolsRepository,

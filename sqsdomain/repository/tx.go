@@ -1,4 +1,4 @@
-package mvc
+package repository
 
 import (
 	"context"
@@ -22,6 +22,12 @@ type Tx interface {
 
 	// ClearAll clears all data. Returns an error if any.
 	ClearAll(ctx context.Context) error
+}
+
+// TxManager defines an interface for atomic transaction manager.
+type TxManager interface {
+	// StartTx starts a new atomic transaction.
+	StartTx() Tx
 }
 
 // RedisTx is a redis transaction.
@@ -76,9 +82,3 @@ func (rt *RedisTx) AsRedisTx() (*RedisTx, error) {
 }
 
 var _ Tx = &RedisTx{}
-
-// TxManager defines an interface for atomic transaction manager.
-type TxManager interface {
-	// StartTx starts a new atomic transaction.
-	StartTx() Tx
-}

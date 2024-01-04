@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqsdomain/repository"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
@@ -14,11 +15,11 @@ import (
 type RouterRepository interface {
 	GetTakerFee(ctx context.Context, denom0, denom1 string) (osmomath.Dec, error)
 	GetAllTakerFees(ctx context.Context) (domain.TakerFeeMap, error)
-	SetTakerFee(ctx context.Context, tx Tx, denom0, denom1 string, takerFee osmomath.Dec) error
+	SetTakerFee(ctx context.Context, tx repository.Tx, denom0, denom1 string, takerFee osmomath.Dec) error
 	// SetRoutesTx sets the routes for the given denoms in the given transaction.
 	// Sorts denom0 and denom1 lexicographically before setting the routes.
 	// Returns error if the transaction fails.
-	SetRoutesTx(ctx context.Context, tx Tx, denom0, denom1 string, routes route.CandidateRoutes) error
+	SetRoutesTx(ctx context.Context, tx repository.Tx, denom0, denom1 string, routes route.CandidateRoutes) error
 	// SetRoutes sets the routes for the given denoms. Creates a new transaction and executes it.
 	// Sorts denom0 and denom1 lexicographically before setting the routes.
 	// Returns error if the transaction fails.

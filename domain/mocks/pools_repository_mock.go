@@ -5,6 +5,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqsdomain/repository"
 )
 
 type RedisPoolsRepositoryMock struct {
@@ -27,7 +28,7 @@ func (r *RedisPoolsRepositoryMock) GetTickModelForPools(ctx context.Context, poo
 }
 
 // ClearAllPools implements domain.PoolsRepository.
-func (*RedisPoolsRepositoryMock) ClearAllPools(ctx context.Context, tx mvc.Tx) error {
+func (*RedisPoolsRepositoryMock) ClearAllPools(ctx context.Context, tx repository.Tx) error {
 	panic("unimplemented")
 }
 
@@ -41,7 +42,7 @@ func (r *RedisPoolsRepositoryMock) GetAllPools(context.Context) ([]domain.PoolI,
 }
 
 // StorePools implements domain.PoolsRepository.
-func (r *RedisPoolsRepositoryMock) StorePools(ctx context.Context, tx mvc.Tx, allPools []domain.PoolI) error {
+func (r *RedisPoolsRepositoryMock) StorePools(ctx context.Context, tx repository.Tx, allPools []domain.PoolI) error {
 	r.Pools = allPools
 	return nil
 }

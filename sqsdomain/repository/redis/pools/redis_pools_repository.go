@@ -1,4 +1,4 @@
-package redis
+package poolsredisrepo
 
 import (
 	"context"
@@ -13,13 +13,14 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/json"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqsdomain/repository"
 
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 )
 
 type redisPoolsRepo struct {
 	appCodec          codec.Codec
-	repositoryManager mvc.TxManager
+	repositoryManager repository.TxManager
 }
 
 type poolTicks struct {
@@ -35,8 +36,8 @@ const (
 	poolsKey = "pools"
 )
 
-// NewRedisPoolsRepo will create an implementation of pools.Repository
-func NewRedisPoolsRepo(appCodec codec.Codec, repositoryManager mvc.TxManager) mvc.PoolsRepository {
+// New will create an implementation of pools.Repository
+func New(appCodec codec.Codec, repositoryManager repository.TxManager) mvc.PoolsRepository {
 	return &redisPoolsRepo{
 		appCodec:          appCodec,
 		repositoryManager: repositoryManager,
@@ -127,7 +128,7 @@ func (r *redisPoolsRepo) GetPools(ctx context.Context, poolIDs map[uint64]struct
 	return pools, nil
 }
 
-func (r *redisPoolsRepo) StorePools(ctx context.Context, tx mvc.Tx, pools []domain.PoolI) error {
+func (r *redisPoolsRepo) StorePools(ctx context.Context, tx repository.Tx, pools []domain.PoolI) error {
 	if err := r.addPoolsTx(ctx, tx, poolsKey, pools); err != nil {
 		return err
 	}
@@ -135,7 +136,7 @@ func (r *redisPoolsRepo) StorePools(ctx context.Context, tx mvc.Tx, pools []doma
 	return nil
 }
 
-func (r *redisPoolsRepo) ClearAllPools(ctx context.Context, tx mvc.Tx) error {
+func (r *redisPoolsRepo) ClearAllPools(ctx context.Context, tx repository.Tx) error {
 	// CFMM pools
 	if err := r.deletePoolsTx(ctx, tx, poolsKey); err != nil {
 		return err
@@ -153,7 +154,7 @@ func (r *redisPoolsRepo) ClearAllPools(ctx context.Context, tx mvc.Tx) error {
 	return nil
 }
 
-func (r *redisPoolsRepo) requestPoolsAtomically(ctx context.Context, tx mvc.Tx, storeKey string) (sqsPoolMapByID *redis.MapStringStringCmd, chainPoolMapByID *redis.MapStringStringCmd, err error) {
+func (r *redisPoolsRepo) requestPoolsAtomically(ctx context.Context, tx repository.Tx, storeKey string) (sqsPoolMapByID *redis.MapStringStringCmd, chainPoolMapByID *redis.MapStringStringCmd, err error) {
 	if !tx.IsActive() {
 		return nil, nil, fmt.Errorf("tx is inactive")
 	}
@@ -212,7 +213,7 @@ func (r *redisPoolsRepo) getPools(sqsPoolMapByID, chainPoolMapByID map[string]st
 }
 
 // addPoolsTx pipelines the given pools at the given storeKey to be executed atomically in a transaction.
-func (r *redisPoolsRepo) addPoolsTx(ctx context.Context, tx mvc.Tx, storeKey string, pools []domain.PoolI) error {
+func (r *redisPoolsRepo) addPoolsTx(ctx context.Context, tx repository.Tx, storeKey string, pools []domain.PoolI) error {
 	redisTx, err := tx.AsRedisTx()
 	if err != nil {
 		return err
@@ -269,7 +270,7 @@ func (r *redisPoolsRepo) addPoolsTx(ctx context.Context, tx mvc.Tx, storeKey str
 }
 
 // deletePoolsTx pipelines the deletion of the pools at a given storeKey to be executed atomically in a transaction.
-func (r *redisPoolsRepo) deletePoolsTx(ctx context.Context, tx mvc.Tx, storeKey string) error {
+func (r *redisPoolsRepo) deletePoolsTx(ctx context.Context, tx repository.Tx, storeKey string) error {
 	redisTx, err := tx.AsRedisTx()
 	if err != nil {
 		return err
