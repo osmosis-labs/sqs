@@ -55,15 +55,15 @@ type Quote interface {
 }
 
 type RouterConfig struct {
-	PreferredPoolIDs   []uint64 `mapstructure:"preferred_pool_ids"`
-	MaxPoolsPerRoute   int      `mapstructure:"max_pools_per_route"`
-	MaxRoutes          int      `mapstructure:"max_routes"`
-	MaxSplitRoutes     int      `mapstructure:"max_split_routes"`
-	MaxSplitIterations int      `mapstructure:"max_split_iterations"`
+	PreferredPoolIDs   []uint64 `mapstructure:"preferred-pool-ids"`
+	MaxPoolsPerRoute   int      `mapstructure:"max-pools-per-route"`
+	MaxRoutes          int      `mapstructure:"max-routes"`
+	MaxSplitRoutes     int      `mapstructure:"max-split-routes"`
+	MaxSplitIterations int      `mapstructure:"max-split-iterations"`
 	// Denominated in OSMO (not uosmo)
-	MinOSMOLiquidity          int  `mapstructure:"min_osmo_liquidity"`
-	RouteUpdateHeightInterval int  `mapstructure:"route_update_height_interval"`
-	RouteCacheEnabled         bool `mapstructure:"route_cache_enabled"`
+	MinOSMOLiquidity          int  `mapstructure:"min-osmo-liquidity"`
+	RouteUpdateHeightInterval int  `mapstructure:"route-update-height-interval"`
+	RouteCacheEnabled         bool `mapstructure:"route-cache-enabled"`
 	// The number of seconds to cache routes for before expiry.
-	RouteCacheExpirySeconds uint64 `mapstructure:"route_cache_expiry_seconds"`
+	RouteCacheExpirySeconds uint64 `mapstructure:"route-cache-expiry-seconds"`
 }

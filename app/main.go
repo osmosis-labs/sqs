@@ -37,8 +37,15 @@ func main() {
 		panic(err)
 	}
 
-	dbHost := viper.GetString(`database.host`)
-	dbPort := viper.GetString(`database.port`)
+	// Unmarshal the config into your Config struct
+	var config Config
+	if err := viper.Unmarshal(&config); err != nil {
+		fmt.Println("Error unmarshalling config:", err)
+		return
+	}
+
+	fmt.Println("config", config)
+	fmt.Println(config.Router)
 
 	// Handle SIGINT and SIGTERM signals to initiate shutdown
 	exitChan := make(chan os.Signal, 1)
@@ -52,7 +59,7 @@ func main() {
 	}()
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", dbHost, dbPort),
+		Addr:     fmt.Sprintf("%s:%s", config.StorageHost, config.StoragePort),
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
@@ -63,10 +70,7 @@ func main() {
 		panic(err)
 	}
 
-	chainID := viper.GetString(`chain.id`)
-	chainNodeURI := viper.GetString(`chain.node_uri`)
-
-	chainClient, err := client.NewClient(chainID, chainNodeURI)
+	chainClient, err := client.NewClient(config.ChainID, config.ChainGRPCGatewayEndpoint)
 	if err != nil {
 		panic(err)
 	}
@@ -79,8 +83,6 @@ func main() {
 		panic(err)
 	}
 
-	config := DefaultConfig
-
 	encCfg := app.MakeEncodingConfig()
 
 	// logger
@@ -90,7 +92,7 @@ func main() {
 	}
 	logger.Info("Starting sidecar query server")
 
-	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, *config.Router, dbHost, dbPort, config.ServerAddress, config.ChainGRPCGatewayEndpoint, config.ServerTimeoutDurationSecs, logger)
+	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, *config.Router, config.StorageHost, config.StoragePort, config.ServerAddress, config.ChainGRPCGatewayEndpoint, config.ServerTimeoutDurationSecs, logger)
 	if err != nil {
 		panic(err)
 	}
