@@ -2,32 +2,41 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/osmosis-labs/osmosis/v21/app"
 	"github.com/osmosis-labs/sqs/chaininfo/client"
 	sqslog "github.com/osmosis-labs/sqs/log"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
+
+	"github.com/osmosis-labs/osmosis/v21/app"
 )
 
 func init() {
-	viper.SetConfigFile(`config.json`)
-	err := viper.ReadInConfig()
-	if err != nil {
-		panic(err)
-	}
-
 	if viper.GetBool(`debug`) {
 		log.Println("Service RUN on DEBUG mode")
 	}
 }
 
 func main() {
+	configPath := flag.String("config", "config.json", "config file location")
+
+	// Parse the command-line arguments
+	flag.Parse()
+
+	fmt.Println("configPath", *configPath)
+
+	viper.SetConfigFile(*configPath)
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
+
 	dbHost := viper.GetString(`database.host`)
 	dbPort := viper.GetString(`database.port`)
 
@@ -49,7 +58,7 @@ func main() {
 	})
 
 	redisStatus := redisClient.Ping(context.Background())
-	_, err := redisStatus.Result()
+	_, err = redisStatus.Result()
 	if err != nil {
 		panic(err)
 	}

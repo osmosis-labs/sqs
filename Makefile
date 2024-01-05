@@ -31,7 +31,7 @@ generate-mocks: mockery
 	bin/mockery --config mockery.yaml
 
 run:
-	go run app/*.go
+	go run app/*.go  --config config.json
 
 redis-start:
 	docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 -v ./redis-cache/:/data redis/redis-stack:7.2.0-v3
