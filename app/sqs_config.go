@@ -6,9 +6,6 @@ import (
 
 // Config defines the config for the sidecar query server.
 type Config struct {
-	// IsEnabled defines if the sidecar query server is enabled.
-	IsEnabled bool `mapstructure:"enabled"`
-
 	// Storage defines the storage host and port.
 	StorageHost string `mapstructure:"db-host"`
 	StoragePort string `mapstructure:"db-port"`
@@ -23,18 +20,14 @@ type Config struct {
 	LoggerLevel        string `mapstructure:"logger-level"`
 
 	ChainGRPCGatewayEndpoint string `mapstructure:"grpc-gateway-endpoint"`
+	ChainID                  string `mapstructure:"chain-id"`
 
 	// Router encapsulates the router config.
 	Router *domain.RouterConfig `mapstructure:"router"`
 }
 
-const groupOptName = "osmosis-sqs"
-
 // DefaultConfig defines the default config for the sidecar query server.
 var DefaultConfig = Config{
-
-	IsEnabled: false,
-
 	StorageHost: "localhost",
 	StoragePort: "6379",
 
@@ -46,16 +39,16 @@ var DefaultConfig = Config{
 	LoggerLevel:        "info",
 
 	ChainGRPCGatewayEndpoint: "http://localhost:26657",
+	ChainID:                  "osmosis-1",
 
 	Router: &domain.RouterConfig{
-		PreferredPoolIDs:          []uint64{},
-		MaxPoolsPerRoute:          4,
-		MaxRoutes:                 5,
-		MaxSplitRoutes:            3,
-		MaxSplitIterations:        10,
-		MinOSMOLiquidity:          10000, // 10_000 OSMO
-		RouteUpdateHeightInterval: 0,
-		RouteCacheEnabled:         false,
-		RouteCacheExpirySeconds:   600, // 10 minutes
+		PreferredPoolIDs:        []uint64{},
+		MaxPoolsPerRoute:        4,
+		MaxRoutes:               5,
+		MaxSplitRoutes:          3,
+		MaxSplitIterations:      10,
+		MinOSMOLiquidity:        10000, // 10_000 OSMO
+		RouteCacheEnabled:       false,
+		RouteCacheExpirySeconds: 600, // 10 minutes
 	},
 }
