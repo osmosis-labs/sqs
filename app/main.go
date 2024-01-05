@@ -42,10 +42,7 @@ func main() {
 	if err := viper.Unmarshal(&config); err != nil {
 		fmt.Println("Error unmarshalling config:", err)
 		return
-	}
-
-	fmt.Println("config", config)
-	fmt.Println(config.Router)
+  }
 
 	// Handle SIGINT and SIGTERM signals to initiate shutdown
 	exitChan := make(chan os.Signal, 1)
