@@ -43,5 +43,5 @@ EXPOSE 9092
 RUN apt-get update && \
     apt-get install curl vim nano -y
 
-ENTRYPOINT ["/bin/sqsd"]
+ENTRYPOINT cd /osmosis && /bin/sqsd
 
