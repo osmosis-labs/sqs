@@ -158,7 +158,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				// set on the router for this test.
 			}
 
-			poolsUseCaseMock := &sqsdomainmocks.PoolsUsecaseMock{
+			poolsUseCaseMock := &mocks.PoolsUsecaseMock{
 				// These are the pools returned by the call to GetAllPools
 				Pools: tc.repositoryPools,
 			}
