@@ -214,10 +214,6 @@ replace (
 	github.com/cosmos/gogoproto => github.com/cosmos/gogoproto v1.4.10
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
-	github.com/osmosis-labs/osmosis/v21 => ../osmosis
-
-	github.com/osmosis-labs/sqs/domain => ./sqsdomain
-
 	// github.com/osmosis-labs/osmosis/osmomath => ../osmosis/osmomath
 
 	// github.com/osmosis-labs/osmosis/osmoutils => ../osmosis/osmoutils
