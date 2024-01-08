@@ -140,9 +140,14 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository, redisTxManager)
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 
+	// Create an overwrite route cache if enabled.
+	// We keep it as nil by default.
+	// The relevant endpoints must check if it is set.
+	routesOverwrite := cache.CreateRoutesOverwrite(routerConfig.EnableOverwriteRoutesCache)
+
 	// Initialize router repository, usecase and HTTP handler
 	routerRepository := routerredisrepo.New(redisTxManager, routerConfig.RouteCacheExpirySeconds)
-	routerUsecase := routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, routerConfig, logger, cache.New())
+	routerUsecase := routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, routerConfig, logger, cache.New(), routesOverwrite)
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, logger)
 
 	// Initialize system handler

@@ -165,7 +165,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 
 			routerUseCase := usecase.NewRouterUsecase(defaultTimeoutDuration, routerRepositoryMock, poolsUseCaseMock, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheDisabled,
-			}, &log.NoOpLogger{}, cache.New())
+			}, &log.NoOpLogger{}, cache.New(), cache.NewNoOpRoutesOverwrite())
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
@@ -437,7 +437,7 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 //
 // For the purposes of testing cache, we focus on a small amount of token in (1_000_000 uosmo), expecting pool 1265 to be returned.
 // We will, however, tweak the cache by test case to force other pools to be returned and ensure that the cache is used.
-func (s *RouterTestSuite) TestGetOptimalQuote_Cache() {
+func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 	const (
 		defaultTokenInDenom  = UOSMO
 		defaultTokenOutDenom = ATOM
@@ -455,6 +455,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache() {
 
 	tests := map[string]struct {
 		preCachedRoutes              sqsdomain.CandidateRoutes
+		overwriteRoutes              sqsdomain.CandidateRoutes
 		cacheOrderOfMagnitudeTokenIn int
 
 		cacheExpiryDuration time.Duration
@@ -551,6 +552,68 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache() {
 			// We expect pool 1265 because the cache with balancer pool expires.
 			expectedRoutePoolID: poolID1265Concentrated,
 		},
+		"cache is not set, overwrites set, routes taken from overwrites (not computed)": {
+			amountIn: defaultAmountIn,
+
+			overwriteRoutes: sqsdomain.CandidateRoutes{
+				Routes: []sqsdomain.CandidateRoute{
+					{
+						Pools: []sqsdomain.CandidatePool{
+							{
+								ID:            poolIDOneBalancer,
+								TokenOutDenom: ATOM,
+							},
+						},
+					},
+				},
+				UniquePoolIDs: map[uint64]struct{}{
+					poolIDOneBalancer: {},
+				},
+			},
+
+			// For the default amount in, we expect pool 1265 to be returned.
+			// However, we overwrite the routes with pool of ID 1.
+			expectedRoutePoolID: poolIDOneBalancer,
+		},
+		"cache is set, overwrites set, routes taken from overwrites (not computed and not cache)": {
+			amountIn: defaultAmountIn,
+
+			overwriteRoutes: sqsdomain.CandidateRoutes{
+				Routes: []sqsdomain.CandidateRoute{
+					{
+						Pools: []sqsdomain.CandidatePool{
+							{
+								ID:            poolIDOneBalancer,
+								TokenOutDenom: ATOM,
+							},
+						},
+					},
+				},
+				UniquePoolIDs: map[uint64]struct{}{
+					poolIDOneBalancer: {},
+				},
+			},
+
+			preCachedRoutes: sqsdomain.CandidateRoutes{
+				Routes: []sqsdomain.CandidateRoute{
+					{
+						Pools: []sqsdomain.CandidatePool{
+							{
+								ID:            poolID1135Concentrated,
+								TokenOutDenom: ATOM,
+							},
+						},
+					},
+				},
+				UniquePoolIDs: map[uint64]struct{}{
+					poolID1135Concentrated: {},
+				},
+			},
+
+			// For the default amount in, we expect pool 1265 to be returned.
+			// However, we overwrite the routes (or cache) with pool of ID 1.
+			expectedRoutePoolID: poolIDOneBalancer,
+		},
 	}
 
 	for name, tc := range tests {
@@ -565,13 +628,18 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache() {
 			router, tickMap, takerFeeMap := s.setupMainnetRouter(config)
 
 			rankedRouteCache := cache.New()
+			routesOverwrite := cache.NewRoutesOverwrite()
 
 			if len(tc.preCachedRoutes.Routes) > 0 {
 				rankedRouteCache.Set(usecase.FormatRankedRouteCacheKey(defaultTokenInDenom, defaultTokenOutDenom, tc.cacheOrderOfMagnitudeTokenIn), tc.preCachedRoutes, tc.cacheExpiryDuration)
 			}
 
+			if len(tc.overwriteRoutes.Routes) > 0 {
+				routesOverwrite.Set(usecase.FormatRouteCacheKey(defaultTokenInDenom, defaultTokenOutDenom), tc.overwriteRoutes)
+			}
+
 			// Mock router use case.
-			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, defaultTokenInDenom, defaultTokenOutDenom, tickMap, takerFeeMap, rankedRouteCache)
+			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, defaultTokenInDenom, defaultTokenOutDenom, tickMap, takerFeeMap, rankedRouteCache, routesOverwrite)
 
 			// System under test
 			quote, err := routerUsecase.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom)

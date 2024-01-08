@@ -31,6 +31,8 @@ type routerUseCaseImpl struct {
 	config           domain.RouterConfig
 	logger           log.Logger
 
+	routesOverwrite *cache.RoutesOverwrite
+
 	rankedRouteCache *cache.Cache
 }
 
@@ -62,7 +64,7 @@ func init() {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, routesOverwrite *cache.RoutesOverwrite) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
 		contextTimeout:   timeout,
 		routerRepository: routerRepository,
@@ -71,6 +73,7 @@ func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.Ro
 		logger:           logger,
 
 		rankedRouteCache: rankedRouteCache,
+		routesOverwrite:  routesOverwrite,
 	}
 }
 
@@ -85,11 +88,17 @@ func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.Ro
 // - fails to estimate direct quotes for ranked routes
 // - fails to retrieve candidate routes
 func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error) {
+	preferredRouteCacheKey := formatRouteCacheKey(tokenIn.Denom, tokenOutDenom)
+	preferredRoute, hasPreferredRoute := r.routesOverwrite.Get(preferredRouteCacheKey)
+
 	// Get an order of magnitude for the token in amount
 	// This is used for caching ranked routes as these might differ depending on the amount swapped in.
 	tokenInOrderOfMagnitude := osmomath.OrderOfMagnitude(tokenIn.Amount.ToLegacyDec())
 
-	rankedRoutesData, hasRankedRoutesInCache := r.rankedRouteCache.Get(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+	// If no preferred route is found, check if we have ranked routes in cache
+	if !hasPreferredRoute {
+		preferredRoute, hasPreferredRoute = r.rankedRouteCache.Get(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+	}
 
 	var (
 		rankedRoutes        []route.RouteImpl
@@ -105,17 +114,19 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		return nil, err
 	}
 
-	if hasRankedRoutesInCache {
+	// Preferred route in this context is either an overwrite or a cached ranked route.
+	// If an overwrite exists, it is always used over the ranked route.
+	if hasPreferredRoute {
 		// Increase cache hits
 		cacheHits.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom).Inc()
 
-		rankedCandidateRoutes, ok := rankedRoutesData.(sqsdomain.CandidateRoutes)
+		preferredRankedRoutes, ok := preferredRoute.(sqsdomain.CandidateRoutes)
 		if !ok {
 			return nil, fmt.Errorf("error casting ranked routes from cache")
 		}
 
 		// If top routes are present in cache, estimate the quotes and return the best.
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, router, rankedCandidateRoutes, tokenIn, tokenOutDenom)
+		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, router, preferredRankedRoutes, tokenIn, tokenOutDenom)
 		if err != nil {
 			return nil, err
 		}
@@ -562,9 +573,14 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles(ctx context.Context) error {
 	return nil
 }
 
+// formatRouteCacheKey formats the given token in and token out denoms to a string.
+func formatRouteCacheKey(tokenInDenom string, tokenOutDenom string) string {
+	return fmt.Sprintf("%s/%s", tokenInDenom, tokenOutDenom)
+}
+
 // formatRankedRouteCacheKey formats the given token in and token out denoms and order of magnitude to a string.
 func formatRankedRouteCacheKey(tokenInDenom string, tokenOutDenom string, tokenIOrderOfMagnitude int) string {
-	return fmt.Sprintf("%s/%s/%d", tokenInDenom, tokenOutDenom, tokenIOrderOfMagnitude)
+	return fmt.Sprintf("%s/%d", formatRouteCacheKey(tokenInDenom, tokenOutDenom), tokenIOrderOfMagnitude)
 }
 
 // convertRankedToCandidateRoutes converts the given ranked routes to candidate routes.

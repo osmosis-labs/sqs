@@ -18,6 +18,7 @@
       "min-osmo-liquidity": 10000,
       "route-cache-enabled": true,
       "route-cache-expiry-seconds": 600
-    }
+    },
+    "enable-overwrite-routes-cache": true
   }
   

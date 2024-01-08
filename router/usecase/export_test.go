@@ -61,3 +61,7 @@ func ConvertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.Ca
 func FormatRankedRouteCacheKey(tokenInDenom string, tokenOutDenom string, tokenIOrderOfMagnitude int) string {
 	return formatRankedRouteCacheKey(tokenInDenom, tokenOutDenom, tokenIOrderOfMagnitude)
 }
+
+func FormatRouteCacheKey(tokenInDenom string, tokenOutDenom string) string {
+	return formatRouteCacheKey(tokenInDenom, tokenOutDenom)
+}
