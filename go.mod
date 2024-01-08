@@ -235,3 +235,5 @@ exclude github.com/coinbase/rosetta-sdk-go v0.7.9
 exclude github.com/cosmos/cosmos-sdk v0.50.1
 
 exclude github.com/cometbft/cometbft v0.38.0
+
+exclude github.com/onsi/ginkgo v1.16.4
