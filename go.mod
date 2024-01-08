@@ -1,6 +1,6 @@
 module github.com/osmosis-labs/sqs
 
-go 1.21
+go 1.20
 
 require (
 	cosmossdk.io/math v1.1.3-rc.1
@@ -9,7 +9,7 @@ require (
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20231230033922-af0ba43e918a
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20231230033922-af0ba43e918a
-	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240104204421-6b55d8fda179
+	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240108020045-ce7408a2484d
 	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240104023234-1209f788ec4c
 	github.com/prometheus/client_golang v1.17.0
 	github.com/redis/go-redis/v9 v9.3.1
@@ -17,7 +17,6 @@ require (
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
-	google.golang.org/grpc v1.59.0
 )
 
 require (
@@ -27,6 +26,7 @@ require (
 	github.com/gtank/ristretto255 v0.1.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20210601165009-122bf33a46e0 // indirect
+	google.golang.org/grpc v1.59.0 // indirect
 )
 
 require (

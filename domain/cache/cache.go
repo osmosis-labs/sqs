@@ -29,7 +29,10 @@ func (c *Cache) Set(key string, value interface{}, expiration time.Duration) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	expirationTime := time.Now().Add(expiration)
+	expirationTime := time.Time{}
+	if expiration != noExpiration {
+		expirationTime = time.Now().Add(expiration)
+	}
 	c.data[key] = CacheItem{
 		Value:      value,
 		Expiration: expirationTime,
@@ -46,7 +49,7 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 		return nil, false
 	}
 
-	if time.Now().After(item.Expiration) {
+	if !item.Expiration.IsZero() && time.Now().After(item.Expiration) {
 		// Unlock before locking again
 		c.mutex.RUnlock()
 
@@ -60,4 +63,12 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	c.mutex.RUnlock()
 
 	return item.Value, true
+}
+
+// Delete removes an item from the cache.
+func (c *Cache) Delete(key string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	delete(c.data, key)
 }

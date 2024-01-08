@@ -127,3 +127,55 @@ func TestConcurrentCache(t *testing.T) {
 		}
 	}
 }
+
+func TestCache_SetExpiration(t *testing.T) {
+	c := cache.New()
+
+	tests := []struct {
+		name        string
+		key         string
+		value       interface{}
+		expiration  time.Duration
+		expectExist bool
+	}{
+		{
+			name:        "Set with Expiration - Key Exists",
+			key:         "key1",
+			value:       "value1",
+			expiration:  100 * time.Millisecond,
+			expectExist: true,
+		},
+		{
+			name:        "Set with Expiration - Key Expires",
+			key:         "key2",
+			value:       "value2",
+			expiration:  50 * time.Millisecond,
+			expectExist: false,
+		},
+		{
+			name:        "Set with No Expiration - Key Exists",
+			key:         "key3",
+			value:       "value3",
+			expiration:  cache.NoExpiration,
+			expectExist: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c.Set(tt.key, tt.value, tt.expiration)
+			time.Sleep(75 * time.Millisecond) // Sleep to wait for expiration in the second test case
+
+			// Check if the key exists in the cache
+			value, exists := c.Get(tt.key)
+			if exists != tt.expectExist {
+				t.Errorf("Expected key %s to exist: %v, got: %v", tt.key, tt.expectExist, exists)
+			}
+
+			// If the key is expected to exist, also check if the value matches
+			if tt.expectExist && value != tt.value {
+				t.Errorf("Expected value for key %s: %v, got: %v", tt.key, tt.value, value)
+			}
+		})
+	}
+}

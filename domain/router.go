@@ -66,4 +66,6 @@ type RouterConfig struct {
 	RouteCacheEnabled         bool `mapstructure:"route-cache-enabled"`
 	// The number of seconds to cache routes for before expiry.
 	RouteCacheExpirySeconds uint64 `mapstructure:"route-cache-expiry-seconds"`
+	// Flag indicating whether we should have a cache for overwrite routes enabled.
+	EnableOverwriteRoutesCache bool `mapstructure:"enable-overwrite-routes-cache"`
 }

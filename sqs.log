@@ -1,758 +1,252 @@
-{"level":"info","ts":1704316748.3634188,"msg":"log level","is_debug":false,"log_level":"info"}
-{"level":"info","ts":1704316748.363472,"msg":"Starting sidecar query server"}
-{"level":"info","ts":1704316748.363504,"msg":"Pinging redis","redis_address":"0.0.0.0:6379"}
-{"level":"info","ts":1704316748.3647153,"msg":"Starting sidecar query server","address":":9092"}
-{"level":"info","ts":1704316748.3650703,"msg":"Starting profiling server"}
-{"level":"info","ts":1704317177.850565,"msg":"pool count in router ","pool_count":249}
-{"level":"info","ts":1704317177.8506641,"msg":"pool","index":0,"pool":1212,"rate":"195195646775061","tvl":"426759746306","tvl_error":""}
-{"level":"info","ts":1704317177.8506887,"msg":"pool","index":1,"pool":1135,"rate":"73961346002522","tvl":"8178476873605","tvl_error":""}
-{"level":"info","ts":1704317177.8507092,"msg":"pool","index":2,"pool":1134,"rate":"69937301749977","tvl":"4154432621060","tvl_error":""}
-{"level":"info","ts":1704317177.8507245,"msg":"pool","index":3,"pool":1093,"rate":"68345747064334","tvl":"2562877935417","tvl_error":""}
-{"level":"info","ts":1704317177.8507452,"msg":"pool","index":4,"pool":1220,"rate":"67944497080720","tvl":"2161627951803","tvl_error":""}
-{"level":"info","ts":1704317177.8507602,"msg":"pool","index":5,"pool":1319,"rate":"67868035694905","tvl":"2085166565988","tvl_error":""}
-{"level":"info","ts":1704317177.850782,"msg":"pool","index":6,"pool":1133,"rate":"67665278012428","tvl":"1882408883511","tvl_error":""}
-{"level":"info","ts":1704317177.850798,"msg":"pool","index":7,"pool":1090,"rate":"67594925959114","tvl":"1812056830197","tvl_error":""}
-{"level":"info","ts":1704317177.8508117,"msg":"pool","index":8,"pool":1221,"rate":"67052399572581","tvl":"1269530443664","tvl_error":""}
-{"level":"info","ts":1704317177.850826,"msg":"pool","index":9,"pool":1314,"rate":"67024396572073","tvl":"1241527443156","tvl_error":""}
-{"level":"info","ts":1704317177.8508487,"msg":"pool","index":10,"pool":1251,"rate":"66944580692962","tvl":"1161711564045","tvl_error":""}
-{"level":"info","ts":1704317177.8508687,"msg":"pool","index":11,"pool":1248,"rate":"66876255814697","tvl":"1093386685780","tvl_error":""}
-{"level":"info","ts":1704317177.850882,"msg":"pool","index":12,"pool":1096,"rate":"66525469229969","tvl":"742600101052","tvl_error":""}
-{"level":"info","ts":1704317177.850896,"msg":"pool","index":13,"pool":1265,"rate":"66506523654382","tvl":"723654525465","tvl_error":""}
-{"level":"info","ts":1704317177.85091,"msg":"pool","index":14,"pool":1150,"rate":"66378922096506","tvl":"596052967589","tvl_error":""}
-{"level":"info","ts":1704317177.8509262,"msg":"pool","index":15,"pool":1097,"rate":"66377452977868","tvl":"594583848951","tvl_error":""}
-{"level":"info","ts":1704317177.8509448,"msg":"pool","index":16,"pool":1094,"rate":"66339756406996","tvl":"556887278079","tvl_error":""}
-{"level":"info","ts":1704317177.8509593,"msg":"pool","index":17,"pool":1325,"rate":"66232601872778","tvl":"449732743861","tvl_error":""}
-{"level":"info","ts":1704317177.8509781,"msg":"pool","index":18,"pool":1223,"rate":"66229972753614","tvl":"447103624697","tvl_error":""}
-{"level":"info","ts":1704317177.850999,"msg":"pool","index":19,"pool":1092,"rate":"66208750085996","tvl":"425880957079","tvl_error":""}
-{"level":"info","ts":1704317177.8510134,"msg":"pool","index":20,"pool":1066,"rate":"66184493768108","tvl":"401624639191","tvl_error":""}
-{"level":"info","ts":1704317177.851032,"msg":"pool","index":21,"pool":1110,"rate":"66153578416891","tvl":"370709287974","tvl_error":""}
-{"level":"info","ts":1704317177.8510501,"msg":"pool","index":22,"pool":1246,"rate":"66139482570476","tvl":"356613441559","tvl_error":""}
-{"level":"info","ts":1704317177.8510642,"msg":"pool","index":23,"pool":1281,"rate":"66116915197885","tvl":"334046068968","tvl_error":""}
-{"level":"info","ts":1704317177.8510828,"msg":"pool","index":24,"pool":1264,"rate":"66115770231828","tvl":"332901102911","tvl_error":""}
-{"level":"info","ts":1704317177.8510973,"msg":"pool","index":25,"pool":1247,"rate":"66085673422631","tvl":"302804293714","tvl_error":""}
-{"level":"info","ts":1704317177.8511117,"msg":"pool","index":26,"pool":1103,"rate":"66084372391634","tvl":"301503262717","tvl_error":""}
-{"level":"info","ts":1704317177.851144,"msg":"pool","index":27,"pool":1098,"rate":"66081235336791","tvl":"298366207874","tvl_error":""}
-{"level":"info","ts":1704317177.85116,"msg":"pool","index":28,"pool":1136,"rate":"66054529022041","tvl":"1561520072122","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
-{"level":"info","ts":1704317177.8511817,"msg":"pool","index":29,"pool":1263,"rate":"66042972964504","tvl":"260103835587","tvl_error":""}
-{"level":"info","ts":1704317177.8512018,"msg":"pool","index":30,"pool":1095,"rate":"66028514252943","tvl":"245645124026","tvl_error":""}
-{"level":"info","ts":1704317177.8512158,"msg":"pool","index":31,"pool":1104,"rate":"66006115347220","tvl":"223246218303","tvl_error":""}
-{"level":"info","ts":1704317177.8512375,"msg":"pool","index":32,"pool":1215,"rate":"65975392957616","tvl":"192523828699","tvl_error":""}
-{"level":"info","ts":1704317177.851252,"msg":"pool","index":33,"pool":1205,"rate":"65966008918491","tvl":"183139789574","tvl_error":""}
-{"level":"info","ts":1704317177.8512669,"msg":"pool","index":34,"pool":1099,"rate":"65940742512558","tvl":"157873383641","tvl_error":""}
-{"level":"info","ts":1704317177.8512847,"msg":"pool","index":35,"pool":1111,"rate":"65939814447145","tvl":"156945318228","tvl_error":""}
-{"level":"info","ts":1704317177.8512993,"msg":"pool","index":36,"pool":1114,"rate":"65939394808031","tvl":"156525679114","tvl_error":""}
-{"level":"info","ts":1704317177.8513138,"msg":"pool","index":37,"pool":1297,"rate":"65935230420838","tvl":"152361291921","tvl_error":""}
-{"level":"info","ts":1704317177.8513284,"msg":"pool","index":38,"pool":1077,"rate":"65928810838302","tvl":"145941709385","tvl_error":""}
-{"level":"info","ts":1704317177.8513489,"msg":"pool","index":39,"pool":1252,"rate":"65912549995338","tvl":"129680866421","tvl_error":""}
-{"level":"info","ts":1704317177.8513706,"msg":"pool","index":40,"pool":1101,"rate":"65910518256394","tvl":"127649127477","tvl_error":""}
-{"level":"info","ts":1704317177.8513844,"msg":"pool","index":41,"pool":1106,"rate":"65902823426568","tvl":"119954297651","tvl_error":""}
-{"level":"info","ts":1704317177.8514054,"msg":"pool","index":42,"pool":1108,"rate":"65896548574180","tvl":"113679445263","tvl_error":""}
-{"level":"info","ts":1704317177.8514194,"msg":"pool","index":43,"pool":1224,"rate":"65892837410161","tvl":"109968281244","tvl_error":""}
-{"level":"info","ts":1704317177.8514376,"msg":"pool","index":44,"pool":1091,"rate":"65891514146027","tvl":"108645017110","tvl_error":""}
-{"level":"info","ts":1704317177.8514597,"msg":"pool","index":45,"pool":1277,"rate":"65873720261084","tvl":"90851132167","tvl_error":""}
-{"level":"info","ts":1704317177.8514707,"msg":"pool","index":46,"pool":1100,"rate":"65871738485128","tvl":"88869356211","tvl_error":""}
-{"level":"info","ts":1704317177.851482,"msg":"pool","index":47,"pool":1318,"rate":"65870107191599","tvl":"87238062682","tvl_error":""}
-{"level":"info","ts":1704317177.8514924,"msg":"pool","index":48,"pool":1273,"rate":"65863444598174","tvl":"80575469257","tvl_error":""}
-{"level":"info","ts":1704317177.851517,"msg":"pool","index":49,"pool":1260,"rate":"65863150872773","tvl":"80281743856","tvl_error":""}
-{"level":"info","ts":1704317177.8515317,"msg":"pool","index":50,"pool":1282,"rate":"65851487020304","tvl":"68617891387","tvl_error":""}
-{"level":"info","ts":1704317177.8515465,"msg":"pool","index":51,"pool":1337,"rate":"65849472062213","tvl":"66602933296","tvl_error":""}
-{"level":"info","ts":1704317177.8515708,"msg":"pool","index":52,"pool":1261,"rate":"65845838109944","tvl":"62968981027","tvl_error":""}
-{"level":"info","ts":1704317177.8515866,"msg":"pool","index":53,"pool":1271,"rate":"65844035768317","tvl":"61166639400","tvl_error":""}
-{"level":"info","ts":1704317177.851604,"msg":"pool","index":54,"pool":1170,"rate":"65843867467795","tvl":"60998338878","tvl_error":""}
-{"level":"info","ts":1704317177.8516238,"msg":"pool","index":55,"pool":1105,"rate":"65843038320950","tvl":"60169192033","tvl_error":""}
-{"level":"info","ts":1704317177.8516507,"msg":"pool","index":56,"pool":1161,"rate":"65838415748912","tvl":"55546619995","tvl_error":""}
-{"level":"info","ts":1704317177.8516665,"msg":"pool","index":57,"pool":1324,"rate":"65836877999315","tvl":"54008870398","tvl_error":""}
-{"level":"info","ts":1704317177.851682,"msg":"pool","index":58,"pool":1088,"rate":"65836032369517","tvl":"53163240600","tvl_error":""}
-{"level":"info","ts":1704317177.8516982,"msg":"pool","index":59,"pool":1081,"rate":"65831214976337","tvl":"48345847420","tvl_error":""}
-{"level":"info","ts":1704317177.851725,"msg":"pool","index":60,"pool":1158,"rate":"65828037013614","tvl":"45167884697","tvl_error":""}
-{"level":"info","ts":1704317177.8517473,"msg":"pool","index":61,"pool":1323,"rate":"65826188045935","tvl":"43318917018","tvl_error":""}
-{"level":"info","ts":1704317177.8517618,"msg":"pool","index":62,"pool":1078,"rate":"65825516510560","tvl":"42647381643","tvl_error":""}
-{"level":"info","ts":1704317177.85178,"msg":"pool","index":63,"pool":1109,"rate":"65817538277967","tvl":"34669149050","tvl_error":""}
-{"level":"info","ts":1704317177.8517988,"msg":"pool","index":64,"pool":1268,"rate":"65813642672213","tvl":"30773543296","tvl_error":""}
-{"level":"info","ts":1704317177.851809,"msg":"pool","index":65,"pool":1321,"rate":"65813066385432","tvl":"30197256515","tvl_error":""}
-{"level":"info","ts":1704317177.8518193,"msg":"pool","index":66,"pool":1334,"rate":"65808091122757","tvl":"25221993840","tvl_error":""}
-{"level":"info","ts":1704317177.8518333,"msg":"pool","index":67,"pool":1113,"rate":"65800373230632","tvl":"17504101715","tvl_error":""}
-{"level":"info","ts":1704317177.8518515,"msg":"pool","index":68,"pool":1279,"rate":"65796804452651","tvl":"13935323734","tvl_error":""}
-{"level":"info","ts":1704317177.8518736,"msg":"pool","index":69,"pool":1301,"rate":"65796779744424","tvl":"13910615507","tvl_error":""}
-{"level":"info","ts":1704317177.8518877,"msg":"pool","index":70,"pool":1258,"rate":"65796738347879","tvl":"13869218962","tvl_error":""}
-{"level":"info","ts":1704317177.8519015,"msg":"pool","index":71,"pool":1107,"rate":"65796471802064","tvl":"13602673147","tvl_error":""}
-{"level":"info","ts":1704317177.851916,"msg":"pool","index":72,"pool":1267,"rate":"65796356320186","tvl":"13487191269","tvl_error":""}
-{"level":"info","ts":1704317177.8519309,"msg":"pool","index":73,"pool":1274,"rate":"65795139826810","tvl":"12270697893","tvl_error":""}
-{"level":"info","ts":1704317177.851945,"msg":"pool","index":74,"pool":1245,"rate":"65794929274375","tvl":"12060145458","tvl_error":""}
-{"level":"info","ts":1704317177.851968,"msg":"pool","index":75,"pool":1116,"rate":"65793430541744","tvl":"10561412827","tvl_error":""}
-{"level":"info","ts":1704317177.8519824,"msg":"pool","index":76,"pool":1283,"rate":"65247482172721","tvl":"754473222802","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
-{"level":"info","ts":1704317177.8520064,"msg":"pool","index":77,"pool":1335,"rate":"65086075563167","tvl":"593066613248","tvl_error":"highest liquidity pool between base uosmo and match denom factory/osmo1f5vfcph2dvfeqcqkhetwv75fda69z7e5c2dldm3kvgj23crkv6wqcn47a0/umilkTIA not found"}
-{"level":"info","ts":1704317177.852023,"msg":"pool","index":78,"pool":1213,"rate":"64807568693524","tvl":"314559743605","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/FBB3FEF80ED2344D821D4F95C31DBFD33E4E31D5324CAD94EF756E67B749F668 not found"}
-{"level":"info","ts":1704317177.8520484,"msg":"pool","index":79,"pool":1227,"rate":"64725913378853","tvl":"232904428934","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/B66CE615C600ED0A8B5AF425ECFE0D57BE2377587F66C45934A76886F34DC9B7 not found"}
-{"level":"info","ts":1704317177.8520646,"msg":"pool","index":80,"pool":1230,"rate":"64540823821720","tvl":"47814871801","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/01D2F0C4739C871BFBEE7E786709E6904A55559DC1483DD92ED392EF12247862 not found"}
-{"level":"info","ts":1704317177.8520956,"msg":"pool","index":81,"pool":1294,"rate":"64530614446875","tvl":"37605496956","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/1E43D59E565D41FB4E54CA639B838FFD5BCFC20003D330A56CB1396231AA1CBA not found"}
-{"level":"info","ts":1704317177.852118,"msg":"pool","index":82,"pool":1305,"rate":"64511882371157","tvl":"18873421238","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/6928AFA9EA721938FED13B051F9DBF1272B16393D20C49EA5E4901BB76D94A90 not found"}
-{"level":"info","ts":1704317177.8521383,"msg":"pool","index":83,"pool":1292,"rate":"64505404010635","tvl":"12395060716","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/2F21E6D4271DE3F561F20A02CD541DAF7405B1E9CB3B9B07E3C2AC7D8A4338A5 not found"}
-{"level":"info","ts":1704317177.8521554,"msg":"pool","index":84,"pool":833,"rate":"26274199223491","tvl":"24984339044493","tvl_error":""}
-{"level":"info","ts":1704317177.8521714,"msg":"pool","index":85,"pool":1,"rate":"15857082492689","tvl":"14567222313691","tvl_error":""}
-{"level":"info","ts":1704317177.8521984,"msg":"pool","index":86,"pool":704,"rate":"5522655270985","tvl":"4232795091987","tvl_error":""}
-{"level":"info","ts":1704317177.8522255,"msg":"pool","index":87,"pool":803,"rate":"4497713355831","tvl":"4497713355831","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
-{"level":"info","ts":1704317177.8522415,"msg":"pool","index":88,"pool":678,"rate":"4209652727163","tvl":"2919792548165","tvl_error":""}
-{"level":"info","ts":1704317177.8522558,"msg":"pool","index":89,"pool":712,"rate":"3846557660104","tvl":"2556697481106","tvl_error":""}
-{"level":"info","ts":1704317177.8522704,"msg":"pool","index":90,"pool":812,"rate":"3292749247134","tvl":"2002889068136","tvl_error":""}
-{"level":"info","ts":1704317177.852285,"msg":"pool","index":91,"pool":1057,"rate":"3166548400845","tvl":"1876688221847","tvl_error":""}
-{"level":"info","ts":1704317177.8522995,"msg":"pool","index":92,"pool":796,"rate":"2999650974981","tvl":"1709790795983","tvl_error":""}
-{"level":"info","ts":1704317177.8523252,"msg":"pool","index":93,"pool":725,"rate":"2964216462553","tvl":"1674356283555","tvl_error":""}
-{"level":"info","ts":1704317177.8523397,"msg":"pool","index":94,"pool":722,"rate":"2759491545785","tvl":"1469631366787","tvl_error":""}
-{"level":"info","ts":1704317177.8523614,"msg":"pool","index":95,"pool":3,"rate":"2291535478625","tvl":"1001675299627","tvl_error":""}
-{"level":"info","ts":1704317177.852377,"msg":"pool","index":96,"pool":604,"rate":"2241121250638","tvl":"951261071640","tvl_error":""}
-{"level":"info","ts":1704317177.8523989,"msg":"pool","index":97,"pool":681,"rate":"2134763149682","tvl":"844902970684","tvl_error":""}
-{"level":"info","ts":1704317177.8524246,"msg":"pool","index":98,"pool":1241,"rate":"2093595589858","tvl":"803735410860","tvl_error":""}
-{"level":"info","ts":1704317177.8524442,"msg":"pool","index":99,"pool":9,"rate":"2070999780592","tvl":"781139601594","tvl_error":""}
-{"level":"info","ts":1704317177.8524632,"msg":"pool","index":100,"pool":4,"rate":"1931360516002","tvl":"641500337004","tvl_error":""}
-{"level":"info","ts":1704317177.8524787,"msg":"pool","index":101,"pool":832,"rate":"1907424210169","tvl":"617564031171","tvl_error":""}
-{"level":"info","ts":1704317177.8525045,"msg":"pool","index":102,"pool":840,"rate":"1907353310629","tvl":"617493131631","tvl_error":""}
-{"level":"info","ts":1704317177.8525195,"msg":"pool","index":103,"pool":1233,"rate":"1904743058999","tvl":"614882880001","tvl_error":""}
-{"level":"info","ts":1704317177.852536,"msg":"pool","index":104,"pool":1244,"rate":"1904325506912","tvl":"614465327914","tvl_error":""}
-{"level":"info","ts":1704317177.8525507,"msg":"pool","index":105,"pool":806,"rate":"1863210312110","tvl":"573350133112","tvl_error":""}
-{"level":"info","ts":1704317177.8525739,"msg":"pool","index":106,"pool":674,"rate":"1829711004269","tvl":"539850825271","tvl_error":""}
-{"level":"info","ts":1704317177.8526056,"msg":"pool","index":107,"pool":1173,"rate":"1817189778829","tvl":"527329599831","tvl_error":""}
-{"level":"info","ts":1704317177.852622,"msg":"pool","index":108,"pool":584,"rate":"1749777775313","tvl":"459917596315","tvl_error":""}
-{"level":"info","ts":1704317177.8526373,"msg":"pool","index":109,"pool":497,"rate":"1745625623309","tvl":"455765444311","tvl_error":""}
-{"level":"info","ts":1704317177.852652,"msg":"pool","index":110,"pool":1225,"rate":"1687635176313","tvl":"397774997315","tvl_error":""}
-{"level":"info","ts":1704317177.8526711,"msg":"pool","index":111,"pool":799,"rate":"1644453877750","tvl":"354593698752","tvl_error":""}
-{"level":"info","ts":1704317177.8526888,"msg":"pool","index":112,"pool":611,"rate":"1634528507477","tvl":"344668328479","tvl_error":""}
-{"level":"info","ts":1704317177.8527148,"msg":"pool","index":113,"pool":1041,"rate":"1623770718002","tvl":"333910539004","tvl_error":""}
-{"level":"info","ts":1704317177.8527298,"msg":"pool","index":114,"pool":560,"rate":"1617783921797","tvl":"327923742799","tvl_error":""}
-{"level":"info","ts":1704317177.852749,"msg":"pool","index":115,"pool":1226,"rate":"1596318791898","tvl":"306458612900","tvl_error":""}
-{"level":"info","ts":1704317177.8527646,"msg":"pool","index":116,"pool":789,"rate":"1594367238449","tvl":"304507059451","tvl_error":""}
-{"level":"info","ts":1704317177.852791,"msg":"pool","index":117,"pool":498,"rate":"1584749833772","tvl":"294889654774","tvl_error":""}
-{"level":"info","ts":1704317177.8528094,"msg":"pool","index":118,"pool":571,"rate":"1579054776059","tvl":"289194597061","tvl_error":""}
-{"level":"info","ts":1704317177.8528264,"msg":"pool","index":119,"pool":608,"rate":"1551173527577","tvl":"261313348579","tvl_error":""}
-{"level":"info","ts":1704317177.8528411,"msg":"pool","index":120,"pool":586,"rate":"1548172854649","tvl":"258312675651","tvl_error":""}
-{"level":"info","ts":1704317177.852858,"msg":"pool","index":121,"pool":6,"rate":"1544630931682","tvl":"254770752684","tvl_error":""}
-{"level":"info","ts":1704317177.8528852,"msg":"pool","index":122,"pool":2,"rate":"1532485262528","tvl":"242625083530","tvl_error":""}
-{"level":"info","ts":1704317177.8529031,"msg":"pool","index":123,"pool":463,"rate":"1522767844429","tvl":"232907665431","tvl_error":""}
-{"level":"info","ts":1704317177.852913,"msg":"pool","index":124,"pool":42,"rate":"1521313504499","tvl":"231453325501","tvl_error":""}
-{"level":"info","ts":1704317177.852923,"msg":"pool","index":125,"pool":572,"rate":"1520611955346","tvl":"230751776348","tvl_error":""}
-{"level":"info","ts":1704317177.8529332,"msg":"pool","index":126,"pool":899,"rate":"1519758999658","tvl":"229898820660","tvl_error":""}
-{"level":"info","ts":1704317177.852948,"msg":"pool","index":127,"pool":587,"rate":"1516809753602","tvl":"226949574604","tvl_error":""}
-{"level":"info","ts":1704317177.8529708,"msg":"pool","index":128,"pool":5,"rate":"1515788991297","tvl":"225928812299","tvl_error":""}
-{"level":"info","ts":1704317177.8529906,"msg":"pool","index":129,"pool":744,"rate":"1514597922229","tvl":"224737743231","tvl_error":""}
-{"level":"info","ts":1704317177.8530145,"msg":"pool","index":130,"pool":992,"rate":"1502048313856","tvl":"212188134858","tvl_error":""}
-{"level":"info","ts":1704317177.85303,"msg":"pool","index":131,"pool":10,"rate":"1497781470776","tvl":"207921291778","tvl_error":""}
-{"level":"info","ts":1704317177.8530512,"msg":"pool","index":132,"pool":1249,"rate":"1490219634983","tvl":"200359455985","tvl_error":""}
-{"level":"info","ts":1704317177.8530655,"msg":"pool","index":133,"pool":777,"rate":"1484637633606","tvl":"194777454608","tvl_error":""}
-{"level":"info","ts":1704317177.8530893,"msg":"pool","index":134,"pool":1320,"rate":"1484581623003","tvl":"194721444005","tvl_error":""}
-{"level":"info","ts":1704317177.8531153,"msg":"pool","index":135,"pool":605,"rate":"1480277206501","tvl":"190417027503","tvl_error":""}
-{"level":"info","ts":1704317177.8531313,"msg":"pool","index":136,"pool":816,"rate":"1477403171399","tvl":"187542992401","tvl_error":""}
-{"level":"info","ts":1704317177.8531568,"msg":"pool","index":137,"pool":907,"rate":"1466972789217","tvl":"177112610219","tvl_error":""}
-{"level":"info","ts":1704317177.8531723,"msg":"pool","index":138,"pool":1075,"rate":"1461762179113","tvl":"171902000115","tvl_error":""}
-{"level":"info","ts":1704317177.8531866,"msg":"pool","index":139,"pool":585,"rate":"1457410662688","tvl":"167550483690","tvl_error":""}
-{"level":"info","ts":1704317177.853201,"msg":"pool","index":140,"pool":1046,"rate":"1447272156818","tvl":"157411977820","tvl_error":""}
-{"level":"info","ts":1704317177.853216,"msg":"pool","index":141,"pool":627,"rate":"1444966236241","tvl":"155106057243","tvl_error":""}
-{"level":"info","ts":1704317177.853235,"msg":"pool","index":142,"pool":481,"rate":"1443619839870","tvl":"153759660872","tvl_error":""}
-{"level":"info","ts":1704317177.8532493,"msg":"pool","index":143,"pool":1036,"rate":"1434262021165","tvl":"144401842167","tvl_error":""}
-{"level":"info","ts":1704317177.8532693,"msg":"pool","index":144,"pool":15,"rate":"1418343921922","tvl":"128483742924","tvl_error":""}
-{"level":"info","ts":1704317177.853284,"msg":"pool","index":145,"pool":1121,"rate":"1413505019537","tvl":"123644840539","tvl_error":""}
-{"level":"info","ts":1704317177.8533056,"msg":"pool","index":146,"pool":773,"rate":"1403945195733","tvl":"114085016735","tvl_error":""}
-{"level":"info","ts":1704317177.8533206,"msg":"pool","index":147,"pool":629,"rate":"1395635556065","tvl":"105775377067","tvl_error":""}
-{"level":"info","ts":1704317177.853345,"msg":"pool","index":148,"pool":952,"rate":"1391095900582","tvl":"101235721584","tvl_error":""}
-{"level":"info","ts":1704317177.8533597,"msg":"pool","index":149,"pool":1020,"rate":"1390315670337","tvl":"100455491339","tvl_error":""}
-{"level":"info","ts":1704317177.8533819,"msg":"pool","index":150,"pool":1180,"rate":"1386342095604","tvl":"96481916606","tvl_error":""}
-{"level":"info","ts":1704317177.8534014,"msg":"pool","index":151,"pool":602,"rate":"1378174275653","tvl":"88314096655","tvl_error":""}
-{"level":"info","ts":1704317177.853427,"msg":"pool","index":152,"pool":8,"rate":"1373695887455","tvl":"83835708457","tvl_error":""}
-{"level":"info","ts":1704317177.8534422,"msg":"pool","index":153,"pool":606,"rate":"1373484055074","tvl":"83623876076","tvl_error":""}
-{"level":"info","ts":1704317177.8534617,"msg":"pool","index":154,"pool":928,"rate":"1373370616970","tvl":"83510437972","tvl_error":""}
-{"level":"info","ts":1704317177.85348,"msg":"pool","index":155,"pool":1179,"rate":"1372237534538","tvl":"82377355540","tvl_error":""}
-{"level":"info","ts":1704317177.8534946,"msg":"pool","index":156,"pool":900,"rate":"1371154139006","tvl":"81293960008","tvl_error":""}
-{"level":"info","ts":1704317177.8535087,"msg":"pool","index":157,"pool":1019,"rate":"1370401621888","tvl":"80541442890","tvl_error":""}
-{"level":"info","ts":1704317177.8535237,"msg":"pool","index":158,"pool":626,"rate":"1365858473349","tvl":"75998294351","tvl_error":""}
-{"level":"info","ts":1704317177.853542,"msg":"pool","index":159,"pool":972,"rate":"1364209582543","tvl":"74349403545","tvl_error":""}
-{"level":"info","ts":1704317177.853567,"msg":"pool","index":160,"pool":732,"rate":"1363958251138","tvl":"74098072140","tvl_error":""}
-{"level":"info","ts":1704317177.8535814,"msg":"pool","index":161,"pool":648,"rate":"1361932551421","tvl":"72072372423","tvl_error":""}
-{"level":"info","ts":1704317177.8535998,"msg":"pool","index":162,"pool":1011,"rate":"1360356776238","tvl":"70496597240","tvl_error":""}
-{"level":"info","ts":1704317177.8536136,"msg":"pool","index":163,"pool":924,"rate":"1360300211964","tvl":"70440032966","tvl_error":""}
-{"level":"info","ts":1704317177.8536286,"msg":"pool","index":164,"pool":482,"rate":"1355369540973","tvl":"65509361975","tvl_error":""}
-{"level":"info","ts":1704317177.8536513,"msg":"pool","index":165,"pool":877,"rate":"1354308572117","tvl":"64448393119","tvl_error":""}
-{"level":"info","ts":1704317177.8536663,"msg":"pool","index":166,"pool":731,"rate":"1353898142490","tvl":"64037963492","tvl_error":""}
-{"level":"info","ts":1704317177.8536918,"msg":"pool","index":167,"pool":917,"rate":"1352712269407","tvl":"62852090409","tvl_error":""}
-{"level":"info","ts":1704317177.8537035,"msg":"pool","index":168,"pool":601,"rate":"1351263187923","tvl":"61403008925","tvl_error":""}
-{"level":"info","ts":1704317177.8537152,"msg":"pool","index":169,"pool":13,"rate":"1349388849379","tvl":"59528670381","tvl_error":""}
-{"level":"info","ts":1704317177.8537369,"msg":"pool","index":170,"pool":7,"rate":"1342371994480","tvl":"52511815482","tvl_error":""}
-{"level":"info","ts":1704317177.8537636,"msg":"pool","index":171,"pool":619,"rate":"1341765898128","tvl":"51905719130","tvl_error":""}
-{"level":"info","ts":1704317177.8537786,"msg":"pool","index":172,"pool":574,"rate":"1339106303192","tvl":"49246124194","tvl_error":""}
-{"level":"info","ts":1704317177.8538008,"msg":"pool","index":173,"pool":686,"rate":"1338451792329","tvl":"48591613331","tvl_error":""}
-{"level":"info","ts":1704317177.853816,"msg":"pool","index":174,"pool":641,"rate":"1338281571738","tvl":"48421392740","tvl_error":""}
-{"level":"info","ts":1704317177.853842,"msg":"pool","index":175,"pool":644,"rate":"1338090478130","tvl":"48230299132","tvl_error":""}
-{"level":"info","ts":1704317177.8538563,"msg":"pool","index":176,"pool":1065,"rate":"1338035824102","tvl":"48175645104","tvl_error":""}
-{"level":"info","ts":1704317177.8538778,"msg":"pool","index":177,"pool":929,"rate":"1336921596864","tvl":"47061417866","tvl_error":""}
-{"level":"info","ts":1704317177.8539038,"msg":"pool","index":178,"pool":930,"rate":"1336792273078","tvl":"46932094080","tvl_error":""}
-{"level":"info","ts":1704317177.8539276,"msg":"pool","index":179,"pool":600,"rate":"1336248842422","tvl":"46388663424","tvl_error":""}
-{"level":"info","ts":1704317177.853947,"msg":"pool","index":180,"pool":914,"rate":"1334659112391","tvl":"44798933393","tvl_error":""}
-{"level":"info","ts":1704317177.8539608,"msg":"pool","index":181,"pool":651,"rate":"1331782085485","tvl":"41921906487","tvl_error":""}
-{"level":"info","ts":1704317177.8539827,"msg":"pool","index":182,"pool":956,"rate":"1330955083835","tvl":"41094904837","tvl_error":""}
-{"level":"info","ts":1704317177.854008,"msg":"pool","index":183,"pool":826,"rate":"1328594677606","tvl":"38734498608","tvl_error":""}
-{"level":"info","ts":1704317177.8540263,"msg":"pool","index":184,"pool":800,"rate":"1327533390232","tvl":"37673211234","tvl_error":""}
-{"level":"info","ts":1704317177.8540518,"msg":"pool","index":185,"pool":625,"rate":"1327318090119","tvl":"37457911121","tvl_error":""}
-{"level":"info","ts":1704317177.8540666,"msg":"pool","index":186,"pool":915,"rate":"1325614783478","tvl":"35754604480","tvl_error":""}
-{"level":"info","ts":1704317177.8540819,"msg":"pool","index":187,"pool":1239,"rate":"1325094500938","tvl":"35234321940","tvl_error":""}
-{"level":"info","ts":1704317177.854104,"msg":"pool","index":188,"pool":831,"rate":"1324792945512","tvl":"34932766514","tvl_error":""}
-{"level":"info","ts":1704317177.8541186,"msg":"pool","index":189,"pool":616,"rate":"1324390084752","tvl":"34529905754","tvl_error":""}
-{"level":"info","ts":1704317177.8541343,"msg":"pool","index":190,"pool":898,"rate":"1323972710117","tvl":"34112531119","tvl_error":""}
-{"level":"info","ts":1704317177.8541493,"msg":"pool","index":191,"pool":577,"rate":"1323769276254","tvl":"33909097256","tvl_error":""}
-{"level":"info","ts":1704317177.854172,"msg":"pool","index":192,"pool":1232,"rate":"1323341838758","tvl":"33481659760","tvl_error":""}
-{"level":"info","ts":1704317177.8541944,"msg":"pool","index":193,"pool":778,"rate":"1323106884119","tvl":"33246705121","tvl_error":""}
-{"level":"info","ts":1704317177.8542087,"msg":"pool","index":194,"pool":1218,"rate":"1322410125858","tvl":"32549946860","tvl_error":""}
-{"level":"info","ts":1704317177.8542306,"msg":"pool","index":195,"pool":553,"rate":"1322114031227","tvl":"32253852229","tvl_error":""}
-{"level":"info","ts":1704317177.8542564,"msg":"pool","index":196,"pool":960,"rate":"1321989368895","tvl":"32129189897","tvl_error":""}
-{"level":"info","ts":1704317177.8542817,"msg":"pool","index":197,"pool":882,"rate":"1320400837045","tvl":"30540658047","tvl_error":""}
-{"level":"info","ts":1704317177.8543127,"msg":"pool","index":198,"pool":631,"rate":"1319463144825","tvl":"29602965827","tvl_error":""}
-{"level":"info","ts":1704317177.8543284,"msg":"pool","index":199,"pool":1061,"rate":"1319248170794","tvl":"29387991796","tvl_error":""}
-{"level":"info","ts":1704317177.854343,"msg":"pool","index":200,"pool":617,"rate":"1317884046858","tvl":"28023867860","tvl_error":""}
-{"level":"info","ts":1704317177.8543575,"msg":"pool","index":201,"pool":918,"rate":"1317712042505","tvl":"27851863507","tvl_error":""}
-{"level":"info","ts":1704317177.8543823,"msg":"pool","index":202,"pool":573,"rate":"1317415724278","tvl":"27555545280","tvl_error":""}
-{"level":"info","ts":1704317177.8544002,"msg":"pool","index":203,"pool":662,"rate":"1315694798424","tvl":"25834619426","tvl_error":""}
-{"level":"info","ts":1704317177.8544204,"msg":"pool","index":204,"pool":769,"rate":"1315489213347","tvl":"25629034349","tvl_error":""}
-{"level":"info","ts":1704317177.854435,"msg":"pool","index":205,"pool":618,"rate":"1315265280463","tvl":"25405101465","tvl_error":""}
-{"level":"info","ts":1704317177.8544502,"msg":"pool","index":206,"pool":1238,"rate":"1313135602938","tvl":"23275423940","tvl_error":""}
-{"level":"info","ts":1704317177.854475,"msg":"pool","index":207,"pool":790,"rate":"1312315521870","tvl":"22455342872","tvl_error":""}
-{"level":"info","ts":1704317177.8544893,"msg":"pool","index":208,"pool":1013,"rate":"1312262598433","tvl":"22402419435","tvl_error":""}
-{"level":"info","ts":1704317177.854508,"msg":"pool","index":209,"pool":837,"rate":"1311713009512","tvl":"21852830514","tvl_error":""}
-{"level":"info","ts":1704317177.8545291,"msg":"pool","index":210,"pool":738,"rate":"1310801575960","tvl":"20941396962","tvl_error":""}
-{"level":"info","ts":1704317177.8545473,"msg":"pool","index":211,"pool":561,"rate":"1308963978421","tvl":"19103799423","tvl_error":""}
-{"level":"info","ts":1704317177.8545694,"msg":"pool","index":212,"pool":813,"rate":"1308494261409","tvl":"18634082411","tvl_error":""}
-{"level":"info","ts":1704317177.8545878,"msg":"pool","index":213,"pool":730,"rate":"1307988471982","tvl":"18128292984","tvl_error":""}
-{"level":"info","ts":1704317177.8546133,"msg":"pool","index":214,"pool":562,"rate":"1307979017632","tvl":"18118838634","tvl_error":""}
-{"level":"info","ts":1704317177.8546276,"msg":"pool","index":215,"pool":1023,"rate":"1306248112992","tvl":"16387933994","tvl_error":""}
-{"level":"info","ts":1704317177.8546531,"msg":"pool","index":216,"pool":555,"rate":"1305724230780","tvl":"15864051782","tvl_error":""}
-{"level":"info","ts":1704317177.854669,"msg":"pool","index":217,"pool":22,"rate":"1305514061653","tvl":"15653882655","tvl_error":""}
-{"level":"info","ts":1704317177.8546882,"msg":"pool","index":218,"pool":558,"rate":"1304801512604","tvl":"14941333606","tvl_error":""}
-{"level":"info","ts":1704317177.8547099,"msg":"pool","index":219,"pool":621,"rate":"1303777205948","tvl":"13917026950","tvl_error":""}
-{"level":"info","ts":1704317177.8547306,"msg":"pool","index":220,"pool":643,"rate":"1303524875676","tvl":"13664696678","tvl_error":""}
-{"level":"info","ts":1704317177.8547451,"msg":"pool","index":221,"pool":634,"rate":"1302986004657","tvl":"13125825659","tvl_error":""}
-{"level":"info","ts":1704317177.8547666,"msg":"pool","index":222,"pool":1240,"rate":"1302903308258","tvl":"13043129260","tvl_error":""}
-{"level":"info","ts":1704317177.8547816,"msg":"pool","index":223,"pool":1039,"rate":"1302652143756","tvl":"12791964758","tvl_error":""}
-{"level":"info","ts":1704317177.854807,"msg":"pool","index":224,"pool":1242,"rate":"1302434760588","tvl":"12574581590","tvl_error":""}
-{"level":"info","ts":1704317177.854825,"msg":"pool","index":225,"pool":637,"rate":"1301942005510","tvl":"12081826512","tvl_error":""}
-{"level":"info","ts":1704317177.8548503,"msg":"pool","index":226,"pool":719,"rate":"1301019239553","tvl":"11159060555","tvl_error":""}
-{"level":"info","ts":1704317177.8548737,"msg":"pool","index":227,"pool":795,"rate":"1300489505751","tvl":"10629326753","tvl_error":""}
-{"level":"info","ts":1704317177.8549042,"msg":"pool","index":228,"pool":615,"rate":"1300449131109","tvl":"10588952111","tvl_error":""}
-{"level":"info","ts":1704317177.8549204,"msg":"pool","index":229,"pool":817,"rate":"553479356234","tvl":"553479356234","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/84502A75BCA4A5F68D464C00B3F610CE2585847D59B52E5FFB7C3C9D2DDCD3FE not found"}
-{"level":"info","ts":1704317177.854947,"msg":"pool","index":230,"pool":944,"rate":"391330104237","tvl":"391330104237","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/FA602364BEC305A696CBDF987058E99D8B479F0318E47314C49173E8838C5BAC not found"}
-{"level":"info","ts":1704317177.8549633,"msg":"pool","index":231,"pool":810,"rate":"192282983564","tvl":"192282983564","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/5DD1F95ED336014D00CE2520977EC71566D282F9749170ADC83A392E0EA7426A not found"}
-{"level":"info","ts":1704317177.8549826,"msg":"pool","index":232,"pool":1137,"rate":"84668692156","tvl":"84668692156","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/208B2F137CDE510B44C41947C045CFDC27F996A9D990EA64460BDD5B3DBEB2ED not found"}
-{"level":"info","ts":1704317177.8550022,"msg":"pool","index":233,"pool":1120,"rate":"81950976625","tvl":"81950976625","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/5A0060579D24FBE5268BEA74C3281E7FE533D361C41A99307B4998FEC611E46B not found"}
-{"level":"info","ts":1704317177.8550246,"msg":"pool","index":234,"pool":912,"rate":"52334235393","tvl":"52334235393","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
-{"level":"info","ts":1704317177.8550506,"msg":"pool","index":235,"pool":886,"rate":"46666248981","tvl":"46666248981","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/CAA179E40F0266B0B29FB5EAA288FB9212E628822265D4141EBD1C47C3CBFCBC not found"}
-{"level":"info","ts":1704317177.8550668,"msg":"pool","index":236,"pool":1035,"rate":"43428918246","tvl":"43428918246","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/02F196DA6FD0917DD5FEA249EE61880F4D941EE9059E7964C5C9B50AF103800F not found"}
-{"level":"info","ts":1704317177.8550794,"msg":"pool","index":237,"pool":1087,"rate":"30663019092","tvl":"30663019092","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/EAF76AD1EEF7B16D167D87711FB26ABE881AC7D9F7E6D0CF313D5FA530417208 not found"}
-{"level":"info","ts":1704317177.8550916,"msg":"pool","index":238,"pool":1284,"rate":"22727081489","tvl":"22727081489","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/75345531D87BD90BF108BE7240BD721CB2CB0A1F16D4EBA71B09EC3C43E15C8F not found"}
-{"level":"info","ts":1704317177.8551111,"msg":"pool","index":239,"pool":903,"rate":"20935196716","tvl":"20935196716","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/46C83BB054E12E189882B5284542DB605D94C99827E367C9192CF0579CD5BC83 not found"}
-{"level":"info","ts":1704317177.8551266,"msg":"pool","index":240,"pool":1254,"rate":"19545374875","tvl":"19545374875","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B not found"}
-{"level":"info","ts":1704317177.8551483,"msg":"pool","index":241,"pool":597,"rate":"18839199633","tvl":"18839199633","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
-{"level":"info","ts":1704317177.8551629,"msg":"pool","index":242,"pool":1311,"rate":"16622248829","tvl":"16622248829","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/E7905742CE2EA4EA5D592527DC89220C59B617DE803939FE7293805A64B484D7 not found"}
-{"level":"info","ts":1704317177.8551786,"msg":"pool","index":243,"pool":1255,"rate":"16335622842","tvl":"16335622842","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B not found"}
-{"level":"info","ts":1704317177.8551993,"msg":"pool","index":244,"pool":922,"rate":"15225328651","tvl":"15225328651","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C5579A9595790017C600DD726276D978B9BF314CF82406CE342720A9C7911A01 not found"}
-{"level":"info","ts":1704317177.8552184,"msg":"pool","index":245,"pool":1007,"rate":"12865512017","tvl":"12865512017","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/63CDD51098FD99E04E5F5610A3882CBE7614C441607BA6FCD7F3A3C1CD5325F8 not found"}
-{"level":"info","ts":1704317177.8552346,"msg":"pool","index":246,"pool":695,"rate":"12724696197","tvl":"12724696197","tvl_error":"error getting token precision ibc/52E12CF5CA2BB903D84F5298B4BFD725D66CAB95E09AA4FC75B2904CA5485FEB"}
-{"level":"info","ts":1704317177.8552535,"msg":"pool","index":247,"pool":596,"rate":"11475557927","tvl":"11475557927","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
-{"level":"info","ts":1704317177.8552723,"msg":"pool","index":248,"pool":679,"rate":"10357560767","tvl":"10357560767","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/0E43EDE2E2A3AFA36D0CD38BDDC0B49FECA64FA426A82E102F304E430ECF46EE not found"}
-{"level":"info","ts":1704317177.8677292,"msg":"calculated routes","num_routes":3}
-{"level":"info","ts":1704317221.2347302,"msg":"pool count in router ","pool_count":249}
-{"level":"info","ts":1704317221.23483,"msg":"pool","index":0,"pool":1212,"rate":"195210480979720","tvl":"426225523727","tvl_error":""}
-{"level":"info","ts":1704317221.2348607,"msg":"pool","index":1,"pool":1135,"rate":"73966776001022","tvl":"8178716211250","tvl_error":""}
-{"level":"info","ts":1704317221.234876,"msg":"pool","index":2,"pool":1134,"rate":"69942531285101","tvl":"4154471495329","tvl_error":""}
-{"level":"info","ts":1704317221.2349012,"msg":"pool","index":3,"pool":1093,"rate":"68350977675292","tvl":"2562917885520","tvl_error":""}
-{"level":"info","ts":1704317221.2349353,"msg":"pool","index":4,"pool":1220,"rate":"67949688933896","tvl":"2161629144124","tvl_error":""}
-{"level":"info","ts":1704317221.2349713,"msg":"pool","index":5,"pool":1319,"rate":"67873532122614","tvl":"2085472332842","tvl_error":""}
-{"level":"info","ts":1704317221.2350023,"msg":"pool","index":6,"pool":1133,"rate":"67669301335841","tvl":"1881241546069","tvl_error":""}
-{"level":"info","ts":1704317221.2350352,"msg":"pool","index":7,"pool":1090,"rate":"67603907630998","tvl":"1815847841226","tvl_error":""}
-{"level":"info","ts":1704317221.2350726,"msg":"pool","index":8,"pool":1221,"rate":"67057223805597","tvl":"1269164015825","tvl_error":""}
-{"level":"info","ts":1704317221.235112,"msg":"pool","index":9,"pool":1314,"rate":"67029587374818","tvl":"1241527585046","tvl_error":""}
-{"level":"info","ts":1704317221.2351532,"msg":"pool","index":10,"pool":1251,"rate":"66950086741740","tvl":"1162026951968","tvl_error":""}
-{"level":"info","ts":1704317221.2351902,"msg":"pool","index":11,"pool":1248,"rate":"66881445382535","tvl":"1093385592763","tvl_error":""}
-{"level":"info","ts":1704317221.2352273,"msg":"pool","index":12,"pool":1096,"rate":"66531068193185","tvl":"743008403413","tvl_error":""}
-{"level":"info","ts":1704317221.2352653,"msg":"pool","index":13,"pool":1265,"rate":"66511699302183","tvl":"723639512411","tvl_error":""}
-{"level":"info","ts":1704317221.235305,"msg":"pool","index":14,"pool":1150,"rate":"66384113146168","tvl":"596053356396","tvl_error":""}
-{"level":"info","ts":1704317221.235349,"msg":"pool","index":15,"pool":1097,"rate":"66382608045340","tvl":"594548255568","tvl_error":""}
-{"level":"info","ts":1704317221.2353873,"msg":"pool","index":16,"pool":1094,"rate":"66344947067851","tvl":"556887278079","tvl_error":""}
-{"level":"info","ts":1704317221.2354307,"msg":"pool","index":17,"pool":1325,"rate":"66237792533633","tvl":"449732743861","tvl_error":""}
-{"level":"info","ts":1704317221.2354746,"msg":"pool","index":18,"pool":1223,"rate":"66234707490656","tvl":"446647700884","tvl_error":""}
-{"level":"info","ts":1704317221.2355268,"msg":"pool","index":19,"pool":1092,"rate":"66213940746851","tvl":"425880957079","tvl_error":""}
-{"level":"info","ts":1704317221.2355704,"msg":"pool","index":20,"pool":1066,"rate":"66189684428963","tvl":"401624639191","tvl_error":""}
-{"level":"info","ts":1704317221.2356126,"msg":"pool","index":21,"pool":1110,"rate":"66158769077746","tvl":"370709287974","tvl_error":""}
-{"level":"info","ts":1704317221.2356563,"msg":"pool","index":22,"pool":1246,"rate":"66143942810836","tvl":"355883021064","tvl_error":""}
-{"level":"info","ts":1704317221.235699,"msg":"pool","index":23,"pool":1281,"rate":"66122110225116","tvl":"334050435344","tvl_error":""}
-{"level":"info","ts":1704317221.2357419,"msg":"pool","index":24,"pool":1264,"rate":"66120964591355","tvl":"332904801583","tvl_error":""}
-{"level":"info","ts":1704317221.2357862,"msg":"pool","index":25,"pool":1247,"rate":"66090866174455","tvl":"302806384683","tvl_error":""}
-{"level":"info","ts":1704317221.2358294,"msg":"pool","index":26,"pool":1103,"rate":"66089563052489","tvl":"301503262717","tvl_error":""}
-{"level":"info","ts":1704317221.2358727,"msg":"pool","index":27,"pool":1098,"rate":"66086425997646","tvl":"298366207874","tvl_error":""}
-{"level":"info","ts":1704317221.2359152,"msg":"pool","index":28,"pool":1136,"rate":"66059571804449","tvl":"1561473971339","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
-{"level":"info","ts":1704317221.2359629,"msg":"pool","index":29,"pool":1263,"rate":"66055676454096","tvl":"267616664324","tvl_error":""}
-{"level":"info","ts":1704317221.2360065,"msg":"pool","index":30,"pool":1095,"rate":"66033704913798","tvl":"245645124026","tvl_error":""}
-{"level":"info","ts":1704317221.2360497,"msg":"pool","index":31,"pool":1104,"rate":"66011386379091","tvl":"223326589319","tvl_error":""}
-{"level":"info","ts":1704317221.2360923,"msg":"pool","index":32,"pool":1215,"rate":"65980583618471","tvl":"192523828699","tvl_error":""}
-{"level":"info","ts":1704317221.236136,"msg":"pool","index":33,"pool":1205,"rate":"65971199758444","tvl":"183139968672","tvl_error":""}
-{"level":"info","ts":1704317221.2361784,"msg":"pool","index":34,"pool":1099,"rate":"65945932222195","tvl":"157872432423","tvl_error":""}
-{"level":"info","ts":1704317221.2362218,"msg":"pool","index":35,"pool":1111,"rate":"65945005108000","tvl":"156945318228","tvl_error":""}
-{"level":"info","ts":1704317221.2362647,"msg":"pool","index":36,"pool":1114,"rate":"65944462727168","tvl":"156402937396","tvl_error":""}
-{"level":"info","ts":1704317221.2363079,"msg":"pool","index":37,"pool":1297,"rate":"65940339738714","tvl":"152279948942","tvl_error":""}
-{"level":"info","ts":1704317221.2363517,"msg":"pool","index":38,"pool":1077,"rate":"65934001587353","tvl":"145941797581","tvl_error":""}
-{"level":"info","ts":1704317221.2363956,"msg":"pool","index":39,"pool":1252,"rate":"65917740656193","tvl":"129680866421","tvl_error":""}
-{"level":"info","ts":1704317221.236439,"msg":"pool","index":40,"pool":1101,"rate":"65915708909609","tvl":"127649119837","tvl_error":""}
-{"level":"info","ts":1704317221.2364821,"msg":"pool","index":41,"pool":1106,"rate":"65908014087423","tvl":"119954297651","tvl_error":""}
-{"level":"info","ts":1704317221.236525,"msg":"pool","index":42,"pool":1108,"rate":"65901811572362","tvl":"113751782590","tvl_error":""}
-{"level":"info","ts":1704317221.236568,"msg":"pool","index":43,"pool":1224,"rate":"65898028026964","tvl":"109968237192","tvl_error":""}
-{"level":"info","ts":1704317221.2366107,"msg":"pool","index":44,"pool":1091,"rate":"65896704806882","tvl":"108645017110","tvl_error":""}
-{"level":"info","ts":1704317221.2366536,"msg":"pool","index":45,"pool":1277,"rate":"65878910931321","tvl":"90851141549","tvl_error":""}
-{"level":"info","ts":1704317221.2366972,"msg":"pool","index":46,"pool":1100,"rate":"65876912223412","tvl":"88852433640","tvl_error":""}
-{"level":"info","ts":1704317221.2367404,"msg":"pool","index":47,"pool":1318,"rate":"65875297852454","tvl":"87238062682","tvl_error":""}
-{"level":"info","ts":1704317221.2367885,"msg":"pool","index":48,"pool":1273,"rate":"65868635261858","tvl":"80575472086","tvl_error":""}
-{"level":"info","ts":1704317221.236831,"msg":"pool","index":49,"pool":1260,"rate":"65868341534843","tvl":"80281745071","tvl_error":""}
-{"level":"info","ts":1704317221.2368915,"msg":"pool","index":50,"pool":1282,"rate":"65856675869837","tvl":"68616080065","tvl_error":""}
-{"level":"info","ts":1704317221.2369409,"msg":"pool","index":51,"pool":1337,"rate":"65854662732447","tvl":"66602942675","tvl_error":""}
-{"level":"info","ts":1704317221.2369792,"msg":"pool","index":52,"pool":1261,"rate":"65851028775409","tvl":"62968985637","tvl_error":""}
-{"level":"info","ts":1704317221.2370222,"msg":"pool","index":53,"pool":1271,"rate":"65849226451061","tvl":"61166661289","tvl_error":""}
-{"level":"info","ts":1704317221.2370608,"msg":"pool","index":54,"pool":1170,"rate":"65849058130813","tvl":"60998341041","tvl_error":""}
-{"level":"info","ts":1704317221.2371027,"msg":"pool","index":55,"pool":1105,"rate":"65848228981805","tvl":"60169192033","tvl_error":""}
-{"level":"info","ts":1704317221.2371454,"msg":"pool","index":56,"pool":1161,"rate":"65843667492480","tvl":"55607702708","tvl_error":""}
-{"level":"info","ts":1704317221.2371871,"msg":"pool","index":57,"pool":1324,"rate":"65842068659818","tvl":"54008870046","tvl_error":""}
-{"level":"info","ts":1704317221.23723,"msg":"pool","index":58,"pool":1088,"rate":"65841223030372","tvl":"53163240600","tvl_error":""}
-{"level":"info","ts":1704317221.237272,"msg":"pool","index":59,"pool":1081,"rate":"65836345910822","tvl":"48286121050","tvl_error":""}
-{"level":"info","ts":1704317221.2373147,"msg":"pool","index":60,"pool":1158,"rate":"65833227717465","tvl":"45167927693","tvl_error":""}
-{"level":"info","ts":1704317221.2373567,"msg":"pool","index":61,"pool":1323,"rate":"65831378706790","tvl":"43318917018","tvl_error":""}
-{"level":"info","ts":1704317221.2373989,"msg":"pool","index":62,"pool":1078,"rate":"65830706166419","tvl":"42646376647","tvl_error":""}
-{"level":"info","ts":1704317221.237441,"msg":"pool","index":63,"pool":1109,"rate":"65822728938822","tvl":"34669149050","tvl_error":""}
-{"level":"info","ts":1704317221.2374845,"msg":"pool","index":64,"pool":1268,"rate":"65818833337495","tvl":"30773547723","tvl_error":""}
-{"level":"info","ts":1704317221.2375276,"msg":"pool","index":65,"pool":1321,"rate":"65818257023438","tvl":"30197233666","tvl_error":""}
-{"level":"info","ts":1704317221.2375693,"msg":"pool","index":66,"pool":1334,"rate":"65813281783612","tvl":"25221993840","tvl_error":""}
-{"level":"info","ts":1704317221.2376115,"msg":"pool","index":67,"pool":1113,"rate":"65805563891487","tvl":"17504101715","tvl_error":""}
-{"level":"info","ts":1704317221.2376537,"msg":"pool","index":68,"pool":1279,"rate":"65801995277042","tvl":"13935487270","tvl_error":""}
-{"level":"info","ts":1704317221.237696,"msg":"pool","index":69,"pool":1301,"rate":"65801970332363","tvl":"13910542591","tvl_error":""}
-{"level":"info","ts":1704317221.237738,"msg":"pool","index":70,"pool":1258,"rate":"65801929010909","tvl":"13869221137","tvl_error":""}
-{"level":"info","ts":1704317221.2377794,"msg":"pool","index":71,"pool":1107,"rate":"65801662462919","tvl":"13602673147","tvl_error":""}
-{"level":"info","ts":1704317221.2378216,"msg":"pool","index":72,"pool":1267,"rate":"65801546981041","tvl":"13487191269","tvl_error":""}
-{"level":"info","ts":1704317221.237864,"msg":"pool","index":73,"pool":1274,"rate":"65800330492763","tvl":"12270702991","tvl_error":""}
-{"level":"info","ts":1704317221.2379067,"msg":"pool","index":74,"pool":1245,"rate":"65800107778344","tvl":"12047988572","tvl_error":""}
-{"level":"info","ts":1704317221.237974,"msg":"pool","index":75,"pool":1116,"rate":"65798608992883","tvl":"10549203111","tvl_error":""}
-{"level":"info","ts":1704317221.2380183,"msg":"pool","index":76,"pool":1283,"rate":"65252548575674","tvl":"754450742564","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
-{"level":"info","ts":1704317221.2380626,"msg":"pool","index":77,"pool":1335,"rate":"65091189601852","tvl":"593091768742","tvl_error":"highest liquidity pool between base uosmo and match denom factory/osmo1f5vfcph2dvfeqcqkhetwv75fda69z7e5c2dldm3kvgj23crkv6wqcn47a0/umilkTIA not found"}
-{"level":"info","ts":1704317221.2381115,"msg":"pool","index":78,"pool":1213,"rate":"64812661469680","tvl":"314563636570","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/FBB3FEF80ED2344D821D4F95C31DBFD33E4E31D5324CAD94EF756E67B749F668 not found"}
-{"level":"info","ts":1704317221.2381554,"msg":"pool","index":79,"pool":1227,"rate":"64730995322437","tvl":"232897489327","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/B66CE615C600ED0A8B5AF425ECFE0D57BE2377587F66C45934A76886F34DC9B7 not found"}
-{"level":"info","ts":1704317221.238199,"msg":"pool","index":80,"pool":1230,"rate":"64545911280222","tvl":"47813447112","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/01D2F0C4739C871BFBEE7E786709E6904A55559DC1483DD92ED392EF12247862 not found"}
-{"level":"info","ts":1704317221.2382426,"msg":"pool","index":81,"pool":1294,"rate":"64535703344151","tvl":"37605511041","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/1E43D59E565D41FB4E54CA639B838FFD5BCFC20003D330A56CB1396231AA1CBA not found"}
-{"level":"info","ts":1704317221.2382865,"msg":"pool","index":82,"pool":1305,"rate":"64516971261417","tvl":"18873428307","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/6928AFA9EA721938FED13B051F9DBF1272B16393D20C49EA5E4901BB76D94A90 not found"}
-{"level":"info","ts":1704317221.23833,"msg":"pool","index":83,"pool":1292,"rate":"64510493047227","tvl":"12395214117","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/2F21E6D4271DE3F561F20A02CD541DAF7405B1E9CB3B9B07E3C2AC7D8A4338A5 not found"}
-{"level":"info","ts":1704317221.2383733,"msg":"pool","index":84,"pool":833,"rate":"26274301001155","tvl":"24984339044493","tvl_error":""}
-{"level":"info","ts":1704317221.238416,"msg":"pool","index":85,"pool":1,"rate":"15856968716263","tvl":"14567006759601","tvl_error":""}
-{"level":"info","ts":1704317221.23846,"msg":"pool","index":86,"pool":704,"rate":"5522783267146","tvl":"4232821310484","tvl_error":""}
-{"level":"info","ts":1704317221.2384996,"msg":"pool","index":87,"pool":803,"rate":"4497579342236","tvl":"4497579342236","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
-{"level":"info","ts":1704317221.2385423,"msg":"pool","index":88,"pool":678,"rate":"4207929823402","tvl":"2917967866740","tvl_error":""}
-{"level":"info","ts":1704317221.2385848,"msg":"pool","index":89,"pool":712,"rate":"3846659437768","tvl":"2556697481106","tvl_error":""}
-{"level":"info","ts":1704317221.238628,"msg":"pool","index":90,"pool":812,"rate":"3292851024798","tvl":"2002889068136","tvl_error":""}
-{"level":"info","ts":1704317221.2386703,"msg":"pool","index":91,"pool":1057,"rate":"3168075551710","tvl":"1878113595048","tvl_error":""}
-{"level":"info","ts":1704317221.2387128,"msg":"pool","index":92,"pool":796,"rate":"2999752752645","tvl":"1709790795983","tvl_error":""}
-{"level":"info","ts":1704317221.2387545,"msg":"pool","index":93,"pool":725,"rate":"2964848054318","tvl":"1674886097656","tvl_error":""}
-{"level":"info","ts":1704317221.2387962,"msg":"pool","index":94,"pool":722,"rate":"2759593323449","tvl":"1469631366787","tvl_error":""}
-{"level":"info","ts":1704317221.2388487,"msg":"pool","index":95,"pool":3,"rate":"2291653377125","tvl":"1001691420463","tvl_error":""}
-{"level":"info","ts":1704317221.2388914,"msg":"pool","index":96,"pool":604,"rate":"2241714463752","tvl":"951752507090","tvl_error":""}
-{"level":"info","ts":1704317221.2389343,"msg":"pool","index":97,"pool":681,"rate":"2134077233590","tvl":"844115276928","tvl_error":""}
-{"level":"info","ts":1704317221.2389762,"msg":"pool","index":98,"pool":1241,"rate":"2093697367522","tvl":"803735410860","tvl_error":""}
-{"level":"info","ts":1704317221.2390187,"msg":"pool","index":99,"pool":9,"rate":"2071101558256","tvl":"781139601594","tvl_error":""}
-{"level":"info","ts":1704317221.2390711,"msg":"pool","index":100,"pool":4,"rate":"1931469169456","tvl":"641507212794","tvl_error":""}
-{"level":"info","ts":1704317221.2391138,"msg":"pool","index":101,"pool":832,"rate":"1908830050754","tvl":"618868094092","tvl_error":""}
-{"level":"info","ts":1704317221.2391567,"msg":"pool","index":102,"pool":840,"rate":"1907455088293","tvl":"617493131631","tvl_error":""}
-{"level":"info","ts":1704317221.2391992,"msg":"pool","index":103,"pool":1233,"rate":"1904835675757","tvl":"614873719095","tvl_error":""}
-{"level":"info","ts":1704317221.2392411,"msg":"pool","index":104,"pool":1244,"rate":"1904427284576","tvl":"614465327914","tvl_error":""}
-{"level":"info","ts":1704317221.2392838,"msg":"pool","index":105,"pool":806,"rate":"1863312089774","tvl":"573350133112","tvl_error":""}
-{"level":"info","ts":1704317221.239327,"msg":"pool","index":106,"pool":674,"rate":"1829812781933","tvl":"539850825271","tvl_error":""}
-{"level":"info","ts":1704317221.239369,"msg":"pool","index":107,"pool":1173,"rate":"1817291556493","tvl":"527329599831","tvl_error":""}
-{"level":"info","ts":1704317221.2394114,"msg":"pool","index":108,"pool":584,"rate":"1749879552977","tvl":"459917596315","tvl_error":""}
-{"level":"info","ts":1704317221.2394538,"msg":"pool","index":109,"pool":497,"rate":"1745705305779","tvl":"455743349117","tvl_error":""}
-{"level":"info","ts":1704317221.2394958,"msg":"pool","index":110,"pool":1225,"rate":"1687736953977","tvl":"397774997315","tvl_error":""}
-{"level":"info","ts":1704317221.2395375,"msg":"pool","index":111,"pool":799,"rate":"1644160410239","tvl":"354198453577","tvl_error":""}
-{"level":"info","ts":1704317221.23958,"msg":"pool","index":112,"pool":611,"rate":"1634802627216","tvl":"344840670554","tvl_error":""}
-{"level":"info","ts":1704317221.2396219,"msg":"pool","index":113,"pool":1041,"rate":"1623629311343","tvl":"333667354681","tvl_error":""}
-{"level":"info","ts":1704317221.2396662,"msg":"pool","index":114,"pool":560,"rate":"1617885699461","tvl":"327923742799","tvl_error":""}
-{"level":"info","ts":1704317221.2397091,"msg":"pool","index":115,"pool":1226,"rate":"1596420569562","tvl":"306458612900","tvl_error":""}
-{"level":"info","ts":1704317221.2397523,"msg":"pool","index":116,"pool":789,"rate":"1594469016113","tvl":"304507059451","tvl_error":""}
-{"level":"info","ts":1704317221.2397945,"msg":"pool","index":117,"pool":498,"rate":"1584832935741","tvl":"294870979079","tvl_error":""}
-{"level":"info","ts":1704317221.2398372,"msg":"pool","index":118,"pool":571,"rate":"1579158553725","tvl":"289196597063","tvl_error":""}
-{"level":"info","ts":1704317221.2398791,"msg":"pool","index":119,"pool":608,"rate":"1551275305241","tvl":"261313348579","tvl_error":""}
-{"level":"info","ts":1704317221.2399163,"msg":"pool","index":120,"pool":586,"rate":"1548274632313","tvl":"258312675651","tvl_error":""}
-{"level":"info","ts":1704317221.239954,"msg":"pool","index":121,"pool":6,"rate":"1544956755934","tvl":"254994799272","tvl_error":""}
-{"level":"info","ts":1704317221.2399912,"msg":"pool","index":122,"pool":2,"rate":"1532587040192","tvl":"242625083530","tvl_error":""}
-{"level":"info","ts":1704317221.2400281,"msg":"pool","index":123,"pool":463,"rate":"1522869622093","tvl":"232907665431","tvl_error":""}
-{"level":"info","ts":1704317221.2400653,"msg":"pool","index":124,"pool":42,"rate":"1521415282163","tvl":"231453325501","tvl_error":""}
-{"level":"info","ts":1704317221.2401016,"msg":"pool","index":125,"pool":572,"rate":"1520711879302","tvl":"230749922640","tvl_error":""}
-{"level":"info","ts":1704317221.2401388,"msg":"pool","index":126,"pool":899,"rate":"1519860777322","tvl":"229898820660","tvl_error":""}
-{"level":"info","ts":1704317221.2401767,"msg":"pool","index":127,"pool":587,"rate":"1516908147077","tvl":"226946190415","tvl_error":""}
-{"level":"info","ts":1704317221.240214,"msg":"pool","index":128,"pool":5,"rate":"1516034261403","tvl":"226072304741","tvl_error":""}
-{"level":"info","ts":1704317221.2402508,"msg":"pool","index":129,"pool":744,"rate":"1514929563887","tvl":"224967607225","tvl_error":""}
-{"level":"info","ts":1704317221.2402923,"msg":"pool","index":130,"pool":992,"rate":"1502084878477","tvl":"212122921815","tvl_error":""}
-{"level":"info","ts":1704317221.24033,"msg":"pool","index":131,"pool":10,"rate":"1497880595161","tvl":"207918638499","tvl_error":""}
-{"level":"info","ts":1704317221.2403667,"msg":"pool","index":132,"pool":1249,"rate":"1490321238626","tvl":"200359281964","tvl_error":""}
-{"level":"info","ts":1704317221.2403963,"msg":"pool","index":133,"pool":777,"rate":"1484739411270","tvl":"194777454608","tvl_error":""}
-{"level":"info","ts":1704317221.2404265,"msg":"pool","index":134,"pool":1320,"rate":"1484683400667","tvl":"194721444005","tvl_error":""}
-{"level":"info","ts":1704317221.2404633,"msg":"pool","index":135,"pool":605,"rate":"1480378984165","tvl":"190417027503","tvl_error":""}
-{"level":"info","ts":1704317221.240496,"msg":"pool","index":136,"pool":816,"rate":"1477503798848","tvl":"187541842186","tvl_error":""}
-{"level":"info","ts":1704317221.2405324,"msg":"pool","index":137,"pool":907,"rate":"1467074566881","tvl":"177112610219","tvl_error":""}
-{"level":"info","ts":1704317221.2405696,"msg":"pool","index":138,"pool":1075,"rate":"1461863956777","tvl":"171902000115","tvl_error":""}
-{"level":"info","ts":1704317221.240608,"msg":"pool","index":139,"pool":585,"rate":"1457509943988","tvl":"167547987326","tvl_error":""}
-{"level":"info","ts":1704317221.2406447,"msg":"pool","index":140,"pool":1046,"rate":"1447373934482","tvl":"157411977820","tvl_error":""}
-{"level":"info","ts":1704317221.2406812,"msg":"pool","index":141,"pool":627,"rate":"1445068013905","tvl":"155106057243","tvl_error":""}
-{"level":"info","ts":1704317221.240718,"msg":"pool","index":142,"pool":481,"rate":"1443721617534","tvl":"153759660872","tvl_error":""}
-{"level":"info","ts":1704317221.2407546,"msg":"pool","index":143,"pool":1036,"rate":"1434363798829","tvl":"144401842167","tvl_error":""}
-{"level":"info","ts":1704317221.2407937,"msg":"pool","index":144,"pool":15,"rate":"1418445699586","tvl":"128483742924","tvl_error":""}
-{"level":"info","ts":1704317221.2408307,"msg":"pool","index":145,"pool":1121,"rate":"1413606797201","tvl":"123644840539","tvl_error":""}
-{"level":"info","ts":1704317221.2408807,"msg":"pool","index":146,"pool":773,"rate":"1404046973397","tvl":"114085016735","tvl_error":""}
-{"level":"info","ts":1704317221.2409108,"msg":"pool","index":147,"pool":629,"rate":"1395737333729","tvl":"105775377067","tvl_error":""}
-{"level":"info","ts":1704317221.2409425,"msg":"pool","index":148,"pool":952,"rate":"1391197678246","tvl":"101235721584","tvl_error":""}
-{"level":"info","ts":1704317221.240979,"msg":"pool","index":149,"pool":1020,"rate":"1390332586017","tvl":"100370629355","tvl_error":""}
-{"level":"info","ts":1704317221.2410161,"msg":"pool","index":150,"pool":1180,"rate":"1386443159717","tvl":"96481203055","tvl_error":""}
-{"level":"info","ts":1704317221.2410533,"msg":"pool","index":151,"pool":602,"rate":"1378276053317","tvl":"88314096655","tvl_error":""}
-{"level":"info","ts":1704317221.241089,"msg":"pool","index":152,"pool":8,"rate":"1373796169339","tvl":"83834212677","tvl_error":""}
-{"level":"info","ts":1704317221.2411249,"msg":"pool","index":153,"pool":606,"rate":"1373584586352","tvl":"83622629690","tvl_error":""}
-{"level":"info","ts":1704317221.2411604,"msg":"pool","index":154,"pool":928,"rate":"1373473169068","tvl":"83511212406","tvl_error":""}
-{"level":"info","ts":1704317221.241196,"msg":"pool","index":155,"pool":1179,"rate":"1372339312202","tvl":"82377355540","tvl_error":""}
-{"level":"info","ts":1704317221.2412312,"msg":"pool","index":156,"pool":900,"rate":"1371255916670","tvl":"81293960008","tvl_error":""}
-{"level":"info","ts":1704317221.2412667,"msg":"pool","index":157,"pool":1019,"rate":"1370477120878","tvl":"80515164216","tvl_error":""}
-{"level":"info","ts":1704317221.2413025,"msg":"pool","index":158,"pool":626,"rate":"1365960251013","tvl":"75998294351","tvl_error":""}
-{"level":"info","ts":1704317221.241338,"msg":"pool","index":159,"pool":972,"rate":"1364311360207","tvl":"74349403545","tvl_error":""}
-{"level":"info","ts":1704317221.2413795,"msg":"pool","index":160,"pool":732,"rate":"1364060028802","tvl":"74098072140","tvl_error":""}
-{"level":"info","ts":1704317221.2414155,"msg":"pool","index":161,"pool":648,"rate":"1362034329085","tvl":"72072372423","tvl_error":""}
-{"level":"info","ts":1704317221.2414515,"msg":"pool","index":162,"pool":1011,"rate":"1360458553902","tvl":"70496597240","tvl_error":""}
-{"level":"info","ts":1704317221.2414873,"msg":"pool","index":163,"pool":924,"rate":"1360401989628","tvl":"70440032966","tvl_error":""}
-{"level":"info","ts":1704317221.2415347,"msg":"pool","index":164,"pool":482,"rate":"1355470345282","tvl":"65508388620","tvl_error":""}
-{"level":"info","ts":1704317221.2415688,"msg":"pool","index":165,"pool":877,"rate":"1354394079512","tvl":"64432122850","tvl_error":""}
-{"level":"info","ts":1704317221.2415981,"msg":"pool","index":166,"pool":731,"rate":"1353999920154","tvl":"64037963492","tvl_error":""}
-{"level":"info","ts":1704317221.2416322,"msg":"pool","index":167,"pool":917,"rate":"1352814047071","tvl":"62852090409","tvl_error":""}
-{"level":"info","ts":1704317221.241652,"msg":"pool","index":168,"pool":601,"rate":"1351364965587","tvl":"61403008925","tvl_error":""}
-{"level":"info","ts":1704317221.2416835,"msg":"pool","index":169,"pool":13,"rate":"1349489742998","tvl":"59527786336","tvl_error":""}
-{"level":"info","ts":1704317221.2417145,"msg":"pool","index":170,"pool":7,"rate":"1342473772144","tvl":"52511815482","tvl_error":""}
-{"level":"info","ts":1704317221.2417471,"msg":"pool","index":171,"pool":619,"rate":"1341867675792","tvl":"51905719130","tvl_error":""}
-{"level":"info","ts":1704317221.2417798,"msg":"pool","index":172,"pool":574,"rate":"1339207347342","tvl":"49245390680","tvl_error":""}
-{"level":"info","ts":1704317221.241814,"msg":"pool","index":173,"pool":686,"rate":"1338552846506","tvl":"48590889844","tvl_error":""}
-{"level":"info","ts":1704317221.2418475,"msg":"pool","index":174,"pool":641,"rate":"1338383349402","tvl":"48421392740","tvl_error":""}
-{"level":"info","ts":1704317221.2418787,"msg":"pool","index":175,"pool":644,"rate":"1338192255794","tvl":"48230299132","tvl_error":""}
-{"level":"info","ts":1704317221.2419121,"msg":"pool","index":176,"pool":1065,"rate":"1338137601766","tvl":"48175645104","tvl_error":""}
-{"level":"info","ts":1704317221.2419453,"msg":"pool","index":177,"pool":929,"rate":"1337023374528","tvl":"47061417866","tvl_error":""}
-{"level":"info","ts":1704317221.2419755,"msg":"pool","index":178,"pool":930,"rate":"1336894792166","tvl":"46932835504","tvl_error":""}
-{"level":"info","ts":1704317221.242008,"msg":"pool","index":179,"pool":600,"rate":"1336349929464","tvl":"46387972802","tvl_error":""}
-{"level":"info","ts":1704317221.2420404,"msg":"pool","index":180,"pool":914,"rate":"1334760222161","tvl":"44798265499","tvl_error":""}
-{"level":"info","ts":1704317221.2420702,"msg":"pool","index":181,"pool":651,"rate":"1331883863149","tvl":"41921906487","tvl_error":""}
-{"level":"info","ts":1704317221.2421029,"msg":"pool","index":182,"pool":956,"rate":"1331056861499","tvl":"41094904837","tvl_error":""}
-{"level":"info","ts":1704317221.2421353,"msg":"pool","index":183,"pool":826,"rate":"1328696455270","tvl":"38734498608","tvl_error":""}
-{"level":"info","ts":1704317221.242167,"msg":"pool","index":184,"pool":800,"rate":"1327635167896","tvl":"37673211234","tvl_error":""}
-{"level":"info","ts":1704317221.2421982,"msg":"pool","index":185,"pool":625,"rate":"1327419867783","tvl":"37457911121","tvl_error":""}
-{"level":"info","ts":1704317221.2422297,"msg":"pool","index":186,"pool":915,"rate":"1325716561142","tvl":"35754604480","tvl_error":""}
-{"level":"info","ts":1704317221.242261,"msg":"pool","index":187,"pool":1239,"rate":"1325196278602","tvl":"35234321940","tvl_error":""}
-{"level":"info","ts":1704317221.2422922,"msg":"pool","index":188,"pool":831,"rate":"1324894723176","tvl":"34932766514","tvl_error":""}
-{"level":"info","ts":1704317221.2423248,"msg":"pool","index":189,"pool":616,"rate":"1324491350570","tvl":"34529393908","tvl_error":""}
-{"level":"info","ts":1704317221.2423637,"msg":"pool","index":190,"pool":577,"rate":"1324132041898","tvl":"34170085236","tvl_error":""}
-{"level":"info","ts":1704317221.2423959,"msg":"pool","index":191,"pool":898,"rate":"1324074487781","tvl":"34112531119","tvl_error":""}
-{"level":"info","ts":1704317221.2424288,"msg":"pool","index":192,"pool":1232,"rate":"1323443622690","tvl":"33481666028","tvl_error":""}
-{"level":"info","ts":1704317221.2424662,"msg":"pool","index":193,"pool":778,"rate":"1323208661783","tvl":"33246705121","tvl_error":""}
-{"level":"info","ts":1704317221.242497,"msg":"pool","index":194,"pool":1218,"rate":"1322511906597","tvl":"32549949935","tvl_error":""}
-{"level":"info","ts":1704317221.2425265,"msg":"pool","index":195,"pool":553,"rate":"1322215808891","tvl":"32253852229","tvl_error":""}
-{"level":"info","ts":1704317221.2425585,"msg":"pool","index":196,"pool":960,"rate":"1322091146559","tvl":"32129189897","tvl_error":""}
-{"level":"info","ts":1704317221.242594,"msg":"pool","index":197,"pool":882,"rate":"1320502614709","tvl":"30540658047","tvl_error":""}
-{"level":"info","ts":1704317221.2426305,"msg":"pool","index":198,"pool":631,"rate":"1319564922489","tvl":"29602965827","tvl_error":""}
-{"level":"info","ts":1704317221.242667,"msg":"pool","index":199,"pool":1061,"rate":"1319349948458","tvl":"29387991796","tvl_error":""}
-{"level":"info","ts":1704317221.242703,"msg":"pool","index":200,"pool":617,"rate":"1317985489918","tvl":"28023533256","tvl_error":""}
-{"level":"info","ts":1704317221.24274,"msg":"pool","index":201,"pool":918,"rate":"1317813820169","tvl":"27851863507","tvl_error":""}
-{"level":"info","ts":1704317221.242776,"msg":"pool","index":202,"pool":573,"rate":"1317517501942","tvl":"27555545280","tvl_error":""}
-{"level":"info","ts":1704317221.2428117,"msg":"pool","index":203,"pool":662,"rate":"1315796576088","tvl":"25834619426","tvl_error":""}
-{"level":"info","ts":1704317221.242858,"msg":"pool","index":204,"pool":769,"rate":"1315590991011","tvl":"25629034349","tvl_error":""}
-{"level":"info","ts":1704317221.2428944,"msg":"pool","index":205,"pool":618,"rate":"1315366679977","tvl":"25404723315","tvl_error":""}
-{"level":"info","ts":1704317221.24293,"msg":"pool","index":206,"pool":1238,"rate":"1313237208421","tvl":"23275251759","tvl_error":""}
-{"level":"info","ts":1704317221.242965,"msg":"pool","index":207,"pool":790,"rate":"1312417299534","tvl":"22455342872","tvl_error":""}
-{"level":"info","ts":1704317221.2430005,"msg":"pool","index":208,"pool":1013,"rate":"1312364376097","tvl":"22402419435","tvl_error":""}
-{"level":"info","ts":1704317221.2430356,"msg":"pool","index":209,"pool":837,"rate":"1311814990367","tvl":"21853033705","tvl_error":""}
-{"level":"info","ts":1704317221.243072,"msg":"pool","index":210,"pool":738,"rate":"1310894703079","tvl":"20932746417","tvl_error":""}
-{"level":"info","ts":1704317221.243108,"msg":"pool","index":211,"pool":561,"rate":"1309065756085","tvl":"19103799423","tvl_error":""}
-{"level":"info","ts":1704317221.2431998,"msg":"pool","index":212,"pool":813,"rate":"1308596039073","tvl":"18634082411","tvl_error":""}
-{"level":"info","ts":1704317221.2432365,"msg":"pool","index":213,"pool":730,"rate":"1308090249646","tvl":"18128292984","tvl_error":""}
-{"level":"info","ts":1704317221.2432747,"msg":"pool","index":214,"pool":562,"rate":"1308080795296","tvl":"18118838634","tvl_error":""}
-{"level":"info","ts":1704317221.2433107,"msg":"pool","index":215,"pool":1023,"rate":"1306349890656","tvl":"16387933994","tvl_error":""}
-{"level":"info","ts":1704317221.2433531,"msg":"pool","index":216,"pool":555,"rate":"1305825820297","tvl":"15863863635","tvl_error":""}
-{"level":"info","ts":1704317221.2433896,"msg":"pool","index":217,"pool":22,"rate":"1305615606987","tvl":"15653650325","tvl_error":""}
-{"level":"info","ts":1704317221.2434292,"msg":"pool","index":218,"pool":558,"rate":"1304903068234","tvl":"14941111572","tvl_error":""}
-{"level":"info","ts":1704317221.2434728,"msg":"pool","index":219,"pool":621,"rate":"1303878983612","tvl":"13917026950","tvl_error":""}
-{"level":"info","ts":1704317221.243512,"msg":"pool","index":220,"pool":643,"rate":"1303626450138","tvl":"13664493476","tvl_error":""}
-{"level":"info","ts":1704317221.2435555,"msg":"pool","index":221,"pool":634,"rate":"1303083809226","tvl":"13121852564","tvl_error":""}
-{"level":"info","ts":1704317221.2435994,"msg":"pool","index":222,"pool":1240,"rate":"1303005085922","tvl":"13043129260","tvl_error":""}
-{"level":"info","ts":1704317221.2436419,"msg":"pool","index":223,"pool":1039,"rate":"1302753921420","tvl":"12791964758","tvl_error":""}
-{"level":"info","ts":1704317221.243681,"msg":"pool","index":224,"pool":1242,"rate":"1302536540126","tvl":"12574583464","tvl_error":""}
-{"level":"info","ts":1704317221.2437189,"msg":"pool","index":225,"pool":637,"rate":"1302043783174","tvl":"12081826512","tvl_error":""}
-{"level":"info","ts":1704317221.2437565,"msg":"pool","index":226,"pool":719,"rate":"1301116823871","tvl":"11154867209","tvl_error":""}
-{"level":"info","ts":1704317221.243796,"msg":"pool","index":227,"pool":795,"rate":"1300594540042","tvl":"10632583380","tvl_error":""}
-{"level":"info","ts":1704317221.2438388,"msg":"pool","index":228,"pool":615,"rate":"1300550908773","tvl":"10588952111","tvl_error":""}
-{"level":"info","ts":1704317221.2438767,"msg":"pool","index":229,"pool":817,"rate":"553425872013","tvl":"553425872013","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/84502A75BCA4A5F68D464C00B3F610CE2585847D59B52E5FFB7C3C9D2DDCD3FE not found"}
-{"level":"info","ts":1704317221.243915,"msg":"pool","index":230,"pool":944,"rate":"391318444189","tvl":"391318444189","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/FA602364BEC305A696CBDF987058E99D8B479F0318E47314C49173E8838C5BAC not found"}
-{"level":"info","ts":1704317221.243947,"msg":"pool","index":231,"pool":810,"rate":"192481409117","tvl":"192481409117","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/5DD1F95ED336014D00CE2520977EC71566D282F9749170ADC83A392E0EA7426A not found"}
-{"level":"info","ts":1704317221.2439783,"msg":"pool","index":232,"pool":1137,"rate":"84563692944","tvl":"84563692944","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/208B2F137CDE510B44C41947C045CFDC27F996A9D990EA64460BDD5B3DBEB2ED not found"}
-{"level":"info","ts":1704317221.244011,"msg":"pool","index":233,"pool":1120,"rate":"81950976625","tvl":"81950976625","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/5A0060579D24FBE5268BEA74C3281E7FE533D361C41A99307B4998FEC611E46B not found"}
-{"level":"info","ts":1704317221.244045,"msg":"pool","index":234,"pool":912,"rate":"52334883077","tvl":"52334883077","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
-{"level":"info","ts":1704317221.2440796,"msg":"pool","index":235,"pool":886,"rate":"46664858516","tvl":"46664858516","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/CAA179E40F0266B0B29FB5EAA288FB9212E628822265D4141EBD1C47C3CBFCBC not found"}
-{"level":"info","ts":1704317221.2441144,"msg":"pool","index":236,"pool":1035,"rate":"43428918246","tvl":"43428918246","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/02F196DA6FD0917DD5FEA249EE61880F4D941EE9059E7964C5C9B50AF103800F not found"}
-{"level":"info","ts":1704317221.2441487,"msg":"pool","index":237,"pool":1087,"rate":"30663019092","tvl":"30663019092","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/EAF76AD1EEF7B16D167D87711FB26ABE881AC7D9F7E6D0CF313D5FA530417208 not found"}
-{"level":"info","ts":1704317221.244183,"msg":"pool","index":238,"pool":1284,"rate":"22727081489","tvl":"22727081489","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/75345531D87BD90BF108BE7240BD721CB2CB0A1F16D4EBA71B09EC3C43E15C8F not found"}
-{"level":"info","ts":1704317221.2442224,"msg":"pool","index":239,"pool":903,"rate":"20956800697","tvl":"20956800697","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/46C83BB054E12E189882B5284542DB605D94C99827E367C9192CF0579CD5BC83 not found"}
-{"level":"info","ts":1704317221.2442503,"msg":"pool","index":240,"pool":1254,"rate":"19545374875","tvl":"19545374875","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B not found"}
-{"level":"info","ts":1704317221.2442849,"msg":"pool","index":241,"pool":597,"rate":"18839199633","tvl":"18839199633","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
-{"level":"info","ts":1704317221.2443192,"msg":"pool","index":242,"pool":1311,"rate":"16601440906","tvl":"16601440906","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/E7905742CE2EA4EA5D592527DC89220C59B617DE803939FE7293805A64B484D7 not found"}
-{"level":"info","ts":1704317221.2443516,"msg":"pool","index":243,"pool":1255,"rate":"16335136106","tvl":"16335136106","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B not found"}
-{"level":"info","ts":1704317221.2443893,"msg":"pool","index":244,"pool":922,"rate":"15225328651","tvl":"15225328651","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C5579A9595790017C600DD726276D978B9BF314CF82406CE342720A9C7911A01 not found"}
-{"level":"info","ts":1704317221.2444236,"msg":"pool","index":245,"pool":1007,"rate":"12849406820","tvl":"12849406820","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/63CDD51098FD99E04E5F5610A3882CBE7614C441607BA6FCD7F3A3C1CD5325F8 not found"}
-{"level":"info","ts":1704317221.2444587,"msg":"pool","index":246,"pool":695,"rate":"12724696197","tvl":"12724696197","tvl_error":"error getting token precision ibc/52E12CF5CA2BB903D84F5298B4BFD725D66CAB95E09AA4FC75B2904CA5485FEB"}
-{"level":"info","ts":1704317221.244492,"msg":"pool","index":247,"pool":596,"rate":"11475216002","tvl":"11475216002","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
-{"level":"info","ts":1704317221.2445257,"msg":"pool","index":248,"pool":679,"rate":"10353236413","tvl":"10353236413","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/0E43EDE2E2A3AFA36D0CD38BDDC0B49FECA64FA426A82E102F304E430ECF46EE not found"}
-{"level":"info","ts":1704317221.2542472,"msg":"calculated routes","num_routes":3}
-{"level":"info","ts":1704317225.8167703,"msg":"pool count in router ","pool_count":249}
-{"level":"info","ts":1704317225.8168561,"msg":"pool","index":0,"pool":1212,"rate":"195210144856238","tvl":"426124441510","tvl_error":""}
-{"level":"info","ts":1704317225.8168886,"msg":"pool","index":1,"pool":1135,"rate":"73966696616224","tvl":"8178716211250","tvl_error":""}
-{"level":"info","ts":1704317225.8169045,"msg":"pool","index":2,"pool":1134,"rate":"69942451900303","tvl":"4154471495329","tvl_error":""}
-{"level":"info","ts":1704317225.8169208,"msg":"pool","index":3,"pool":1093,"rate":"68350898290494","tvl":"2562917885520","tvl_error":""}
-{"level":"info","ts":1704317225.8169355,"msg":"pool","index":4,"pool":1220,"rate":"67949609549098","tvl":"2161629144124","tvl_error":""}
-{"level":"info","ts":1704317225.8169498,"msg":"pool","index":5,"pool":1319,"rate":"67873452737816","tvl":"2085472332842","tvl_error":""}
-{"level":"info","ts":1704317225.8169646,"msg":"pool","index":6,"pool":1133,"rate":"67669001048110","tvl":"1881020643136","tvl_error":""}
-{"level":"info","ts":1704317225.8169785,"msg":"pool","index":7,"pool":1090,"rate":"67603828246200","tvl":"1815847841226","tvl_error":""}
-{"level":"info","ts":1704317225.8169925,"msg":"pool","index":8,"pool":1221,"rate":"67057144420799","tvl":"1269164015825","tvl_error":""}
-{"level":"info","ts":1704317225.8170063,"msg":"pool","index":9,"pool":1314,"rate":"67029507990020","tvl":"1241527585046","tvl_error":""}
-{"level":"info","ts":1704317225.8170204,"msg":"pool","index":10,"pool":1251,"rate":"66950007356942","tvl":"1162026951968","tvl_error":""}
-{"level":"info","ts":1704317225.8170345,"msg":"pool","index":11,"pool":1248,"rate":"66881365997737","tvl":"1093385592763","tvl_error":""}
-{"level":"info","ts":1704317225.8170578,"msg":"pool","index":12,"pool":1096,"rate":"66530988808387","tvl":"743008403413","tvl_error":""}
-{"level":"info","ts":1704317225.8170724,"msg":"pool","index":13,"pool":1265,"rate":"66511619917385","tvl":"723639512411","tvl_error":""}
-{"level":"info","ts":1704317225.8170907,"msg":"pool","index":14,"pool":1150,"rate":"66384033761370","tvl":"596053356396","tvl_error":""}
-{"level":"info","ts":1704317225.8171048,"msg":"pool","index":15,"pool":1097,"rate":"66382528660542","tvl":"594548255568","tvl_error":""}
-{"level":"info","ts":1704317225.8171184,"msg":"pool","index":16,"pool":1094,"rate":"66344867683053","tvl":"556887278079","tvl_error":""}
-{"level":"info","ts":1704317225.8171327,"msg":"pool","index":17,"pool":1325,"rate":"66237713148835","tvl":"449732743861","tvl_error":""}
-{"level":"info","ts":1704317225.8171468,"msg":"pool","index":18,"pool":1223,"rate":"66234541824662","tvl":"446561419688","tvl_error":""}
-{"level":"info","ts":1704317225.8171606,"msg":"pool","index":19,"pool":1092,"rate":"66213861362053","tvl":"425880957079","tvl_error":""}
-{"level":"info","ts":1704317225.8171744,"msg":"pool","index":20,"pool":1066,"rate":"66189605044165","tvl":"401624639191","tvl_error":""}
-{"level":"info","ts":1704317225.8171885,"msg":"pool","index":21,"pool":1110,"rate":"66158689692948","tvl":"370709287974","tvl_error":""}
-{"level":"info","ts":1704317225.817202,"msg":"pool","index":22,"pool":1246,"rate":"66143863426038","tvl":"355883021064","tvl_error":""}
-{"level":"info","ts":1704317225.817216,"msg":"pool","index":23,"pool":1281,"rate":"66122030840318","tvl":"334050435344","tvl_error":""}
-{"level":"info","ts":1704317225.8172295,"msg":"pool","index":24,"pool":1264,"rate":"66120885206557","tvl":"332904801583","tvl_error":""}
-{"level":"info","ts":1704317225.8172436,"msg":"pool","index":25,"pool":1247,"rate":"66090785284778","tvl":"302804879804","tvl_error":""}
-{"level":"info","ts":1704317225.8172574,"msg":"pool","index":26,"pool":1103,"rate":"66089483667691","tvl":"301503262717","tvl_error":""}
-{"level":"info","ts":1704317225.8172712,"msg":"pool","index":27,"pool":1098,"rate":"66086346612848","tvl":"298366207874","tvl_error":""}
-{"level":"info","ts":1704317225.8172863,"msg":"pool","index":28,"pool":1136,"rate":"66059493976216","tvl":"1561473971339","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
-{"level":"info","ts":1704317225.8173063,"msg":"pool","index":29,"pool":1263,"rate":"66055597069298","tvl":"267616664324","tvl_error":""}
-{"level":"info","ts":1704317225.8173206,"msg":"pool","index":30,"pool":1095,"rate":"66033625529000","tvl":"245645124026","tvl_error":""}
-{"level":"info","ts":1704317225.8173387,"msg":"pool","index":31,"pool":1104,"rate":"66011306994293","tvl":"223326589319","tvl_error":""}
-{"level":"info","ts":1704317225.8173528,"msg":"pool","index":32,"pool":1215,"rate":"65980504233673","tvl":"192523828699","tvl_error":""}
-{"level":"info","ts":1704317225.8173704,"msg":"pool","index":33,"pool":1205,"rate":"65971120373646","tvl":"183139968672","tvl_error":""}
-{"level":"info","ts":1704317225.817384,"msg":"pool","index":34,"pool":1099,"rate":"65945852837397","tvl":"157872432423","tvl_error":""}
-{"level":"info","ts":1704317225.817398,"msg":"pool","index":35,"pool":1111,"rate":"65944925723202","tvl":"156945318228","tvl_error":""}
-{"level":"info","ts":1704317225.8174162,"msg":"pool","index":36,"pool":1114,"rate":"65944383342370","tvl":"156402937396","tvl_error":""}
-{"level":"info","ts":1704317225.81743,"msg":"pool","index":37,"pool":1297,"rate":"65940260353916","tvl":"152279948942","tvl_error":""}
-{"level":"info","ts":1704317225.8174446,"msg":"pool","index":38,"pool":1077,"rate":"65933922202555","tvl":"145941797581","tvl_error":""}
-{"level":"info","ts":1704317225.8174627,"msg":"pool","index":39,"pool":1252,"rate":"65917661271395","tvl":"129680866421","tvl_error":""}
-{"level":"info","ts":1704317225.81748,"msg":"pool","index":40,"pool":1101,"rate":"65915629524811","tvl":"127649119837","tvl_error":""}
-{"level":"info","ts":1704317225.8174994,"msg":"pool","index":41,"pool":1106,"rate":"65907934702625","tvl":"119954297651","tvl_error":""}
-{"level":"info","ts":1704317225.8175137,"msg":"pool","index":42,"pool":1108,"rate":"65901732187564","tvl":"113751782590","tvl_error":""}
-{"level":"info","ts":1704317225.8175278,"msg":"pool","index":43,"pool":1224,"rate":"65897948642166","tvl":"109968237192","tvl_error":""}
-{"level":"info","ts":1704317225.8175454,"msg":"pool","index":44,"pool":1091,"rate":"65896625422084","tvl":"108645017110","tvl_error":""}
-{"level":"info","ts":1704317225.817559,"msg":"pool","index":45,"pool":1277,"rate":"65878831546523","tvl":"90851141549","tvl_error":""}
-{"level":"info","ts":1704317225.8175735,"msg":"pool","index":46,"pool":1100,"rate":"65876832838614","tvl":"88852433640","tvl_error":""}
-{"level":"info","ts":1704317225.8175917,"msg":"pool","index":47,"pool":1318,"rate":"65875218467656","tvl":"87238062682","tvl_error":""}
-{"level":"info","ts":1704317225.8176053,"msg":"pool","index":48,"pool":1273,"rate":"65868555877060","tvl":"80575472086","tvl_error":""}
-{"level":"info","ts":1704317225.8176196,"msg":"pool","index":49,"pool":1260,"rate":"65868262150045","tvl":"80281745071","tvl_error":""}
-{"level":"info","ts":1704317225.8176377,"msg":"pool","index":50,"pool":1282,"rate":"65856596296132","tvl":"68615891158","tvl_error":""}
-{"level":"info","ts":1704317225.817656,"msg":"pool","index":51,"pool":1337,"rate":"65854583347649","tvl":"66602942675","tvl_error":""}
-{"level":"info","ts":1704317225.8176699,"msg":"pool","index":52,"pool":1261,"rate":"65850949390611","tvl":"62968985637","tvl_error":""}
-{"level":"info","ts":1704317225.817685,"msg":"pool","index":53,"pool":1271,"rate":"65849147066263","tvl":"61166661289","tvl_error":""}
-{"level":"info","ts":1704317225.8177032,"msg":"pool","index":54,"pool":1170,"rate":"65848978746015","tvl":"60998341041","tvl_error":""}
-{"level":"info","ts":1704317225.817717,"msg":"pool","index":55,"pool":1105,"rate":"65848149597007","tvl":"60169192033","tvl_error":""}
-{"level":"info","ts":1704317225.8177311,"msg":"pool","index":56,"pool":1161,"rate":"65843588107682","tvl":"55607702708","tvl_error":""}
-{"level":"info","ts":1704317225.8177493,"msg":"pool","index":57,"pool":1324,"rate":"65841989275020","tvl":"54008870046","tvl_error":""}
-{"level":"info","ts":1704317225.8177629,"msg":"pool","index":58,"pool":1088,"rate":"65841143645574","tvl":"53163240600","tvl_error":""}
-{"level":"info","ts":1704317225.8177764,"msg":"pool","index":59,"pool":1081,"rate":"65836255224810","tvl":"48274819836","tvl_error":""}
-{"level":"info","ts":1704317225.817791,"msg":"pool","index":60,"pool":1158,"rate":"65833148332667","tvl":"45167927693","tvl_error":""}
-{"level":"info","ts":1704317225.8178089,"msg":"pool","index":61,"pool":1323,"rate":"65831299321992","tvl":"43318917018","tvl_error":""}
-{"level":"info","ts":1704317225.817823,"msg":"pool","index":62,"pool":1078,"rate":"65830626781621","tvl":"42646376647","tvl_error":""}
-{"level":"info","ts":1704317225.8178368,"msg":"pool","index":63,"pool":1109,"rate":"65822649554024","tvl":"34669149050","tvl_error":""}
-{"level":"info","ts":1704317225.8178506,"msg":"pool","index":64,"pool":1268,"rate":"65818753952697","tvl":"30773547723","tvl_error":""}
-{"level":"info","ts":1704317225.8178642,"msg":"pool","index":65,"pool":1321,"rate":"65818177638640","tvl":"30197233666","tvl_error":""}
-{"level":"info","ts":1704317225.817878,"msg":"pool","index":66,"pool":1334,"rate":"65813202398814","tvl":"25221993840","tvl_error":""}
-{"level":"info","ts":1704317225.817892,"msg":"pool","index":67,"pool":1113,"rate":"65805484506689","tvl":"17504101715","tvl_error":""}
-{"level":"info","ts":1704317225.8179061,"msg":"pool","index":68,"pool":1279,"rate":"65801915892244","tvl":"13935487270","tvl_error":""}
-{"level":"info","ts":1704317225.8179202,"msg":"pool","index":69,"pool":1301,"rate":"65801890947565","tvl":"13910542591","tvl_error":""}
-{"level":"info","ts":1704317225.817934,"msg":"pool","index":70,"pool":1258,"rate":"65801849626111","tvl":"13869221137","tvl_error":""}
-{"level":"info","ts":1704317225.8179517,"msg":"pool","index":71,"pool":1107,"rate":"65801583078121","tvl":"13602673147","tvl_error":""}
-{"level":"info","ts":1704317225.8179653,"msg":"pool","index":72,"pool":1267,"rate":"65801467596243","tvl":"13487191269","tvl_error":""}
-{"level":"info","ts":1704317225.8179796,"msg":"pool","index":73,"pool":1274,"rate":"65800251107965","tvl":"12270702991","tvl_error":""}
-{"level":"info","ts":1704317225.8179936,"msg":"pool","index":74,"pool":1245,"rate":"65800028393546","tvl":"12047988572","tvl_error":""}
-{"level":"info","ts":1704317225.8180075,"msg":"pool","index":75,"pool":1116,"rate":"65798529608085","tvl":"10549203111","tvl_error":""}
-{"level":"info","ts":1704317225.8180208,"msg":"pool","index":76,"pool":1283,"rate":"65252470747441","tvl":"754450742564","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
-{"level":"info","ts":1704317225.8180368,"msg":"pool","index":77,"pool":1335,"rate":"65091111773619","tvl":"593091768742","tvl_error":"highest liquidity pool between base uosmo and match denom factory/osmo1f5vfcph2dvfeqcqkhetwv75fda69z7e5c2dldm3kvgj23crkv6wqcn47a0/umilkTIA not found"}
-{"level":"info","ts":1704317225.818059,"msg":"pool","index":78,"pool":1213,"rate":"64812583641447","tvl":"314563636570","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/FBB3FEF80ED2344D821D4F95C31DBFD33E4E31D5324CAD94EF756E67B749F668 not found"}
-{"level":"info","ts":1704317225.8180728,"msg":"pool","index":79,"pool":1227,"rate":"64730917494204","tvl":"232897489327","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/B66CE615C600ED0A8B5AF425ECFE0D57BE2377587F66C45934A76886F34DC9B7 not found"}
-{"level":"info","ts":1704317225.8180842,"msg":"pool","index":80,"pool":1230,"rate":"64545833451989","tvl":"47813447112","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/01D2F0C4739C871BFBEE7E786709E6904A55559DC1483DD92ED392EF12247862 not found"}
-{"level":"info","ts":1704317225.818096,"msg":"pool","index":81,"pool":1294,"rate":"64535625515918","tvl":"37605511041","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/1E43D59E565D41FB4E54CA639B838FFD5BCFC20003D330A56CB1396231AA1CBA not found"}
-{"level":"info","ts":1704317225.8181064,"msg":"pool","index":82,"pool":1305,"rate":"64516893433184","tvl":"18873428307","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/6928AFA9EA721938FED13B051F9DBF1272B16393D20C49EA5E4901BB76D94A90 not found"}
-{"level":"info","ts":1704317225.8181171,"msg":"pool","index":83,"pool":1292,"rate":"64510415218994","tvl":"12395214117","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/2F21E6D4271DE3F561F20A02CD541DAF7405B1E9CB3B9B07E3C2AC7D8A4338A5 not found"}
-{"level":"info","ts":1704317225.8181283,"msg":"pool","index":84,"pool":833,"rate":"26274299444590","tvl":"24984339044493","tvl_error":""}
-{"level":"info","ts":1704317225.8181386,"msg":"pool","index":85,"pool":1,"rate":"15856967159698","tvl":"14567006759601","tvl_error":""}
-{"level":"info","ts":1704317225.8181489,"msg":"pool","index":86,"pool":704,"rate":"5522781710581","tvl":"4232821310484","tvl_error":""}
-{"level":"info","ts":1704317225.8181593,"msg":"pool","index":87,"pool":803,"rate":"4497579342236","tvl":"4497579342236","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
-{"level":"info","ts":1704317225.8181698,"msg":"pool","index":88,"pool":678,"rate":"4207582584776","tvl":"2917622184679","tvl_error":""}
-{"level":"info","ts":1704317225.8181798,"msg":"pool","index":89,"pool":712,"rate":"3846657881203","tvl":"2556697481106","tvl_error":""}
-{"level":"info","ts":1704317225.8181899,"msg":"pool","index":90,"pool":812,"rate":"3292849468233","tvl":"2002889068136","tvl_error":""}
-{"level":"info","ts":1704317225.8181999,"msg":"pool","index":91,"pool":1057,"rate":"3168073995145","tvl":"1878113595048","tvl_error":""}
-{"level":"info","ts":1704317225.8182132,"msg":"pool","index":92,"pool":796,"rate":"2999751196080","tvl":"1709790795983","tvl_error":""}
-{"level":"info","ts":1704317225.8182237,"msg":"pool","index":93,"pool":725,"rate":"2964846497753","tvl":"1674886097656","tvl_error":""}
-{"level":"info","ts":1704317225.8182335,"msg":"pool","index":94,"pool":722,"rate":"2759591766884","tvl":"1469631366787","tvl_error":""}
-{"level":"info","ts":1704317225.8182645,"msg":"pool","index":95,"pool":3,"rate":"2291651820560","tvl":"1001691420463","tvl_error":""}
-{"level":"info","ts":1704317225.8182805,"msg":"pool","index":96,"pool":604,"rate":"2241712907187","tvl":"951752507090","tvl_error":""}
-{"level":"info","ts":1704317225.818289,"msg":"pool","index":97,"pool":681,"rate":"2134075677025","tvl":"844115276928","tvl_error":""}
-{"level":"info","ts":1704317225.8182995,"msg":"pool","index":98,"pool":1241,"rate":"2093695810957","tvl":"803735410860","tvl_error":""}
-{"level":"info","ts":1704317225.8183098,"msg":"pool","index":99,"pool":9,"rate":"2071100001691","tvl":"781139601594","tvl_error":""}
-{"level":"info","ts":1704317225.8183203,"msg":"pool","index":100,"pool":4,"rate":"1931467612891","tvl":"641507212794","tvl_error":""}
-{"level":"info","ts":1704317225.8183303,"msg":"pool","index":101,"pool":832,"rate":"1908828494189","tvl":"618868094092","tvl_error":""}
-{"level":"info","ts":1704317225.8183405,"msg":"pool","index":102,"pool":840,"rate":"1907453531728","tvl":"617493131631","tvl_error":""}
-{"level":"info","ts":1704317225.8183513,"msg":"pool","index":103,"pool":1233,"rate":"1904834119192","tvl":"614873719095","tvl_error":""}
-{"level":"info","ts":1704317225.8183618,"msg":"pool","index":104,"pool":1244,"rate":"1904425728011","tvl":"614465327914","tvl_error":""}
-{"level":"info","ts":1704317225.8183718,"msg":"pool","index":105,"pool":806,"rate":"1863310533209","tvl":"573350133112","tvl_error":""}
-{"level":"info","ts":1704317225.8183823,"msg":"pool","index":106,"pool":674,"rate":"1829811225368","tvl":"539850825271","tvl_error":""}
-{"level":"info","ts":1704317225.8183937,"msg":"pool","index":107,"pool":1173,"rate":"1817289999928","tvl":"527329599831","tvl_error":""}
-{"level":"info","ts":1704317225.8184083,"msg":"pool","index":108,"pool":584,"rate":"1749877996412","tvl":"459917596315","tvl_error":""}
-{"level":"info","ts":1704317225.8184223,"msg":"pool","index":109,"pool":497,"rate":"1745703749214","tvl":"455743349117","tvl_error":""}
-{"level":"info","ts":1704317225.8184347,"msg":"pool","index":110,"pool":1225,"rate":"1687735397412","tvl":"397774997315","tvl_error":""}
-{"level":"info","ts":1704317225.8184452,"msg":"pool","index":111,"pool":799,"rate":"1644158853674","tvl":"354198453577","tvl_error":""}
-{"level":"info","ts":1704317225.8184557,"msg":"pool","index":112,"pool":611,"rate":"1634801070651","tvl":"344840670554","tvl_error":""}
-{"level":"info","ts":1704317225.8184662,"msg":"pool","index":113,"pool":1041,"rate":"1623581740979","tvl":"333621340882","tvl_error":""}
-{"level":"info","ts":1704317225.818481,"msg":"pool","index":114,"pool":560,"rate":"1617884142896","tvl":"327923742799","tvl_error":""}
-{"level":"info","ts":1704317225.818502,"msg":"pool","index":115,"pool":1226,"rate":"1596419012997","tvl":"306458612900","tvl_error":""}
-{"level":"info","ts":1704317225.8185167,"msg":"pool","index":116,"pool":789,"rate":"1594467459548","tvl":"304507059451","tvl_error":""}
-{"level":"info","ts":1704317225.8185272,"msg":"pool","index":117,"pool":498,"rate":"1584831379176","tvl":"294870979079","tvl_error":""}
-{"level":"info","ts":1704317225.8185375,"msg":"pool","index":118,"pool":571,"rate":"1579156997160","tvl":"289196597063","tvl_error":""}
-{"level":"info","ts":1704317225.8185477,"msg":"pool","index":119,"pool":608,"rate":"1551273748676","tvl":"261313348579","tvl_error":""}
-{"level":"info","ts":1704317225.8185577,"msg":"pool","index":120,"pool":586,"rate":"1548273075748","tvl":"258312675651","tvl_error":""}
-{"level":"info","ts":1704317225.818568,"msg":"pool","index":121,"pool":6,"rate":"1544955199369","tvl":"254994799272","tvl_error":""}
-{"level":"info","ts":1704317225.8185782,"msg":"pool","index":122,"pool":2,"rate":"1532585483627","tvl":"242625083530","tvl_error":""}
-{"level":"info","ts":1704317225.818592,"msg":"pool","index":123,"pool":463,"rate":"1522868065528","tvl":"232907665431","tvl_error":""}
-{"level":"info","ts":1704317225.8186023,"msg":"pool","index":124,"pool":42,"rate":"1521413725598","tvl":"231453325501","tvl_error":""}
-{"level":"info","ts":1704317225.8186128,"msg":"pool","index":125,"pool":572,"rate":"1520710322737","tvl":"230749922640","tvl_error":""}
-{"level":"info","ts":1704317225.818623,"msg":"pool","index":126,"pool":899,"rate":"1519859220757","tvl":"229898820660","tvl_error":""}
-{"level":"info","ts":1704317225.818635,"msg":"pool","index":127,"pool":587,"rate":"1516906590512","tvl":"226946190415","tvl_error":""}
-{"level":"info","ts":1704317225.8186498,"msg":"pool","index":128,"pool":5,"rate":"1516032704838","tvl":"226072304741","tvl_error":""}
-{"level":"info","ts":1704317225.818664,"msg":"pool","index":129,"pool":744,"rate":"1514928007322","tvl":"224967607225","tvl_error":""}
-{"level":"info","ts":1704317225.8186865,"msg":"pool","index":130,"pool":992,"rate":"1502083321912","tvl":"212122921815","tvl_error":""}
-{"level":"info","ts":1704317225.8187013,"msg":"pool","index":131,"pool":10,"rate":"1497879038596","tvl":"207918638499","tvl_error":""}
-{"level":"info","ts":1704317225.818714,"msg":"pool","index":132,"pool":1249,"rate":"1490319682061","tvl":"200359281964","tvl_error":""}
-{"level":"info","ts":1704317225.818722,"msg":"pool","index":133,"pool":777,"rate":"1484737854705","tvl":"194777454608","tvl_error":""}
-{"level":"info","ts":1704317225.8187368,"msg":"pool","index":134,"pool":1320,"rate":"1484681844102","tvl":"194721444005","tvl_error":""}
-{"level":"info","ts":1704317225.818752,"msg":"pool","index":135,"pool":605,"rate":"1480377427600","tvl":"190417027503","tvl_error":""}
-{"level":"info","ts":1704317225.8187668,"msg":"pool","index":136,"pool":816,"rate":"1477502242283","tvl":"187541842186","tvl_error":""}
-{"level":"info","ts":1704317225.8187819,"msg":"pool","index":137,"pool":907,"rate":"1467073010316","tvl":"177112610219","tvl_error":""}
-{"level":"info","ts":1704317225.8187928,"msg":"pool","index":138,"pool":1075,"rate":"1461862400212","tvl":"171902000115","tvl_error":""}
-{"level":"info","ts":1704317225.8188033,"msg":"pool","index":139,"pool":585,"rate":"1457508387423","tvl":"167547987326","tvl_error":""}
-{"level":"info","ts":1704317225.818813,"msg":"pool","index":140,"pool":1046,"rate":"1447372377917","tvl":"157411977820","tvl_error":""}
-{"level":"info","ts":1704317225.8188236,"msg":"pool","index":141,"pool":627,"rate":"1445066457340","tvl":"155106057243","tvl_error":""}
-{"level":"info","ts":1704317225.8188348,"msg":"pool","index":142,"pool":481,"rate":"1443720060969","tvl":"153759660872","tvl_error":""}
-{"level":"info","ts":1704317225.818851,"msg":"pool","index":143,"pool":1036,"rate":"1434362242264","tvl":"144401842167","tvl_error":""}
-{"level":"info","ts":1704317225.8188617,"msg":"pool","index":144,"pool":15,"rate":"1418444143021","tvl":"128483742924","tvl_error":""}
-{"level":"info","ts":1704317225.8188722,"msg":"pool","index":145,"pool":1121,"rate":"1413605240636","tvl":"123644840539","tvl_error":""}
-{"level":"info","ts":1704317225.8188825,"msg":"pool","index":146,"pool":773,"rate":"1404045416832","tvl":"114085016735","tvl_error":""}
-{"level":"info","ts":1704317225.8188927,"msg":"pool","index":147,"pool":629,"rate":"1395735777164","tvl":"105775377067","tvl_error":""}
-{"level":"info","ts":1704317225.8189027,"msg":"pool","index":148,"pool":952,"rate":"1391196121681","tvl":"101235721584","tvl_error":""}
-{"level":"info","ts":1704317225.818913,"msg":"pool","index":149,"pool":1020,"rate":"1390331029452","tvl":"100370629355","tvl_error":""}
-{"level":"info","ts":1704317225.8189232,"msg":"pool","index":150,"pool":1180,"rate":"1386441603152","tvl":"96481203055","tvl_error":""}
-{"level":"info","ts":1704317225.8189337,"msg":"pool","index":151,"pool":602,"rate":"1378274496752","tvl":"88314096655","tvl_error":""}
-{"level":"info","ts":1704317225.818944,"msg":"pool","index":152,"pool":8,"rate":"1373794612774","tvl":"83834212677","tvl_error":""}
-{"level":"info","ts":1704317225.8189619,"msg":"pool","index":153,"pool":606,"rate":"1373583029787","tvl":"83622629690","tvl_error":""}
-{"level":"info","ts":1704317225.8189726,"msg":"pool","index":154,"pool":928,"rate":"1373471612503","tvl":"83511212406","tvl_error":""}
-{"level":"info","ts":1704317225.8189828,"msg":"pool","index":155,"pool":1179,"rate":"1372337755637","tvl":"82377355540","tvl_error":""}
-{"level":"info","ts":1704317225.8189929,"msg":"pool","index":156,"pool":900,"rate":"1371254360105","tvl":"81293960008","tvl_error":""}
-{"level":"info","ts":1704317225.819003,"msg":"pool","index":157,"pool":1019,"rate":"1370475564313","tvl":"80515164216","tvl_error":""}
-{"level":"info","ts":1704317225.8190134,"msg":"pool","index":158,"pool":626,"rate":"1365958694448","tvl":"75998294351","tvl_error":""}
-{"level":"info","ts":1704317225.8190236,"msg":"pool","index":159,"pool":972,"rate":"1364309803642","tvl":"74349403545","tvl_error":""}
-{"level":"info","ts":1704317225.8190336,"msg":"pool","index":160,"pool":732,"rate":"1364058472237","tvl":"74098072140","tvl_error":""}
-{"level":"info","ts":1704317225.819044,"msg":"pool","index":161,"pool":648,"rate":"1362032772520","tvl":"72072372423","tvl_error":""}
-{"level":"info","ts":1704317225.8190544,"msg":"pool","index":162,"pool":1011,"rate":"1360456997337","tvl":"70496597240","tvl_error":""}
-{"level":"info","ts":1704317225.819062,"msg":"pool","index":163,"pool":924,"rate":"1360400433063","tvl":"70440032966","tvl_error":""}
-{"level":"info","ts":1704317225.819069,"msg":"pool","index":164,"pool":482,"rate":"1355468788717","tvl":"65508388620","tvl_error":""}
-{"level":"info","ts":1704317225.8191648,"msg":"pool","index":165,"pool":877,"rate":"1354389444390","tvl":"64429044293","tvl_error":""}
-{"level":"info","ts":1704317225.8191824,"msg":"pool","index":166,"pool":731,"rate":"1353998363589","tvl":"64037963492","tvl_error":""}
-{"level":"info","ts":1704317225.8191972,"msg":"pool","index":167,"pool":917,"rate":"1352812490506","tvl":"62852090409","tvl_error":""}
-{"level":"info","ts":1704317225.8192122,"msg":"pool","index":168,"pool":601,"rate":"1351363409022","tvl":"61403008925","tvl_error":""}
-{"level":"info","ts":1704317225.8192267,"msg":"pool","index":169,"pool":13,"rate":"1349488186433","tvl":"59527786336","tvl_error":""}
-{"level":"info","ts":1704317225.8192413,"msg":"pool","index":170,"pool":7,"rate":"1342472215579","tvl":"52511815482","tvl_error":""}
-{"level":"info","ts":1704317225.8192556,"msg":"pool","index":171,"pool":619,"rate":"1341866119227","tvl":"51905719130","tvl_error":""}
-{"level":"info","ts":1704317225.81927,"msg":"pool","index":172,"pool":574,"rate":"1339205790777","tvl":"49245390680","tvl_error":""}
-{"level":"info","ts":1704317225.8192837,"msg":"pool","index":173,"pool":686,"rate":"1338551289941","tvl":"48590889844","tvl_error":""}
-{"level":"info","ts":1704317225.8192978,"msg":"pool","index":174,"pool":641,"rate":"1338381792837","tvl":"48421392740","tvl_error":""}
-{"level":"info","ts":1704317225.8193116,"msg":"pool","index":175,"pool":644,"rate":"1338190699229","tvl":"48230299132","tvl_error":""}
-{"level":"info","ts":1704317225.8193257,"msg":"pool","index":176,"pool":1065,"rate":"1338136045201","tvl":"48175645104","tvl_error":""}
-{"level":"info","ts":1704317225.81934,"msg":"pool","index":177,"pool":929,"rate":"1337021817963","tvl":"47061417866","tvl_error":""}
-{"level":"info","ts":1704317225.819356,"msg":"pool","index":178,"pool":930,"rate":"1336893235601","tvl":"46932835504","tvl_error":""}
-{"level":"info","ts":1704317225.8193698,"msg":"pool","index":179,"pool":600,"rate":"1336348372899","tvl":"46387972802","tvl_error":""}
-{"level":"info","ts":1704317225.8193913,"msg":"pool","index":180,"pool":914,"rate":"1334758665596","tvl":"44798265499","tvl_error":""}
-{"level":"info","ts":1704317225.8194056,"msg":"pool","index":181,"pool":651,"rate":"1331882306584","tvl":"41921906487","tvl_error":""}
-{"level":"info","ts":1704317225.8194165,"msg":"pool","index":182,"pool":956,"rate":"1331055304934","tvl":"41094904837","tvl_error":""}
-{"level":"info","ts":1704317225.819431,"msg":"pool","index":183,"pool":826,"rate":"1328694898705","tvl":"38734498608","tvl_error":""}
-{"level":"info","ts":1704317225.8194416,"msg":"pool","index":184,"pool":800,"rate":"1327633611331","tvl":"37673211234","tvl_error":""}
-{"level":"info","ts":1704317225.8194518,"msg":"pool","index":185,"pool":625,"rate":"1327418311218","tvl":"37457911121","tvl_error":""}
-{"level":"info","ts":1704317225.819462,"msg":"pool","index":186,"pool":915,"rate":"1325715004577","tvl":"35754604480","tvl_error":""}
-{"level":"info","ts":1704317225.8194733,"msg":"pool","index":187,"pool":1239,"rate":"1325194722037","tvl":"35234321940","tvl_error":""}
-{"level":"info","ts":1704317225.8194838,"msg":"pool","index":188,"pool":831,"rate":"1324893166611","tvl":"34932766514","tvl_error":""}
-{"level":"info","ts":1704317225.8194933,"msg":"pool","index":189,"pool":616,"rate":"1324489794005","tvl":"34529393908","tvl_error":""}
-{"level":"info","ts":1704317225.8195033,"msg":"pool","index":190,"pool":577,"rate":"1324130485333","tvl":"34170085236","tvl_error":""}
-{"level":"info","ts":1704317225.8195136,"msg":"pool","index":191,"pool":898,"rate":"1324072931216","tvl":"34112531119","tvl_error":""}
-{"level":"info","ts":1704317225.8195236,"msg":"pool","index":192,"pool":1232,"rate":"1323442066125","tvl":"33481666028","tvl_error":""}
-{"level":"info","ts":1704317225.8195336,"msg":"pool","index":193,"pool":778,"rate":"1323207105218","tvl":"33246705121","tvl_error":""}
-{"level":"info","ts":1704317225.8195438,"msg":"pool","index":194,"pool":1218,"rate":"1322510350032","tvl":"32549949935","tvl_error":""}
-{"level":"info","ts":1704317225.819554,"msg":"pool","index":195,"pool":553,"rate":"1322214252326","tvl":"32253852229","tvl_error":""}
-{"level":"info","ts":1704317225.8195643,"msg":"pool","index":196,"pool":960,"rate":"1322089589994","tvl":"32129189897","tvl_error":""}
-{"level":"info","ts":1704317225.819571,"msg":"pool","index":197,"pool":882,"rate":"1320501058144","tvl":"30540658047","tvl_error":""}
-{"level":"info","ts":1704317225.8195813,"msg":"pool","index":198,"pool":631,"rate":"1319563365924","tvl":"29602965827","tvl_error":""}
-{"level":"info","ts":1704317225.8195915,"msg":"pool","index":199,"pool":1061,"rate":"1319348391893","tvl":"29387991796","tvl_error":""}
-{"level":"info","ts":1704317225.8196018,"msg":"pool","index":200,"pool":617,"rate":"1317983933353","tvl":"28023533256","tvl_error":""}
-{"level":"info","ts":1704317225.8196115,"msg":"pool","index":201,"pool":918,"rate":"1317812263604","tvl":"27851863507","tvl_error":""}
-{"level":"info","ts":1704317225.8196216,"msg":"pool","index":202,"pool":573,"rate":"1317515945377","tvl":"27555545280","tvl_error":""}
-{"level":"info","ts":1704317225.8196325,"msg":"pool","index":203,"pool":662,"rate":"1315795019523","tvl":"25834619426","tvl_error":""}
-{"level":"info","ts":1704317225.8196428,"msg":"pool","index":204,"pool":769,"rate":"1315589434446","tvl":"25629034349","tvl_error":""}
-{"level":"info","ts":1704317225.819653,"msg":"pool","index":205,"pool":618,"rate":"1315365123412","tvl":"25404723315","tvl_error":""}
-{"level":"info","ts":1704317225.819663,"msg":"pool","index":206,"pool":1238,"rate":"1313235651856","tvl":"23275251759","tvl_error":""}
-{"level":"info","ts":1704317225.8196733,"msg":"pool","index":207,"pool":790,"rate":"1312415742969","tvl":"22455342872","tvl_error":""}
-{"level":"info","ts":1704317225.8196833,"msg":"pool","index":208,"pool":1013,"rate":"1312362819532","tvl":"22402419435","tvl_error":""}
-{"level":"info","ts":1704317225.8196936,"msg":"pool","index":209,"pool":837,"rate":"1311813433802","tvl":"21853033705","tvl_error":""}
-{"level":"info","ts":1704317225.8197038,"msg":"pool","index":210,"pool":738,"rate":"1310891509712","tvl":"20931109615","tvl_error":""}
-{"level":"info","ts":1704317225.8197143,"msg":"pool","index":211,"pool":813,"rate":"1309285149852","tvl":"19324749755","tvl_error":""}
-{"level":"info","ts":1704317225.8197246,"msg":"pool","index":212,"pool":561,"rate":"1309064199520","tvl":"19103799423","tvl_error":""}
-{"level":"info","ts":1704317225.8197348,"msg":"pool","index":213,"pool":730,"rate":"1308088693081","tvl":"18128292984","tvl_error":""}
-{"level":"info","ts":1704317225.8197477,"msg":"pool","index":214,"pool":562,"rate":"1308079238731","tvl":"18118838634","tvl_error":""}
-{"level":"info","ts":1704317225.819758,"msg":"pool","index":215,"pool":1023,"rate":"1306348334091","tvl":"16387933994","tvl_error":""}
-{"level":"info","ts":1704317225.8197677,"msg":"pool","index":216,"pool":555,"rate":"1305824263732","tvl":"15863863635","tvl_error":""}
-{"level":"info","ts":1704317225.8197777,"msg":"pool","index":217,"pool":22,"rate":"1305614050422","tvl":"15653650325","tvl_error":""}
-{"level":"info","ts":1704317225.8197882,"msg":"pool","index":218,"pool":558,"rate":"1304901511669","tvl":"14941111572","tvl_error":""}
-{"level":"info","ts":1704317225.8197985,"msg":"pool","index":219,"pool":621,"rate":"1303877427047","tvl":"13917026950","tvl_error":""}
-{"level":"info","ts":1704317225.8198087,"msg":"pool","index":220,"pool":643,"rate":"1303624893573","tvl":"13664493476","tvl_error":""}
-{"level":"info","ts":1704317225.8198187,"msg":"pool","index":221,"pool":634,"rate":"1303082252661","tvl":"13121852564","tvl_error":""}
-{"level":"info","ts":1704317225.8198295,"msg":"pool","index":222,"pool":1240,"rate":"1303003529357","tvl":"13043129260","tvl_error":""}
-{"level":"info","ts":1704317225.8198397,"msg":"pool","index":223,"pool":1039,"rate":"1302752364855","tvl":"12791964758","tvl_error":""}
-{"level":"info","ts":1704317225.8198497,"msg":"pool","index":224,"pool":1242,"rate":"1302534983561","tvl":"12574583464","tvl_error":""}
-{"level":"info","ts":1704317225.8198597,"msg":"pool","index":225,"pool":637,"rate":"1302042226609","tvl":"12081826512","tvl_error":""}
-{"level":"info","ts":1704317225.8198702,"msg":"pool","index":226,"pool":719,"rate":"1301114473602","tvl":"11154073505","tvl_error":""}
-{"level":"info","ts":1704317225.8198805,"msg":"pool","index":227,"pool":795,"rate":"1300592983477","tvl":"10632583380","tvl_error":""}
-{"level":"info","ts":1704317225.8198912,"msg":"pool","index":228,"pool":615,"rate":"1300549352208","tvl":"10588952111","tvl_error":""}
-{"level":"info","ts":1704317225.8199015,"msg":"pool","index":229,"pool":817,"rate":"553425872013","tvl":"553425872013","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/84502A75BCA4A5F68D464C00B3F610CE2585847D59B52E5FFB7C3C9D2DDCD3FE not found"}
-{"level":"info","ts":1704317225.8199127,"msg":"pool","index":230,"pool":944,"rate":"391318444189","tvl":"391318444189","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/FA602364BEC305A696CBDF987058E99D8B479F0318E47314C49173E8838C5BAC not found"}
-{"level":"info","ts":1704317225.8199239,"msg":"pool","index":231,"pool":810,"rate":"192481409117","tvl":"192481409117","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/5DD1F95ED336014D00CE2520977EC71566D282F9749170ADC83A392E0EA7426A not found"}
-{"level":"info","ts":1704317225.8199353,"msg":"pool","index":232,"pool":1137,"rate":"84543638095","tvl":"84543638095","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/208B2F137CDE510B44C41947C045CFDC27F996A9D990EA64460BDD5B3DBEB2ED not found"}
-{"level":"info","ts":1704317225.8199468,"msg":"pool","index":233,"pool":1120,"rate":"81950976625","tvl":"81950976625","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/5A0060579D24FBE5268BEA74C3281E7FE533D361C41A99307B4998FEC611E46B not found"}
-{"level":"info","ts":1704317225.819958,"msg":"pool","index":234,"pool":912,"rate":"52334883077","tvl":"52334883077","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
-{"level":"info","ts":1704317225.8199692,"msg":"pool","index":235,"pool":886,"rate":"46664858516","tvl":"46664858516","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/CAA179E40F0266B0B29FB5EAA288FB9212E628822265D4141EBD1C47C3CBFCBC not found"}
-{"level":"info","ts":1704317225.8199809,"msg":"pool","index":236,"pool":1035,"rate":"43428918246","tvl":"43428918246","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/02F196DA6FD0917DD5FEA249EE61880F4D941EE9059E7964C5C9B50AF103800F not found"}
-{"level":"info","ts":1704317225.8199944,"msg":"pool","index":237,"pool":1087,"rate":"30663019092","tvl":"30663019092","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/EAF76AD1EEF7B16D167D87711FB26ABE881AC7D9F7E6D0CF313D5FA530417208 not found"}
-{"level":"info","ts":1704317225.820006,"msg":"pool","index":238,"pool":1284,"rate":"22727081489","tvl":"22727081489","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/75345531D87BD90BF108BE7240BD721CB2CB0A1F16D4EBA71B09EC3C43E15C8F not found"}
-{"level":"info","ts":1704317225.8200169,"msg":"pool","index":239,"pool":903,"rate":"20956800697","tvl":"20956800697","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/46C83BB054E12E189882B5284542DB605D94C99827E367C9192CF0579CD5BC83 not found"}
-{"level":"info","ts":1704317225.8200276,"msg":"pool","index":240,"pool":1254,"rate":"19545374875","tvl":"19545374875","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B not found"}
-{"level":"info","ts":1704317225.8200393,"msg":"pool","index":241,"pool":597,"rate":"18839199633","tvl":"18839199633","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
-{"level":"info","ts":1704317225.82005,"msg":"pool","index":242,"pool":1311,"rate":"16597503762","tvl":"16597503762","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/E7905742CE2EA4EA5D592527DC89220C59B617DE803939FE7293805A64B484D7 not found"}
-{"level":"info","ts":1704317225.8200607,"msg":"pool","index":243,"pool":1255,"rate":"16335136106","tvl":"16335136106","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B not found"}
-{"level":"info","ts":1704317225.8200715,"msg":"pool","index":244,"pool":922,"rate":"15225328651","tvl":"15225328651","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C5579A9595790017C600DD726276D978B9BF314CF82406CE342720A9C7911A01 not found"}
-{"level":"info","ts":1704317225.8200827,"msg":"pool","index":245,"pool":1007,"rate":"12846359497","tvl":"12846359497","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/63CDD51098FD99E04E5F5610A3882CBE7614C441607BA6FCD7F3A3C1CD5325F8 not found"}
-{"level":"info","ts":1704317225.8200934,"msg":"pool","index":246,"pool":695,"rate":"12724696197","tvl":"12724696197","tvl_error":"error getting token precision ibc/52E12CF5CA2BB903D84F5298B4BFD725D66CAB95E09AA4FC75B2904CA5485FEB"}
-{"level":"info","ts":1704317225.8201041,"msg":"pool","index":247,"pool":596,"rate":"11475216002","tvl":"11475216002","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
-{"level":"info","ts":1704317225.8201149,"msg":"pool","index":248,"pool":679,"rate":"10352418187","tvl":"10352418187","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/0E43EDE2E2A3AFA36D0CD38BDDC0B49FECA64FA426A82E102F304E430ECF46EE not found"}
-{"level":"info","ts":1704317225.827495,"msg":"calculated routes","num_routes":3}
+{"level":"info","ts":1704682211.2188835,"msg":"log level","is_debug":false,"log_level":"info"}
+{"level":"info","ts":1704682211.2189429,"msg":"Starting sidecar query server"}
+{"level":"info","ts":1704682211.2189825,"msg":"Pinging redis","redis_address":"localhost:6379"}
+{"level":"info","ts":1704682211.2302728,"msg":"Starting sidecar query server","address":":9092"}
+{"level":"info","ts":1704682211.231136,"msg":"Starting profiling server"}
+{"level":"info","ts":1704682243.7789152,"msg":"pool count in router ","pool_count":245}
+{"level":"info","ts":1704682243.779023,"msg":"pool","index":0,"pool":1212,"rate":"181020166867126","tvl":"373154929597","tvl_error":""}
+{"level":"info","ts":1704682243.7790427,"msg":"pool","index":1,"pool":1135,"rate":"68281019641450","tvl":"7267790444007","tvl_error":""}
+{"level":"info","ts":1704682243.7790573,"msg":"pool","index":2,"pool":1134,"rate":"64753540036886","tvl":"3740310839443","tvl_error":""}
+{"level":"info","ts":1704682243.7790713,"msg":"pool","index":3,"pool":1093,"rate":"63584195336438","tvl":"2570966138995","tvl_error":""}
+{"level":"info","ts":1704682243.7790847,"msg":"pool","index":4,"pool":1319,"rate":"63224053970299","tvl":"2210824772856","tvl_error":""}
+{"level":"info","ts":1704682243.7790978,"msg":"pool","index":5,"pool":1220,"rate":"62990776895081","tvl":"1977547697638","tvl_error":""}
+{"level":"info","ts":1704682243.7791114,"msg":"pool","index":6,"pool":1133,"rate":"62713896527554","tvl":"1700667330111","tvl_error":""}
+{"level":"info","ts":1704682243.7791247,"msg":"pool","index":7,"pool":1090,"rate":"62680139113530","tvl":"1666909916087","tvl_error":""}
+{"level":"info","ts":1704682243.779138,"msg":"pool","index":8,"pool":1314,"rate":"62295567434434","tvl":"1282338236991","tvl_error":""}
+{"level":"info","ts":1704682243.7791529,"msg":"pool","index":9,"pool":1221,"rate":"62141580038227","tvl":"1128350840784","tvl_error":""}
+{"level":"info","ts":1704682243.7791662,"msg":"pool","index":10,"pool":1248,"rate":"62132907014952","tvl":"1119677817509","tvl_error":""}
+{"level":"info","ts":1704682243.7791798,"msg":"pool","index":11,"pool":1251,"rate":"61901210039845","tvl":"887980842402","tvl_error":""}
+{"level":"info","ts":1704682243.7791932,"msg":"pool","index":12,"pool":1096,"rate":"61753632478359","tvl":"740403280916","tvl_error":""}
+{"level":"info","ts":1704682243.7792068,"msg":"pool","index":13,"pool":1265,"rate":"61721396312443","tvl":"708167115000","tvl_error":""}
+{"level":"info","ts":1704682243.7792199,"msg":"pool","index":14,"pool":1097,"rate":"61559096440036","tvl":"545867242593","tvl_error":""}
+{"level":"info","ts":1704682243.7792335,"msg":"pool","index":15,"pool":1150,"rate":"61533453422659","tvl":"520224225216","tvl_error":""}
+{"level":"info","ts":1704682243.779247,"msg":"pool","index":16,"pool":1094,"rate":"61532766634710","tvl":"519537437267","tvl_error":""}
+{"level":"info","ts":1704682243.7792604,"msg":"pool","index":17,"pool":1223,"rate":"61527928499403","tvl":"514699301960","tvl_error":""}
+{"level":"info","ts":1704682243.7792735,"msg":"pool","index":18,"pool":1281,"rate":"61443551629442","tvl":"430322431999","tvl_error":""}
+{"level":"info","ts":1704682243.779287,"msg":"pool","index":19,"pool":1263,"rate":"61411615059303","tvl":"398385861860","tvl_error":""}
+{"level":"info","ts":1704682243.7793005,"msg":"pool","index":20,"pool":1264,"rate":"61395931670923","tvl":"382702473480","tvl_error":""}
+{"level":"info","ts":1704682243.7793136,"msg":"pool","index":21,"pool":1325,"rate":"61390506790334","tvl":"377277592891","tvl_error":""}
+{"level":"info","ts":1704682243.779327,"msg":"pool","index":22,"pool":1092,"rate":"61378935125551","tvl":"365705928108","tvl_error":""}
+{"level":"info","ts":1704682243.7793403,"msg":"pool","index":23,"pool":1098,"rate":"61370309048321","tvl":"357079850878","tvl_error":""}
+{"level":"info","ts":1704682243.7793539,"msg":"pool","index":24,"pool":1110,"rate":"61364148466864","tvl":"350919269421","tvl_error":""}
+{"level":"info","ts":1704682243.779367,"msg":"pool","index":25,"pool":1066,"rate":"61359783896508","tvl":"346554699065","tvl_error":""}
+{"level":"info","ts":1704682243.77938,"msg":"pool","index":26,"pool":1247,"rate":"61307871156884","tvl":"294641959441","tvl_error":""}
+{"level":"info","ts":1704682243.7794018,"msg":"pool","index":27,"pool":1103,"rate":"61298166953296","tvl":"284937755853","tvl_error":""}
+{"level":"info","ts":1704682243.7794154,"msg":"pool","index":28,"pool":1099,"rate":"61290645066623","tvl":"277415869180","tvl_error":""}
+{"level":"info","ts":1704682243.7794282,"msg":"pool","index":29,"pool":1104,"rate":"61259957516230","tvl":"246728318787","tvl_error":""}
+{"level":"info","ts":1704682243.7794416,"msg":"pool","index":30,"pool":1246,"rate":"61250967293158","tvl":"237738095715","tvl_error":""}
+{"level":"info","ts":1704682243.7794547,"msg":"pool","index":31,"pool":1095,"rate":"61220613756591","tvl":"207384559148","tvl_error":""}
+{"level":"info","ts":1704682243.779466,"msg":"pool","index":32,"pool":1170,"rate":"61196524711519","tvl":"183295514076","tvl_error":""}
+{"level":"info","ts":1704682243.77948,"msg":"pool","index":33,"pool":1215,"rate":"61194294321952","tvl":"181065124509","tvl_error":""}
+{"level":"info","ts":1704682243.779495,"msg":"pool","index":34,"pool":1301,"rate":"61187661103959","tvl":"174431906516","tvl_error":""}
+{"level":"info","ts":1704682243.7795086,"msg":"pool","index":35,"pool":1205,"rate":"61175991403385","tvl":"162762205942","tvl_error":""}
+{"level":"info","ts":1704682243.779522,"msg":"pool","index":36,"pool":1077,"rate":"61157183401770","tvl":"143954204327","tvl_error":""}
+{"level":"info","ts":1704682243.7795358,"msg":"pool","index":37,"pool":1324,"rate":"61151682222658","tvl":"138453025215","tvl_error":""}
+{"level":"info","ts":1704682243.7795491,"msg":"pool","index":38,"pool":1114,"rate":"61148344035004","tvl":"135114837561","tvl_error":""}
+{"level":"info","ts":1704682243.7795627,"msg":"pool","index":39,"pool":1297,"rate":"61144223536791","tvl":"130994339348","tvl_error":""}
+{"level":"info","ts":1704682243.779576,"msg":"pool","index":40,"pool":1111,"rate":"61139476772442","tvl":"126247574999","tvl_error":""}
+{"level":"info","ts":1704682243.7795892,"msg":"pool","index":41,"pool":1252,"rate":"61136405590239","tvl":"123176392796","tvl_error":""}
+{"level":"info","ts":1704682243.7796025,"msg":"pool","index":42,"pool":1106,"rate":"61120528261882","tvl":"107299064439","tvl_error":""}
+{"level":"info","ts":1704682243.7796237,"msg":"pool","index":43,"pool":1277,"rate":"61118575324616","tvl":"105346127173","tvl_error":""}
+{"level":"info","ts":1704682243.7796376,"msg":"pool","index":44,"pool":1108,"rate":"61113154372370","tvl":"99925174927","tvl_error":""}
+{"level":"info","ts":1704682243.7796512,"msg":"pool","index":45,"pool":1101,"rate":"61112099367159","tvl":"98870169716","tvl_error":""}
+{"level":"info","ts":1704682243.779664,"msg":"pool","index":46,"pool":1224,"rate":"61108808520887","tvl":"95579323444","tvl_error":""}
+{"level":"info","ts":1704682243.7796774,"msg":"pool","index":47,"pool":1091,"rate":"61106970707317","tvl":"93741509874","tvl_error":""}
+{"level":"info","ts":1704682243.779691,"msg":"pool","index":48,"pool":1100,"rate":"61102709256495","tvl":"89480059052","tvl_error":""}
+{"level":"info","ts":1704682243.7797043,"msg":"pool","index":49,"pool":1318,"rate":"61093854235426","tvl":"80625037983","tvl_error":""}
+{"level":"info","ts":1704682243.7797256,"msg":"pool","index":50,"pool":1321,"rate":"61090013283026","tvl":"76784085583","tvl_error":""}
+{"level":"info","ts":1704682243.779739,"msg":"pool","index":51,"pool":1273,"rate":"61088204051986","tvl":"74974854543","tvl_error":""}
+{"level":"info","ts":1704682243.779753,"msg":"pool","index":52,"pool":1260,"rate":"61079735166101","tvl":"66505968658","tvl_error":""}
+{"level":"info","ts":1704682243.7797663,"msg":"pool","index":53,"pool":1161,"rate":"61071162280937","tvl":"57933083494","tvl_error":""}
+{"level":"info","ts":1704682243.7797797,"msg":"pool","index":54,"pool":1337,"rate":"61071013352796","tvl":"57784155353","tvl_error":""}
+{"level":"info","ts":1704682243.7797928,"msg":"pool","index":55,"pool":1081,"rate":"61068579908349","tvl":"55350710906","tvl_error":""}
+{"level":"info","ts":1704682243.7798064,"msg":"pool","index":56,"pool":1282,"rate":"61067210781694","tvl":"53981584251","tvl_error":""}
+{"level":"info","ts":1704682243.7798233,"msg":"pool","index":57,"pool":1109,"rate":"61063837208226","tvl":"50608010783","tvl_error":""}
+{"level":"info","ts":1704682243.779837,"msg":"pool","index":58,"pool":1088,"rate":"61062680413985","tvl":"49451216542","tvl_error":""}
+{"level":"info","ts":1704682243.7798512,"msg":"pool","index":59,"pool":1261,"rate":"61060867234785","tvl":"47638037342","tvl_error":""}
+{"level":"info","ts":1704682243.7798645,"msg":"pool","index":60,"pool":1334,"rate":"61060668608876","tvl":"47439411433","tvl_error":""}
+{"level":"info","ts":1704682243.779878,"msg":"pool","index":61,"pool":1323,"rate":"61060545897587","tvl":"47316700144","tvl_error":""}
+{"level":"info","ts":1704682243.7798913,"msg":"pool","index":62,"pool":1105,"rate":"61059601570554","tvl":"46372373111","tvl_error":""}
+{"level":"info","ts":1704682243.7799046,"msg":"pool","index":63,"pool":1158,"rate":"61053905977119","tvl":"40676779676","tvl_error":""}
+{"level":"info","ts":1704682243.7799227,"msg":"pool","index":64,"pool":1078,"rate":"61047643107811","tvl":"34413910368","tvl_error":""}
+{"level":"info","ts":1704682243.779936,"msg":"pool","index":65,"pool":1268,"rate":"61040253198618","tvl":"27024001175","tvl_error":""}
+{"level":"info","ts":1704682243.7799497,"msg":"pool","index":66,"pool":1361,"rate":"61032073859501","tvl":"18844662058","tvl_error":""}
+{"level":"info","ts":1704682243.7799628,"msg":"pool","index":67,"pool":1243,"rate":"61030536831541","tvl":"17307634098","tvl_error":""}
+{"level":"info","ts":1704682243.7799761,"msg":"pool","index":68,"pool":1267,"rate":"61029896154543","tvl":"16666957100","tvl_error":""}
+{"level":"info","ts":1704682243.7799895,"msg":"pool","index":69,"pool":1113,"rate":"61029240573532","tvl":"16011376089","tvl_error":""}
+{"level":"info","ts":1704682243.780003,"msg":"pool","index":70,"pool":1107,"rate":"61024449738234","tvl":"11220540791","tvl_error":""}
+{"level":"info","ts":1704682243.7800164,"msg":"pool","index":71,"pool":1274,"rate":"61024026111273","tvl":"10796913830","tvl_error":""}
+{"level":"info","ts":1704682243.78003,"msg":"pool","index":72,"pool":1136,"rate":"60669581548630","tvl":"852690178587","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
+{"level":"info","ts":1704682243.7800484,"msg":"pool","index":73,"pool":1283,"rate":"60606898927580","tvl":"790007557537","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
+{"level":"info","ts":1704682243.7800665,"msg":"pool","index":74,"pool":1335,"rate":"60578374179510","tvl":"761482809467","tvl_error":"highest liquidity pool between base uosmo and match denom factory/osmo1f5vfcph2dvfeqcqkhetwv75fda69z7e5c2dldm3kvgj23crkv6wqcn47a0/umilkTIA not found"}
+{"level":"info","ts":1704682243.7800817,"msg":"pool","index":75,"pool":1213,"rate":"60102778536377","tvl":"285887166334","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/FBB3FEF80ED2344D821D4F95C31DBFD33E4E31D5324CAD94EF756E67B749F668 not found"}
+{"level":"info","ts":1704682243.7800968,"msg":"pool","index":76,"pool":1227,"rate":"60026052036163","tvl":"209160666120","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/B66CE615C600ED0A8B5AF425ECFE0D57BE2377587F66C45934A76886F34DC9B7 not found"}
+{"level":"info","ts":1704682243.7801287,"msg":"pool","index":77,"pool":1230,"rate":"59854711301260","tvl":"37819931217","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/01D2F0C4739C871BFBEE7E786709E6904A55559DC1483DD92ED392EF12247862 not found"}
+{"level":"info","ts":1704682243.7801466,"msg":"pool","index":78,"pool":1294,"rate":"59836474720778","tvl":"19583350735","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/1E43D59E565D41FB4E54CA639B838FFD5BCFC20003D330A56CB1396231AA1CBA not found"}
+{"level":"info","ts":1704682243.780165,"msg":"pool","index":79,"pool":1305,"rate":"59830759312710","tvl":"13867942667","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/6928AFA9EA721938FED13B051F9DBF1272B16393D20C49EA5E4901BB76D94A90 not found"}
+{"level":"info","ts":1704682243.7801864,"msg":"pool","index":80,"pool":833,"rate":"26153897736556","tvl":"24957559909156","tvl_error":""}
+{"level":"info","ts":1704682243.7802,"msg":"pool","index":81,"pool":1,"rate":"14034098697334","tvl":"12837760869934","tvl_error":""}
+{"level":"info","ts":1704682243.780214,"msg":"pool","index":82,"pool":704,"rate":"4978560583948","tvl":"3782222756548","tvl_error":""}
+{"level":"info","ts":1704682243.7802277,"msg":"pool","index":83,"pool":803,"rate":"3639459710798","tvl":"3639459710798","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901 not found"}
+{"level":"info","ts":1704682243.7802498,"msg":"pool","index":84,"pool":1057,"rate":"3550068491921","tvl":"2353730664521","tvl_error":""}
+{"level":"info","ts":1704682243.7802644,"msg":"pool","index":85,"pool":712,"rate":"3526391319196","tvl":"2330053491796","tvl_error":""}
+{"level":"info","ts":1704682243.780281,"msg":"pool","index":86,"pool":678,"rate":"3122139718014","tvl":"1925801890614","tvl_error":""}
+{"level":"info","ts":1704682243.7802942,"msg":"pool","index":87,"pool":812,"rate":"3053976495397","tvl":"1857638667997","tvl_error":""}
+{"level":"info","ts":1704682243.7803073,"msg":"pool","index":88,"pool":725,"rate":"2813717741515","tvl":"1617379914115","tvl_error":""}
+{"level":"info","ts":1704682243.7803202,"msg":"pool","index":89,"pool":796,"rate":"2618382524951","tvl":"1422044697551","tvl_error":""}
+{"level":"info","ts":1704682243.7803335,"msg":"pool","index":90,"pool":722,"rate":"2560113259175","tvl":"1363775431775","tvl_error":""}
+{"level":"info","ts":1704682243.7803473,"msg":"pool","index":91,"pool":604,"rate":"2164979243157","tvl":"968641415757","tvl_error":""}
+{"level":"info","ts":1704682243.7803612,"msg":"pool","index":92,"pool":3,"rate":"2111638079710","tvl":"915300252310","tvl_error":""}
+{"level":"info","ts":1704682243.7803743,"msg":"pool","index":93,"pool":681,"rate":"1936841162196","tvl":"740503334796","tvl_error":""}
+{"level":"info","ts":1704682243.7803879,"msg":"pool","index":94,"pool":1241,"rate":"1931644782499","tvl":"735306955099","tvl_error":""}
+{"level":"info","ts":1704682243.7804015,"msg":"pool","index":95,"pool":9,"rate":"1854241580702","tvl":"657903753302","tvl_error":""}
+{"level":"info","ts":1704682243.7804146,"msg":"pool","index":96,"pool":832,"rate":"1841208458657","tvl":"644870631257","tvl_error":""}
+{"level":"info","ts":1704682243.7804277,"msg":"pool","index":97,"pool":4,"rate":"1771465141192","tvl":"575127313792","tvl_error":""}
+{"level":"info","ts":1704682243.7804415,"msg":"pool","index":98,"pool":806,"rate":"1752960798363","tvl":"556622970963","tvl_error":""}
+{"level":"info","ts":1704682243.7804546,"msg":"pool","index":99,"pool":840,"rate":"1750322957744","tvl":"553985130344","tvl_error":""}
+{"level":"info","ts":1704682243.7804725,"msg":"pool","index":100,"pool":1244,"rate":"1746437305486","tvl":"550099478086","tvl_error":""}
+{"level":"info","ts":1704682243.7804859,"msg":"pool","index":101,"pool":1233,"rate":"1687579686102","tvl":"491241858702","tvl_error":""}
+{"level":"info","ts":1704682243.7804992,"msg":"pool","index":102,"pool":1173,"rate":"1627326439283","tvl":"430988611883","tvl_error":""}
+{"level":"info","ts":1704682243.7805128,"msg":"pool","index":103,"pool":497,"rate":"1621295894377","tvl":"424958066977","tvl_error":""}
+{"level":"info","ts":1704682243.780526,"msg":"pool","index":104,"pool":1225,"rate":"1592670096375","tvl":"396332268975","tvl_error":""}
+{"level":"info","ts":1704682243.7805393,"msg":"pool","index":105,"pool":584,"rate":"1587887209998","tvl":"391549382598","tvl_error":""}
+{"level":"info","ts":1704682243.7805529,"msg":"pool","index":106,"pool":1041,"rate":"1568093952885","tvl":"371756125485","tvl_error":""}
+{"level":"info","ts":1704682243.7805665,"msg":"pool","index":107,"pool":674,"rate":"1560386481172","tvl":"364048653772","tvl_error":""}
+{"level":"info","ts":1704682243.7805831,"msg":"pool","index":108,"pool":611,"rate":"1509833919194","tvl":"313496091794","tvl_error":""}
+{"level":"info","ts":1704682243.7805977,"msg":"pool","index":109,"pool":799,"rate":"1503130335920","tvl":"306792508520","tvl_error":""}
+{"level":"info","ts":1704682243.7806113,"msg":"pool","index":110,"pool":1226,"rate":"1485516879856","tvl":"289179052456","tvl_error":""}
+{"level":"info","ts":1704682243.7806246,"msg":"pool","index":111,"pool":560,"rate":"1484047175445","tvl":"287709348045","tvl_error":""}
+{"level":"info","ts":1704682243.7806377,"msg":"pool","index":112,"pool":789,"rate":"1453964734196","tvl":"257626906796","tvl_error":""}
+{"level":"info","ts":1704682243.780651,"msg":"pool","index":113,"pool":608,"rate":"1452466532610","tvl":"256128705210","tvl_error":""}
+{"level":"info","ts":1704682243.7806642,"msg":"pool","index":114,"pool":571,"rate":"1449051373525","tvl":"252713546125","tvl_error":""}
+{"level":"info","ts":1704682243.7806785,"msg":"pool","index":115,"pool":498,"rate":"1443316554242","tvl":"246978726842","tvl_error":""}
+{"level":"info","ts":1704682243.7806916,"msg":"pool","index":116,"pool":2,"rate":"1435481645357","tvl":"239143817957","tvl_error":""}
+{"level":"info","ts":1704682243.7807052,"msg":"pool","index":117,"pool":586,"rate":"1429890534935","tvl":"233552707535","tvl_error":""}
+{"level":"info","ts":1704682243.7807186,"msg":"pool","index":118,"pool":463,"rate":"1420504104573","tvl":"224166277173","tvl_error":""}
+{"level":"info","ts":1704682243.7807324,"msg":"pool","index":119,"pool":744,"rate":"1413331099904","tvl":"216993272504","tvl_error":""}
+{"level":"info","ts":1704682243.7807457,"msg":"pool","index":120,"pool":899,"rate":"1399348350352","tvl":"203010522952","tvl_error":""}
+{"level":"info","ts":1704682243.7807593,"msg":"pool","index":121,"pool":5,"rate":"1397135805470","tvl":"200797978070","tvl_error":""}
+{"level":"info","ts":1704682243.780773,"msg":"pool","index":122,"pool":42,"rate":"1394388376141","tvl":"198050548741","tvl_error":""}
+{"level":"info","ts":1704682243.7807863,"msg":"pool","index":123,"pool":6,"rate":"1393832482435","tvl":"197494655035","tvl_error":""}
+{"level":"info","ts":1704682243.7807994,"msg":"pool","index":124,"pool":1046,"rate":"1388822374831","tvl":"192484547431","tvl_error":""}
+{"level":"info","ts":1704682243.780813,"msg":"pool","index":125,"pool":1075,"rate":"1385999059914","tvl":"189661232514","tvl_error":""}
+{"level":"info","ts":1704682243.7808266,"msg":"pool","index":126,"pool":992,"rate":"1385226902049","tvl":"188889074649","tvl_error":""}
+{"level":"info","ts":1704682243.7808402,"msg":"pool","index":127,"pool":605,"rate":"1383716412882","tvl":"187378585482","tvl_error":""}
+{"level":"info","ts":1704682243.78086,"msg":"pool","index":128,"pool":907,"rate":"1381320014419","tvl":"184982187019","tvl_error":""}
+{"level":"info","ts":1704682243.796009,"msg":"pool","index":129,"pool":587,"rate":"1379770279669","tvl":"183432452269","tvl_error":""}
+{"level":"info","ts":1704682243.7960274,"msg":"pool","index":130,"pool":1249,"rate":"1378573673599","tvl":"182235846199","tvl_error":""}
+{"level":"info","ts":1704682243.7960422,"msg":"pool","index":131,"pool":572,"rate":"1376538482409","tvl":"180200655009","tvl_error":""}
+{"level":"info","ts":1704682243.7960565,"msg":"pool","index":132,"pool":1320,"rate":"1370444448453","tvl":"174106621053","tvl_error":""}
+{"level":"info","ts":1704682243.7960715,"msg":"pool","index":133,"pool":816,"rate":"1369312699329","tvl":"172974871929","tvl_error":""}
+{"level":"info","ts":1704682243.7960916,"msg":"pool","index":134,"pool":10,"rate":"1358191851164","tvl":"161854023764","tvl_error":""}
+{"level":"info","ts":1704682243.7961063,"msg":"pool","index":135,"pool":627,"rate":"1346940861309","tvl":"150603033909","tvl_error":""}
+{"level":"info","ts":1704682243.7961235,"msg":"pool","index":136,"pool":481,"rate":"1342994487501","tvl":"146656660101","tvl_error":""}
+{"level":"info","ts":1704682243.796138,"msg":"pool","index":137,"pool":1036,"rate":"1338163028715","tvl":"141825201315","tvl_error":""}
+{"level":"info","ts":1704682243.7961607,"msg":"pool","index":138,"pool":585,"rate":"1323845455337","tvl":"127507627937","tvl_error":""}
+{"level":"info","ts":1704682243.7961748,"msg":"pool","index":139,"pool":1121,"rate":"1312100322192","tvl":"115762494792","tvl_error":""}
+{"level":"info","ts":1704682243.7961895,"msg":"pool","index":140,"pool":777,"rate":"1297788294542","tvl":"101450467142","tvl_error":""}
+{"level":"info","ts":1704682243.7962039,"msg":"pool","index":141,"pool":15,"rate":"1292383847543","tvl":"96046020143","tvl_error":""}
+{"level":"info","ts":1704682243.7962184,"msg":"pool","index":142,"pool":952,"rate":"1291336688720","tvl":"94998861320","tvl_error":""}
+{"level":"info","ts":1704682243.7962327,"msg":"pool","index":143,"pool":602,"rate":"1287672863870","tvl":"91335036470","tvl_error":""}
+{"level":"info","ts":1704682243.796247,"msg":"pool","index":144,"pool":773,"rate":"1286858012519","tvl":"90520185119","tvl_error":""}
+{"level":"info","ts":1704682243.7962613,"msg":"pool","index":145,"pool":1020,"rate":"1284565653057","tvl":"88227825657","tvl_error":""}
+{"level":"info","ts":1704682243.7962763,"msg":"pool","index":146,"pool":629,"rate":"1281812478783","tvl":"85474651383","tvl_error":""}
+{"level":"info","ts":1704682243.796291,"msg":"pool","index":147,"pool":1180,"rate":"1272443226387","tvl":"76105398987","tvl_error":""}
+{"level":"info","ts":1704682243.7963052,"msg":"pool","index":148,"pool":928,"rate":"1271277351997","tvl":"74939524597","tvl_error":""}
+{"level":"info","ts":1704682243.7963207,"msg":"pool","index":149,"pool":606,"rate":"1270769157085","tvl":"74431329685","tvl_error":""}
+{"level":"info","ts":1704682243.7963347,"msg":"pool","index":150,"pool":1179,"rate":"1269118208340","tvl":"72780380940","tvl_error":""}
+{"level":"info","ts":1704682243.7963488,"msg":"pool","index":151,"pool":732,"rate":"1268791084111","tvl":"72453256711","tvl_error":""}
+{"level":"info","ts":1704682243.7963634,"msg":"pool","index":152,"pool":924,"rate":"1267217469394","tvl":"70879641994","tvl_error":""}
+{"level":"info","ts":1704682243.7963774,"msg":"pool","index":153,"pool":648,"rate":"1264646782104","tvl":"68308954704","tvl_error":""}
+{"level":"info","ts":1704682243.796392,"msg":"pool","index":154,"pool":900,"rate":"1264583513828","tvl":"68245686428","tvl_error":""}
+{"level":"info","ts":1704682243.7964065,"msg":"pool","index":155,"pool":8,"rate":"1263214161125","tvl":"66876333725","tvl_error":""}
+{"level":"info","ts":1704682243.7964213,"msg":"pool","index":156,"pool":601,"rate":"1262986316681","tvl":"66648489281","tvl_error":""}
+{"level":"info","ts":1704682243.796435,"msg":"pool","index":157,"pool":1019,"rate":"1260227807205","tvl":"63889979805","tvl_error":""}
+{"level":"info","ts":1704682243.796449,"msg":"pool","index":158,"pool":626,"rate":"1256329821069","tvl":"59991993669","tvl_error":""}
+{"level":"info","ts":1704682243.7964642,"msg":"pool","index":159,"pool":574,"rate":"1255850348463","tvl":"59512521063","tvl_error":""}
+{"level":"info","ts":1704682243.7964785,"msg":"pool","index":160,"pool":731,"rate":"1253372969123","tvl":"57035141723","tvl_error":""}
+{"level":"info","ts":1704682243.7964897,"msg":"pool","index":161,"pool":877,"rate":"1252923991375","tvl":"56586163975","tvl_error":""}
+{"level":"info","ts":1704682243.796504,"msg":"pool","index":162,"pool":482,"rate":"1252071639181","tvl":"55733811781","tvl_error":""}
+{"level":"info","ts":1704682243.7965178,"msg":"pool","index":163,"pool":972,"rate":"1252024600460","tvl":"55686773060","tvl_error":""}
+{"level":"info","ts":1704682243.7965317,"msg":"pool","index":164,"pool":1065,"rate":"1249915517810","tvl":"53577690410","tvl_error":""}
+{"level":"info","ts":1704682243.796546,"msg":"pool","index":165,"pool":917,"rate":"1249307124892","tvl":"52969297492","tvl_error":""}
+{"level":"info","ts":1704682243.7965603,"msg":"pool","index":166,"pool":7,"rate":"1242760208915","tvl":"46422381515","tvl_error":""}
+{"level":"info","ts":1704682243.7965744,"msg":"pool","index":167,"pool":641,"rate":"1242110906970","tvl":"45773079570","tvl_error":""}
+{"level":"info","ts":1704682243.7965982,"msg":"pool","index":168,"pool":13,"rate":"1241982069183","tvl":"45644241783","tvl_error":""}
+{"level":"info","ts":1704682243.796613,"msg":"pool","index":169,"pool":644,"rate":"1241502950154","tvl":"45165122754","tvl_error":""}
+{"level":"info","ts":1704682243.7966278,"msg":"pool","index":170,"pool":930,"rate":"1240821864947","tvl":"44484037547","tvl_error":""}
+{"level":"info","ts":1704682243.7966418,"msg":"pool","index":171,"pool":600,"rate":"1240758205342","tvl":"44420377942","tvl_error":""}
+{"level":"info","ts":1704682243.7966561,"msg":"pool","index":172,"pool":929,"rate":"1239129809170","tvl":"42791981770","tvl_error":""}
+{"level":"info","ts":1704682243.7966702,"msg":"pool","index":173,"pool":956,"rate":"1238164125144","tvl":"41826297744","tvl_error":""}
+{"level":"info","ts":1704682243.7966845,"msg":"pool","index":174,"pool":619,"rate":"1237680868654","tvl":"41343041254","tvl_error":""}
+{"level":"info","ts":1704682243.7966988,"msg":"pool","index":175,"pool":686,"rate":"1236134528622","tvl":"39796701222","tvl_error":""}
+{"level":"info","ts":1704682243.7967122,"msg":"pool","index":176,"pool":914,"rate":"1234859398538","tvl":"38521571138","tvl_error":""}
+{"level":"info","ts":1704682243.796726,"msg":"pool","index":177,"pool":651,"rate":"1234504790056","tvl":"38166962656","tvl_error":""}
+{"level":"info","ts":1704682243.7967403,"msg":"pool","index":178,"pool":1011,"rate":"1234208995252","tvl":"37871167852","tvl_error":""}
+{"level":"info","ts":1704682243.7967544,"msg":"pool","index":179,"pool":573,"rate":"1233318620538","tvl":"36980793138","tvl_error":""}
+{"level":"info","ts":1704682243.7967682,"msg":"pool","index":180,"pool":800,"rate":"1232623654566","tvl":"36285827166","tvl_error":""}
+{"level":"info","ts":1704682243.7967827,"msg":"pool","index":181,"pool":826,"rate":"1231462270439","tvl":"35124443039","tvl_error":""}
+{"level":"info","ts":1704682243.7967973,"msg":"pool","index":182,"pool":625,"rate":"1230867271695","tvl":"34529444295","tvl_error":""}
+{"level":"info","ts":1704682243.796811,"msg":"pool","index":183,"pool":577,"rate":"1230292564445","tvl":"33954737045","tvl_error":""}
+{"level":"info","ts":1704682243.7968278,"msg":"pool","index":184,"pool":898,"rate":"1229368685528","tvl":"33030858128","tvl_error":""}
+{"level":"info","ts":1704682243.796842,"msg":"pool","index":185,"pool":778,"rate":"1229216428426","tvl":"32878601026","tvl_error":""}
+{"level":"info","ts":1704682243.7968564,"msg":"pool","index":186,"pool":915,"rate":"1228232331343","tvl":"31894503943","tvl_error":""}
+{"level":"info","ts":1704682243.79689,"msg":"pool","index":187,"pool":831,"rate":"1228047113316","tvl":"31709285916","tvl_error":""}
+{"level":"info","ts":1704682243.7969046,"msg":"pool","index":188,"pool":1239,"rate":"1227833577164","tvl":"31495749764","tvl_error":""}
+{"level":"info","ts":1704682243.7969193,"msg":"pool","index":189,"pool":960,"rate":"1227422693392","tvl":"31084865992","tvl_error":""}
+{"level":"info","ts":1704682243.796933,"msg":"pool","index":190,"pool":1218,"rate":"1227188265472","tvl":"30850438072","tvl_error":""}
+{"level":"info","ts":1704682243.7969475,"msg":"pool","index":191,"pool":1232,"rate":"1227029150497","tvl":"30691323097","tvl_error":""}
+{"level":"info","ts":1704682243.7969615,"msg":"pool","index":192,"pool":616,"rate":"1226596094154","tvl":"30258266754","tvl_error":""}
+{"level":"info","ts":1704682243.7969759,"msg":"pool","index":193,"pool":631,"rate":"1224955470952","tvl":"28617643552","tvl_error":""}
+{"level":"info","ts":1704682243.7969897,"msg":"pool","index":194,"pool":1061,"rate":"1224408673764","tvl":"28070846364","tvl_error":""}
+{"level":"info","ts":1704682243.7970035,"msg":"pool","index":195,"pool":553,"rate":"1223670683612","tvl":"27332856212","tvl_error":""}
+{"level":"info","ts":1704682243.7970176,"msg":"pool","index":196,"pool":882,"rate":"1223211304364","tvl":"26873476964","tvl_error":""}
+{"level":"info","ts":1704682243.7970314,"msg":"pool","index":197,"pool":918,"rate":"1222811756616","tvl":"26473929216","tvl_error":""}
+{"level":"info","ts":1704682243.797045,"msg":"pool","index":198,"pool":769,"rate":"1222400877899","tvl":"26063050499","tvl_error":""}
+{"level":"info","ts":1704682243.7970629,"msg":"pool","index":199,"pool":617,"rate":"1221489867834","tvl":"25152040434","tvl_error":""}
+{"level":"info","ts":1704682243.7970772,"msg":"pool","index":200,"pool":1013,"rate":"1218340617076","tvl":"22002789676","tvl_error":""}
+{"level":"info","ts":1704682243.797091,"msg":"pool","index":201,"pool":662,"rate":"1217241964230","tvl":"20904136830","tvl_error":""}
+{"level":"info","ts":1704682243.7971048,"msg":"pool","index":202,"pool":790,"rate":"1217199724121","tvl":"20861896721","tvl_error":""}
+{"level":"info","ts":1704682243.797119,"msg":"pool","index":203,"pool":837,"rate":"1216586644900","tvl":"20248817500","tvl_error":""}
+{"level":"info","ts":1704682243.797133,"msg":"pool","index":204,"pool":1238,"rate":"1214884445411","tvl":"18546618011","tvl_error":""}
+{"level":"info","ts":1704682243.7971463,"msg":"pool","index":205,"pool":618,"rate":"1214612117498","tvl":"18274290098","tvl_error":""}
+{"level":"info","ts":1704682243.7971601,"msg":"pool","index":206,"pool":561,"rate":"1214611251384","tvl":"18273423984","tvl_error":""}
+{"level":"info","ts":1704682243.7971737,"msg":"pool","index":207,"pool":738,"rate":"1214161868034","tvl":"17824040634","tvl_error":""}
+{"level":"info","ts":1704682243.7971878,"msg":"pool","index":208,"pool":813,"rate":"1212524308736","tvl":"16186481336","tvl_error":""}
+{"level":"info","ts":1704682243.7972028,"msg":"pool","index":209,"pool":730,"rate":"1211826988994","tvl":"15489161594","tvl_error":""}
+{"level":"info","ts":1704682243.7972167,"msg":"pool","index":210,"pool":562,"rate":"1211725041750","tvl":"15387214350","tvl_error":""}
+{"level":"info","ts":1704682243.797231,"msg":"pool","index":211,"pool":1023,"rate":"1210648765906","tvl":"14310938506","tvl_error":""}
+{"level":"info","ts":1704682243.797245,"msg":"pool","index":212,"pool":621,"rate":"1209229262725","tvl":"12891435325","tvl_error":""}
+{"level":"info","ts":1704682243.7972589,"msg":"pool","index":213,"pool":613,"rate":"1208823575575","tvl":"12485748175","tvl_error":""}
+{"level":"info","ts":1704682243.797273,"msg":"pool","index":214,"pool":637,"rate":"1208804364327","tvl":"12466536927","tvl_error":""}
+{"level":"info","ts":1704682243.797287,"msg":"pool","index":215,"pool":555,"rate":"1208646742863","tvl":"12308915463","tvl_error":""}
+{"level":"info","ts":1704682243.7973008,"msg":"pool","index":216,"pool":634,"rate":"1208432405755","tvl":"12094578355","tvl_error":""}
+{"level":"info","ts":1704682243.797315,"msg":"pool","index":217,"pool":22,"rate":"1208311173958","tvl":"11973346558","tvl_error":""}
+{"level":"info","ts":1704682243.7973287,"msg":"pool","index":218,"pool":795,"rate":"1208149256498","tvl":"11811429098","tvl_error":""}
+{"level":"info","ts":1704682243.7973425,"msg":"pool","index":219,"pool":643,"rate":"1207903465619","tvl":"11565638219","tvl_error":""}
+{"level":"info","ts":1704682243.797356,"msg":"pool","index":220,"pool":1039,"rate":"1207402043787","tvl":"11064216387","tvl_error":""}
+{"level":"info","ts":1704682243.7973692,"msg":"pool","index":221,"pool":558,"rate":"1206598604528","tvl":"10260777128","tvl_error":""}
+{"level":"info","ts":1704682243.797383,"msg":"pool","index":222,"pool":1242,"rate":"1206547004523","tvl":"10209177123","tvl_error":""}
+{"level":"info","ts":1704682243.7973979,"msg":"pool","index":223,"pool":1240,"rate":"1206422764462","tvl":"10084937062","tvl_error":""}
+{"level":"info","ts":1704682243.797412,"msg":"pool","index":224,"pool":817,"rate":"493825023479","tvl":"493825023479","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/84502A75BCA4A5F68D464C00B3F610CE2585847D59B52E5FFB7C3C9D2DDCD3FE not found"}
+{"level":"info","ts":1704682243.7974277,"msg":"pool","index":225,"pool":944,"rate":"342153811767","tvl":"342153811767","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/FA602364BEC305A696CBDF987058E99D8B479F0318E47314C49173E8838C5BAC not found"}
+{"level":"info","ts":1704682243.79745,"msg":"pool","index":226,"pool":810,"rate":"206114921859","tvl":"206114921859","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/5DD1F95ED336014D00CE2520977EC71566D282F9749170ADC83A392E0EA7426A not found"}
+{"level":"info","ts":1704682243.7974691,"msg":"pool","index":227,"pool":1137,"rate":"100153232839","tvl":"100153232839","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/208B2F137CDE510B44C41947C045CFDC27F996A9D990EA64460BDD5B3DBEB2ED not found"}
+{"level":"info","ts":1704682243.7974846,"msg":"pool","index":228,"pool":1120,"rate":"79615432089","tvl":"79615432089","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/5A0060579D24FBE5268BEA74C3281E7FE533D361C41A99307B4998FEC611E46B not found"}
+{"level":"info","ts":1704682243.7975037,"msg":"pool","index":229,"pool":912,"rate":"47521888008","tvl":"47521888008","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
+{"level":"info","ts":1704682243.797522,"msg":"pool","index":230,"pool":1035,"rate":"40493244275","tvl":"40493244275","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/02F196DA6FD0917DD5FEA249EE61880F4D941EE9059E7964C5C9B50AF103800F not found"}
+{"level":"info","ts":1704682243.7975378,"msg":"pool","index":231,"pool":1087,"rate":"32161372273","tvl":"32161372273","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/EAF76AD1EEF7B16D167D87711FB26ABE881AC7D9F7E6D0CF313D5FA530417208 not found"}
+{"level":"info","ts":1704682243.797553,"msg":"pool","index":232,"pool":903,"rate":"22707656789","tvl":"22707656789","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/46C83BB054E12E189882B5284542DB605D94C99827E367C9192CF0579CD5BC83 not found"}
+{"level":"info","ts":1704682243.7975724,"msg":"pool","index":233,"pool":1284,"rate":"20887197371","tvl":"20887197371","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/75345531D87BD90BF108BE7240BD721CB2CB0A1F16D4EBA71B09EC3C43E15C8F not found"}
+{"level":"info","ts":1704682243.797588,"msg":"pool","index":234,"pool":597,"rate":"18223806444","tvl":"18223806444","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
+{"level":"info","ts":1704682243.7976038,"msg":"pool","index":235,"pool":886,"rate":"17036115777","tvl":"17036115777","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/CAA179E40F0266B0B29FB5EAA288FB9212E628822265D4141EBD1C47C3CBFCBC not found"}
+{"level":"info","ts":1704682243.7976186,"msg":"pool","index":236,"pool":1254,"rate":"17019022596","tvl":"17019022596","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B not found"}
+{"level":"info","ts":1704682243.79764,"msg":"pool","index":237,"pool":1311,"rate":"15551693007","tvl":"15551693007","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/E7905742CE2EA4EA5D592527DC89220C59B617DE803939FE7293805A64B484D7 not found"}
+{"level":"info","ts":1704682243.7976637,"msg":"pool","index":238,"pool":1356,"rate":"14272196663","tvl":"14272196663","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/2FFE07C4B4EFC0DDA099A16C6AF3C9CCA653CC56077E87217A585D48794B0BC7 not found"}
+{"level":"info","ts":1704682243.79768,"msg":"pool","index":239,"pool":922,"rate":"13852018021","tvl":"13852018021","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/C5579A9595790017C600DD726276D978B9BF314CF82406CE342720A9C7911A01 not found"}
+{"level":"info","ts":1704682243.797695,"msg":"pool","index":240,"pool":1255,"rate":"13572315101","tvl":"13572315101","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B not found"}
+{"level":"info","ts":1704682243.7977104,"msg":"pool","index":241,"pool":695,"rate":"12616355692","tvl":"12616355692","tvl_error":"error getting token precision ibc/52E12CF5CA2BB903D84F5298B4BFD725D66CAB95E09AA4FC75B2904CA5485FEB"}
+{"level":"info","ts":1704682243.797729,"msg":"pool","index":242,"pool":1007,"rate":"11237175709","tvl":"11237175709","tvl_error":"highest liquidity pool between base uosmo and match denom ibc/63CDD51098FD99E04E5F5610A3882CBE7614C441607BA6FCD7F3A3C1CD5325F8 not found"}
+{"level":"info","ts":1704682243.7977476,"msg":"pool","index":243,"pool":596,"rate":"10519973150","tvl":"10519973150","tvl_error":"error getting token precision ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4"}
+{"level":"info","ts":1704682243.7977626,"msg":"pool","index":244,"pool":751,"rate":"10205152373","tvl":"10205152373","tvl_error":"error getting token precision ibc/7ABF696369EFB3387DF22B6A24204459FE5EFD010220E8E5618DC49DB877047B"}
+{"level":"info","ts":1704682243.8254836,"msg":"calculated routes","num_routes":3}
