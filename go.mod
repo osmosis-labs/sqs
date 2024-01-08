@@ -8,8 +8,8 @@ require (
 	github.com/cosmos/cosmos-sdk v0.47.5
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/labstack/echo v3.3.10+incompatible
-	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240108173050-d3034bbf2499
-	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240108173050-d3034bbf2499
+	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240108180923-ddfef98789fd
+	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240108180923-ddfef98789fd
 	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240108020045-ce7408a2484d
 	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240108041740-335fcbc6ac1e
 	github.com/prometheus/client_golang v1.18.0
@@ -44,7 +44,6 @@ require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
-	github.com/btcsuite/btcd/btcutil v1.1.3 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -144,6 +143,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
+	github.com/onsi/gomega v1.27.10 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/osmosis-labs/osmosis/x/epochs v0.0.3-0.20240108040604-9632b2b8af1b // indirect
 	github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.9-0.20240108040604-9632b2b8af1b // indirect
@@ -219,6 +219,11 @@ replace (
 	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.47.6-0.20240103225327-6652b67a6ae8
 	github.com/cosmos/gogoproto => github.com/cosmos/gogoproto v1.4.10
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+
+	// we explicitly follow main branch tags
+	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240108180923-ddfef98789fd
+	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240108180923-ddfef98789fd
+	github.com/osmosis-labs/osmosis/v21 => github.com/osmosis-labs/osmosis/v21 v21.0.0-rc0.0.20240108180923-ddfef98789fd
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
