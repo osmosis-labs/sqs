@@ -6,3 +6,6 @@ redis-cache
 bin
 
 build
+
+# Go
+go.work.sum
