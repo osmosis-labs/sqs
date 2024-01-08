@@ -55,10 +55,6 @@ func TestRoutesOverwrite_Get(t *testing.T) {
 	// Assuming Set method is working correctly.
 	// Setting up some initial data for testing Get method.
 
-	r := cache.NewRoutesOverwrite()
-	r.Set("key1", "value1")
-	r.Set("key2", "value2")
-
 	tests := []struct {
 		name                     string
 		isRoutesOverwriteEnabled bool
@@ -91,6 +87,10 @@ func TestRoutesOverwrite_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			r := cache.CreateRoutesOverwrite(tt.isRoutesOverwriteEnabled)
+			r.Set("key1", "value1")
+			r.Set("key2", "value2")
+
 			value, exists := r.Get(tt.key)
 
 			if value != tt.expectedValue || exists != tt.expectedExists {
