@@ -7,7 +7,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.47.5
 	github.com/json-iterator/go v1.1.12
 	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240108180923-ddfef98789fd
-	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240108020045-ce7408a2484d
+	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240109044531-fc20549a9a02
 	github.com/redis/go-redis/v9 v9.4.0
 )
 
