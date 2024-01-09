@@ -31,7 +31,7 @@ jobs:
       run: |
         if [ -z "${{ github.event.inputs.docker_tag }}" ]; then
           BRANCH_OR_TAG=${GITHUB_REF#refs/*/}
-          echo "docker_tag=sqs-${BRANCH_OR_TAG}" >> ${GITHUB_ENV}
+          echo "docker_tag=${BRANCH_OR_TAG}" >> ${GITHUB_ENV}
         else
           echo "docker_tag=${{ github.event.inputs.docker_tag }}" >> ${GITHUB_ENV}
         fi
