@@ -675,7 +675,7 @@ func (r *routerUseCaseImpl) OverwriteRoutes(ctx context.Context, tokeinInDenom s
 func (r *routerUseCaseImpl) LoadOverwriteRoutes(ctx context.Context) error {
 	// Read overwrite routes from disk if they exist.
 	_, err := os.Stat(r.overwriteRoutesPath)
-	if err != nil && err != os.ErrNotExist {
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	} else if err == nil {
 		entries, err := os.ReadDir(r.overwriteRoutesPath)
