@@ -11,7 +11,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/sqsdomain/repository"
 	poolsredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/pools"
 )

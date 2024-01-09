@@ -10,8 +10,8 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v21/app/apptesting"
-	concentratedmodel "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v22/app/apptesting"
+	concentratedmodel "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
 )
 
 func deepCopyTickModel(tickModel *sqsdomain.TickModel) *sqsdomain.TickModel {

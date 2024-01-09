@@ -14,7 +14,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 
-	"github.com/osmosis-labs/osmosis/v21/app"
+	"github.com/osmosis-labs/osmosis/v22/app"
 )
 
 func init() {

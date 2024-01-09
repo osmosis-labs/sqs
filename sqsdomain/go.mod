@@ -1,13 +1,15 @@
 module github.com/osmosis-labs/sqs/sqsdomain
 
-go 1.20
+go 1.21
+
+toolchain go1.21.5
 
 require (
 	cosmossdk.io/math v1.1.3-rc.1
 	github.com/cosmos/cosmos-sdk v0.47.5
 	github.com/json-iterator/go v1.1.12
-	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240108180923-ddfef98789fd
-	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240109044531-fc20549a9a02
+	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240109214800-856d6ce64d0c
+	github.com/osmosis-labs/osmosis/v22 v22.0.0-alpha0
 	github.com/redis/go-redis/v9 v9.4.0
 )
 
@@ -113,7 +115,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
-	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240108173050-d3034bbf2499 // indirect
+	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240109214800-856d6ce64d0c // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -185,7 +187,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240108180923-ddfef98789fd
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240108180923-ddfef98789fd
-	github.com/osmosis-labs/osmosis/v21 => github.com/osmosis-labs/osmosis/v21 v21.0.0-rc0.0.20240108180923-ddfef98789fd
+	github.com/osmosis-labs/osmosis/v22 => github.com/osmosis-labs/osmosis/v22 v22.0.0-alpha0
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7

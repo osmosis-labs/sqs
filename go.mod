@@ -1,6 +1,8 @@
 module github.com/osmosis-labs/sqs
 
-go 1.20
+go 1.21
+
+toolchain go1.21.5
 
 require (
 	cosmossdk.io/math v1.1.3-rc.1
@@ -8,10 +10,10 @@ require (
 	github.com/cosmos/cosmos-sdk v0.47.5
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/labstack/echo v3.3.10+incompatible
-	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240108180923-ddfef98789fd
-	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240108180923-ddfef98789fd
-	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240109044531-fc20549a9a02
-	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240108041740-335fcbc6ac1e
+	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240109214800-856d6ce64d0c
+	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240109214800-856d6ce64d0c
+	github.com/osmosis-labs/osmosis/v22 v22.0.0-alpha0
+	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240108192026-6ccc0a29f77d
 	github.com/prometheus/client_golang v1.18.0
 	github.com/redis/go-redis/v9 v9.4.0
 	github.com/sirupsen/logrus v1.9.3
@@ -143,10 +145,11 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
-	github.com/onsi/gomega v1.27.10 // indirect
+	github.com/onsi/gomega v1.28.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/osmosis-labs/osmosis/x/epochs v0.0.3-0.20240108040604-9632b2b8af1b // indirect
-	github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.9-0.20240108040604-9632b2b8af1b // indirect
+	github.com/osmosis-labs/osmosis/v21 v21.2.1 // indirect
+	github.com/osmosis-labs/osmosis/x/epochs v0.0.3-0.20240109214800-856d6ce64d0c // indirect
+	github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.9-0.20240109214800-856d6ce64d0c // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -179,7 +182,6 @@ require (
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/arch v0.7.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/net v0.19.0 // indirect
@@ -223,7 +225,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240108180923-ddfef98789fd
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240108180923-ddfef98789fd
-	github.com/osmosis-labs/osmosis/v21 => github.com/osmosis-labs/osmosis/v21 v21.0.0-rc0.0.20240108180923-ddfef98789fd
+	github.com/osmosis-labs/osmosis/v22 => github.com/osmosis-labs/osmosis/v22 v22.0.0-alpha0
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
