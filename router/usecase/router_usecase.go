@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -48,6 +50,8 @@ type routerUseCaseImpl struct {
 const (
 	candidateRouteCacheLabel = "candidate_route"
 	rankedRouteCacheLabel    = "ranked_route"
+
+	denomSeparatorChar = "|"
 )
 
 var (
@@ -664,14 +668,68 @@ func (r *routerUseCaseImpl) OverwriteRoutes(ctx context.Context, tokeinInDenom s
 	return nil
 }
 
+// LoadOverwriteRoutes loads the overwrite routes from disk if they exist.
+// If they do not exist, this is a no-op.
+// If they exist, it loads them into the router usecase.
+// Returns errors if any.
+func (r *routerUseCaseImpl) LoadOverwriteRoutes(ctx context.Context) error {
+	// Read overwrite routes from disk if they exist.
+	_, err := os.Stat(r.overwriteRoutesPath)
+	if err != nil && err != os.ErrNotExist {
+		return err
+	} else if err == nil {
+		entries, err := os.ReadDir(r.overwriteRoutesPath)
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				return fmt.Errorf("overwrite routes directory should not contain subdirectories")
+			}
+
+			fileName := entry.Name()
+
+			// Read the entire file
+			content, err := os.ReadFile(fmt.Sprintf("%s/%s", r.overwriteRoutesPath, fileName))
+			if err != nil {
+				return err
+			}
+
+			// Parse to candidate routes
+			var candidateRoutes sqsdomain.CandidateRoutes
+			if err := json.Unmarshal(content, &candidateRoutes); err != nil {
+				return err
+			}
+
+			tokenInDenomTokenOutDenomStr, err := url.PathUnescape(fileName)
+			if err != nil {
+				return err
+			}
+
+			tokenInDenomTokenOutDenom := strings.Split(tokenInDenomTokenOutDenomStr, denomSeparatorChar)
+			if len(tokenInDenomTokenOutDenom) != 2 {
+				return fmt.Errorf("overwrite routes file name should be of format: '<tokenInDenom>%s<tokenOutDenom>.json URL-escaped", denomSeparatorChar)
+			}
+
+			tokenInDenom := tokenInDenomTokenOutDenom[0]
+
+			if err := r.OverwriteRoutes(ctx, tokenInDenom, candidateRoutes.Routes); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // formatRouteCacheKey formats the given token in and token out denoms to a string.
 func formatRouteCacheKey(tokenInDenom string, tokenOutDenom string) string {
-	return fmt.Sprintf("%s/%s", tokenInDenom, tokenOutDenom)
+	return fmt.Sprintf("%s%s%s", tokenInDenom, denomSeparatorChar, tokenOutDenom)
 }
 
 // formatRankedRouteCacheKey formats the given token in and token out denoms and order of magnitude to a string.
 func formatRankedRouteCacheKey(tokenInDenom string, tokenOutDenom string, tokenIOrderOfMagnitude int) string {
-	return fmt.Sprintf("%s/%d", formatRouteCacheKey(tokenInDenom, tokenOutDenom), tokenIOrderOfMagnitude)
+	return fmt.Sprintf("%s%s%d", formatRouteCacheKey(tokenInDenom, tokenOutDenom), denomSeparatorChar, tokenIOrderOfMagnitude)
 }
 
 // convertRankedToCandidateRoutes converts the given ranked routes to candidate routes.

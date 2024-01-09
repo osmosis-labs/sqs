@@ -10,6 +10,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -619,11 +620,12 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// Validate that the quote is not nil
 			s.Require().NotNil(quote.GetAmountOut())
+
 		})
 	}
 }
 
-// Basic happy path test for OverwriteRoutes.
+// Basic happy path test for OverwriteRoutes and LoadOverwriteRoutes.
 //
 // Similar to TestGetOptimalQuote_Cache_Overwrites, this test is set up by focusing on ATOM / OSMO mainnet state pool.
 // We restrict the number of routes via config.
@@ -632,7 +634,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 // Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 20M of liquidity to date
 // Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 14M of liquidity to date
 // Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 224K of liquidity to date
-func (s *RouterTestSuite) TestOverwriteRoutes() {
+func (s *RouterTestSuite) TestOverwriteRoutes_LoadOverwriteRoutes() {
 	const tempPath = "temp"
 
 	s.Setup()
@@ -647,15 +649,10 @@ func (s *RouterTestSuite) TestOverwriteRoutes() {
 
 	// Mock router use case.
 	routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, cache.New(), cache.NewRoutesOverwrite())
-
 	routerUsecase = usecase.WithOverwriteRoutesPath(routerUsecase, tempPath)
 
-	// Get quote without overwrite
-	quote, err := routerUsecase.GetOptimalQuote(context.Background(), sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM)
-	s.Require().NoError(err)
-
 	// Without overwrite this is the pool ID we expect given the amount in.
-	s.Require().Equal(poolID1265Concentrated, quote.GetRoute()[0].GetPools()[0].GetId())
+	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1265Concentrated)
 
 	defer func() {
 		// Clean up
@@ -663,24 +660,48 @@ func (s *RouterTestSuite) TestOverwriteRoutes() {
 	}()
 
 	// System under test #1
-	err = routerUsecase.OverwriteRoutes(context.Background(), UOSMO, poolIDOneRoute.Routes)
-	s.Require().NoError(err)
-
-	// Get quote with overwrite
-	quote, err = routerUsecase.GetOptimalQuote(context.Background(), sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM)
+	err := routerUsecase.OverwriteRoutes(context.Background(), UOSMO, poolIDOneRoute.Routes)
 	s.Require().NoError(err)
 
 	// With overwrite this is the pool ID we expect given the amount in.
-	s.Require().Equal(poolIDOneBalancer, quote.GetRoute()[0].GetPools()[0].GetId())
+	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolIDOneBalancer)
 
 	// Validate that the overwrite can be modified
 	// System under test #2
 	err = routerUsecase.OverwriteRoutes(context.Background(), UOSMO, poolID1135Route.Routes)
 	s.Require().NoError(err)
 
-	quote, err = routerUsecase.GetOptimalQuote(context.Background(), sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM)
+	// With overwrite this is the pool ID we expect given the amount in.
+	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1135Concentrated)
+
+	// Now, drop the original use case and create a new one
+	routerUsecase, _ = s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, cache.New(), cache.NewRoutesOverwrite())
+	routerUsecase = usecase.WithOverwriteRoutesPath(routerUsecase, tempPath)
+
+	// 	// Without overwrite this is the pool ID we expect given the amount in.
+	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1265Concentrated)
+
+	// Load overwrite
+	err = routerUsecase.LoadOverwriteRoutes(context.Background())
 	s.Require().NoError(err)
 
 	// With overwrite this is the pool ID we expect given the amount in.
-	s.Require().Equal(poolID1135Concentrated, quote.GetRoute()[0].GetPools()[0].GetId())
+	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1135Concentrated)
+}
+
+// validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.
+// This helper is useful in specific tests that rely on this configuration.
+func (s *RouterTestSuite) validatePoolIDInRoute(routerUseCase mvc.RouterUsecase, coinIn sdk.Coin, tokenOutDenom string, expectedPoolID uint64) {
+	// Get quote
+	quote, err := routerUseCase.GetOptimalQuote(context.Background(), coinIn, tokenOutDenom)
+	s.Require().NoError(err)
+
+	quoteRoutes := quote.GetRoute()
+	s.Require().Len(quoteRoutes, 1)
+
+	routePools := quoteRoutes[0].GetPools()
+	s.Require().Len(routePools, 1)
+
+	// Validate that the pool ID is the expected one
+	s.Require().Equal(expectedPoolID, routePools[0].GetId())
 }

@@ -156,6 +156,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 	routerUsecase := routerUseCase.WithOverwriteRoutesPath(routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, routerConfig, logger, cache.New(), routesOverwrite), overwriteRoutesPath)
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, logger)
 
+	// Load overwrite routes from disk if they exist.
+	err = routerUsecase.LoadOverwriteRoutes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// Initialize system handler
 	chainInfoRepository := chaininforedisrepo.New(redisTxManager)
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(timeoutContext, chainInfoRepository, redisTxManager)
