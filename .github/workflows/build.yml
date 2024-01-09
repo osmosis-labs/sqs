@@ -2,10 +2,18 @@ name: "SQS UI | Build Docker Image"
 
 on:
   workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: 'Docker tag to build'
+        required: false
+        default: ''
   push:
-    branches: [ "main", "v*.*.*" ]
-  pull_request:
-    branches: [ "main", "v*.*.*" ]
+    tags:
+      - sqs-v[0-9]+.[0-9]+.[0-9]+
+    branches:
+      - "v[0-9]**"
+      - "main"
+
 
 jobs:
   build:
@@ -21,7 +29,12 @@ jobs:
 
     - name: "SET:ENV:VARS"
       run: |
-        echo "docker_tag=ui-${GITHUB_SHA::7}" >> ${GITHUB_ENV}
+        if [ -z "${{ github.event.inputs.docker_tag }}" ]; then
+          BRANCH_OR_TAG=${GITHUB_REF#refs/*/}
+          echo "docker_tag=sqs-${BRANCH_OR_TAG}" >> ${GITHUB_ENV}
+        else
+          echo "docker_tag=${{ github.event.inputs.docker_tag }}" >> ${GITHUB_ENV}
+        fi
 
     - name: "DOCKER:BUILD:CHECK:PUSH"
       uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
