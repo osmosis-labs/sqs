@@ -19,4 +19,3 @@ To sum up,
    * This is the default repository branch
 - `sqs/main` always references `osmosis/main`
    * This is the branch we maintain to cut the new major branch once chain release happens
-
