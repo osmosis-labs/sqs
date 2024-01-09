@@ -88,7 +88,11 @@ func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.Ro
 
 // WithOverwriteRoutesPath sets the overwrite routes path on the router use case.
 func WithOverwriteRoutesPath(routerUsecase mvc.RouterUsecase, overwriteRoutesPath string) mvc.RouterUsecase {
-	routerUsecase.(*routerUseCaseImpl).overwriteRoutesPath = overwriteRoutesPath
+	useCaseImpl, ok := routerUsecase.(*routerUseCaseImpl)
+	if !ok {
+		panic("error casting router use case to router use case impl")
+	}
+	useCaseImpl.overwriteRoutesPath = overwriteRoutesPath
 	return routerUsecase
 }
 
