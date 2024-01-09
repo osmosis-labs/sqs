@@ -664,7 +664,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			router, tickMap, takerFeeMap := s.setupMainnetRouter(config)
 
 			// Mock router use case.
-			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, tc.tokenInDenom, tc.tokenOutDenom, tickMap, takerFeeMap, cache.New(), cache.NewNoOpRoutesOverwrite())
+			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, cache.New(), cache.NewNoOpRoutesOverwrite())
 
 			// System under test
 			quote, err := routerUsecase.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
@@ -738,7 +738,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_Mainnet_UOSMOUION() {
 // - converting candidate routes to routes with all the necessary data.
 // COTRACT: router is initialized with setupMainnetRouter(...) or setupDefaultMainnetRouter(...)
 func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]sqsdomain.TickModel, takerFeeMap sqsdomain.TakerFeeMap) []route.RouteImpl {
-	_, poolsUsecase := s.setupRouterAndPoolsUsecase(router, tokenInDenom, tokenOutDenom, tickMap, takerFeeMap, cache.New(), cache.NewNoOpRoutesOverwrite())
+	_, poolsUsecase := s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, cache.New(), cache.NewNoOpRoutesOverwrite())
 
 	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
 	s.Require().NoError(err)
@@ -751,7 +751,7 @@ func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.
 
 // Sets up and returns usecases for router and pools by mocking the mainnet data
 // from json files.
-func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]sqsdomain.TickModel, takerFeeMap sqsdomain.TakerFeeMap, rankedRoutesCache *cache.Cache, routesOverwrite *cache.RoutesOverwrite) (mvc.RouterUsecase, mvc.PoolsUsecase) {
+func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Router, tickMap map[uint64]sqsdomain.TickModel, takerFeeMap sqsdomain.TakerFeeMap, rankedRoutesCache *cache.Cache, routesOverwrite *cache.RoutesOverwrite) (mvc.RouterUsecase, mvc.PoolsUsecase) {
 	// Setup router repository mock
 	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{}
 	routerusecase.WithRouterRepository(router, &routerRepositoryMock)

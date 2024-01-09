@@ -2,8 +2,10 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -11,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/osmoutils"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -20,6 +23,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
+	"github.com/osmosis-labs/sqs/sqsutil"
 )
 
 var _ mvc.RouterUsecase = &routerUseCaseImpl{}
@@ -34,6 +38,11 @@ type routerUseCaseImpl struct {
 	routesOverwrite *cache.RoutesOverwrite
 
 	rankedRouteCache *cache.Cache
+
+	// This is a path where the overwrite routes are stored as backup in case of failure.
+	// On restart, the routes are loaded from this path.
+	// It is defined on the use case for testability (s.t. we can set a temp path in tests)
+	overwriteRoutesPath string
 }
 
 const (
@@ -75,6 +84,12 @@ func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.Ro
 		rankedRouteCache: rankedRouteCache,
 		routesOverwrite:  routesOverwrite,
 	}
+}
+
+// WithOverwriteRoutesPath sets the overwrite routes path on the router use case.
+func WithOverwriteRoutesPath(routerUsecase mvc.RouterUsecase, overwriteRoutesPath string) mvc.RouterUsecase {
+	routerUsecase.(*routerUseCaseImpl).overwriteRoutesPath = overwriteRoutesPath
+	return routerUsecase
 }
 
 // GetOptimalQuote returns the optimal quote by estimating the optimal route(s) through pools
@@ -567,6 +582,78 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles(ctx context.Context) error {
 	}
 
 	if err := parsing.StoreTakerFees("taker_fees.json", takerFeesMap); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// OverwriteRoutes implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) OverwriteRoutes(ctx context.Context, tokeinInDenom string, routes []sqsdomain.CandidateRoute) error {
+	if len(routes) == 0 {
+		return errors.New("routes cannot be empty")
+	}
+
+	// Find the unique pool IDs
+	uniquePoolIDs := make(map[uint64]struct{})
+
+	var (
+		// The token out denom that we expect to be the same for all routes
+		// We initialize it to token out denom of the first route and then validate
+		// that it equals for all other routes.
+		expectedTokenOutDenom string
+		// The token out denom of the previous pool
+		// For the first pool in route, assumed to be tokenInDenom
+		previousPoolsTokenOutDenom = tokeinInDenom
+	)
+	for i, route := range routes {
+		for _, pool := range route.Pools {
+			// Validate that token in is present in the first pool
+			poolData, err := r.poolsUsecase.GetPool(ctx, pool.ID)
+			if err != nil {
+				return err
+			}
+
+			poolDenoms := poolData.GetPoolDenoms()
+			if !osmoutils.Contains(poolDenoms, previousPoolsTokenOutDenom) {
+				return fmt.Errorf("token in denom %s not found in pool %d of route with index %d", tokeinInDenom, pool.ID, i)
+			}
+
+			// Persist unique pool ID
+			uniquePoolIDs[pool.ID] = struct{}{}
+
+			previousPoolsTokenOutDenom = pool.TokenOutDenom
+		}
+
+		// Make sure that the token out denom of the previous route is the same as for current route
+		// That is, all routes have the same token out denom
+		if i != 0 {
+			if expectedTokenOutDenom != previousPoolsTokenOutDenom {
+				return fmt.Errorf("token out denom %s does not match expected token out denom %s for route with index %d", previousPoolsTokenOutDenom, expectedTokenOutDenom, i)
+			}
+		}
+		expectedTokenOutDenom = previousPoolsTokenOutDenom
+	}
+
+	// Create the overwrite data structure that we save in cache
+	candidateRoutes := sqsdomain.CandidateRoutes{
+		Routes:        routes,
+		UniquePoolIDs: uniquePoolIDs,
+	}
+
+	// Note that we only persist overwrite in one direction (tokenInDenom -> tokenOutDenom)
+	// For other directions, we must resubmit the request with denoms inversed.
+	overwriteKey := formatRouteCacheKey(tokeinInDenom, expectedTokenOutDenom)
+	r.routesOverwrite.Set(overwriteKey, candidateRoutes)
+
+	// Also save this thing to a file for crash recovery
+	bz, err := json.Marshal(candidateRoutes)
+	if err != nil {
+		return err
+	}
+
+	err = sqsutil.WriteBytes(r.overwriteRoutesPath, url.PathEscape(overwriteKey), bz)
+	if err != nil {
 		return err
 	}
 

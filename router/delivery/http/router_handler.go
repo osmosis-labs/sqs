@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/json"
 )
 
 // ResponseError represent the response error struct
@@ -46,6 +49,7 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, logger log.Logger) {
 	e.GET(formatRouterResource("/custom-quote"), handler.GetCustomQuote)
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
 	e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
+	e.POST(formatRouterResource("/overwrite-route"), handler.OverwriteRoute)
 }
 
 // GetOptimalQuote will determine the optimal quote for a given tokenIn and tokenOutDenom
@@ -189,6 +193,35 @@ func (a *RouterHandler) StoreRouterStateInFiles(c echo.Context) error {
 	return c.JSON(http.StatusOK, "Router state stored in files")
 }
 
+// TODO: authentication for the endpoint and enable only in dev mode.
+func (a *RouterHandler) OverwriteRoute(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	// Get the tokenInDenom denom string
+	tokenInDenom, err := getValidTokenInStr(c)
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	// Read the request body
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Error reading request body")
+	}
+
+	// Parse the request body
+	var routes []sqsdomain.CandidateRoute
+	if err := json.Unmarshal(body, &routes); err != nil {
+		return c.String(http.StatusInternalServerError, "Error parsing request body")
+	}
+
+	if err := a.RUsecase.OverwriteRoutes(ctx, tokenInDenom, routes); err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, "Router state stored in files")
+}
+
 func getStatusCode(err error) int {
 	if err == nil {
 		return http.StatusOK
@@ -222,13 +255,23 @@ func getValidRoutingParameters(c echo.Context) (string, sdk.Coin, error) {
 	return tokenOutStr, tokenIn, nil
 }
 
-func getValidTokenInTokenOutStr(c echo.Context) (tokenOutStr, tokenInStr string, err error) {
-	tokenInStr = c.QueryParam("tokenIn")
-	tokenOutStr = c.QueryParam("tokenOutDenom")
+func getValidTokenInStr(c echo.Context) (string, error) {
+	tokenInStr := c.QueryParam("tokenIn")
 
 	if len(tokenInStr) == 0 {
-		return "", "", errors.New("tokenIn is required")
+		return "", errors.New("tokenIn is required")
 	}
+
+	return tokenInStr, nil
+}
+
+func getValidTokenInTokenOutStr(c echo.Context) (tokenOutStr, tokenInStr string, err error) {
+	tokenInStr, err = getValidTokenInStr(c)
+	if err != nil {
+		return "", "", err
+	}
+
+	tokenOutStr = c.QueryParam("tokenOutDenom")
 
 	if len(tokenOutStr) == 0 {
 		return "", "", errors.New("tokenOutDenom is required")

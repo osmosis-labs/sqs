@@ -57,6 +57,12 @@ type sideCarQueryServer struct {
 	logger              log.Logger
 }
 
+const (
+	// This is a directory path where the overwrite routes are backed up in case of failure.
+	// On restart, the overwrite routes are restored from this directory.
+	overwriteRoutesPath = "overwrite_routes"
+)
+
 // GetTokensUseCase implements SideCarQueryServer.
 func (sqs *sideCarQueryServer) GetTokensUseCase() domain.TokensUsecase {
 	return sqs.tokensUseCase
@@ -147,7 +153,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 
 	// Initialize router repository, usecase and HTTP handler
 	routerRepository := routerredisrepo.New(redisTxManager, routerConfig.RouteCacheExpirySeconds)
-	routerUsecase := routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, routerConfig, logger, cache.New(), routesOverwrite)
+	routerUsecase := routerUseCase.WithOverwriteRoutesPath(routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, routerConfig, logger, cache.New(), routesOverwrite), overwriteRoutesPath)
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, logger)
 
 	// Initialize system handler

@@ -22,7 +22,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestGetOptimalQuote_Cache_Overwrites",
+                "TestRouterTestSuite/TestOverwriteRoutes",
                 "-test.v"
             ],
         },
