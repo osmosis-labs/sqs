@@ -13,7 +13,7 @@ pull_request_rules:
   - name: automerge to the base branch with label automerge and branch protection passing
     conditions:
       - "#approved-reviews-by>=1"
-      - base=main
+      - base=v21.x
       - label=A:automerge
     actions:
       queue:
@@ -24,7 +24,7 @@ pull_request_rules:
           {{ body }}
   - name: backport patches to osmosis-main branch
     conditions:
-      - base=main
+      - base=v21.x
       - label=A:backport/osmosis-main
     actions:
       backport:
@@ -32,7 +32,7 @@ pull_request_rules:
           - osmosis-main
   - name: backport patches to v22.x branch
     conditions:
-      - base=main
+      - base=v21.x
       - label=A:backport/v22.x
     actions:
       backport:
@@ -40,7 +40,7 @@ pull_request_rules:
           - v22.x
   - name: backport patches to v23.x branch
     conditions:
-      - base=main
+      - base=v21.x
       - label=A:backport/v23.x
     actions:
       backport:
