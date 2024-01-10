@@ -68,8 +68,7 @@ build:
 
 docker-build:
 	@DOCKER_BUILDKIT=1 docker build \
-		-t sqs:local \
-		-t sqs:local-distroless \
+		-t osmolabs/sqs:v0.0.1 \
 		--build-arg GO_VERSION=$(GO_VERSION) \
 		--build-arg GIT_VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(COMMIT) \

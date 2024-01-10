@@ -682,10 +682,10 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 	}
 }
 
-// Validates custom quote for UOSMO to UION.
+// Validates custom quotes for UOSMO to UION.
 // That is, with the given pool ID, we expect the quote to be routed through the route
 // that matches these pool IDs. Errors otherwise.
-func (s *RouterTestSuite) TestGetCustomQuote_Mainnet_UOSMOUION() {
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOUION() {
 	config := defaultRouterConfig
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
@@ -718,17 +718,15 @@ func (s *RouterTestSuite) TestGetCustomQuote_Mainnet_UOSMOUION() {
 	const expectedPoolID = uint64(2)
 	poolIDs := []uint64{expectedPoolID}
 
+	// System under test 1
 	quote, err := routerUsecase.GetCustomQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, poolIDs)
-
 	s.Require().NoError(err)
-	s.Require().NotNil(quote)
+	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 
-	s.Require().Len(quote.GetRoute(), 1)
-	routePools := quote.GetRoute()[0].GetPools()
-	s.Require().Len(routePools, 1)
-
-	// Validate that the pool is pool 2
-	s.Require().Equal(expectedPoolID, routePools[0].GetId())
+	// System under test 2
+	quote, err = routerUsecase.GetCustomDirectQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	s.Require().NoError(err)
+	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 }
 
 // Generates routes from mainnet state by:
@@ -767,4 +765,16 @@ func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Route
 	routerUsecase := usecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, defaultRouterConfig, &log.NoOpLogger{}, rankedRoutesCache, routesOverwrite)
 
 	return routerUsecase, poolsUsecase
+}
+
+// validates that the given quote has one route with one hop and the expected pool ID.
+func (s *RouterTestSuite) validateExpectedPoolIDOneRouteOneHopQuote(quote domain.Quote, expectedPoolID uint64) {
+	routes := quote.GetRoute()
+	s.Require().Len(routes, 1)
+
+	route := routes[0]
+
+	routePools := route.GetPools()
+	s.Require().Equal(1, len(routePools))
+	s.Require().Equal(expectedPoolID, routePools[0].GetId())
 }
