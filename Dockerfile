@@ -28,7 +28,9 @@ RUN ARCH=$(uname -m) && WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm |
 
 RUN BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
     -tags "netgo,ledger,muslc" \
-    -ldflags "-w -s -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
+    -ldflags \
+    "-X github.com/osmosis-labs/sqs/version=${GIT_VERSION} \
+    -w -s -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
     -v -o /osmosis/build/sqsd /osmosis/app/*.go 
 
 # --------------------------------------------------------

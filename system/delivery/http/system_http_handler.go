@@ -5,7 +5,9 @@ import (
 	"io"
 	"net/http"
 	_ "net/http/pprof"
+	"runtime/debug"
 	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -20,10 +22,11 @@ import (
 )
 
 type SystemHandler struct {
-	logger       log.Logger
-	redisAddress string
-	grpcAddress  string
-	CIUsecase    mvc.ChainInfoUsecase
+	logger        log.Logger
+	redisAddress  string
+	grpcAddress   string
+	CIUsecase     mvc.ChainInfoUsecase
+	RouterUsecase mvc.RouterUsecase
 }
 
 // Parse the response from the GRPC Gateway status endpoint
@@ -39,17 +42,45 @@ type JsonResponse struct {
 const heightTolerance = 10
 
 // NewSystemHandler will initialize the /debug/ppof resources endpoint
-func NewSystemHandler(e *echo.Echo, redisAddress, grpcAddress string, logger log.Logger, us mvc.ChainInfoUsecase) {
+func NewSystemHandler(e *echo.Echo, redisAddress, grpcAddress string, logger log.Logger, us mvc.ChainInfoUsecase, ru mvc.RouterUsecase) {
 	handler := &SystemHandler{
-		logger:       logger,
-		redisAddress: redisAddress,
-		grpcAddress:  grpcAddress,
-		CIUsecase:    us,
+		logger:        logger,
+		redisAddress:  redisAddress,
+		grpcAddress:   grpcAddress,
+		CIUsecase:     us,
+		RouterUsecase: ru,
 	}
 
 	e.GET("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
 	e.GET("/healthcheck", handler.GetHealthStatus)
+	e.GET("/config", handler.GetConfig)
+	e.GET("/version", handler.GetVersion)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+}
+
+// GetConfig returns the config for the SQS service
+func (h *SystemHandler) GetConfig(c echo.Context) error {
+	config := h.RouterUsecase.GetConfig()
+	return c.JSON(http.StatusOK, config)
+}
+
+func (h *SystemHandler) GetVersion(c echo.Context) error {
+	buildInfo, ok := debug.ReadBuildInfo()
+	if !ok {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read build info")
+	}
+
+	for _, setting := range buildInfo.Settings {
+		if setting.Key == "-ldflags" {
+			versionSlice := strings.Split(setting.Value, "=")
+			if len(versionSlice) != 2 {
+				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse version string")
+			}
+			return c.JSON(http.StatusOK, versionSlice[1])
+		}
+	}
+
+	return echo.NewHTTPError(http.StatusInternalServerError, "failed to find version information")
 }
 
 // GetHealthStatus handles health check requests for both GRPC gateway and Redis
