@@ -539,6 +539,11 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenI
 	return cachedCandidateRoutes, nil
 }
 
+// GetConfig implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
+	return r.config
+}
+
 // initializeRouter initializes the router per configuration defined on the use case
 // Returns error if:
 // - there is an error retrieving pools from the store
@@ -729,8 +734,12 @@ func (r *routerUseCaseImpl) OverwriteRoutes(ctx context.Context, tokeinInDenom s
 func (r *routerUseCaseImpl) LoadOverwriteRoutes(ctx context.Context) error {
 	// Read overwrite routes from disk if they exist.
 	_, err := os.Stat(r.overwriteRoutesPath)
-	if err != nil && !os.IsNotExist(err) {
-		return err
+	if err != nil {
+		if os.IsNotExist(err) {
+			// We do not have to create the path because we expect the first request
+			// to create the directory.
+			return nil
+		}
 	} else if err == nil {
 		entries, err := os.ReadDir(r.overwriteRoutesPath)
 		if err != nil {

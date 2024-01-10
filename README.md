@@ -391,7 +391,7 @@ Parameters: none
 
 ### System Resource
 
-1. GET `/system/healthcheck`
+1. GET `/healthcheck`
 
 Description: returns 200 if the server is healthy.
 Validates the following conditions:
@@ -401,9 +401,17 @@ Validates the following conditions:
 - The latest height in Redis is within threshold of the latest height in the node
 - The latest height in Redis was updated within a configurable number of seconds
 
-2. GET `/system/metrics`
+2. GET `/metrics`
 
 Description: returns the prometheus metrics for the server
+
+3. GET `/version`
+
+Description: returns the version of the server
+
+4. GET `/config`
+
+Description: returns the configuration of the server, including the router.
 
 ## Development Setup
 
