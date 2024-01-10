@@ -12,15 +12,27 @@ on:
       - 'v[1-9]*.*' # Matches tags starting with 'v', followed by a single digit from 1-9, and then anything after the first dot.
       - 'v[1-9][0-9]*.*' # Matches tags starting with 'v', followed by a two-digit number where the first digit is 1-9, and then anything after the first dot.
       - 'v[1-9]*.*.*' # Matches tags in a semantic versioning format starting with 'v', a single digit from 1-9, and two more version parts, each separated by a dot.
-      - 'v*.*.*'
-      - 'v**.*.*'
-      - 'v**.**.*'
-      - 'v**.**.**'
+      - 'v*.*.*' # Matches vx.x.x
+      - 'v**.*.*' # Matches vxx.x.x
+      - 'v**.**.*' # Matches vxx.xx.x
+      - 'v**.**.**' # Matches vxx.xx.xx
+      - 'v*.*.**' # Matches vx.x.xx
+      - 'v*.**.**' # Matches vx.xx.xx
+      - 'v*.**.*' # Matches vx.xx.x
+      - 'v**.*.**' # Matches vxx.x.xx
     branches:
       - 'v[1-9]*.*' # Matches branch names starting with 'v', followed by a single digit from 1-9, and then anything after the first dot.
       - 'v[1-9][0-9]*.*' # Matches branch names starting with 'v', followed by a two-digit number where the first digit is 1-9, and then anything after the first dot.
       - 'v[1-9]*.*.*' # Matches branch names in a semantic versioning format starting with 'v', a single digit from 1-9, and two more version parts, each separated by a dot.
       - 'v[1-9][0-9]*.*.*' # Matches branch names in a semantic versioning format starting with 'v', a two-digit number where the first digit is 1-9, and two more version parts, each separated by a dot.
+      - 'v*.*.*' # Matches vx.x.x
+      - 'v**.*.*' # Matches vxx.x.x
+      - 'v**.**.*' # Matches vxx.xx.x
+      - 'v**.**.**' # Matches vxx.xx.xx
+      - 'v*.*.**' # Matches vx.x.xx
+      - 'v*.**.**' # Matches vx.xx.xx
+      - 'v*.**.*' # Matches vx.xx.x
+      - 'v**.*.**' # Matches vxx.x.xx
       - "osmosis-main" # Matches the branch named 'osmosis-main'.
 
 jobs:
