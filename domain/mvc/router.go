@@ -19,6 +19,10 @@ type RouterUsecase interface {
 	// It searches for the route that contains the specified poolIDs in the given order.
 	// If such route is not found it returns an error.
 	GetCustomQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolIDs []uint64) (domain.Quote, error)
+	// GetCustomDirectQuote returns the custom direct quote for the given tokenIn, tokenOutDenom and poolID.
+	// It does not search for the route. It directly computes the quote for the given poolID.
+	// This allows to bypass a min liquidity requirement in the router when attempting to swap over a specific pool.
+	GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error)
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
 	GetCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// GetTakerFee returns the taker fee for all token pairs in a pool.

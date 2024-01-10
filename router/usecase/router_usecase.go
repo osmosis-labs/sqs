@@ -425,6 +425,60 @@ func (r *routerUseCaseImpl) GetCustomQuote(ctx context.Context, tokenIn sdk.Coin
 	return quote, nil
 }
 
+// GetCustomDirectQuote implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
+	pool, err := r.poolsUsecase.GetPool(ctx, poolID)
+	if err != nil {
+		return nil, err
+	}
+
+	poolDenoms := pool.GetPoolDenoms()
+
+	if !osmoutils.Contains(poolDenoms, tokenIn.Denom) {
+		return nil, fmt.Errorf("token in denom %s not found in pool %d", tokenIn.Denom, poolID)
+	}
+	if !osmoutils.Contains(poolDenoms, tokenOutDenom) {
+		return nil, fmt.Errorf("token out denom %s not found in pool %d", tokenOutDenom, poolID)
+	}
+
+	// Retrieve taker fee for the pool
+	takerFee, err := r.routerRepository.GetTakerFee(ctx, tokenIn.Denom, tokenOutDenom)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a taker fee map with the taker fee for the pool
+	takerFeeMap := sqsdomain.TakerFeeMap{}
+	takerFeeMap.SetTakerFee(tokenIn.Denom, tokenOutDenom, takerFee)
+
+	// Create a candidate route with the desired pool
+	candidateRoutes := sqsdomain.CandidateRoutes{
+		Routes: []sqsdomain.CandidateRoute{
+			{
+				Pools: []sqsdomain.CandidatePool{
+					{
+						ID:            poolID,
+						TokenOutDenom: tokenOutDenom,
+					},
+				},
+			},
+		},
+		UniquePoolIDs: map[uint64]struct{}{
+			poolID: {},
+		},
+	}
+
+	// Convert candidate route into a route with all the pool data
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(ctx, candidateRoutes, takerFeeMap, tokenIn.Denom, tokenOutDenom)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute direct quote
+	router := r.initializeRouter()
+	return router.getBestSingleRouteQuote(tokenIn, routes)
+}
+
 // GetCandidateRoutes implements domain.RouterUsecase.
 func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
 	router := r.initializeRouter()
@@ -686,7 +740,6 @@ func (r *routerUseCaseImpl) LoadOverwriteRoutes(ctx context.Context) error {
 			// to create the directory.
 			return nil
 		}
-		return err
 	} else if err == nil {
 		entries, err := os.ReadDir(r.overwriteRoutesPath)
 		if err != nil {

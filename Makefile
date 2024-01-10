@@ -40,7 +40,7 @@ redis-stop:
 	docker container rm -f redis-stack
 
 osmosis-start:
-	docker run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:sqs-out-v0.1 "start"
+	docker run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:sqs-out-v0.2 "start"
 
 osmosis-stop:
 	docker container rm -f osmosis
@@ -68,8 +68,7 @@ build:
 
 docker-build:
 	@DOCKER_BUILDKIT=1 docker build \
-		-t sqs:local \
-		-t sqs:local-distroless \
+		-t osmolabs/sqs:v0.0.1 \
 		--build-arg GO_VERSION=$(GO_VERSION) \
 		--build-arg GIT_VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(COMMIT) \
