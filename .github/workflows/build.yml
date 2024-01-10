@@ -11,10 +11,13 @@ on:
     tags:
       - 'v[1-9]*.*'
       - 'v[1-9][0-9]*.*'
+      - 'v[1-9]*.*.*' # For versions like v1.0.0, v2.3.4, etc.
+      - 'v[1-9][0-9]*.*.*' # For versions like v10.20.30, v99.8.7, etc.
     branches:
       - 'v[1-9]*.*'
       - 'v[1-9][0-9]*.*'
-      - 'v[1-9][0-9]*.*.*.*'
+      - 'v[1-9]*.*.*' # For versions like v1.0.0, v2.3.4, etc.
+      - 'v[1-9][0-9]*.*.*' # For versions like v10.20.30, v99.8.7, etc.
       - "osmosis-main"
 
 jobs:
