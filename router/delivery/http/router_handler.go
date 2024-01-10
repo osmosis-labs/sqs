@@ -46,6 +46,7 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, logger log.Logger) {
 	e.GET(formatRouterResource("/single-quote"), handler.GetBestSingleRouteQuote)
 	e.GET(formatRouterResource("/routes"), handler.GetCandidateRoutes)
 	e.GET(formatRouterResource("/cached-routes"), handler.GetCachedCandidateRoutes)
+	e.GET(formatRouterResource("/custom-direct-quote"), handler.GetDirectCustomQuote)
 	e.GET(formatRouterResource("/custom-quote"), handler.GetCustomQuote)
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
 	e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
@@ -118,6 +119,37 @@ func (a *RouterHandler) GetCustomQuote(c echo.Context) error {
 
 	// Quote
 	quote, err := a.RUsecase.GetCustomQuote(ctx, tokenIn, tokenOutDenom, poolIDs)
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	quote.PrepareResult()
+
+	return c.JSON(http.StatusOK, quote)
+}
+
+// GetDirectCustomQuote returns a direct custom quote. It does not search for the route.
+// It directly computes the quote for the given poolID.
+func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
+	if err != nil {
+		return err
+	}
+
+	poolIDStr := c.QueryParam("poolID")
+	if len(poolIDStr) == 0 {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "poolID is required"})
+	}
+
+	poolID, err := strconv.ParseUint(poolIDStr, 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+	}
+
+	// Quote
+	quote, err := a.RUsecase.GetCustomDirectQuote(ctx, tokenIn, tokenOutDenom, poolID)
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
