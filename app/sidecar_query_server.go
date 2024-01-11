@@ -165,7 +165,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 	// Initialize system handler
 	chainInfoRepository := chaininforedisrepo.New(redisTxManager)
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(timeoutContext, chainInfoRepository, redisTxManager)
-	systemhttpdelivery.NewSystemHandler(e, redisAddress, grpcAddress, logger, chainInfoUseCase)
+	systemhttpdelivery.NewSystemHandler(e, redisAddress, grpcAddress, logger, chainInfoUseCase, routerUsecase)
 
 	// Initialized tokens usecase
 	tokensUseCase := tokensUseCase.NewTokensUsecase(timeoutContext)
