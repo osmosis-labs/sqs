@@ -72,7 +72,7 @@ class SQS(HttpUser):
 
     @task
     def routesUOSMOUSDC(self):
-        self.client.get(f"/routes?tokenIn={UOSMO}&tokenOutDenom={USDC}")
+        self.client.get(f"/router/routes?tokenIn={UOSMO}&tokenOutDenom={USDC}")
 
     
     @task
