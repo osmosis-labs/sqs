@@ -78,6 +78,7 @@ func (e ConcentratedCurrentTickNotWithinBucketError) Error() string {
 }
 
 type ConcentratedCurrentTickAndBucketMismatchError struct {
+	PoolID      uint64
 	CurrentTick int64
 	LowerTick   int64
 	UpperTick   int64
