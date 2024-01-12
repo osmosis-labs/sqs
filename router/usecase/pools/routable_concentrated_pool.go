@@ -94,6 +94,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Co
 	isCurrentTickWithinBucket := concentratedPool.IsCurrentTickInRange(currentBucket.LowerTick, currentBucket.UpperTick)
 	if !isCurrentTickWithinBucket {
 		return sdk.Coin{}, domain.ConcentratedCurrentTickAndBucketMismatchError{
+			PoolID:      concentratedPool.Id,
 			CurrentTick: concentratedPool.CurrentTick,
 			LowerTick:   currentBucket.LowerTick,
 			UpperTick:   currentBucket.UpperTick,
