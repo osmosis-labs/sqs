@@ -1,6 +1,7 @@
 package pools_test
 
 import (
+	"context"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -95,7 +96,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOutDenom, noTakerFee, domain.CosmWasmCodeIDMaps{})
 			s.Require().NoError(err)
 
-			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(tc.tokenIn)
+			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)

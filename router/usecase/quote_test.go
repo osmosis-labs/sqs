@@ -1,6 +1,8 @@
 package usecase_test
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -224,7 +226,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	expectedEffectiveSpreadFactor := expectedRouteOneFee.Add(expectedRouteTwoFee)
 
 	// System under test
-	routes, effectiveSpreadFactor := testQuote.PrepareResult()
+	routes, effectiveSpreadFactor := testQuote.PrepareResult(context.TODO())
 
 	// Validate routes.
 	s.validateRoutes(expectedRoutes, routes)
@@ -299,7 +301,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	}
 
 	// System under test.
-	testQuote.PrepareResult()
+	testQuote.PrepareResult(context.TODO())
 
 	// Validate price impact.
 	s.Require().Equal(expectedPriceImpact.String(), testQuote.GetPriceImpact().String())

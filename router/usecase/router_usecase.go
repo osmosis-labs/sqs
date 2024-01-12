@@ -196,7 +196,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	}
 
 	// Compute split route quote
-	topSplitQuote, err := router.GetSplitQuote(rankedRoutes, tokenIn)
+	topSplitQuote, err := router.GetSplitQuote(ctx, rankedRoutes, tokenIn)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, router 
 		return nil, nil, err
 	}
 
-	topQuote, routes, err := estimateDirectQuote(router, routes, tokenIn)
+	topQuote, routes, err := estimateDirectQuote(ctx, router, routes, tokenIn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -304,8 +304,8 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, router 
 // Also, returns the routes ranked by amount out in decreasing order.
 // Returns error if:
 // - fails to estimate direct quotes
-func estimateDirectQuote(router *Router, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []route.RouteImpl, error) {
-	topQuote, routesSortedByAmtOut, err := router.estimateAndRankSingleRouteQuote(routes, tokenIn)
+func estimateDirectQuote(ctx context.Context, router *Router, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []route.RouteImpl, error) {
+	topQuote, routesSortedByAmtOut, err := router.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -351,7 +351,7 @@ func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn
 		return nil, err
 	}
 
-	return router.getBestSingleRouteQuote(tokenIn, routes)
+	return router.getBestSingleRouteQuote(ctx, tokenIn, routes)
 }
 
 // GetCustomQuote implements mvc.RouterUsecase.
@@ -417,7 +417,7 @@ func (r *routerUseCaseImpl) GetCustomQuote(ctx context.Context, tokenIn sdk.Coin
 
 	// Compute direct quote
 	foundRoute := routes[routeIndex]
-	quote, _, err := router.estimateAndRankSingleRouteQuote([]route.RouteImpl{foundRoute}, tokenIn)
+	quote, _, err := router.estimateAndRankSingleRouteQuote(ctx, []route.RouteImpl{foundRoute}, tokenIn)
 	if err != nil {
 		return nil, err
 	}
@@ -476,7 +476,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 
 	// Compute direct quote
 	router := r.initializeRouter()
-	return router.getBestSingleRouteQuote(tokenIn, routes)
+	return router.getBestSingleRouteQuote(ctx, tokenIn, routes)
 }
 
 // GetCandidateRoutes implements domain.RouterUsecase.

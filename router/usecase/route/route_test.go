@@ -1,6 +1,7 @@
 package route_test
 
 import (
+	"context"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -198,7 +199,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 		s.Run(name, func() {
 
 			// Note: token in is chosen arbitrarily since it is irrelevant for this test
-			spotPriceBeforeInOverOut, _, err := tc.route.PrepareResultPools(tc.tokenIn)
+			spotPriceBeforeInOverOut, _, err := tc.route.PrepareResultPools(context.TODO(), tc.tokenIn)
 			s.Require().NoError(err)
 
 			s.Require().Equal(tc.expectedSpotPriceInOverOut, spotPriceBeforeInOverOut)

@@ -1,6 +1,7 @@
 package pools
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -93,7 +94,7 @@ func (*routableResultPoolImpl) Validate(minUOSMOTVL math.Int) error {
 }
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
-func (r *routableResultPoolImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error) {
+func (r *routableResultPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	return sdk.Coin{}, errors.New("not implemented")
 }
 

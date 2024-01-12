@@ -1,6 +1,8 @@
 package mocks
 
 import (
+	"context"
+
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -72,7 +74,7 @@ func (mp *MockRoutablePool) GetSQSPoolModel() sqsdomain.SQSPool {
 }
 
 // CalculateTokenOutByTokenIn implements routerusecase.RoutablePool.
-func (mp *MockRoutablePool) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error) {
+func (mp *MockRoutablePool) CalculateTokenOutByTokenIn(_ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	// We allow the ability to mock out the token out amount.
 	if !mp.mockedTokenOut.IsNil() {
 		return mp.mockedTokenOut, nil

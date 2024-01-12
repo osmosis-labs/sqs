@@ -1,6 +1,8 @@
 package pools_test
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -71,7 +73,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
 				mock.PoolType = poolmanagertypes.Concentrated
 			}
 
-			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(tc.tokenIn)
+			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)

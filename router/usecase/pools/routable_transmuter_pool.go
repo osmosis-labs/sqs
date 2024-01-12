@@ -1,6 +1,7 @@
 package pools
 
 import (
+	"context"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -51,7 +52,7 @@ func (r *routableTransmuterPoolImpl) GetSpreadFactor() math.LegacyDec {
 // - the underlying chain pool set on the routable pool is not of transmuter type
 // - the token in amount is greater than the balance of the token in
 // - the token in amount is greater than the balance of the token out
-func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error) {
+func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	poolType := r.GetType()
 
 	// Esnure that the pool is concentrated

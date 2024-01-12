@@ -1,6 +1,7 @@
 package route
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -31,7 +32,7 @@ type RouteImpl struct {
 // - Taker Fee
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
-func (r *RouteImpl) PrepareResultPools(tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error) {
+func (r *RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInOverOut     = osmomath.OneDec()
 		effectiveSpotPriceInOverOut = osmomath.OneDec()
@@ -47,7 +48,7 @@ func (r *RouteImpl) PrepareResultPools(tokenIn sdk.Coin) (osmomath.Dec, osmomath
 		// Charge taker fee
 		tokenIn = pool.ChargeTakerFeeExactIn(tokenIn)
 
-		tokenOut, err := pool.CalculateTokenOutByTokenIn(tokenIn)
+		tokenOut, err := pool.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
 			return osmomath.Dec{}, osmomath.Dec{}, err
 		}
@@ -77,7 +78,7 @@ func (r *RouteImpl) GetPools() []sqsdomain.RoutablePool {
 }
 
 // CalculateTokenOutByTokenIn implements Route.
-func (r *RouteImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (tokenOut sdk.Coin, err error) {
+func (r *RouteImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (tokenOut sdk.Coin, err error) {
 	defer func() {
 		// TODO: cover this by test
 		if r := recover(); r != nil {
@@ -95,7 +96,7 @@ func (r *RouteImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (tokenOut sdk.C
 			return sdk.Coin{}, nil
 		}
 
-		tokenOut, err = pool.CalculateTokenOutByTokenIn(tokenIn)
+		tokenOut, err = pool.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
 			return sdk.Coin{}, err
 		}

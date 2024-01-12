@@ -202,7 +202,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 			r := routerusecase.NewRouter([]uint64{}, 0, 0, 0, tc.maxSplitIterations, 0, logger)
 
-			quote, err := r.GetSplitQuote(tc.routes, tc.tokenIn)
+			quote, err := r.GetSplitQuote(context.TODO(), tc.routes, tc.tokenIn)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)

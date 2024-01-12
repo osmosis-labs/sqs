@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
@@ -16,7 +18,7 @@ type Route interface {
 	GetPools() []sqsdomain.RoutablePool
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.
 	// Returns error if the calculation fails.
-	CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error)
+	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
 
 	GetTokenOutDenom() string
 
@@ -27,7 +29,7 @@ type Route interface {
 	// Note that it mutates the route.
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
-	PrepareResultPools(tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
@@ -47,7 +49,7 @@ type Quote interface {
 
 	// PrepareResult mutates the quote to prepare
 	// it with the data formatted for output to the client.
-	PrepareResult() ([]SplitRoute, osmomath.Dec)
+	PrepareResult(ctx context.Context) ([]SplitRoute, osmomath.Dec)
 
 	String() string
 }

@@ -1,6 +1,7 @@
 package pools
 
 import (
+	"context"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -24,7 +25,7 @@ type routableStableswapPoolImpl struct {
 }
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
-func (r *routableStableswapPoolImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error) {
+func (r *routableStableswapPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	tokenOut, err := r.ChainPool.CalcOutAmtGivenIn(sdk.Context{}, sdk.NewCoins(tokenIn), r.TokenOutDenom, r.GetSpreadFactor())
 	if err != nil {
 		return sdk.Coin{}, err

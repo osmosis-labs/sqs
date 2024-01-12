@@ -192,9 +192,9 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 				// helper method for validation.
 				// Note token in is chosen arbitrarily since it is irrelevant for this test
 				tokenIn := sdk.NewCoin(tc.tokenInDenom, sdk.NewInt(100))
-				_, _, err := actualRoute.PrepareResultPools(tokenIn)
+				_, _, err := actualRoute.PrepareResultPools(context.TODO(), tokenIn)
 				s.Require().NoError(err)
-				_, _, err = expectedRoute.PrepareResultPools(tokenIn)
+				_, _, err = expectedRoute.PrepareResultPools(context.TODO(), tokenIn)
 				s.Require().NoError(err)
 
 				// Validates:

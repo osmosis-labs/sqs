@@ -68,7 +68,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) error {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult()
+	quote.PrepareResult(ctx)
 
 	err = c.JSON(http.StatusOK, quote)
 	if err != nil {
@@ -92,7 +92,7 @@ func (a *RouterHandler) GetBestSingleRouteQuote(c echo.Context) error {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult()
+	quote.PrepareResult(ctx)
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -123,7 +123,7 @@ func (a *RouterHandler) GetCustomQuote(c echo.Context) error {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult()
+	quote.PrepareResult(ctx)
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -154,7 +154,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult()
+	quote.PrepareResult(ctx)
 
 	return c.JSON(http.StatusOK, quote)
 }
