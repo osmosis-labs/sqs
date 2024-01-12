@@ -20,16 +20,31 @@ type poolsUseCase struct {
 	contextTimeout         time.Duration
 	poolsRepository        poolsredisrepo.PoolsRepository
 	redisRepositoryManager repository.TxManager
+	cosmWasmPoolCodeIDs    domain.CosmWasmCodeIDMaps
 }
 
 var _ mvc.PoolsUsecase = &poolsUseCase{}
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.PoolsRepository, redisRepositoryManager repository.TxManager) mvc.PoolsUsecase {
+func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.PoolsRepository, redisRepositoryManager repository.TxManager, poolsConfig *domain.PoolsConfig) mvc.PoolsUsecase {
+	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
+	for _, codeId := range poolsConfig.TransmuterCodeIDs {
+		transmuterCodeIDsMap[codeId] = struct{}{}
+	}
+
+	astroportCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.AstroportCodeIDs))
+	for _, codeId := range poolsConfig.AstroportCodeIDs {
+		astroportCodeIDsMap[codeId] = struct{}{}
+	}
+
 	return &poolsUseCase{
 		contextTimeout:         timeout,
 		poolsRepository:        poolsRepository,
 		redisRepositoryManager: redisRepositoryManager,
+		cosmWasmPoolCodeIDs: domain.CosmWasmCodeIDMaps{
+			TransmuterCodeIDs: transmuterCodeIDsMap,
+			AstroportCodeIDs:  astroportCodeIDsMap,
+		},
 	}
 }
 
@@ -98,8 +113,13 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 				}
 			}
 
+			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmPoolCodeIDs)
+			if err != nil {
+				return nil, err
+			}
+
 			// Create routable pool
-			routablePools = append(routablePools, pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee))
+			routablePools = append(routablePools, routablePool)
 		}
 
 		routes = append(routes, route.RouteImpl{

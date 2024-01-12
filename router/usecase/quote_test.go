@@ -127,15 +127,17 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []sqsdomain.RoutablePool{
-						pools.NewRoutablePool(
+						s.newRoutablePool(
 							sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
 							USDT,
 							takerFeeOne,
+							domain.CosmWasmCodeIDMaps{},
 						),
-						pools.NewRoutablePool(
+						s.newRoutablePool(
 							sqsdomain.NewPool(poolTwo, poolTwo.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
 							USDC,
 							takerFeeTwo,
+							domain.CosmWasmCodeIDMaps{},
 						),
 					},
 				},
@@ -148,10 +150,11 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []sqsdomain.RoutablePool{
-						pools.NewRoutablePool(
+						s.newRoutablePool(
 							sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
 							USDC,
 							takerFeeThree,
+							domain.CosmWasmCodeIDMaps{},
 						),
 					},
 				},
@@ -322,4 +325,10 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 		// Validate out amount
 		s.Require().Equal(expectedRoute.GetAmountOut().String(), actualRoute.GetAmountOut().String())
 	}
+}
+
+func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmCodeIDMaps) sqsdomain.RoutablePool {
+	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs)
+	s.Require().NoError(err)
+	return routablePool
 }

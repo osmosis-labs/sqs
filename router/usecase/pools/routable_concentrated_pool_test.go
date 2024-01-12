@@ -87,7 +87,8 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 					PoolDenoms:            []string{"foo", "bar"},
 				},
 			}
-			routablePool := pools.NewRoutablePool(poolWrapper, tc.TokenOutDenom, noTakerFee)
+			routablePool, err := pools.NewRoutablePool(poolWrapper, tc.TokenOutDenom, noTakerFee, domain.CosmWasmCodeIDMaps{})
+			s.Require().NoError(err)
 
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(tc.TokenIn)
 

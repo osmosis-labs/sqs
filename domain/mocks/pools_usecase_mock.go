@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -38,7 +39,10 @@ func (pm *PoolsUsecaseMock) GetRoutesFromCandidates(ctx context.Context, candida
 			}
 
 			// TODO: note that taker fee is force set to zero
-			routablePool := pools.NewRoutablePool(foundPool, candidatePool.TokenOutDenom, osmomath.ZeroDec())
+			routablePool, err := pools.NewRoutablePool(foundPool, candidatePool.TokenOutDenom, osmomath.ZeroDec(), domain.CosmWasmCodeIDMaps{})
+			if err != nil {
+				return nil, err
+			}
 			routablePools = append(routablePools, routablePool)
 		}
 

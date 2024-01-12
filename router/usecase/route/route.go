@@ -76,10 +76,6 @@ func (r *RouteImpl) GetPools() []sqsdomain.RoutablePool {
 	return r.Pools
 }
 
-func (r *RouteImpl) AddPool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) {
-	r.Pools = append(r.Pools, pools.NewRoutablePool(pool, tokenOutDenom, takerFee))
-}
-
 // CalculateTokenOutByTokenIn implements Route.
 func (r *RouteImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (tokenOut sdk.Coin, err error) {
 	defer func() {

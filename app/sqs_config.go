@@ -24,6 +24,9 @@ type Config struct {
 
 	// Router encapsulates the router config.
 	Router *domain.RouterConfig `mapstructure:"router"`
+
+	// Pools encapsulates the pools config.
+	Pools *domain.PoolsConfig `mapstructure:"pools"`
 }
 
 // DefaultConfig defines the default config for the sidecar query server.
@@ -50,5 +53,12 @@ var DefaultConfig = Config{
 		MinOSMOLiquidity:        10000, // 10_000 OSMO
 		RouteCacheEnabled:       false,
 		RouteCacheExpirySeconds: 600, // 10 minutes
+
+		EnableOverwriteRoutesCache: false,
+	},
+	Pools: &domain.PoolsConfig{
+		// This is what we have on mainnet as of Jan 2024.
+		TransmuterCodeIDs: []uint64{148},
+		AstroportCodeIDs:  []uint64{},
 	},
 }

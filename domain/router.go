@@ -14,8 +14,6 @@ type RoutableResultPool interface {
 
 type Route interface {
 	GetPools() []sqsdomain.RoutablePool
-	// AddPool adds pool to route.
-	AddPool(pool sqsdomain.PoolI, tokenOut string, takerFee osmomath.Dec)
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.
 	// Returns error if the calculation fails.
 	CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error)
@@ -68,4 +66,9 @@ type RouterConfig struct {
 	RouteCacheExpirySeconds uint64 `mapstructure:"route-cache-expiry-seconds"`
 	// Flag indicating whether we should have a cache for overwrite routes enabled.
 	EnableOverwriteRoutesCache bool `mapstructure:"enable-overwrite-routes-cache"`
+}
+
+type PoolsConfig struct {
+	TransmuterCodeIDs []uint64 `mapstructure:"transmuter-pool-ids"`
+	AstroportCodeIDs  []uint64 `mapstructure:"astroport-pool-ids"`
 }
