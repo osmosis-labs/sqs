@@ -36,6 +36,9 @@ func queryCosmwasmContract[T any, K any](ctx context.Context, wasmClient wasmtyp
 		Address:   contractAddress,
 		QueryData: bz,
 	})
+	if err != nil {
+		return err
+	}
 
 	if err := json.Unmarshal(queryResponse.Data, cosmWasmResponse); err != nil {
 		return err
