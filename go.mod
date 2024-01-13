@@ -11,7 +11,7 @@ require (
 	github.com/osmosis-labs/osmosis/osmomath v0.0.7-0.20240108180923-ddfef98789fd
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.7-0.20240108180923-ddfef98789fd
 	github.com/osmosis-labs/osmosis/v21 v21.0.1-0.20240109044531-fc20549a9a02
-	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240108041740-335fcbc6ac1e
+	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240113060638-555c85c88c42
 	github.com/prometheus/client_golang v1.18.0
 	github.com/redis/go-redis/v9 v9.4.0
 	github.com/sirupsen/logrus v1.9.3
