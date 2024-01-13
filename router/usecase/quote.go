@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -33,7 +34,7 @@ var _ domain.Quote = &quoteImpl{}
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteImpl) PrepareResult() ([]domain.SplitRoute, osmomath.Dec) {
+func (q *quoteImpl) PrepareResult(ctx context.Context) ([]domain.SplitRoute, osmomath.Dec) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
@@ -60,7 +61,7 @@ func (q *quoteImpl) PrepareResult() ([]domain.SplitRoute, osmomath.Dec) {
 		// Update the spread factor pro-rated by the amount in
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
-		routeSpotPriceInOverOut, effectiveSpotPriceInOverOut, err := q.Route[i].PrepareResultPools(q.AmountIn)
+		routeSpotPriceInOverOut, effectiveSpotPriceInOverOut, err := q.Route[i].PrepareResultPools(ctx, q.AmountIn)
 		if err != nil {
 			panic(err)
 		}

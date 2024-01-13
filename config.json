@@ -19,6 +19,10 @@
       "route-cache-enabled": true,
       "route-cache-expiry-seconds": 600
     },
+    "pools": {
+        "transmuter-pool-ids": [148],
+        "general-cosmwasm-code-ids": []
+    },
     "enable-overwrite-routes-cache": true
   }
   

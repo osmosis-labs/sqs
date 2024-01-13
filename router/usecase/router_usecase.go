@@ -195,8 +195,11 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		return topSingleRouteQuote, nil
 	}
 
+	// I
+	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
+
 	// Compute split route quote
-	topSplitQuote, err := router.GetSplitQuote(rankedRoutes, tokenIn)
+	topSplitQuote, err := router.GetSplitQuote(ctx, rankedRoutes, tokenIn)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +295,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, router 
 		return nil, nil, err
 	}
 
-	topQuote, routes, err := estimateDirectQuote(router, routes, tokenIn)
+	topQuote, routes, err := estimateDirectQuote(ctx, router, routes, tokenIn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -304,8 +307,8 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, router 
 // Also, returns the routes ranked by amount out in decreasing order.
 // Returns error if:
 // - fails to estimate direct quotes
-func estimateDirectQuote(router *Router, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []route.RouteImpl, error) {
-	topQuote, routesSortedByAmtOut, err := router.estimateAndRankSingleRouteQuote(routes, tokenIn)
+func estimateDirectQuote(ctx context.Context, router *Router, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []route.RouteImpl, error) {
+	topQuote, routesSortedByAmtOut, err := router.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -351,7 +354,7 @@ func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn
 		return nil, err
 	}
 
-	return router.getBestSingleRouteQuote(tokenIn, routes)
+	return router.getBestSingleRouteQuote(ctx, tokenIn, routes)
 }
 
 // GetCustomQuote implements mvc.RouterUsecase.
@@ -417,7 +420,7 @@ func (r *routerUseCaseImpl) GetCustomQuote(ctx context.Context, tokenIn sdk.Coin
 
 	// Compute direct quote
 	foundRoute := routes[routeIndex]
-	quote, _, err := router.estimateAndRankSingleRouteQuote([]route.RouteImpl{foundRoute}, tokenIn)
+	quote, _, err := router.estimateAndRankSingleRouteQuote(ctx, []route.RouteImpl{foundRoute}, tokenIn)
 	if err != nil {
 		return nil, err
 	}
@@ -476,7 +479,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 
 	// Compute direct quote
 	router := r.initializeRouter()
-	return router.getBestSingleRouteQuote(tokenIn, routes)
+	return router.getBestSingleRouteQuote(ctx, tokenIn, routes)
 }
 
 // GetCandidateRoutes implements domain.RouterUsecase.
@@ -822,4 +825,41 @@ func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.Ca
 		candidateRoutes.Routes = append(candidateRoutes.Routes, candidateRoute)
 	}
 	return candidateRoutes
+}
+
+// GetPoolSpotPrice implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
+	poolTakerFee, err := r.routerRepository.GetTakerFee(ctx, quoteAsset, baseAsset)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	spotPrice, err := r.poolsUsecase.GetPoolSpotPrice(ctx, poolID, poolTakerFee, baseAsset, quoteAsset)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	return spotPrice, nil
+}
+
+// filterOutGeneralizedCosmWasmPoolRoutes filters out routes that contain generalized cosm wasm pool.
+// The reason for this is that making network requests to chain is expensive. Generalized cosmwasm pools
+// make such network requests.
+// As a result, we want to minimize the number of requests we make by excluding such routes from split quotes.
+func filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes []route.RouteImpl) []route.RouteImpl {
+	result := make([]route.RouteImpl, 0)
+	for _, route := range rankedRoutes {
+		if route.ContainsGeneralizedCosmWasmPool() {
+			continue
+		}
+		result = append(result, route)
+	}
+
+	if len(rankedRoutes) > 1 && len(result) == 0 {
+		// If there are more than one routes and all of them are generalized cosmwasm pools,
+		// then we return the top route.
+		result = append(result, rankedRoutes[0])
+	}
+
+	return result
 }

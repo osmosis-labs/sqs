@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"cosmossdk.io/math"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -11,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/sqsdomain/repository"
 	poolsredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/pools"
@@ -20,16 +22,32 @@ type poolsUseCase struct {
 	contextTimeout         time.Duration
 	poolsRepository        poolsredisrepo.PoolsRepository
 	redisRepositoryManager repository.TxManager
+	cosmWasmConfig         domain.CosmWasmPoolRouterConfig
 }
 
 var _ mvc.PoolsUsecase = &poolsUseCase{}
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.PoolsRepository, redisRepositoryManager repository.TxManager) mvc.PoolsUsecase {
+func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.PoolsRepository, redisRepositoryManager repository.TxManager, poolsConfig *domain.PoolsConfig, nodeURI string) mvc.PoolsUsecase {
+	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
+	for _, codeId := range poolsConfig.TransmuterCodeIDs {
+		transmuterCodeIDsMap[codeId] = struct{}{}
+	}
+
+	generalizedCosmWasmCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.GeneralCosmWasmCodeIDs))
+	for _, codeId := range poolsConfig.GeneralCosmWasmCodeIDs {
+		generalizedCosmWasmCodeIDsMap[codeId] = struct{}{}
+	}
+
 	return &poolsUseCase{
 		contextTimeout:         timeout,
 		poolsRepository:        poolsRepository,
 		redisRepositoryManager: redisRepositoryManager,
+		cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
+			TransmuterCodeIDs:      transmuterCodeIDsMap,
+			GeneralCosmWasmCodeIDs: generalizedCosmWasmCodeIDsMap,
+			NodeURI:                nodeURI,
+		},
 	}
 }
 
@@ -69,6 +87,12 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 		return nil, err
 	}
 
+	// We track whether a route contains a generalized cosmwasm pool
+	// so that we can exclude it from split quote logic.
+	// The reason for this is that making network requests to chain is expensive.
+	// As a result, we want to minimize the number of requests we make.
+	containsGeneralizedCosmWasmPool := false
+
 	// Convert each candidate route into the actual route with all pool data
 	routes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
@@ -84,26 +108,28 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 			// Get taker fee
 			takerFee := takerFeeMap.GetTakerFee(previousTokenOutDenom, candidatePool.TokenOutDenom)
 
-			if pool.GetType() == poolmanagertypes.Concentrated {
-				// Get tick model for concentrated pool
-				tickModel, ok := tickModelMap[pool.GetId()]
-				if !ok {
-					return nil, domain.ConcentratedTickModelNotSetError{
-						PoolId: pool.GetId(),
-					}
-				}
+			// Instrument pool with tick model data if concentrated
+			if err := setTickModelIfConcentrated(pool, tickModelMap); err != nil {
+				return nil, err
+			}
 
-				if err := pool.SetTickModel(&tickModel); err != nil {
-					return nil, err
-				}
+			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmConfig)
+			if err != nil {
+				return nil, err
+			}
+
+			isGeneralizedCosmWasmPool := routablePool.IsGeneralizedCosmWasmPool()
+			if isGeneralizedCosmWasmPool {
+				containsGeneralizedCosmWasmPool = true
 			}
 
 			// Create routable pool
-			routablePools = append(routablePools, pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee))
+			routablePools = append(routablePools, routablePool)
 		}
 
 		routes = append(routes, route.RouteImpl{
-			Pools: routablePools,
+			Pools:                      routablePools,
+			HasGeneralizedCosmWasmPool: containsGeneralizedCosmWasmPool,
 		})
 	}
 
@@ -139,4 +165,58 @@ func (p *poolsUseCase) GetPool(ctx context.Context, poolID uint64) (sqsdomain.Po
 		return nil, domain.PoolNotFoundError{PoolID: poolID}
 	}
 	return pool, nil
+}
+
+// GetPoolSpotPrice implements mvc.PoolsUsecase.
+func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, takerFee math.LegacyDec, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
+	pool, err := p.GetPool(ctx, poolID)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	// Get tick model for concentrated pools
+	tickModelMap, err := p.GetTickModelMap(ctx, []uint64{poolID})
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	if err := setTickModelIfConcentrated(pool, tickModelMap); err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	// N.B.: Empty string for token out denom because it is irrelevant for calculating spot price.
+	// It is only relevant in the context of routing
+	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmConfig)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	return routablePool.CalcSpotPrice(ctx, baseAsset, quoteAsset)
+}
+
+// IsGeneralCosmWasmCodeID implements mvc.PoolsUsecase.
+func (p *poolsUseCase) IsGeneralCosmWasmCodeID(codeId uint64) bool {
+	_, isGenneralCosmWasmCodeID := p.cosmWasmConfig.GeneralCosmWasmCodeIDs[codeId]
+	return isGenneralCosmWasmCodeID
+}
+
+// setTickModelMapIfConcentrated sets tick model for concentrated pools. No-op if pool is not concentrated.
+// If the pool is concentrated but the map does not contains the tick model, an error is returned.
+// The input pool parameter is mutated.
+func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]sqsdomain.TickModel) error {
+	if pool.GetType() == poolmanagertypes.Concentrated {
+		// Get tick model for concentrated pool
+		tickModel, ok := tickModelMap[pool.GetId()]
+		if !ok {
+			return domain.ConcentratedTickModelNotSetError{
+				PoolId: pool.GetId(),
+			}
+		}
+
+		if err := pool.SetTickModel(&tickModel); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

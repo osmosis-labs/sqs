@@ -1,6 +1,8 @@
 package mocks
 
 import (
+	"context"
+
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -27,7 +29,7 @@ type MockRoutablePool struct {
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
-func (mp *MockRoutablePool) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (mp *MockRoutablePool) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	if mp.PoolType == poolmanagertypes.CosmWasm {
 		return osmomath.OneBigDec(), nil
 	}
@@ -72,7 +74,7 @@ func (mp *MockRoutablePool) GetSQSPoolModel() sqsdomain.SQSPool {
 }
 
 // CalculateTokenOutByTokenIn implements routerusecase.RoutablePool.
-func (mp *MockRoutablePool) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error) {
+func (mp *MockRoutablePool) CalculateTokenOutByTokenIn(_ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	// We allow the ability to mock out the token out amount.
 	if !mp.mockedTokenOut.IsNil() {
 		return mp.mockedTokenOut, nil
@@ -149,6 +151,11 @@ func (mp *MockRoutablePool) GetTotalValueLockedUOSMO() math.Int {
 // GetType implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) GetType() poolmanagertypes.PoolType {
 	return mp.PoolType
+}
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*MockRoutablePool) IsGeneralizedCosmWasmPool() bool {
+	return false
 }
 
 func deepCopyPool(mp *MockRoutablePool) *MockRoutablePool {

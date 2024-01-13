@@ -1,6 +1,7 @@
 package pools
 
 import (
+	"context"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -24,7 +25,7 @@ type routableBalancerPoolImpl struct {
 }
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
-func (r *routableBalancerPoolImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error) {
+func (r *routableBalancerPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	tokenOut, err := r.ChainPool.CalcOutAmtGivenIn(sdk.Context{}, sdk.NewCoins(tokenIn), r.TokenOutDenom, r.GetSpreadFactor())
 	if err != nil {
 		return sdk.Coin{}, err
@@ -81,10 +82,15 @@ func (*routableBalancerPoolImpl) GetType() poolmanagertypes.PoolType {
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
-func (r *routableBalancerPoolImpl) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (r *routableBalancerPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 	return spotPrice, nil
+}
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*routableBalancerPoolImpl) IsGeneralizedCosmWasmPool() bool {
+	return false
 }

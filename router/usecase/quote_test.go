@@ -1,6 +1,8 @@
 package usecase_test
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -127,15 +129,17 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []sqsdomain.RoutablePool{
-						pools.NewRoutablePool(
+						s.newRoutablePool(
 							sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
 							USDT,
 							takerFeeOne,
+							domain.CosmWasmPoolRouterConfig{},
 						),
-						pools.NewRoutablePool(
+						s.newRoutablePool(
 							sqsdomain.NewPool(poolTwo, poolTwo.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
 							USDC,
 							takerFeeTwo,
+							domain.CosmWasmPoolRouterConfig{},
 						),
 					},
 				},
@@ -148,10 +152,11 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []sqsdomain.RoutablePool{
-						pools.NewRoutablePool(
+						s.newRoutablePool(
 							sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
 							USDC,
 							takerFeeThree,
+							domain.CosmWasmPoolRouterConfig{},
 						),
 					},
 				},
@@ -221,7 +226,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	expectedEffectiveSpreadFactor := expectedRouteOneFee.Add(expectedRouteTwoFee)
 
 	// System under test
-	routes, effectiveSpreadFactor := testQuote.PrepareResult()
+	routes, effectiveSpreadFactor := testQuote.PrepareResult(context.TODO())
 
 	// Validate routes.
 	s.validateRoutes(expectedRoutes, routes)
@@ -296,7 +301,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	}
 
 	// System under test.
-	testQuote.PrepareResult()
+	testQuote.PrepareResult(context.TODO())
 
 	// Validate price impact.
 	s.Require().Equal(expectedPriceImpact.String(), testQuote.GetPriceImpact().String())
@@ -322,4 +327,10 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 		// Validate out amount
 		s.Require().Equal(expectedRoute.GetAmountOut().String(), actualRoute.GetAmountOut().String())
 	}
+}
+
+func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) sqsdomain.RoutablePool {
+	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmConfig)
+	s.Require().NoError(err)
+	return routablePool
 }

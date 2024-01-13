@@ -35,8 +35,8 @@ func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, router *Router, to
 	return r.handleCandidateRoutes(ctx, router, tokenInDenom, tokenOutDenom)
 }
 
-func (r *Router) EstimateAndRankSingleRouteQuote(routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []RouteWithOutAmount, error) {
-	return r.estimateAndRankSingleRouteQuote(routes, tokenIn)
+func (r *Router) EstimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []RouteWithOutAmount, error) {
+	return r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn)
 }
 
 // GetSortedPoolIDs returns the sorted pool IDs.
