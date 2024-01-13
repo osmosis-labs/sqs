@@ -102,18 +102,9 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 			// Get taker fee
 			takerFee := takerFeeMap.GetTakerFee(previousTokenOutDenom, candidatePool.TokenOutDenom)
 
-			if pool.GetType() == poolmanagertypes.Concentrated {
-				// Get tick model for concentrated pool
-				tickModel, ok := tickModelMap[pool.GetId()]
-				if !ok {
-					return nil, domain.ConcentratedTickModelNotSetError{
-						PoolId: pool.GetId(),
-					}
-				}
-
-				if err := pool.SetTickModel(&tickModel); err != nil {
-					return nil, err
-				}
+			// Instrument pool with tick model data if concentrated
+			if err := setTickModelIfConcentrated(pool, tickModelMap); err != nil {
+				return nil, err
 			}
 
 			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmConfig)
@@ -171,10 +162,43 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 		return osmomath.BigDec{}, err
 	}
 
+	// Get tick model for concentrated pools
+	tickModelMap, err := p.GetTickModelMap(ctx, []uint64{poolID})
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	if err := setTickModelIfConcentrated(pool, tickModelMap); err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	// N.B.: Empty string for token out denom because it is irrelevant for calculating spot price.
+	// It is only relevant in the context of routing
 	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmConfig)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 
 	return routablePool.CalcSpotPrice(ctx, baseAsset, quoteAsset)
+}
+
+// setTickModelMapIfConcentrated sets tick model for concentrated pools. No-op if pool is not concentrated.
+// If the pool is concentrated but the map does not contains the tick model, an error is returned.
+// The input pool parameter is mutated.
+func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]sqsdomain.TickModel) error {
+	if pool.GetType() == poolmanagertypes.Concentrated {
+		// Get tick model for concentrated pool
+		tickModel, ok := tickModelMap[pool.GetId()]
+		if !ok {
+			return domain.ConcentratedTickModelNotSetError{
+				PoolId: pool.GetId(),
+			}
+		}
+
+		if err := pool.SetTickModel(&tickModel); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
