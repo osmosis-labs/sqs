@@ -139,3 +139,8 @@ func (r *routableResultPoolImpl) GetSpreadFactor() math.LegacyDec {
 func (r *routableResultPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	panic("not implemented")
 }
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*routableResultPoolImpl) IsGeneralizedCosmWasmPool() bool {
+	return false
+}

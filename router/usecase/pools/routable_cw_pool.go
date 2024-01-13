@@ -85,7 +85,7 @@ func (r *routableCosmWasmPoolImpl) GetTokenOutDenom() string {
 
 // String implements sqsdomain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) String() string {
-	return fmt.Sprintf("pool (%d), pool type (%d) Astroport, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
+	return fmt.Sprintf("pool (%d), pool type (%d) Generalized CosmWasm, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
 }
 
 // ChargeTakerFeeExactIn implements sqsdomain.RoutablePool.
@@ -120,4 +120,9 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 	}
 
 	return osmomath.MustNewBigDecFromStr(response.SpotPrice), nil
+}
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*routableCosmWasmPoolImpl) IsGeneralizedCosmWasmPool() bool {
+	return true
 }

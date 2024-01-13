@@ -21,7 +21,7 @@
     },
     "pools": {
         "transmuter-pool-ids": [148],
-        "astroport-code-ids": []
+        "general-cosmwasm-code-ids": []
     },
     "enable-overwrite-routes-cache": true
   }

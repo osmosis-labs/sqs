@@ -35,6 +35,7 @@ type routerUseCaseImpl struct {
 	routerRepository routerredisrepo.RouterRepository
 	poolsUsecase     mvc.PoolsUsecase
 	config           domain.RouterConfig
+	poolsConfig      domain.PoolsConfig
 	logger           log.Logger
 
 	routesOverwrite *cache.RoutesOverwrite
@@ -194,6 +195,9 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	if len(rankedRoutes) == 1 {
 		return topSingleRouteQuote, nil
 	}
+
+	// I
+	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
 
 	// Compute split route quote
 	topSplitQuote, err := router.GetSplitQuote(ctx, rankedRoutes, tokenIn)
@@ -837,4 +841,26 @@ func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	}
 
 	return spotPrice, nil
+}
+
+// filterOutGeneralizedCosmWasmPoolRoutes filters out routes that contain generalized cosm wasm pool.
+// The reason for this is that making network requests to chain is expensive. Generalized cosmwasm pools
+// make such network requests.
+// As a result, we want to minimize the number of requests we make by excluding such routes from split quotes.
+func filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes []route.RouteImpl) []route.RouteImpl {
+	result := make([]route.RouteImpl, 0)
+	for _, route := range rankedRoutes {
+		if route.ContainsGeneralizedCosmWasmPool() {
+			continue
+		}
+		result = append(result, route)
+	}
+
+	if len(rankedRoutes) > 1 && len(result) == 0 {
+		// If there are more than one routes and all of them are generalized cosmwasm pools,
+		// then we return the top route.
+		result = append(result, rankedRoutes[0])
+	}
+
+	return result
 }

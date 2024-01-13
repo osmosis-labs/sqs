@@ -122,3 +122,8 @@ func (r *routableTransmuterPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 func (r *routableTransmuterPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	return osmomath.OneBigDec(), nil
 }
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*routableTransmuterPoolImpl) IsGeneralizedCosmWasmPool() bool {
+	return false
+}

@@ -18,6 +18,12 @@ var _ domain.Route = &RouteImpl{}
 
 type RouteImpl struct {
 	Pools []sqsdomain.RoutablePool "json:\"pools\""
+	// HasGeneralizedCosmWasmPool is true if the route contains a generalized cosmwasm pool.
+	// We track whether a route contains a generalized cosmwasm pool
+	// so that we can exclude it from split quote logic.
+	// The reason for this is that making network requests to chain is expensive.
+	// As a result, we want to minimize the number of requests we make.
+	HasGeneralizedCosmWasmPool bool "json:\"has-cw-pool\""
 }
 
 // PrepareResultPools implements domain.Route.
@@ -129,4 +135,9 @@ func (r *RouteImpl) GetTokenOutDenom() string {
 	}
 
 	return r.Pools[len(r.Pools)-1].GetTokenOutDenom()
+}
+
+// ContainsGeneralizedCosmWasmPool implements domain.Route.
+func (r *RouteImpl) ContainsGeneralizedCosmWasmPool() bool {
+	return r.HasGeneralizedCosmWasmPool
 }

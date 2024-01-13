@@ -121,8 +121,8 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		return nil, err
 	}
 
-	_, isAstroport := cosmWasmConfig.AstroportCodeIDs[cosmwasmPool.CodeId]
-	if isAstroport {
+	_, isGeneralizedCosmWasmPool := cosmWasmConfig.GeneralCosmWasmCodeIDs[cosmwasmPool.CodeId]
+	if isGeneralizedCosmWasmPool {
 		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 
 		// for most other cosm wasm pools, interaction with the chain will

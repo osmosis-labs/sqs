@@ -153,6 +153,11 @@ func (mp *MockRoutablePool) GetType() poolmanagertypes.PoolType {
 	return mp.PoolType
 }
 
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*MockRoutablePool) IsGeneralizedCosmWasmPool() bool {
+	return false
+}
+
 func deepCopyPool(mp *MockRoutablePool) *MockRoutablePool {
 	newDenoms := make([]string, len(mp.Denoms))
 	copy(newDenoms, mp.Denoms)

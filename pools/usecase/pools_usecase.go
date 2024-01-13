@@ -34,9 +34,9 @@ func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.Pools
 		transmuterCodeIDsMap[codeId] = struct{}{}
 	}
 
-	astroportCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.AstroportCodeIDs))
-	for _, codeId := range poolsConfig.AstroportCodeIDs {
-		astroportCodeIDsMap[codeId] = struct{}{}
+	generalizedCosmWasmCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.GeneralCosmWasmCodeIDs))
+	for _, codeId := range poolsConfig.GeneralCosmWasmCodeIDs {
+		generalizedCosmWasmCodeIDsMap[codeId] = struct{}{}
 	}
 
 	return &poolsUseCase{
@@ -44,9 +44,9 @@ func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.Pools
 		poolsRepository:        poolsRepository,
 		redisRepositoryManager: redisRepositoryManager,
 		cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
-			TransmuterCodeIDs: transmuterCodeIDsMap,
-			AstroportCodeIDs:  astroportCodeIDsMap,
-			NodeURI:           nodeURI,
+			TransmuterCodeIDs:      transmuterCodeIDsMap,
+			GeneralCosmWasmCodeIDs: generalizedCosmWasmCodeIDsMap,
+			NodeURI:                nodeURI,
 		},
 	}
 }
@@ -87,6 +87,12 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 		return nil, err
 	}
 
+	// We track whether a route contains a generalized cosmwasm pool
+	// so that we can exclude it from split quote logic.
+	// The reason for this is that making network requests to chain is expensive.
+	// As a result, we want to minimize the number of requests we make.
+	containsGeneralizedCosmWasmPool := false
+
 	// Convert each candidate route into the actual route with all pool data
 	routes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
@@ -112,12 +118,18 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 				return nil, err
 			}
 
+			isGeneralizedCosmWasmPool := routablePool.IsGeneralizedCosmWasmPool()
+			if isGeneralizedCosmWasmPool {
+				containsGeneralizedCosmWasmPool = true
+			}
+
 			// Create routable pool
 			routablePools = append(routablePools, routablePool)
 		}
 
 		routes = append(routes, route.RouteImpl{
-			Pools: routablePools,
+			Pools:                      routablePools,
+			HasGeneralizedCosmWasmPool: containsGeneralizedCosmWasmPool,
 		})
 	}
 
@@ -180,6 +192,12 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 	}
 
 	return routablePool.CalcSpotPrice(ctx, baseAsset, quoteAsset)
+}
+
+// IsGeneralCosmWasmCodeID implements mvc.PoolsUsecase.
+func (p *poolsUseCase) IsGeneralCosmWasmCodeID(codeId uint64) bool {
+	_, isGenneralCosmWasmCodeID := p.cosmWasmConfig.GeneralCosmWasmCodeIDs[codeId]
+	return isGenneralCosmWasmCodeID
 }
 
 // setTickModelMapIfConcentrated sets tick model for concentrated pools. No-op if pool is not concentrated.

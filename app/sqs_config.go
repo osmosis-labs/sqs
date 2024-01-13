@@ -58,7 +58,7 @@ var DefaultConfig = Config{
 	},
 	Pools: &domain.PoolsConfig{
 		// This is what we have on mainnet as of Jan 2024.
-		TransmuterCodeIDs: []uint64{148},
-		AstroportCodeIDs:  []uint64{},
+		TransmuterCodeIDs:      []uint64{148},
+		GeneralCosmWasmCodeIDs: []uint64{},
 	},
 }

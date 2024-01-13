@@ -15,6 +15,12 @@ type RoutableResultPool interface {
 }
 
 type Route interface {
+	// ContainsGeneralizedCosmWasmPool returns true if the route contains a generalized cosmwasm pool.
+	// We track whether a route contains a generalized cosmwasm pool
+	// so that we can exclude it from split quote logic.
+	// The reason for this is that making network requests to chain is expensive.
+	// As a result, we want to minimize the number of requests we make.
+	ContainsGeneralizedCosmWasmPool() bool
 	GetPools() []sqsdomain.RoutablePool
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.
 	// Returns error if the calculation fails.
@@ -71,6 +77,6 @@ type RouterConfig struct {
 }
 
 type PoolsConfig struct {
-	TransmuterCodeIDs []uint64 `mapstructure:"transmuter-pool-ids"`
-	AstroportCodeIDs  []uint64 `mapstructure:"astroport-pool-ids"`
+	TransmuterCodeIDs      []uint64 `mapstructure:"transmuter-pool-ids"`
+	GeneralCosmWasmCodeIDs []uint64 `mapstructure:"general-cosmwasm-pool-ids"`
 }

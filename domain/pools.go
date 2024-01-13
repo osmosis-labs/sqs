@@ -4,8 +4,8 @@ package domain
 type CosmWasmPoolRouterConfig struct {
 	// code IDs for the transmuter pool type
 	TransmuterCodeIDs map[uint64]struct{}
-	// code IDs for the astroport pool type
-	AstroportCodeIDs map[uint64]struct{}
+	// code IDs for the generalized cosmwasm pool type
+	GeneralCosmWasmCodeIDs map[uint64]struct{}
 	// node URI
 	NodeURI string
 }

@@ -16,6 +16,11 @@ all pool data for performing the complex routing algorithm.
 Follow [this link](https://hackmd.io/@3DOBr1TJQ3mQAFDEO0BXgg/S1bsqPAr6) to find a guide on how to 
 integrate with the sidecar query server.
 
+## Custom CosmWasm Pools
+
+The sidecar query server supports custom CosmWasm pools. To enable this feature, the following
+
+
 ## Supported Endpoints
 
 ### Pools Resource

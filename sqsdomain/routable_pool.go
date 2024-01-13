@@ -14,6 +14,12 @@ type RoutablePool interface {
 
 	GetType() poolmanagertypes.PoolType
 
+	// IsGeneralizedCosmWasmPool returns true if this is a generalized cosmwasm pool.
+	// Pools with such code ID are enabled in the router. For computing quotes or spot price,
+	// they interact with the chain. Additionally, routes that contain such pools are disabled
+	// in the router.
+	IsGeneralizedCosmWasmPool() bool
+
 	GetPoolDenoms() []string
 
 	GetTokenOutDenom() string

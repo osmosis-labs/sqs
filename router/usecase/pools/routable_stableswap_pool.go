@@ -89,3 +89,8 @@ func (r *routableStableswapPoolImpl) CalcSpotPrice(ctx context.Context, baseDeno
 	}
 	return spotPrice, nil
 }
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*routableStableswapPoolImpl) IsGeneralizedCosmWasmPool() bool {
+	return false
+}

@@ -203,3 +203,8 @@ func (r *routableConcentratedPoolImpl) CalcSpotPrice(ctx context.Context, baseDe
 	}
 	return spotPrice, nil
 }
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*routableConcentratedPoolImpl) IsGeneralizedCosmWasmPool() bool {
+	return false
+}
