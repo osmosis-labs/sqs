@@ -35,6 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.1.1
+
+* [#45](https://github.com/osmosis-labs/osmosis/pull/45) Fix build issue by updating sqsdomain dep.
+Update config value.
+
 ## v0.1.0
 
 * [#43](https://github.com/osmosis-labs/osmosis/pull/43) Implement generalized CosmWasm pools into router that interact with the chain for computing quotes. Expose spot price by pool ID API.
