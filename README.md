@@ -90,6 +90,88 @@ curl "https://sqs.osmosis.zone/pools/all" | jq .
 ]
 ```
 
+2. GET `/pools/:id`
+
+Description: returns the pool with the given id instrumented with sqs-specific data for routing.
+
+Arguments: id of a pool
+
+Response example:
+```bash
+curl "https://sqs.osmosis.zone/pools/1" | jq .
+{
+  "underlying_pool": {
+    "address": "osmo1mw0ac6rwlp5r8wapwk3zs6g29h8fcscxqakdzw9emkne6c8wjp9q0t3v8t",
+    "id": 1,
+    "pool_params": {
+      "swap_fee": "0.002000000000000000",
+      "exit_fee": "0.000000000000000000"
+    },
+    "future_pool_governor": "24h",
+    "total_weight": "1073741824000000.000000000000000000",
+    "total_shares": {
+      "denom": "gamm/pool/1",
+      "amount": "70226960205342334946592090"
+    },
+    "pool_assets": [
+      {
+        "token": {
+          "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+          "amount": "1148364485005"
+        },
+        "weight": "536870912000000"
+      },
+      {
+        "token": {
+          "denom": "uosmo",
+          "amount": "6556218723897"
+        },
+        "weight": "536870912000000"
+      }
+    ]
+  },
+  "sqs_model": {
+    "total_value_locked_uosmo": "13112437613179",
+    "balances": [
+      {
+        "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+        "amount": "1148364485005"
+      },
+      {
+        "denom": "ibc/9989AD6CCA39D1131523DB0617B50F6442081162294B4795E26746292467B525",
+        "amount": "1000000000"
+      },
+      {
+        "denom": "ibc/B9E0A1A524E98BB407D3CED8720EFEFD186002F90C1B1B7964811DD0CCC12228",
+        "amount": "999800"
+      },
+      {
+        "denom": "uosmo",
+        "amount": "6556218723897"
+      }
+    ],
+    "pool_denoms": [
+      "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+      "uosmo"
+    ],
+    "spread_factor": "0.002000000000000000"
+  }
+}
+```
+
+3. GET `/pools/ticks/:id`
+
+Description: returns the tick data for the given concentrated pool ID.
+Returns non-200 if the pool is not concentrated or does not exist.
+
+Argument: id of a pool
+
+Response example:
+```bash
+curl "https://sqs.osmosis.zone/pools/ticks/1221" | jq .
+# Response ommitted for brevity
+```
+
 ### Router Resource
 
 
