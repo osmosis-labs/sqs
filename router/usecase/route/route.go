@@ -1,6 +1,7 @@
 package route
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -17,6 +18,12 @@ var _ domain.Route = &RouteImpl{}
 
 type RouteImpl struct {
 	Pools []sqsdomain.RoutablePool "json:\"pools\""
+	// HasGeneralizedCosmWasmPool is true if the route contains a generalized cosmwasm pool.
+	// We track whether a route contains a generalized cosmwasm pool
+	// so that we can exclude it from split quote logic.
+	// The reason for this is that making network requests to chain is expensive.
+	// As a result, we want to minimize the number of requests we make.
+	HasGeneralizedCosmWasmPool bool "json:\"has-cw-pool\""
 }
 
 // PrepareResultPools implements domain.Route.
@@ -31,7 +38,7 @@ type RouteImpl struct {
 // - Taker Fee
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
-func (r *RouteImpl) PrepareResultPools(tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error) {
+func (r *RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInOverOut     = osmomath.OneDec()
 		effectiveSpotPriceInOverOut = osmomath.OneDec()
@@ -39,7 +46,7 @@ func (r *RouteImpl) PrepareResultPools(tokenIn sdk.Coin) (osmomath.Dec, osmomath
 
 	for i, pool := range r.Pools {
 		// Compute spot price before swap.
-		spotPriceInOverOut, err := pool.CalcSpotPrice(pool.GetTokenOutDenom(), tokenIn.Denom)
+		spotPriceInOverOut, err := pool.CalcSpotPrice(ctx, pool.GetTokenOutDenom(), tokenIn.Denom)
 		if err != nil {
 			return osmomath.Dec{}, osmomath.Dec{}, err
 		}
@@ -47,7 +54,7 @@ func (r *RouteImpl) PrepareResultPools(tokenIn sdk.Coin) (osmomath.Dec, osmomath
 		// Charge taker fee
 		tokenIn = pool.ChargeTakerFeeExactIn(tokenIn)
 
-		tokenOut, err := pool.CalculateTokenOutByTokenIn(tokenIn)
+		tokenOut, err := pool.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
 			return osmomath.Dec{}, osmomath.Dec{}, err
 		}
@@ -76,12 +83,8 @@ func (r *RouteImpl) GetPools() []sqsdomain.RoutablePool {
 	return r.Pools
 }
 
-func (r *RouteImpl) AddPool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) {
-	r.Pools = append(r.Pools, pools.NewRoutablePool(pool, tokenOutDenom, takerFee))
-}
-
 // CalculateTokenOutByTokenIn implements Route.
-func (r *RouteImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (tokenOut sdk.Coin, err error) {
+func (r *RouteImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (tokenOut sdk.Coin, err error) {
 	defer func() {
 		// TODO: cover this by test
 		if r := recover(); r != nil {
@@ -99,7 +102,7 @@ func (r *RouteImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (tokenOut sdk.C
 			return sdk.Coin{}, nil
 		}
 
-		tokenOut, err = pool.CalculateTokenOutByTokenIn(tokenIn)
+		tokenOut, err = pool.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
 			return sdk.Coin{}, err
 		}
@@ -132,4 +135,9 @@ func (r *RouteImpl) GetTokenOutDenom() string {
 	}
 
 	return r.Pools[len(r.Pools)-1].GetTokenOutDenom()
+}
+
+// ContainsGeneralizedCosmWasmPool implements domain.Route.
+func (r *RouteImpl) ContainsGeneralizedCosmWasmPool() bool {
+	return r.HasGeneralizedCosmWasmPool
 }

@@ -202,7 +202,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 			r := routerusecase.NewRouter([]uint64{}, 0, 0, 0, tc.maxSplitIterations, 0, logger)
 
-			quote, err := r.GetSplitQuote(tc.routes, tc.tokenIn)
+			quote, err := r.GetSplitQuote(context.TODO(), tc.routes, tc.tokenIn)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
@@ -707,7 +707,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 		Pools:     router.GetSortedPools(),
 		TickModel: tickMap,
 	}
-	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil)
+	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
 	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, config, &log.NoOpLogger{}, cache.New(), cache.NewNoOpRoutesOverwrite())
@@ -759,7 +759,7 @@ func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Route
 		Pools:     router.GetSortedPools(),
 		TickModel: tickMap,
 	}
-	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil)
+	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
 	routerUsecase := usecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, defaultRouterConfig, &log.NoOpLogger{}, rankedRoutesCache, routesOverwrite)

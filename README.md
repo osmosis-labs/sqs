@@ -16,6 +16,27 @@ all pool data for performing the complex routing algorithm.
 Follow [this link](https://hackmd.io/@3DOBr1TJQ3mQAFDEO0BXgg/S1bsqPAr6) to find a guide on how to 
 integrate with the sidecar query server.
 
+## Custom CosmWasm Pools
+
+The sidecar query server supports custom CosmWasm pools.
+There are two options of integrating them into the Osmosis router:
+1. Implement a pool type similar to [transmuter](https://github.com/osmosis-labs/sqs/blob/e95c66e3ee6a22d57118c74a384253f016a9bb85/router/usecase/pools/routable_transmuter_pool.go#L19)
+   * This assumes that the pool quote and spot price logic is trivial enough for implementing
+   it directly in SQS without having to interact with the chain.
+2. Utilize a [generalized CosmWasm pool type](https://github.com/osmosis-labs/sqs/blob/437086c683f4f90d915f7e042617552c68410796/router/usecase/pools/routable_cw_pool.go#L24)
+   * This assumes that the pool quote and spot price logic is complex enough for requiring
+   interaction with the chain.
+   * For quotes and spot prices, SQS service would make network API queries to the chain.
+   * This is the simplest approach but it is less performant than the first option.
+   * Due to performance reasons, the routes containing these pools are not utilized in
+   more performant split quotes. Only direct quotes are supported.
+
+To enable support for either option, a [config.json](https://github.com/osmosis-labs/sqs/blob/437086c683f4f90d915f7e042617552c68410796/config.json#L22-L25)
+must be updated accordingly. For option 1, add a new field under `pools` and make a PR propagating
+this config to be able to create a new custom pool type similar to transmuter. For option 2, simply
+add your code id to `general-cosmwasm-code-ids` in this repository. Tag `@p0mvn` in the PR and
+follow up that the config is deployed to the sidecar query server service in production.
+
 ## Supported Endpoints
 
 ### Pools Resource
@@ -388,6 +409,17 @@ Description: stores the current state of the router in a JSON file locally. Used
 This endpoint should be disabled in production.
 
 Parameters: none
+
+8. GET `/router/spot-price-pool/:id`
+
+Parameters:
+- `quoteAsset` the quote asset denom
+- `baseAsset` the base asset denom
+
+```bash
+curl "https://sqs.osmosis.zone/router/spot-price-pool/1212?quoteAsset=ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858&baseAsset=ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+"1.000000000000000000000000000000000000"
+```
 
 ### System Resource
 

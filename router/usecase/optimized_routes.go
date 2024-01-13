@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"errors"
 	"sort"
 
@@ -17,7 +18,7 @@ import (
 
 // getSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.
 // Returns error if router repository is not set on the router.
-func (r *Router) getBestSingleRouteQuote(tokenIn sdk.Coin, routes []route.RouteImpl) (quote domain.Quote, err error) {
+func (r *Router) getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, routes []route.RouteImpl) (quote domain.Quote, err error) {
 	if r.routerRepository == nil {
 		return nil, ErrNilRouterRepository
 	}
@@ -25,7 +26,7 @@ func (r *Router) getBestSingleRouteQuote(tokenIn sdk.Coin, routes []route.RouteI
 		return nil, ErrNilPoolsRepository
 	}
 
-	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuote(routes, tokenIn)
+	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +37,7 @@ func (r *Router) getBestSingleRouteQuote(tokenIn sdk.Coin, routes []route.RouteI
 // Returns best quote as well as all routes sorted by amount out and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *Router) estimateAndRankSingleRouteQuote(routes []route.RouteImpl, tokenIn sdk.Coin) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+func (r *Router) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, errors.New("no routes were provided")
 	}
@@ -46,7 +47,7 @@ func (r *Router) estimateAndRankSingleRouteQuote(routes []route.RouteImpl, token
 	errors := []error{}
 
 	for _, route := range routes {
-		directRouteTokenOut, err := route.CalculateTokenOutByTokenIn(tokenIn)
+		directRouteTokenOut, err := route.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
 			r.logger.Debug("skipping single route due to error in estimate", zap.Error(err))
 			errors = append(errors, err)

@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
@@ -27,6 +28,8 @@ type RouterUsecase interface {
 	GetCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// GetTakerFee returns the taker fee for all token pairs in a pool.
 	GetTakerFee(ctx context.Context, poolID uint64) ([]sqsdomain.TakerFeeForPair, error)
+	// GetPoolSpotPrice returns the spot price of a pool.
+	GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 	// GetConfig returns the config for the SQS service
 	GetConfig() domain.RouterConfig
 	// GetCachedCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom from cache.

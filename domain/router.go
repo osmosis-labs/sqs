@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
@@ -13,12 +15,16 @@ type RoutableResultPool interface {
 }
 
 type Route interface {
+	// ContainsGeneralizedCosmWasmPool returns true if the route contains a generalized cosmwasm pool.
+	// We track whether a route contains a generalized cosmwasm pool
+	// so that we can exclude it from split quote logic.
+	// The reason for this is that making network requests to chain is expensive.
+	// As a result, we want to minimize the number of requests we make.
+	ContainsGeneralizedCosmWasmPool() bool
 	GetPools() []sqsdomain.RoutablePool
-	// AddPool adds pool to route.
-	AddPool(pool sqsdomain.PoolI, tokenOut string, takerFee osmomath.Dec)
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.
 	// Returns error if the calculation fails.
-	CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error)
+	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
 
 	GetTokenOutDenom() string
 
@@ -29,7 +35,7 @@ type Route interface {
 	// Note that it mutates the route.
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
-	PrepareResultPools(tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
@@ -49,7 +55,7 @@ type Quote interface {
 
 	// PrepareResult mutates the quote to prepare
 	// it with the data formatted for output to the client.
-	PrepareResult() ([]SplitRoute, osmomath.Dec)
+	PrepareResult(ctx context.Context) ([]SplitRoute, osmomath.Dec)
 
 	String() string
 }
@@ -68,4 +74,9 @@ type RouterConfig struct {
 	RouteCacheExpirySeconds uint64 `mapstructure:"route-cache-expiry-seconds"`
 	// Flag indicating whether we should have a cache for overwrite routes enabled.
 	EnableOverwriteRoutesCache bool `mapstructure:"enable-overwrite-routes-cache"`
+}
+
+type PoolsConfig struct {
+	TransmuterCodeIDs      []uint64 `mapstructure:"transmuter-pool-ids"`
+	GeneralCosmWasmCodeIDs []uint64 `mapstructure:"general-cosmwasm-pool-ids"`
 }
