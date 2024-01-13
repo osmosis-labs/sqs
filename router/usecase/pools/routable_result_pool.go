@@ -1,6 +1,7 @@
 package pools
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -93,7 +94,7 @@ func (*routableResultPoolImpl) Validate(minUOSMOTVL math.Int) error {
 }
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
-func (r *routableResultPoolImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error) {
+func (r *routableResultPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	return sdk.Coin{}, errors.New("not implemented")
 }
 
@@ -135,6 +136,11 @@ func (r *routableResultPoolImpl) GetSpreadFactor() math.LegacyDec {
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
-func (r *routableResultPoolImpl) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (r *routableResultPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	panic("not implemented")
+}
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*routableResultPoolImpl) IsGeneralizedCosmWasmPool() bool {
+	return false
 }

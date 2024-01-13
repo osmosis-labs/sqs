@@ -6,6 +6,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/suite"
 
@@ -112,7 +113,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []sqsdomain.RoutablePool{
-						pools.NewRoutablePool(defaultPool, denomTwo, defaultTakerFee),
+						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
 					},
 				},
 			},
@@ -132,7 +133,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []sqsdomain.RoutablePool{
-						pools.NewRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee),
+						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
 					},
 				},
 			},
@@ -169,7 +170,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			}
 
 			// Create pools use case
-			poolsUsecase := usecase.NewPoolsUsecase(time.Second, poolsRepository, nil)
+			poolsUsecase := usecase.NewPoolsUsecase(time.Second, poolsRepository, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
 
 			// System under test
 			actualRoutes, err := poolsUsecase.GetRoutesFromCandidates(context.Background(), tc.candidateRoutes, tc.takerFeeMap, tc.tokenInDenom, tc.tokenOutDenom)
@@ -191,9 +192,9 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 				// helper method for validation.
 				// Note token in is chosen arbitrarily since it is irrelevant for this test
 				tokenIn := sdk.NewCoin(tc.tokenInDenom, sdk.NewInt(100))
-				_, _, err := actualRoute.PrepareResultPools(tokenIn)
+				_, _, err := actualRoute.PrepareResultPools(context.TODO(), tokenIn)
 				s.Require().NoError(err)
-				_, _, err = expectedRoute.PrepareResultPools(tokenIn)
+				_, _, err = expectedRoute.PrepareResultPools(context.TODO(), tokenIn)
 				s.Require().NoError(err)
 
 				// Validates:
@@ -204,4 +205,10 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			}
 		})
 	}
+}
+
+func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) sqsdomain.RoutablePool {
+	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs)
+	s.Require().NoError(err)
+	return routablePool
 }

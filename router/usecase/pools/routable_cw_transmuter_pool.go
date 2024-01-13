@@ -1,6 +1,7 @@
 package pools
 
 import (
+	"context"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -51,7 +52,7 @@ func (r *routableTransmuterPoolImpl) GetSpreadFactor() math.LegacyDec {
 // - the underlying chain pool set on the routable pool is not of transmuter type
 // - the token in amount is greater than the balance of the token in
 // - the token in amount is greater than the balance of the token out
-func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error) {
+func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	poolType := r.GetType()
 
 	// Esnure that the pool is concentrated
@@ -83,7 +84,7 @@ func (r *routableTransmuterPoolImpl) GetTokenOutDenom() string {
 
 // String implements sqsdomain.RoutablePool.
 func (r *routableTransmuterPoolImpl) String() string {
-	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
+	return fmt.Sprintf("pool (%d), pool type (%d) Transmuter, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
 }
 
 // ChargeTakerFeeExactIn implements sqsdomain.RoutablePool.
@@ -118,6 +119,11 @@ func (r *routableTransmuterPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
-func (r *routableTransmuterPoolImpl) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (r *routableTransmuterPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	return osmomath.OneBigDec(), nil
+}
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*routableTransmuterPoolImpl) IsGeneralizedCosmWasmPool() bool {
+	return false
 }

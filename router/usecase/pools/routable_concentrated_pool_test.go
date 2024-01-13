@@ -1,6 +1,7 @@
 package pools_test
 
 import (
+	"context"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -87,9 +88,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 					PoolDenoms:            []string{"foo", "bar"},
 				},
 			}
-			routablePool := pools.NewRoutablePool(poolWrapper, tc.TokenOutDenom, noTakerFee)
+			routablePool, err := pools.NewRoutablePool(poolWrapper, tc.TokenOutDenom, noTakerFee, domain.CosmWasmPoolRouterConfig{})
+			s.Require().NoError(err)
 
-			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(tc.TokenIn)
+			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.TokenIn)
 
 			s.Require().NoError(err)
 			s.Require().Equal(tc.ExpectedTokenOut.String(), tokenOut.String())
@@ -267,11 +269,11 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 				TakerFee:      osmomath.ZeroDec(),
 			}
 
-			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(tc.tokenIn)
+			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
-				s.Require().ErrorIs(err, tc.expectError)
+				s.Require().ErrorContains(err, tc.expectError.Error())
 				return
 			}
 			s.Require().NoError(err)

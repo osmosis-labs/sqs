@@ -1,6 +1,7 @@
 package pools
 
 import (
+	"context"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -61,7 +62,7 @@ func (r *routableConcentratedPoolImpl) GetTakerFee() math.LegacyDec {
 // - tick model has no liquidity flag set
 // - the current sqrt price is zero
 // - rans out of ticks during swap (token in is too high for liquidity in the pool)
-func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(tokenIn sdk.Coin) (sdk.Coin, error) {
+func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	concentratedPool := r.ChainPool
 	tickModel := r.TickModel
 
@@ -195,10 +196,15 @@ func (r *routableConcentratedPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
-func (r *routableConcentratedPoolImpl) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (r *routableConcentratedPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 	return spotPrice, nil
+}
+
+// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+func (*routableConcentratedPoolImpl) IsGeneralizedCosmWasmPool() bool {
+	return false
 }

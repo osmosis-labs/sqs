@@ -46,6 +46,7 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, logger log.Logger) {
 	e.GET(formatRouterResource("/single-quote"), handler.GetBestSingleRouteQuote)
 	e.GET(formatRouterResource("/routes"), handler.GetCandidateRoutes)
 	e.GET(formatRouterResource("/cached-routes"), handler.GetCachedCandidateRoutes)
+	e.GET(formatRouterResource("/spot-price-pool/:id"), handler.GetSpotPriceForPool)
 	e.GET(formatRouterResource("/custom-direct-quote"), handler.GetDirectCustomQuote)
 	e.GET(formatRouterResource("/custom-quote"), handler.GetCustomQuote)
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
@@ -68,7 +69,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) error {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult()
+	quote.PrepareResult(ctx)
 
 	err = c.JSON(http.StatusOK, quote)
 	if err != nil {
@@ -92,7 +93,7 @@ func (a *RouterHandler) GetBestSingleRouteQuote(c echo.Context) error {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult()
+	quote.PrepareResult(ctx)
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -123,7 +124,7 @@ func (a *RouterHandler) GetCustomQuote(c echo.Context) error {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult()
+	quote.PrepareResult(ctx)
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -154,7 +155,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult()
+	quote.PrepareResult(ctx)
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -252,6 +253,27 @@ func (a *RouterHandler) OverwriteRoute(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, "Router state stored in files")
+}
+
+// GetSpotPrice returns the spot price for a given poolID, quoteAsset and baseAsset
+func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	idStr := c.Param("id")
+	poolID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+	}
+
+	quoteAsset := c.QueryParam("quoteAsset")
+	baseAsset := c.QueryParam("baseAsset")
+
+	spotPrice, err := a.RUsecase.GetPoolSpotPrice(ctx, poolID, quoteAsset, baseAsset)
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, spotPrice)
 }
 
 func getStatusCode(err error) int {
