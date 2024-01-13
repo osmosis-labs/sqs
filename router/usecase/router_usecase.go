@@ -35,7 +35,6 @@ type routerUseCaseImpl struct {
 	routerRepository routerredisrepo.RouterRepository
 	poolsUsecase     mvc.PoolsUsecase
 	config           domain.RouterConfig
-	poolsConfig      domain.PoolsConfig
 	logger           log.Logger
 
 	routesOverwrite *cache.RoutesOverwrite
