@@ -89,7 +89,7 @@ func main() {
 	}
 	logger.Info("Starting sidecar query server")
 
-	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, *config.Router, config.StorageHost, config.StoragePort, config.ServerAddress, config.ChainGRPCGatewayEndpoint, config.ServerTimeoutDurationSecs, logger)
+	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, *config.Router, config.Pools, config.StorageHost, config.StoragePort, config.ServerAddress, config.ChainGRPCGatewayEndpoint, config.ServerTimeoutDurationSecs, logger)
 	if err != nil {
 		panic(err)
 	}

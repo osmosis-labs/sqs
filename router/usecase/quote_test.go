@@ -133,13 +133,13 @@ func (s *RouterTestSuite) TestPrepareResult() {
 							sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
 							USDT,
 							takerFeeOne,
-							domain.CosmWasmCodeIDMaps{},
+							domain.CosmWasmPoolRouterConfig{},
 						),
 						s.newRoutablePool(
 							sqsdomain.NewPool(poolTwo, poolTwo.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
 							USDC,
 							takerFeeTwo,
-							domain.CosmWasmCodeIDMaps{},
+							domain.CosmWasmPoolRouterConfig{},
 						),
 					},
 				},
@@ -156,7 +156,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 							sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
 							USDC,
 							takerFeeThree,
-							domain.CosmWasmCodeIDMaps{},
+							domain.CosmWasmPoolRouterConfig{},
 						),
 					},
 				},
@@ -329,8 +329,8 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 	}
 }
 
-func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmCodeIDMaps) sqsdomain.RoutablePool {
-	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs)
+func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) sqsdomain.RoutablePool {
+	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmConfig)
 	s.Require().NoError(err)
 	return routablePool
 }

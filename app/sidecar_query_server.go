@@ -109,7 +109,7 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 }
 
 // NewSideCarQueryServer creates a new sidecar query server (SQS).
-func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfig, dbHost, dbPort, sideCarQueryServerAddress, grpcAddress string, useCaseTimeoutDuration int, logger log.Logger) (SideCarQueryServer, error) {
+func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfig, poolsConfig *domain.PoolsConfig, dbHost, dbPort, sideCarQueryServerAddress, grpcAddress string, useCaseTimeoutDuration int, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
 	middleware := middleware.InitMiddleware()
@@ -143,7 +143,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 	// Initialize pools repository, usecase and HTTP handler
 	poolsRepository := poolsredisrepo.New(appCodec, redisTxManager)
 	timeoutContext := time.Duration(useCaseTimeoutDuration) * time.Second
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository, redisTxManager, &domain.PoolsConfig{})
+	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository, redisTxManager, poolsConfig, grpcAddress)
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 
 	// Create an overwrite route cache if enabled.

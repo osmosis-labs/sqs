@@ -823,3 +823,18 @@ func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.Ca
 	}
 	return candidateRoutes
 }
+
+// GetPoolSpotPrice implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
+	poolTakerFee, err := r.routerRepository.GetTakerFee(ctx, quoteAsset, baseAsset)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	spotPrice, err := r.poolsUsecase.GetPoolSpotPrice(ctx, poolID, poolTakerFee, baseAsset, quoteAsset)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	return spotPrice, nil
+}

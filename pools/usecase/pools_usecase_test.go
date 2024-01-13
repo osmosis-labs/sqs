@@ -113,7 +113,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []sqsdomain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmCodeIDMaps{}),
+						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
 					},
 				},
 			},
@@ -133,7 +133,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []sqsdomain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee, domain.CosmWasmCodeIDMaps{}),
+						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
 					},
 				},
 			},
@@ -170,7 +170,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			}
 
 			// Create pools use case
-			poolsUsecase := usecase.NewPoolsUsecase(time.Second, poolsRepository, nil, &domain.PoolsConfig{})
+			poolsUsecase := usecase.NewPoolsUsecase(time.Second, poolsRepository, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
 
 			// System under test
 			actualRoutes, err := poolsUsecase.GetRoutesFromCandidates(context.Background(), tc.candidateRoutes, tc.takerFeeMap, tc.tokenInDenom, tc.tokenOutDenom)
@@ -207,7 +207,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	}
 }
 
-func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmCodeIDMaps) sqsdomain.RoutablePool {
+func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) sqsdomain.RoutablePool {
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs)
 	s.Require().NoError(err)
 	return routablePool

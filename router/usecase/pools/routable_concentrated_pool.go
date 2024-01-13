@@ -196,7 +196,7 @@ func (r *routableConcentratedPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
-func (r *routableConcentratedPoolImpl) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (r *routableConcentratedPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err

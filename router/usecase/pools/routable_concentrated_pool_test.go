@@ -88,7 +88,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 					PoolDenoms:            []string{"foo", "bar"},
 				},
 			}
-			routablePool, err := pools.NewRoutablePool(poolWrapper, tc.TokenOutDenom, noTakerFee, domain.CosmWasmCodeIDMaps{})
+			routablePool, err := pools.NewRoutablePool(poolWrapper, tc.TokenOutDenom, noTakerFee, domain.CosmWasmPoolRouterConfig{})
 			s.Require().NoError(err)
 
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.TokenIn)
@@ -273,7 +273,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
-				s.Require().ErrorIs(err, tc.expectError)
+				s.Require().ErrorContains(err, tc.expectError.Error())
 				return
 			}
 			s.Require().NoError(err)

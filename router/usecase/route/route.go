@@ -40,7 +40,7 @@ func (r *RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (o
 
 	for i, pool := range r.Pools {
 		// Compute spot price before swap.
-		spotPriceInOverOut, err := pool.CalcSpotPrice(pool.GetTokenOutDenom(), tokenIn.Denom)
+		spotPriceInOverOut, err := pool.CalcSpotPrice(ctx, pool.GetTokenOutDenom(), tokenIn.Denom)
 		if err != nil {
 			return osmomath.Dec{}, osmomath.Dec{}, err
 		}

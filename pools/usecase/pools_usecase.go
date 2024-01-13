@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"cosmossdk.io/math"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -11,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/sqsdomain/repository"
 	poolsredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/pools"
@@ -20,13 +22,13 @@ type poolsUseCase struct {
 	contextTimeout         time.Duration
 	poolsRepository        poolsredisrepo.PoolsRepository
 	redisRepositoryManager repository.TxManager
-	cosmWasmPoolCodeIDs    domain.CosmWasmCodeIDMaps
+	cosmWasmConfig         domain.CosmWasmPoolRouterConfig
 }
 
 var _ mvc.PoolsUsecase = &poolsUseCase{}
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.PoolsRepository, redisRepositoryManager repository.TxManager, poolsConfig *domain.PoolsConfig) mvc.PoolsUsecase {
+func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.PoolsRepository, redisRepositoryManager repository.TxManager, poolsConfig *domain.PoolsConfig, nodeURI string) mvc.PoolsUsecase {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
 	for _, codeId := range poolsConfig.TransmuterCodeIDs {
 		transmuterCodeIDsMap[codeId] = struct{}{}
@@ -41,9 +43,10 @@ func NewPoolsUsecase(timeout time.Duration, poolsRepository poolsredisrepo.Pools
 		contextTimeout:         timeout,
 		poolsRepository:        poolsRepository,
 		redisRepositoryManager: redisRepositoryManager,
-		cosmWasmPoolCodeIDs: domain.CosmWasmCodeIDMaps{
+		cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
 			TransmuterCodeIDs: transmuterCodeIDsMap,
 			AstroportCodeIDs:  astroportCodeIDsMap,
+			NodeURI:           nodeURI,
 		},
 	}
 }
@@ -113,7 +116,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 				}
 			}
 
-			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmPoolCodeIDs)
+			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -159,4 +162,19 @@ func (p *poolsUseCase) GetPool(ctx context.Context, poolID uint64) (sqsdomain.Po
 		return nil, domain.PoolNotFoundError{PoolID: poolID}
 	}
 	return pool, nil
+}
+
+// GetPoolSpotPrice implements mvc.PoolsUsecase.
+func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, takerFee math.LegacyDec, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
+	pool, err := p.GetPool(ctx, poolID)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmConfig)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	return routablePool.CalcSpotPrice(ctx, baseAsset, quoteAsset)
 }

@@ -136,6 +136,6 @@ func (r *routableResultPoolImpl) GetSpreadFactor() math.LegacyDec {
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
-func (r *routableResultPoolImpl) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (r *routableResultPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	panic("not implemented")
 }

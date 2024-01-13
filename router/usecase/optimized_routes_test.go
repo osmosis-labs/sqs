@@ -707,7 +707,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 		Pools:     router.GetSortedPools(),
 		TickModel: tickMap,
 	}
-	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{})
+	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
 	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, config, &log.NoOpLogger{}, cache.New(), cache.NewNoOpRoutesOverwrite())
@@ -759,7 +759,7 @@ func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Route
 		Pools:     router.GetSortedPools(),
 		TickModel: tickMap,
 	}
-	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{})
+	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
 	routerUsecase := usecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, defaultRouterConfig, &log.NoOpLogger{}, rankedRoutesCache, routesOverwrite)

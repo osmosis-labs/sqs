@@ -29,7 +29,7 @@ type MockRoutablePool struct {
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
-func (mp *MockRoutablePool) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (mp *MockRoutablePool) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	if mp.PoolType == poolmanagertypes.CosmWasm {
 		return osmomath.OneBigDec(), nil
 	}

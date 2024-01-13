@@ -20,8 +20,8 @@
       "route-cache-expiry-seconds": 600
     },
     "pools": {
-        "transmuter-code-id": [148],
-        "astroport-code-id": [149]
+        "transmuter-pool-ids": [148],
+        "astroport-code-ids": []
     },
     "enable-overwrite-routes-cache": true
   }

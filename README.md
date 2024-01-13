@@ -389,6 +389,17 @@ This endpoint should be disabled in production.
 
 Parameters: none
 
+8. GET `/router/spot-price-pool/:id`
+
+Parameters:
+- `quoteAsset` the quote asset denom
+- `baseAsset` the base asset denom
+
+```bash
+curl "https://sqs.osmosis.zone/router/spot-price-pool/1212?quoteAsset=ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858&baseAsset=ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+"1.000000000000000000000000000000000000"
+```
+
 ### System Resource
 
 1. GET `/healthcheck`

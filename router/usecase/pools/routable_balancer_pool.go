@@ -82,7 +82,7 @@ func (*routableBalancerPoolImpl) GetType() poolmanagertypes.PoolType {
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
-func (r *routableBalancerPoolImpl) CalcSpotPrice(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (r *routableBalancerPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
