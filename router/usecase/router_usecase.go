@@ -52,8 +52,6 @@ const (
 	rankedRouteCacheLabel    = "ranked_route"
 
 	denomSeparatorChar = "|"
-
-	noCacheCandidateRoutes = false
 )
 
 var (
