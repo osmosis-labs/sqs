@@ -78,5 +78,5 @@ type RouterConfig struct {
 
 type PoolsConfig struct {
 	TransmuterCodeIDs      []uint64 `mapstructure:"transmuter-code-ids"`
-	GeneralCosmWasmCodeIDs []uint64 `mapstructure:"general-cosmwasm-pool-ids"`
+	GeneralCosmWasmCodeIDs []uint64 `mapstructure:"general-cosmwasm-code-ids"`
 }

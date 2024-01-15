@@ -174,13 +174,8 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 		return osmomath.BigDec{}, err
 	}
 
-	// Get tick model for concentrated pools
-	tickModelMap, err := p.GetTickModelMap(ctx, []uint64{poolID})
-	if err != nil {
-		return osmomath.BigDec{}, err
-	}
-
-	if err := setTickModelIfConcentrated(pool, tickModelMap); err != nil {
+	// Instrument pool with tick model data if concentrated
+	if err := p.getTicksAndSetTickModelIfConcentrated(ctx, pool); err != nil {
 		return osmomath.BigDec{}, err
 	}
 
@@ -214,6 +209,26 @@ func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]sq
 		}
 
 		if err := pool.SetTickModel(&tickModel); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// getTicksAndSetTickModelIfConcentrated gets tick model for concentrated pools and sets it if this is a concentrated pool.
+// The input pool parameter is mutated.
+// No-op if pool is not concentrated.
+func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(ctx context.Context, pool sqsdomain.PoolI) error {
+	if pool.GetType() == poolmanagertypes.Concentrated {
+		// Get tick model for concentrated pools
+		tickModelMap, err := p.GetTickModelMap(ctx, []uint64{pool.GetId()})
+		if err != nil {
+			return err
+		}
+
+		// Set tick model for concentrated pools
+		if err := setTickModelIfConcentrated(pool, tickModelMap); err != nil {
 			return err
 		}
 	}
