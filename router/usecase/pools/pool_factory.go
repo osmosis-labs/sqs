@@ -116,13 +116,13 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		}, nil
 	}
 
-	wasmClient, err := initializeWasmClient(cosmWasmConfig.NodeURI)
-	if err != nil {
-		return nil, err
-	}
-
 	_, isGeneralizedCosmWasmPool := cosmWasmConfig.GeneralCosmWasmCodeIDs[cosmwasmPool.CodeId]
 	if isGeneralizedCosmWasmPool {
+		wasmClient, err := initializeWasmClient(cosmWasmConfig.NodeURI)
+		if err != nil {
+			return nil, err
+		}
+
 		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 
 		// for most other cosm wasm pools, interaction with the chain will

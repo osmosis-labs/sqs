@@ -136,7 +136,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
 	}
 
 	poolIDStr := c.QueryParam("poolID")
@@ -266,7 +266,13 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 	}
 
 	quoteAsset := c.QueryParam("quoteAsset")
+	if len(quoteAsset) == 0 {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "quoteAsset is required"})
+	}
 	baseAsset := c.QueryParam("baseAsset")
+	if len(baseAsset) == 0 {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "baseAsset is required"})
+	}
 
 	spotPrice, err := a.RUsecase.GetPoolSpotPrice(ctx, poolID, quoteAsset, baseAsset)
 	if err != nil {
