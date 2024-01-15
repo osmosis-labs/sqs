@@ -52,6 +52,8 @@ const (
 	rankedRouteCacheLabel    = "ranked_route"
 
 	denomSeparatorChar = "|"
+
+	noCacheCandidateRoutes = false
 )
 
 var (
@@ -486,12 +488,12 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
 	router := r.initializeRouter()
 
-	routes, err := r.handleCandidateRoutes(ctx, router, tokenInDenom, tokenOutDenom)
+	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
 	if err != nil {
 		return sqsdomain.CandidateRoutes{}, err
 	}
 
-	return routes, nil
+	return candidateRoutes, nil
 }
 
 // GetTakerFee implements mvc.RouterUsecase.
