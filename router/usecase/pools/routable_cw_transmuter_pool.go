@@ -11,8 +11,8 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v21/x/cosmwasmpool/model"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v22/x/cosmwasmpool/model"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 var _ sqsdomain.RoutablePool = &routableTransmuterPoolImpl{}

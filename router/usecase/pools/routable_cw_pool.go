@@ -11,10 +11,10 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v21/x/cosmwasmpool/cosmwasm/msg"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v21/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v21/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v22/x/cosmwasmpool/cosmwasm/msg"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v22/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v22/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 var _ sqsdomain.RoutablePool = &routableCosmWasmPoolImpl{}
