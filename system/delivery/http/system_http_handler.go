@@ -14,6 +14,7 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
@@ -22,11 +23,11 @@ import (
 )
 
 type SystemHandler struct {
-	logger        log.Logger
-	redisAddress  string
-	grpcAddress   string
-	CIUsecase     mvc.ChainInfoUsecase
-	RouterUsecase mvc.RouterUsecase
+	logger       log.Logger
+	redisAddress string
+	grpcAddress  string
+	CIUsecase    mvc.ChainInfoUsecase
+	config       domain.Config
 }
 
 // Parse the response from the GRPC Gateway status endpoint
@@ -46,13 +47,13 @@ const (
 )
 
 // NewSystemHandler will initialize the /debug/ppof resources endpoint
-func NewSystemHandler(e *echo.Echo, redisAddress, grpcAddress string, logger log.Logger, us mvc.ChainInfoUsecase, ru mvc.RouterUsecase) {
+func NewSystemHandler(e *echo.Echo, redisAddress string, config domain.Config, logger log.Logger, us mvc.ChainInfoUsecase) {
 	handler := &SystemHandler{
-		logger:        logger,
-		redisAddress:  redisAddress,
-		grpcAddress:   grpcAddress,
-		CIUsecase:     us,
-		RouterUsecase: ru,
+		logger:       logger,
+		redisAddress: redisAddress,
+		grpcAddress:  config.ChainGRPCGatewayEndpoint,
+		CIUsecase:    us,
+		config:       config,
 	}
 
 	e.GET("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
@@ -64,8 +65,7 @@ func NewSystemHandler(e *echo.Echo, redisAddress, grpcAddress string, logger log
 
 // GetConfig returns the config for the SQS service
 func (h *SystemHandler) GetConfig(c echo.Context) error {
-	config := h.RouterUsecase.GetConfig()
-	return c.JSON(http.StatusOK, config)
+	return c.JSON(http.StatusOK, h.config)
 }
 
 func (h *SystemHandler) GetVersion(c echo.Context) error {
