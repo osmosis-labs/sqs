@@ -39,7 +39,11 @@ type JsonResponse struct {
 	} `json:"result"`
 }
 
-const heightTolerance = 10
+const (
+	heightTolerance       = 10
+	versionPlaceholder    = "version="
+	whiteSpacePlaceholder = " "
+)
 
 // NewSystemHandler will initialize the /debug/ppof resources endpoint
 func NewSystemHandler(e *echo.Echo, redisAddress, grpcAddress string, logger log.Logger, us mvc.ChainInfoUsecase, ru mvc.RouterUsecase) {
@@ -72,15 +76,38 @@ func (h *SystemHandler) GetVersion(c echo.Context) error {
 
 	for _, setting := range buildInfo.Settings {
 		if setting.Key == "-ldflags" {
-			versionSlice := strings.Split(setting.Value, "=")
-			if len(versionSlice) != 2 {
-				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse version string")
+			version, err := extractVersion(setting.Value)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to extract version information: %v", err))
 			}
-			return c.JSON(http.StatusOK, versionSlice[1])
+
+			return c.JSON(http.StatusOK, version)
 		}
 	}
 
 	return echo.NewHTTPError(http.StatusInternalServerError, "failed to find version information")
+}
+
+// extractVersion extracts the version string from the ldflags
+func extractVersion(ldGlagsValueStr string) (string, error) {
+	// Find the position of github.com/osmosis-labs/sqs/version=
+	index := strings.Index(ldGlagsValueStr, versionPlaceholder)
+
+	if index == -1 {
+		return "", fmt.Errorf("No version string found")
+	}
+
+	// Extract the substring after github.com/osmosis-labs/sqs/version=
+	substring := ldGlagsValueStr[index+len(versionPlaceholder):]
+
+	strings.Index(ldGlagsValueStr, " ")
+
+	index = strings.Index(substring, whiteSpacePlaceholder)
+	if index == -1 {
+		return "", fmt.Errorf("Failed to find end of version string")
+	}
+
+	return substring[:index], nil
 }
 
 // GetHealthStatus handles health check requests for both GRPC gateway and Redis
