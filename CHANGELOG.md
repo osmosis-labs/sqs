@@ -38,6 +38,8 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## v0.1.3
 
 * [#52](https://github.com/osmosis-labs/osmosis/pull/52) Fix key separator issue breaking tokenfactory denoms.
+* [#53](https://github.com/osmosis-labs/osmosis/pull/53) Fix /version query
+
 ## v0.1.2
 
 * [#46](https://github.com/osmosis-labs/osmosis/pull/46) Various fixes around cosmwasm pool implementation after testing Astroport PCL on testnet.
