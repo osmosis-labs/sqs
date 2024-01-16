@@ -109,7 +109,7 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 }
 
 // NewSideCarQueryServer creates a new sidecar query server (SQS).
-func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfig, poolsConfig *domain.PoolsConfig, dbHost, dbPort, sideCarQueryServerAddress, grpcAddress string, useCaseTimeoutDuration int, logger log.Logger) (SideCarQueryServer, error) {
+func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
 	middleware := middleware.InitMiddleware()
@@ -124,7 +124,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 	}()
 
 	// Create redis client and ensure that it is up.
-	redisAddress := fmt.Sprintf("%s:%s", dbHost, dbPort)
+	redisAddress := fmt.Sprintf("%s:%s", config.StorageHost, config.StoragePort)
 	logger.Info("Pinging redis", zap.String("redis_address", redisAddress))
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisAddress,
@@ -142,18 +142,18 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 
 	// Initialize pools repository, usecase and HTTP handler
 	poolsRepository := poolsredisrepo.New(appCodec, redisTxManager)
-	timeoutContext := time.Duration(useCaseTimeoutDuration) * time.Second
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository, redisTxManager, poolsConfig, grpcAddress)
+	timeoutContext := time.Duration(config.ServerTimeoutDurationSecs) * time.Second
+	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository, redisTxManager, config.Pools, config.ChainGRPCGatewayEndpoint)
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 
 	// Create an overwrite route cache if enabled.
 	// We keep it as nil by default.
 	// The relevant endpoints must check if it is set.
-	routesOverwrite := cache.CreateRoutesOverwrite(routerConfig.EnableOverwriteRoutesCache)
+	routesOverwrite := cache.CreateRoutesOverwrite(config.Router.EnableOverwriteRoutesCache)
 
 	// Initialize router repository, usecase and HTTP handler
-	routerRepository := routerredisrepo.New(redisTxManager, routerConfig.RouteCacheExpirySeconds)
-	routerUsecase := routerUseCase.WithOverwriteRoutesPath(routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, routerConfig, logger, cache.New(), routesOverwrite), overwriteRoutesPath)
+	routerRepository := routerredisrepo.New(redisTxManager, config.Router.RouteCacheExpirySeconds)
+	routerUsecase := routerUseCase.WithOverwriteRoutesPath(routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, *config.Router, logger, cache.New(), routesOverwrite), overwriteRoutesPath)
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, logger)
 
 	// Load overwrite routes from disk if they exist.
@@ -165,7 +165,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 	// Initialize system handler
 	chainInfoRepository := chaininforedisrepo.New(redisTxManager)
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(timeoutContext, chainInfoRepository, redisTxManager)
-	systemhttpdelivery.NewSystemHandler(e, redisAddress, grpcAddress, logger, chainInfoUseCase, routerUsecase)
+	systemhttpdelivery.NewSystemHandler(e, redisAddress, config, logger, chainInfoUseCase)
 
 	// Initialized tokens usecase
 	tokensUseCase := tokensUseCase.NewTokensUsecase(timeoutContext)
@@ -186,6 +186,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, routerConfig domain.RouterConfi
 		tokensUseCase:       tokensUseCase,
 		logger:              logger,
 		e:                   e,
-		sqsAddress:          sideCarQueryServerAddress,
+		sqsAddress:          config.ServerAddress,
 	}, nil
 }
