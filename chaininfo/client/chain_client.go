@@ -7,10 +7,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/spf13/viper"
 
-	clpoolmodel "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v21/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v21/x/gamm/pool-models/stableswap"
+	clpoolmodel "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v22/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/stableswap"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 )
