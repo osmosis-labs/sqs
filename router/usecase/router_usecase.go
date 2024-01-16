@@ -16,7 +16,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -496,11 +496,6 @@ func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom
 
 // GetTakerFee implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]sqsdomain.TakerFeeForPair, error) {
-	takerFees, err := r.routerRepository.GetAllTakerFees(ctx)
-	if err != nil {
-		return []sqsdomain.TakerFeeForPair{}, err
-	}
-
 	pool, err := r.poolsUsecase.GetPool(ctx, poolID)
 	if err != nil {
 		return []sqsdomain.TakerFeeForPair{}, err
@@ -515,7 +510,10 @@ func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]s
 			denom0 := poolDenoms[i]
 			denom1 := poolDenoms[j]
 
-			takerFee := takerFees.GetTakerFee(denom0, denom1)
+			takerFee, err := r.routerRepository.GetTakerFee(ctx, denom0, denom1)
+			if err != nil {
+				return []sqsdomain.TakerFeeForPair{}, err
+			}
 
 			result = append(result, sqsdomain.TakerFeeForPair{
 				Denom0:   denom0,
