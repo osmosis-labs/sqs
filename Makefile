@@ -33,6 +33,11 @@ generate-mocks: mockery
 run:
 	go run -ldflags="-X github.com/osmosis-labs/sqs/version=${VERSION}" app/*.go  --config config.json
 
+run-docker:
+	docker rm -f sqs
+	docker run -d --name sqs -p 9092:9092 -p 26657:26657 -v /root/sqs/config-testnet.json/:/osmosis/config.json --net host osmolabs/sqs:local "--config /osmosis/config.json"
+	docker logs -f sqs
+
 redis-start:
 	docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 -v ./redis-cache/:/data redis/redis-stack:7.2.0-v3
 
@@ -68,7 +73,7 @@ build:
 
 docker-build:
 	@DOCKER_BUILDKIT=1 docker build \
-		-t osmolabs/sqs:v0.0.1 \
+		-t osmolabs/sqs:local \
 		--build-arg GO_VERSION=$(GO_VERSION) \
 		--build-arg GIT_VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(COMMIT) \
