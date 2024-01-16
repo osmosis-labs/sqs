@@ -39,6 +39,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 * [#52](https://github.com/osmosis-labs/osmosis/pull/52) Fix key separator issue breaking tokenfactory denoms.
 * [#53](https://github.com/osmosis-labs/osmosis/pull/53) Fix /version query
+* [#54](https://github.com/osmosis-labs/osmosis/pull/54) Return all paramters from /config (as opposed to just router config)
 
 ## v0.1.2
 

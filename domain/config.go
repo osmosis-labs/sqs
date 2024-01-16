@@ -1,0 +1,26 @@
+package domain
+
+// Config defines the config for the sidecar query server.
+type Config struct {
+	// Storage defines the storage host and port.
+	StorageHost string `mapstructure:"db-host"`
+	StoragePort string `mapstructure:"db-port"`
+
+	// Defines the web server configuration.
+	ServerAddress             string `mapstructure:"server-address"`
+	ServerTimeoutDurationSecs int    `mapstructure:"timeout-duration-secs"`
+
+	// Defines the logger configuration.
+	LoggerFilename     string `mapstructure:"logger-filename"`
+	LoggerIsProduction bool   `mapstructure:"logger-is-production"`
+	LoggerLevel        string `mapstructure:"logger-level"`
+
+	ChainGRPCGatewayEndpoint string `mapstructure:"grpc-gateway-endpoint"`
+	ChainID                  string `mapstructure:"chain-id"`
+
+	// Router encapsulates the router config.
+	Router *RouterConfig `mapstructure:"router"`
+
+	// Pools encapsulates the pools config.
+	Pools *PoolsConfig `mapstructure:"pools"`
+}

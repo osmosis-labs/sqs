@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/osmosis-labs/sqs/chaininfo/client"
+	"github.com/osmosis-labs/sqs/domain"
 	sqslog "github.com/osmosis-labs/sqs/log"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
@@ -38,7 +39,7 @@ func main() {
 	}
 
 	// Unmarshal the config into your Config struct
-	var config Config
+	var config domain.Config
 	if err := viper.Unmarshal(&config); err != nil {
 		fmt.Println("Error unmarshalling config:", err)
 		return
@@ -89,7 +90,7 @@ func main() {
 	}
 	logger.Info("Starting sidecar query server")
 
-	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, *config.Router, config.Pools, config.StorageHost, config.StoragePort, config.ServerAddress, config.ChainGRPCGatewayEndpoint, config.ServerTimeoutDurationSecs, logger)
+	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, config, logger)
 	if err != nil {
 		panic(err)
 	}
