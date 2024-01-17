@@ -17,10 +17,10 @@ import (
 
 // SerializedPool is a struct that is used to serialize a pool to JSON.
 type SerializedPool struct {
-	Type      sqsdomain.PoolType `json:"type"`
-	ChainPool json.RawMessage           `json:"data"`
-	SQSModel  sqsdomain.SQSPool         `json:"sqs_model"`
-	TickModel *sqsdomain.TickModel      `json:"tick_model,omitempty"`
+	Type      sqsdomain.PoolType   `json:"type"`
+	ChainPool json.RawMessage      `json:"data"`
+	SQSModel  sqsdomain.SQSPool    `json:"sqs_model"`
+	TickModel *sqsdomain.TickModel `json:"tick_model,omitempty"`
 }
 
 // StorePools stores the pools to a file.

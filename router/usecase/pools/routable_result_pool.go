@@ -25,12 +25,12 @@ var (
 // routableResultPoolImpl is a generalized implementation that is returned to the client
 // side in quotes. It contains all the relevant pool data needed for Osmosis frontend
 type routableResultPoolImpl struct {
-	ID            uint64                    "json:\"id\""
+	ID            uint64             "json:\"id\""
 	Type          sqsdomain.PoolType "json:\"type\""
-	Balances      sdk.Coins                 "json:\"balances\""
-	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
-	TokenOutDenom string                    "json:\"token_out_denom\""
-	TakerFee      osmomath.Dec              "json:\"taker_fee\""
+	Balances      sdk.Coins          "json:\"balances\""
+	SpreadFactor  osmomath.Dec       "json:\"spread_factor\""
+	TokenOutDenom string             "json:\"token_out_denom\""
+	TakerFee      osmomath.Dec       "json:\"taker_fee\""
 }
 
 // NewRoutableResultPool returns the new routable result pool with the given parameters.
