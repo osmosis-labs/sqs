@@ -1254,6 +1254,8 @@ github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240115183431-296fc0a143ea h1:tfoK
 github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240115183431-296fc0a143ea/go.mod h1:y83R8Hc+lmD7BH1JdRPQLKMJXTs5t+bWsAXf7qB1rAk=
 github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240116045844-0134b0683e8c h1:WJJIboMP+qIJIgrGhFR5NencalAGCJfq1qVRz7fvTEo=
 github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240116045844-0134b0683e8c/go.mod h1:aXjfqPKk8aQzbGx8Gjx8biKtelUOM+G1Gtjx4Gap4lg=
+github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240117211347-352af474c54c h1:xoSPD2FZn6VG+a8cfGnT+bPXv9hPbxBW2WiwIXC2RQ4=
+github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240117211347-352af474c54c/go.mod h1:QpiJOOd7HEmZSKFiTE4+fF5+u9Aol2nnbhwlXe3BXHo=
 github.com/osmosis-labs/wasmd v0.45.0-osmo h1:NIp7pvJV5HuBN1HwPgEmXKQM2TjVIVdJErIHnB9IMO8=
 github.com/osmosis-labs/wasmd v0.45.0-osmo/go.mod h1:J6eRvwii5T1WxhetZkBg1kOJS3GTn1Bw2OLyZBb8EVU=
 github.com/pact-foundation/pact-go v1.0.4/go.mod h1:uExwJY4kCzNPcHRj+hCR/HBbOOIwwtUjcrb0b5/5kLM=
