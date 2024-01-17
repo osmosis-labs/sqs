@@ -26,8 +26,8 @@ jobs:
     - name: "DOCKER:BUILD:CHECK:PUSH"
       uses: iDevOps-io/idevops-git-actions/docker_build_check_tag_and_push@main
       with:
-        docker_username: "${{ secrets.DOCKER_USERNAME }}"
-        docker_password: "${{ secrets.DOCKER_PASSWORD }}"
+        docker_username: "${{ secrets.DOCKERHUB_USERNAME }}"
+        docker_password: "${{ secrets.DOCKERHUB_TOKEN }}"
         docker_org: "${{ env.docker_org }}"
         docker_image: "${{ env.docker_repo }}"
         docker_tag: "${{ env.docker_tag }}"
