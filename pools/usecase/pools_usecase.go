@@ -13,7 +13,6 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/sqsdomain/repository"
 	poolsredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/pools"
 )
@@ -76,7 +75,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 	// Get conentrated pools and separately get tick model for them
 	concentratedPoolIDs := make([]uint64, 0)
 	for _, candidatePool := range poolsData {
-		if candidatePool.GetType() == poolmanagertypes.Concentrated {
+		if candidatePool.GetType() == sqsdomain.Concentrated {
 			concentratedPoolIDs = append(concentratedPoolIDs, candidatePool.GetId())
 		}
 	}
@@ -199,7 +198,7 @@ func (p *poolsUseCase) IsGeneralCosmWasmCodeID(codeId uint64) bool {
 // If the pool is concentrated but the map does not contains the tick model, an error is returned.
 // The input pool parameter is mutated.
 func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]sqsdomain.TickModel) error {
-	if pool.GetType() == poolmanagertypes.Concentrated {
+	if pool.GetType() == sqsdomain.Concentrated {
 		// Get tick model for concentrated pool
 		tickModel, ok := tickModelMap[pool.GetId()]
 		if !ok {
@@ -220,7 +219,7 @@ func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]sq
 // The input pool parameter is mutated.
 // No-op if pool is not concentrated.
 func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(ctx context.Context, pool sqsdomain.PoolI) error {
-	if pool.GetType() == poolmanagertypes.Concentrated {
+	if pool.GetType() == sqsdomain.Concentrated {
 		// Get tick model for concentrated pools
 		tickModelMap, err := p.GetTickModelMap(ctx, []uint64{pool.GetId()})
 		if err != nil {

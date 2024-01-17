@@ -11,7 +11,6 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 type Router struct {
@@ -177,13 +176,13 @@ func sortPools(pools []sqsdomain.PoolI, totalTVL osmomath.Int, preferredPoolIDsM
 		}
 
 		// Concentrated pools get a boost equal to 1/2 of total value locked across all pools
-		isConcentrated := pool.GetType() == poolmanagertypes.Concentrated
+		isConcentrated := pool.GetType() == sqsdomain.Concentrated
 		if isConcentrated {
 			rating = rating.Add(totalTVL.QuoRaw(2))
 		}
 
 		// Transmuter pools get a boost equal to 3/2 of total value locked across all pools
-		if isTransmuter := pool.GetType() == poolmanagertypes.CosmWasm; isTransmuter {
+		if isTransmuter := pool.GetType() == sqsdomain.CosmWasm; isTransmuter {
 			rating = rating.Add(totalTVL.MulRaw(3).QuoRaw(2))
 		}
 

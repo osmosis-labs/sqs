@@ -1,7 +1,6 @@
 package usecase
 
 import (
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
@@ -14,7 +13,7 @@ import (
 type candidatePoolWrapper struct {
 	sqsdomain.CandidatePool
 	PoolDenoms []string
-	PoolType   poolmanagertypes.PoolType
+	PoolType   sqsdomain.PoolType
 }
 
 // GetCandidateRoutes returns candidate routes from tokenInDenom to tokenOutDenom using BFS.

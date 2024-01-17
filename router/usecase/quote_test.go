@@ -16,7 +16,6 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/balancer"
 	"github.com/osmosis-labs/osmosis/v22/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 var (
@@ -176,14 +175,14 @@ func (s *RouterTestSuite) TestPrepareResult() {
 				Pools: []sqsdomain.RoutablePool{
 					pools.NewRoutableResultPool(
 						poolIDOne,
-						poolmanagertypes.Balancer,
+						sqsdomain.Balancer,
 						poolOne.GetSpreadFactor(sdk.Context{}),
 						USDT,
 						takerFeeOne,
 					),
 					pools.NewRoutableResultPool(
 						poolIDTwo,
-						poolmanagertypes.Balancer,
+						sqsdomain.Balancer,
 						poolTwo.GetSpreadFactor(sdk.Context{}),
 						USDC,
 						takerFeeTwo,
@@ -201,7 +200,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 				Pools: []sqsdomain.RoutablePool{
 					pools.NewRoutableResultPool(
 						poolIDThree,
-						poolmanagertypes.Balancer,
+						sqsdomain.Balancer,
 						poolThree.GetSpreadFactor(sdk.Context{}),
 						USDC,
 						takerFeeThree,

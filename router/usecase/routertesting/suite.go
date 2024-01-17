@@ -12,7 +12,6 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v22/app/apptesting"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 type RouterTestHelper struct {
@@ -59,7 +58,7 @@ var (
 		ID:                   DefaultPoolID,
 		Denoms:               []string{DenomOne, DenomTwo},
 		TotalValueLockedUSDC: osmomath.NewInt(10),
-		PoolType:             poolmanagertypes.Balancer,
+		PoolType:             sqsdomain.Balancer,
 		Balances:             DefaultPoolBalances,
 		TakerFee:             DefaultTakerFee,
 		SpreadFactor:         DefaultSpreadFactor,

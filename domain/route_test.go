@@ -12,8 +12,6 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
-
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 type RouterTestSuite struct {
@@ -107,7 +105,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 			expectedPools: []sqsdomain.RoutablePool{
 				pools.NewRoutableResultPool(
 					balancerPoolID,
-					poolmanagertypes.Balancer,
+					sqsdomain.Balancer,
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,

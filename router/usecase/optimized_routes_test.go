@@ -11,7 +11,6 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/coinutil"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmoassert"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
@@ -55,7 +54,7 @@ var (
 		ID:                   defaultPoolID,
 		Denoms:               []string{DenomOne, DenomTwo},
 		TotalValueLockedUSDC: osmomath.NewInt(10),
-		PoolType:             poolmanagertypes.Balancer,
+		PoolType:             sqsdomain.Balancer,
 		Balances:             DefaultPoolBalances,
 		TakerFee:             DefaultTakerFee,
 		SpreadFactor:         DefaultSpreadFactor,

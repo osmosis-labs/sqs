@@ -15,7 +15,6 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	concentratedmodel "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 const testFileName = "pools.json"
@@ -38,7 +37,7 @@ var (
 		Balances:             routertesting.DefaultPoolBalances,
 		Denoms:               []string{routertesting.Denom0, routertesting.Denom1},
 		SpreadFactor:         routertesting.DefaultSpreadFactor,
-		PoolType:             poolmanagertypes.Concentrated,
+		PoolType:             sqsdomain.Concentrated,
 	}
 
 	defaultTickModel = sqsdomain.TickModel{

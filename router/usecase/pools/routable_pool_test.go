@@ -68,19 +68,19 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 	tests := map[string]struct {
 		tokenIn          sdk.Coin
 		tokenOutDenom    string
-		poolType         poolmanagertypes.PoolType
+		poolType         sqsdomain.PoolType
 		expectedTokenOut sdk.Coin
 		expectError      error
 	}{
 		"balancer pool - valid calculation": {
 			tokenIn:       sdk.NewCoin("foo", sdk.NewInt(100)),
 			tokenOutDenom: "bar",
-			poolType:      poolmanagertypes.Balancer,
+			poolType:      sqsdomain.Balancer,
 		},
 		"stableswap pool - valid calculation": {
 			tokenIn:       sdk.NewCoin("foo", sdk.NewInt(100)),
 			tokenOutDenom: "bar",
-			poolType:      poolmanagertypes.Stableswap,
+			poolType:      sqsdomain.Stableswap,
 		},
 	}
 
@@ -88,7 +88,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 		s.Run(name, func() {
 			s.Setup()
 
-			poolID := s.CreatePoolFromType(tc.poolType)
+			poolID := s.CreatePoolFromType(poolmanagertypes.PoolType(tc.poolType))
 			pool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, poolID)
 			s.Require().NoError(err)
 

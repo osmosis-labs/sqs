@@ -17,7 +17,7 @@ import (
 
 // SerializedPool is a struct that is used to serialize a pool to JSON.
 type SerializedPool struct {
-	Type      poolmanagertypes.PoolType `json:"type"`
+	Type      sqsdomain.PoolType `json:"type"`
 	ChainPool json.RawMessage           `json:"data"`
 	SQSModel  sqsdomain.SQSPool         `json:"sqs_model"`
 	TickModel *sqsdomain.TickModel      `json:"tick_model,omitempty"`
@@ -36,7 +36,7 @@ func StorePools(actualPools []sqsdomain.PoolI, tickModelMap map[uint64]sqsdomain
 		pools := make([]json.RawMessage, 0, len(actualPools))
 
 		for _, pool := range actualPools {
-			if pool.GetType() == poolmanagertypes.Concentrated {
+			if pool.GetType() == sqsdomain.Concentrated {
 				tickModel, ok := tickModelMap[pool.GetId()]
 				if !ok {
 					return fmt.Errorf("no tick model in map %s", domain.ConcentratedTickModelNotSetError{
@@ -119,7 +119,7 @@ func ReadPools(poolsFile string) ([]sqsdomain.PoolI, map[uint64]sqsdomain.TickMo
 			return nil, nil, err
 		}
 
-		if poolWrapper.GetType() == poolmanagertypes.Concentrated {
+		if poolWrapper.GetType() == sqsdomain.Concentrated {
 			tickMap[poolWrapper.GetId()] = *pool.TickModel
 		}
 
@@ -157,7 +157,7 @@ func MarshalPool(pool sqsdomain.PoolI) (json.RawMessage, error) {
 	}
 
 	var tickModel *sqsdomain.TickModel
-	if poolType == poolmanagertypes.Concentrated {
+	if poolType == sqsdomain.Concentrated {
 		tickModel, err = pool.GetTickModel()
 		if err != nil {
 			return nil, err
@@ -186,28 +186,28 @@ func UnmarshalPool(serializedPool SerializedPool) (sqsdomain.PoolI, error) {
 	)
 
 	switch serializedPool.Type {
-	case poolmanagertypes.Concentrated:
+	case sqsdomain.Concentrated:
 		var concentratedPool concentratedmodel.Pool
 		err := json.Unmarshal(serializedPool.ChainPool, &concentratedPool)
 		if err != nil {
 			return nil, err
 		}
 		chainModel = &concentratedPool
-	case poolmanagertypes.CosmWasm:
+	case sqsdomain.CosmWasm:
 		var transmuterPool cosmwasmpoolmodel.CosmWasmPool
 		err := json.Unmarshal(serializedPool.ChainPool, &transmuterPool)
 		if err != nil {
 			return nil, err
 		}
 		chainModel = &transmuterPool
-	case poolmanagertypes.Stableswap:
+	case sqsdomain.Stableswap:
 		var balancerPool stableswap.Pool
 		err := json.Unmarshal(serializedPool.ChainPool, &balancerPool)
 		if err != nil {
 			return nil, err
 		}
 		chainModel = &balancerPool
-	case poolmanagertypes.Balancer:
+	case sqsdomain.Balancer:
 		var balancerPool balancer.Pool
 		err := json.Unmarshal(serializedPool.ChainPool, &balancerPool)
 		if err != nil {

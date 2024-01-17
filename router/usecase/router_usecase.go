@@ -16,7 +16,6 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -630,7 +629,7 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles(ctx context.Context) error {
 
 	concentratedpoolIDs := make([]uint64, 0, len(pools))
 	for _, pool := range pools {
-		if pool.GetType() == poolmanagertypes.Concentrated {
+		if pool.GetType() == sqsdomain.Concentrated {
 			concentratedpoolIDs = append(concentratedpoolIDs, pool.GetId())
 		}
 	}

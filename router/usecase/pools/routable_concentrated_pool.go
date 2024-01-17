@@ -34,8 +34,8 @@ func (r *routableConcentratedPoolImpl) GetPoolDenoms() []string {
 }
 
 // GetType implements sqsdomain.RoutablePool.
-func (r *routableConcentratedPoolImpl) GetType() poolmanagertypes.PoolType {
-	return poolmanagertypes.Concentrated
+func (r *routableConcentratedPoolImpl) GetType() sqsdomain.PoolType {
+	return sqsdomain.Concentrated
 }
 
 // GetId implements sqsdomain.RoutablePool.

@@ -26,7 +26,7 @@ var (
 // side in quotes. It contains all the relevant pool data needed for Osmosis frontend
 type routableResultPoolImpl struct {
 	ID            uint64                    "json:\"id\""
-	Type          poolmanagertypes.PoolType "json:\"type\""
+	Type          sqsdomain.PoolType "json:\"type\""
 	Balances      sdk.Coins                 "json:\"balances\""
 	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
 	TokenOutDenom string                    "json:\"token_out_denom\""
@@ -34,7 +34,7 @@ type routableResultPoolImpl struct {
 }
 
 // NewRoutableResultPool returns the new routable result pool with the given parameters.
-func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenOutDenom string, takerFee osmomath.Dec) sqsdomain.RoutablePool {
+func NewRoutableResultPool(ID uint64, poolType sqsdomain.PoolType, spreadFactor osmomath.Dec, tokenOutDenom string, takerFee osmomath.Dec) sqsdomain.RoutablePool {
 	return &routableResultPoolImpl{
 		ID:            ID,
 		Type:          poolType,
@@ -79,7 +79,7 @@ func (r *routableResultPoolImpl) GetTotalValueLockedUOSMO() math.Int {
 }
 
 // GetType implements sqsdomain.RoutablePool.
-func (r *routableResultPoolImpl) GetType() poolmanagertypes.PoolType {
+func (r *routableResultPoolImpl) GetType() sqsdomain.PoolType {
 	return r.Type
 }
 

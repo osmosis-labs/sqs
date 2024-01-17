@@ -18,7 +18,7 @@ import (
 func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) (sqsdomain.RoutablePool, error) {
 	poolType := pool.GetType()
 	chainPool := pool.GetUnderlyingPool()
-	if poolType == poolmanagertypes.Concentrated {
+	if poolType == sqsdomain.Concentrated {
 		// Check if pools is concentrated
 		concentratedPool, ok := chainPool.(*concentratedmodel.Pool)
 		if !ok {
@@ -41,7 +41,7 @@ func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmoma
 		}, nil
 	}
 
-	if poolType == poolmanagertypes.Balancer {
+	if poolType == sqsdomain.Balancer {
 		chainPool := pool.GetUnderlyingPool()
 
 		// Check if pools is balancer
@@ -60,9 +60,9 @@ func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmoma
 		}, nil
 	}
 
-	if pool.GetType() == poolmanagertypes.Stableswap {
+	if pool.GetType() == sqsdomain.Stableswap {
 		// Must be stableswap
-		if poolType != poolmanagertypes.Stableswap {
+		if poolType != sqsdomain.Stableswap {
 			panic(domain.InvalidPoolTypeError{
 				PoolType: int32(poolType),
 			})

@@ -16,8 +16,7 @@ type PoolI interface {
 	// GetId returns the ID of the pool.
 	GetId() uint64
 	// GetType returns the type of the pool (Balancer, Stableswap, Concentrated, etc.)
-	GetType() poolmanagertypes.PoolType
-
+	GetType() PoolType
 	GetTotalValueLockedUOSMO() osmomath.Int
 
 	GetPoolDenoms() []string
@@ -83,8 +82,14 @@ func (p *PoolWrapper) GetId() uint64 {
 }
 
 // GetType implements PoolI.
-func (p *PoolWrapper) GetType() poolmanagertypes.PoolType {
-	return p.ChainModel.GetType()
+func (p *PoolWrapper) GetType() PoolType {
+	chainModelType := p.ChainModel.GetType()
+
+	if int(chainModelType) > int(MaxSupportedType) {
+		panic(fmt.Errorf("the given pool type (%d) is not supported in sqs. Max supported is (%d)", chainModelType, MaxSupportedType))
+	}
+
+	return PoolType(chainModelType)
 }
 
 // GetTotalValueLockedUOSMO implements PoolI.
@@ -111,7 +116,7 @@ func (p *PoolWrapper) GetSQSPoolModel() SQSPool {
 
 // GetTickModel implements PoolI.
 func (p *PoolWrapper) GetTickModel() (*TickModel, error) {
-	if p.GetType() != poolmanagertypes.Concentrated {
+	if p.GetType() != Concentrated {
 		return nil, fmt.Errorf("pool (%d) is not a concentrated pool, type (%d)", p.GetId(), p.GetType())
 	}
 
@@ -124,7 +129,7 @@ func (p *PoolWrapper) GetTickModel() (*TickModel, error) {
 
 // SetTickModel implements PoolI.
 func (p *PoolWrapper) SetTickModel(tickModel *TickModel) error {
-	if p.GetType() != poolmanagertypes.Concentrated {
+	if p.GetType() != Concentrated {
 		return fmt.Errorf("pool (%d) is not a concentrated pool, type (%d)", p.GetId(), p.GetType())
 	}
 

@@ -77,8 +77,8 @@ func (r *routableStableswapPoolImpl) GetPoolDenoms() []string {
 }
 
 // GetType implements sqsdomain.RoutablePool.
-func (r *routableStableswapPoolImpl) GetType() poolmanagertypes.PoolType {
-	return poolmanagertypes.Balancer
+func (r *routableStableswapPoolImpl) GetType() sqsdomain.PoolType {
+	return sqsdomain.Balancer
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.

@@ -15,7 +15,6 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/balancer"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 type RouterTestSuite struct {
@@ -148,7 +147,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 			expectedPools: []sqsdomain.RoutablePool{
 				pools.NewRoutableResultPool(
 					balancerPoolID,
-					poolmanagertypes.Balancer,
+					sqsdomain.Balancer,
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
@@ -173,14 +172,14 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 			expectedPools: []sqsdomain.RoutablePool{
 				pools.NewRoutableResultPool(
 					balancerPoolID,
-					poolmanagertypes.Balancer,
+					sqsdomain.Balancer,
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
 				),
 				pools.NewRoutableResultPool(
 					transmuter.GetId(),
-					poolmanagertypes.CosmWasm,
+					sqsdomain.CosmWasm,
 					DefaultSpreadFactor,
 					DenomThree,
 					DefaultTakerFee,

@@ -20,7 +20,7 @@ type MockRoutablePool struct {
 	Balances             sdk.Coins
 	Denoms               []string
 	TotalValueLockedUSDC osmomath.Int
-	PoolType             poolmanagertypes.PoolType
+	PoolType             sqsdomain.PoolType
 	TokenOutDenom        string
 	TakerFee             osmomath.Dec
 	SpreadFactor         osmomath.Dec
@@ -30,7 +30,7 @@ type MockRoutablePool struct {
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
 func (mp *MockRoutablePool) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	if mp.PoolType == poolmanagertypes.CosmWasm {
+	if mp.PoolType == sqsdomain.CosmWasm {
 		return osmomath.OneBigDec(), nil
 	}
 
@@ -80,7 +80,7 @@ func (mp *MockRoutablePool) CalculateTokenOutByTokenIn(_ctx context.Context, tok
 		return mp.mockedTokenOut, nil
 	}
 
-	if mp.PoolType == poolmanagertypes.CosmWasm {
+	if mp.PoolType == sqsdomain.CosmWasm {
 		return sdk.NewCoin(mp.TokenOutDenom, tokenIn.Amount), nil
 	}
 
@@ -149,7 +149,7 @@ func (mp *MockRoutablePool) GetTotalValueLockedUOSMO() math.Int {
 }
 
 // GetType implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) GetType() poolmanagertypes.PoolType {
+func (mp *MockRoutablePool) GetType() sqsdomain.PoolType {
 	return mp.PoolType
 }
 
@@ -209,7 +209,7 @@ func WithMockedTokenOut(mockPool *MockRoutablePool, tokenOut sdk.Coin) *MockRout
 func WithChainPoolModel(mockPool *MockRoutablePool, chainPool poolmanagertypes.PoolI) *MockRoutablePool {
 	newPool := deepCopyPool(mockPool)
 	newPool.ChainPoolModel = chainPool
-	newPool.PoolType = chainPool.GetType()
+	newPool.PoolType = sqsdomain.PoolType(chainPool.GetType())
 	newPool.ID = chainPool.GetId()
 	return newPool
 }

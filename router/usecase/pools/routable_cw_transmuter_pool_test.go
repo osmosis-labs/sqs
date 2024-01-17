@@ -8,9 +8,9 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 // Tests no slippage quotes and validation edge cases aroun transmuter pools.
@@ -64,7 +64,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
 
 			poolType := cosmwasmPool.GetType()
 
-			mock := &mocks.MockRoutablePool{ChainPoolModel: cosmwasmPool.AsSerializablePool(), Balances: tc.balances, PoolType: poolType}
+			mock := &mocks.MockRoutablePool{ChainPoolModel: cosmwasmPool.AsSerializablePool(), Balances: tc.balances, PoolType: sqsdomain.PoolType(poolType)}
 			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOutDenom, noTakerFee, domain.CosmWasmPoolRouterConfig{
 				TransmuterCodeIDs: map[uint64]struct{}{
 					cosmwasmPool.GetCodeId(): {},
@@ -74,7 +74,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
 
 			// Overwrite pool type for edge case testing
 			if tc.isInvalidPoolType {
-				mock.PoolType = poolmanagertypes.Concentrated
+				mock.PoolType = sqsdomain.Concentrated
 			}
 
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)

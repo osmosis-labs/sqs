@@ -41,8 +41,8 @@ func (r *routableCosmWasmPoolImpl) GetPoolDenoms() []string {
 }
 
 // GetType implements sqsdomain.RoutablePool.
-func (*routableCosmWasmPoolImpl) GetType() poolmanagertypes.PoolType {
-	return poolmanagertypes.CosmWasm
+func (*routableCosmWasmPoolImpl) GetType() sqsdomain.PoolType {
+	return sqsdomain.CosmWasm
 }
 
 // GetSpreadFactor implements sqsdomain.RoutablePool.
@@ -61,7 +61,7 @@ func (r *routableCosmWasmPoolImpl) CalculateTokenOutByTokenIn(ctx context.Contex
 	poolType := r.GetType()
 
 	// Ensure that the pool is cosmwasm
-	if poolType != poolmanagertypes.CosmWasm {
+	if poolType != sqsdomain.CosmWasm {
 		return sdk.Coin{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
 	}
 

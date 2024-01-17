@@ -13,8 +13,6 @@ import (
 
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 	"github.com/osmosis-labs/sqs/sqsdomain/repository"
-
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 // PoolsRepository represent the pool's repository contract
@@ -262,7 +260,7 @@ func (r *redisPoolsRepo) addPoolsTx(ctx context.Context, tx repository.Tx, store
 			return err
 		}
 
-		isConcentrated := pool.GetType() == poolmanagertypes.Concentrated
+		isConcentrated := pool.GetType() == sqsdomain.Concentrated
 
 		// Write concentrated tick model
 		if isConcentrated {
