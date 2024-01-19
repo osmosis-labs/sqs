@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.2.0
+
+* [#74](https://github.com/osmosis-labs/osmosis/pull/74) Break /pools/all and introduce /pools?IDs
+
 ## v0.1.3
 
 * [#52](https://github.com/osmosis-labs/osmosis/pull/52) Fix key separator issue breaking tokenfactory denoms.

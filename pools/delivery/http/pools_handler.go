@@ -4,11 +4,16 @@ import (
 	"net/http"
 	"strconv"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/labstack/echo"
 	"github.com/sirupsen/logrus"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
 
 // ResponseError represent the response error struct
@@ -19,6 +24,17 @@ type ResponseError struct {
 // PoolsHandler  represent the httphandler for pools
 type PoolsHandler struct {
 	PUsecase mvc.PoolsUsecase
+}
+
+// PoolsResponse is a structure for serializing pool result returned to clients.
+type PoolResponse struct {
+	ChainModel poolmanagertypes.PoolI    `json:"chain_model"`
+	Balances   sdk.Coins                 `json:"balances"`
+	Type       poolmanagertypes.PoolType `json:"type"`
+	// In some cases, spread factor might be duplicated in the chain model.
+	// However, we duplicate it here for client convinience to be able to always
+	// rely on it being present.
+	SpreadFactor osmomath.Dec `json:"spread_factor"`
 }
 
 const resourcePrefix = "/pools"
@@ -36,6 +52,7 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 	e.GET(formatPoolsResource("/all"), handler.GetAllPools)
 	e.GET(formatPoolsResource("/:id"), handler.GetPool)
 	e.GET(formatPoolsResource("/ticks/:id"), handler.GetConcentratedPoolTicks)
+	e.GET(formatPoolsResource(""), handler.GetPools)
 }
 
 // GetAllPools will fetch all supported pool types by the Osmosis
@@ -48,7 +65,10 @@ func (a *PoolsHandler) GetAllPools(c echo.Context) error {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, pools)
+	// Convert pools to the appropriate format
+	resultPools := convertPoolsToResponse(pools)
+
+	return c.JSON(http.StatusOK, resultPools)
 }
 
 // GetPool will fetch a pool by its id
@@ -61,12 +81,41 @@ func (a *PoolsHandler) GetPool(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
 	}
 
-	pools, err := a.PUsecase.GetPool(ctx, poolID)
+	pool, err := a.PUsecase.GetPool(ctx, poolID)
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, pools)
+	return c.JSON(http.StatusOK, convertPoolToResponse(pool))
+}
+
+// GetAllPools will fetch all supported pool types by the Osmosis
+// chain
+func (a *PoolsHandler) GetPools(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	// Get pool ID parameters as strings.
+	poolIDsStr := c.QueryParam("IDs")
+	if len(poolIDsStr) == 0 {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "poolIDs is required"})
+	}
+
+	// Parse them to numbers
+	poolIDs, err := domain.ParseNumbers(poolIDsStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+	}
+
+	// Get pools
+	pools, err := a.PUsecase.GetPools(ctx, poolIDs)
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	// Convert pools to the appropriate format
+	resultPools := convertPoolsToResponse(pools)
+
+	return c.JSON(http.StatusOK, resultPools)
 }
 
 func (a *PoolsHandler) GetConcentratedPoolTicks(c echo.Context) error {
@@ -107,4 +156,23 @@ func getStatusCode(err error) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+// convertPoolToResponse convertes a given pool to the appropriate response type.
+func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
+	return PoolResponse{
+		ChainModel:   pool.GetUnderlyingPool(),
+		Balances:     pool.GetSQSPoolModel().Balances,
+		Type:         pool.GetType(),
+		SpreadFactor: pool.GetSQSPoolModel().SpreadFactor,
+	}
+}
+
+// convertPoolsToResponse converts the given pools to the appropriate response type.
+func convertPoolsToResponse(pools []sqsdomain.PoolI) []PoolResponse {
+	resultPools := make([]PoolResponse, 0, len(pools))
+	for _, pool := range pools {
+		resultPools = append(resultPools, convertPoolToResponse(pool))
+	}
+	return resultPools
 }

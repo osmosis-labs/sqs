@@ -43,7 +43,8 @@ follow up that the config is deployed to the sidecar query server service in pro
 
 1. GET `/pools/all`
 
-Description: returns all pools in the chain state instrumented with denoms and TVL if available
+Description: returns all pools in the chain state instrumented with balances, pool type and
+spread factor.
 
 Parameters: none
 
@@ -52,39 +53,56 @@ Response example:
 curl "https://sqs.osmosis.zone/pools/all" | jq .
 [
   {
-    "underlying_pool": {
-      "address": "osmo164pg0key096kxe7940h45csw5w9cmf4nc2a83m73e8tc0u2eymeqj7t0rm",
-      "incentives_address": "osmo1z6ae7saxlwnnd6whl2svw0k3zhsjdvzaap9ya2lcj8m3c0r02a6svtuzn2",
-      "spread_rewards_address": "osmo1jhzypnueeg75cm8tps7srn7ujva9qe4msjmtkajwaqpj0kyvdjjqu0xule",
-      "id": 1323,
-      "current_tick_liquidity": "1000000.000000000000100000",
-      "token0": "ibc/ECBE78BF7677320A93E7BA1761D144BCBF0CBC247C290C049655E106FE5DC68E",
-      "token1": "uosmo",
-      "current_sqrt_price": "1.000000000000000000000000000000000000",
-      "tick_spacing": 100,
-      "exponent_at_price_one": -6,
-      "spread_factor": "0.000500000000000000",
-      "last_liquidity_update": "2023-12-06T14:36:29.772040341Z"
-    },
-    "sqs_model": {
-      "total_value_locked_uosmo": "1000000",
-      "total_value_locked_error": "error getting token precision ibc/ECBE78BF7677320A93E7BA1761D144BCBF0CBC247C290C049655E106FE5DC68E",
-      "balances": [
+    "chain_model": {
+      "address": "osmo1mw0ac6rwlp5r8wapwk3zs6g29h8fcscxqakdzw9emkne6c8wjp9q0t3v8t",
+      "id": 1,
+      "pool_params": {
+        "swap_fee": "0.002000000000000000",
+        "exit_fee": "0.000000000000000000"
+      },
+      "future_pool_governor": "24h",
+      "total_weight": "1073741824000000.000000000000000000",
+      "total_shares": {
+        "denom": "gamm/pool/1",
+        "amount": "68705408290810473783205087"
+      },
+      "pool_assets": [
         {
-          "denom": "ibc/ECBE78BF7677320A93E7BA1761D144BCBF0CBC247C290C049655E106FE5DC68E",
-          "amount": "1000000"
+          "token": {
+            "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+            "amount": "1099238954791"
+          },
+          "weight": "536870912000000"
         },
         {
-          "denom": "uosmo",
-          "amount": "1000000"
+          "token": {
+            "denom": "uosmo",
+            "amount": "6560268370850"
+          },
+          "weight": "536870912000000"
         }
-      ],
-      "pool_denoms": [
-        "ibc/ECBE78BF7677320A93E7BA1761D144BCBF0CBC247C290C049655E106FE5DC68E",
-        "uosmo"
-      ],
-      "spread_factor": "0.000500000000000000"
-    }
+      ]
+    },
+    "balances": [
+      {
+        "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+        "amount": "1099238954791"
+      },
+      {
+        "denom": "ibc/9989AD6CCA39D1131523DB0617B50F6442081162294B4795E26746292467B525",
+        "amount": "1000000000"
+      },
+      {
+        "denom": "ibc/B9E0A1A524E98BB407D3CED8720EFEFD186002F90C1B1B7964811DD0CCC12228",
+        "amount": "999800"
+      },
+      {
+        "denom": "uosmo",
+        "amount": "6560268370850"
+      }
+    ],
+    "type": 0,
+    "spread_factor": "0.002000000000000000"
   },
   ...
 ]
@@ -100,42 +118,104 @@ Response example:
 ```bash
 curl "https://sqs.osmosis.zone/pools/1" | jq .
 {
-  "underlying_pool": {
+"chain_model": {
     "address": "osmo1mw0ac6rwlp5r8wapwk3zs6g29h8fcscxqakdzw9emkne6c8wjp9q0t3v8t",
     "id": 1,
     "pool_params": {
-      "swap_fee": "0.002000000000000000",
-      "exit_fee": "0.000000000000000000"
+    "swap_fee": "0.002000000000000000",
+    "exit_fee": "0.000000000000000000"
     },
     "future_pool_governor": "24h",
     "total_weight": "1073741824000000.000000000000000000",
     "total_shares": {
-      "denom": "gamm/pool/1",
-      "amount": "70226960205342334946592090"
+    "denom": "gamm/pool/1",
+    "amount": "68705408290810473783205087"
     },
     "pool_assets": [
-      {
+    {
         "token": {
-          "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-          "amount": "1148364485005"
+        "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+        "amount": "1099238954791"
         },
         "weight": "536870912000000"
-      },
-      {
+    },
+    {
         "token": {
-          "denom": "uosmo",
-          "amount": "6556218723897"
+        "denom": "uosmo",
+        "amount": "6560268370850"
         },
         "weight": "536870912000000"
-      }
+    }
     ]
-  },
-  "sqs_model": {
-    "total_value_locked_uosmo": "13112437613179",
+},
+"balances": [
+    {
+    "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+    "amount": "1099238954791"
+    },
+    {
+    "denom": "ibc/9989AD6CCA39D1131523DB0617B50F6442081162294B4795E26746292467B525",
+    "amount": "1000000000"
+    },
+    {
+    "denom": "ibc/B9E0A1A524E98BB407D3CED8720EFEFD186002F90C1B1B7964811DD0CCC12228",
+    "amount": "999800"
+    },
+    {
+    "denom": "uosmo",
+    "amount": "6560268370850"
+    }
+],
+"type": 0,
+"spread_factor": "0.002000000000000000"
+}
+```
+
+3. GET `/pools?IDs=<poolIDs>`
+
+Description: same as `/pools/all` or `/pools/:id` with the exception that it
+allows batch fetching of specific pools by the given parameter pool IDs.
+
+Parameter: `IDs` - the list of pool IDs to batch fetch.
+
+```
+curl "http://localhost:9092/pools?IDs=1,2" | jq .
+[
+  {
+    "chain_model": {
+      "address": "osmo1mw0ac6rwlp5r8wapwk3zs6g29h8fcscxqakdzw9emkne6c8wjp9q0t3v8t",
+      "id": 1,
+      "pool_params": {
+        "swap_fee": "0.002000000000000000",
+        "exit_fee": "0.000000000000000000"
+      },
+      "future_pool_governor": "24h",
+      "total_weight": "1073741824000000.000000000000000000",
+      "total_shares": {
+        "denom": "gamm/pool/1",
+        "amount": "68705408290810473783205087"
+      },
+      "pool_assets": [
+        {
+          "token": {
+            "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+            "amount": "1099147835604"
+          },
+          "weight": "536870912000000"
+        },
+        {
+          "token": {
+            "denom": "uosmo",
+            "amount": "6560821009725"
+          },
+          "weight": "536870912000000"
+        }
+      ]
+    },
     "balances": [
       {
         "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-        "amount": "1148364485005"
+        "amount": "1099147835604"
       },
       {
         "denom": "ibc/9989AD6CCA39D1131523DB0617B50F6442081162294B4795E26746292467B525",
@@ -147,19 +227,17 @@ curl "https://sqs.osmosis.zone/pools/1" | jq .
       },
       {
         "denom": "uosmo",
-        "amount": "6556218723897"
+        "amount": "6560821009725"
       }
     ],
-    "pool_denoms": [
-      "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-      "uosmo"
-    ],
+    "type": 0,
     "spread_factor": "0.002000000000000000"
-  }
-}
+  },
+  ...
+]
 ```
 
-3. GET `/pools/ticks/:id`
+4. GET `/pools/ticks/:id`
 
 Description: returns the tick data for the given concentrated pool ID.
 Returns non-200 if the pool is not concentrated or does not exist.

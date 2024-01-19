@@ -13,6 +13,9 @@ import (
 type PoolsUsecase interface {
 	GetAllPools(ctx context.Context) ([]sqsdomain.PoolI, error)
 
+	// GetPools returns the pools corresponding to the given IDs.
+	GetPools(ctx context.Context, poolIDs []uint64) ([]sqsdomain.PoolI, error)
+
 	// GetRoutesFromCandidates converts candidate routes to routes intrusmented with all the data necessary for estimating
 	// a swap. This data entails the pool data, the taker fee.
 	GetRoutesFromCandidates(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, takerFeeMap sqsdomain.TakerFeeMap, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error)
