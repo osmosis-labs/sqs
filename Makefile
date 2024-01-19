@@ -31,7 +31,7 @@ generate-mocks: mockery
 	bin/mockery --config mockery.yaml
 
 run:
-	go run -ldflags="-X github.com/osmosis-labs/sqs/version=${VERSION}" app/*.go  --config config-testnet.json
+	go run -ldflags="-X github.com/osmosis-labs/sqs/version=${VERSION}" app/*.go  --config config.json
 
 run-docker:
 	docker rm -f sqs

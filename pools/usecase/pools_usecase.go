@@ -235,3 +235,26 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(ctx context.Context
 
 	return nil
 }
+
+// GetPools implements mvc.PoolsUsecase.
+func (p *poolsUseCase) GetPools(ctx context.Context, poolIDs []uint64) ([]sqsdomain.PoolI, error) {
+	// Convert given IDs to map
+	poolIDsMap := make(map[uint64]struct{}, len(poolIDs))
+	for _, poolID := range poolIDs {
+		poolIDsMap[poolID] = struct{}{}
+	}
+
+	// Get pools
+	poolsMap, err := p.poolsRepository.GetPools(ctx, poolIDsMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to slice
+	pools := make([]sqsdomain.PoolI, 0, len(poolsMap))
+	for _, pool := range poolsMap {
+		pools = append(pools, pool)
+	}
+
+	return pools, nil
+}

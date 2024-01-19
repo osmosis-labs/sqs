@@ -147,7 +147,6 @@ require (
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/onsi/gomega v1.28.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/osmosis-labs/osmosis/v21 v21.2.1 // indirect
 	github.com/osmosis-labs/osmosis/x/epochs v0.0.4 // indirect
 	github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.10 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
