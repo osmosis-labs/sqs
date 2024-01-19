@@ -1,12 +1,11 @@
-package http_test
+package domain_test
 
 import (
 	"reflect"
 	"testing"
 
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/stretchr/testify/require"
-
-	"github.com/osmosis-labs/sqs/router/delivery/http"
 )
 
 // TestParseNumbers tests parsing a string of numbers to a slice of uint64
@@ -26,7 +25,7 @@ func TestParseNumbers(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		actualNumbers, actualError := http.ParseNumbers(testCase.input)
+		actualNumbers, actualError := domain.ParseNumbers(testCase.input)
 
 		if testCase.expectedError {
 			require.Error(t, actualError)

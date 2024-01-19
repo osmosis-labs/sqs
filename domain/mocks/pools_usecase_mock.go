@@ -19,6 +19,11 @@ type PoolsUsecaseMock struct {
 	TickModelMap map[uint64]sqsdomain.TickModel
 }
 
+// GetPools implements mvc.PoolsUsecase.
+func (*PoolsUsecaseMock) GetPools(ctx context.Context, poolIDs []uint64) ([]sqsdomain.PoolI, error) {
+	panic("unimplemented")
+}
+
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
 // Note that taker fee are ignored and not set
 // Note that tick models are not set
