@@ -37,6 +37,51 @@ this config to be able to create a new custom pool type similar to transmuter. F
 add your code id to `general-cosmwasm-code-ids` in this repository. Tag `@p0mvn` in the PR and
 follow up that the config is deployed to the sidecar query server service in production.
 
+## Osmosis Deployments
+
+Our team maintains 3 SQS deployment environments.
+
+### Production
+
+`https://sqs.osmosis.zone`
+
+This is a geo-distributed deployment across 3 regions that is used by the
+production application `https://app.osmosis.zone`.
+
+It operates on data from `osmosis-1` mainnet.
+
+Note that in this environment we block all endpoints at nginx level except for:
+- `/router/quote`
+- `/router/custom-direct-quote`
+- `/pools`
+- '/pools:id`
+- all debug and infra endpoints
+
+### Staging
+
+`https://sqs.stage.osmosis.zone`.
+
+This is a deployment with 2 nodes that is used by our stage app
+`https://stage.osmosis.zone/`. It is less stable and may experience downtime
+due to experimental features.
+
+It operates on data from `osmosis-1` mainnet.
+
+Note that in this environment we block all endpoints at nginx level except for:
+- `/router/quote`
+- `/router/custom-direct-quote`
+- `/pools`
+- '/pools:id`
+- all debug and infra endpoints
+
+### Testnet
+
+`https://sqs.testnet.osmosis.zone`
+
+This is a testnet deployment made against `osmo-test-5` testnet state.
+
+This environment exposes all endpoints listed below.
+
 ## Supported Endpoints
 
 ### Pools Resource
