@@ -13,7 +13,7 @@ all pool data for performing the complex routing algorithm.
 
 ## Integrator Guide
 
-Follow [this link](https://hackmd.io/@3DOBr1TJQ3mQAFDEO0BXgg/S1bsqPAr6) to find a guide on how to 
+Follow [this link](https://hackmd.io/@osmosis/HkyIHvCH6) to find a guide on how to 
 integrate with the sidecar query server.
 
 ## Custom CosmWasm Pools
@@ -705,57 +705,59 @@ the routes for longer while allowing for manual updates and invalidation.
 The router has several configuration parameters that are set via `app.toml`.
 
 See the recommended enabled configuration below:
-```toml
-###############################################################################
-###              Osmosis Sidecar Query Server Configuration                 ###
-###############################################################################
-
-[osmosis-sqs]
-
-# SQS service is disabled by default.
-is-enabled = "true"
-
-# The hostname and address of the sidecar query server storage.
-db-host = "localhost"
-db-port = "6379"
-
-# Defines the web server configuration.
-server-address = ":9092"
-timeout-duration-secs = "2"
-
-# Defines the logger configuration.
-logger-filename = "sqs.log"
-logger-is-production = "true"
-logger-level = "info"
-
-# Defines the gRPC gateway endpoint of the chain.
-grpc-gateway-endpoint = "http://localhost:26657"
-
-# The list of preferred poold IDs in the router.
-# These pools will be prioritized in the candidate route selection, ignoring all other
-# heuristics such as TVL.
-preferred-pool-ids = []
-
-# The maximum number of pools to be included in a single route.
-max-pools-per-route = "4"
-
-# The maximum number of routes to be returned in candidate route search.
-max-routes = "20"
-
-# The maximum number of routes to be split across. Must be smaller than or
-# equal to max-routes.
-max-split-routes = "3"
-
-# The maximum number of iterations to split a route across.
-max-split-iterations = "10"
-
-# The minimum liquidity of a pool to be included in a route.
-min-osmo-liquidity = "10000"
-
-# The height interval at which the candidate routes are recomputed and updated in
-# Redis
-route-update-height-interval = "0"
-
-# Whether to enable candidate route caching in Redis.
-route-cache-enabled = "true"
+```json
+{
+    "debug": false,
+    // Redis host.
+    "db-host": "localhost",
+    // Redis port.
+    "db-port": "6379",
+    // Web server port.
+    "server-address": ":9092",
+    // Endpoint timeout duration.
+    "timeout-duration-secs": 2,
+    // Log file to write to.
+    "logger-filename": "sqs.log",
+    // Flag indicating whether this is a production logger.
+    "logger-is-production": true,
+    // Log level
+    "logger-level": "info",
+    // RPC endpoint
+    "grpc-gateway-endpoint": "http://localhost:26657",
+    // Chain ID
+    "chain-id": "osmosis-1",
+    // Router-specific configuration
+    "router": {
+      // Pool IDs that are prioritized in the router.
+      "preferred-pool-ids": [],
+      // Maximum number of pools in one route.
+      "max-pools-per-route": 4,
+      // Maximum number of routes to search for.
+      "max-routes": 20,
+      // Maximum number of routes to split across.
+      "max-split-routes": 3,
+      // Maximum number of iterations to split a route across.
+      "max-split-iterations": 10,
+      // Minimum liquidity for a pool to be included in the router
+      // denominated in OSMO.
+      "min-osmo-liquidity": 100,
+      // Whether to enable route caching
+      "route-cache-enabled": true,
+      // How long the route is cached for before expiry in seconds.
+      "route-cache-expiry-seconds": 600
+    },
+    "pools": {
+        // Code IDs of Transmuter CosmWasm pools that
+        // are supported
+        "transmuter-code-ids": [148, 254],
+        // Code IDs of generalized CosmWasm pools that
+        // are suported. Note that these pools make network
+        // requests to chain for quote estimation. As a result,
+        // they are excluded from split routes.
+        "general-cosmwasm-code-ids": []
+    },
+    // Whether to enable routes cache overwrite. An overwrite can be set via
+    // the following endpoint: POST `/router/overwrite-route`
+    "enable-overwrite-routes-cache": false
+}
 ```
