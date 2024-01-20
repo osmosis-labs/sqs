@@ -73,7 +73,7 @@ build:
 
 docker-build:
 	@DOCKER_BUILDKIT=1 docker build \
-		-t osmolabs/sqs:v0.2.1 \
+		-t osmolabs/sqs:v0.3.0 \
 		--build-arg GO_VERSION=$(GO_VERSION) \
 		--build-arg GIT_VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(COMMIT) \
