@@ -49,26 +49,9 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 		PUsecase: us,
 	}
 
-	e.GET(formatPoolsResource("/all"), handler.GetAllPools)
 	e.GET(formatPoolsResource("/:id"), handler.GetPool)
 	e.GET(formatPoolsResource("/ticks/:id"), handler.GetConcentratedPoolTicks)
 	e.GET(formatPoolsResource(""), handler.GetPools)
-}
-
-// GetAllPools will fetch all supported pool types by the Osmosis
-// chain
-func (a *PoolsHandler) GetAllPools(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	pools, err := a.PUsecase.GetAllPools(ctx)
-	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
-	}
-
-	// Convert pools to the appropriate format
-	resultPools := convertPoolsToResponse(pools)
-
-	return c.JSON(http.StatusOK, resultPools)
 }
 
 // GetPool will fetch a pool by its id
@@ -96,20 +79,30 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 
 	// Get pool ID parameters as strings.
 	poolIDsStr := c.QueryParam("IDs")
+
+	var (
+		pools []sqsdomain.PoolI
+		err   error
+	)
+
+	// if IDs are not given, get all pools
 	if len(poolIDsStr) == 0 {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: "poolIDs is required"})
-	}
+		pools, err = a.PUsecase.GetAllPools(ctx)
+		if err != nil {
+			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		}
+	} else {
+		// Parse them to numbers
+		poolIDs, err := domain.ParseNumbers(poolIDsStr)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+		}
 
-	// Parse them to numbers
-	poolIDs, err := domain.ParseNumbers(poolIDsStr)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
-	}
-
-	// Get pools
-	pools, err := a.PUsecase.GetPools(ctx, poolIDs)
-	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		// Get pools
+		pools, err = a.PUsecase.GetPools(ctx, poolIDs)
+		if err != nil {
+			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		}
 	}
 
 	// Convert pools to the appropriate format

@@ -35,9 +35,15 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.2.2
+
+## v0.2.1
+
+* [#76](https://github.com/osmosis-labs/osmosis/pull/76) Keep `/pools` endpoint only, allowing the IDs parameter
+
 ## v0.2.0
 
-* [#74](https://github.com/osmosis-labs/osmosis/pull/74) Break /pools/all and introduce /pools?IDs
+* [#75](https://github.com/osmosis-labs/osmosis/pull/75) Break /pools/all and introduce /pools?IDs
 
 ## v0.1.3
 

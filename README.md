@@ -41,74 +41,7 @@ follow up that the config is deployed to the sidecar query server service in pro
 
 ### Pools Resource
 
-1. GET `/pools/all`
-
-Description: returns all pools in the chain state instrumented with balances, pool type and
-spread factor.
-
-Parameters: none
-
-Response example:
-```bash
-curl "https://sqs.osmosis.zone/pools/all" | jq .
-[
-  {
-    "chain_model": {
-      "address": "osmo1mw0ac6rwlp5r8wapwk3zs6g29h8fcscxqakdzw9emkne6c8wjp9q0t3v8t",
-      "id": 1,
-      "pool_params": {
-        "swap_fee": "0.002000000000000000",
-        "exit_fee": "0.000000000000000000"
-      },
-      "future_pool_governor": "24h",
-      "total_weight": "1073741824000000.000000000000000000",
-      "total_shares": {
-        "denom": "gamm/pool/1",
-        "amount": "68705408290810473783205087"
-      },
-      "pool_assets": [
-        {
-          "token": {
-            "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-            "amount": "1099238954791"
-          },
-          "weight": "536870912000000"
-        },
-        {
-          "token": {
-            "denom": "uosmo",
-            "amount": "6560268370850"
-          },
-          "weight": "536870912000000"
-        }
-      ]
-    },
-    "balances": [
-      {
-        "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-        "amount": "1099238954791"
-      },
-      {
-        "denom": "ibc/9989AD6CCA39D1131523DB0617B50F6442081162294B4795E26746292467B525",
-        "amount": "1000000000"
-      },
-      {
-        "denom": "ibc/B9E0A1A524E98BB407D3CED8720EFEFD186002F90C1B1B7964811DD0CCC12228",
-        "amount": "999800"
-      },
-      {
-        "denom": "uosmo",
-        "amount": "6560268370850"
-      }
-    ],
-    "type": 0,
-    "spread_factor": "0.002000000000000000"
-  },
-  ...
-]
-```
-
-2. GET `/pools/:id`
+1. GET `/pools/:id`
 
 Description: returns the pool with the given id instrumented with sqs-specific data for routing.
 
@@ -171,10 +104,10 @@ curl "https://sqs.osmosis.zone/pools/1" | jq .
 }
 ```
 
-3. GET `/pools?IDs=<poolIDs>`
+2. GET `/pools?IDs=<IDs>`
 
-Description: same as `/pools/all` or `/pools/:id` with the exception that it
-allows batch fetching of specific pools by the given parameter pool IDs.
+Description: Returns of pools if IDs parameter is not given. Otherwise, 
+batch fetches specific pools by the given parameter pool IDs.
 
 Parameter: `IDs` - the list of pool IDs to batch fetch.
 
@@ -237,7 +170,7 @@ curl "http://localhost:9092/pools?IDs=1,2" | jq .
 ]
 ```
 
-4. GET `/pools/ticks/:id`
+3. GET `/pools/ticks/:id`
 
 Description: returns the tick data for the given concentrated pool ID.
 Returns non-200 if the pool is not concentrated or does not exist.
