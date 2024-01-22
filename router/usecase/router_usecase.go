@@ -14,8 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/osmoutils"
+	"github.com/osmosis-labs/osmosis/v22/osmomath"
+	"github.com/osmosis-labs/osmosis/v22/osmoutils"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"

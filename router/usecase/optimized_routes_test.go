@@ -8,9 +8,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/osmoutils/coinutil"
-	"github.com/osmosis-labs/osmosis/osmoutils/osmoassert"
+	"github.com/osmosis-labs/osmosis/v22/osmomath"
+	"github.com/osmosis-labs/osmosis/v22/osmoutils/coinutil"
+	"github.com/osmosis-labs/osmosis/v22/osmoutils/osmoassert"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"

@@ -11,7 +11,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v22/osmomath"
 	clmath "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/math"
 	concentratedmodel "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
 	"github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/swapstrategy"

@@ -10,7 +10,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v22/osmomath"
 	"github.com/osmosis-labs/osmosis/v22/x/cosmwasmpool/cosmwasm/msg"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v22/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/osmosis/v22/x/poolmanager"
