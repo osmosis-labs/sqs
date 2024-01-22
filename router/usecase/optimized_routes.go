@@ -13,7 +13,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v22/osmomath"
 )
 
 // getSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.

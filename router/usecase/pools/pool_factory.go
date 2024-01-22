@@ -5,7 +5,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v22/osmomath"
 	concentratedmodel "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v22/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/balancer"

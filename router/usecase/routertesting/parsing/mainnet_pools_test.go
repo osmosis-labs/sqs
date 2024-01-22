@@ -13,7 +13,7 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v22/osmomath"
 	concentratedmodel "github.com/osmosis-labs/osmosis/v22/x/concentrated-liquidity/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v22/x/poolmanager/types"
 )
