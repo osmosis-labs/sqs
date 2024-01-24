@@ -11,7 +11,8 @@ name: Push Dev Images
 on:
   push:
     branches:
-    - main
+      - "v[0-9]+.x"
+      - osmosis-main
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+-rc*' # include rc
   
