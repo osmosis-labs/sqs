@@ -93,6 +93,7 @@ Description: returns the pool with the given id instrumented with sqs-specific d
 Arguments: id of a pool
 
 Response example:
+
 ```bash
 curl "https://sqs.osmosis.zone/pools/1" | jq .
 {
@@ -223,6 +224,7 @@ Returns non-200 if the pool is not concentrated or does not exist.
 Argument: id of a pool
 
 Response example:
+
 ```bash
 curl "https://sqs.osmosis.zone/pools/ticks/1221" | jq .
 # Response ommitted for brevity
@@ -279,6 +281,7 @@ Parameters:
 - `tokenOutDenom` the string representing the denom of the token out
 
 Response example:
+
 ```bash
 curl "https://sqs.osmosis.zone/router/single-quote?tokenIn=1000000uosmo&tokenOutDenom=uion" | jq .
 {
@@ -317,6 +320,7 @@ Parameters:
 
 
 Response example:
+
 ```bash
 curl "https://sqs.osmosis.zone/router/routes?tokenIn=uosmo&tokenOutDenom=uion" | jq .
 {
@@ -395,6 +399,7 @@ Parameters:
 - `poolIDs` comma-separated list of pool IDs
 
 Response example:
+
 ```bash
 curl "https://sqs.osmosis.zone/router/custom-quote?tokenIn=1000000uosmo&tokenOutDenom=uion&poolIDs=2" | jq .
 {
@@ -434,6 +439,7 @@ Parameters:
 - `poolID` comma-separated list of pool IDs
 
 Response example:
+
 ```bash
 curl "https://sqs.osmosis.zone/router/custom-direct-quote?tokenIn=1000000uosmo&tokenOutDenom=uion&poolID=2" | jq .
 {
@@ -476,6 +482,7 @@ Parameters:
 
 
 Response example:
+
 ```bash
 curl "https://sqs.osmosis.zone/cached-routes?tokenIn=uosmo&tokenOutDenom=uion" | jq .
 {
@@ -705,7 +712,8 @@ the routes for longer while allowing for manual updates and invalidation.
 The router has several configuration parameters that are set via `app.toml`.
 
 See the recommended enabled configuration below:
-```json
+
+```js
 {
     "debug": false,
     // Redis host.
