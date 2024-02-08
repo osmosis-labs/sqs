@@ -14,8 +14,8 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	concentratedmodel "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v21/x/poolmanager/types"
+	concentratedmodel "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/model"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
 )
 
 const testFileName = "pools.json"

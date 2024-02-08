@@ -4,4 +4,5 @@ use .
 
 use ./sqsdomain
 
-replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.37.2
+// cometbft is replaced to print custom app hash logs. Using branch nicolas/v0.37.4-v23-osmo-1. Need to tag this before releasing
+replace github.com/cometbft/cometbft => github.com/osmosis-labs/cometbft v0.0.0-20240201155058-95b5f9262e1d
