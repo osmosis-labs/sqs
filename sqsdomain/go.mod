@@ -9,7 +9,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.47.5
 	github.com/json-iterator/go v1.1.12
 	github.com/osmosis-labs/osmosis/osmomath v0.0.9-0.20240208032851-f1ac90db9b63
-	github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208033846-03b151118564
+	github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208034658-b5664e319e8d
 	github.com/redis/go-redis/v9 v9.4.0
 )
 
@@ -188,7 +188,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.9-0.20240208032851-f1ac90db9b63
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.9-0.20240208032851-f1ac90db9b63
-	github.com/osmosis-labs/osmosis/v23 => github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208033846-03b151118564
+	github.com/osmosis-labs/osmosis/v23 => github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208034658-b5664e319e8d
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7

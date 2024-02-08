@@ -13,7 +13,7 @@ require (
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/osmosis-labs/osmosis/osmomath v0.0.9-0.20240208032851-f1ac90db9b63
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.9-0.20240208032851-f1ac90db9b63
-	github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208033846-03b151118564
+	github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208034658-b5664e319e8d
 	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240208034259-c4b5014fddcc
 	github.com/prometheus/client_golang v1.18.0
 	github.com/redis/go-redis/v9 v9.4.0
@@ -46,7 +46,6 @@ require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
-	github.com/btcsuite/btcd/btcutil v1.1.3 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -229,7 +228,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.9-0.20240208032851-f1ac90db9b63
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.9-0.20240208032851-f1ac90db9b63
-	github.com/osmosis-labs/osmosis/v23 => github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208033846-03b151118564
+	github.com/osmosis-labs/osmosis/v23 => github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208034658-b5664e319e8d
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
