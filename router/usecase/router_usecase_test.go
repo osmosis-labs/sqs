@@ -18,7 +18,7 @@ import (
 	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v22/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v23/x/gamm/pool-models/balancer"
 )
 
 const (
