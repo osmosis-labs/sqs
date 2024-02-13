@@ -35,6 +35,14 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.4.0
+
+* [#81](https://github.com/osmosis-labs/osmosis/pull/81) Add support for single quotes as param in /quote.
+* Rename import paths to v23
+* Change Osmosis dependency to point to v23.x branch
+
+## v0.3.0
+
 ## v0.2.2
 
 ## v0.2.1

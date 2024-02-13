@@ -233,18 +233,21 @@ curl "https://sqs.osmosis.zone/pools/ticks/1221" | jq .
 ### Router Resource
 
 
-1. GET `/router/quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>`
+1. GET `/router/quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>?singleRoute=<singleRoute>`
 
-Description: returns the best quote it can compute for the given tokenIn and tokenOutDenom
+Description: returns the best quote it can compute for the given tokenIn and tokenOutDenom. If `singRoute` parameter is set to true, it gives the best single
+quote while excluding splits
 
 Parameters:
 - `tokenIn` the string representation of the sdk.Coin for the token in
 - `tokenOutDenom` the string representing the denom of the token out
+- `singleRoute` (optional) boolean flag indicating whether to return single routes (no splits).
+False (splits enabled) by default.
 
 Response example:
 
 ```bash
-curl "https://sqs.osmosis.zone/router/quote?tokenIn=1000000uosmo&tokenOutDenom=uion" | jq .
+curl "https://sqs.osmosis.zone/router/quote?tokenIn=1000000uosmo&tokenOutDenom=uion?singleRoute=false" | jq .
 {
   "amount_in": {
     "denom": "uosmo",
