@@ -77,9 +77,9 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		quote, err = a.RUsecase.GetBestSingleRouteQuote(ctx, tokenIn, tokenOutDenom)
 	} else {
 		quote, err = a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom)
-		if err != nil {
-			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
-		}
+	}
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
 	quote.PrepareResult(ctx)
