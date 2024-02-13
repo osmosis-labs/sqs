@@ -55,15 +55,29 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, logger log.Logger) {
 
 // GetOptimalQuote will determine the optimal quote for a given tokenIn and tokenOutDenom
 // Return the optimal quote.
-func (a *RouterHandler) GetOptimalQuote(c echo.Context) error {
+func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	ctx := c.Request().Context()
+
+	isSingleRouteStr := c.QueryParam("singleRoute")
+	isSingleRoute := false
+	if isSingleRouteStr != "" {
+		isSingleRoute, err = strconv.ParseBool(isSingleRouteStr)
+		if err != nil {
+			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		}
+	}
 
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	quote, err := a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom)
+	var quote domain.Quote
+	if isSingleRoute {
+		quote, err = a.RUsecase.GetBestSingleRouteQuote(ctx, tokenIn, tokenOutDenom)
+	} else {
+		quote, err = a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom)
+	}
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
