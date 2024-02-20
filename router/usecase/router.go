@@ -71,6 +71,7 @@ func NewRouter(preferredPoolIDs []uint64, maxHops, maxRoutes, maxSplitRoutes, ma
 		maxSplitIterations: maxSplitIterations,
 		maxSplitRoutes:     maxSplitRoutes,
 		minOSMOTVL:         minOSMOTVL,
+		preferredPoolIDS:   preferredPoolIDs,
 	}
 }
 

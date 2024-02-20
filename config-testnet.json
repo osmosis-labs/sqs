@@ -21,7 +21,7 @@
     },
     "pools": {
         "transmuter-code-ids": [3084, 4643],
-        "general-cosmwasm-code-ids": [5005]
+        "general-cosmwasm-code-ids": [5005, 6688]
     },
     "enable-overwrite-routes-cache": true
   }

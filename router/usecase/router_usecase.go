@@ -551,7 +551,7 @@ func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
 // - there is an error retrieving taker fees from the store
 // TODO: test
 func (r *routerUseCaseImpl) initializeRouter() *Router {
-	router := NewRouter([]uint64{}, r.config.MaxPoolsPerRoute, r.config.MaxRoutes, r.config.MaxSplitRoutes, r.config.MaxSplitIterations, r.config.MinOSMOLiquidity, r.logger)
+	router := NewRouter(r.config.PreferredPoolIDs, r.config.MaxPoolsPerRoute, r.config.MaxRoutes, r.config.MaxSplitRoutes, r.config.MaxSplitIterations, r.config.MinOSMOLiquidity, r.logger)
 	router = WithRouterRepository(router, r.routerRepository)
 	router = WithPoolsUsecase(router, r.poolsUsecase)
 
