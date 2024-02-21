@@ -35,6 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.5.0
+
+* [#84](https://github.com/osmosis-labs/sqs/pull/84) enable swagger
+* [#83](https://github.com/osmosis-labs/sqs/pull/83) /tokens/metadata/:denom endpoint
+
 ## v0.4.0
 
 * [#81](https://github.com/osmosis-labs/osmosis/pull/81) Add support for single quotes as param in /quote.

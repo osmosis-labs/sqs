@@ -115,7 +115,7 @@ func (s *RouterTestSuite) TestNewRouter() {
 
 	var (
 		// Inputs
-		preferredPoolIDs   = []uint64{allPool.BalancerPoolID, allPool.StableSwapPoolID, secondBalancerPoolPoolID}
+		preferredPoolIDs   = []uint64{allPool.BalancerPoolID}
 		maxHops            = 3
 		maxRoutes          = 5
 		maxSplitRoutes     = 5
@@ -190,14 +190,15 @@ func (s *RouterTestSuite) TestNewRouter() {
 			// Transmuter pool is first due to no slippage swaps
 			allPool.CosmWasmPoolID,
 
+			// Balancer is above concentrated pool due to being preferred
+			allPool.BalancerPoolID,
+
 			allPool.ConcentratedPoolID,
 
 			thirdBalancerPoolID, // non-preferred pool ID with TVL error flag set
 
 			secondBalancerPoolPoolID, // preferred pool ID with TVL error flag set
 
-			// Balancer is above concentrated pool due to higher TVL
-			allPool.BalancerPoolID,
 		}
 	)
 

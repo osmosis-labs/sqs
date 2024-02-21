@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -72,8 +72,14 @@ func (a *PoolsHandler) GetPool(c echo.Context) error {
 	return c.JSON(http.StatusOK, convertPoolToResponse(pool))
 }
 
-// GetAllPools will fetch all supported pool types by the Osmosis
-// chain
+// @Summary Get pool(s) information
+// @Description Returns a list of pools if the IDs parameter is not given. Otherwise,
+// @Description it batch fetches specific pools by the given pool IDs parameter.
+// @ID get-pools
+// @Produce  json
+// @Param  IDs  query  string  false  "Comma-separated list of pool IDs to fetch, e.g., '1,2,3'"
+// @Success 200  {array}  sqsdomain.PoolI  "List of pool(s) details"
+// @Router /pools [get]
 func (a *PoolsHandler) GetPools(c echo.Context) error {
 	ctx := c.Request().Context()
 

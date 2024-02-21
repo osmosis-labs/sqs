@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -48,8 +48,16 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, logger log.Logger) {
 	e.POST(formatRouterResource("/overwrite-route"), handler.OverwriteRoute)
 }
 
-// GetOptimalQuote will determine the optimal quote for a given tokenIn and tokenOutDenom
-// Return the optimal quote.
+// @Summary Optimal Quote
+// @Description returns the best quote it can compute for the given tokenIn and tokenOutDenom.
+// If `singleRoute` parameter is set to true, it gives the best single quote while excluding splits.
+// @ID get-route-quote
+// @Produce  json
+// @Param  tokenIn  query  string  true  "String representation of the sdk.Coin for the token in."
+// @Param  tokenOutDenom  query  string  true  "String representing the denom of the token out."
+// @Param  singleRoute  query  bool  false  "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default."
+// @Success 200  {object}  domain.Quote  "The computed best route quote"
+// @Router /router/quote [get]
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 
@@ -168,7 +176,14 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 	return c.JSON(http.StatusOK, quote)
 }
 
-// GetCandidateRoutes returns the candidate routes for a given tokenIn and tokenOutDenom
+// @Summary Token Routing Information
+// @Description returns all routes that can be used for routing from tokenIn to tokenOutDenom.
+// @ID get-router-routes
+// @Produce  json
+// @Param  tokenIn  query  string  true  "The string representation of the denom of the token in"
+// @Param  tokenOutDenom  query  string  true  "The string representation of the denom of the token out"
+// @Success 200  {array}  sqsdomain.CandidateRoutes  "An array of possible routing options"
+// @Router /router/routes [get]
 func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 	ctx := c.Request().Context()
 

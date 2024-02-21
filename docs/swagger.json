@@ -1,0 +1,197 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Osmosis Sidecar Query Server Example API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "paths": {
+        "/pools": {
+            "get": {
+                "description": "Returns a list of pools if the IDs parameter is not given. Otherwise,\nit batch fetches specific pools by the given pool IDs parameter.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get pool(s) information",
+                "operationId": "get-pools",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of pool IDs to fetch, e.g., '1,2,3'",
+                        "name": "IDs",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of pool(s) details",
+                        "schema": {
+                            "type": "array",
+                            "items": {}
+                        }
+                    }
+                }
+            }
+        },
+        "/router/quote": {
+            "get": {
+                "description": "returns the best quote it can compute for the given tokenIn and tokenOutDenom.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Optimal Quote",
+                "operationId": "get-route-quote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "String representation of the sdk.Coin for the token in.",
+                        "name": "tokenIn",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "String representing the denom of the token out.",
+                        "name": "tokenOutDenom",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default.",
+                        "name": "singleRoute",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The computed best route quote",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/router/routes": {
+            "get": {
+                "description": "returns all routes that can be used for routing from tokenIn to tokenOutDenom.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Token Routing Information",
+                "operationId": "get-router-routes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The string representation of the denom of the token in",
+                        "name": "tokenIn",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The string representation of the denom of the token out",
+                        "name": "tokenOutDenom",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of possible routing options",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/sqsdomain.CandidateRoutes"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tokens/metadata/{denom}": {
+            "get": {
+                "description": "returns token metadata with chain denom, human denom, and precision.\nFor testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.\nSee `config.json` and `config-testnet.json` in root for details.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Token Metadata",
+                "operationId": "get-token-metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Denom can either be a human denom or a chain denom",
+                        "name": "denom",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Token"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "domain.Token": {
+            "type": "object",
+            "properties": {
+                "chain_denom": {
+                    "description": "ChainDenom is the denom used in the chain state.",
+                    "type": "string"
+                },
+                "human_denom": {
+                    "description": "HumanDenom is the human readable denom.",
+                    "type": "string"
+                },
+                "precision": {
+                    "description": "Precision is the precision of the token.",
+                    "type": "integer"
+                }
+            }
+        },
+        "sqsdomain.CandidatePool": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "tokenOutDenom": {
+                    "type": "string"
+                }
+            }
+        },
+        "sqsdomain.CandidateRoute": {
+            "type": "object",
+            "properties": {
+                "pools": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sqsdomain.CandidatePool"
+                    }
+                }
+            }
+        },
+        "sqsdomain.CandidateRoutes": {
+            "type": "object",
+            "properties": {
+                "routes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sqsdomain.CandidateRoute"
+                    }
+                },
+                "uniquePoolIDs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object"
+                    }
+                }
+            }
+        }
+    }
+}

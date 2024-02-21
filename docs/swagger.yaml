@@ -1,0 +1,139 @@
+definitions:
+  domain.Token:
+    properties:
+      chain_denom:
+        description: ChainDenom is the denom used in the chain state.
+        type: string
+      human_denom:
+        description: HumanDenom is the human readable denom.
+        type: string
+      precision:
+        description: Precision is the precision of the token.
+        type: integer
+    type: object
+  sqsdomain.CandidatePool:
+    properties:
+      id:
+        type: integer
+      tokenOutDenom:
+        type: string
+    type: object
+  sqsdomain.CandidateRoute:
+    properties:
+      pools:
+        items:
+          $ref: '#/definitions/sqsdomain.CandidatePool'
+        type: array
+    type: object
+  sqsdomain.CandidateRoutes:
+    properties:
+      routes:
+        items:
+          $ref: '#/definitions/sqsdomain.CandidateRoute'
+        type: array
+      uniquePoolIDs:
+        additionalProperties:
+          type: object
+        type: object
+    type: object
+info:
+  contact: {}
+  title: Osmosis Sidecar Query Server Example API
+  version: "1.0"
+paths:
+  /pools:
+    get:
+      description: |-
+        Returns a list of pools if the IDs parameter is not given. Otherwise,
+        it batch fetches specific pools by the given pool IDs parameter.
+      operationId: get-pools
+      parameters:
+      - description: Comma-separated list of pool IDs to fetch, e.g., '1,2,3'
+        in: query
+        name: IDs
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of pool(s) details
+          schema:
+            items: {}
+            type: array
+      summary: Get pool(s) information
+  /router/quote:
+    get:
+      description: returns the best quote it can compute for the given tokenIn and
+        tokenOutDenom.
+      operationId: get-route-quote
+      parameters:
+      - description: String representation of the sdk.Coin for the token in.
+        in: query
+        name: tokenIn
+        required: true
+        type: string
+      - description: String representing the denom of the token out.
+        in: query
+        name: tokenOutDenom
+        required: true
+        type: string
+      - description: Boolean flag indicating whether to return single routes (no splits).
+          False (splits enabled) by default.
+        in: query
+        name: singleRoute
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The computed best route quote
+          schema: {}
+      summary: Optimal Quote
+  /router/routes:
+    get:
+      description: returns all routes that can be used for routing from tokenIn to
+        tokenOutDenom.
+      operationId: get-router-routes
+      parameters:
+      - description: The string representation of the denom of the token in
+        in: query
+        name: tokenIn
+        required: true
+        type: string
+      - description: The string representation of the denom of the token out
+        in: query
+        name: tokenOutDenom
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: An array of possible routing options
+          schema:
+            items:
+              $ref: '#/definitions/sqsdomain.CandidateRoutes'
+            type: array
+      summary: Token Routing Information
+  /tokens/metadata/{denom}:
+    get:
+      description: |-
+        returns token metadata with chain denom, human denom, and precision.
+        For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
+        See `config.json` and `config-testnet.json` in root for details.
+      operationId: get-token-metadata
+      parameters:
+      - description: Denom can either be a human denom or a chain denom
+        in: path
+        name: denom
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/domain.Token'
+      summary: Token Metadata
+swagger: "2.0"

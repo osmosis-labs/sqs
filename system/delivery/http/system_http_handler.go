@@ -13,13 +13,14 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	echoSwagger "github.com/swaggo/echo-swagger"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 )
 
 type SystemHandler struct {
@@ -61,6 +62,7 @@ func NewSystemHandler(e *echo.Echo, redisAddress string, config domain.Config, l
 	e.GET("/config", handler.GetConfig)
 	e.GET("/version", handler.GetVersion)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+	e.GET("/swagger/*", echoSwagger.EchoWrapHandler(echoSwagger.URL("docs/swagger.json"), echoSwagger.URL("swagger.yaml")))
 }
 
 // GetConfig returns the config for the SQS service
