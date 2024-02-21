@@ -243,6 +243,7 @@ Parameters:
 - `tokenOutDenom` the string representing the denom of the token out
 - `singleRoute` (optional) boolean flag indicating whether to return single routes (no splits).
 False (splits enabled) by default.
+- `humanReadable` (optional) boolean flag indicating whether a human readable denom is given as opposed to chain.
 
 Response example:
 
@@ -320,6 +321,7 @@ Description: returns all routes that can be used for routing from tokenIn to tok
 Parameters:
 - `tokenIn` the string representation of the denom of the token in
 - `tokenOutDenom` the string representing the denom of the token out
+- `humanReadable` (optional) boolean flag indicating whether a human readable denom is given as opposed to chain.
 
 
 Response example:

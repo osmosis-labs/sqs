@@ -146,17 +146,15 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	poolsRepository := poolsredisrepo.New(appCodec, redisTxManager)
 	timeoutContext := time.Duration(config.ServerTimeoutDurationSecs) * time.Second
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository, redisTxManager, config.Pools, config.ChainGRPCGatewayEndpoint)
-	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 
 	// Create an overwrite route cache if enabled.
 	// We keep it as nil by default.
 	// The relevant endpoints must check if it is set.
 	routesOverwrite := cache.CreateRoutesOverwrite(config.Router.EnableOverwriteRoutesCache)
 
-	// Initialize router repository, usecase and HTTP handler
+	// Initialize router repository, usecase
 	routerRepository := routerredisrepo.New(redisTxManager, config.Router.RouteCacheExpirySeconds)
 	routerUsecase := routerUseCase.WithOverwriteRoutesPath(routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, *config.Router, logger, cache.New(), routesOverwrite), overwriteRoutesPath)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, logger)
 
 	// Load overwrite routes from disk if they exist.
 	err = routerUsecase.LoadOverwriteRoutes(ctx)
@@ -167,14 +165,18 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Initialize system handler
 	chainInfoRepository := chaininforedisrepo.New(redisTxManager)
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(timeoutContext, chainInfoRepository, redisTxManager)
-	systemhttpdelivery.NewSystemHandler(e, redisAddress, config, logger, chainInfoUseCase)
 
 	// Initialized tokens usecase
 	tokensUseCase, err := tokensUseCase.NewTokensUsecase(timeoutContext, config.ChainRegistryAssetsFileURL)
 	if err != nil {
 		return nil, err
 	}
+
+	// HTTP handlers
+	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
+	systemhttpdelivery.NewSystemHandler(e, redisAddress, config, logger, chainInfoUseCase)
 	tokenshttpdelivery.NewTokensHandler(e, tokensUseCase, logger)
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
 
 	go func() {
 		logger.Info("Starting profiling server")

@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	"github.com/sirupsen/logrus"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -21,6 +20,7 @@ import (
 // RouterHandler  represent the httphandler for the router
 type RouterHandler struct {
 	RUsecase mvc.RouterUsecase
+	TUsecase mvc.TokensUsecase
 	logger   log.Logger
 }
 
@@ -31,9 +31,10 @@ func formatRouterResource(resource string) string {
 }
 
 // NewRouterHandler will initialize the pools/ resources endpoint
-func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, logger log.Logger) {
+func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, logger log.Logger) {
 	handler := &RouterHandler{
 		RUsecase: us,
+		TUsecase: tu,
 		logger:   logger,
 	}
 	e.GET(formatRouterResource("/quote"), handler.GetOptimalQuote)
@@ -56,6 +57,7 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, logger log.Logger) {
 // @Param  tokenIn  query  string  true  "String representation of the sdk.Coin for the token in."
 // @Param  tokenOutDenom  query  string  true  "String representing the denom of the token out."
 // @Param  singleRoute  query  bool  false  "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default."
+// @Param humanDenoms query bool true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/quote [get]
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
@@ -66,14 +68,23 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	if isSingleRouteStr != "" {
 		isSingleRoute, err = strconv.ParseBool(isSingleRouteStr)
 		if err != nil {
-			return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 		}
 	}
 
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
+
+	// translate denoms from human to chain if needed
+	tokenOutDenom, tokenInDenom, err := a.getChainDenoms(c, tokenOutDenom, tokenIn.Denom)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	// Update coins token in denom it case it was translated from human to chain.
+	tokenIn.Denom = tokenInDenom
 
 	var quote domain.Quote
 	if isSingleRoute {
@@ -82,7 +93,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		quote, err = a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom)
 	}
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	quote.PrepareResult(ctx)
@@ -106,7 +117,7 @@ func (a *RouterHandler) GetBestSingleRouteQuote(c echo.Context) error {
 
 	quote, err := a.RUsecase.GetBestSingleRouteQuote(ctx, tokenIn, tokenOutDenom)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	quote.PrepareResult(ctx)
@@ -137,7 +148,7 @@ func (a *RouterHandler) GetCustomQuote(c echo.Context) error {
 	// Quote
 	quote, err := a.RUsecase.GetCustomQuote(ctx, tokenIn, tokenOutDenom, poolIDs)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	quote.PrepareResult(ctx)
@@ -168,7 +179,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 	// Quote
 	quote, err := a.RUsecase.GetCustomDirectQuote(ctx, tokenIn, tokenOutDenom, poolID)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	quote.PrepareResult(ctx)
@@ -182,6 +193,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 // @Produce  json
 // @Param  tokenIn  query  string  true  "The string representation of the denom of the token in"
 // @Param  tokenOutDenom  query  string  true  "The string representation of the denom of the token out"
+// @Param humanDenoms query bool true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
 // @Success 200  {array}  sqsdomain.CandidateRoutes  "An array of possible routing options"
 // @Router /router/routes [get]
 func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
@@ -189,12 +201,18 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 
 	tokenOutDenom, tokenIn, err := getValidTokenInTokenOutStr(c)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	// translate denoms from human to chain if needed
+	tokenOutDenom, tokenIn, err = a.getChainDenoms(c, tokenOutDenom, tokenIn)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	routes, err := a.RUsecase.GetCandidateRoutes(ctx, tokenIn, tokenOutDenom)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	if err := c.JSON(http.StatusOK, routes); err != nil {
@@ -214,7 +232,7 @@ func (a *RouterHandler) GetTakerFee(c echo.Context) error {
 
 	takerFees, err := a.RUsecase.GetTakerFee(ctx, poolID)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, takerFees)
@@ -227,12 +245,12 @@ func (a *RouterHandler) GetCachedCandidateRoutes(c echo.Context) error {
 
 	tokenOutDenom, tokenIn, err := getValidTokenInTokenOutStr(c)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	routes, err := a.RUsecase.GetCachedCandidateRoutes(ctx, tokenIn, tokenOutDenom)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, routes)
@@ -243,7 +261,7 @@ func (a *RouterHandler) StoreRouterStateInFiles(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	if err := a.RUsecase.StoreRouterStateFiles(ctx); err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, "Router state stored in files")
@@ -256,7 +274,7 @@ func (a *RouterHandler) OverwriteRoute(c echo.Context) error {
 	// Get the tokenInDenom denom string
 	tokenInDenom, err := getValidTokenInStr(c)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	// Read the request body
@@ -272,7 +290,7 @@ func (a *RouterHandler) OverwriteRoute(c echo.Context) error {
 	}
 
 	if err := a.RUsecase.OverwriteRoutes(ctx, tokenInDenom, routes); err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, "Router state stored in files")
@@ -299,28 +317,37 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 
 	spotPrice, err := a.RUsecase.GetPoolSpotPrice(ctx, poolID, quoteAsset, baseAsset)
 	if err != nil {
-		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, spotPrice)
 }
 
-func getStatusCode(err error) int {
-	if err == nil {
-		return http.StatusOK
+// returns chain denoms from echo parameters. If human denoms are given, they are converted to chain denoms.
+func (a *RouterHandler) getChainDenoms(c echo.Context, tokenOutDenom, tokenInDenom string) (string, string, error) {
+	isHumanDenomsStr := c.QueryParam("humanDenoms")
+	isHumanDenoms := false
+	var err error
+	if len(isHumanDenomsStr) > 0 {
+		isHumanDenoms, err = strconv.ParseBool(isHumanDenomsStr)
+		if err != nil {
+			return "", "", err
+		}
 	}
 
-	logrus.Error(err)
-	switch err {
-	case domain.ErrInternalServerError:
-		return http.StatusInternalServerError
-	case domain.ErrNotFound:
-		return http.StatusNotFound
-	case domain.ErrConflict:
-		return http.StatusConflict
-	default:
-		return http.StatusInternalServerError
+	if isHumanDenoms {
+		ctx := c.Request().Context()
+		tokenOutDenom, err = a.TUsecase.GetChainDenom(ctx, tokenOutDenom)
+		if err != nil {
+			return "", "", err
+		}
+
+		tokenInDenom, err = a.TUsecase.GetChainDenom(ctx, tokenInDenom)
+		if err != nil {
+			return "", "", err
+		}
 	}
+	return tokenOutDenom, tokenInDenom, nil
 }
 
 // getValidRoutingParameters returns the tokenIn and tokenOutDenom from server context if they are valid.

@@ -70,6 +70,13 @@ const docTemplate = `{
                         "description": "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default.",
                         "name": "singleRoute",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "name": "humanDenoms",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -100,6 +107,13 @@ const docTemplate = `{
                         "type": "string",
                         "description": "The string representation of the denom of the token out",
                         "name": "tokenOutDenom",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "name": "humanDenoms",
                         "in": "query",
                         "required": true
                     }

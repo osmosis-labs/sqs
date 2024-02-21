@@ -82,6 +82,12 @@ paths:
         in: query
         name: singleRoute
         type: boolean
+      - description: Boolean flag indicating whether the given denoms are human readable
+          or not. Human denoms get converted to chain internally
+        in: query
+        name: humanDenoms
+        required: true
+        type: boolean
       produces:
       - application/json
       responses:
@@ -105,6 +111,12 @@ paths:
         name: tokenOutDenom
         required: true
         type: string
+      - description: Boolean flag indicating whether the given denoms are human readable
+          or not. Human denoms get converted to chain internally
+        in: query
+        name: humanDenoms
+        required: true
+        type: boolean
       produces:
       - application/json
       responses:
