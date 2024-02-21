@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/prometheus/client_golang/prometheus"
 )

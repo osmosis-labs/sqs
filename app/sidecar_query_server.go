@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 

@@ -4,13 +4,15 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+
+	_ "github.com/osmosis-labs/sqs/docs"
 )
 
 // TokensHandler  represent the httphandler for the router
@@ -34,7 +36,15 @@ func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, logger log.Logger) {
 	e.GET(formatTokensResource("/metadata/:denom"), handler.GetMetadta)
 }
 
-// GetMetadata returns denom metadata
+// @Summary Token Metadata
+// @Description returns token metadata with chain denom, human denom, and precision.
+// @Description For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
+// @Description See `config.json` and `config-testnet.json` in root for details.
+// @ID get-token-metadata
+// @Produce  json
+// @Param  denom  path  string  true  "Denom can either be a human denom or a chain denom"
+// @Success 200 {object} domain.Token  "Success"
+// @Router /tokens/metadata/{denom} [get]
 func (a *TokensHandler) GetMetadta(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 

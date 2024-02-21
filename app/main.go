@@ -14,6 +14,7 @@ import (
 	sqslog "github.com/osmosis-labs/sqs/log"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
+	_ "github.com/swaggo/echo-swagger"
 
 	"github.com/osmosis-labs/osmosis/v23/app"
 )
@@ -24,6 +25,8 @@ func init() {
 	}
 }
 
+// @title           Osmosis Sidecar Query Server Example API
+// @version         1.0
 func main() {
 	configPath := flag.String("config", "config.json", "config file location")
 

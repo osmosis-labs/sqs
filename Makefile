@@ -30,6 +30,9 @@ deps:
 generate-mocks: mockery
 	bin/mockery --config mockery.yaml
 
+swagger-gen:
+	$(HOME)/go/bin/swag init -g app/main.go
+
 run:
 	go run -ldflags="-X github.com/osmosis-labs/sqs/version=${VERSION}" app/*.go  --config config.json
 

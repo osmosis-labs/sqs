@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 )
 
 // RequestPathKeyType is a custom type for request path key.

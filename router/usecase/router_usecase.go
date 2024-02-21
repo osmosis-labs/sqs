@@ -486,7 +486,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
 	router := r.initializeRouter()
 
-	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
+	candidateRoutes, err := r.handleCandidateRoutes(ctx, router, tokenInDenom, tokenOutDenom)
 	if err != nil {
 		return sqsdomain.CandidateRoutes{}, err
 	}
