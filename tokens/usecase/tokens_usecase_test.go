@@ -14,6 +14,10 @@ type TokensUseCaseTestSuite struct {
 	apptesting.ConcentratedKeeperTestHelper
 }
 
+const (
+	defaultCosmosExponent = 6
+)
+
 func TestTokensUseCaseTestSuite(t *testing.T) {
 	suite.Run(t, new(TokensUseCaseTestSuite))
 }
@@ -23,8 +27,6 @@ func (s *TokensUseCaseTestSuite) TestParseExponents() {
 
 	const (
 		assetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json"
-
-		defaultCosmosExponent = 6
 	)
 	tokensMap, err := usecase.GetTokensFromChainRegistry(assetListFileURL)
 	s.Require().NoError(err)
@@ -50,4 +52,22 @@ func (s *TokensUseCaseTestSuite) TestParseExponents() {
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, ibcxToken.Precision)
 	s.Require().Equal(ibcxMainnetDenom, ibcxToken.ChainDenom)
+}
+
+func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
+	s.T().Skip("skip the test that does network call and is used for debugging")
+
+	const (
+		assetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmo-test-5/osmo-test-5.assetlist.json"
+	)
+	tokensMap, err := usecase.GetTokensFromChainRegistry(assetListFileURL)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(tokensMap)
+
+	// uosmo is present
+	uosmoDenom := "uosmo"
+	osmoToken, ok := tokensMap[uosmoDenom]
+	s.Require().True(ok)
+	s.Require().Equal(defaultCosmosExponent, osmoToken.Precision)
+	s.Require().Equal(uosmoDenom, osmoToken.ChainDenom)
 }

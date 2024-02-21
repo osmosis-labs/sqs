@@ -569,6 +569,27 @@ curl "https://sqs.osmosis.zone/router/spot-price-pool/1212?quoteAsset=ibc/D18933
 "1.000000000000000000000000000000000000"
 ```
 
+### Tokens Resource
+
+1. GET `/tokens/metadata/:denom`
+
+Description: returns oken metadata with chain denom, human denom and precision.
+For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
+See `config.json` and `config-testnet.json` in root for details.
+
+Argument: denom. Can either be a human denom or a chain denom.
+
+Response example:
+
+```bash
+curl "https://sqs.osmosis.zone/tokens/metadata/statom" | jq .
+{
+    "chain_denom": "ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901",
+    "human_denom": "statom",
+    "precision": 6
+}
+```
+
 ### System Resource
 
 1. GET `/healthcheck`

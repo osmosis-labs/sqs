@@ -19,10 +19,12 @@ import (
 	chaininforedisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/chaininfo"
 	poolsredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/pools"
 	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
+	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
 	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
+	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
 
@@ -40,7 +42,7 @@ type SideCarQueryServer interface {
 	GetPoolsRepository() poolsredisrepo.PoolsRepository
 	GetChainInfoRepository() chaininforedisrepo.ChainInfoRepository
 	GetRouterRepository() routerredisrepo.RouterRepository
-	GetTokensUseCase() domain.TokensUsecase
+	GetTokensUseCase() mvc.TokensUsecase
 	GetLogger() log.Logger
 	Shutdown(context.Context) error
 	Start(context.Context) error
@@ -51,7 +53,7 @@ type sideCarQueryServer struct {
 	poolsRepository     poolsredisrepo.PoolsRepository
 	chainInfoRepository chaininforedisrepo.ChainInfoRepository
 	routerRepository    routerredisrepo.RouterRepository
-	tokensUseCase       domain.TokensUsecase
+	tokensUseCase       mvc.TokensUsecase
 	e                   *echo.Echo
 	sqsAddress          string
 	logger              log.Logger
@@ -64,7 +66,7 @@ const (
 )
 
 // GetTokensUseCase implements SideCarQueryServer.
-func (sqs *sideCarQueryServer) GetTokensUseCase() domain.TokensUsecase {
+func (sqs *sideCarQueryServer) GetTokensUseCase() mvc.TokensUsecase {
 	return sqs.tokensUseCase
 }
 
@@ -168,7 +170,11 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	systemhttpdelivery.NewSystemHandler(e, redisAddress, config, logger, chainInfoUseCase)
 
 	// Initialized tokens usecase
-	tokensUseCase := tokensUseCase.NewTokensUsecase(timeoutContext)
+	tokensUseCase, err := tokensUseCase.NewTokensUsecase(timeoutContext, config.ChainRegistryAssetsFileURL)
+	if err != nil {
+		return nil, err
+	}
+	tokenshttpdelivery.NewTokensHandler(e, tokensUseCase, logger)
 
 	go func() {
 		logger.Info("Starting profiling server")
