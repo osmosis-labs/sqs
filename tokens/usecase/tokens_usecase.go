@@ -2,15 +2,25 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 )
 
 type tokensUseCase struct {
 	contextTimeout time.Duration
+
+	metadataMapMu             sync.RWMutex
+	tokenMetadataByChainDenom map[string]domain.Token
+
+	denomMapMu           sync.RWMutex
+	humanToChainDenomMap map[string]string
 }
 
 // Struct to represent the JSON structure
@@ -36,26 +46,43 @@ type AssetList struct {
 	} `json:"assets"`
 }
 
-const assetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json"
-
-var _ domain.TokensUsecase = &tokensUseCase{}
+var _ mvc.TokensUsecase = &tokensUseCase{}
 
 // NewTokensUsecase will create a new tokens use case object
-func NewTokensUsecase(timeout time.Duration) domain.TokensUsecase {
-	return &tokensUseCase{
-		contextTimeout: timeout,
-	}
-}
+func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) (mvc.TokensUsecase, error) {
 
-// GetDenomPrecisions implements domain.TokensUsecase.
-func (tu *tokensUseCase) GetDenomPrecisions(ctx context.Context) (map[string]int, error) {
-	tokensByDenomMap, err := getTokensFromChainRegistry(assetListFileURL)
+	tokenMetadataByChainDenom, err := getTokensFromChainRegistry(chainRegistryAssetsFileURL)
 	if err != nil {
 		return nil, err
 	}
 
-	denomPrecisions := make(map[string]int, len(tokensByDenomMap))
-	for _, token := range tokensByDenomMap {
+	// Create human denom to chain denom map
+	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
+	for _, tokenMetadata := range tokenMetadataByChainDenom {
+
+		// lower case human denom
+		lowerCaseHumanDenom := strings.ToLower(tokenMetadata.HumanDenom)
+
+		humanToChainDenomMap[lowerCaseHumanDenom] = tokenMetadata.ChainDenom
+	}
+
+	return &tokensUseCase{
+		contextTimeout: timeout,
+
+		tokenMetadataByChainDenom: tokenMetadataByChainDenom,
+		humanToChainDenomMap:      humanToChainDenomMap,
+		metadataMapMu:             sync.RWMutex{},
+		denomMapMu:                sync.RWMutex{},
+	}, nil
+}
+
+// GetDenomPrecisions implements domain.TokensUsecase.
+func (tu *tokensUseCase) GetDenomPrecisions(ctx context.Context) (map[string]int, error) {
+	tu.metadataMapMu.RLock()
+	defer tu.metadataMapMu.RUnlock()
+
+	denomPrecisions := make(map[string]int, len(tu.tokenMetadataByChainDenom))
+	for _, token := range tu.tokenMetadataByChainDenom {
 		denomPrecisions[token.ChainDenom] = token.Precision
 	}
 
@@ -116,4 +143,31 @@ func getTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 	}
 
 	return tokensByChainDenom, nil
+}
+
+// GetChainDenom implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetChainDenom(ctx context.Context, humanDenom string) (string, error) {
+	humanDenomLowerCase := strings.ToLower(humanDenom)
+
+	t.denomMapMu.RLock()
+	defer t.denomMapMu.RUnlock()
+
+	chainDenom, ok := t.humanToChainDenomMap[humanDenomLowerCase]
+	if !ok {
+		return "", fmt.Errorf("chain denom for human denom (%s) is not found", humanDenomLowerCase)
+	}
+
+	return chainDenom, nil
+}
+
+// GetMetadataByChainDenom implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetMetadataByChainDenom(ctx context.Context, denom string) (domain.Token, error) {
+	t.metadataMapMu.RLock()
+	defer t.metadataMapMu.RUnlock()
+	token, ok := t.tokenMetadataByChainDenom[denom]
+	if !ok {
+		return domain.Token{}, fmt.Errorf("metadata for denom (%s) is not found", denom)
+	}
+
+	return token, nil
 }

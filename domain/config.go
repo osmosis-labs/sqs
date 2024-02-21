@@ -18,6 +18,9 @@ type Config struct {
 	ChainGRPCGatewayEndpoint string `mapstructure:"grpc-gateway-endpoint"`
 	ChainID                  string `mapstructure:"chain-id"`
 
+	// Chain registry assets firl URL.
+	ChainRegistryAssetsFileURL string `mapstructure:"chain-registry-assets-url"`
+
 	// Router encapsulates the router config.
 	Router *RouterConfig `mapstructure:"router"`
 

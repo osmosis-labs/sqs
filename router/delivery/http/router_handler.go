@@ -18,11 +18,6 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 )
 
-// ResponseError represent the response error struct
-type ResponseError struct {
-	Message string `json:"message"`
-}
-
 // RouterHandler  represent the httphandler for the router
 type RouterHandler struct {
 	RUsecase mvc.RouterUsecase
@@ -63,13 +58,13 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	if isSingleRouteStr != "" {
 		isSingleRoute, err = strconv.ParseBool(isSingleRouteStr)
 		if err != nil {
-			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+			return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 		}
 	}
 
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	var quote domain.Quote
@@ -79,7 +74,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		quote, err = a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom)
 	}
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	quote.PrepareResult(ctx)
@@ -103,7 +98,7 @@ func (a *RouterHandler) GetBestSingleRouteQuote(c echo.Context) error {
 
 	quote, err := a.RUsecase.GetBestSingleRouteQuote(ctx, tokenIn, tokenOutDenom)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	quote.PrepareResult(ctx)
@@ -123,18 +118,18 @@ func (a *RouterHandler) GetCustomQuote(c echo.Context) error {
 
 	poolIDsStr := c.QueryParam("poolIDs")
 	if len(poolIDsStr) == 0 {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: "poolIDs is required"})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "poolIDs is required"})
 	}
 
 	poolIDs, err := domain.ParseNumbers(poolIDsStr)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	// Quote
 	quote, err := a.RUsecase.GetCustomQuote(ctx, tokenIn, tokenOutDenom, poolIDs)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	quote.PrepareResult(ctx)
@@ -149,23 +144,23 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	poolIDStr := c.QueryParam("poolID")
 	if len(poolIDStr) == 0 {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: "poolID is required"})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "poolID is required"})
 	}
 
 	poolID, err := strconv.ParseUint(poolIDStr, 10, 64)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	// Quote
 	quote, err := a.RUsecase.GetCustomDirectQuote(ctx, tokenIn, tokenOutDenom, poolID)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	quote.PrepareResult(ctx)
@@ -179,12 +174,12 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 
 	tokenOutDenom, tokenIn, err := getValidTokenInTokenOutStr(c)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	routes, err := a.RUsecase.GetCandidateRoutes(ctx, tokenIn, tokenOutDenom)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	if err := c.JSON(http.StatusOK, routes); err != nil {
@@ -199,12 +194,12 @@ func (a *RouterHandler) GetTakerFee(c echo.Context) error {
 	idStr := c.Param("id")
 	poolID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	takerFees, err := a.RUsecase.GetTakerFee(ctx, poolID)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, takerFees)
@@ -217,12 +212,12 @@ func (a *RouterHandler) GetCachedCandidateRoutes(c echo.Context) error {
 
 	tokenOutDenom, tokenIn, err := getValidTokenInTokenOutStr(c)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	routes, err := a.RUsecase.GetCachedCandidateRoutes(ctx, tokenIn, tokenOutDenom)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, routes)
@@ -233,7 +228,7 @@ func (a *RouterHandler) StoreRouterStateInFiles(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	if err := a.RUsecase.StoreRouterStateFiles(ctx); err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, "Router state stored in files")
@@ -246,7 +241,7 @@ func (a *RouterHandler) OverwriteRoute(c echo.Context) error {
 	// Get the tokenInDenom denom string
 	tokenInDenom, err := getValidTokenInStr(c)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	// Read the request body
@@ -262,7 +257,7 @@ func (a *RouterHandler) OverwriteRoute(c echo.Context) error {
 	}
 
 	if err := a.RUsecase.OverwriteRoutes(ctx, tokenInDenom, routes); err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, "Router state stored in files")
@@ -275,21 +270,21 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 	idStr := c.Param("id")
 	poolID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	quoteAsset := c.QueryParam("quoteAsset")
 	if len(quoteAsset) == 0 {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: "quoteAsset is required"})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "quoteAsset is required"})
 	}
 	baseAsset := c.QueryParam("baseAsset")
 	if len(baseAsset) == 0 {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: "baseAsset is required"})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "baseAsset is required"})
 	}
 
 	spotPrice, err := a.RUsecase.GetPoolSpotPrice(ctx, poolID, quoteAsset, baseAsset)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(getStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, spotPrice)

@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"net/http"
 )
 
 var (
@@ -15,6 +16,29 @@ var (
 	// ErrBadParamInput will throw if the given request-body or params is not valid
 	ErrBadParamInput = errors.New("given Param is not valid")
 )
+
+// GetStatusCode returbs status code given error
+func GetStatusCode(err error) int {
+	if err == nil {
+		return http.StatusOK
+	}
+
+	switch err {
+	case ErrInternalServerError:
+		return http.StatusInternalServerError
+	case ErrNotFound:
+		return http.StatusNotFound
+	case ErrConflict:
+		return http.StatusConflict
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+// ResponseError represent the response error struct
+type ResponseError struct {
+	Message string `json:"message"`
+}
 
 // InvalidPoolTypeError is an error type for invalid pool type.
 type InvalidPoolTypeError struct {

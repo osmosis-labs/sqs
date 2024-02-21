@@ -9,6 +9,7 @@
     "logger-level": "info",
     "grpc-gateway-endpoint": "http://localhost:26657",
     "chain-id": "osmosis-1",
+    "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmo-test-5/osmo-test-5.assetlist.json",
     "router": {
       "preferred-pool-ids": [],
       "max-pools-per-route": 4,
