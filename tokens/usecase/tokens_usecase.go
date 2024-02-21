@@ -50,7 +50,6 @@ var _ mvc.TokensUsecase = &tokensUseCase{}
 
 // NewTokensUsecase will create a new tokens use case object
 func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) (mvc.TokensUsecase, error) {
-
 	tokenMetadataByChainDenom, err := getTokensFromChainRegistry(chainRegistryAssetsFileURL)
 	if err != nil {
 		return nil, err
@@ -59,7 +58,6 @@ func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) 
 	// Create human denom to chain denom map
 	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
 	for _, tokenMetadata := range tokenMetadataByChainDenom {
-
 		// lower case human denom
 		lowerCaseHumanDenom := strings.ToLower(tokenMetadata.HumanDenom)
 
@@ -77,12 +75,12 @@ func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) 
 }
 
 // GetDenomPrecisions implements domain.TokensUsecase.
-func (tu *tokensUseCase) GetDenomPrecisions(ctx context.Context) (map[string]int, error) {
-	tu.metadataMapMu.RLock()
-	defer tu.metadataMapMu.RUnlock()
+func (t *tokensUseCase) GetDenomPrecisions(ctx context.Context) (map[string]int, error) {
+	t.metadataMapMu.RLock()
+	defer t.metadataMapMu.RUnlock()
 
-	denomPrecisions := make(map[string]int, len(tu.tokenMetadataByChainDenom))
-	for _, token := range tu.tokenMetadataByChainDenom {
+	denomPrecisions := make(map[string]int, len(t.tokenMetadataByChainDenom))
+	for _, token := range t.tokenMetadataByChainDenom {
 		denomPrecisions[token.ChainDenom] = token.Precision
 	}
 
