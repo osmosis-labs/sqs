@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
@@ -52,6 +54,7 @@ func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, ru mvc.RouterUsecase, 
 	}
 	e.GET(formatTokensResource("/metadata"), handler.GetMetadata)
 	e.GET(formatTokensResource("/prices"), handler.GetPrices)
+	e.GET(formatTokensResource("/usd-price-test"), handler.GetUSDPriceTest)
 
 	defaultQuoteChainDenom, err = ts.GetChainDenom(context.Background(), defaultQuoteHumanDenom)
 	if err != nil {
@@ -188,4 +191,31 @@ func validateDenomsParam(denomsStr string) ([]string, error) {
 	}
 
 	return denoms, nil
+}
+
+// This mock endpoint is exposed for a data-pipelines hiring assignment.
+// It is not meant for use in production.
+func (a *TokensHandler) GetUSDPriceTest(c echo.Context) (err error) {
+	denomsStr := c.QueryParam("denoms")
+	denoms, err := validateDenomsParam(denomsStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
+
+	prices := map[string]osmomath.Dec{}
+
+	for _, denom := range denoms {
+		// TiA
+		if denom == "ibc/D79E7D83AB399BFFF93433E54FAA480C191248FC556924A2A8351AE2638B3877" {
+			prices[denom] = osmomath.MustNewDecFromStr("13.5")
+			// milkTIA
+		} else if denom == "factory/osmo1f5vfcph2dvfeqcqkhetwv75fda69z7e5c2dldm3kvgj23crkv6wqcn47a0/umilkTIA" {
+			prices[denom] = osmomath.MustNewDecFromStr("13.7")
+		} else {
+			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: fmt.Errorf("unsupported denom (%s)", denom).Error()})
+		}
+
+	}
+
+	return c.JSON(http.StatusOK, prices)
 }
