@@ -131,7 +131,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/tokens/metadata/{denom}": {
+        "/tokens/metadata": {
             "get": {
                 "description": "returns token metadata with chain denom, human denom, and precision.\nFor testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.\nSee ` + "`" + `config.json` + "`" + ` and ` + "`" + `config-testnet.json` + "`" + ` in root for details.",
                 "produces": [
@@ -142,17 +142,60 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Denom can either be a human denom or a chain denom",
-                        "name": "denom",
-                        "in": "path",
-                        "required": true
+                        "description": "List of denoms where each can either be a human denom or a chain denom",
+                        "name": "denoms",
+                        "in": "path"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Success",
                         "schema": {
-                            "$ref": "#/definitions/domain.Token"
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/domain.Token"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tokens/prices": {
+            "get": {
+                "description": "Given a list of base denominations, returns the spot price with a system-configured quote denomination.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get prices",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)",
+                        "name": "base",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Specify true if input denominations are in human-readable format; defaults to false",
+                        "name": "humanDenoms",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price.",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 }
@@ -163,10 +206,6 @@ const docTemplate = `{
         "domain.Token": {
             "type": "object",
             "properties": {
-                "chain_denom": {
-                    "description": "ChainDenom is the denom used in the chain state.",
-                    "type": "string"
-                },
                 "human_denom": {
                     "description": "HumanDenom is the human readable denom.",
                     "type": "string"

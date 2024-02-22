@@ -573,13 +573,14 @@ curl "https://sqs.osmosis.zone/router/spot-price-pool/1212?quoteAsset=ibc/D18933
 
 ### Tokens Resource
 
-1. GET `/tokens/metadata/:denom`
+1. GET `/tokens/metadata`
 
 Description: returns oken metadata with chain denom, human denom and precision.
 For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
 See `config.json` and `config-testnet.json` in root for details.
 
-Argument: denom. Can either be a human denom or a chain denom.
+Parameter: denoms (optional). A list of denoms. Can either be human or chain denoms. If none given,
+returns metadata for all denoms.
 
 Response example:
 
@@ -589,6 +590,28 @@ curl "https://sqs.osmosis.zone/tokens/metadata/statom" | jq .
     "chain_denom": "ibc/C140AFD542AE77BD7DCC83F13FDD8C5E5BB8C4929785E6EC2F4C636F98F17901",
     "human_denom": "statom",
     "precision": 6
+}
+```
+
+2. GET `/tokens/prices`
+
+Parameters:
+- `base` Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)
+- `humanDenoms` Specify true if input denominations are in human-readable format; defaults to false.
+
+Response:
+
+A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price.
+
+```bash
+curl https://sqs.osmosis.zone//tokens/prices?base=wbtc,dydx&humanDenoms=true
+{
+    "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C": {
+        "ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858": "3.104120355715761583051226000000000000"
+    },
+    "ibc/D1542AA8762DB13087D8364F3EA6509FD6F009A34F00426AF9E4F9FA85CBBF1F": {
+        "ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858": "51334.702258726899383983572895277207392200"
+    }
 }
 ```
 
