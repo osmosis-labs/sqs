@@ -131,7 +131,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/tokens/metadata/{denom}": {
+        "/tokens/metadata": {
             "get": {
                 "description": "returns token metadata with chain denom, human denom, and precision.\nFor testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.\nSee ` + "`" + `config.json` + "`" + ` and ` + "`" + `config-testnet.json` + "`" + ` in root for details.",
                 "produces": [
@@ -142,17 +142,19 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Denom can either be a human denom or a chain denom",
-                        "name": "denom",
-                        "in": "path",
-                        "required": true
+                        "description": "List of denoms where each can either be a human denom or a chain denom",
+                        "name": "denoms",
+                        "in": "path"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Success",
                         "schema": {
-                            "$ref": "#/definitions/domain.Token"
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/domain.Token"
+                            }
                         }
                     }
                 }

@@ -175,7 +175,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 	systemhttpdelivery.NewSystemHandler(e, redisAddress, config, logger, chainInfoUseCase)
-	tokenshttpdelivery.NewTokensHandler(e, tokensUseCase, logger)
+	tokenshttpdelivery.NewTokensHandler(e, tokensUseCase, routerUsecase, logger)
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
 
 	go func() {

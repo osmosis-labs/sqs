@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
@@ -21,6 +22,9 @@ type tokensUseCase struct {
 
 	denomMapMu           sync.RWMutex
 	humanToChainDenomMap map[string]string
+
+	// No mutex since we only expect reads to this shared resource and no writes.
+	precisionScalingFactorMap map[int]osmomath.Dec
 }
 
 // Struct to represent the JSON structure
@@ -48,6 +52,10 @@ type AssetList struct {
 
 var _ mvc.TokensUsecase = &tokensUseCase{}
 
+var (
+	tenDec = osmomath.NewDec(10)
+)
+
 // NewTokensUsecase will create a new tokens use case object
 func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) (mvc.TokensUsecase, error) {
 	tokenMetadataByChainDenom, err := getTokensFromChainRegistry(chainRegistryAssetsFileURL)
@@ -57,11 +65,21 @@ func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) 
 
 	// Create human denom to chain denom map
 	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
-	for _, tokenMetadata := range tokenMetadataByChainDenom {
+	uniquePrecisionMap := make(map[int]struct{}, 0)
+
+	for chainDenom, tokenMetadata := range tokenMetadataByChainDenom {
 		// lower case human denom
 		lowerCaseHumanDenom := strings.ToLower(tokenMetadata.HumanDenom)
 
-		humanToChainDenomMap[lowerCaseHumanDenom] = tokenMetadata.ChainDenom
+		humanToChainDenomMap[lowerCaseHumanDenom] = chainDenom
+
+		uniquePrecisionMap[tokenMetadata.Precision] = struct{}{}
+	}
+
+	// Precompute precision scaling factors
+	precisionScalingFactors := make(map[int]osmomath.Dec, len(uniquePrecisionMap))
+	for precision, _ := range uniquePrecisionMap {
+		precisionScalingFactors[precision] = tenDec.Power(uint64(precision))
 	}
 
 	return &tokensUseCase{
@@ -69,8 +87,10 @@ func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) 
 
 		tokenMetadataByChainDenom: tokenMetadataByChainDenom,
 		humanToChainDenomMap:      humanToChainDenomMap,
-		metadataMapMu:             sync.RWMutex{},
-		denomMapMu:                sync.RWMutex{},
+		precisionScalingFactorMap: precisionScalingFactors,
+
+		metadataMapMu: sync.RWMutex{},
+		denomMapMu:    sync.RWMutex{},
 	}, nil
 }
 
@@ -80,8 +100,8 @@ func (t *tokensUseCase) GetDenomPrecisions(ctx context.Context) (map[string]int,
 	defer t.metadataMapMu.RUnlock()
 
 	denomPrecisions := make(map[string]int, len(t.tokenMetadataByChainDenom))
-	for _, token := range t.tokenMetadataByChainDenom {
-		denomPrecisions[token.ChainDenom] = token.Precision
+	for chainDenom, token := range t.tokenMetadataByChainDenom {
+		denomPrecisions[chainDenom] = token.Precision
 	}
 
 	return denomPrecisions, nil
@@ -109,6 +129,7 @@ func getTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 	// Iterate through each asset and its denom units to print exponents
 	for _, asset := range assetList.Assets {
 		token := domain.Token{}
+		chainDenom := ""
 
 		if len(asset.DenomUnits) == 1 {
 			// At time of script creation, only the following tokens have 1 denom unit with zero exponent:
@@ -122,7 +143,7 @@ func getTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 
 		for _, denom := range asset.DenomUnits {
 			if denom.Exponent == 0 {
-				token.ChainDenom = denom.Denom
+				chainDenom = denom.Denom
 			}
 
 			if denom.Exponent > 0 {
@@ -137,7 +158,7 @@ func getTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 			}
 		}
 
-		tokensByChainDenom[token.ChainDenom] = token
+		tokensByChainDenom[chainDenom] = token
 	}
 
 	return tokensByChainDenom, nil
@@ -168,4 +189,23 @@ func (t *tokensUseCase) GetMetadataByChainDenom(ctx context.Context, denom strin
 	}
 
 	return token, nil
+}
+
+func (t *tokensUseCase) GetFullTokenMetadata(ctx context.Context) (map[string]domain.Token, error) {
+	t.metadataMapMu.RLock()
+	defer t.metadataMapMu.RUnlock()
+
+	// Do a copy of the cached metadata
+	result := make(map[string]domain.Token, len(t.tokenMetadataByChainDenom))
+	for denom, tokenMetadata := range t.tokenMetadataByChainDenom {
+		result[denom] = tokenMetadata
+	}
+
+	return result, nil
+}
+
+// GetChainScalingFactorMut implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
+	result, ok := t.precisionScalingFactorMap[precision]
+	return result, ok
 }
