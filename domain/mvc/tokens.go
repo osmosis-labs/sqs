@@ -7,13 +7,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 )
 
-type PricingStrategy int
-
-const (
-	ChainPricing PricingStrategy = iota
-	CoinGeckoPricing
-)
-
 // TokensUsecase defines an interface for the tokens usecase.
 type TokensUsecase interface {
 	// GetMetadataByChainDenom returns token metadata for a given chain denom.
