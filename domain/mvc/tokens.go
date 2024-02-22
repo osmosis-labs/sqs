@@ -25,14 +25,15 @@ type TokensUsecase interface {
 	// GetChainDenom returns chain denom by human denom
 	GetChainDenom(ctx context.Context, humanDenom string) (string, error)
 
-	// GetDenomPrecisions returns a map of all denom precisions.
-	GetDenomPrecisions(ctx context.Context) (map[string]int, error)
-
-	// GetChainScalingFactorMut returns a chain scaling factor for a given precision
+	// GetChainScalingFactorByDenomMut returns a chain scaling factor for a given denom
 	// and a boolean flag indicating whether the scaling factor was found or not.
 	// Note that the returned decimal is a shared resource and must not be mutated.
 	// A clone should be made for any mutative operation.
-	GetChainScalingFactorMut(precision int) (osmomath.Dec, bool)
+	GetChainScalingFactorByDenomMut(ctx context.Context, denom string) (osmomath.Dec, error)
 
-	// GetPricingStrategy()
+	// GetPrices returns prices for all given base and quote denoms given a pricing strategy or, otherwise, error, if any.
+	// The outer map consists of base denoms as keys.
+	// The inner map consists of quote denoms as keys.
+	// The result of the inner map is prices of the outer base and inner quote.
+	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingStrategy domain.PricingStrategy) (map[string]map[string]any, error)
 }

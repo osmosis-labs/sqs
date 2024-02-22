@@ -150,16 +150,53 @@
                     }
                 }
             }
+        },
+        "/tokens/prices": {
+            "get": {
+                "description": "Given a list of base denominations, returns the spot price with a system-configured quote denomination.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get prices",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)",
+                        "name": "base",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Specify true if input denominations are in human-readable format; defaults to false",
+                        "name": "humanDenoms",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price.",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
         "domain.Token": {
             "type": "object",
             "properties": {
-                "chain_denom": {
-                    "description": "ChainDenom is the denom used in the chain state.",
-                    "type": "string"
-                },
                 "human_denom": {
                     "description": "HumanDenom is the human readable denom.",
                     "type": "string"

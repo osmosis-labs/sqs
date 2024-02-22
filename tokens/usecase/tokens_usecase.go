@@ -78,7 +78,7 @@ func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) 
 
 	// Precompute precision scaling factors
 	precisionScalingFactors := make(map[int]osmomath.Dec, len(uniquePrecisionMap))
-	for precision, _ := range uniquePrecisionMap {
+	for precision := range uniquePrecisionMap {
 		precisionScalingFactors[precision] = tenDec.Power(uint64(precision))
 	}
 
@@ -92,19 +92,6 @@ func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) 
 		metadataMapMu: sync.RWMutex{},
 		denomMapMu:    sync.RWMutex{},
 	}, nil
-}
-
-// GetDenomPrecisions implements domain.TokensUsecase.
-func (t *tokensUseCase) GetDenomPrecisions(ctx context.Context) (map[string]int, error) {
-	t.metadataMapMu.RLock()
-	defer t.metadataMapMu.RUnlock()
-
-	denomPrecisions := make(map[string]int, len(t.tokenMetadataByChainDenom))
-	for chainDenom, token := range t.tokenMetadataByChainDenom {
-		denomPrecisions[chainDenom] = token.Precision
-	}
-
-	return denomPrecisions, nil
 }
 
 // getTokensFromChainRegistry fetches the tokens from the chain registry.
@@ -204,8 +191,49 @@ func (t *tokensUseCase) GetFullTokenMetadata(ctx context.Context) (map[string]do
 	return result, nil
 }
 
+// GetChainScalingFactorByDenomMut implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetChainScalingFactorByDenomMut(ctx context.Context, denom string) (osmomath.Dec, error) {
+	denomMetadata, err := t.GetMetadataByChainDenom(ctx, denom)
+	if err != nil {
+		return osmomath.Dec{}, err
+	}
+
+	scalingFactor, ok := t.getChainScalingFactorMut(denomMetadata.Precision)
+	if !ok {
+		return osmomath.Dec{}, fmt.Errorf("scalng factor for precision (%d) and denom (%s) not found", denomMetadata.Precision, denom)
+	}
+
+	return scalingFactor, nil
+}
+
 // GetChainScalingFactorMut implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
+func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
 	result, ok := t.precisionScalingFactorMap[precision]
 	return result, ok
+}
+
+// GetPrices implements pricing.PricingStrategy.
+func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSource domain.PricingStrategy) (map[string]map[string]any, error) {
+	byBaseDenomResult := make(map[string]map[string]any, len(baseDenoms))
+
+	// For every base denom, create a map with quote denom prices.
+	for _, baseDenom := range baseDenoms {
+		byQuoteDenomForGivenBaseResult := make(map[string]any, len(quoteDenoms))
+
+		// Given the current base denom, compute all of its prices with the quotes
+		for _, quoteDenom := range quoteDenoms {
+			price, err := pricingSource.GetPrice(ctx, baseDenom, quoteDenom)
+			if err != nil {
+				return nil, err
+			}
+
+			// Price for current base and quote
+			byQuoteDenomForGivenBaseResult[quoteDenom] = price
+		}
+
+		// Finalize all prices for the current base and move on to the next base.
+		byBaseDenomResult[baseDenom] = byQuoteDenomForGivenBaseResult
+	}
+
+	return byBaseDenomResult, nil
 }

@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -13,10 +12,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 
 	_ "github.com/osmosis-labs/sqs/docs"
 )
@@ -31,7 +30,13 @@ type TokensHandler struct {
 const (
 	routerResource = "/tokens"
 
+	// TODO: move to config
 	defaultQuoteHumanDenom = "usdc"
+	defaultPricingSource   = domain.ChainPricingSource
+)
+
+var (
+	defaultQuoteChainDenom string
 )
 
 func formatTokensResource(resource string) string {
@@ -39,7 +44,7 @@ func formatTokensResource(resource string) string {
 }
 
 // NewTokensHandler will initialize the pools/ resources endpoint
-func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) error {
+func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) (err error) {
 	handler := &TokensHandler{
 		TUsecase: ts,
 		RUsecase: ru,
@@ -47,6 +52,11 @@ func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, ru mvc.RouterUsecase, 
 	}
 	e.GET(formatTokensResource("/metadata"), handler.GetMetadata)
 	e.GET(formatTokensResource("/prices"), handler.GetPrices)
+
+	defaultQuoteChainDenom, err = ts.GetChainDenom(context.Background(), defaultQuoteHumanDenom)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -109,6 +119,14 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, tokenMetadataResult)
 }
 
+// @Summary Get prices
+// @Description Given a list of base denominations, returns the spot price with a system-configured quote denomination.
+// @Accept  json
+// @Produce  json
+// @Param   base          query     string  true  "Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)"
+// @Param   humanDenoms   query     bool    false "Specify true if input denominations are in human-readable format; defaults to false"
+// @Success 200 {object} map[string]map[string]string "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price."
+// @Router /tokens/prices [get]
 func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 
@@ -127,74 +145,26 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		}
 	}
 
-	oneUSDC, err := a.getOneUnitChainScale(ctx, defaultQuoteHumanDenom)
+	if isHumanDenoms {
+		for i, baseDenom := range baseDenoms {
+			baseDenoms[i], err = a.TUsecase.GetChainDenom(ctx, baseDenom)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+			}
+		}
+	}
+
+	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, a.TUsecase, a.RUsecase)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
 
-	prices := make(map[string]map[string]any, len(baseDenoms))
-	for i, denom := range baseDenoms {
-		if isHumanDenoms {
-			chainDenom, err := a.TUsecase.GetChainDenom(ctx, denom)
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
-			}
-
-			baseDenoms[i] = chainDenom
-		}
-
-		quote, err := a.RUsecase.GetOptimalQuote(ctx, oneUSDC, baseDenoms[i])
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
-		}
-
-		baseMetadata, err := a.TUsecase.GetMetadataByChainDenom(ctx, baseDenoms[i])
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
-		}
-
-		scalingFactor, ok := a.TUsecase.GetChainScalingFactorMut(baseMetadata.Precision)
-		if !ok {
-			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: fmt.Errorf("scaling factor for (%s) is not found", baseDenoms[i]).Error()})
-		}
-
-		chainPrice := osmomath.NewBigDecFromBigInt(oneUSDC.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
-
-		precisionScalingFactor := osmomath.BigDecFromDec(scalingFactor.Quo(oneUSDC.Amount.ToLegacyDec()))
-
-		currentPrice := chainPrice.MulMut(precisionScalingFactor)
-
-		// from quote denom to price
-		priceResultMap := make(map[string]any, 1)
-		priceResultMap[oneUSDC.Denom] = currentPrice
-
-		prices[baseDenoms[i]] = priceResultMap
+	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, pricingStrategy)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, prices)
-}
-
-// returns one unit of the given human denom in chain scale. That is, converts to on-chain denom
-// and applies precision scaling factor
-func (a *TokensHandler) getOneUnitChainScale(ctx context.Context, humanDenom string) (sdk.Coin, error) {
-	usdcDenom, err := a.TUsecase.GetChainDenom(ctx, humanDenom)
-	if err != nil {
-		return sdk.Coin{}, nil
-	}
-
-	usdcMetadata, err := a.TUsecase.GetMetadataByChainDenom(ctx, usdcDenom)
-	if err != nil {
-		return sdk.Coin{}, nil
-	}
-
-	scalingFactor, ok := a.TUsecase.GetChainScalingFactorMut(usdcMetadata.Precision)
-	if !ok {
-		return sdk.Coin{}, fmt.Errorf("scaling factor for (%s) is not found", humanDenom)
-	}
-
-	oneUSDC := sdk.NewCoin(usdcDenom, scalingFactor.TruncateInt())
-
-	return oneUSDC, nil
 }
 
 // validateDenomsParam validates the denoms param string
