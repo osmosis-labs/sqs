@@ -35,9 +35,13 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.6.0
+
+* [#85](https://github.com/osmosis-labs/sqs/pull/85) /tokens/prices endpoint
+
 ## v0.5.0
 
-* [#85](https://github.com/osmosis-labs/sqs/pull/85) Human readable denom params in router
+ Human readable denom params in router
 * [#84](https://github.com/osmosis-labs/sqs/pull/84) enable swagger
 * [#83](https://github.com/osmosis-labs/sqs/pull/83) /tokens/metadata/:denom endpoint
 
