@@ -4,16 +4,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/router/usecase"
+	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
+	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
+	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
@@ -29,6 +35,12 @@ type MockMainnetState struct {
 	TickMap        map[uint64]sqsdomain.TickModel
 	TakerFeeMap    sqsdomain.TakerFeeMap
 	TokensMetadata map[string]domain.Token
+}
+
+type MockMainnetUsecase struct {
+	Pools  mvc.PoolsUsecase
+	Router mvc.RouterUsecase
+	Tokens mvc.TokensUsecase
 }
 
 const (
@@ -106,6 +118,17 @@ var (
 	// The files below are set in init()
 	projectRoot              = ""
 	absolutePathToStateFiles = ""
+
+	DefaultRouterConfig = domain.RouterConfig{
+		PreferredPoolIDs:          []uint64{},
+		MaxRoutes:                 4,
+		MaxPoolsPerRoute:          4,
+		MaxSplitRoutes:            4,
+		MaxSplitIterations:        10,
+		MinOSMOLiquidity:          20000,
+		RouteUpdateHeightInterval: 0,
+		RouteCacheEnabled:         false,
+	}
 )
 
 func init() {
@@ -200,7 +223,7 @@ func (s *RouterTestHelper) ValidateRoutePools(expectedPools []sqsdomain.Routable
 	}
 }
 
-func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*usecase.Router, MockMainnetState) {
+func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*routerusecase.Router, MockMainnetState) {
 	routerConfig := domain.RouterConfig{
 		PreferredPoolIDs:          []uint64{},
 		MaxRoutes:                 4,
@@ -214,7 +237,7 @@ func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*usecase.Router, MockMai
 	return s.SetupMainnetRouter(routerConfig)
 }
 
-func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*usecase.Router, MockMainnetState) {
+func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*routerusecase.Router, MockMainnetState) {
 	pools, tickMap, err := parsing.ReadPools(absolutePathToStateFiles + poolsFileName)
 	s.Require().NoError(err)
 
@@ -226,12 +249,38 @@ func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*usec
 
 	logger, err := log.NewLogger(false, "", "info")
 	s.Require().NoError(err)
-	router := usecase.NewRouter(config.PreferredPoolIDs, config.MaxPoolsPerRoute, config.MaxRoutes, config.MaxSplitRoutes, config.MaxSplitIterations, config.MinOSMOLiquidity, logger)
-	router = usecase.WithSortedPools(router, pools)
+	router := routerusecase.NewRouter(config.PreferredPoolIDs, config.MaxPoolsPerRoute, config.MaxRoutes, config.MaxSplitRoutes, config.MaxSplitIterations, config.MinOSMOLiquidity, logger)
+	router = routerusecase.WithSortedPools(router, pools)
 
 	return router, MockMainnetState{
 		TickMap:        tickMap,
 		TakerFeeMap:    takerFeeMap,
 		TokensMetadata: tokensMetadata,
+	}
+}
+
+// Sets up and returns usecases for router and pools by mocking the mainnet data
+// from json files.
+func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Router, mainnetState MockMainnetState, rankedRoutesCache *cache.Cache, routesOverwrite *cache.RoutesOverwrite) MockMainnetUsecase {
+	// Setup router repository mock
+	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{}
+	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
+
+	// Setup pools usecase mock.
+	poolsRepositoryMock := sqsdomainmocks.RedisPoolsRepositoryMock{
+		Pools:     router.GetSortedPools(),
+		TickModel: mainnetState.TickMap,
+	}
+	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
+	routerusecase.WithPoolsUsecase(router, poolsUsecase)
+
+	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, DefaultRouterConfig, &log.NoOpLogger{}, rankedRoutesCache, routesOverwrite)
+
+	tokensUsecase := tokensusecase.NewTokensUsecase(time.Hour, mainnetState.TokensMetadata)
+
+	return MockMainnetUsecase{
+		Pools:  poolsUsecase,
+		Router: routerUsecase,
+		Tokens: tokensUsecase,
 	}
 }

@@ -5,8 +5,9 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	"github.com/osmosis-labs/sqs/tokens/usecase"
+	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 )
 
 type TokensUseCaseTestSuite struct {
@@ -42,7 +43,7 @@ func (s *TokensUseCaseTestSuite) TestParseExponents() {
 	s.T().Skip("skip the test that does network call and is used for debugging")
 
 	const ()
-	tokensMap, err := usecase.GetTokensFromChainRegistry(mainnetAssetListFileURL)
+	tokensMap, err := tokensusecase.GetTokensFromChainRegistry(mainnetAssetListFileURL)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(tokensMap)
 
@@ -70,7 +71,7 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 	const (
 		testnetAssetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmo-test-5/osmo-test-5.assetlist.json"
 	)
-	tokensMap, err := usecase.GetTokensFromChainRegistry(testnetAssetListFileURL)
+	tokensMap, err := tokensusecase.GetTokensFromChainRegistry(testnetAssetListFileURL)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(tokensMap)
 
@@ -81,7 +82,13 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 }
 
 func (s *TokensUseCaseTestSuite) TestGetPrices() {
-	_, _ = s.SetupDefaultMainnetRouter()
+	router, mainnetState := s.SetupDefaultMainnetRouter()
+
+	// mock
+
+	s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewNoOpRoutesOverwrite())
+
+	// routerusecase.NewRouterUsecase(time.Second)
 
 	// usecase.NewTokensUsecase(time.Second)
 }

@@ -2,12 +2,13 @@ package usecase_test
 
 import (
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 // Validates that the router returns the correct routes for the given token pair.
 func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOATOM() {
-	config := defaultRouterConfig
+	config := routertesting.DefaultRouterConfig
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
 
@@ -32,7 +33,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOATOM() {
 // Validates that the router returns the correct routes for the given token pair.
 // Inverting the swap direction should return the same routes.
 func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOstOSMO() {
-	config := defaultRouterConfig
+	config := routertesting.DefaultRouterConfig
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
 	config.MinOSMOLiquidity = 1000
@@ -88,7 +89,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_ATOMUSDT() {
 // Validate that can find at least 1 route with no error for top 10
 // pairs by volume.
 func (s *RouterTestSuite) TestGetCandidateRoutesBFS_Top10VolumePairs() {
-	config := defaultRouterConfig
+	config := routertesting.DefaultRouterConfig
 	config.MaxPoolsPerRoute = 3
 	config.MaxRoutes = 10
 	router, _ := s.SetupMainnetRouter(config)

@@ -173,10 +173,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}
 
 	// Initialized tokens usecase
-	tokensUseCase, err := tokensUseCase.NewTokensUsecase(timeoutContext, tokenMetadataByChainDenom)
-	if err != nil {
-		return nil, err
-	}
+	tokensUseCase := tokensUseCase.NewTokensUsecase(timeoutContext, tokenMetadataByChainDenom)
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)

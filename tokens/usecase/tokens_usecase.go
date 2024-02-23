@@ -57,7 +57,7 @@ var (
 )
 
 // NewTokensUsecase will create a new tokens use case object
-func NewTokensUsecase(timeout time.Duration, tokenMetadataByChainDenom map[string]domain.Token) (mvc.TokensUsecase, error) {
+func NewTokensUsecase(timeout time.Duration, tokenMetadataByChainDenom map[string]domain.Token) mvc.TokensUsecase {
 	// Create human denom to chain denom map
 	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
 	uniquePrecisionMap := make(map[int]struct{}, 0)
@@ -86,7 +86,7 @@ func NewTokensUsecase(timeout time.Duration, tokenMetadataByChainDenom map[strin
 
 		metadataMapMu: sync.RWMutex{},
 		denomMapMu:    sync.RWMutex{},
-	}, nil
+	}
 }
 
 // GetChainDenom implements mvc.TokensUsecase.

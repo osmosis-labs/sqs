@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
@@ -18,17 +17,6 @@ import (
 
 type RouterTestSuite struct {
 	routertesting.RouterTestHelper
-}
-
-var defaultRouterConfig = domain.RouterConfig{
-	PreferredPoolIDs:          []uint64{},
-	MaxRoutes:                 4,
-	MaxPoolsPerRoute:          4,
-	MaxSplitRoutes:            4,
-	MaxSplitIterations:        10,
-	MinOSMOLiquidity:          20000,
-	RouteUpdateHeightInterval: 0,
-	RouteCacheEnabled:         false,
 }
 
 func TestRouterTestSuite(t *testing.T) {

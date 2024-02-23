@@ -15,7 +15,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
-	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase"
@@ -656,7 +655,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 		tc := tc
 		s.Run(name, func() {
 			// Setup router config
-			config := defaultRouterConfig
+			config := routertesting.DefaultRouterConfig
 			config.MaxPoolsPerRoute = tc.maxPoolsPerRoute
 			config.MaxRoutes = tc.maxRoutes
 			if tc.maxSplitRoutes > 0 {
@@ -667,10 +666,10 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			router, mainnetState := s.SetupMainnetRouter(config)
 
 			// Mock router use case.
-			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, mainnetState.TickMap, mainnetState.TakerFeeMap, cache.New(), cache.NewNoOpRoutesOverwrite())
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewNoOpRoutesOverwrite())
 
 			// System under test
-			quote, err := routerUsecase.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
+			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
 
 			// We only validate that error does not occur without actually validating the quote.
 			s.Require().NoError(err)
@@ -689,7 +688,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 // That is, with the given pool ID, we expect the quote to be routed through the route
 // that matches these pool IDs. Errors otherwise.
 func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOUION() {
-	config := defaultRouterConfig
+	config := routertesting.DefaultRouterConfig
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
 
@@ -738,36 +737,16 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 // - setting the pool use case on the router (called during GetCandidateRoutes() method)
 // - converting candidate routes to routes with all the necessary data.
 // COTRACT: router is initialized with setupMainnetRouter(...) or setupDefaultMainnetRouter(...)
-func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, tickMap map[uint64]sqsdomain.TickModel, takerFeeMap sqsdomain.TakerFeeMap) []route.RouteImpl {
-	_, poolsUsecase := s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, cache.New(), cache.NewNoOpRoutesOverwrite())
+func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, mainnetState routertesting.MockMainnetState) []route.RouteImpl {
+	mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewNoOpRoutesOverwrite())
 
 	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
 	s.Require().NoError(err)
 
-	routes, err := poolsUsecase.GetRoutesFromCandidates(context.Background(), candidateRoutes, takerFeeMap, tokenInDenom, tokenOutDenom)
+	routes, err := mainnetUseCase.Pools.GetRoutesFromCandidates(context.Background(), candidateRoutes, mainnetState.TakerFeeMap, tokenInDenom, tokenOutDenom)
 	s.Require().NoError(err)
 
 	return routes
-}
-
-// Sets up and returns usecases for router and pools by mocking the mainnet data
-// from json files.
-func (s *RouterTestSuite) setupRouterAndPoolsUsecase(router *routerusecase.Router, tickMap map[uint64]sqsdomain.TickModel, takerFeeMap sqsdomain.TakerFeeMap, rankedRoutesCache *cache.Cache, routesOverwrite *cache.RoutesOverwrite) (mvc.RouterUsecase, mvc.PoolsUsecase) {
-	// Setup router repository mock
-	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{}
-	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
-
-	// Setup pools usecase mock.
-	poolsRepositoryMock := sqsdomainmocks.RedisPoolsRepositoryMock{
-		Pools:     router.GetSortedPools(),
-		TickModel: tickMap,
-	}
-	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
-	routerusecase.WithPoolsUsecase(router, poolsUsecase)
-
-	routerUsecase := usecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, defaultRouterConfig, &log.NoOpLogger{}, rankedRoutesCache, routesOverwrite)
-
-	return routerUsecase, poolsUsecase
 }
 
 // validates that the given quote has one route with one hop and the expected pool ID.

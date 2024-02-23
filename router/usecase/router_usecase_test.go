@@ -14,6 +14,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 
@@ -582,7 +583,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 		tc := tc
 		s.Run(name, func() {
 			// Setup router config
-			config := defaultRouterConfig
+			config := routertesting.DefaultRouterConfig
 			// Note that we set one max route for ease of testing caching specifically.
 			config.MaxRoutes = 1
 
@@ -601,10 +602,10 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			}
 
 			// Mock router use case.
-			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, mainnetState.TickMap, mainnetState.TakerFeeMap, rankedRouteCache, routesOverwrite)
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, rankedRouteCache, routesOverwrite)
 
 			// System under test
-			quote, err := routerUsecase.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom)
+			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom)
 
 			// We only validate that error does not occur without actually validating the quote.
 			s.Require().NoError(err)
@@ -643,7 +644,7 @@ func (s *RouterTestSuite) TestOverwriteRoutes_LoadOverwriteRoutes() {
 	s.Setup()
 
 	// Setup router config
-	config := defaultRouterConfig
+	config := routertesting.DefaultRouterConfig
 	// Note that we set one max route for ease of testing caching specifically.
 	config.MaxRoutes = 1
 
@@ -651,8 +652,8 @@ func (s *RouterTestSuite) TestOverwriteRoutes_LoadOverwriteRoutes() {
 	router, mainnetState := s.SetupMainnetRouter(config)
 
 	// Mock router use case.
-	routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, mainnetState.TickMap, mainnetState.TakerFeeMap, cache.New(), cache.NewRoutesOverwrite())
-	routerUsecase = usecase.WithOverwriteRoutesPath(routerUsecase, tempPath)
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewRoutesOverwrite())
+	routerUsecase := usecase.WithOverwriteRoutesPath(mainnetUsecase.Router, tempPath)
 
 	// Without overwrite this is the pool ID we expect given the amount in.
 	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1400Concentrated)
@@ -678,8 +679,8 @@ func (s *RouterTestSuite) TestOverwriteRoutes_LoadOverwriteRoutes() {
 	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1135Concentrated)
 
 	// Now, drop the original use case and create a new one
-	routerUsecase, _ = s.setupRouterAndPoolsUsecase(router, mainnetState.TickMap, mainnetState.TakerFeeMap, cache.New(), cache.NewRoutesOverwrite())
-	routerUsecase = usecase.WithOverwriteRoutesPath(routerUsecase, tempPath)
+	mainnetUsecase = s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewRoutesOverwrite())
+	routerUsecase = usecase.WithOverwriteRoutesPath(mainnetUsecase.Router, tempPath)
 
 	// 	// Without overwrite this is the pool ID we expect given the amount in.
 	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1400Concentrated)
