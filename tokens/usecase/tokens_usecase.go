@@ -57,12 +57,7 @@ var (
 )
 
 // NewTokensUsecase will create a new tokens use case object
-func NewTokensUsecase(timeout time.Duration, chainRegistryAssetsFileURL string) (mvc.TokensUsecase, error) {
-	tokenMetadataByChainDenom, err := getTokensFromChainRegistry(chainRegistryAssetsFileURL)
-	if err != nil {
-		return nil, err
-	}
-
+func NewTokensUsecase(timeout time.Duration, tokenMetadataByChainDenom map[string]domain.Token) (mvc.TokensUsecase, error) {
 	// Create human denom to chain denom map
 	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
 	uniquePrecisionMap := make(map[int]struct{}, 0)
@@ -187,9 +182,9 @@ func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, b
 	return result, ok
 }
 
-// getTokensFromChainRegistry fetches the tokens from the chain registry.
+// GetTokensFromChainRegistry fetches the tokens from the chain registry.
 // It returns a map of tokens by chain denom.
-func getTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]domain.Token, error) {
+func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]domain.Token, error) {
 	// Fetch the JSON data from the URL
 	response, err := http.Get(chainRegistryAssetsFileURL)
 	if err != nil {

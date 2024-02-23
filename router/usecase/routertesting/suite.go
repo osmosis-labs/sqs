@@ -2,6 +2,8 @@ package routertesting
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -25,7 +27,7 @@ type RouterTestHelper struct {
 const (
 	DefaultPoolID = uint64(1)
 
-	relativePathMainnetFiles = "./routertesting/parsing/"
+	relativePathMainnetFiles = "/router/usecase/routertesting/parsing/"
 	poolsFileName            = "pools.json"
 	takerFeesFileName        = "taker_fees.json"
 )
@@ -92,7 +94,48 @@ var (
 	AKT     = "ibc/1480B8FD20AD5FCAE81EA87584D269547DD4D436843C1D20F15E00EB64743EF4"
 	UMEE    = "ibc/67795E528DF67C5606FC20F824EA39A6EF55BA133F4DC79C90A8C47A0901E17C"
 	UION    = "uion"
+
+	// The files below are set in init()
+	projectRoot              = ""
+	absolutePathToStateFiles = ""
 )
+
+func init() {
+	var err error
+	projectRoot, err = findProjectRoot()
+	if err != nil {
+		panic(err)
+	}
+
+	absolutePathToStateFiles = projectRoot + relativePathMainnetFiles
+}
+
+// findProjectRoot starts from the current dir and goes up until it finds go.mod,
+// returning the absolute directory containing it.
+func findProjectRoot() (string, error) {
+	dir, err := os.Getwd() // Getwd already returns an absolute path
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		// Check for go.mod in the current directory
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			// Ensure the path is absolute, even though it should already be
+			return filepath.Abs(dir)
+		}
+
+		// Move up one directory level
+		parentDir := filepath.Dir(dir)
+		if parentDir == dir {
+			// If the parent directory is the same as the current, we've reached the root
+			break
+		}
+		dir = parentDir
+	}
+
+	return "", fmt.Errorf("project root not found")
+}
 
 func denomNum(i int) string {
 	return fmt.Sprintf("denom%d", i)
@@ -164,10 +207,10 @@ func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*usecase.Router, map[uin
 }
 
 func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*usecase.Router, map[uint64]sqsdomain.TickModel, sqsdomain.TakerFeeMap) {
-	pools, tickMap, err := parsing.ReadPools(relativePathMainnetFiles + poolsFileName)
+	pools, tickMap, err := parsing.ReadPools(absolutePathToStateFiles + poolsFileName)
 	s.Require().NoError(err)
 
-	takerFeeMap, err := parsing.ReadTakerFees(relativePathMainnetFiles + takerFeesFileName)
+	takerFeeMap, err := parsing.ReadTakerFees(absolutePathToStateFiles + takerFeesFileName)
 	s.Require().NoError(err)
 
 	logger, err := log.NewLogger(false, "", "info")

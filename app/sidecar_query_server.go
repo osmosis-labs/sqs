@@ -166,8 +166,14 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	chainInfoRepository := chaininforedisrepo.New(redisTxManager)
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(timeoutContext, chainInfoRepository, redisTxManager)
 
+	// Compute token metadata from chain denom.
+	tokenMetadataByChainDenom, err := tokensUseCase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
+	if err != nil {
+		return nil, err
+	}
+
 	// Initialized tokens usecase
-	tokensUseCase, err := tokensUseCase.NewTokensUsecase(timeoutContext, config.ChainRegistryAssetsFileURL)
+	tokensUseCase, err := tokensUseCase.NewTokensUsecase(timeoutContext, tokenMetadataByChainDenom)
 	if err != nil {
 		return nil, err
 	}

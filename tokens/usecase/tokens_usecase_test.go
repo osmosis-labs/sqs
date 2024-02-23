@@ -15,6 +15,8 @@ type TokensUseCaseTestSuite struct {
 
 const (
 	defaultCosmosExponent = 6
+
+	mainnetAssetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json"
 )
 
 var (
@@ -39,16 +41,13 @@ func TestTokensUseCaseTestSuite(t *testing.T) {
 func (s *TokensUseCaseTestSuite) TestParseExponents() {
 	s.T().Skip("skip the test that does network call and is used for debugging")
 
-	const (
-		assetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json"
-	)
-	tokensMap, err := usecase.GetTokensFromChainRegistry(assetListFileURL)
+	const ()
+	tokensMap, err := usecase.GetTokensFromChainRegistry(mainnetAssetListFileURL)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(tokensMap)
 
 	// ATOM is present
-	atomMainnetDenom := "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2"
-	atomToken, ok := tokensMap[atomMainnetDenom]
+	atomToken, ok := tokensMap[ATOM]
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, atomToken.Precision)
 
@@ -69,19 +68,20 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 	s.T().Skip("skip the test that does network call and is used for debugging")
 
 	const (
-		assetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmo-test-5/osmo-test-5.assetlist.json"
+		testnetAssetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmo-test-5/osmo-test-5.assetlist.json"
 	)
-	tokensMap, err := usecase.GetTokensFromChainRegistry(assetListFileURL)
+	tokensMap, err := usecase.GetTokensFromChainRegistry(testnetAssetListFileURL)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(tokensMap)
 
 	// uosmo is present
-	uosmoDenom := "uosmo"
-	osmoToken, ok := tokensMap[uosmoDenom]
+	osmoToken, ok := tokensMap[UOSMO]
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, osmoToken.Precision)
 }
 
 func (s *TokensUseCaseTestSuite) TestGetPrices() {
 	_, _, _ = s.SetupDefaultMainnetRouter()
+
+	// usecase.NewTokensUsecase(time.Second)
 }
