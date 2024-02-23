@@ -5,17 +5,31 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
-
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/tokens/usecase"
 )
 
 type TokensUseCaseTestSuite struct {
-	apptesting.ConcentratedKeeperTestHelper
+	routertesting.RouterTestHelper
 }
 
 const (
 	defaultCosmosExponent = 6
+)
+
+var (
+	UOSMO   = routertesting.UOSMO
+	ATOM    = routertesting.ATOM
+	stOSMO  = routertesting.STOSMO
+	stATOM  = routertesting.STATOM
+	USDC    = routertesting.USDC
+	USDCaxl = routertesting.USDCaxl
+	USDT    = routertesting.USDT
+	WBTC    = routertesting.WBTC
+	ETH     = routertesting.ETH
+	AKT     = routertesting.AKT
+	UMEE    = routertesting.UMEE
+	UION    = routertesting.UION
 )
 
 func TestTokensUseCaseTestSuite(t *testing.T) {
@@ -66,4 +80,8 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 	osmoToken, ok := tokensMap[uosmoDenom]
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, osmoToken.Precision)
+}
+
+func (s *TokensUseCaseTestSuite) TestGetPrices() {
+	_, _, _ = s.SetupDefaultMainnetRouter()
 }

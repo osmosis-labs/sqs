@@ -494,7 +494,7 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 // For the purposes of testing cache, we focus on a small amount of token in (1_000_000 uosmo), expecting pool 1265 to be returned.
 // We will, however, tweak the cache by test case to force other pools to be returned and ensure that the cache is used.
 func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
-	const (
+	var (
 		defaultTokenInDenom  = UOSMO
 		defaultTokenOutDenom = ATOM
 	)
@@ -587,7 +587,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			config.MaxRoutes = 1
 
 			// Setup mainnet router
-			router, tickMap, takerFeeMap := s.setupMainnetRouter(config)
+			router, tickMap, takerFeeMap := s.SetupMainnetRouter(config)
 
 			rankedRouteCache := cache.New()
 			routesOverwrite := cache.NewRoutesOverwrite()
@@ -648,7 +648,7 @@ func (s *RouterTestSuite) TestOverwriteRoutes_LoadOverwriteRoutes() {
 	config.MaxRoutes = 1
 
 	// Setup mainnet router
-	router, tickMap, takerFeeMap := s.setupMainnetRouter(config)
+	router, tickMap, takerFeeMap := s.SetupMainnetRouter(config)
 
 	// Mock router use case.
 	routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, cache.New(), cache.NewRoutesOverwrite())

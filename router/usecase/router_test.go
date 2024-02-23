@@ -11,7 +11,6 @@ import (
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -20,12 +19,6 @@ import (
 type RouterTestSuite struct {
 	routertesting.RouterTestHelper
 }
-
-const (
-	relativePathMainnetFiles = "./routertesting/parsing/"
-	poolsFileName            = "pools.json"
-	takerFeesFileName        = "taker_fees.json"
-)
 
 var defaultRouterConfig = domain.RouterConfig{
 	PreferredPoolIDs:          []uint64{},
@@ -246,33 +239,4 @@ func WithRoutePools(r route.RouteImpl, pools []sqsdomain.RoutablePool) route.Rou
 
 func WithCandidateRoutePools(r sqsdomain.CandidateRoute, pools []sqsdomain.CandidatePool) sqsdomain.CandidateRoute {
 	return routertesting.WithCandidateRoutePools(r, pools)
-}
-
-func (s *RouterTestSuite) setupDefaultMainnetRouter() (*usecase.Router, map[uint64]sqsdomain.TickModel, sqsdomain.TakerFeeMap) {
-	routerConfig := domain.RouterConfig{
-		PreferredPoolIDs:          []uint64{},
-		MaxRoutes:                 4,
-		MaxPoolsPerRoute:          4,
-		MaxSplitIterations:        10,
-		MinOSMOLiquidity:          10000,
-		RouteUpdateHeightInterval: 0,
-		RouteCacheEnabled:         false,
-	}
-
-	return s.setupMainnetRouter(routerConfig)
-}
-
-func (s *RouterTestSuite) setupMainnetRouter(config domain.RouterConfig) (*routerusecase.Router, map[uint64]sqsdomain.TickModel, sqsdomain.TakerFeeMap) {
-	pools, tickMap, err := parsing.ReadPools(relativePathMainnetFiles + poolsFileName)
-	s.Require().NoError(err)
-
-	takerFeeMap, err := parsing.ReadTakerFees(relativePathMainnetFiles + takerFeesFileName)
-	s.Require().NoError(err)
-
-	logger, err := log.NewLogger(false, "", "info")
-	s.Require().NoError(err)
-	router := routerusecase.NewRouter(config.PreferredPoolIDs, config.MaxPoolsPerRoute, config.MaxRoutes, config.MaxSplitRoutes, config.MaxSplitIterations, config.MinOSMOLiquidity, logger)
-	router = routerusecase.WithSortedPools(router, pools)
-
-	return router, tickMap, takerFeeMap
 }
