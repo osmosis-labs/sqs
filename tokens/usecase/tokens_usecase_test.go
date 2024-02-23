@@ -81,7 +81,7 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 }
 
 func (s *TokensUseCaseTestSuite) TestGetPrices() {
-	_, _, _ = s.SetupDefaultMainnetRouter()
+	_, _ = s.SetupDefaultMainnetRouter()
 
 	// usecase.NewTokensUsecase(time.Second)
 }

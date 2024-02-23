@@ -24,12 +24,20 @@ type RouterTestHelper struct {
 	apptesting.ConcentratedKeeperTestHelper
 }
 
+// Mock mainnet state
+type MockMainnetState struct {
+	TickMap        map[uint64]sqsdomain.TickModel
+	TakerFeeMap    sqsdomain.TakerFeeMap
+	TokensMetadata map[string]domain.Token
+}
+
 const (
 	DefaultPoolID = uint64(1)
 
 	relativePathMainnetFiles = "/router/usecase/routertesting/parsing/"
 	poolsFileName            = "pools.json"
 	takerFeesFileName        = "taker_fees.json"
+	tokensMetadataFileName   = "tokens.json"
 )
 
 var (
@@ -192,7 +200,7 @@ func (s *RouterTestHelper) ValidateRoutePools(expectedPools []sqsdomain.Routable
 	}
 }
 
-func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*usecase.Router, map[uint64]sqsdomain.TickModel, sqsdomain.TakerFeeMap) {
+func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*usecase.Router, MockMainnetState) {
 	routerConfig := domain.RouterConfig{
 		PreferredPoolIDs:          []uint64{},
 		MaxRoutes:                 4,
@@ -206,11 +214,14 @@ func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*usecase.Router, map[uin
 	return s.SetupMainnetRouter(routerConfig)
 }
 
-func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*usecase.Router, map[uint64]sqsdomain.TickModel, sqsdomain.TakerFeeMap) {
+func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*usecase.Router, MockMainnetState) {
 	pools, tickMap, err := parsing.ReadPools(absolutePathToStateFiles + poolsFileName)
 	s.Require().NoError(err)
 
 	takerFeeMap, err := parsing.ReadTakerFees(absolutePathToStateFiles + takerFeesFileName)
+	s.Require().NoError(err)
+
+	tokensMetadata, err := parsing.ReadTokensMetadata(absolutePathToStateFiles + tokensMetadataFileName)
 	s.Require().NoError(err)
 
 	logger, err := log.NewLogger(false, "", "info")
@@ -218,5 +229,9 @@ func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*usec
 	router := usecase.NewRouter(config.PreferredPoolIDs, config.MaxPoolsPerRoute, config.MaxRoutes, config.MaxSplitRoutes, config.MaxSplitIterations, config.MinOSMOLiquidity, logger)
 	router = usecase.WithSortedPools(router, pools)
 
-	return router, tickMap, takerFeeMap
+	return router, MockMainnetState{
+		TickMap:        tickMap,
+		TakerFeeMap:    takerFeeMap,
+		TokensMetadata: tokensMetadata,
+	}
 }

@@ -11,7 +11,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOATOM() {
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
 
-	router, _, _ := s.SetupMainnetRouter(config)
+	router, _ := s.SetupMainnetRouter(config)
 
 	candidateRoutes, err := router.GetCandidateRoutes(UOSMO, ATOM)
 	s.Require().NoError(err)
@@ -37,7 +37,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOstOSMO() {
 	config.MaxRoutes = 10
 	config.MinOSMOLiquidity = 1000
 
-	router, _, _ := s.SetupMainnetRouter(config)
+	router, _ := s.SetupMainnetRouter(config)
 
 	candidateRoutesUOSMOIn, err := router.GetCandidateRoutes(UOSMO, stOSMO)
 	s.Require().NoError(err)
@@ -77,7 +77,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_ATOMUSDT() {
 		RouteCacheEnabled:         false,
 	}
 
-	router, _, _ := s.SetupMainnetRouter(config)
+	router, _ := s.SetupMainnetRouter(config)
 
 	candidateRoutesUOSMOIn, err := router.GetCandidateRoutes(ATOM, USDT)
 	s.Require().NoError(err)
@@ -91,7 +91,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_Top10VolumePairs() {
 	config := defaultRouterConfig
 	config.MaxPoolsPerRoute = 3
 	config.MaxRoutes = 10
-	router, _, _ := s.SetupMainnetRouter(config)
+	router, _ := s.SetupMainnetRouter(config)
 
 	// Manually taken from https://info.osmosis.zone/ in Nov 2023.
 	top10ByVolumeDenoms := []string{

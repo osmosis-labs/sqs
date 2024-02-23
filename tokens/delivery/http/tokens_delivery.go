@@ -17,6 +17,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 
 	_ "github.com/osmosis-labs/sqs/docs"
@@ -55,6 +56,7 @@ func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, ru mvc.RouterUsecase, 
 	e.GET(formatTokensResource("/metadata"), handler.GetMetadata)
 	e.GET(formatTokensResource("/prices"), handler.GetPrices)
 	e.GET(formatTokensResource("/usd-price-test"), handler.GetUSDPriceTest)
+	e.POST(formatTokensResource("/store-state"), handler.StoreTokensStateInFiles)
 
 	defaultQuoteChainDenom, err = ts.GetChainDenom(context.Background(), defaultQuoteHumanDenom)
 	if err != nil {
@@ -218,4 +220,20 @@ func (a *TokensHandler) GetUSDPriceTest(c echo.Context) (err error) {
 	}
 
 	return c.JSON(http.StatusOK, prices)
+}
+
+func (a *TokensHandler) StoreTokensStateInFiles(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	tokensMetadata, err := a.TUsecase.GetFullTokenMetadata(ctx)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
+	}
+
+	err = parsing.StoreTokensMetadata(tokensMetadata, "tokens.json")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, "Tokens metadata state stored in files")
 }

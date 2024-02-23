@@ -664,10 +664,10 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			}
 
 			// Setup mainnet router
-			router, tickMap, takerFeeMap := s.SetupMainnetRouter(config)
+			router, mainnetState := s.SetupMainnetRouter(config)
 
 			// Mock router use case.
-			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, cache.New(), cache.NewNoOpRoutesOverwrite())
+			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, mainnetState.TickMap, mainnetState.TakerFeeMap, cache.New(), cache.NewNoOpRoutesOverwrite())
 
 			// System under test
 			quote, err := routerUsecase.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
@@ -697,18 +697,18 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 		amountIn = osmomath.NewInt(5000000)
 	)
 
-	router, tickMap, takerFeeMap := s.SetupMainnetRouter(config)
+	router, mainnetState := s.SetupMainnetRouter(config)
 
 	// Setup router repository mock
 	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{
-		TakerFees: takerFeeMap,
+		TakerFees: mainnetState.TakerFeeMap,
 	}
 	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
 
 	// Setup pools usecase mock.
 	poolsRepositoryMock := sqsdomainmocks.RedisPoolsRepositoryMock{
 		Pools:     router.GetSortedPools(),
-		TickModel: tickMap,
+		TickModel: mainnetState.TickMap,
 	}
 	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)

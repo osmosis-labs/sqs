@@ -587,7 +587,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			config.MaxRoutes = 1
 
 			// Setup mainnet router
-			router, tickMap, takerFeeMap := s.SetupMainnetRouter(config)
+			router, mainnetState := s.SetupMainnetRouter(config)
 
 			rankedRouteCache := cache.New()
 			routesOverwrite := cache.NewRoutesOverwrite()
@@ -601,7 +601,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			}
 
 			// Mock router use case.
-			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, rankedRouteCache, routesOverwrite)
+			routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, mainnetState.TickMap, mainnetState.TakerFeeMap, rankedRouteCache, routesOverwrite)
 
 			// System under test
 			quote, err := routerUsecase.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom)
@@ -648,10 +648,10 @@ func (s *RouterTestSuite) TestOverwriteRoutes_LoadOverwriteRoutes() {
 	config.MaxRoutes = 1
 
 	// Setup mainnet router
-	router, tickMap, takerFeeMap := s.SetupMainnetRouter(config)
+	router, mainnetState := s.SetupMainnetRouter(config)
 
 	// Mock router use case.
-	routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, cache.New(), cache.NewRoutesOverwrite())
+	routerUsecase, _ := s.setupRouterAndPoolsUsecase(router, mainnetState.TickMap, mainnetState.TakerFeeMap, cache.New(), cache.NewRoutesOverwrite())
 	routerUsecase = usecase.WithOverwriteRoutesPath(routerUsecase, tempPath)
 
 	// Without overwrite this is the pool ID we expect given the amount in.
@@ -678,7 +678,7 @@ func (s *RouterTestSuite) TestOverwriteRoutes_LoadOverwriteRoutes() {
 	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1135Concentrated)
 
 	// Now, drop the original use case and create a new one
-	routerUsecase, _ = s.setupRouterAndPoolsUsecase(router, tickMap, takerFeeMap, cache.New(), cache.NewRoutesOverwrite())
+	routerUsecase, _ = s.setupRouterAndPoolsUsecase(router, mainnetState.TickMap, mainnetState.TakerFeeMap, cache.New(), cache.NewRoutesOverwrite())
 	routerUsecase = usecase.WithOverwriteRoutesPath(routerUsecase, tempPath)
 
 	// 	// Without overwrite this is the pool ID we expect given the amount in.

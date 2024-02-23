@@ -112,3 +112,6 @@ sqs-update-mainnet-state:
 	curl -X POST "http:/localhost:9092/router/store-state"
 	mv pools.json router/usecase/routertesting/parsing/pools.json
 	mv taker_fees.json router/usecase/routertesting/parsing/taker_fees.json
+
+	curl -X POST "http:/localhost:9092/tokens/store-state"
+	mv tokens.json router/usecase/routertesting/parsing/tokens.json

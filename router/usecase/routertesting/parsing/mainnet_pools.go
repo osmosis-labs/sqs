@@ -96,6 +96,30 @@ func StoreTakerFees(takerFeesFile string, takerFeesMap sqsdomain.TakerFeeMap) er
 	return nil
 }
 
+// StoreTokensMetadata stores the tokens meta data to disk at the given path.
+func StoreTokensMetadata(tokensMetaData map[string]domain.Token, tokensFile string) error {
+	_, err := os.Stat(tokensFile)
+	if os.IsNotExist(err) {
+		file, err := os.Create(tokensFile)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		takerFeesJSON, err := json.Marshal(tokensMetaData)
+		if err != nil {
+			return err
+		}
+
+		_, err = file.Write(takerFeesJSON)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // ReadPools reads the pools from a file and returns them
 func ReadPools(poolsFile string) ([]sqsdomain.PoolI, map[uint64]sqsdomain.TickModel, error) {
 	poolBytes, err := os.ReadFile(poolsFile)
@@ -143,6 +167,22 @@ func ReadTakerFees(takerFeeFileName string) (sqsdomain.TakerFeeMap, error) {
 	}
 
 	return takerFeeMap, nil
+}
+
+// ReadTokensMetadata reads the tokens meta data from disk at the given path and returns them.
+func ReadTokensMetadata(tokensMetadataFileName string) (map[string]domain.Token, error) {
+	tokensMetadataBytes, err := os.ReadFile(tokensMetadataFileName)
+	if err != nil {
+		return nil, err
+	}
+
+	tokensMetadata := map[string]domain.Token{}
+	err = json.Unmarshal(tokensMetadataBytes, &tokensMetadata)
+	if err != nil {
+		return nil, err
+	}
+
+	return tokensMetadata, nil
 }
 
 // MarshalPool marshals a pool to JSON.
