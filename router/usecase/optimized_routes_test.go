@@ -202,7 +202,9 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 			logger, err := log.NewLogger(false, "", "")
 			s.Require().NoError(err)
 
-			r := routerusecase.NewRouter([]uint64{}, 0, 0, 0, tc.maxSplitIterations, 0, logger)
+			r := routerusecase.NewRouter(domain.RouterConfig{
+				MaxSplitIterations: tc.maxSplitIterations,
+			}, logger)
 
 			quote, err := r.GetSplitQuote(context.TODO(), tc.routes, tc.tokenIn)
 
@@ -536,7 +538,7 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 		tc := tc
 		s.Run(name, func() {
 
-			router := routerusecase.NewRouter([]uint64{}, 0, 0, 0, 0, 0, &log.NoOpLogger{})
+			router := routerusecase.NewRouter(domain.RouterConfig{}, &log.NoOpLogger{})
 
 			filteredCandidateRoutes, err := router.ValidateAndFilterRoutes(tc.routes, tc.tokenInDenom)
 
@@ -565,11 +567,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 		tokenInDenom  string
 		tokenOutDenom string
 
-		maxPoolsPerRoute   int
-		maxRoutes          int
-		maxSplitRoutes     int
-		maxSplitIterations int
-
 		amountIn osmomath.Int
 
 		expectedRoutesCount int
@@ -580,9 +577,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			tokenInDenom:  USDT,
 			tokenOutDenom: UMEE,
 
-			maxPoolsPerRoute: 5,
-			maxRoutes:        10,
-
 			amountIn: osmomath.NewInt(1000_000_000),
 
 			expectedRoutesCount: 2,
@@ -590,9 +584,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 		"uosmo for uion": {
 			tokenInDenom:  UOSMO,
 			tokenOutDenom: UION,
-
-			maxPoolsPerRoute: 5,
-			maxRoutes:        10,
 
 			amountIn: osmomath.NewInt(5000000),
 
@@ -602,10 +593,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			tokenInDenom:  USDT,
 			tokenOutDenom: ATOM,
 
-			maxPoolsPerRoute: 5,
-			maxRoutes:        10,
-			maxSplitRoutes:   3,
-
 			amountIn: osmomath.NewInt(5000000),
 
 			expectedRoutesCount: 1,
@@ -613,10 +600,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 		"uakt for umee": {
 			tokenInDenom:  AKT,
 			tokenOutDenom: UMEE,
-
-			maxPoolsPerRoute: 4,
-			maxRoutes:        10,
-			maxSplitRoutes:   3,
 
 			amountIn: osmomath.NewInt(100_000_000),
 
@@ -628,10 +611,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			tokenInDenom:  UMEE,
 			tokenOutDenom: stOSMO,
 
-			maxPoolsPerRoute: 4,
-			maxRoutes:        20,
-			maxSplitRoutes:   3,
-
 			amountIn: osmomath.NewInt(1_000_000),
 
 			expectedRoutesCount: 1,
@@ -640,10 +619,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 		"atom for akt": {
 			tokenInDenom:  ATOM,
 			tokenOutDenom: AKT,
-
-			maxPoolsPerRoute: 4,
-			maxRoutes:        20,
-			maxSplitRoutes:   3,
 
 			amountIn: osmomath.NewInt(1_000_000),
 
@@ -654,16 +629,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 	for name, tc := range tests {
 		tc := tc
 		s.Run(name, func() {
-			// Setup router config
-			config := routertesting.DefaultRouterConfig
-			config.MaxPoolsPerRoute = tc.maxPoolsPerRoute
-			config.MaxRoutes = tc.maxRoutes
-			if tc.maxSplitRoutes > 0 {
-				config.MaxSplitRoutes = tc.maxSplitRoutes
-			}
-
 			// Setup mainnet router
-			router, mainnetState := s.SetupMainnetRouter(config)
+			router, mainnetState := s.SetupDefaultMainnetRouter()
 
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewNoOpRoutesOverwrite())

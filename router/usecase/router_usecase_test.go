@@ -14,7 +14,6 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
-	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 
@@ -84,7 +83,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		tokenInDenom  = "uosmo"
 		tokenOutDenom = "uion"
 
-		minOsmoLiquidity = 10000 * usecase.OsmoPrecisionMultiplier
+		minOsmoLiquidity = 100
 	)
 
 	// Create test balancer pool
@@ -101,7 +100,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	defaultPool := &sqsdomain.PoolWrapper{
 		ChainModel: balancerPool,
 		SQSModel: sqsdomain.SQSPool{
-			TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity + 1)),
+			TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity*usecase.OsmoPrecisionMultiplier + 1)),
 			PoolDenoms:           []string{tokenInDenom, tokenOutDenom},
 			Balances:             balancerCoins,
 			SpreadFactor:         DefaultSpreadFactor,
@@ -227,7 +226,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			s.Require().True(ok)
 
 			// Initialize router
-			router := usecase.NewRouter(defaultRouterConfig.PreferredPoolIDs, defaultRouterConfig.MaxPoolsPerRoute, defaultRouterConfig.MaxRoutes, defaultRouterConfig.MaxSplitRoutes, defaultRouterConfig.MaxSplitIterations, defaultRouterConfig.MaxSplitIterations, &log.NoOpLogger{})
+			router := usecase.NewRouter(defaultRouterConfig, &log.NoOpLogger{})
 			router = usecase.WithSortedPools(router, poolsUseCaseMock.Pools)
 
 			// System under test
@@ -582,13 +581,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 	for name, tc := range tests {
 		tc := tc
 		s.Run(name, func() {
-			// Setup router config
-			config := routertesting.DefaultRouterConfig
-			// Note that we set one max route for ease of testing caching specifically.
-			config.MaxRoutes = 1
-
 			// Setup mainnet router
-			router, mainnetState := s.SetupMainnetRouter(config)
+			router, mainnetState := s.SetupDefaultMainnetRouter()
 
 			rankedRouteCache := cache.New()
 			routesOverwrite := cache.NewRoutesOverwrite()
@@ -643,13 +637,8 @@ func (s *RouterTestSuite) TestOverwriteRoutes_LoadOverwriteRoutes() {
 
 	s.Setup()
 
-	// Setup router config
-	config := routertesting.DefaultRouterConfig
-	// Note that we set one max route for ease of testing caching specifically.
-	config.MaxRoutes = 1
-
 	// Setup mainnet router
-	router, mainnetState := s.SetupMainnetRouter(config)
+	router, mainnetState := s.SetupDefaultMainnetRouter()
 
 	// Mock router use case.
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewRoutesOverwrite())

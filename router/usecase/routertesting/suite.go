@@ -114,6 +114,7 @@ var (
 	AKT     = "ibc/1480B8FD20AD5FCAE81EA87584D269547DD4D436843C1D20F15E00EB64743EF4"
 	UMEE    = "ibc/67795E528DF67C5606FC20F824EA39A6EF55BA133F4DC79C90A8C47A0901E17C"
 	UION    = "uion"
+	CRE     = "ibc/5A7C219BA5F7582B99629BA3B2A01A61BFDA0F6FD1FE95B5366F7334C4BC0580"
 
 	MainnetDenoms = []string{
 		UOSMO,
@@ -128,6 +129,7 @@ var (
 		AKT,
 		UMEE,
 		UION,
+		CRE,
 	}
 
 	// The files below are set in init()
@@ -245,16 +247,7 @@ func (s *RouterTestHelper) ValidateRoutePools(expectedPools []sqsdomain.Routable
 }
 
 func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*routerusecase.Router, MockMainnetState) {
-	routerConfig := domain.RouterConfig{
-		PreferredPoolIDs:          []uint64{},
-		MaxRoutes:                 4,
-		MaxPoolsPerRoute:          4,
-		MaxSplitIterations:        10,
-		MinOSMOLiquidity:          10000,
-		RouteUpdateHeightInterval: 0,
-		RouteCacheEnabled:         false,
-	}
-
+	routerConfig := DefaultRouterConfig
 	return s.SetupMainnetRouter(routerConfig)
 }
 
@@ -270,7 +263,7 @@ func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*rout
 
 	logger, err := log.NewLogger(false, "", "info")
 	s.Require().NoError(err)
-	router := routerusecase.NewRouter(config.PreferredPoolIDs, config.MaxPoolsPerRoute, config.MaxRoutes, config.MaxSplitRoutes, config.MaxSplitIterations, config.MinOSMOLiquidity, logger)
+	router := routerusecase.NewRouter(config, logger)
 	router = routerusecase.WithSortedPools(router, pools)
 
 	return router, MockMainnetState{
@@ -284,7 +277,10 @@ func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*rout
 // from json files.
 func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Router, mainnetState MockMainnetState, rankedRoutesCache *cache.Cache, routesOverwrite *cache.RoutesOverwrite) MockMainnetUsecase {
 	// Setup router repository mock
-	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{}
+	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{
+		TakerFees: mainnetState.TakerFeeMap,
+		Routes:    map[sqsdomain.DenomPair]sqsdomain.CandidateRoutes{},
+	}
 	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
 
 	// Setup pools usecase mock.
@@ -295,7 +291,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &DefaultPoolsConfig, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
-	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, DefaultRouterConfig, &log.NoOpLogger{}, rankedRoutesCache, routesOverwrite)
+	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, router.GetConfig(), &log.NoOpLogger{}, rankedRoutesCache, routesOverwrite)
 
 	tokensUsecase := tokensusecase.NewTokensUsecase(time.Hour, mainnetState.TokensMetadata)
 

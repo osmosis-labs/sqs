@@ -115,3 +115,7 @@ sqs-update-mainnet-state:
 
 	curl -X POST "http:/localhost:9092/tokens/store-state"
 	mv tokens.json router/usecase/routertesting/parsing/tokens.json
+
+# Bench tests pricing
+bench-pricing:
+	go test -bench BenchmarkGetPrices -run BenchmarkGetPrices github.com/osmosis-labs/sqs/tokens/usecase -v

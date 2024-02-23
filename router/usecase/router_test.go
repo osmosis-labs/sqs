@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
@@ -184,7 +185,14 @@ func (s *RouterTestSuite) TestNewRouter() {
 	)
 
 	// System under test
-	router := routerusecase.NewRouter(preferredPoolIDs, maxHops, maxRoutes, maxSplitRoutes, maxSplitIterations, minOsmoLiquidity, logger)
+	router := routerusecase.NewRouter(domain.RouterConfig{
+		PreferredPoolIDs:   preferredPoolIDs,
+		MaxPoolsPerRoute:   maxHops,
+		MaxRoutes:          maxRoutes,
+		MaxSplitRoutes:     maxSplitRoutes,
+		MaxSplitIterations: maxSplitIterations,
+		MinOSMOLiquidity:   minOsmoLiquidity,
+	}, logger)
 	router = routerusecase.WithSortedPools(router, defaultAllPools)
 
 	// Assert

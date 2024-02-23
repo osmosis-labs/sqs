@@ -316,13 +316,13 @@ func estimateDirectQuote(ctx context.Context, router *Router, routes []route.Rou
 	numRoutes := len(routesSortedByAmtOut)
 
 	// If split routes are disabled, return a single the top route
-	if router.maxSplitRoutes == 0 && numRoutes > 0 {
+	if router.config.MaxSplitRoutes == 0 && numRoutes > 0 {
 		numRoutes = 1
 		// If there are more routes than the max split routes, keep only the top routes
-	} else if len(routesSortedByAmtOut) > router.maxSplitRoutes {
+	} else if len(routesSortedByAmtOut) > router.config.MaxSplitRoutes {
 		// Keep only top routes for splits
-		routes = routes[:router.maxSplitRoutes]
-		numRoutes = router.maxSplitRoutes
+		routes = routes[:router.config.MaxSplitRoutes]
+		numRoutes = router.config.MaxSplitRoutes
 	}
 
 	// Convert routes sorted by amount out to routes
@@ -551,7 +551,7 @@ func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
 // - there is an error retrieving taker fees from the store
 // TODO: test
 func (r *routerUseCaseImpl) initializeRouter() *Router {
-	router := NewRouter(r.config.PreferredPoolIDs, r.config.MaxPoolsPerRoute, r.config.MaxRoutes, r.config.MaxSplitRoutes, r.config.MaxSplitIterations, r.config.MinOSMOLiquidity, r.logger)
+	router := NewRouter(r.config, r.logger)
 	router = WithRouterRepository(router, r.routerRepository)
 	router = WithPoolsUsecase(router, r.poolsUsecase)
 

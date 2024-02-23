@@ -25,7 +25,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 	queue := make([][]candidatePoolWrapper, 0)
 	queue = append(queue, []candidatePoolWrapper{})
 
-	for len(queue) > 0 && len(routes) < r.maxRoutes {
+	for len(queue) > 0 && len(routes) < r.config.MaxRoutes {
 		currentRoute := queue[0]
 		queue = queue[1:]
 
@@ -37,7 +37,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 			currenTokenInDenom = lastPool.TokenOutDenom
 		}
 
-		for i := 0; i < len(r.sortedPools) && len(routes) < r.maxRoutes; i++ {
+		for i := 0; i < len(r.sortedPools) && len(routes) < r.config.MaxRoutes; i++ {
 			pool := r.sortedPools[i]
 
 			if visited[pool.GetId()] {
@@ -94,7 +94,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 						PoolType:   pool.GetType(),
 					})
 
-					if len(newPath) <= r.maxHops {
+					if len(newPath) <= r.config.MaxPoolsPerRoute {
 						if hasTokenOut {
 							routes = append(routes, newPath)
 							break

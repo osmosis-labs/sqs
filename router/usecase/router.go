@@ -3,6 +3,7 @@ package usecase
 import (
 	"sort"
 
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
 	"go.uber.org/zap"
@@ -15,21 +16,9 @@ import (
 )
 
 type Router struct {
-	preferredPoolIDS []uint64
-	sortedPools      []sqsdomain.PoolI
-	// The maximum number of hops to route through.
-	maxHops int
-	// The maximum number of routes to return.
-	maxRoutes int
+	sortedPools []sqsdomain.PoolI
 
-	// The maximum number of routes to split across
-	// Must be smaller than or equal to maxRoutes.
-	maxSplitRoutes int
-
-	// The maximum number of split iterations to perform
-	maxSplitIterations int
-
-	minOSMOTVL int
+	config domain.RouterConfig
 
 	routerRepository routerredisrepo.RouterRepository
 
@@ -59,35 +48,35 @@ const (
 // Each pool has a flag indicating whether there was an error in estimating its on-chain TVL.
 // If that is the case, the pool is to be sorted towards the end. However, the preferredPoolIDs overwrites this rule
 // and prioritizes the preferred pools.
-func NewRouter(preferredPoolIDs []uint64, maxHops, maxRoutes, maxSplitRoutes, maxSplitIterations int, minOSMOTVL int, logger log.Logger) *Router {
+func NewRouter(config domain.RouterConfig, logger log.Logger) *Router {
 	if logger == nil {
 		logger = &log.NoOpLogger{}
 	}
 
 	return &Router{
-		maxHops:            maxHops,
-		maxRoutes:          maxRoutes,
-		logger:             logger,
-		maxSplitIterations: maxSplitIterations,
-		maxSplitRoutes:     maxSplitRoutes,
-		minOSMOTVL:         minOSMOTVL,
-		preferredPoolIDS:   preferredPoolIDs,
+		config: config,
+		logger: logger,
 	}
+}
+
+// GetConfig returns the router config.
+func (r Router) GetConfig() domain.RouterConfig {
+	return r.config
 }
 
 // GetMaxHops returns the maximum number of hops configured.
 func (r Router) GetMaxHops() int {
-	return r.maxHops
+	return r.config.MaxPoolsPerRoute
 }
 
 // GetMaxRoutes returns the maximum number of routes configured.
 func (r Router) GetMaxRoutes() int {
-	return r.maxRoutes
+	return r.config.MaxRoutes
 }
 
 // GetMaxSplitIterations returns the maximum number of iterations when searching for split routes.
 func (r Router) GetMaxSplitIterations() int {
-	return r.maxSplitIterations
+	return r.config.MaxSplitIterations
 }
 
 // GetLogger returns the logger.
@@ -104,7 +93,7 @@ func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 	router.sortedPools = make([]sqsdomain.PoolI, 0)
 	totalTVL := osmomath.ZeroInt()
 
-	minUOSMOTVL := osmomath.NewInt(int64(router.minOSMOTVL * osmoPrecisionMultiplier))
+	minUOSMOTVL := osmomath.NewInt(int64(router.config.MinOSMOLiquidity * osmoPrecisionMultiplier))
 
 	// Make a copy and filter pools
 	for _, pool := range allPools {
@@ -119,7 +108,7 @@ func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 	}
 
 	preferredPoolIDsMap := make(map[uint64]struct{})
-	for _, poolID := range router.preferredPoolIDS {
+	for _, poolID := range router.config.PreferredPoolIDs {
 		preferredPoolIDsMap[poolID] = struct{}{}
 	}
 

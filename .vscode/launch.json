@@ -23,7 +23,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestOverwriteRoutes_LoadOverwriteRoutes",
+                "TestRouterTestSuite/TestHandleRoutes",
                 "-test.v"
             ],
         },
@@ -37,7 +37,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestTokensUseCaseTestSuite/TestGetPrices",
+                "TestTokensUseCaseTestSuite/TestGetPrices_Chain_Specific",
                 "-test.v"
             ],
         },

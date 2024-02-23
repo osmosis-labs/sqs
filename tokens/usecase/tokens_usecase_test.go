@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -37,6 +38,16 @@ var (
 	AKT     = routertesting.AKT
 	UMEE    = routertesting.UMEE
 	UION    = routertesting.UION
+	CRE     = routertesting.CRE
+
+	defaultPricingConfig = domain.RouterConfig{
+		PreferredPoolIDs:  []uint64{},
+		MaxRoutes:         5,
+		MaxPoolsPerRoute:  3,
+		MaxSplitRoutes:    3,
+		MinOSMOLiquidity:  50,
+		RouteCacheEnabled: true,
+	}
 )
 
 func TestTokensUseCaseTestSuite(t *testing.T) {
@@ -98,7 +109,7 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupDefaultMainnetRouter()
+	router, mainnetState := s.SetupMainnetRouter(defaultPricingConfig)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
 
 	// Set up on-chain pricing strategy
@@ -150,6 +161,48 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	result := wbtcErrorTolerance.CompareBigDec(expectedwBTCPrice, actualwBTCUSDCPrice)
 	s.Require().Zero(result)
+}
+
+func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
+	s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
+
+	// Set up mainnet mock state.
+	router, mainnetState := s.SetupMainnetRouter(defaultPricingConfig)
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
+
+	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
+	s.Require().NoError(err)
+
+	// Set up on-chain pricing strategy
+	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	s.Require().NoError(err)
+
+	counter := 1
+	for chainDenom, tokenMetadata := range tokenMetadata {
+		// System under test.
+		_, err = mainnetUsecase.Tokens.GetPrices(context.Background(), []string{chainDenom}, []string{USDC}, pricingStrategy)
+		if err != nil {
+			fmt.Printf("%d. %s\n", counter, tokenMetadata.HumanDenom)
+			counter++
+		}
+	}
+}
+
+// Convinience test to test and print a result for a specific token
+func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
+	// Set up mainnet mock state.
+	router, mainnetState := s.SetupMainnetRouter(defaultPricingConfig)
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
+
+	// Set up on-chain pricing strategy
+	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	s.Require().NoError(err)
+
+	// System under test.
+	price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{CRE}, []string{USDC}, pricingStrategy)
+	s.Require().NoError(err)
+
+	fmt.Println(price)
 }
 
 // helper to convert any to BigDec
