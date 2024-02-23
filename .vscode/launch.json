@@ -23,7 +23,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestOverwriteRoutes",
+                "TestRouterTestSuite/TestOverwriteRoutes_LoadOverwriteRoutes",
                 "-test.v"
             ],
         },

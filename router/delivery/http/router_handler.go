@@ -335,16 +335,33 @@ func (a *RouterHandler) getChainDenoms(c echo.Context, tokenOutDenom, tokenInDen
 		}
 	}
 
+	// Note that sdk.Coins initialization
+	// auto-converts base denom from human
+	// to IBC notation.
+	// As a result, we avoid attempting the
+	// to convert a denom that is already changed.
+	baseDenom, err := sdk.GetBaseDenom()
+	if err != nil {
+		return "", "", nil
+	}
+
 	if isHumanDenoms {
 		ctx := c.Request().Context()
-		tokenOutDenom, err = a.TUsecase.GetChainDenom(ctx, tokenOutDenom)
-		if err != nil {
-			return "", "", err
+
+		// See definition of baseDenom.
+		if tokenOutDenom != baseDenom {
+			tokenOutDenom, err = a.TUsecase.GetChainDenom(ctx, tokenOutDenom)
+			if err != nil {
+				return "", "", err
+			}
 		}
 
-		tokenInDenom, err = a.TUsecase.GetChainDenom(ctx, tokenInDenom)
-		if err != nil {
-			return "", "", err
+		// See definition of baseDenom.
+		if tokenInDenom != baseDenom {
+			tokenInDenom, err = a.TUsecase.GetChainDenom(ctx, tokenInDenom)
+			if err != nil {
+				return "", "", err
+			}
 		}
 	}
 	return tokenOutDenom, tokenInDenom, nil
