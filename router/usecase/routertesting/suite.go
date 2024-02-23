@@ -115,6 +115,21 @@ var (
 	UMEE    = "ibc/67795E528DF67C5606FC20F824EA39A6EF55BA133F4DC79C90A8C47A0901E17C"
 	UION    = "uion"
 
+	MainnetDenoms = []string{
+		UOSMO,
+		ATOM,
+		STOSMO,
+		STATOM,
+		USDC,
+		USDCaxl,
+		USDT,
+		WBTC,
+		ETH,
+		AKT,
+		UMEE,
+		UION,
+	}
+
 	// The files below are set in init()
 	projectRoot              = ""
 	absolutePathToStateFiles = ""
@@ -128,6 +143,12 @@ var (
 		MinOSMOLiquidity:          20000,
 		RouteUpdateHeightInterval: 0,
 		RouteCacheEnabled:         false,
+	}
+
+	DefaultPoolsConfig = domain.PoolsConfig{
+		// Transmuter V1 and V2
+		TransmuterCodeIDs:      []uint64{148, 254},
+		GeneralCosmWasmCodeIDs: []uint64{},
 	}
 )
 
@@ -271,7 +292,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 		Pools:     router.GetSortedPools(),
 		TickModel: mainnetState.TickMap,
 	}
-	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
+	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &DefaultPoolsConfig, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
 	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, DefaultRouterConfig, &log.NoOpLogger{}, rankedRoutesCache, routesOverwrite)

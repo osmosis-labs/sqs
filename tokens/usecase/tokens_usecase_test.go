@@ -1,13 +1,17 @@
 package usecase_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
+	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 )
 
 type TokensUseCaseTestSuite struct {
@@ -81,14 +85,76 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 	s.Require().Equal(defaultCosmosExponent, osmoToken.Precision)
 }
 
-func (s *TokensUseCaseTestSuite) TestGetPrices() {
+// This test validates that on-chain pricing works as intended.
+//
+// It sets up mock mainnet state.
+//
+// Next, it gets prices with USDC and USDT as quotes for several top denoms.
+//
+// It iterates over results and confirms that, for each denom, the difference is at most 1%.
+//
+// Additionally, for sanit check it confirms that for WBTC / USDC the price is within 15% of 50K
+// (approximately the real price at the time of writing)
+func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
+
+	// Set up mainnet mock state.
 	router, mainnetState := s.SetupDefaultMainnetRouter()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
 
-	// mock
+	// Set up on-chain pricing strategy
+	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	s.Require().NoError(err)
 
-	s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewNoOpRoutesOverwrite())
+	// System under test.
+	prices, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC, USDT}, pricingStrategy)
+	s.Require().NoError(err)
 
-	// routerusecase.NewRouterUsecase(time.Second)
+	errTolerance := osmomath.ErrTolerance{
+		// 1% tolerance
+		MultiplicativeTolerance: osmomath.MustNewDecFromStr("0.01"),
+	}
 
-	// usecase.NewTokensUsecase(time.Second)
+	// For each base denom, validate that its USDC and USDT prices differ by at most
+	// 1%
+	s.Require().Len(prices, len(routertesting.MainnetDenoms))
+	for _, baseAssetPrices := range prices {
+		// USDC and USDT
+		s.Require().Len(baseAssetPrices, 2)
+
+		usdcQuoteAny, ok := baseAssetPrices[USDC]
+		s.Require().True(ok)
+		usdcQuote := s.convertAnyToBigDec(usdcQuoteAny)
+
+		usdtQuoteAny, ok := baseAssetPrices[USDT]
+		s.Require().True(ok)
+		usdtQuote := s.convertAnyToBigDec(usdtQuoteAny)
+
+		result := errTolerance.CompareBigDec(usdcQuote, usdtQuote)
+		s.Require().Zero(result)
+	}
+
+	// WBTC is around 50K at the time of creation of this test
+	// We set tolerance to 15% and compare against this value to have sanity checks
+	// in place against a hardcoded expected value rather than comparing USDT and USDC prices only
+	// that are both computed by the system.
+	// Noe: if WBTC price changes by more than 15% and we update test mainnet state, this test is likely to fail.
+	expectedwBTCPrice := osmomath.NewBigDec(50000)
+	wbtcErrorTolerance := osmomath.ErrTolerance{
+		// 15% tolerance
+		MultiplicativeTolerance: osmomath.MustNewDecFromStr("0.15"),
+	}
+
+	actualwBTCUSDCPriceAny, ok := prices[WBTC][USDC]
+	s.Require().True(ok)
+	actualwBTCUSDCPrice := s.convertAnyToBigDec(actualwBTCUSDCPriceAny)
+
+	result := wbtcErrorTolerance.CompareBigDec(expectedwBTCPrice, actualwBTCUSDCPrice)
+	s.Require().Zero(result)
+}
+
+// helper to convert any to BigDec
+func (s *TokensUseCaseTestSuite) convertAnyToBigDec(any any) osmomath.BigDec {
+	bigDec, ok := any.(osmomath.BigDec)
+	s.Require().True(ok)
+	return bigDec
 }
