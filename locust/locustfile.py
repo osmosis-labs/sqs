@@ -79,5 +79,12 @@ class SQS(HttpUser):
     def routesUSDCUOSMO(self):
         self.client.get(f"/router/routes?tokenIn={USDC}&tokenOutDenom={UOSMO}")
 
-    # TODO:
-    # Add tests for routes search
+    @task
+    def tokenPrices(self):
+        bases = ""
+        for i in range(len(top10ByVolumePairs)):
+            bases += top10ByVolumePairs[i]
+            if i < len(top10ByVolumePairs) - 1:
+                bases += ","
+
+        self.client.get(f"/tokens/prices?base={bases}")

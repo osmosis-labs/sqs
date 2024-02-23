@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"sort"
 
 	"cosmossdk.io/math"
@@ -39,7 +39,7 @@ func (r *Router) getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, 
 // CONTRACT: pools reporitory must be set on the router
 func (r *Router) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
-		return nil, nil, errors.New("no routes were provided")
+		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
 
 	routesWithAmountOut := make([]RouteWithOutAmount, 0, len(routes))

@@ -160,6 +160,12 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 
 		// Given the current base denom, compute all of its prices with the quotes
 		for _, quoteDenom := range quoteDenoms {
+			// equal base and quote yield the price of one
+			if baseDenom == quoteDenom {
+				byQuoteDenomForGivenBaseResult[quoteDenom] = osmomath.OneBigDec()
+				continue
+			}
+
 			price, err := pricingSource.GetPrice(ctx, baseDenom, quoteDenom)
 			if err != nil {
 				return nil, err
@@ -227,10 +233,11 @@ func getTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 					continue
 				}
 
-				token.HumanDenom = denom.Denom
 				token.Precision = denom.Exponent
 			}
 		}
+
+		token.HumanDenom = asset.Symbol
 
 		tokensByChainDenom[chainDenom] = token
 	}
