@@ -27,5 +27,19 @@
                 "-test.v"
             ],
         },
+        {
+            "name": "tokens/usecase",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/tokens/usecase",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestTokensUseCaseTestSuite/TestGetPrices",
+                "-test.v"
+            ],
+        },
     ]
 }
