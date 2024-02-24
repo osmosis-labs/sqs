@@ -216,7 +216,6 @@ func (a *TokensHandler) GetUSDPriceTest(c echo.Context) (err error) {
 		} else {
 			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: fmt.Errorf("unsupported denom (%s)", denom).Error()})
 		}
-
 	}
 
 	return c.JSON(http.StatusOK, prices)
