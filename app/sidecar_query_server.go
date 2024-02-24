@@ -185,7 +185,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	go func() {
 		logger.Info("Starting profiling server")
-		err = http.ListenAndServe("localhost:6061", nil)
+		err = http.ListenAndServe("localhost:6062", nil)
 		if err != nil {
 			panic(err)
 		}

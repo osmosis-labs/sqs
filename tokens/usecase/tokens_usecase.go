@@ -165,15 +165,26 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 
 	// Create a channel to communicate the results
 	resultsChan := make(chan priceResults, len(quoteDenoms))
-	defer close(resultsChan)
+
+	// Use a WaitGroup to wait for all goroutines to finish
+	var wg sync.WaitGroup
 
 	// For every base denom, create a map with quote denom prices.
 	for _, baseDenom := range baseDenoms {
+		wg.Add(1)
 		go func(baseDenom string) {
+			defer wg.Done()
+
 			prices, err := t.getPricesForBaseDenom(ctx, pricingStrategy, baseDenom, quoteDenoms)
 			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: err}
 		}(baseDenom)
 	}
+
+	// Close the results channel once all goroutines have finished
+	go func() {
+		wg.Wait()          // Wait for all goroutines to finish
+		close(resultsChan) // Close the channel
+	}()
 
 	// Read from the results channel and update the map
 	for range baseDenoms {
@@ -195,15 +206,26 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 
 	// Create a channel to communicate the results
 	resultsChan := make(chan priceResult, len(quoteDenoms))
-	defer close(resultsChan)
+
+	// Use a WaitGroup to wait for all goroutines to finish
+	var wg sync.WaitGroup
 
 	// Given the current base denom, compute all of its prices with the quotes
 	for _, quoteDenom := range quoteDenoms {
+		wg.Add(1)
 		go func(baseDenom, quoteDenom string) {
+			defer wg.Done()
+
 			price, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom)
 			resultsChan <- priceResult{quoteDenom, price, err}
 		}(baseDenom, quoteDenom)
 	}
+
+	// Close the results channel once all goroutines have finished
+	go func() {
+		wg.Wait()          // Wait for all goroutines to finish
+		close(resultsChan) // Close the channel
+	}()
 
 	// Read from the results channel and update the map
 	for range quoteDenoms {
