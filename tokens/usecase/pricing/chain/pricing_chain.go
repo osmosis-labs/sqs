@@ -2,17 +2,23 @@ package chainpricing
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
 
 type chainPricing struct {
 	TUsecase mvc.TokensUsecase
 	RUsecase mvc.RouterUsecase
+
+	cache       *cache.Cache
+	cacheExpiry time.Duration
 }
 
 var _ domain.PricingStrategy = &chainPricing{}
@@ -21,6 +27,10 @@ func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase) domain
 	return &chainPricing{
 		RUsecase: routerUseCase,
 		TUsecase: tokenUseCase,
+
+		cache: cache.New(),
+		// TODO: move to config.
+		cacheExpiry: 2 * time.Second,
 	}
 }
 
@@ -29,6 +39,20 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	// equal base and quote yield the price of one
 	if baseDenom == quoteDenom {
 		return osmomath.OneBigDec(), nil
+	}
+
+	cacheKey := formatCacheKey(baseDenom, quoteDenom)
+
+	cachedValue, found := c.cache.Get(cacheKey)
+	cachedBigDecPrice, ok := cachedValue.(osmomath.BigDec)
+
+	if found && ok {
+		// TODO: add cache hit telemetry
+		return cachedBigDecPrice, nil
+	} else if !found {
+		// TODO telemetry
+	} else {
+		// TODO: temetry
 	}
 
 	// Get on-chain scaling factor for base denom.
@@ -61,5 +85,18 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	// Apply scaling facors to descale the amounts to real amounts.
 	currentPrice := chainPrice.MulMut(precisionScalingFactor)
 
+	c.cache.Set(cacheKey, currentPrice, c.cacheExpiry)
+
 	return currentPrice, nil
+}
+
+func formatCacheKey(a, b string) string {
+	if a < b {
+		a, b = b, a
+	}
+
+	var sb strings.Builder
+	sb.WriteString(a)
+	sb.WriteString(b)
+	return sb.String()
 }
