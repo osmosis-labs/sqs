@@ -50,6 +50,20 @@ type AssetList struct {
 	} `json:"assets"`
 }
 
+// Define a result struct to hold the quoteDenom and the fetched price or error
+type priceResult struct {
+	quoteDenom string
+	price      osmomath.BigDec
+	err        error
+}
+
+// Define a result struct to hold the base denom and prices for each possible quote denom or error
+type priceResults struct {
+	baseDenom string
+	prices    map[string]any
+	err       error
+}
+
 var _ mvc.TokensUsecase = &tokensUseCase{}
 
 var (
@@ -146,35 +160,62 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(ctx context.Context, den
 }
 
 // GetPrices implements pricing.PricingStrategy.
-func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSource domain.PricingStrategy) (map[string]map[string]any, error) {
+func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingStrategy domain.PricingStrategy) (map[string]map[string]any, error) {
 	byBaseDenomResult := make(map[string]map[string]any, len(baseDenoms))
+
+	// Create a channel to communicate the results
+	resultsChan := make(chan priceResults, len(quoteDenoms))
+	defer close(resultsChan)
 
 	// For every base denom, create a map with quote denom prices.
 	for _, baseDenom := range baseDenoms {
-		byQuoteDenomForGivenBaseResult := make(map[string]any, len(quoteDenoms))
+		go func(baseDenom string) {
+			prices, err := t.getPricesForBaseDenom(ctx, pricingStrategy, baseDenom, quoteDenoms)
+			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: err}
+		}(baseDenom)
+	}
 
-		// Given the current base denom, compute all of its prices with the quotes
-		for _, quoteDenom := range quoteDenoms {
-			// equal base and quote yield the price of one
-			if baseDenom == quoteDenom {
-				byQuoteDenomForGivenBaseResult[quoteDenom] = osmomath.OneBigDec()
-				continue
-			}
+	// Read from the results channel and update the map
+	for range baseDenoms {
+		result := <-resultsChan
 
-			price, err := pricingSource.GetPrice(ctx, baseDenom, quoteDenom)
-			if err != nil {
-				return nil, err
-			}
-
-			// Price for current base and quote
-			byQuoteDenomForGivenBaseResult[quoteDenom] = price
+		if result.err != nil {
+			return nil, result.err
 		}
-
-		// Finalize all prices for the current base and move on to the next base.
-		byBaseDenomResult[baseDenom] = byQuoteDenomForGivenBaseResult
+		byBaseDenomResult[result.baseDenom] = result.prices
 	}
 
 	return byBaseDenomResult, nil
+}
+
+// getPricesForBaseDenom fetches all prices for base denom given a slice of quotes and a pricing stratey.
+// Returns a map with keys as quotes and values as prices or error, if any.
+func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrategy domain.PricingStrategy, baseDenom string, quoteDenoms []string) (map[string]any, error) {
+	byQuoteDenomForGivenBaseResult := make(map[string]any, len(quoteDenoms))
+
+	// Create a channel to communicate the results
+	resultsChan := make(chan priceResult, len(quoteDenoms))
+	defer close(resultsChan)
+
+	// Given the current base denom, compute all of its prices with the quotes
+	for _, quoteDenom := range quoteDenoms {
+		go func(baseDenom, quoteDenom string) {
+			price, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom)
+			resultsChan <- priceResult{quoteDenom, price, err}
+		}(baseDenom, quoteDenom)
+	}
+
+	// Read from the results channel and update the map
+	for range quoteDenoms {
+		result := <-resultsChan
+
+		if result.err != nil {
+			return nil, result.err
+		}
+		byQuoteDenomForGivenBaseResult[result.quoteDenom] = result.price
+	}
+
+	return byQuoteDenomForGivenBaseResult, nil
 }
 
 func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {

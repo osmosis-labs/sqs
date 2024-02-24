@@ -26,6 +26,11 @@ func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase) domain
 
 // GetPrice implements pricing.PricingStrategy.
 func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	// equal base and quote yield the price of one
+	if baseDenom == quoteDenom {
+		return osmomath.OneBigDec(), nil
+	}
+
 	// Get on-chain scaling factor for base denom.
 	baseDenomScalingFactor, err := c.TUsecase.GetChainScalingFactorByDenomMut(ctx, baseDenom)
 	if err != nil {

@@ -261,9 +261,10 @@ func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*rout
 	tokensMetadata, err := parsing.ReadTokensMetadata(absolutePathToStateFiles + tokensMetadataFileName)
 	s.Require().NoError(err)
 
-	logger, err := log.NewLogger(false, "", "info")
-	s.Require().NoError(err)
-	router := routerusecase.NewRouter(config, logger)
+	// N.B. uncomment if logs are needed.
+	// logger, err := log.NewLogger(false, "", "info")
+	// s.Require().NoError(err)
+	router := routerusecase.NewRouter(config, &log.NoOpLogger{})
 	router = routerusecase.WithSortedPools(router, pools)
 
 	return router, MockMainnetState{
