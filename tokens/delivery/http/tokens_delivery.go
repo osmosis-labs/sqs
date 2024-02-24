@@ -72,7 +72,7 @@ func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, ru mvc.RouterUsecase, 
 // @Description See `config.json` and `config-testnet.json` in root for details.
 // @ID get-token-metadata
 // @Produce  json
-// @Param  denoms  path  string  false  "List of denoms where each can either be a human denom or a chain denom"
+// @Param  denoms  query  string  false  "List of denoms where each can either be a human denom or a chain denom"
 // @Success 200 {object} map[string]domain.Token "Success"
 // @Router /tokens/metadata [get]
 func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {

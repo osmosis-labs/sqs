@@ -134,7 +134,7 @@ paths:
       parameters:
       - description: List of denoms where each can either be a human denom or a chain
           denom
-        in: path
+        in: query
         name: denoms
         type: string
       produces:

@@ -144,7 +144,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "List of denoms where each can either be a human denom or a chain denom",
                         "name": "denoms",
-                        "in": "path"
+                        "in": "query"
                     }
                 ],
                 "responses": {
