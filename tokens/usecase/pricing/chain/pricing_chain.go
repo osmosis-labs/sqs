@@ -40,6 +40,14 @@ var (
 		},
 		[]string{"base", "quote"},
 	)
+
+	pricesTruncationCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_pricing_truncation_total",
+			Help: "Total number of price truncations in intermediary calculations",
+		},
+		[]string{"base", "quote"},
+	)
 )
 
 func init() {
@@ -68,12 +76,13 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	cacheKey := formatCacheKey(baseDenom, quoteDenom)
 
 	cachedValue, found := c.cache.Get(cacheKey)
-	cachedBigDecPrice, ok := cachedValue.(osmomath.BigDec)
-	if !ok {
-		return osmomath.BigDec{}, fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
-	}
-
 	if found {
+		// Cast cached value to correct type.
+		cachedBigDecPrice, ok := cachedValue.(osmomath.BigDec)
+		if !ok {
+			return osmomath.BigDec{}, fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
+		}
+
 		// Increase cache hits
 		cacheHitsCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 		return cachedBigDecPrice, nil
@@ -105,6 +114,10 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 
 	// Compute on-chain price for 1 unit of base denom and quote denom.
 	chainPrice := osmomath.NewBigDecFromBigInt(oneQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
+	if chainPrice.IsZero() {
+		// Increase price truncation counter
+		cacheMissesCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+	}
 
 	// Compute precision scaling factor.
 	precisionScalingFactor := osmomath.BigDecFromDec(baseDenomScalingFactor.Quo(oneQuoteCoin.Amount.ToLegacyDec()))
@@ -112,7 +125,10 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	// Apply scaling facors to descale the amounts to real amounts.
 	currentPrice := chainPrice.MulMut(precisionScalingFactor)
 
-	c.cache.Set(cacheKey, currentPrice, c.cacheExpiry)
+	// Only store values that are valid.
+	if !currentPrice.IsNil() {
+		c.cache.Set(cacheKey, currentPrice, c.cacheExpiry)
+	}
 
 	return currentPrice, nil
 }
