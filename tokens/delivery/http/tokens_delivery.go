@@ -27,7 +27,12 @@ import (
 type TokensHandler struct {
 	TUsecase mvc.TokensUsecase
 	RUsecase mvc.RouterUsecase
-	logger   log.Logger
+
+	// We persist pricing strategies across endpoint calls as they
+	// may cache responses internally.
+	pricingStrategyMap map[domain.PricingSource]domain.PricingStrategy
+
+	logger log.Logger
 }
 
 const (
@@ -48,11 +53,22 @@ func formatTokensResource(resource string) string {
 
 // NewTokensHandler will initialize the pools/ resources endpoint
 func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) (err error) {
+	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, ts, ru)
+	if err != nil {
+		return err
+	}
+
 	handler := &TokensHandler{
 		TUsecase: ts,
 		RUsecase: ru,
-		logger:   logger,
+
+		pricingStrategyMap: map[domain.PricingSource]domain.PricingStrategy{
+			domain.ChainPricingSource: pricingStrategy,
+		},
+
+		logger: logger,
 	}
+
 	e.GET(formatTokensResource("/metadata"), handler.GetMetadata)
 	e.GET(formatTokensResource("/prices"), handler.GetPrices)
 	e.GET(formatTokensResource("/usd-price-test"), handler.GetUSDPriceTest)
@@ -62,7 +78,6 @@ func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, ru mvc.RouterUsecase, 
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -159,12 +174,12 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		}
 	}
 
-	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, a.TUsecase, a.RUsecase)
-	if err != nil {
+	chainPricingStrategy, ok := a.pricingStrategyMap[domain.ChainPricingSource]
+	if !ok {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
 
-	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, pricingStrategy)
+	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, chainPricingStrategy)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}

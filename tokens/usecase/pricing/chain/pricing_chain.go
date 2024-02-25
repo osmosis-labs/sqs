@@ -2,10 +2,12 @@ package chainpricing
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
@@ -23,6 +25,28 @@ type chainPricing struct {
 
 var _ domain.PricingStrategy = &chainPricing{}
 
+var (
+	cacheHitsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_pricing_cache_hits_total",
+			Help: "Total number of pricing cache hits",
+		},
+		[]string{"base", "quote"},
+	)
+	cacheMissesCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_pricing_cache_misses_total",
+			Help: "Total number of pricing cache misses",
+		},
+		[]string{"base", "quote"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(cacheHitsCounter)
+	prometheus.MustRegister(cacheMissesCounter)
+}
+
 func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase) domain.PricingStrategy {
 	return &chainPricing{
 		RUsecase: routerUseCase,
@@ -30,7 +54,7 @@ func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase) domain
 
 		cache: cache.New(),
 		// TODO: move to config.
-		cacheExpiry: 2 * time.Second,
+		cacheExpiry: time.Second * 2,
 	}
 }
 
@@ -45,14 +69,17 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 
 	cachedValue, found := c.cache.Get(cacheKey)
 	cachedBigDecPrice, ok := cachedValue.(osmomath.BigDec)
+	if !ok {
+		return osmomath.BigDec{}, fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
+	}
 
-	if found && ok {
-		// TODO: add cache hit telemetry
+	if found {
+		// Increase cache hits
+		cacheHitsCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 		return cachedBigDecPrice, nil
 	} else if !found {
-		// TODO telemetry
-	} else {
-		// TODO: temetry
+		// Increase cache misses
+		cacheMissesCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 	}
 
 	// Get on-chain scaling factor for base denom.

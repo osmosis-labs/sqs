@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -58,6 +58,11 @@ func NewSystemHandler(e *echo.Echo, redisAddress string, config domain.Config, l
 	}
 
 	e.GET("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
+	e.GET("/debug/pprof/cmdline", echo.WrapHandler(http.HandlerFunc(pprof.Cmdline)))
+	e.GET("/debug/pprof/profile", echo.WrapHandler(http.HandlerFunc(pprof.Profile)))
+	e.GET("/debug/pprof/symbol", echo.WrapHandler(http.HandlerFunc(pprof.Symbol)))
+	e.GET("/debug/pprof/trace", echo.WrapHandler(http.HandlerFunc(pprof.Trace)))
+
 	e.GET("/healthcheck", handler.GetHealthStatus)
 	e.GET("/config", handler.GetConfig)
 	e.GET("/version", handler.GetVersion)

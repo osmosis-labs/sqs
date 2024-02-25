@@ -57,14 +57,14 @@ const (
 var (
 	cacheHits = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "sqs_cache_hits_total",
+			Name: "sqs_routes_cache_hits_total",
 			Help: "Total number of cache hits",
 		},
 		[]string{"route", "cache_type", "token_in", "token_out"},
 	)
 	cacheMisses = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "sqs_cache_misses_total",
+			Name: "sqs_routes_cache_misses_total",
 			Help: "Total number of cache misses",
 		},
 		[]string{"route", "cache_type", "token_in", "token_out"},

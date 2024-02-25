@@ -12,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type tokensUseCase struct {
@@ -68,6 +69,14 @@ var _ mvc.TokensUsecase = &tokensUseCase{}
 
 var (
 	tenDec = osmomath.NewDec(10)
+
+	pricingErrorCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_pricing_errors_total",
+			Help: "Total number of pricing errors",
+		},
+		[]string{"base", "quote", "err"},
+	)
 )
 
 // NewTokensUsecase will create a new tokens use case object
@@ -232,6 +241,8 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		result := <-resultsChan
 
 		if result.err != nil {
+			// Increase prometheus counter
+			pricingErrorCounter.WithLabelValues(baseDenom, result.quoteDenom, result.err.Error()).Inc()
 			return nil, result.err
 		}
 		byQuoteDenomForGivenBaseResult[result.quoteDenom] = result.price
