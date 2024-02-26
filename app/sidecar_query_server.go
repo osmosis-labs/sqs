@@ -178,7 +178,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 	systemhttpdelivery.NewSystemHandler(e, redisAddress, config, logger, chainInfoUseCase)
-	if err := tokenshttpdelivery.NewTokensHandler(e, tokensUseCase, routerUsecase, logger); err != nil {
+	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, routerUsecase, logger); err != nil {
 		return nil, err
 	}
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)

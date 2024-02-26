@@ -52,8 +52,8 @@ func formatTokensResource(resource string) string {
 }
 
 // NewTokensHandler will initialize the pools/ resources endpoint
-func NewTokensHandler(e *echo.Echo, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) (err error) {
-	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, ts, ru)
+func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) (err error) {
+	pricingStrategy, err := pricing.NewPricingStrategy(pricingConfig, ts, ru)
 	if err != nil {
 		return err
 	}

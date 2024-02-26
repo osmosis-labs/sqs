@@ -19,8 +19,8 @@ type chainPricing struct {
 	TUsecase mvc.TokensUsecase
 	RUsecase mvc.RouterUsecase
 
-	cache       *cache.Cache
-	cacheExpiry time.Duration
+	cache         *cache.Cache
+	cacheExpiryNs time.Duration
 }
 
 var _ domain.PricingStrategy = &chainPricing{}
@@ -55,14 +55,13 @@ func init() {
 	prometheus.MustRegister(cacheMissesCounter)
 }
 
-func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase) domain.PricingStrategy {
+func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, pricingCacheExpiryNs time.Duration) domain.PricingStrategy {
 	return &chainPricing{
 		RUsecase: routerUseCase,
 		TUsecase: tokenUseCase,
 
-		cache: cache.New(),
-		// TODO: move to config.
-		cacheExpiry: time.Second * 2,
+		cache:         cache.New(),
+		cacheExpiryNs: pricingCacheExpiryNs,
 	}
 }
 
@@ -127,7 +126,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 
 	// Only store values that are valid.
 	if !currentPrice.IsNil() {
-		c.cache.Set(cacheKey, currentPrice, c.cacheExpiry)
+		c.cache.Set(cacheKey, currentPrice, c.cacheExpiryNs)
 	}
 
 	return currentPrice, nil

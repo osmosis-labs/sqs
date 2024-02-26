@@ -3,11 +3,16 @@ package usecase_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
+)
+
+const (
+	pricingCacheExpiry = time.Second * 2
 )
 
 func BenchmarkGetPrices(b *testing.B) {
@@ -17,11 +22,15 @@ func BenchmarkGetPrices(b *testing.B) {
 	s.SetT(&testing.T{})
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingConfig)
+	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
 
 	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	pricingConfig := domain.PricingConfig{
+		DefaultSource: domain.ChainPricingSource,
+		CacheExpiryMs: pricingCacheExpiry,
+	}
+	pricingStrategy, err := pricing.NewPricingStrategy(pricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
 	s.Require().NoError(err)
 
 	b.ResetTimer()

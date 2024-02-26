@@ -91,7 +91,7 @@ load-test-ui:
 	docker compose -f locust/docker-compose.yml up --scale worker=4
 
 profile:
-	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/profile?seconds=15
+	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/profile
 
 # Validates that SQS concentrated liquidity pool state is
 # consistent with the state of the chain.

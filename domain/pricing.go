@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -24,4 +25,16 @@ const (
 type PricingStrategy interface {
 	// GetPrice returns the price given a bse and a quote denom or otherwise error, if any.
 	GetPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
+}
+
+// PricingConfig defines the configuration for the pricing.
+type PricingConfig struct {
+	// The number of milliseconds to cache the pricing data for.
+	CacheExpiryMs time.Duration `mapstructure:"cache-expiry-ms"`
+
+	// The default quote chain denom.
+	DefaultSource PricingSource `mapstructure:"default-source"`
+
+	// The default quote chain denom.
+	DefaultQuoteHumanDenom string `mapstructure:"default-quote-human-denom"`
 }

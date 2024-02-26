@@ -813,6 +813,17 @@ See the recommended enabled configuration below:
         // they are excluded from split routes.
         "general-cosmwasm-code-ids": []
     },
+    "pricing": {
+        // The number of milliseconds to cache the
+        // pricing data for.
+        "cache-expiry-ms": 2000,
+        // The default quote chain denom.
+        // 0 stands for chain. 1 for Coingecko.
+        // Currently, only on-chain is supported.
+        "default-source": "0",
+        // The default quote chain denom.
+        "default-quote-human-denom": "usdc"
+    },
     // Whether to enable routes cache overwrite. An overwrite can be set via
     // the following endpoint: POST `/router/overwrite-route`
     "enable-overwrite-routes-cache": false

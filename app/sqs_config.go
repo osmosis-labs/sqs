@@ -16,8 +16,9 @@ var DefaultConfig = domain.Config{
 	LoggerIsProduction: true,
 	LoggerLevel:        "info",
 
-	ChainGRPCGatewayEndpoint: "http://localhost:26657",
-	ChainID:                  "osmosis-1",
+	ChainGRPCGatewayEndpoint:   "http://localhost:26657",
+	ChainID:                    "osmosis-1",
+	ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json",
 
 	Router: &domain.RouterConfig{
 		PreferredPoolIDs:        []uint64{},
@@ -35,5 +36,11 @@ var DefaultConfig = domain.Config{
 		// This is what we have on mainnet as of Jan 2024.
 		TransmuterCodeIDs:      []uint64{148},
 		GeneralCosmWasmCodeIDs: []uint64{},
+	},
+
+	Pricing: &domain.PricingConfig{
+		DefaultSource:          domain.ChainPricingSource,
+		CacheExpiryMs:          2000, // 2 seconds.
+		DefaultQuoteHumanDenom: "usdc",
 	},
 }

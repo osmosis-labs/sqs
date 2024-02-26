@@ -24,6 +24,11 @@
         "transmuter-code-ids": [148, 254],
         "general-cosmwasm-code-ids": []
     },
+    "pricing":{
+        "cache-expiry-ms": 2000,
+        "default-source": 0,
+        "default-quote-human-denom": "usdc"
+    },
     "enable-overwrite-routes-cache": true
 }
   

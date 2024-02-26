@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 
@@ -20,7 +21,8 @@ type TokensUseCaseTestSuite struct {
 }
 
 const (
-	defaultCosmosExponent = 6
+	defaultCosmosExponent     = 6
+	defaultPricingCacheExpiry = time.Second * 2
 
 	mainnetAssetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json"
 )
@@ -40,13 +42,18 @@ var (
 	UION    = routertesting.UION
 	CRE     = routertesting.CRE
 
-	defaultPricingConfig = domain.RouterConfig{
+	defaultPricingRouterConfig = domain.RouterConfig{
 		PreferredPoolIDs:  []uint64{},
 		MaxRoutes:         5,
 		MaxPoolsPerRoute:  3,
 		MaxSplitRoutes:    3,
 		MinOSMOLiquidity:  50,
 		RouteCacheEnabled: true,
+	}
+
+	defaultPricingConfig = domain.PricingConfig{
+		DefaultSource: domain.ChainPricingSource,
+		CacheExpiryMs: pricingCacheExpiry,
 	}
 )
 
@@ -109,11 +116,11 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingConfig)
+	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
 
 	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
 	s.Require().NoError(err)
 
 	// System under test.
@@ -167,14 +174,14 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingConfig)
+	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
 
 	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
 	s.Require().NoError(err)
 
 	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
 	s.Require().NoError(err)
 
 	counter := 1
@@ -191,11 +198,11 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 // Convinience test to test and print a result for a specific token
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingConfig)
+	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
 
 	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(domain.ChainPricingSource, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
 	s.Require().NoError(err)
 
 	// System under test.

@@ -26,4 +26,6 @@ type Config struct {
 
 	// Pools encapsulates the pools config.
 	Pools *PoolsConfig `mapstructure:"pools"`
+
+	Pricing *PricingConfig `mapstructure:"pricing"`
 }
