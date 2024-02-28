@@ -52,8 +52,12 @@ var (
 	}
 
 	defaultPricingConfig = domain.PricingConfig{
-		DefaultSource: domain.ChainPricingSource,
-		CacheExpiryMs: pricingCacheExpiry,
+		DefaultSource:          domain.ChainPricingSource,
+		CacheExpiryMs:          pricingCacheExpiry,
+		DefaultQuoteHumanDenom: "usdc",
+		MaxPoolsPerRoute:       4,
+		MaxRoutes:              5,
+		MinOSMOLiquidity:       50,
 	}
 )
 

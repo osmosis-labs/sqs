@@ -27,8 +27,8 @@ func (r *Router) ValidateAndFilterRoutes(candidateRoutes [][]candidatePoolWrappe
 	return r.validateAndFilterRoutes(candidateRoutes, tokenInDenom)
 }
 
-func (r *routerUseCaseImpl) InitializeRouter() *Router {
-	return r.initializeRouter()
+func (r *routerUseCaseImpl) InitializeDefaultRouter() *Router {
+	return r.initializeDefaultRouter()
 }
 
 func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, router *Router, tokenInDenom, tokenOutDenom string) (candidateRoutes sqsdomain.CandidateRoutes, err error) {

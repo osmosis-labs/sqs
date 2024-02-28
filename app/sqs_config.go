@@ -42,5 +42,9 @@ var DefaultConfig = domain.Config{
 		DefaultSource:          domain.ChainPricingSource,
 		CacheExpiryMs:          2000, // 2 seconds.
 		DefaultQuoteHumanDenom: "usdc",
+
+		MaxPoolsPerRoute: 4,
+		MaxRoutes:        5,
+		MinOSMOLiquidity: 50,
 	},
 }

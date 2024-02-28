@@ -21,6 +21,10 @@ type chainPricing struct {
 
 	cache         *cache.Cache
 	cacheExpiryNs time.Duration
+
+	maxPoolsPerRoute int
+	maxRoutes        int
+	minOSMOLiquidity int
 }
 
 var _ domain.PricingStrategy = &chainPricing{}
@@ -55,13 +59,16 @@ func init() {
 	prometheus.MustRegister(cacheMissesCounter)
 }
 
-func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, pricingCacheExpiryNs time.Duration) domain.PricingStrategy {
+func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingStrategy {
 	return &chainPricing{
 		RUsecase: routerUseCase,
 		TUsecase: tokenUseCase,
 
-		cache:         cache.New(),
-		cacheExpiryNs: pricingCacheExpiryNs,
+		cache:            cache.New(),
+		cacheExpiryNs:    time.Duration(config.CacheExpiryMs) * time.Millisecond,
+		maxPoolsPerRoute: config.MaxPoolsPerRoute,
+		maxRoutes:        config.MaxRoutes,
+		minOSMOLiquidity: config.MinOSMOLiquidity,
 	}
 }
 
@@ -105,8 +112,15 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	// Create a quote denom coin.
 	oneQuoteCoin := sdk.NewCoin(quoteDenom, quoteDenomScalingFactor.TruncateInt())
 
+	// Overwrite default config with custom values
+	// necessary for pricing.
+	routerConfig := c.RUsecase.GetConfig()
+	routerConfig.MaxRoutes = c.maxRoutes
+	routerConfig.MaxPoolsPerRoute = c.maxPoolsPerRoute
+	routerConfig.MinOSMOLiquidity = c.minOSMOLiquidity
+
 	// Compute a quote for one quote coin.
-	quote, err := c.RUsecase.GetOptimalQuote(ctx, oneQuoteCoin, baseDenom)
+	quote, err := c.RUsecase.GetOptimalQuoteFromConfig(ctx, oneQuoteCoin, baseDenom, routerConfig)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -115,7 +129,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	chainPrice := osmomath.NewBigDecFromBigInt(oneQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
 	if chainPrice.IsZero() {
 		// Increase price truncation counter
-		cacheMissesCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+		pricesTruncationCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 	}
 
 	// Compute precision scaling factor.
