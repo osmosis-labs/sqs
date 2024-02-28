@@ -27,7 +27,10 @@
     "pricing":{
         "cache-expiry-ms": 2000,
         "default-source": 0,
-        "default-quote-human-denom": "usdc"
+        "default-quote-human-denom": "usdc",
+        "max-pools-per-route": 4,
+        "max-routes": 5,
+        "min-osmo-liquidity": 0
     },
     "enable-overwrite-routes-cache": true
   }

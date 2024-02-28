@@ -3,7 +3,6 @@ package usecase_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -12,7 +11,7 @@ import (
 )
 
 const (
-	pricingCacheExpiry = time.Second * 2
+	pricingCacheExpiry = 2000
 )
 
 func BenchmarkGetPrices(b *testing.B) {

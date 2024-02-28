@@ -14,6 +14,8 @@ import (
 type RouterUsecase interface {
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.
 	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error)
+	// GetOptimalQuoteFromConfig returns the optimal quote for the given tokenIn and tokenOutDenom from the given config.
+	GetOptimalQuoteFromConfig(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, config domain.RouterConfig) (domain.Quote, error)
 	// GetBestSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.
 	GetBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error)
 	// GetCustomQuote returns the custom quote for the given tokenIn, tokenOutDenom and poolIDs.

@@ -102,6 +102,7 @@ func WithOverwriteRoutesPath(routerUsecase mvc.RouterUsecase, overwriteRoutesPat
 
 // GetOptimalQuote returns the optimal quote by estimating the optimal route(s) through pools
 // on the osmosis network.
+// Uses default router config.
 // Uses caching strategies for optimal performance.
 // Currently, supports candidate route caching. If candidate routes for the given token in and token out denoms
 // are present in cache, they are used without re-computing them. Otherwise, they are computed and cached.
@@ -111,6 +112,21 @@ func WithOverwriteRoutesPath(routerUsecase mvc.RouterUsecase, overwriteRoutesPat
 // - fails to estimate direct quotes for ranked routes
 // - fails to retrieve candidate routes
 func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error) {
+	return r.GetOptimalQuoteFromConfig(ctx, tokenIn, tokenOutDenom, r.config)
+}
+
+// GetOptimalQuoteFromConfig returns the optimal quote by estimating the optimal route(s) through pools
+// on the osmosis network.
+// Uses given routing config to compute the optimal quote.
+// Uses caching strategies for optimal performance.
+// Currently, supports candidate route caching. If candidate routes for the given token in and token out denoms
+// are present in cache, they are used without re-computing them. Otherwise, they are computed and cached.
+// In the future, we will support caching of ranked routes that are constructed from candidate and sorted
+// by the decreasing amount out within an order of magnitude of token in. Similarly, We will also support optimal split caching
+// Returns error if:
+// - fails to estimate direct quotes for ranked routes
+// - fails to retrieve candidate routes
+func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, config domain.RouterConfig) (domain.Quote, error) {
 	preferredRouteCacheKey := formatRouteCacheKey(tokenIn.Denom, tokenOutDenom)
 	preferredRoute, hasPreferredRoute := r.routesOverwrite.Get(preferredRouteCacheKey)
 
@@ -129,7 +145,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		err                 error
 	)
 
-	router := r.initializeRouter()
+	router := r.initializeRouter(config)
 
 	// Get request path for metrics
 	requestURLPath, err := domain.GetURLPathFromContext(ctx)
@@ -336,7 +352,7 @@ func estimateDirectQuote(ctx context.Context, router *Router, routes []route.Rou
 
 // GetBestSingleRouteQuote returns the best single route quote to be done directly without a split.
 func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error) {
-	router := r.initializeRouter()
+	router := r.initializeDefaultRouter()
 
 	candidateRoutes, err := r.handleCandidateRoutes(ctx, router, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
@@ -360,7 +376,7 @@ func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn
 // GetCustomQuote implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolIDs []uint64) (domain.Quote, error) {
 	// TODO: abstract this
-	router := r.initializeRouter()
+	router := r.initializeDefaultRouter()
 
 	candidateRoutes, err := r.handleCandidateRoutes(ctx, router, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
@@ -478,13 +494,13 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	}
 
 	// Compute direct quote
-	router := r.initializeRouter()
+	router := r.initializeDefaultRouter()
 	return router.getBestSingleRouteQuote(ctx, tokenIn, routes)
 }
 
 // GetCandidateRoutes implements domain.RouterUsecase.
 func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
-	router := r.initializeRouter()
+	router := r.initializeDefaultRouter()
 
 	candidateRoutes, err := r.handleCandidateRoutes(ctx, router, tokenInDenom, tokenOutDenom)
 	if err != nil {
@@ -545,13 +561,21 @@ func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
 	return r.config
 }
 
-// initializeRouter initializes the router per configuration defined on the use case
+// initializeDefaultRouter initializes the router per configuration defined on the use case
 // Returns error if:
 // - there is an error retrieving pools from the store
 // - there is an error retrieving taker fees from the store
 // TODO: test
-func (r *routerUseCaseImpl) initializeRouter() *Router {
+func (r *routerUseCaseImpl) initializeDefaultRouter() *Router {
 	router := NewRouter(r.config, r.logger)
+	router = WithRouterRepository(router, r.routerRepository)
+	router = WithPoolsUsecase(router, r.poolsUsecase)
+
+	return router
+}
+
+func (r *routerUseCaseImpl) initializeRouter(config domain.RouterConfig) *Router {
+	router := NewRouter(config, r.logger)
 	router = WithRouterRepository(router, r.routerRepository)
 	router = WithPoolsUsecase(router, r.poolsUsecase)
 

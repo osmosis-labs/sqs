@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -30,11 +29,16 @@ type PricingStrategy interface {
 // PricingConfig defines the configuration for the pricing.
 type PricingConfig struct {
 	// The number of milliseconds to cache the pricing data for.
-	CacheExpiryMs time.Duration `mapstructure:"cache-expiry-ms"`
+	CacheExpiryMs int `mapstructure:"cache-expiry-ms"`
 
 	// The default quote chain denom.
 	DefaultSource PricingSource `mapstructure:"default-source"`
 
 	// The default quote chain denom.
 	DefaultQuoteHumanDenom string `mapstructure:"default-quote-human-denom"`
+
+	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
+	MaxRoutes        int `mapstructure:"max-routes"`
+	// Denominated in OSMO (not uosmo)
+	MinOSMOLiquidity int `mapstructure:"min-osmo-liquidity"`
 }
