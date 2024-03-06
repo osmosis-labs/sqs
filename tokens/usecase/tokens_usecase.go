@@ -210,7 +210,16 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 
 // getPricesForBaseDenom fetches all prices for base denom given a slice of quotes and a pricing stratey.
 // Returns a map with keys as quotes and values as prices or error, if any.
+// Returns error if base denom is not found in the token metadata.
+// Sets the price to zero in case of failing to compute the price between base and quote but these being valid tokens.
 func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrategy domain.PricingStrategy, baseDenom string, quoteDenoms []string) (map[string]any, error) {
+	// Validate base denom is a valid denom
+	// This will error if denom is unlisted.
+	_, err := t.GetMetadataByChainDenom(ctx, baseDenom)
+	if err != nil {
+		return nil, err
+	}
+
 	byQuoteDenomForGivenBaseResult := make(map[string]any, len(quoteDenoms))
 
 	// Create a channel to communicate the results
@@ -243,7 +252,9 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		if result.err != nil {
 			// Increase prometheus counter
 			pricingErrorCounter.WithLabelValues(baseDenom, result.quoteDenom, result.err.Error()).Inc()
-			return nil, result.err
+
+			// Set the price to zero in case of error
+			result.price = osmomath.ZeroBigDec()
 		}
 		byQuoteDenomForGivenBaseResult[result.quoteDenom] = result.price
 	}
