@@ -180,10 +180,6 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 			return nil, err
 		}
 
-		for _, route := range candidateRoutes.Routes {
-			r.logger.Debug("filtered_candidate_route", zap.Any("route", route))
-		}
-
 		// Rank candidate routes by estimating direct quotes
 		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, router, candidateRoutes, tokenIn, tokenOutDenom)
 		if err != nil {
@@ -203,7 +199,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 			candidateRoutes = convertRankedToCandidateRoutes(rankedRoutes)
 
 			// TODO move cache value to config.
-			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Minute*5)
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Minute*10)
 		}
 	}
 
@@ -229,9 +225,6 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 		routes := topSplitQuote.GetRoute()
 
 		r.logger.Debug("split route selected", zap.Int("route_count", len(routes)))
-		for _, route := range routes {
-			r.logger.Debug("route", zap.Stringer("route", route))
-		}
 
 		finalQuote = topSplitQuote
 	}

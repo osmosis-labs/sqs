@@ -28,7 +28,7 @@ var DefaultConfig = domain.Config{
 		MaxSplitIterations:      10,
 		MinOSMOLiquidity:        10000, // 10_000 OSMO
 		RouteCacheEnabled:       false,
-		RouteCacheExpirySeconds: 600, // 10 minutes
+		RouteCacheExpirySeconds: 1200, // 20 minutes
 
 		EnableOverwriteRoutesCache: false,
 	},
