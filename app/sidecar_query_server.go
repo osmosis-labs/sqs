@@ -147,20 +147,9 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	timeoutContext := time.Duration(config.ServerTimeoutDurationSecs) * time.Second
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository, redisTxManager, config.Pools, config.ChainGRPCGatewayEndpoint)
 
-	// Create an overwrite route cache if enabled.
-	// We keep it as nil by default.
-	// The relevant endpoints must check if it is set.
-	routesOverwrite := cache.CreateRoutesOverwrite(config.Router.EnableOverwriteRoutesCache)
-
 	// Initialize router repository, usecase
-	routerRepository := routerredisrepo.New(redisTxManager, config.Router.RouteCacheExpirySeconds)
-	routerUsecase := routerUseCase.WithOverwriteRoutesPath(routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, *config.Router, logger, cache.New(), routesOverwrite), overwriteRoutesPath)
-
-	// Load overwrite routes from disk if they exist.
-	err = routerUsecase.LoadOverwriteRoutes(ctx)
-	if err != nil {
-		return nil, err
-	}
+	routerRepository := routerredisrepo.New(redisTxManager, 0)
+	routerUsecase := routerUseCase.WithOverwriteRoutesPath(routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, *config.Router, logger, cache.New(), cache.New()), overwriteRoutesPath)
 
 	// Initialize system handler
 	chainInfoRepository := chaininforedisrepo.New(redisTxManager)

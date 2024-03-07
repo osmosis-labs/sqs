@@ -35,7 +35,7 @@ type Route interface {
 	// Note that it mutates the route.
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
-	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]sqsdomain.RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
@@ -70,8 +70,9 @@ type RouterConfig struct {
 	MinOSMOLiquidity          int  `mapstructure:"min-osmo-liquidity"`
 	RouteUpdateHeightInterval int  `mapstructure:"route-update-height-interval"`
 	RouteCacheEnabled         bool `mapstructure:"route-cache-enabled"`
-	// The number of seconds to cache routes for before expiry.
-	RouteCacheExpirySeconds uint64 `mapstructure:"route-cache-expiry-seconds"`
+	// The number of milliseconds to cache candidate routes for before expiry.
+	CandidateRouteCacheExpirySeconds int `mapstructure:"candidate-route-cache-expiry-seconds"`
+	RankedRouteCacheExpirySeconds    int `mapstructure:"ranked-route-cache-expiry-seconds"`
 	// Flag indicating whether we should have a cache for overwrite routes enabled.
 	EnableOverwriteRoutesCache bool `mapstructure:"enable-overwrite-routes-cache"`
 }

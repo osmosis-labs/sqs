@@ -21,14 +21,15 @@ var DefaultConfig = domain.Config{
 	ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json",
 
 	Router: &domain.RouterConfig{
-		PreferredPoolIDs:        []uint64{},
-		MaxPoolsPerRoute:        4,
-		MaxRoutes:               5,
-		MaxSplitRoutes:          3,
-		MaxSplitIterations:      10,
-		MinOSMOLiquidity:        10000, // 10_000 OSMO
-		RouteCacheEnabled:       false,
-		RouteCacheExpirySeconds: 1200, // 20 minutes
+		PreferredPoolIDs:                 []uint64{},
+		MaxPoolsPerRoute:                 4,
+		MaxRoutes:                        5,
+		MaxSplitRoutes:                   3,
+		MaxSplitIterations:               10,
+		MinOSMOLiquidity:                 100, // 100 OSMO
+		RouteCacheEnabled:                false,
+		CandidateRouteCacheExpirySeconds: 600, // 10 minutes
+		RankedRouteCacheExpirySeconds:    300, // 5 minutes
 
 		EnableOverwriteRoutesCache: false,
 	},

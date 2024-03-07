@@ -17,6 +17,8 @@ type CacheItem struct {
 	Expiration time.Time
 }
 
+const noExpiration time.Duration = 0
+
 // New creates a new concurrent cache.
 func New() *Cache {
 	return &Cache{

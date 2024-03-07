@@ -18,7 +18,8 @@
       "max-split-iterations": 10,
       "min-osmo-liquidity": 10,
       "route-cache-enabled": true,
-      "route-cache-expiry-seconds": 600
+      "candidate-route-cache-expiry-seconds": 600,
+      "ranked-route-cache-expiry-seconds": 300
     },
     "pools": {
         "transmuter-code-ids": [3084, 4643],

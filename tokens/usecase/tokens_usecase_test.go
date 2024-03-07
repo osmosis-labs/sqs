@@ -121,7 +121,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	// Set up mainnet mock state.
 	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	// Set up on-chain pricing strategy
 	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
@@ -179,7 +179,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 
 	// Set up mainnet mock state.
 	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
 	s.Require().NoError(err)
@@ -203,7 +203,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
 	// Set up mainnet mock state.
 	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), &cache.RoutesOverwrite{})
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	// Set up on-chain pricing strategy
 	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)

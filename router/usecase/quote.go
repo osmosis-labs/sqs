@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -41,12 +42,14 @@ func (q *quoteImpl) PrepareResult(ctx context.Context) ([]domain.SplitRoute, osm
 	totalSpotPriceInOverOut := osmomath.ZeroDec()
 	totalEffectiveSpotPriceInOverOut := osmomath.ZeroDec()
 
-	for i, route := range q.Route {
+	resultRoutes := make([]domain.SplitRoute, 0, len(q.Route))
+
+	for _, curRoute := range q.Route {
 		routeTotalFee := osmomath.ZeroDec()
-		routeAmountInFraction := route.GetAmountIn().ToLegacyDec().Quo(totalAmountIn)
+		routeAmountInFraction := curRoute.GetAmountIn().ToLegacyDec().Quo(totalAmountIn)
 
 		// Calculate the spread factor across pools in the route
-		for _, pool := range route.GetPools() {
+		for _, pool := range curRoute.GetPools() {
 			poolSpreadFactor := pool.GetSpreadFactor()
 			poolTakerFee := pool.GetTakerFee()
 
@@ -61,13 +64,22 @@ func (q *quoteImpl) PrepareResult(ctx context.Context) ([]domain.SplitRoute, osm
 		// Update the spread factor pro-rated by the amount in
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
-		routeSpotPriceInOverOut, effectiveSpotPriceInOverOut, err := q.Route[i].PrepareResultPools(ctx, q.AmountIn)
+		newPools, routeSpotPriceInOverOut, effectiveSpotPriceInOverOut, err := curRoute.PrepareResultPools(ctx, q.AmountIn)
 		if err != nil {
 			panic(err)
 		}
 
 		totalSpotPriceInOverOut = totalSpotPriceInOverOut.AddMut(routeSpotPriceInOverOut.MulMut(routeAmountInFraction))
 		totalEffectiveSpotPriceInOverOut = totalEffectiveSpotPriceInOverOut.AddMut(effectiveSpotPriceInOverOut.MulMut(routeAmountInFraction))
+
+		resultRoutes = append(resultRoutes, &RouteWithOutAmount{
+			RouteImpl: route.RouteImpl{
+				Pools:                      newPools,
+				HasGeneralizedCosmWasmPool: curRoute.ContainsGeneralizedCosmWasmPool(),
+			},
+			InAmount:  curRoute.GetAmountIn(),
+			OutAmount: curRoute.GetAmountOut(),
+		})
 	}
 
 	// Calculate price impact
@@ -76,6 +88,7 @@ func (q *quoteImpl) PrepareResult(ctx context.Context) ([]domain.SplitRoute, osm
 	}
 
 	q.EffectiveFee = totalFeeAcrossRoutes
+	q.Route = resultRoutes
 
 	return q.Route, q.EffectiveFee
 }

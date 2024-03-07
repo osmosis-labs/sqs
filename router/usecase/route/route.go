@@ -38,17 +38,19 @@ type RouteImpl struct {
 // - Taker Fee
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
-func (r *RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]sqsdomain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInOverOut     = osmomath.OneDec()
 		effectiveSpotPriceInOverOut = osmomath.OneDec()
 	)
 
-	for i, pool := range r.Pools {
+	newPools := make([]sqsdomain.RoutablePool, 0, len(r.Pools))
+
+	for _, pool := range r.Pools {
 		// Compute spot price before swap.
 		spotPriceInOverOut, err := pool.CalcSpotPrice(ctx, pool.GetTokenOutDenom(), tokenIn.Denom)
 		if err != nil {
-			return osmomath.Dec{}, osmomath.Dec{}, err
+			return nil, osmomath.Dec{}, osmomath.Dec{}, err
 		}
 
 		// Charge taker fee
@@ -56,7 +58,7 @@ func (r *RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (o
 
 		tokenOut, err := pool.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
-			return osmomath.Dec{}, osmomath.Dec{}, err
+			return nil, osmomath.Dec{}, osmomath.Dec{}, err
 		}
 
 		// Update effective spot price
@@ -65,7 +67,7 @@ func (r *RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (o
 		// Note, in the future we may want to increase the precision of the spot price
 		routeSpotPriceInOverOut.MulMut(spotPriceInOverOut.Dec())
 
-		r.Pools[i] = pools.NewRoutableResultPool(
+		newPool := pools.NewRoutableResultPool(
 			pool.GetId(),
 			pool.GetType(),
 			pool.GetSpreadFactor(),
@@ -73,9 +75,11 @@ func (r *RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) (o
 			pool.GetTakerFee(),
 		)
 
+		newPools = append(newPools, newPool)
+
 		tokenIn = tokenOut
 	}
-	return routeSpotPriceInOverOut, effectiveSpotPriceInOverOut, nil
+	return newPools, routeSpotPriceInOverOut, effectiveSpotPriceInOverOut, nil
 }
 
 // GetPools implements Route.

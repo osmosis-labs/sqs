@@ -40,17 +40,4 @@ type RouterUsecase interface {
 	GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// StoreRoutes stores all router state in the files locally. Used for debugging.
 	StoreRouterStateFiles(ctx context.Context) error
-	// OverwriteRoutes overwrites the routes for the given tokenIn and tokenOutDenom with the given candidateRoutes.
-	// Returns error if:
-	// - The routes are invalid
-	//   * No pool exists
-	//   * Denom mismatch in route
-	//   * Denom does not exist in pool
-	//   * Token out mismatch across routes
-	OverwriteRoutes(ctx context.Context, tokeinInDenom string, candidateRoutes []sqsdomain.CandidateRoute) error
-	// LoadOverwriteRoutes loads the overwrite routes from disk if they exist.
-	// If they do not exist, this is a no-op.
-	// If they exist, it loads them into the router usecase.
-	// Returns errors if any.
-	LoadOverwriteRoutes(ctx context.Context) error
 }

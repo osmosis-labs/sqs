@@ -2,7 +2,6 @@ package http
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"strconv"
 
@@ -13,8 +12,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/json"
 )
 
 // RouterHandler  represent the httphandler for the router
@@ -46,7 +43,6 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 	e.GET(formatRouterResource("/custom-quote"), handler.GetCustomQuote)
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
 	e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
-	e.POST(formatRouterResource("/overwrite-route"), handler.OverwriteRoute)
 }
 
 // @Summary Optimal Quote
@@ -98,12 +94,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	quote.PrepareResult(ctx)
 
-	err = c.JSON(http.StatusOK, quote)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.JSON(http.StatusOK, quote)
 }
 
 // GetBestSingleRouteQuote returns the best single route quote to be done directly without a split.
@@ -261,35 +252,6 @@ func (a *RouterHandler) StoreRouterStateInFiles(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	if err := a.RUsecase.StoreRouterStateFiles(ctx); err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-	}
-
-	return c.JSON(http.StatusOK, "Router state stored in files")
-}
-
-// TODO: authentication for the endpoint and enable only in dev mode.
-func (a *RouterHandler) OverwriteRoute(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	// Get the tokenInDenom denom string
-	tokenInDenom, err := getValidTokenInStr(c)
-	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-	}
-
-	// Read the request body
-	body, err := io.ReadAll(c.Request().Body)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, "Error reading request body")
-	}
-
-	// Parse the request body
-	var routes []sqsdomain.CandidateRoute
-	if err := json.Unmarshal(body, &routes); err != nil {
-		return c.String(http.StatusInternalServerError, "Error parsing request body")
-	}
-
-	if err := a.RUsecase.OverwriteRoutes(ctx, tokenInDenom, routes); err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
