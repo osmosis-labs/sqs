@@ -213,7 +213,6 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 // Returns error if base denom is not found in the token metadata.
 // Sets the price to zero in case of failing to compute the price between base and quote but these being valid tokens.
 func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrategy domain.PricingStrategy, baseDenom string, quoteDenoms []string) (map[string]any, error) {
-
 	byQuoteDenomForGivenBaseResult := make(map[string]any, len(quoteDenoms))
 	// Validate base denom is a valid denom
 	// Return zeroes for all quotes if base denom is not found
@@ -222,7 +221,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		for _, quoteDenom := range quoteDenoms {
 			byQuoteDenomForGivenBaseResult[quoteDenom] = osmomath.ZeroBigDec()
 		}
-		return byQuoteDenomForGivenBaseResult, err
+		return byQuoteDenomForGivenBaseResult, nil
 	}
 
 	// Create a channel to communicate the results
