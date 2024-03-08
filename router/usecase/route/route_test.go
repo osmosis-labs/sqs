@@ -199,12 +199,12 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 		s.Run(name, func() {
 
 			// Note: token in is chosen arbitrarily since it is irrelevant for this test
-			spotPriceBeforeInOverOut, _, err := tc.route.PrepareResultPools(context.TODO(), tc.tokenIn)
+			actualPools, spotPriceBeforeInOverOut, _, err := tc.route.PrepareResultPools(context.TODO(), tc.tokenIn)
 			s.Require().NoError(err)
 
 			s.Require().Equal(tc.expectedSpotPriceInOverOut, spotPriceBeforeInOverOut)
 
-			s.ValidateRoutePools(tc.expectedPools, tc.route.GetPools())
+			s.ValidateRoutePools(tc.expectedPools, actualPools)
 		})
 	}
 }

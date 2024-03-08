@@ -2,12 +2,9 @@ package usecase
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
-	"os"
-	"strings"
+	"strconv"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -25,7 +22,6 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
-	"github.com/osmosis-labs/sqs/sqsutil"
 )
 
 var _ mvc.RouterUsecase = &routerUseCaseImpl{}
@@ -37,9 +33,8 @@ type routerUseCaseImpl struct {
 	config           domain.RouterConfig
 	logger           log.Logger
 
-	routesOverwrite *cache.RoutesOverwrite
-
-	rankedRouteCache *cache.Cache
+	rankedRouteCache    *cache.Cache
+	candidateRouteCache *cache.Cache
 
 	// This is a path where the overwrite routes are stored as backup in case of failure.
 	// On restart, the routes are loaded from this path.
@@ -51,6 +46,9 @@ const (
 	candidateRouteCacheLabel = "candidate_route"
 	rankedRouteCacheLabel    = "ranked_route"
 
+	// for candidate route cache, there is no order of magnitude
+	noOrderOfMagnitude = ""
+
 	denomSeparatorChar = "|"
 )
 
@@ -60,14 +58,21 @@ var (
 			Name: "sqs_routes_cache_hits_total",
 			Help: "Total number of cache hits",
 		},
-		[]string{"route", "cache_type", "token_in", "token_out"},
+		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
 	)
 	cacheMisses = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "sqs_routes_cache_misses_total",
 			Help: "Total number of cache misses",
 		},
-		[]string{"route", "cache_type", "token_in", "token_out"},
+		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
+	)
+	cacheWrite = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_routes_cache_write_total",
+			Help: "Total number of cache misses",
+		},
+		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
 	)
 )
 
@@ -77,7 +82,7 @@ func init() {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, routesOverwrite *cache.RoutesOverwrite) mvc.RouterUsecase {
+func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
 		contextTimeout:   timeout,
 		routerRepository: routerRepository,
@@ -85,8 +90,8 @@ func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.Ro
 		config:           config,
 		logger:           logger,
 
-		rankedRouteCache: rankedRouteCache,
-		routesOverwrite:  routesOverwrite,
+		rankedRouteCache:    rankedRouteCache,
+		candidateRouteCache: candidateRouteCache,
 	}
 }
 
@@ -127,57 +132,42 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 // - fails to estimate direct quotes for ranked routes
 // - fails to retrieve candidate routes
 func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, config domain.RouterConfig) (domain.Quote, error) {
-	preferredRouteCacheKey := formatRouteCacheKey(tokenIn.Denom, tokenOutDenom)
-	preferredRoute, hasPreferredRoute := r.routesOverwrite.Get(preferredRouteCacheKey)
-
 	// Get an order of magnitude for the token in amount
 	// This is used for caching ranked routes as these might differ depending on the amount swapped in.
 	tokenInOrderOfMagnitude := osmomath.OrderOfMagnitude(tokenIn.Amount.ToLegacyDec())
 
-	// If no preferred route is found, check if we have ranked routes in cache
-	if !hasPreferredRoute {
-		preferredRoute, hasPreferredRoute = r.rankedRouteCache.Get(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
-	}
-
-	var (
-		rankedRoutes        []route.RouteImpl
-		topSingleRouteQuote domain.Quote
-		err                 error
-	)
-
-	router := r.initializeRouter(config)
-
-	// Get request path for metrics
-	requestURLPath, err := domain.GetURLPathFromContext(ctx)
+	candidateRankedRoutes, err := r.GetCachedRankedRoutes(ctx, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
 	if err != nil {
 		return nil, err
 	}
 
+	var (
+		topSingleRouteQuote domain.Quote
+		rankedRoutes        []route.RouteImpl
+	)
+
+	router := r.initializeRouter(config)
+
 	// Preferred route in this context is either an overwrite or a cached ranked route.
 	// If an overwrite exists, it is always used over the ranked route.
-	if hasPreferredRoute {
-		// Increase cache hits
-		cacheHits.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom).Inc()
-
-		preferredRankedRoutes, ok := preferredRoute.(sqsdomain.CandidateRoutes)
-		if !ok {
-			return nil, fmt.Errorf("error casting ranked routes from cache")
-		}
-
-		// If top routes are present in cache, estimate the quotes and return the best.
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, router, preferredRankedRoutes, tokenIn, tokenOutDenom)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Increase cache misses
-		cacheMisses.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom).Inc()
-
+	if len(candidateRankedRoutes.Routes) == 0 {
 		// If top routes are not present in cache, retrieve unranked candidate routes
 		candidateRoutes, err := r.handleCandidateRoutes(ctx, router, tokenIn.Denom, tokenOutDenom)
 		if err != nil {
 			r.logger.Error("error handling routes", zap.Error(err))
 			return nil, err
+		}
+
+		// Get request path for metrics
+		requestURLPath, err := domain.GetURLPathFromContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(candidateRoutes.Routes) > 0 {
+			cacheWrite.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenIn.Denom, tokenOutDenom, noOrderOfMagnitude).Inc()
+
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(config.CandidateRouteCacheExpirySeconds)*time.Second)
 		}
 
 		// Rank candidate routes by estimating direct quotes
@@ -194,21 +184,29 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 		// Update ranked routes with filtered ranked routes
 		rankedRoutes = filterDuplicatePoolIDRoutes(rankedRoutes)
 
-		if len(rankedRoutes) > 0 {
-			// Convert ranked routes back to candidate for caching
-			candidateRoutes = convertRankedToCandidateRoutes(rankedRoutes)
+		// Convert ranked routes back to candidate for caching
+		candidateRoutes = convertRankedToCandidateRoutes(rankedRoutes)
 
-			// TODO move cache value to config.
-			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Minute*10)
+		// Filter out generalized cosmWasm pool routes
+		rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
+
+		if len(rankedRoutes) > 0 {
+			cacheWrite.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
+
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(config.RankedRouteCacheExpirySeconds)*time.Second)
+		}
+	} else {
+		// Rank candidate routes by estimating direct quotes
+		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, router, candidateRankedRoutes, tokenIn, tokenOutDenom)
+		if err != nil {
+			r.logger.Error("error getting top routes", zap.Error(err))
+			return nil, err
 		}
 	}
 
 	if len(rankedRoutes) == 1 {
 		return topSingleRouteQuote, nil
 	}
-
-	// I
-	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
 
 	// Compute split route quote
 	topSplitQuote, err := router.GetSplitQuote(ctx, rankedRoutes, tokenIn)
@@ -538,15 +536,64 @@ func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]s
 // GetCachedCandidateRoutes implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
 	if !r.config.RouteCacheEnabled {
-		return sqsdomain.CandidateRoutes{}, fmt.Errorf("route cache is disabled")
+		return sqsdomain.CandidateRoutes{}, nil
 	}
 
-	cachedCandidateRoutes, err := r.routerRepository.GetRoutes(ctx, tokenInDenom, tokenOutDenom)
+	// Get request path for metrics
+	requestURLPath, err := domain.GetURLPathFromContext(ctx)
 	if err != nil {
 		return sqsdomain.CandidateRoutes{}, err
 	}
 
-	return cachedCandidateRoutes, nil
+	cachedCandidateRoutes, found := r.candidateRouteCache.Get(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom))
+	if !found {
+		// Increase cache misses
+		cacheMisses.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom, noOrderOfMagnitude).Inc()
+
+		return sqsdomain.CandidateRoutes{
+			Routes:        []sqsdomain.CandidateRoute{},
+			UniquePoolIDs: map[uint64]struct{}{},
+		}, nil
+	}
+
+	cacheHits.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom, noOrderOfMagnitude).Inc()
+
+	candidateRoutes, ok := cachedCandidateRoutes.(sqsdomain.CandidateRoutes)
+	if !ok {
+		return sqsdomain.CandidateRoutes{}, fmt.Errorf("error casting candidate routes from cache")
+	}
+
+	return candidateRoutes, nil
+}
+
+// GetCachedRankedRoutes implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string, tokenInOrderOfMagnitude int) (sqsdomain.CandidateRoutes, error) {
+	if !r.config.RouteCacheEnabled {
+		return sqsdomain.CandidateRoutes{}, nil
+	}
+
+	// Get request path for metrics
+	requestURLPath, err := domain.GetURLPathFromContext(ctx)
+	if err != nil {
+		return sqsdomain.CandidateRoutes{}, err
+	}
+
+	cachedRankedRoutes, found := r.rankedRouteCache.Get(formatRankedRouteCacheKey(tokenInDenom, tokenOutDenom, tokenInOrderOfMagnitude))
+	if !found {
+		// Increase cache misses
+		cacheMisses.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenInDenom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
+
+		return sqsdomain.CandidateRoutes{}, nil
+	}
+
+	cacheHits.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenInDenom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
+
+	rankedRoutes, ok := cachedRankedRoutes.(sqsdomain.CandidateRoutes)
+	if !ok {
+		return sqsdomain.CandidateRoutes{}, fmt.Errorf("error casting candidate routes from cache")
+	}
+
+	return rankedRoutes, nil
 }
 
 // GetConfig implements mvc.RouterUsecase.
@@ -587,7 +634,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 
 	// Check cache for routes if enabled
 	if r.config.RouteCacheEnabled {
-		candidateRoutes, err = r.routerRepository.GetRoutes(ctx, tokenInDenom, tokenOutDenom)
+		candidateRoutes, err = r.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
 		if err != nil {
 			return sqsdomain.CandidateRoutes{}, err
 		}
@@ -595,17 +642,8 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 
 	r.logger.Debug("cached routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
 
-	// Get request path for metrics
-	requestURLPath, err := domain.GetURLPathFromContext(ctx)
-	if err != nil {
-		return sqsdomain.CandidateRoutes{}, err
-	}
-
 	// If no routes are cached, find them
 	if len(candidateRoutes.Routes) == 0 {
-		// Increase cache misses
-		cacheMisses.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom).Inc()
-
 		r.logger.Debug("calculating routes")
 		allPools, err := r.poolsUsecase.GetAllPools(ctx)
 		if err != nil {
@@ -624,12 +662,9 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 		// Persist routes
 		if len(candidateRoutes.Routes) > 0 && r.config.RouteCacheEnabled {
 			r.logger.Debug("persisting routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
-			if err := r.routerRepository.SetRoutes(ctx, tokenInDenom, tokenOutDenom, candidateRoutes); err != nil {
-				return sqsdomain.CandidateRoutes{}, err
-			}
+			// TODO: move to config
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), candidateRoutes, time.Duration(r.config.CandidateRouteCacheExpirySeconds)*time.Second)
 		}
-	} else {
-		cacheHits.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom).Inc()
 	}
 
 	return candidateRoutes, nil
@@ -673,136 +708,6 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles(ctx context.Context) error {
 	return nil
 }
 
-// OverwriteRoutes implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) OverwriteRoutes(ctx context.Context, tokeinInDenom string, routes []sqsdomain.CandidateRoute) error {
-	if len(routes) == 0 {
-		return errors.New("routes cannot be empty")
-	}
-
-	// Find the unique pool IDs
-	uniquePoolIDs := make(map[uint64]struct{})
-
-	var (
-		// The token out denom that we expect to be the same for all routes
-		// We initialize it to token out denom of the first route and then validate
-		// that it equals for all other routes.
-		expectedTokenOutDenom string
-		// The token out denom of the previous pool
-		// For the first pool in route, assumed to be tokenInDenom
-		previousPoolsTokenOutDenom = tokeinInDenom
-	)
-	for i, route := range routes {
-		for _, pool := range route.Pools {
-			// Validate that token in is present in the first pool
-			poolData, err := r.poolsUsecase.GetPool(ctx, pool.ID)
-			if err != nil {
-				return err
-			}
-
-			poolDenoms := poolData.GetPoolDenoms()
-			if !osmoutils.Contains(poolDenoms, previousPoolsTokenOutDenom) {
-				return fmt.Errorf("token in denom %s not found in pool %d of route with index %d", tokeinInDenom, pool.ID, i)
-			}
-
-			// Persist unique pool ID
-			uniquePoolIDs[pool.ID] = struct{}{}
-
-			previousPoolsTokenOutDenom = pool.TokenOutDenom
-		}
-
-		// Make sure that the token out denom of the previous route is the same as for current route
-		// That is, all routes have the same token out denom
-		if i != 0 {
-			if expectedTokenOutDenom != previousPoolsTokenOutDenom {
-				return fmt.Errorf("token out denom %s does not match expected token out denom %s for route with index %d", previousPoolsTokenOutDenom, expectedTokenOutDenom, i)
-			}
-		}
-		expectedTokenOutDenom = previousPoolsTokenOutDenom
-	}
-
-	// Create the overwrite data structure that we save in cache
-	candidateRoutes := sqsdomain.CandidateRoutes{
-		Routes:        routes,
-		UniquePoolIDs: uniquePoolIDs,
-	}
-
-	// Note that we only persist overwrite in one direction (tokenInDenom -> tokenOutDenom)
-	// For other directions, we must resubmit the request with denoms inversed.
-	overwriteKey := formatRouteCacheKey(tokeinInDenom, expectedTokenOutDenom)
-	r.routesOverwrite.Set(overwriteKey, candidateRoutes)
-
-	// Also save this thing to a file for crash recovery
-	bz, err := json.Marshal(candidateRoutes)
-	if err != nil {
-		return err
-	}
-
-	err = sqsutil.WriteBytes(r.overwriteRoutesPath, url.PathEscape(overwriteKey), bz)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// LoadOverwriteRoutes loads the overwrite routes from disk if they exist.
-// If they do not exist, this is a no-op.
-// If they exist, it loads them into the router usecase.
-// Returns errors if any.
-func (r *routerUseCaseImpl) LoadOverwriteRoutes(ctx context.Context) error {
-	// Read overwrite routes from disk if they exist.
-	_, err := os.Stat(r.overwriteRoutesPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// We do not have to create the path because we expect the first request
-			// to create the directory.
-			return nil
-		}
-	} else if err == nil {
-		entries, err := os.ReadDir(r.overwriteRoutesPath)
-		if err != nil {
-			return err
-		}
-
-		for _, entry := range entries {
-			if entry.IsDir() {
-				return fmt.Errorf("overwrite routes directory should not contain subdirectories")
-			}
-
-			fileName := entry.Name()
-
-			// Read the entire file
-			content, err := os.ReadFile(fmt.Sprintf("%s/%s", r.overwriteRoutesPath, fileName))
-			if err != nil {
-				return err
-			}
-
-			// Parse to candidate routes
-			var candidateRoutes sqsdomain.CandidateRoutes
-			if err := json.Unmarshal(content, &candidateRoutes); err != nil {
-				return err
-			}
-
-			tokenInDenomTokenOutDenomStr, err := url.PathUnescape(fileName)
-			if err != nil {
-				return err
-			}
-
-			tokenInDenomTokenOutDenom := strings.Split(tokenInDenomTokenOutDenomStr, denomSeparatorChar)
-			if len(tokenInDenomTokenOutDenom) != 2 {
-				return fmt.Errorf("overwrite routes file name should be of format: '<tokenInDenom>%s<tokenOutDenom>.json URL-escaped", denomSeparatorChar)
-			}
-
-			tokenInDenom := tokenInDenomTokenOutDenom[0]
-
-			if err := r.OverwriteRoutes(ctx, tokenInDenom, candidateRoutes.Routes); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // formatRouteCacheKey formats the given token in and token out denoms to a string.
 func formatRouteCacheKey(tokenInDenom string, tokenOutDenom string) string {
 	return fmt.Sprintf("%s%s%s", tokenInDenom, denomSeparatorChar, tokenOutDenom)
@@ -811,6 +716,11 @@ func formatRouteCacheKey(tokenInDenom string, tokenOutDenom string) string {
 // formatRankedRouteCacheKey formats the given token in and token out denoms and order of magnitude to a string.
 func formatRankedRouteCacheKey(tokenInDenom string, tokenOutDenom string, tokenIOrderOfMagnitude int) string {
 	return fmt.Sprintf("%s%s%d", formatRouteCacheKey(tokenInDenom, tokenOutDenom), denomSeparatorChar, tokenIOrderOfMagnitude)
+}
+
+// formatCandidateRouteCacheKey formats the given token in and token out denoms to a string.
+func formatCandidateRouteCacheKey(tokenInDenom string, tokenOutDenom string) string {
+	return fmt.Sprintf("cr%s", formatRouteCacheKey(tokenInDenom, tokenOutDenom))
 }
 
 // convertRankedToCandidateRoutes converts the given ranked routes to candidate routes.

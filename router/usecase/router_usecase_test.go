@@ -2,7 +2,6 @@ package usecase_test
 
 import (
 	"context"
-	"os"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -204,14 +203,12 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		s.Run(tc.name, func() {
 
 			routerRepositoryMock := &sqsdomainmocks.RedisRouterRepositoryMock{
-				Routes: map[sqsdomain.DenomPair]sqsdomain.CandidateRoutes{
-					// These are the routes that are stored in cache and returned by the call to GetRoutes.
-					{Denom0: tokenOutDenom, Denom1: tokenInDenom}: tc.repositoryRoutes,
-				},
-
 				// No need to set taker fees on the mock since they are only relevant when
 				// set on the router for this test.
 			}
+
+			candidateRouteCache := cache.New()
+			candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), tc.repositoryRoutes, time.Hour)
 
 			poolsUseCaseMock := &mocks.PoolsUsecaseMock{
 				// These are the pools returned by the call to GetAllPools
@@ -220,7 +217,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 
 			routerUseCase := usecase.NewRouterUsecase(defaultTimeoutDuration, routerRepositoryMock, poolsUseCaseMock, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheDisabled,
-			}, &log.NoOpLogger{}, cache.New(), cache.NewNoOpRoutesOverwrite())
+			}, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
@@ -248,14 +245,11 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				s.Require().Equal(tc.expectedCandidateRoutes.Routes[i], route)
 			}
 
+			cachedCandidateRoutes, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
 			// For the case where the cache is disabled, the expected routes in cache
 			// will be the same as the original routes in the repository.
-			if tc.isCacheDisabled {
-				tc.expectedCandidateRoutes = tc.repositoryRoutes
-			}
-
 			// Check that router repository was updated
-			s.Require().Equal(tc.expectedCandidateRoutes, routerRepositoryMock.Routes[sqsdomain.DenomPair{Denom0: tokenOutDenom, Denom1: tokenInDenom}])
+			s.Require().Equal(tc.expectedCandidateRoutes, cachedCandidateRoutes)
 		})
 	}
 }
@@ -500,9 +494,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 	)
 
 	tests := map[string]struct {
-		preCachedRoutes              sqsdomain.CandidateRoutes
-		overwriteRoutes              sqsdomain.CandidateRoutes
-		cacheOrderOfMagnitudeTokenIn int
+		preCachedCandidateRoutes sqsdomain.CandidateRoutes
 
 		cacheExpiryDuration time.Duration
 
@@ -520,34 +512,17 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
 
-			preCachedRoutes: poolIDOneRoute,
-
-			cacheOrderOfMagnitudeTokenIn: osmomath.OrderOfMagnitude(defaultAmountInCache.ToLegacyDec()),
+			preCachedCandidateRoutes: poolIDOneRoute,
 
 			cacheExpiryDuration: time.Hour,
 
 			// We expect balancer because it is cached.
 			expectedRoutePoolID: poolIDOneBalancer,
 		},
-		"cache is set to balancer but for a different order of magnitude - computes new routes": {
-			amountIn: defaultAmountInCache,
-
-			preCachedRoutes: poolIDOneRoute,
-
-			// Note that we multiply the order of magnitude by 10 so cache is not applied for this amount in.
-			cacheOrderOfMagnitudeTokenIn: osmomath.OrderOfMagnitude(defaultAmountInCache.ToLegacyDec().MulInt64(10)),
-
-			cacheExpiryDuration: time.Hour,
-
-			// We expect pool 1400 because the cache is not applied.
-			expectedRoutePoolID: poolID1400Concentrated,
-		},
 		"cache is expired - overwrites computed": {
 			amountIn: defaultAmountInCache,
 
-			preCachedRoutes: poolIDOneRoute,
-
-			cacheOrderOfMagnitudeTokenIn: osmomath.OrderOfMagnitude(defaultAmountInCache.ToLegacyDec()),
+			preCachedCandidateRoutes: poolIDOneRoute,
 
 			// Note: we rely on the fact that the it takes more than 1 nanosecond from the test set up to
 			// test execution.
@@ -555,26 +530,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// We expect pool 1400 because the cache with balancer pool expires.
 			expectedRoutePoolID: poolID1400Concentrated,
-		},
-		"cache is not set, overwrites set, routes taken from overwrites (not computed)": {
-			amountIn: defaultAmountInCache,
-
-			overwriteRoutes: poolIDOneRoute,
-
-			// For the default amount in, we expect pool 1400 to be returned.
-			// However, we overwrite the routes with pool of ID 1.
-			expectedRoutePoolID: poolIDOneBalancer,
-		},
-		"cache is set, overwrites set, routes taken from overwrites (not computed and not cache)": {
-			amountIn: defaultAmountInCache,
-
-			overwriteRoutes: poolIDOneRoute,
-
-			preCachedRoutes: poolID1135Route,
-
-			// For the default amount in, we expect pool 1265 to be returned.
-			// However, we overwrite the routes (or cache) with pool of ID 1.
-			expectedRoutePoolID: poolIDOneBalancer,
 		},
 	}
 
@@ -585,18 +540,14 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			router, mainnetState := s.SetupDefaultMainnetRouter()
 
 			rankedRouteCache := cache.New()
-			routesOverwrite := cache.NewRoutesOverwrite()
+			candidateRouteCache := cache.New()
 
-			if len(tc.preCachedRoutes.Routes) > 0 {
-				rankedRouteCache.Set(usecase.FormatRankedRouteCacheKey(defaultTokenInDenom, defaultTokenOutDenom, tc.cacheOrderOfMagnitudeTokenIn), tc.preCachedRoutes, tc.cacheExpiryDuration)
-			}
-
-			if len(tc.overwriteRoutes.Routes) > 0 {
-				routesOverwrite.Set(usecase.FormatRouteCacheKey(defaultTokenInDenom, defaultTokenOutDenom), tc.overwriteRoutes)
+			if len(tc.preCachedCandidateRoutes.Routes) > 0 {
+				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(defaultTokenInDenom, defaultTokenOutDenom), tc.preCachedCandidateRoutes, tc.cacheExpiryDuration)
 			}
 
 			// Mock router use case.
-			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, rankedRouteCache, routesOverwrite)
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, rankedRouteCache, candidateRouteCache)
 
 			// System under test
 			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom)
@@ -620,66 +571,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 		})
 	}
-}
-
-// Basic happy path test for OverwriteRoutes and LoadOverwriteRoutes.
-//
-// Similar to TestGetOptimalQuote_Cache_Overwrites, this test is set up by focusing on ATOM / OSMO mainnet state pool.
-// We restrict the number of routes via config.
-//
-// As of today there are 3 major ATOM / OSMO pools:
-// Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 18M of liquidity to date
-// Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 10M of liquidity to date
-// Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 1.4M of liquidity to date
-// Pool ID 1265: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 322K of liquidity to date
-func (s *RouterTestSuite) TestOverwriteRoutes_LoadOverwriteRoutes() {
-	const tempPath = "temp"
-
-	s.Setup()
-
-	// Setup mainnet router
-	router, mainnetState := s.SetupDefaultMainnetRouter()
-
-	// Mock router use case.
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewRoutesOverwrite())
-	routerUsecase := usecase.WithOverwriteRoutesPath(mainnetUsecase.Router, tempPath)
-
-	// Without overwrite this is the pool ID we expect given the amount in.
-	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1400Concentrated)
-
-	defer func() {
-		// Clean up
-		os.RemoveAll(tempPath)
-	}()
-
-	// System under test #1
-	err := routerUsecase.OverwriteRoutes(context.Background(), UOSMO, poolIDOneRoute.Routes)
-	s.Require().NoError(err)
-
-	// With overwrite this is the pool ID we expect given the amount in.
-	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolIDOneBalancer)
-
-	// Validate that the overwrite can be modified
-	// System under test #2
-	err = routerUsecase.OverwriteRoutes(context.Background(), UOSMO, poolID1135Route.Routes)
-	s.Require().NoError(err)
-
-	// With overwrite this is the pool ID we expect given the amount in.
-	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1135Concentrated)
-
-	// Now, drop the original use case and create a new one
-	mainnetUsecase = s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewRoutesOverwrite())
-	routerUsecase = usecase.WithOverwriteRoutesPath(mainnetUsecase.Router, tempPath)
-
-	// 	// Without overwrite this is the pool ID we expect given the amount in.
-	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1400Concentrated)
-
-	// Load overwrite
-	err = routerUsecase.LoadOverwriteRoutes(context.Background())
-	s.Require().NoError(err)
-
-	// With overwrite this is the pool ID we expect given the amount in.
-	s.validatePoolIDInRoute(routerUsecase, sdk.NewCoin(UOSMO, defaultAmountInCache), ATOM, poolID1135Concentrated)
 }
 
 // validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.

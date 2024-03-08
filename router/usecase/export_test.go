@@ -65,3 +65,7 @@ func FormatRankedRouteCacheKey(tokenInDenom string, tokenOutDenom string, tokenI
 func FormatRouteCacheKey(tokenInDenom string, tokenOutDenom string) string {
 	return formatRouteCacheKey(tokenInDenom, tokenOutDenom)
 }
+
+func FormatCandidateRouteCacheKey(tokenInDenom string, tokenOutDenom string) string {
+	return formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom)
+}

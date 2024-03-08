@@ -144,7 +144,7 @@ var (
 		MaxSplitIterations:        10,
 		MinOSMOLiquidity:          20000,
 		RouteUpdateHeightInterval: 0,
-		RouteCacheEnabled:         false,
+		RouteCacheEnabled:         true,
 	}
 
 	DefaultPoolsConfig = domain.PoolsConfig{
@@ -276,11 +276,10 @@ func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*rout
 
 // Sets up and returns usecases for router and pools by mocking the mainnet data
 // from json files.
-func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Router, mainnetState MockMainnetState, rankedRoutesCache *cache.Cache, routesOverwrite *cache.RoutesOverwrite) MockMainnetUsecase {
+func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Router, mainnetState MockMainnetState, rankedRoutesCache *cache.Cache, candidateRouteCache *cache.Cache) MockMainnetUsecase {
 	// Setup router repository mock
 	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{
 		TakerFees: mainnetState.TakerFeeMap,
-		Routes:    map[sqsdomain.DenomPair]sqsdomain.CandidateRoutes{},
 	}
 	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
 
@@ -292,7 +291,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &DefaultPoolsConfig, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
-	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, router.GetConfig(), &log.NoOpLogger{}, rankedRoutesCache, routesOverwrite)
+	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, router.GetConfig(), &log.NoOpLogger{}, rankedRoutesCache, candidateRouteCache)
 
 	tokensUsecase := tokensusecase.NewTokensUsecase(time.Hour, mainnetState.TokensMetadata)
 

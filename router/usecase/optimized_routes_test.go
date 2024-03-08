@@ -633,7 +633,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			router, mainnetState := s.SetupDefaultMainnetRouter()
 
 			// Mock router use case.
-			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewNoOpRoutesOverwrite())
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 			// System under test
 			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
@@ -679,7 +679,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
-	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, config, &log.NoOpLogger{}, cache.New(), cache.NewNoOpRoutesOverwrite())
+	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, config, &log.NoOpLogger{}, cache.New(), cache.New())
 
 	// This pool ID is second best: https://app.osmosis.zone/pool/2
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected
@@ -705,7 +705,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 // - converting candidate routes to routes with all the necessary data.
 // COTRACT: router is initialized with setupMainnetRouter(...) or setupDefaultMainnetRouter(...)
 func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, mainnetState routertesting.MockMainnetState) []route.RouteImpl {
-	mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.NewNoOpRoutesOverwrite())
+	mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
 	s.Require().NoError(err)
