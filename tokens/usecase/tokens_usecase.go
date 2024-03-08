@@ -184,8 +184,8 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 		go func(baseDenom string) {
 			defer wg.Done()
 
-			prices, err := t.getPricesForBaseDenom(ctx, pricingStrategy, baseDenom, quoteDenoms)
-			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: err}
+			prices := t.getPricesForBaseDenom(ctx, pricingStrategy, baseDenom, quoteDenoms)
+			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: nil}
 		}(baseDenom)
 	}
 
@@ -212,7 +212,7 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 // Returns a map with keys as quotes and values as prices or error, if any.
 // Returns error if base denom is not found in the token metadata.
 // Sets the price to zero in case of failing to compute the price between base and quote but these being valid tokens.
-func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrategy domain.PricingStrategy, baseDenom string, quoteDenoms []string) (map[string]any, error) {
+func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrategy domain.PricingStrategy, baseDenom string, quoteDenoms []string) map[string]any {
 	byQuoteDenomForGivenBaseResult := make(map[string]any, len(quoteDenoms))
 	// Validate base denom is a valid denom
 	// Return zeroes for all quotes if base denom is not found
@@ -221,7 +221,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		for _, quoteDenom := range quoteDenoms {
 			byQuoteDenomForGivenBaseResult[quoteDenom] = osmomath.ZeroBigDec()
 		}
-		return byQuoteDenomForGivenBaseResult, nil
+		return byQuoteDenomForGivenBaseResult
 	}
 
 	// Create a channel to communicate the results
@@ -261,7 +261,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		byQuoteDenomForGivenBaseResult[result.quoteDenom] = result.price
 	}
 
-	return byQuoteDenomForGivenBaseResult, nil
+	return byQuoteDenomForGivenBaseResult
 }
 
 func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
