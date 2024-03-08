@@ -35,6 +35,12 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.7.0
+
+* [#99](https://github.com/osmosis-labs/sqs/pull/99) Move candidate routes cache out of Redis. Remove route overwrite
+
+Various performance improvement optimizations.
+
 ## v0.6.0
 
 * [#85](https://github.com/osmosis-labs/sqs/pull/85) /tokens/prices endpoint
