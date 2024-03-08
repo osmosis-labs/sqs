@@ -204,7 +204,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 		}
 	}
 
-	if len(rankedRoutes) == 1 {
+	if len(rankedRoutes) == 1 || router.config.MaxSplitRoutes == domain.DisableSplitRoutes {
 		return topSingleRouteQuote, nil
 	}
 

@@ -81,3 +81,5 @@ type PoolsConfig struct {
 	TransmuterCodeIDs      []uint64 `mapstructure:"transmuter-code-ids"`
 	GeneralCosmWasmCodeIDs []uint64 `mapstructure:"general-cosmwasm-code-ids"`
 }
+
+const DisableSplitRoutes = 0

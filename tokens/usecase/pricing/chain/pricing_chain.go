@@ -118,6 +118,8 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	routerConfig.MaxRoutes = c.maxRoutes
 	routerConfig.MaxPoolsPerRoute = c.maxPoolsPerRoute
 	routerConfig.MinOSMOLiquidity = c.minOSMOLiquidity
+	// Disable split routes
+	routerConfig.MaxSplitIterations = domain.DisableSplitRoutes
 
 	// Compute a quote for one quote coin.
 	quote, err := c.RUsecase.GetOptimalQuoteFromConfig(ctx, oneQuoteCoin, baseDenom, routerConfig)
