@@ -35,6 +35,7 @@ type routerUseCaseImpl struct {
 
 	rankedRouteCache    *cache.Cache
 	candidateRouteCache *cache.Cache
+	splitsCache         *cache.Cache
 
 	// This is a path where the overwrite routes are stored as backup in case of failure.
 	// On restart, the routes are loaded from this path.
@@ -82,7 +83,7 @@ func init() {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache, splitsCache *cache.Cache) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
 		contextTimeout:   timeout,
 		routerRepository: routerRepository,
@@ -92,6 +93,7 @@ func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.Ro
 
 		rankedRouteCache:    rankedRouteCache,
 		candidateRouteCache: candidateRouteCache,
+		splitsCache:         splitsCache,
 	}
 }
 
@@ -207,6 +209,9 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 	if len(rankedRoutes) == 1 || router.config.MaxSplitRoutes == domain.DisableSplitRoutes {
 		return topSingleRouteQuote, nil
 	}
+
+	// Set splits cache on the router
+	router = WithSplitsCache(router, r.splitsCache)
 
 	// Compute split route quote
 	topSplitQuote, err := router.GetSplitQuote(ctx, rankedRoutes, tokenIn)

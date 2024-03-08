@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -45,6 +46,59 @@ func (r *Router) GetSplitQuote(ctx context.Context, routes []route.RouteImpl, to
 		return quote, nil
 	}
 
+	if r.splitsCache != nil {
+		// Get splits from cache
+		tokenOutDenom := routes[0].GetTokenOutDenom()
+
+		splitsObj, found := r.splitsCache.Get(formatRouteCacheKey(tokenIn.Denom, tokenOutDenom))
+
+		// Note, we naively rely on the fact that the splits cache is consistent with the routes.
+		// It is possible that the splits cache is stale and the routes have changed.
+		// In that case, we will recompute them.
+		if found {
+
+			splits, ok := splitsObj.([]osmomath.Dec)
+			if !ok {
+				return nil, fmt.Errorf("splits cache is not of type []osmomath.Dec, token in (%s), token out (%s)", tokenIn.Denom, tokenOutDenom)
+			}
+
+			if len(splits) == len(routes) {
+				amountInDec := tokenIn.Amount.ToLegacyDec()
+
+				totalAmountOut := osmomath.ZeroInt()
+
+				resultRoutes := make([]domain.SplitRoute, 0, len(routes))
+
+				for i, split := range splits {
+					if split.IsZero() {
+						continue
+					}
+
+					inAmount := amountInDec.Mul(split).TruncateInt()
+
+					coinOut, err := routes[i].CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(tokenIn.Denom, inAmount))
+					if err != nil {
+						return nil, err
+					}
+
+					totalAmountOut = totalAmountOut.Add(coinOut.Amount)
+
+					resultRoutes = append(resultRoutes, &RouteWithOutAmount{
+						RouteImpl: routes[i],
+						InAmount:  inAmount,
+						OutAmount: coinOut.Amount,
+					})
+				}
+
+				return &quoteImpl{
+					AmountIn:  tokenIn,
+					AmountOut: totalAmountOut,
+					Route:     resultRoutes,
+				}, nil
+			}
+		}
+	}
+
 	memo := make([]map[uint8]osmomath.Int, len(routes))
 	for i := range memo {
 		memo[i] = make(map[uint8]osmomath.Int, totalIncrements)
@@ -69,6 +123,8 @@ func (r *Router) GetSplitQuote(ctx context.Context, routes []route.RouteImpl, to
 		return nil, errors.New("amount out is zero, try increasing amount in")
 	}
 
+	inAmountProportions := make([]osmomath.Dec, 0, len(routes))
+
 	totalIncrementsInSplits := uint8(0)
 	resultRoutes := make([]domain.SplitRoute, 0, len(routes))
 	totalAmoutOutFromSplits := osmomath.ZeroInt()
@@ -86,7 +142,11 @@ func (r *Router) GetSplitQuote(ctx context.Context, routes []route.RouteImpl, to
 			return nil, fmt.Errorf("route %d not found in memo", currentRouteIndex)
 		}
 
-		inAmount := tokenIn.Amount.ToLegacyDec().Mul(sdk.NewDec(int64(currentRouteIncrement))).Quo(sdk.NewDec(int64(totalIncrements))).TruncateInt()
+		currentInAmountProportion := sdk.NewDec(int64(currentRouteIncrement)).QuoInt64Mut(int64(totalIncrements))
+
+		inAmountProportions = append(inAmountProportions, currentInAmountProportion)
+
+		inAmount := tokenIn.Amount.ToLegacyDec().MulMut(currentInAmountProportion).TruncateInt()
 		outAmount := currentRouteAmtOut
 
 		isAmountInNilOrZero := inAmount.IsNil() || inAmount.IsZero()
@@ -121,6 +181,12 @@ func (r *Router) GetSplitQuote(ctx context.Context, routes []route.RouteImpl, to
 	// TODO: we may want to remove this check so that we get the best quote.
 	if totalIncrementsInSplits != totalIncrements {
 		return nil, fmt.Errorf("total increments (%d) does not match expected total increments (%d)", totalIncrements, totalIncrements)
+	}
+
+	// Cache propotions
+	if r.splitsCache != nil {
+		tokenOutDenom := routes[0].GetTokenOutDenom()
+		r.splitsCache.Set(formatRouteCacheKey(tokenIn.Denom, tokenOutDenom), inAmountProportions, time.Duration(r.config.RankedRouteCacheExpirySeconds)*time.Second)
 	}
 
 	quote := &quoteImpl{

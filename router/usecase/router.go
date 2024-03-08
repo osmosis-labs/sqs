@@ -8,6 +8,7 @@ import (
 	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
 	"go.uber.org/zap"
 
+	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 
@@ -23,6 +24,8 @@ type Router struct {
 	routerRepository routerredisrepo.RouterRepository
 
 	poolsUsecase mvc.PoolsUsecase
+
+	splitsCache *cache.Cache
 
 	// The logger.
 	logger log.Logger
@@ -56,7 +59,16 @@ func NewRouter(config domain.RouterConfig, logger log.Logger) *Router {
 	return &Router{
 		config: config,
 		logger: logger,
+
+		// Note that splits cache is nil by default.
+		splitsCache: nil,
 	}
+}
+
+// WithSplitsCache instruments router by setting a splits cache on it and returns the router.
+func WithSplitsCache(router *Router, splitsCache *cache.Cache) *Router {
+	router.splitsCache = splitsCache
+	return router
 }
 
 // GetConfig returns the router config.
