@@ -326,3 +326,22 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 
 	return tokensByChainDenom, nil
 }
+
+// GetSpotPriceScalingFactorByDenomMut implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetSpotPriceScalingFactorByDenom(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.Dec, error) {
+	baseScalingFactor, err := t.GetChainScalingFactorByDenomMut(ctx, baseDenom)
+	if err != nil {
+		return osmomath.Dec{}, err
+	}
+
+	quoteScalingFactor, err := t.GetChainScalingFactorByDenomMut(ctx, quoteDenom)
+	if err != nil {
+		return osmomath.Dec{}, err
+	}
+
+	if quoteScalingFactor.IsZero() {
+		return osmomath.Dec{}, fmt.Errorf("scaling factor for quote denom (%s) is zero", quoteDenom)
+	}
+
+	return baseScalingFactor.Quo(quoteScalingFactor), nil
+}

@@ -14,11 +14,12 @@ import (
 )
 
 type quoteImpl struct {
-	AmountIn     sdk.Coin            "json:\"amount_in\""
-	AmountOut    osmomath.Int        "json:\"amount_out\""
-	Route        []domain.SplitRoute "json:\"route\""
-	EffectiveFee osmomath.Dec        "json:\"effective_fee\""
-	PriceImpact  osmomath.Dec        "json:\"price_impact\""
+	AmountIn       sdk.Coin            "json:\"amount_in\""
+	AmountOut      osmomath.Int        "json:\"amount_out\""
+	Route          []domain.SplitRoute "json:\"route\""
+	EffectiveFee   osmomath.Dec        "json:\"effective_fee\""
+	PriceImpact    osmomath.Dec        "json:\"price_impact\""
+	InOutSpotPrice osmomath.Dec        "json:\"in_out_spot_price\""
 }
 
 var (
@@ -35,7 +36,7 @@ var _ domain.Quote = &quoteImpl{}
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteImpl) PrepareResult(ctx context.Context) ([]domain.SplitRoute, osmomath.Dec) {
+func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
@@ -89,6 +90,7 @@ func (q *quoteImpl) PrepareResult(ctx context.Context) ([]domain.SplitRoute, osm
 
 	q.EffectiveFee = totalFeeAcrossRoutes
 	q.Route = resultRoutes
+	q.InOutSpotPrice = totalSpotPriceInOverOut.Mul(scalingFactor)
 
 	return q.Route, q.EffectiveFee
 }

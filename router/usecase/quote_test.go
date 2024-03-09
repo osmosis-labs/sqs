@@ -20,9 +20,10 @@ import (
 )
 
 var (
-	defaultAmount  = sdk.NewInt(100_000_00)
-	totalInAmount  = defaultAmount
-	totalOutAmount = defaultAmount.MulRaw(4)
+	defaultAmount                 = sdk.NewInt(100_000_00)
+	totalInAmount                 = defaultAmount
+	totalOutAmount                = defaultAmount.MulRaw(4)
+	defaultSpotPriceScalingFactor = osmomath.OneDec()
 )
 
 // TestPrepareResult prepares the result of the quote for output to the client.
@@ -226,7 +227,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	expectedEffectiveSpreadFactor := expectedRouteOneFee.Add(expectedRouteTwoFee)
 
 	// System under test
-	routes, effectiveSpreadFactor := testQuote.PrepareResult(context.TODO())
+	routes, effectiveSpreadFactor := testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
 
 	// Validate routes.
 	s.validateRoutes(expectedRoutes, routes)
@@ -301,7 +302,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	}
 
 	// System under test.
-	testQuote.PrepareResult(context.TODO())
+	testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
 
 	// Validate price impact.
 	s.Require().Equal(expectedPriceImpact.String(), testQuote.GetPriceImpact().String())
