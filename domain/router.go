@@ -55,7 +55,10 @@ type Quote interface {
 
 	// PrepareResult mutates the quote to prepare
 	// it with the data formatted for output to the client.
-	PrepareResult(ctx context.Context) ([]SplitRoute, osmomath.Dec)
+	// scalingFactor is the spot price scaling factor according to chain precision.
+	// scalingFactor of zero is a valid value. It might occur if we do not have precision information
+	// for the tokens. In that case, we invalidate spot price by setting it to zero.
+	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]SplitRoute, osmomath.Dec)
 
 	String() string
 }

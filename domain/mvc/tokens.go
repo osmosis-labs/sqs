@@ -24,6 +24,9 @@ type TokensUsecase interface {
 	// A clone should be made for any mutative operation.
 	GetChainScalingFactorByDenomMut(ctx context.Context, denom string) (osmomath.Dec, error)
 
+	// GetSpotPriceScalingFactorByDenomMut returns the scaling factor for spot price.
+	GetSpotPriceScalingFactorByDenom(ctx context.Context, baseDenom, quoteDenom string) (osmomath.Dec, error)
+
 	// GetPrices returns prices for all given base and quote denoms given a pricing strategy or, otherwise, error, if any.
 	// The outer map consists of base denoms as keys.
 	// The inner map consists of quote denoms as keys.

@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.7.2
+
+* [#100](https://github.com/osmosis-labs/sqs/pull/100) Format in over out spot price in quotes.
+
 ## v0.7.0
 
 * [#99](https://github.com/osmosis-labs/sqs/pull/99) Move candidate routes cache out of Redis. Remove route overwrite

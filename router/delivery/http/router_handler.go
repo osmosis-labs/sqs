@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
@@ -92,7 +94,9 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult(ctx)
+	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenInDenom, tokenOutDenom)
+
+	quote.PrepareResult(ctx, scalingFactor)
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -111,7 +115,9 @@ func (a *RouterHandler) GetBestSingleRouteQuote(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult(ctx)
+	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
+
+	quote.PrepareResult(ctx, scalingFactor)
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -142,7 +148,9 @@ func (a *RouterHandler) GetCustomQuote(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult(ctx)
+	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
+
+	quote.PrepareResult(ctx, scalingFactor)
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -173,7 +181,9 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	quote.PrepareResult(ctx)
+	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
+
+	quote.PrepareResult(ctx, scalingFactor)
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -342,6 +352,18 @@ func getValidRoutingParameters(c echo.Context) (string, sdk.Coin, error) {
 	}
 
 	return tokenOutStr, tokenIn, nil
+}
+
+// getSpotPriceScalingFactor returns the spot price scaling factor for a given tokenIn and tokenOutDenom.
+func (a *RouterHandler) getSpotPriceScalingFactor(ctx context.Context, tokenInDenom, tokenOutDenom string) osmomath.Dec {
+	scalingFactor, err := a.TUsecase.GetSpotPriceScalingFactorByDenom(ctx, tokenOutDenom, tokenInDenom)
+	if err != nil {
+		// Note that we do not fail the quote if scaling factor fetching fails.
+		// Instead, we simply set it to zero to validate future calculations downstream.
+		scalingFactor = sdk.ZeroDec()
+	}
+
+	return scalingFactor
 }
 
 func getValidTokenInStr(c echo.Context) (string, error) {
