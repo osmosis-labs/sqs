@@ -204,7 +204,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 			r := routerusecase.NewRouter(domain.RouterConfig{
 				MaxSplitIterations: tc.maxSplitIterations,
-			}, logger)
+			}, emptyCosmWasmPoolsRouterConfig, logger)
 
 			quote, err := r.GetSplitQuote(context.TODO(), tc.routes, tc.tokenIn)
 
@@ -538,7 +538,7 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 		tc := tc
 		s.Run(name, func() {
 
-			router := routerusecase.NewRouter(domain.RouterConfig{}, &log.NoOpLogger{})
+			router := routerusecase.NewRouter(domain.RouterConfig{}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{})
 
 			filteredCandidateRoutes, err := router.ValidateAndFilterRoutes(tc.routes, tc.tokenInDenom)
 
@@ -679,7 +679,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
-	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, config, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 
 	// This pool ID is second best: https://app.osmosis.zone/pool/2
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected

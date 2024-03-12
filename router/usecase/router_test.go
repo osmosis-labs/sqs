@@ -49,6 +49,8 @@ var (
 	}
 
 	noTakerFee = osmomath.ZeroDec()
+
+	emptyCosmWasmPoolsRouterConfig = routertesting.EmpyCosmWasmPoolRouterConfig
 )
 
 // This test validates a happy path expected behavior that
@@ -192,6 +194,12 @@ func (s *RouterTestSuite) TestNewRouter() {
 		MaxSplitRoutes:     maxSplitRoutes,
 		MaxSplitIterations: maxSplitIterations,
 		MinOSMOLiquidity:   minOsmoLiquidity,
+	}, domain.CosmWasmPoolRouterConfig{
+		TransmuterCodeIDs: map[uint64]struct{}{
+			1: {},
+		},
+		GeneralCosmWasmCodeIDs: map[uint64]struct{}{},
+		NodeURI:                "",
 	}, logger)
 	router = routerusecase.WithSortedPools(router, defaultAllPools)
 

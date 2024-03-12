@@ -51,7 +51,8 @@ func (e InvalidPoolTypeError) Error() string {
 
 // UnsupportedCosmWasmPoolTypeError is an error type for invalid cosmwasm pool type.
 type UnsupportedCosmWasmPoolTypeError struct {
-	PoolType int32
+	PoolType string
+	PoolId   uint64
 }
 
 func (e UnsupportedCosmWasmPoolTypeError) Error() string {

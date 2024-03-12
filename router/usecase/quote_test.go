@@ -227,7 +227,8 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	expectedEffectiveSpreadFactor := expectedRouteOneFee.Add(expectedRouteTwoFee)
 
 	// System under test
-	routes, effectiveSpreadFactor := testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
+	routes, effectiveSpreadFactor, err := testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
+	s.Require().NoError(err)
 
 	// Validate routes.
 	s.validateRoutes(expectedRoutes, routes)

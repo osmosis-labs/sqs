@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -25,4 +26,6 @@ type PoolsUsecase interface {
 	GetPool(ctx context.Context, poolID uint64) (sqsdomain.PoolI, error)
 	// GetPoolSpotPrice returns the spot price of the given pool given the taker fee, quote and base assets.
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
+
+	GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig
 }

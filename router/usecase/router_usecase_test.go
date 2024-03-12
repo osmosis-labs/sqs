@@ -217,13 +217,13 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 
 			routerUseCase := usecase.NewRouterUsecase(defaultTimeoutDuration, routerRepositoryMock, poolsUseCaseMock, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheDisabled,
-			}, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
+			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
 
 			// Initialize router
-			router := usecase.NewRouter(defaultRouterConfig, &log.NoOpLogger{})
+			router := usecase.NewRouter(defaultRouterConfig, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{})
 			router = usecase.WithSortedPools(router, poolsUseCaseMock.Pools)
 
 			// System under test

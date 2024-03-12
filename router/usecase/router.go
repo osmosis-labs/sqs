@@ -3,6 +3,7 @@ package usecase
 import (
 	"sort"
 
+	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v23/x/cosmwasmpool/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
@@ -18,7 +19,8 @@ import (
 type Router struct {
 	sortedPools []sqsdomain.PoolI
 
-	config domain.RouterConfig
+	config             domain.RouterConfig
+	cosmWasmPoolConfig domain.CosmWasmPoolRouterConfig
 
 	routerRepository routerredisrepo.RouterRepository
 
@@ -48,20 +50,26 @@ const (
 // Each pool has a flag indicating whether there was an error in estimating its on-chain TVL.
 // If that is the case, the pool is to be sorted towards the end. However, the preferredPoolIDs overwrites this rule
 // and prioritizes the preferred pools.
-func NewRouter(config domain.RouterConfig, logger log.Logger) *Router {
+func NewRouter(config domain.RouterConfig, cosmWasmPoolConfig domain.CosmWasmPoolRouterConfig, logger log.Logger) *Router {
 	if logger == nil {
 		logger = &log.NoOpLogger{}
 	}
 
 	return &Router{
-		config: config,
-		logger: logger,
+		config:             config,
+		cosmWasmPoolConfig: cosmWasmPoolConfig,
+		logger:             logger,
 	}
 }
 
 // GetConfig returns the router config.
 func (r Router) GetConfig() domain.RouterConfig {
 	return r.config
+}
+
+// GetConfig returns the router config.
+func (r Router) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
+	return r.cosmWasmPoolConfig
 }
 
 // GetMaxHops returns the maximum number of hops configured.
@@ -100,6 +108,22 @@ func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 		if err := pool.Validate(minUOSMOTVL); err != nil {
 			router.logger.Debug("pool validation failed, skip silently", zap.Uint64("pool_id", pool.GetId()), zap.Error(err))
 			continue
+		}
+
+		// Confirm that a cosmwasm code ID is whitelisted via config.
+		if pool.GetType() == poolmanagertypes.CosmWasm {
+			cosmWasmPool, ok := pool.GetUnderlyingPool().(cosmwasmpooltypes.CosmWasmExtension)
+			if !ok {
+				router.logger.Debug("failed to cast a cosm wasm pool, skip silently", zap.Uint64("pool_id", pool.GetId()))
+				continue
+			}
+
+			_, isGeneralCosmWasmCodeID := router.cosmWasmPoolConfig.GeneralCosmWasmCodeIDs[cosmWasmPool.GetCodeId()]
+			_, isTransmuterCodeID := router.cosmWasmPoolConfig.TransmuterCodeIDs[cosmWasmPool.GetCodeId()]
+			if !(isGeneralCosmWasmCodeID || isTransmuterCodeID) {
+				router.logger.Debug("cw pool code id is enot added to config, skip silently", zap.Uint64("pool_id", pool.GetId()))
+				continue
+			}
 		}
 
 		router.sortedPools = append(router.sortedPools, pool)

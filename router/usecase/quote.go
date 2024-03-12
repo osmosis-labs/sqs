@@ -36,7 +36,7 @@ var _ domain.Quote = &quoteImpl{}
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec) {
+func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
@@ -67,7 +67,7 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 
 		newPools, routeSpotPriceInOverOut, effectiveSpotPriceInOverOut, err := curRoute.PrepareResultPools(ctx, q.AmountIn)
 		if err != nil {
-			panic(err)
+			return nil, osmomath.Dec{}, err
 		}
 
 		totalSpotPriceInOverOut = totalSpotPriceInOverOut.AddMut(routeSpotPriceInOverOut.MulMut(routeAmountInFraction))
@@ -92,7 +92,7 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 	q.Route = resultRoutes
 	q.InOutSpotPrice = totalSpotPriceInOverOut.Mul(scalingFactor)
 
-	return q.Route, q.EffectiveFee
+	return q.Route, q.EffectiveFee, nil
 }
 
 // GetAmountIn implements Quote.

@@ -92,7 +92,12 @@ var (
 		TakerFee:             DefaultTakerFee,
 		SpreadFactor:         DefaultSpreadFactor,
 	}
-	EmptyRoute = route.RouteImpl{}
+	EmptyRoute                   = route.RouteImpl{}
+	EmpyCosmWasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{
+		TransmuterCodeIDs:      map[uint64]struct{}{},
+		GeneralCosmWasmCodeIDs: map[uint64]struct{}{},
+		NodeURI:                "",
+	}
 
 	// Test denoms
 	DenomOne   = denomNum(1)
@@ -264,7 +269,7 @@ func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*rout
 	// N.B. uncomment if logs are needed.
 	// logger, err := log.NewLogger(false, "", "info")
 	// s.Require().NoError(err)
-	router := routerusecase.NewRouter(config, &log.NoOpLogger{})
+	router := routerusecase.NewRouter(config, EmpyCosmWasmPoolRouterConfig, &log.NoOpLogger{})
 	router = routerusecase.WithSortedPools(router, pools)
 
 	return router, MockMainnetState{
@@ -291,7 +296,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &DefaultPoolsConfig, "node-uri-placeholder")
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
-	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, router.GetConfig(), &log.NoOpLogger{}, rankedRoutesCache, candidateRouteCache)
+	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, router.GetConfig(), router.GetCosmWasmPoolConfig(), &log.NoOpLogger{}, rankedRoutesCache, candidateRouteCache)
 
 	tokensUsecase := tokensusecase.NewTokensUsecase(time.Hour, mainnetState.TokensMetadata)
 

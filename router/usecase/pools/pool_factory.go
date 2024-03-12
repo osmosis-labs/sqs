@@ -138,6 +138,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 	}
 
 	return nil, domain.UnsupportedCosmWasmPoolTypeError{
-		PoolType: int32(poolType),
+		PoolType: poolmanagertypes.PoolType_name[int32(poolType)],
+		PoolId:   cosmwasmPool.PoolId,
 	}
 }

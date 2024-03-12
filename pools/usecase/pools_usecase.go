@@ -258,3 +258,8 @@ func (p *poolsUseCase) GetPools(ctx context.Context, poolIDs []uint64) ([]sqsdom
 
 	return pools, nil
 }
+
+// GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
+func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
+	return p.cosmWasmConfig
+}

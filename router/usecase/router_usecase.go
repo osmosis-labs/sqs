@@ -27,11 +27,12 @@ import (
 var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 
 type routerUseCaseImpl struct {
-	contextTimeout   time.Duration
-	routerRepository routerredisrepo.RouterRepository
-	poolsUsecase     mvc.PoolsUsecase
-	config           domain.RouterConfig
-	logger           log.Logger
+	contextTimeout      time.Duration
+	routerRepository    routerredisrepo.RouterRepository
+	poolsUsecase        mvc.PoolsUsecase
+	config              domain.RouterConfig
+	cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig
+	logger              log.Logger
 
 	rankedRouteCache    *cache.Cache
 	candidateRouteCache *cache.Cache
@@ -82,13 +83,14 @@ func init() {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
-		contextTimeout:   timeout,
-		routerRepository: routerRepository,
-		poolsUsecase:     poolsUsecase,
-		config:           config,
-		logger:           logger,
+		contextTimeout:      timeout,
+		routerRepository:    routerRepository,
+		poolsUsecase:        poolsUsecase,
+		config:              config,
+		cosmWasmPoolsConfig: cosmWasmPoolsConfig,
+		logger:              logger,
 
 		rankedRouteCache:    rankedRouteCache,
 		candidateRouteCache: candidateRouteCache,
@@ -607,7 +609,7 @@ func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
 // - there is an error retrieving taker fees from the store
 // TODO: test
 func (r *routerUseCaseImpl) initializeDefaultRouter() *Router {
-	router := NewRouter(r.config, r.logger)
+	router := NewRouter(r.config, r.cosmWasmPoolsConfig, r.logger)
 	router = WithRouterRepository(router, r.routerRepository)
 	router = WithPoolsUsecase(router, r.poolsUsecase)
 
@@ -615,7 +617,7 @@ func (r *routerUseCaseImpl) initializeDefaultRouter() *Router {
 }
 
 func (r *routerUseCaseImpl) initializeRouter(config domain.RouterConfig) *Router {
-	router := NewRouter(config, r.logger)
+	router := NewRouter(config, r.cosmWasmPoolsConfig, r.logger)
 	router = WithRouterRepository(router, r.routerRepository)
 	router = WithPoolsUsecase(router, r.poolsUsecase)
 

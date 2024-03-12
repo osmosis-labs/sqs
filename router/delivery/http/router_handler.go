@@ -96,7 +96,10 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenInDenom, tokenOutDenom)
 
-	quote.PrepareResult(ctx, scalingFactor)
+	_, _, err = quote.PrepareResult(ctx, scalingFactor)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -117,7 +120,10 @@ func (a *RouterHandler) GetBestSingleRouteQuote(c echo.Context) error {
 
 	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
 
-	quote.PrepareResult(ctx, scalingFactor)
+	_, _, err = quote.PrepareResult(ctx, scalingFactor)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -150,7 +156,10 @@ func (a *RouterHandler) GetCustomQuote(c echo.Context) error {
 
 	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
 
-	quote.PrepareResult(ctx, scalingFactor)
+	_, _, err = quote.PrepareResult(ctx, scalingFactor)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
 
 	return c.JSON(http.StatusOK, quote)
 }
@@ -183,7 +192,10 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 
 	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
 
-	quote.PrepareResult(ctx, scalingFactor)
+	_, _, err = quote.PrepareResult(ctx, scalingFactor)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
 
 	return c.JSON(http.StatusOK, quote)
 }
