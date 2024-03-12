@@ -56,7 +56,7 @@ type UnsupportedCosmWasmPoolTypeError struct {
 }
 
 func (e UnsupportedCosmWasmPoolTypeError) Error() string {
-	return "unsupported pool type: " + string(e.PoolType)
+	return "unsupported pool type: " + e.PoolType
 }
 
 type PoolNotFoundError struct {
