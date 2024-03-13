@@ -50,7 +50,7 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]
 		// Compute spot price before swap.
 		spotPriceInOverOut, err := pool.CalcSpotPrice(ctx, pool.GetTokenOutDenom(), tokenIn.Denom)
 		if err != nil {
-			return nil, osmomath.Dec{}, osmomath.Dec{}, err
+			spotPriceInOverOut = osmomath.ZeroBigDec()
 		}
 
 		// Charge taker fee

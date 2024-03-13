@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.8.2
+
+Do not error on spot price error in results, return zero instead.
+
 ## v0.8.1
 
 Deprioritize non-transmuter pools
