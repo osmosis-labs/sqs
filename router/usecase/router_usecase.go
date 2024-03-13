@@ -189,9 +189,6 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 		// Convert ranked routes back to candidate for caching
 		candidateRoutes = convertRankedToCandidateRoutes(rankedRoutes)
 
-		// Filter out generalized cosmWasm pool routes
-		rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
-
 		if len(rankedRoutes) > 0 {
 			cacheWrite.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
 
@@ -205,6 +202,9 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 			return nil, err
 		}
 	}
+
+	// Filter out generalized cosmWasm pool routes
+	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
 
 	if len(rankedRoutes) == 1 || router.config.MaxSplitRoutes == domain.DisableSplitRoutes {
 		return topSingleRouteQuote, nil

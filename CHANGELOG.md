@@ -35,6 +35,12 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.8.1
+
+Deprioritize non-transmuter pools
+
+Fixes cosmwasm pools config issue where unsupported pools were getting into the router and breaking it. 
+
 ## v0.7.3
 
 Fixes cosmwasm pools config issue where unsupported pools were getting into the router and breaking it. 

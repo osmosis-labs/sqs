@@ -137,7 +137,7 @@ func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 	}
 
 	// sort pools so that the appropriate pools are at the top
-	router.sortedPools = sortPools(router.sortedPools, totalTVL, preferredPoolIDsMap, router.logger)
+	router.sortedPools = sortPools(router.sortedPools, router.cosmWasmPoolConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, router.logger)
 
 	return router
 }
@@ -171,7 +171,7 @@ func WithPoolsUsecase(router *Router, poolsUsecase mvc.PoolsUsecase) *Router {
 // - Pools with no error in TVL are prioritized by getting an even smaller boost.
 //
 // These heuristics are imperfect and subject to change.
-func sortPools(pools []sqsdomain.PoolI, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []sqsdomain.PoolI {
+func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []sqsdomain.PoolI {
 	logger.Debug("total tvl", zap.Stringer("total_tvl", totalTVL))
 
 	ratedPools := make([]ratedPool, 0, len(pools))
@@ -197,8 +197,16 @@ func sortPools(pools []sqsdomain.PoolI, totalTVL osmomath.Int, preferredPoolIDsM
 		}
 
 		// Transmuter pools get a boost equal to 3/2 of total value locked across all pools
-		if isTransmuter := pool.GetType() == poolmanagertypes.CosmWasm; isTransmuter {
-			rating = rating.Add(totalTVL.MulRaw(3).QuoRaw(2))
+		if pool.GetType() == poolmanagertypes.CosmWasm {
+			cosmWasmPool, ok := pool.GetUnderlyingPool().(cosmwasmpooltypes.CosmWasmExtension)
+			if !ok {
+				logger.Debug("failed to cast a cosm wasm pool, skip silently", zap.Uint64("pool_id", pool.GetId()))
+				continue
+			}
+			_, isTransmuter := transmuterCodeIDs[cosmWasmPool.GetCodeId()]
+			if isTransmuter {
+				rating = rating.Add(totalTVL.MulRaw(3).QuoRaw(2))
+			}
 		}
 
 		ratedPools = append(ratedPools, ratedPool{
