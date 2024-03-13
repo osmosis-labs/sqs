@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.8.4
+
+Hot fix for astroport PCL base quote confusion
+
 ## v0.8.3
 
 Fix for CW pools filtering

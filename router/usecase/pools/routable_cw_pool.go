@@ -17,6 +17,10 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
 )
 
+const (
+	astroportPCLCodeID = 580
+)
+
 var _ sqsdomain.RoutablePool = &routableCosmWasmPoolImpl{}
 
 // routableCosmWasmPool is an implemenation of the cosm wasm pool
@@ -107,7 +111,16 @@ func (r *routableCosmWasmPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	request := msg.SpotPriceQueryMsg{
+
+	var request msg.SpotPriceQueryMsg
+	// HACK:
+	// AStroport PCL pool has the quote and base asset denoms reversed
+	// This is a temporary hot fix until the contract is migrated
+	if r.ChainPool.CodeId == astroportPCLCodeID {
+		baseDenom, quoteDenom = quoteDenom, baseDenom
+	}
+
+	request = msg.SpotPriceQueryMsg{
 		SpotPrice: msg.SpotPrice{
 			QuoteAssetDenom: quoteDenom,
 			BaseAssetDenom:  baseDenom,
