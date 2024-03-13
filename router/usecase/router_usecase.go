@@ -84,6 +84,7 @@ func init() {
 
 // NewRouterUsecase will create a new pools use case object
 func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
+
 	return &routerUseCaseImpl{
 		contextTimeout:      timeout,
 		routerRepository:    routerRepository,
@@ -143,64 +144,22 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 		return nil, err
 	}
 
+	router := r.initializeRouter(config)
+
 	var (
 		topSingleRouteQuote domain.Quote
 		rankedRoutes        []route.RouteImpl
 	)
 
-	router := r.initializeRouter(config)
-
-	// Preferred route in this context is either an overwrite or a cached ranked route.
-	// If an overwrite exists, it is always used over the ranked route.
+	// If cached ranked routes are not present, compute and rank routes by direct quote
 	if len(candidateRankedRoutes.Routes) == 0 {
-		// If top routes are not present in cache, retrieve unranked candidate routes
-		candidateRoutes, err := r.handleCandidateRoutes(ctx, router, tokenIn.Denom, tokenOutDenom)
-		if err != nil {
-			r.logger.Error("error handling routes", zap.Error(err))
-			return nil, err
-		}
-
-		// Get request path for metrics
-		requestURLPath, err := domain.GetURLPathFromContext(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(candidateRoutes.Routes) > 0 {
-			cacheWrite.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenIn.Denom, tokenOutDenom, noOrderOfMagnitude).Inc()
-
-			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(config.CandidateRouteCacheExpirySeconds)*time.Second)
-		}
-
-		// Rank candidate routes by estimating direct quotes
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, router, candidateRoutes, tokenIn, tokenOutDenom)
-		if err != nil {
-			r.logger.Error("error getting top routes", zap.Error(err))
-			return nil, err
-		}
-
-		if len(rankedRoutes) == 0 {
-			return nil, fmt.Errorf("no ranked routes found")
-		}
-
-		// Update ranked routes with filtered ranked routes
-		rankedRoutes = filterDuplicatePoolIDRoutes(rankedRoutes)
-
-		// Convert ranked routes back to candidate for caching
-		candidateRoutes = convertRankedToCandidateRoutes(rankedRoutes)
-
-		if len(rankedRoutes) > 0 {
-			cacheWrite.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
-
-			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(config.RankedRouteCacheExpirySeconds)*time.Second)
-		}
+		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, router, tokenIn, tokenOutDenom)
 	} else {
-		// Rank candidate routes by estimating direct quotes
+		// Otherwise, simply compute quotes over cached ranked routes
 		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, router, candidateRankedRoutes, tokenIn, tokenOutDenom)
-		if err != nil {
-			r.logger.Error("error getting top routes", zap.Error(err))
-			return nil, err
-		}
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	if len(rankedRoutes) == 1 || router.config.MaxSplitRoutes == domain.DisableSplitRoutes {
@@ -220,8 +179,6 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: Cache split route proportions
 
 	finalQuote := topSingleRouteQuote
 
@@ -315,6 +272,55 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, router 
 	}
 
 	return topQuote, routes, nil
+}
+
+// computeAndRankRoutesByDirectQuote computes candidate routes and ranks them by token out after estimating direct quotes.
+func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, router *Router, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, []route.RouteImpl, error) {
+	tokenInOrderOfMagnitude := osmomath.OrderOfMagnitude(tokenIn.Amount.ToLegacyDec())
+
+	// If top routes are not present in cache, retrieve unranked candidate routes
+	candidateRoutes, err := r.handleCandidateRoutes(ctx, router, tokenIn.Denom, tokenOutDenom)
+	if err != nil {
+		r.logger.Error("error handling routes", zap.Error(err))
+		return nil, nil, err
+	}
+
+	// Get request path for metrics
+	requestURLPath, err := domain.GetURLPathFromContext(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(candidateRoutes.Routes) > 0 {
+		cacheWrite.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenIn.Denom, tokenOutDenom, noOrderOfMagnitude).Inc()
+
+		r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(router.config.CandidateRouteCacheExpirySeconds)*time.Second)
+	}
+
+	// Rank candidate routes by estimating direct quotes
+	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, router, candidateRoutes, tokenIn, tokenOutDenom)
+	if err != nil {
+		r.logger.Error("error getting ranked routes", zap.Error(err))
+		return nil, nil, err
+	}
+
+	if len(rankedRoutes) == 0 {
+		return nil, nil, fmt.Errorf("no ranked routes found")
+	}
+
+	// Update ranked routes with filtered ranked routes
+	rankedRoutes = filterDuplicatePoolIDRoutes(rankedRoutes)
+
+	// Convert ranked routes back to candidate for caching
+	candidateRoutes = convertRankedToCandidateRoutes(rankedRoutes)
+
+	if len(rankedRoutes) > 0 {
+		cacheWrite.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
+
+		r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(router.config.RankedRouteCacheExpirySeconds)*time.Second)
+	}
+
+	return topSingleRouteQuote, rankedRoutes, nil
 }
 
 // estimateDirectQuote estimates and returns the direct quote for the given routes, token in and token out denom.
