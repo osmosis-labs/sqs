@@ -203,10 +203,15 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 		}
 	}
 
+	if len(rankedRoutes) == 1 || router.config.MaxSplitRoutes == domain.DisableSplitRoutes {
+		return topSingleRouteQuote, nil
+	}
+
 	// Filter out generalized cosmWasm pool routes
 	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
 
-	if len(rankedRoutes) == 1 || router.config.MaxSplitRoutes == domain.DisableSplitRoutes {
+	// If filtering leads to a single route left, return it.
+	if len(rankedRoutes) == 1 {
 		return topSingleRouteQuote, nil
 	}
 
