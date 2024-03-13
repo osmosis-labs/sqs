@@ -37,7 +37,6 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 		logger:   logger,
 	}
 	e.GET(formatRouterResource("/quote"), handler.GetOptimalQuote)
-	e.GET(formatRouterResource("/single-quote"), handler.GetBestSingleRouteQuote)
 	e.GET(formatRouterResource("/routes"), handler.GetCandidateRoutes)
 	e.GET(formatRouterResource("/cached-routes"), handler.GetCachedCandidateRoutes)
 	e.GET(formatRouterResource("/spot-price-pool/:id"), handler.GetSpotPriceForPool)
@@ -95,30 +94,6 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	}
 
 	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenInDenom, tokenOutDenom)
-
-	_, _, err = quote.PrepareResult(ctx, scalingFactor)
-	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-	}
-
-	return c.JSON(http.StatusOK, quote)
-}
-
-// GetBestSingleRouteQuote returns the best single route quote to be done directly without a split.
-func (a *RouterHandler) GetBestSingleRouteQuote(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
-	if err != nil {
-		return err
-	}
-
-	quote, err := a.RUsecase.GetBestSingleRouteQuote(ctx, tokenIn, tokenOutDenom)
-	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-	}
-
-	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
 	if err != nil {
