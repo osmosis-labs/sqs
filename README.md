@@ -390,50 +390,7 @@ curl "https://sqs.osmosis.zone/router/routes?tokenIn=uosmo&tokenOutDenom=uion" |
   }
 }
 ```
-
-4. GET `/router/custom-quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>&poolIDs=<poolIDs>`
-
-Description: returns the quote over route with the given poolIDs. If such route does not exist, returns error.
-This endpoint uses the router route search. As a result, it is affected by the minimum liquidity parameter
-in the config. If your desired pool does not appead in the router, thy decreasing the minimum liquidity
-parameter. Alternatively, you can use the `/router/custom-direct-quote` endpoint.
-
-Parameters:
-- `tokenIn` the string representation of the sdk.Coin for the token in
-- `tokenOutDenom` the string representing the denom of the token out
-- `poolIDs` comma-separated list of pool IDs
-
-Response example:
-
-```bash
-curl "https://sqs.osmosis.zone/router/custom-quote?tokenIn=1000000uosmo&tokenOutDenom=uion&poolIDs=2" | jq .
-{
-  "amount_in": {
-    "denom": "uosmo",
-    "amount": "1000000"
-  },
-  "amount_out": "1803",
-  "route": [
-    {
-      "pools": [
-        {
-          "id": 2,
-          "type": 0,
-          "balances": [],
-          "spread_factor": "0.005000000000000000",
-          "token_out_denom": "uion",
-          "taker_fee": "0.001000000000000000"
-        }
-      ],
-      "out_amount": "1803",
-      "in_amount": "1000000"
-    }
-  ],
-  "effective_fee": "0.006000000000000000"
-}
-```
-
-5. GET `/router/custom-direct-quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>&poolIDs=<poolIDs>`
+4. GET `/router/custom-direct-quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>&poolIDs=<poolIDs>`
 
 Description: returns the quote over route with the given poolIDs. If such route does not exist, returns error.
 This endpoint does not use the router route search. As a result, it is not affected by the minimum liquidity parameter. As long as the pool exists on-chain, it will return a quote.
@@ -473,7 +430,7 @@ curl "https://sqs.osmosis.zone/router/custom-direct-quote?tokenIn=1000000uosmo&t
 }
 ```
 
-6. GET `/router/cached-routes?tokenIn=uosmo&tokenOutDenom=uion`
+5. GET `/router/cached-routes?tokenIn=uosmo&tokenOutDenom=uion`
 
 Description: returns cached routes for the given tokenIn and tokenOutDenomn if cache
 is enabled. If not, returns error. Contrary to `/router/routes...` endpoint, does
@@ -553,14 +510,14 @@ curl "https://sqs.osmosis.zone/cached-routes?tokenIn=uosmo&tokenOutDenom=uion" |
 }
 ```
 
-7. POST `/router/store-state`
+6. POST `/router/store-state`
 
 Description: stores the current state of the router in a JSON file locally. Used for debugging purposes.
 This endpoint should be disabled in production.
 
 Parameters: none
 
-8. GET `/router/spot-price-pool/:id`
+7. GET `/router/spot-price-pool/:id`
 
 Parameters:
 - `quoteAsset` the quote asset denom

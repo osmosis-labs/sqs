@@ -685,15 +685,9 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected
 	// due to custom parameter.
 	const expectedPoolID = uint64(2)
-	poolIDs := []uint64{expectedPoolID}
-
-	// System under test 1
-	quote, err := routerUsecase.GetCustomQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, poolIDs)
-	s.Require().NoError(err)
-	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 
 	// System under test 2
-	quote, err = routerUsecase.GetCustomDirectQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 }

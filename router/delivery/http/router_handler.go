@@ -41,7 +41,6 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 	e.GET(formatRouterResource("/cached-routes"), handler.GetCachedCandidateRoutes)
 	e.GET(formatRouterResource("/spot-price-pool/:id"), handler.GetSpotPriceForPool)
 	e.GET(formatRouterResource("/custom-direct-quote"), handler.GetDirectCustomQuote)
-	e.GET(formatRouterResource("/custom-quote"), handler.GetCustomQuote)
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
 	e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
 }
@@ -94,42 +93,6 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	}
 
 	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenInDenom, tokenOutDenom)
-
-	_, _, err = quote.PrepareResult(ctx, scalingFactor)
-	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-	}
-
-	return c.JSON(http.StatusOK, quote)
-}
-
-// GetCustomQuote returns a direct custom quote. It ensures that the route contains all the pools
-// listed in the specific order, returns error if such route is not found.
-func (a *RouterHandler) GetCustomQuote(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
-	if err != nil {
-		return err
-	}
-
-	poolIDsStr := c.QueryParam("poolIDs")
-	if len(poolIDsStr) == 0 {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "poolIDs is required"})
-	}
-
-	poolIDs, err := domain.ParseNumbers(poolIDsStr)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-	}
-
-	// Quote
-	quote, err := a.RUsecase.GetCustomQuote(ctx, tokenIn, tokenOutDenom, poolIDs)
-	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-	}
-
-	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
 	if err != nil {
