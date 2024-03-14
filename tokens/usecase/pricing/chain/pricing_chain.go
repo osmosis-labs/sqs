@@ -29,6 +29,12 @@ type chainPricing struct {
 
 var _ domain.PricingStrategy = &chainPricing{}
 
+const (
+	// We use multiplier so that stablecoin quotes avoid selecting low liquidity routes.
+	// USDC/USDT value of 10 should be sufficient to avoid low liquidity routes.
+	tokenInMultiplier = 10
+)
+
 var (
 	cacheHitsCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -49,6 +55,14 @@ var (
 		prometheus.CounterOpts{
 			Name: "sqs_pricing_truncation_total",
 			Help: "Total number of price truncations in intermediary calculations",
+		},
+		[]string{"base", "quote"},
+	)
+
+	pricesSpotPriceError = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_pricing_spot_price_error_total",
+			Help: "Total number of spot price errors in pricing",
 		},
 		[]string{"base", "quote"},
 	)
@@ -110,7 +124,8 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	}
 
 	// Create a quote denom coin.
-	oneQuoteCoin := sdk.NewCoin(quoteDenom, quoteDenomScalingFactor.TruncateInt())
+	// We use multiplier so that stablecoin quotes avoid selecting low liquidity routes.
+	tenQuoteCoin := sdk.NewCoin(quoteDenom, osmomath.NewInt(tokenInMultiplier).Mul(quoteDenomScalingFactor.TruncateInt()))
 
 	// Overwrite default config with custom values
 	// necessary for pricing.
@@ -122,20 +137,61 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	routerConfig.MaxSplitIterations = domain.DisableSplitRoutes
 
 	// Compute a quote for one quote coin.
-	quote, err := c.RUsecase.GetOptimalQuoteFromConfig(ctx, oneQuoteCoin, baseDenom, routerConfig)
+	quote, err := c.RUsecase.GetOptimalQuoteFromConfig(ctx, tenQuoteCoin, baseDenom, routerConfig)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 
-	// Compute on-chain price for 1 unit of base denom and quote denom.
-	chainPrice := osmomath.NewBigDecFromBigInt(oneQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
+	routes := quote.GetRoute()
+	if len(routes) == 0 {
+		return osmomath.BigDec{}, fmt.Errorf("no route found when computing pricing for %s (base) -> %s (quote)", baseDenom, quoteDenom)
+	}
+
+	route := routes[0]
+
+	chainPrice := osmomath.OneBigDec()
+
+	pools := route.GetPools()
+
+	var (
+		tempQuoteDenom       = quoteDenom
+		tempBaseDenom        string
+		useAlternativeMethod = false
+	)
+
+	for _, pool := range pools {
+		tempBaseDenom = pool.GetTokenOutDenom()
+
+		// Get spot price for the pool.
+		poolSpotPrice, err := c.RUsecase.GetPoolSpotPrice(ctx, pool.GetId(), tempQuoteDenom, tempBaseDenom)
+		if err != nil || poolSpotPrice.IsNil() || poolSpotPrice.IsZero() {
+			// Increase price truncation counter
+			pricesSpotPriceError.WithLabelValues(baseDenom, quoteDenom).Inc()
+
+			useAlternativeMethod = true
+			break
+		}
+
+		// Multiply spot price by the previous spot price.
+		chainPrice = chainPrice.MulMut(poolSpotPrice)
+
+		tempQuoteDenom = tempBaseDenom
+	}
+
+	if useAlternativeMethod {
+		// Compute on-chain price for 1 unit of base denom and quote denom.
+		chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
+	} else {
+		chainPrice = osmomath.OneBigDec().QuoMut(chainPrice)
+	}
+
 	if chainPrice.IsZero() {
 		// Increase price truncation counter
 		pricesTruncationCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 	}
 
 	// Compute precision scaling factor.
-	precisionScalingFactor := osmomath.BigDecFromDec(baseDenomScalingFactor.Quo(oneQuoteCoin.Amount.ToLegacyDec()))
+	precisionScalingFactor := osmomath.BigDecFromDec(osmomath.NewDec(tokenInMultiplier).MulMut(baseDenomScalingFactor.Quo(tenQuoteCoin.Amount.ToLegacyDec())))
 
 	// Apply scaling facors to descale the amounts to real amounts.
 	currentPrice := chainPrice.MulMut(precisionScalingFactor)

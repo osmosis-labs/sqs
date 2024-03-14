@@ -157,6 +157,24 @@ var (
 		TransmuterCodeIDs:      []uint64{148, 254},
 		GeneralCosmWasmCodeIDs: []uint64{},
 	}
+
+	DefaultPricingRouterConfig = domain.RouterConfig{
+		PreferredPoolIDs:  []uint64{},
+		MaxRoutes:         5,
+		MaxPoolsPerRoute:  3,
+		MaxSplitRoutes:    3,
+		MinOSMOLiquidity:  50,
+		RouteCacheEnabled: true,
+	}
+
+	DefaultPricingConfig = domain.PricingConfig{
+		DefaultSource:          domain.ChainPricingSource,
+		CacheExpiryMs:          2000,
+		DefaultQuoteHumanDenom: "usdc",
+		MaxPoolsPerRoute:       4,
+		MaxRoutes:              5,
+		MinOSMOLiquidity:       50,
+	}
 )
 
 func init() {
@@ -305,4 +323,11 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 		Router: routerUsecase,
 		Tokens: tokensUsecase,
 	}
+}
+
+// helper to convert any to BigDec
+func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
+	bigDec, ok := any.(osmomath.BigDec)
+	s.Require().True(ok)
+	return bigDec
 }

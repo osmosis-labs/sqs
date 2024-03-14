@@ -160,14 +160,14 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 		usdcQuoteAny, ok := baseAssetPrices[USDC]
 		s.Require().True(ok)
-		usdcQuote := s.convertAnyToBigDec(usdcQuoteAny)
+		usdcQuote := s.ConvertAnyToBigDec(usdcQuoteAny)
 
 		usdtQuoteAny, ok := baseAssetPrices[USDT]
 		s.Require().True(ok)
-		usdtQuote := s.convertAnyToBigDec(usdtQuoteAny)
+		usdtQuote := s.ConvertAnyToBigDec(usdtQuoteAny)
 
 		result := errTolerance.CompareBigDec(usdcQuote, usdtQuote)
-		s.Require().Zero(result)
+		s.Require().Zero(result, fmt.Sprintf("usdcQuote: %s, usdtQuote: %s", usdcQuote, usdtQuote))
 	}
 
 	// WBTC is around 50K at the time of creation of this test
@@ -183,7 +183,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	actualwBTCUSDCPriceAny, ok := prices[WBTC][USDC]
 	s.Require().True(ok)
-	actualwBTCUSDCPrice := s.convertAnyToBigDec(actualwBTCUSDCPriceAny)
+	actualwBTCUSDCPrice := s.ConvertAnyToBigDec(actualwBTCUSDCPriceAny)
 
 	result := wbtcErrorTolerance.CompareBigDec(expectedwBTCPrice, actualwBTCUSDCPrice)
 	s.Require().Zero(result)
@@ -235,11 +235,4 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
 	s.Require().NoError(err)
 
 	fmt.Println(price)
-}
-
-// helper to convert any to BigDec
-func (s *TokensUseCaseTestSuite) convertAnyToBigDec(any any) osmomath.BigDec {
-	bigDec, ok := any.(osmomath.BigDec)
-	s.Require().True(ok)
-	return bigDec
 }
