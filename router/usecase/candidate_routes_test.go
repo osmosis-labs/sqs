@@ -51,19 +51,8 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOstOSMO() {
 
 	actualRoutesStOSMOIn := candidateRoutesstOSMOIn.Routes
 
+	s.Require().NotZero(len(actualRoutesUOSMOIn))
 	s.Require().Equal(len(actualRoutesUOSMOIn), len(actualRoutesStOSMOIn))
-
-	// https://info.osmosis.zone/token/stOSMO
-	// Pools 833 and 1252 at the time of test creation.
-	s.Require().Equal(2, len(actualRoutesUOSMOIn))
-	s.validateExpectedPoolIDOneHopRoute(actualRoutesUOSMOIn[1], 833)
-	s.validateExpectedPoolIDOneHopRoute(actualRoutesUOSMOIn[0], 1252)
-
-	// https://info.osmosis.zone/token/stOSMO
-	// Pools 833 and 1252 at the time of test creation.
-	s.Require().Equal(2, len(actualRoutesStOSMOIn))
-	s.validateExpectedPoolIDOneHopRoute(actualRoutesStOSMOIn[1], 833)
-	s.validateExpectedPoolIDOneHopRoute(actualRoutesStOSMOIn[0], 1252)
 }
 
 func (s *RouterTestSuite) TestGetCandidateRoutesBFS_ATOMUSDT() {

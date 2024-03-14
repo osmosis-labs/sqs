@@ -175,7 +175,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 	// in place against a hardcoded expected value rather than comparing USDT and USDC prices only
 	// that are both computed by the system.
 	// Noe: if WBTC price changes by more than 15% and we update test mainnet state, this test is likely to fail.
-	expectedwBTCPrice := osmomath.NewBigDec(50000)
+	expectedwBTCPrice := osmomath.NewBigDec(70000)
 	wbtcErrorTolerance := osmomath.ErrTolerance{
 		// 15% tolerance
 		MultiplicativeTolerance: osmomath.MustNewDecFromStr("0.15"),
