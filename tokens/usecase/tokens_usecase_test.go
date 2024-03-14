@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -175,7 +176,10 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 }
 
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
-	s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
+	env := os.Getenv("CI_SQS_PRICING_TEST")
+	if env != "true" {
+		s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
+	}
 
 	// Set up mainnet mock state.
 	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
@@ -188,15 +192,18 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
 	s.Require().NoError(err)
 
-	counter := 1
+	errorCounter := 0
+	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMetadata := range tokenMetadata {
 		// System under test.
 		_, err = mainnetUsecase.Tokens.GetPrices(context.Background(), []string{chainDenom}, []string{USDC}, pricingStrategy)
 		if err != nil {
-			fmt.Printf("%d. %s\n", counter, tokenMetadata.HumanDenom)
-			counter++
+			fmt.Printf("%d. %s\n", errorCounter, tokenMetadata.HumanDenom)
+			errorCounter++
 		}
 	}
+
+	s.Require().Zero(errorCounter)
 }
 
 // Convinience test to test and print a result for a specific token

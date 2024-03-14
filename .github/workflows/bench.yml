@@ -29,6 +29,5 @@ jobs:
 
       - name: Compare benchmarks
         run: |
-          # You can use a tool like benchstat to compare the benchmarks
           go install golang.org/x/perf/cmd/benchstat@latest
           benchstat base_bench.txt head_bench.txt
