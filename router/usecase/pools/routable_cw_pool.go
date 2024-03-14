@@ -19,6 +19,8 @@ import (
 
 const (
 	astroportPCLCodeID = 580
+	whiteWhaleCodeIDA  = 503
+	whiteWhaleCodeIDB  = 572
 )
 
 var _ sqsdomain.RoutablePool = &routableCosmWasmPoolImpl{}
@@ -113,9 +115,10 @@ func (r *routableCosmWasmPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	var request msg.SpotPriceQueryMsg
 	// HACK:
-	// AStroport PCL pool has the quote and base asset denoms reversed
+	// Astroport PCL pool and white whale pools have the quote and base asset denoms reversed
 	// This is a temporary hot fix until the contract is migrated
-	if r.ChainPool.CodeId == astroportPCLCodeID {
+	codeID := r.ChainPool.CodeId
+	if codeID == astroportPCLCodeID || codeID == whiteWhaleCodeIDA || codeID == whiteWhaleCodeIDB {
 		baseDenom, quoteDenom = quoteDenom, baseDenom
 	}
 
