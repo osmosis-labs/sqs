@@ -14,9 +14,10 @@ on:
 
 jobs:
   pricing_test:
+    runs-on: ubuntu-latest  # This specifies the runner environment.
     steps:
-      - name: Setup
-        uses: ./.github/workflows/setup-go.yml@main
+      - name: Setup Go
+        uses: ./.github/workflows/setup-go.yml@main  # This refers to your reusable workflow
         with:
           go-version: '1.21'
 
