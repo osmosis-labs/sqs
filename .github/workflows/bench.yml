@@ -30,4 +30,9 @@ jobs:
       - name: Compare benchmarks
         run: |
           go install golang.org/x/perf/cmd/benchstat@latest
-          benchstat base_bench.txt head_bench.txt
+          benchstat base_bench.txt head_bench.txt | tee pricing_bench_results.txt
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v2
+        with:
+          name: benchmark-results
+          path: pricing_bench_results.txt
