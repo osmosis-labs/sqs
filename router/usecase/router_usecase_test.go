@@ -2,6 +2,8 @@ package usecase_test
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -13,6 +15,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 
@@ -71,6 +74,9 @@ var (
 			poolID1135Concentrated: {},
 		},
 	}
+
+	defaultPricingRouterConfig = routertesting.DefaultPricingRouterConfig
+	defaultPricingConfig       = routertesting.DefaultPricingConfig
 )
 
 // Tests the call to handleRoutes by mocking the router repository and pools use case
@@ -571,6 +577,44 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 		})
 	}
+}
+
+// This test validates that routes can be found for all supported tokens.
+// Fails if not.
+func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
+	env := os.Getenv("CI_SQS_ROUTE_TEST")
+	if env != "true" {
+		s.T().Skip("This test exists to identify which mainnet routes are unsupported")
+	}
+
+	// Set up mainnet mock state.
+	router, mainnetState := s.SetupMainnetRouter(routertesting.DefaultRouterConfig)
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
+
+	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
+	s.Require().NoError(err)
+
+	errorCounter := 0
+	zeroPriceCounter := 0
+	s.Require().NotZero(len(tokenMetadata))
+	for chainDenom, tokenMeta := range tokenMetadata {
+
+		routes, err := router.GetCandidateRoutes(chainDenom, USDC)
+		if err != nil {
+			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
+			errorCounter++
+			continue
+		}
+
+		if len(routes.Routes) == 0 {
+			fmt.Printf("No route for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
+			zeroPriceCounter++
+			continue
+		}
+	}
+
+	s.Require().Zero(errorCounter)
+	s.Require().Zero(zeroPriceCounter)
 }
 
 // validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.
