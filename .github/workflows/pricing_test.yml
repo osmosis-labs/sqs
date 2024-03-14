@@ -10,27 +10,36 @@ on:
       - "v[0-9]**"
 
 jobs:
-  prepare:
+  pricing_test:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.21'  # Set this to the Go version your project uses
+          go-version: '1.21'  # Adjust this to the Go version your project uses
 
-      - name: Check out code into the Go module directory
+      - name: Check out code
         uses: actions/checkout@v2
 
-  pricing_test:
-      - name: Set up environment variable
+      - name: Set up environment variable for Pricing Test
         run: echo "CI_SQS_PRICING_TEST=true" >> $GITHUB_ENV
 
-      - name: Run Go test
+      - name: Run Pricing Test
         run: go test -timeout 30s -run TestTokensUseCaseTestSuite/TestGetPrices_Chain_FindUnsupportedTokens github.com/osmosis-labs/sqs/tokens/usecase -v -count=1
 
   routes_test:
-    - name: Set up environment variable
-      run: echo "CI_SQS_ROUTE_TEST=true" >> $GITHUB_ENV
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.21' # This should match the version used in other jobs
 
-    - name: Run Go test
-      run: go test -timeout 30s -run TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes github.com/osmosis-labs/sqs/router/usecase -count=1 -v
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up environment variable for Routes Test
+        run: echo "CI_SQS_ROUTE_TEST=true" >> $GITHUB_ENV
+
+      - name: Run Routes Test
+        run: go test -timeout 30s -run TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes github.com/osmosis-labs/sqs/router/usecase -count=1 -v
