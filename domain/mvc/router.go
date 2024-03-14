@@ -36,4 +36,6 @@ type RouterUsecase interface {
 	GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// StoreRoutes stores all router state in the files locally. Used for debugging.
 	StoreRouterStateFiles(ctx context.Context) error
+
+	GetRouterState(ctx context.Context) (domain.RouterState, error)
 }

@@ -43,6 +43,7 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 	e.GET(formatRouterResource("/custom-direct-quote"), handler.GetDirectCustomQuote)
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
 	e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
+	e.GET(formatRouterResource("/state"), handler.GetRouterState)
 }
 
 // @Summary Optimal Quote
@@ -216,6 +217,17 @@ func (a *RouterHandler) StoreRouterStateInFiles(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, "Router state stored in files")
+}
+
+func (a *RouterHandler) GetRouterState(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	routerState, err := a.RUsecase.GetRouterState(ctx)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, routerState)
 }
 
 // GetSpotPrice returns the spot price for a given poolID, quoteAsset and baseAsset

@@ -614,11 +614,29 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 // StoreRouterStateFiles implements domain.RouterUsecase.
 // TODO: clean up
 func (r *routerUseCaseImpl) StoreRouterStateFiles(ctx context.Context) error {
+	routerState, err := r.GetRouterState(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := parsing.StorePools(routerState.Pools, routerState.TickMap, "pools.json"); err != nil {
+		return err
+	}
+
+	if err := parsing.StoreTakerFees("taker_fees.json", routerState.TakerFees); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetRouterStateJSON implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetRouterState(ctx context.Context) (domain.RouterState, error) {
 	// These pools do not contain tick model
 	pools, err := r.poolsUsecase.GetAllPools(ctx)
 
 	if err != nil {
-		return err
+		return domain.RouterState{}, err
 	}
 
 	concentratedpoolIDs := make([]uint64, 0, len(pools))
@@ -630,23 +648,23 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles(ctx context.Context) error {
 
 	tickModelMap, err := r.poolsUsecase.GetTickModelMap(ctx, concentratedpoolIDs)
 	if err != nil {
-		return err
+		return domain.RouterState{}, err
 	}
 
 	if err := parsing.StorePools(pools, tickModelMap, "pools.json"); err != nil {
-		return err
+		return domain.RouterState{}, err
 	}
 
 	takerFeesMap, err := r.routerRepository.GetAllTakerFees(ctx)
 	if err != nil {
-		return err
+		return domain.RouterState{}, err
 	}
 
-	if err := parsing.StoreTakerFees("taker_fees.json", takerFeesMap); err != nil {
-		return err
-	}
-
-	return nil
+	return domain.RouterState{
+		Pools:     pools,
+		TakerFees: takerFeesMap,
+		TickMap:   tickModelMap,
+	}, nil
 }
 
 // formatRouteCacheKey formats the given token in and token out denoms to a string.
