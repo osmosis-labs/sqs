@@ -2,12 +2,12 @@ package usecase_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -201,23 +201,24 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 		s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
 	}
 
-	// Read mainnet config from project root.
-	file, err := os.ReadFile("../../config.json")
+	viper.SetConfigFile("../../config.json")
+	err := viper.ReadInConfig()
 	s.Require().NoError(err)
 
-	defaultConfig := domain.Config{}
-	err = json.Unmarshal(file, &defaultConfig)
+	// Unmarshal the config into your Config struct
+	var config domain.Config
+	err = viper.Unmarshal(&config)
 	s.Require().NoError(err)
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(*defaultConfig.Router)
+	router, mainnetState := s.SetupMainnetRouter(*config.Router)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
 	s.Require().NoError(err)
 
 	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(*defaultConfig.Pricing, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	pricingStrategy, err := pricing.NewPricingStrategy(*config.Pricing, mainnetUsecase.Tokens, mainnetUsecase.Router)
 	s.Require().NoError(err)
 
 	errorCounter := 0

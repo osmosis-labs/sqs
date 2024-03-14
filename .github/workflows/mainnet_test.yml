@@ -1,6 +1,12 @@
 # This workflow runs Go tests from mainnet state to determine
 # which tokens are missing prices and which routes against USDC do not exist.
 # It runs this against all tokens in the asset list.
+#
+# We use this test in CI for detecting tokens with unsupported pricing.
+# The config used is the `config.json` in root which is expected to be as close
+# to mainnet as possible.
+#
+# The mainnet state must be manually updated when needed with 'make sqs-update-mainnet-state' against a local node.
 name: Mainnet Support
 
 on:

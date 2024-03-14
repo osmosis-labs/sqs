@@ -7,6 +7,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/spf13/viper"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -581,21 +582,37 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 // This test validates that routes can be found for all supported tokens.
 // Fails if not.
+// We use this test in CI for detecting tokens with unsupported pricing.
+// The config used is the `config.json` in root which is expected to be as close
+// to mainnet as possible.
+//
+// The mainnet state must be manually updated when needed with 'make sqs-update-mainnet-state'
 func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	env := os.Getenv("CI_SQS_ROUTE_TEST")
 	if env != "true" {
 		s.T().Skip("This test exists to identify which mainnet routes are unsupported")
 	}
 
+	viper.SetConfigFile("../../config.json")
+	err := viper.ReadInConfig()
+	s.Require().NoError(err)
+
+	// Unmarshal the config into your Config struct
+	var config domain.Config
+	err = viper.Unmarshal(&config)
+	s.Require().NoError(err)
+
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(routertesting.DefaultRouterConfig)
+	router, mainnetState := s.SetupMainnetRouter(*config.Router)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
 	s.Require().NoError(err)
 
+	fmt.Println("Tokens with no routes when min osmo liquidity is non-zero:")
+
 	errorCounter := 0
-	zeroPriceCounter := 0
+	zeroPriceCounterMinLiq := 0
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMeta := range tokenMetadata {
 
@@ -608,13 +625,44 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 		if len(routes.Routes) == 0 {
 			fmt.Printf("No route for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
-			zeroPriceCounter++
+			zeroPriceCounterMinLiq++
 			continue
 		}
 	}
 
 	s.Require().Zero(errorCounter)
-	s.Require().Zero(zeroPriceCounter)
+
+	// Print space
+	fmt.Printf("\n\n\n")
+	fmt.Println("Tokens with no routes even when min osmo liquidity is set to zero:")
+
+	zeroPriceCounterNoMinLiq := 0
+	// Now set min osmo liquidity to zero to identify which tokens are missing prices even when we
+	// don't have liquidity filtering.
+	config.Router.MinOSMOLiquidity = 0
+	// Set up mainnet mock state.
+	router, mainnetState = s.SetupMainnetRouter(*config.Router)
+	mainnetUsecase = s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
+	for chainDenom, tokenMeta := range tokenMetadata {
+
+		routes, err := router.GetCandidateRoutes(chainDenom, USDC)
+		if err != nil {
+			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
+			errorCounter++
+			continue
+		}
+
+		if len(routes.Routes) == 0 {
+			fmt.Printf("No route for %s  -- %s (no min liq filtering)\n", chainDenom, tokenMeta.HumanDenom)
+			zeroPriceCounterNoMinLiq++
+			continue
+		}
+	}
+
+	s.Require().Zero(errorCounter)
+
+	s.Zero(zeroPriceCounterMinLiq)
+	s.Require().Zero(zeroPriceCounterNoMinLiq, "There are tokens with no routes even when min osmo liquidity is set to zero")
 }
 
 // validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.
