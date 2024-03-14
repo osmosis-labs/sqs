@@ -207,17 +207,31 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().NoError(err)
 
 	errorCounter := 0
+	zeroPriceCounter := 0
 	s.Require().NotZero(len(tokenMetadata))
-	for chainDenom, tokenMetadata := range tokenMetadata {
+	for chainDenom, tokenMeta := range tokenMetadata {
 		// System under test.
-		_, err = mainnetUsecase.Tokens.GetPrices(context.Background(), []string{chainDenom}, []string{USDC}, pricingStrategy)
+		price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{chainDenom}, []string{USDC}, pricingStrategy)
 		if err != nil {
-			fmt.Printf("%d. %s\n", errorCounter, tokenMetadata.HumanDenom)
+			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
 			errorCounter++
+			continue
+		}
+
+		priceValue, ok := price[chainDenom][USDC]
+		s.Require().True(ok)
+
+		priceBigDec := s.ConvertAnyToBigDec(priceValue)
+
+		if priceBigDec.IsZero() {
+			fmt.Printf("Zero price for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
+			zeroPriceCounter++
+			continue
 		}
 	}
 
 	s.Require().Zero(errorCounter)
+	s.Require().Zero(zeroPriceCounter)
 }
 
 // Convinience test to test and print a result for a specific token
