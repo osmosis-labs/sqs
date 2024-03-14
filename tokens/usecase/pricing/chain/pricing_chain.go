@@ -52,6 +52,14 @@ var (
 		},
 		[]string{"base", "quote"},
 	)
+
+	pricesSpotPriceError = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_pricing_spot_price_error_total",
+			Help: "Total number of spot price errors in pricing",
+		},
+		[]string{"base", "quote"},
+	)
 )
 
 func init() {
@@ -149,8 +157,11 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 
 		// Get spot price for the pool.
 		poolSpotPrice, err := c.RUsecase.GetPoolSpotPrice(ctx, pool.GetId(), tempQuoteDenom, tempBaseDenom)
-		if err != nil {
-			// TODO: alert
+		if err != nil || poolSpotPrice.IsNil() || poolSpotPrice.IsZero() {
+
+			// Increase price truncation counter
+			pricesSpotPriceError.WithLabelValues(baseDenom, quoteDenom).Inc()
+
 			useAlternativeMethod = true
 			break
 		}

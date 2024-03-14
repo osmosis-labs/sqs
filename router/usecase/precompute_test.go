@@ -7,6 +7,10 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase"
 )
 
+var (
+	testAmount = osmomath.NewInt(1234567890323344555)
+)
+
 func (s *RouterTestSuite) TestGetPrecomputeOrderOfMagnitude() {
 
 	tests := map[string]struct {
@@ -53,9 +57,6 @@ func (s *RouterTestSuite) TestGetPrecomputeOrderOfMagnitude() {
 
 // go test -benchmem -run=^$ -bench ^BenchmarkGetPrecomputeOrderOfMagnitude$ github.com/osmosis-labs/sqs/router/usecase -count=6
 func BenchmarkGetPrecomputeOrderOfMagnitude(b *testing.B) {
-	// Create a test amount. Change this based on what you expect to be typical inputs for your application.
-	testAmount := osmomath.NewInt(1234567890323344555) // You can adjust this value for different benchmark scenarios.
-
 	for i := 0; i < b.N; i++ {
 		_ = usecase.GetPrecomputeOrderOfMagnitude(testAmount)
 	}
@@ -63,9 +64,6 @@ func BenchmarkGetPrecomputeOrderOfMagnitude(b *testing.B) {
 
 // go test -benchmem -run=^$ -bench ^BenchmarkOrderOfMagnitude$ github.com/osmosis-labs/sqs/router/usecase -count=6 > old
 func BenchmarkOrderOfMagnitude(b *testing.B) {
-	// Create a test amount. Change this based on what you expect to be typical inputs for your application.
-	testAmount := osmomath.NewInt(1234567890323344555) // You can adjust this value for different benchmark scenarios.
-
 	for i := 0; i < b.N; i++ {
 		_ = osmomath.OrderOfMagnitude(testAmount.ToLegacyDec())
 	}
