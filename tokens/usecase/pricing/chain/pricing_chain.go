@@ -29,6 +29,12 @@ type chainPricing struct {
 
 var _ domain.PricingStrategy = &chainPricing{}
 
+const (
+	// We use multiplier so that stablecoin quotes avoid selecting low liquidity routes.
+	// USDC/USDT value of 10 should be sufficient to avoid low liquidity routes.
+	tokenInMultiplier = 10
+)
+
 var (
 	cacheHitsCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -118,7 +124,8 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	}
 
 	// Create a quote denom coin.
-	tenQuoteCoin := sdk.NewCoin(quoteDenom, osmomath.NewInt(10).Mul(quoteDenomScalingFactor.TruncateInt()))
+	// We use multiplier so that stablecoin quotes avoid selecting low liquidity routes.
+	tenQuoteCoin := sdk.NewCoin(quoteDenom, osmomath.NewInt(tokenInMultiplier).Mul(quoteDenomScalingFactor.TruncateInt()))
 
 	// Overwrite default config with custom values
 	// necessary for pricing.
@@ -184,7 +191,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	}
 
 	// Compute precision scaling factor.
-	precisionScalingFactor := osmomath.BigDecFromDec(osmomath.NewDec(10).MulMut(baseDenomScalingFactor.Quo(tenQuoteCoin.Amount.ToLegacyDec())))
+	precisionScalingFactor := osmomath.BigDecFromDec(osmomath.NewDec(tokenInMultiplier).MulMut(baseDenomScalingFactor.Quo(tenQuoteCoin.Amount.ToLegacyDec())))
 
 	// Apply scaling facors to descale the amounts to real amounts.
 	currentPrice := chainPrice.MulMut(precisionScalingFactor)
