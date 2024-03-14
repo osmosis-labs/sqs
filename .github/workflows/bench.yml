@@ -14,6 +14,11 @@ jobs:
       - name: Create temporary directory for benchmarks
         run: mkdir ${{ github.workspace }}/benchmarks
 
+      - name: Check out base commit
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.base_ref }} # The base branch
+
       - name: Run pricing benchmarks (base)
         run: go test -benchmem -run=^$ -bench ^BenchmarkGetPrices$ github.com/osmosis-labs/sqs/tokens/usecase -count=10 > ${{ github.workspace }}/benchmarks/base_bench.txt
 
