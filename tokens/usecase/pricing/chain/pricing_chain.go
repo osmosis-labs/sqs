@@ -158,7 +158,6 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		// Get spot price for the pool.
 		poolSpotPrice, err := c.RUsecase.GetPoolSpotPrice(ctx, pool.GetId(), tempQuoteDenom, tempBaseDenom)
 		if err != nil || poolSpotPrice.IsNil() || poolSpotPrice.IsZero() {
-
 			// Increase price truncation counter
 			pricesSpotPriceError.WithLabelValues(baseDenom, quoteDenom).Inc()
 
