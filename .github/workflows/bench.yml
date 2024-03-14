@@ -11,17 +11,11 @@ jobs:
         with:
           go-version: '^1.18' # Adjust this to match your Go version
 
-      - name: Define workspace path
-        id: vars
-        run: echo "::set-output name=path::$(pwd)"
-
-      - name: Check out base commit
-        uses: actions/checkout@v2
-        with:
-          ref: ${{ github.base_ref }} # The base branch
+      - name: Create temporary directory for benchmarks
+        run: mkdir ${{ github.workspace }}/benchmarks
 
       - name: Run pricing benchmarks (base)
-        run: go test -benchmem -run=^$ -bench ^BenchmarkGetPrices$ github.com/osmosis-labs/sqs/tokens/usecase -count=10 > ${{ steps.vars.outputs.path }}/base_bench.txt
+        run: go test -benchmem -run=^$ -bench ^BenchmarkGetPrices$ github.com/osmosis-labs/sqs/tokens/usecase -count=10 > ${{ github.workspace }}/benchmarks/base_bench.txt
 
       - name: Check out head commit
         uses: actions/checkout@v2
@@ -29,12 +23,12 @@ jobs:
           ref: ${{ github.head_ref }} # The PR branch
 
       - name: Run pricing benchmarks (head)
-        run: go test -benchmem -run=^$ -bench ^BenchmarkGetPrices$ github.com/osmosis-labs/sqs/tokens/usecase -count=10 > ${{ steps.vars.outputs.path }}/head_bench.txt
+        run: go test -benchmem -run=^$ -bench ^BenchmarkGetPrices$ github.com/osmosis-labs/sqs/tokens/usecase -count=10 > ${{ github.workspace }}/benchmarks/head_bench.txt
 
       - name: Compare benchmarks
         run: |
           go install golang.org/x/perf/cmd/benchstat@latest
-          benchstat ${{ steps.vars.outputs.path }}/base_bench.txt ${{ steps.vars.outputs.path }}/head_bench.txt | tee pricing_bench_results.txt
+          benchstat ${{ github.workspace }}/benchmarks/base_bench.txt ${{ github.workspace }}/benchmarks/head_bench.txt | tee pricing_bench_results.txt
       - name: Upload Benchmark Results
         uses: actions/upload-artifact@v2
         with:
