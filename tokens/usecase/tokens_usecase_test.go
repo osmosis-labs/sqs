@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -189,21 +190,34 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 	s.Require().Zero(result)
 }
 
+// We use this test in CI for detecting tokens with unsupported pricing.
+// The config used is the `config.json` in root which is expected to be as close
+// to mainnet as possible.
+//
+// The mainnet state must be manually updated when needed with 'make sqs-update-mainnet-state'
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	env := os.Getenv("CI_SQS_PRICING_TEST")
 	if env != "true" {
 		s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
 	}
 
+	// Read mainnet config from project root.
+	file, err := os.ReadFile("../../config.json")
+	s.Require().NoError(err)
+
+	defaultConfig := domain.Config{}
+	err = json.Unmarshal(file, &defaultConfig)
+	s.Require().NoError(err)
+
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
+	router, mainnetState := s.SetupMainnetRouter(*defaultConfig.Router)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
 	s.Require().NoError(err)
 
 	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	pricingStrategy, err := pricing.NewPricingStrategy(*defaultConfig.Pricing, mainnetUsecase.Tokens, mainnetUsecase.Router)
 	s.Require().NoError(err)
 
 	errorCounter := 0
