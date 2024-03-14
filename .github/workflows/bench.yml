@@ -1,0 +1,34 @@
+name: Benchmark Comparison
+
+on: [pull_request]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.18' # Adjust this to match your Go version
+
+      - name: Check out base commit
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.base_ref }} # The base branch
+
+      - name: Run pricing benchmarks (base)
+        run: go test -benchmem -run=^$ -bench ^BenchmarkGetPrices$ github.com/osmosis-labs/sqs/tokens/usecase -count=10 > base_bench.txt
+
+      - name: Check out head commit
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }} # The PR branch
+
+      - name: Run pricing benchmarks (head)
+        run: go test -benchmem -run=^$ -bench ^BenchmarkGetPrices$ github.com/osmosis-labs/sqs/tokens/usecase -count=10 > head_bench.txt
+
+      - name: Compare benchmarks
+        run: |
+          # You can use a tool like benchstat to compare the benchmarks
+          go install golang.org/x/perf/cmd/benchstat@latest
+          benchstat base_bench.txt head_bench.txt
