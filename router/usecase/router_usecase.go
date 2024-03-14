@@ -84,7 +84,6 @@ func init() {
 
 // NewRouterUsecase will create a new pools use case object
 func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
-
 	return &routerUseCaseImpl{
 		contextTimeout:      timeout,
 		routerRepository:    routerRepository,

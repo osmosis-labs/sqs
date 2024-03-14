@@ -138,11 +138,13 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 
 	pools := route.GetPools()
 
-	tempQuoteDenom := quoteDenom
-	tempBaseDenom := baseDenom
-	useAlternativeMethod := false
-	for _, pool := range pools {
+	var (
+		tempQuoteDenom       = quoteDenom
+		tempBaseDenom        string
+		useAlternativeMethod = false
+	)
 
+	for _, pool := range pools {
 		tempBaseDenom = pool.GetTokenOutDenom()
 
 		// Get spot price for the pool.
