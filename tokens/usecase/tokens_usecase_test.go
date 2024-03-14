@@ -23,6 +23,7 @@ type TokensUseCaseTestSuite struct {
 
 const (
 	defaultCosmosExponent     = 6
+	ethExponent               = 18
 	defaultPricingCacheExpiry = time.Second * 2
 
 	mainnetAssetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json"
@@ -66,10 +67,12 @@ func TestTokensUseCaseTestSuite(t *testing.T) {
 	suite.Run(t, new(TokensUseCaseTestSuite))
 }
 
-func (s *TokensUseCaseTestSuite) TestParseExponents() {
-	s.T().Skip("skip the test that does network call and is used for debugging")
+func (s *TokensUseCaseTestSuite) TestParseAssetList() {
+	env := os.Getenv("CI_SQS_ASSETLIST_TEST")
+	if env != "true" {
+		s.T().Skip("skip the test that does network call and is used for debugging")
+	}
 
-	const ()
 	tokensMap, err := tokensusecase.GetTokensFromChainRegistry(mainnetAssetListFileURL)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(tokensMap)
@@ -85,11 +88,22 @@ func (s *TokensUseCaseTestSuite) TestParseExponents() {
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, ionToken.Precision)
 
-	// IBCX is presnet
+	// IBCX is present
 	ibcxMainnetDenom := "factory/osmo14klwqgkmackvx2tqa0trtg69dmy0nrg4ntq4gjgw2za4734r5seqjqm4gm/uibcx"
 	ibcxToken, ok := tokensMap[ibcxMainnetDenom]
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, ibcxToken.Precision)
+
+	// DYSON is present
+	dysonMainnetDenom := "ibc/E27CD305D33F150369AB526AEB6646A76EC3FFB1A6CA58A663B5DE657A89D55D"
+	dysonToken, ok := tokensMap[dysonMainnetDenom]
+	s.Require().True(ok)
+	s.Require().Equal(0, dysonToken.Precision)
+
+	// ETH is present
+	ethToken, ok := tokensMap[ETH]
+	s.Require().True(ok)
+	s.Require().Equal(ethExponent, ethToken.Precision)
 }
 
 func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {

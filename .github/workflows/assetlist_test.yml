@@ -1,0 +1,28 @@
+name: Asset List Parsing Test
+
+on:
+  pull_request:
+    branches:
+      - "**"
+  push:
+    branches:
+      - "main"
+      - "v[0-9]**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.21'  # Set this to the Go version your project uses
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Set up environment variable
+        run: echo "CI_SQS_ASSETLIST_TEST=true" >> $GITHUB_ENV
+
+      - name: Run Go test
+        run: go test -timeout 30s -run TestTokensUseCaseTestSuite/TestParseAssetList github.com/osmosis-labs/sqs/tokens/usecase -v -count=1

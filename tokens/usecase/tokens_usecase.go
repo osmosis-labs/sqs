@@ -293,19 +293,13 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 		token := domain.Token{}
 		chainDenom := ""
 
-		if len(asset.DenomUnits) == 1 {
-			// At time of script creation, only the following tokens have 1 denom unit with zero exponent:
-			// one ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4 0
-			// one ibc/52E12CF5CA2BB903D84F5298B4BFD725D66CAB95E09AA4FC75B2904CA5485FEB 0
-			// one ibc/E27CD305D33F150369AB526AEB6646A76EC3FFB1A6CA58A663B5DE657A89D55D 0
-			//
-			// These seem as tokens that are not useful in routing so we silently skip them.
-			continue
-		}
-
 		for _, denom := range asset.DenomUnits {
 			if denom.Exponent == 0 {
 				chainDenom = denom.Denom
+
+				if len(asset.DenomUnits) == 1 {
+					token.Precision = denom.Exponent
+				}
 			}
 
 			if denom.Exponent > 0 {

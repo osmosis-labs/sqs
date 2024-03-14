@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.9.0
+
+- Support all asset list v1 tokens
+
 ## v0.8.4
 
 Hot fix for astroport PCL base quote confusion
