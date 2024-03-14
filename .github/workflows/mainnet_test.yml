@@ -16,10 +16,13 @@ jobs:
   pricing_test:
     runs-on: ubuntu-latest  # This specifies the runner environment.
     steps:
-      - name: Setup Go
-        uses: ./.github/workflows/setup-go.yml@main  # This refers to your reusable workflow
+      - name: Set up Go
+        uses: actions/setup-go@v2
         with:
-          go-version: '1.21'
+          go-version: '1.21' # This should match the version used in other jobs
+
+      - name: Check out code
+        uses: actions/checkout@v2
 
       - name: Set up environment variable for Pricing Test
         run: echo "CI_SQS_PRICING_TEST=true" >> $GITHUB_ENV
