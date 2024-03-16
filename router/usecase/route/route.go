@@ -7,6 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -26,6 +27,16 @@ type RouteImpl struct {
 	HasGeneralizedCosmWasmPool bool "json:\"has-cw-pool\""
 }
 
+var (
+	spotPriceErrorResultCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_routes_spot_price_error_total",
+			Help: "Spot price error when preparing result pools",
+		},
+		[]string{"token_in", "cur_token_out_denom", "route_token_out_denom"},
+	)
+)
+
 // PrepareResultPools implements domain.Route.
 // Strips away unnecessary fields from each pool in the route,
 // leaving only the data needed by client
@@ -38,19 +49,26 @@ type RouteImpl struct {
 // - Taker Fee
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
+// with token in as base and token out as quote.
 func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]sqsdomain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
-		routeSpotPriceInOverOut     = osmomath.OneDec()
-		effectiveSpotPriceInOverOut = osmomath.OneDec()
+		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
+		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()
 	)
 
 	newPools := make([]sqsdomain.RoutablePool, 0, len(r.Pools))
 
 	for _, pool := range r.Pools {
 		// Compute spot price before swap.
-		spotPriceInOverOut, err := pool.CalcSpotPrice(ctx, pool.GetTokenOutDenom(), tokenIn.Denom)
+		spotPriceInBaseOutQuote, err := pool.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
 		if err != nil {
-			spotPriceInOverOut = osmomath.ZeroBigDec()
+			// We don't want to fail the entire quote if one pool fails to calculate spot price.
+			// This might cause miestimaions downsream but we a
+			spotPriceInBaseOutQuote = osmomath.ZeroBigDec()
+
+			// Increment the counter for the error
+			routeTokenOutDenom := r.Pools[len(r.Pools)-1].GetTokenOutDenom()
+			spotPriceErrorResultCounter.WithLabelValues(tokenIn.Denom, pool.GetTokenOutDenom(), routeTokenOutDenom).Inc()
 		}
 
 		// Charge taker fee
@@ -62,10 +80,10 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]
 		}
 
 		// Update effective spot price
-		effectiveSpotPriceInOverOut.MulMut(tokenIn.Amount.ToLegacyDec().QuoMut(tokenOut.Amount.ToLegacyDec()))
+		effectiveSpotPriceInBaseOutQuote.MulMut(tokenOut.Amount.ToLegacyDec().QuoMut(tokenIn.Amount.ToLegacyDec()))
 
 		// Note, in the future we may want to increase the precision of the spot price
-		routeSpotPriceInOverOut.MulMut(spotPriceInOverOut.Dec())
+		routeSpotPriceInBaseOutQuote.MulMut(spotPriceInBaseOutQuote.Dec())
 
 		newPool := pools.NewRoutableResultPool(
 			pool.GetId(),
@@ -79,7 +97,7 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]
 
 		tokenIn = tokenOut
 	}
-	return newPools, routeSpotPriceInOverOut, effectiveSpotPriceInOverOut, nil
+	return newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, nil
 }
 
 // GetPools implements Route.

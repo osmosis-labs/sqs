@@ -77,6 +77,12 @@ const docTemplate = `{
                         "name": "humanDenoms",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether to apply exponents to the spot price. False by default.",
+                        "name": "applyExponents",
+                        "in": "query"
                     }
                 ],
                 "responses": {

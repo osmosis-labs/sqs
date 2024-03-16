@@ -25,6 +25,10 @@ type RouterHandler struct {
 
 const routerResource = "/router"
 
+var (
+	oneDec = osmomath.OneDec()
+)
+
 func formatRouterResource(resource string) string {
 	return routerResource + resource
 }
@@ -55,6 +59,7 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 // @Param  tokenOutDenom  query  string  true  "String representing the denom of the token out."
 // @Param  singleRoute  query  bool  false  "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default."
 // @Param humanDenoms query bool true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
+// @Param  applyExponents  query  bool  false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/quote [get]
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
@@ -64,6 +69,15 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	isSingleRoute := false
 	if isSingleRouteStr != "" {
 		isSingleRoute, err = strconv.ParseBool(isSingleRouteStr)
+		if err != nil {
+			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		}
+	}
+
+	shouldApplyExponentsStr := c.QueryParam("applyExponents")
+	shouldApplyExponents := false
+	if shouldApplyExponentsStr != "" {
+		shouldApplyExponents, err = strconv.ParseBool(shouldApplyExponentsStr)
 		if err != nil {
 			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 		}
@@ -93,7 +107,10 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenInDenom, tokenOutDenom)
+	scalingFactor := oneDec
+	if shouldApplyExponents {
+		scalingFactor = a.getSpotPriceScalingFactor(ctx, tokenInDenom, tokenOutDenom)
+	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
 	if err != nil {
@@ -118,6 +135,15 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "poolID is required"})
 	}
 
+	shouldApplyExponentsStr := c.QueryParam("applyExponents")
+	shouldApplyExponents := false
+	if shouldApplyExponentsStr != "" {
+		shouldApplyExponents, err = strconv.ParseBool(shouldApplyExponentsStr)
+		if err != nil {
+			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		}
+	}
+
 	poolID, err := strconv.ParseUint(poolIDStr, 10, 64)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
@@ -129,7 +155,10 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	scalingFactor := a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
+	scalingFactor := oneDec
+	if shouldApplyExponents {
+		scalingFactor = a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
+	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
 	if err != nil {
