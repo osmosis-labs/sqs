@@ -91,6 +91,7 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]
 			pool.GetSpreadFactor(),
 			pool.GetTokenOutDenom(),
 			pool.GetTakerFee(),
+			pool.GetCodeID(),
 		)
 
 		newPools = append(newPools, newPool)

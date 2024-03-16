@@ -78,6 +78,10 @@ var (
 func (s *RouterTestSuite) TestPrepareResultPools() {
 	s.Setup()
 
+	const (
+		notCosmWasmPoolCodeID = 0
+	)
+
 	balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoins(
 		sdk.NewCoin(DenomOne, sdk.NewInt(1_000_000_000)),
 		sdk.NewCoin(DenomTwo, sdk.NewInt(1_000_000_000)),
@@ -111,6 +115,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
+					notCosmWasmPoolCodeID,
 				),
 			},
 		},

@@ -208,3 +208,8 @@ func (r *routableConcentratedPoolImpl) CalcSpotPrice(ctx context.Context, baseDe
 func (*routableConcentratedPoolImpl) IsGeneralizedCosmWasmPool() bool {
 	return false
 }
+
+// GetCodeID implements sqsdomain.RoutablePool.
+func (r *routableConcentratedPoolImpl) GetCodeID() uint64 {
+	return notCosmWasmPoolCodeID
+}
