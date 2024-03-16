@@ -7,6 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -25,6 +26,16 @@ type RouteImpl struct {
 	// As a result, we want to minimize the number of requests we make.
 	HasGeneralizedCosmWasmPool bool "json:\"has-cw-pool\""
 }
+
+var (
+	spotPriceErrorResultCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_routes_result_spot_price_error",
+			Help: "Spot price error when preparing result pools",
+		},
+		[]string{"token_in", "cur_token_out_denom", "route_token_out_denom"},
+	)
+)
 
 // PrepareResultPools implements domain.Route.
 // Strips away unnecessary fields from each pool in the route,
@@ -55,7 +66,9 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]
 			// This might cause miestimaions downsream but we a
 			spotPriceInBaseOutQuote = osmomath.ZeroBigDec()
 
-			// TODO: add elemtry
+			// Increment the counter for the error
+			routeTokenOutDenom := r.Pools[len(r.Pools)-1].GetTokenOutDenom()
+			spotPriceErrorResultCounter.WithLabelValues(tokenIn.Denom, pool.GetTokenOutDenom(), routeTokenOutDenom).Inc()
 		}
 
 		// Charge taker fee
