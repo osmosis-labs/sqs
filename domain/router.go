@@ -35,6 +35,7 @@ type Route interface {
 	// Note that it mutates the route.
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
+	// The token in is the base token and the token out is the quote token.
 	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]sqsdomain.RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
 	String() string

@@ -103,13 +103,13 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 	defaultTokenIn := sdk.NewCoin(DenomTwo, DefaultAmt0)
 
 	// Estimate balancer pool spot price
-	balancerPoolSpotPriceInOverOut, err := balancerPool.SpotPrice(sdk.Context{}, DenomTwo, DenomOne)
+	balancerPoolSpotPriceInOverOut, err := balancerPool.SpotPrice(sdk.Context{}, DenomOne, DenomTwo)
 	s.Require().NoError(err)
 
 	// Estimate balancer pool effective spot price
 	expectedAmountOutBalancer, err := balancerPool.CalcOutAmtGivenIn(sdk.Context{}, sdk.NewCoins(defaultTokenIn), DenomOne, DefaultSpreadFactor)
 	s.Require().NoError(err)
-	expectedEffectivePriceBalancerInOverOut := defaultTokenIn.Amount.ToLegacyDec().Quo(expectedAmountOutBalancer.Amount.ToLegacyDec())
+	expectedEffectivePriceBalancerInOverOut := expectedAmountOutBalancer.Amount.ToLegacyDec().Quo(defaultTokenIn.Amount.ToLegacyDec())
 
 	// Prepare trasnmuter pool
 	transmuter := s.PrepareCustomTransmuterPoolCustomProject(s.TestAccs[0], []string{DenomOne, DenomThree}, "sqs", "scripts")
@@ -121,7 +121,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 
 		expectedPools []sqsdomain.RoutablePool
 
-		expectedSpotPriceInOverOut osmomath.Dec
+		expectedSpotPriceInBaseOutQuote osmomath.Dec
 
 		expectedEffectiveSpotPriceInOverOut osmomath.Dec
 	}{
@@ -132,7 +132,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 
 			expectedPools: []sqsdomain.RoutablePool{},
 
-			expectedSpotPriceInOverOut:          osmomath.OneDec(),
+			expectedSpotPriceInBaseOutQuote:     osmomath.OneDec(),
 			expectedEffectiveSpotPriceInOverOut: osmomath.OneDec(),
 		},
 		"single balancer pool in route": {
@@ -156,7 +156,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 			},
 
 			// Balancer is the only pool in the route so its spot price is expected.
-			expectedSpotPriceInOverOut:          balancerPoolSpotPriceInOverOut.Dec(),
+			expectedSpotPriceInBaseOutQuote:     balancerPoolSpotPriceInOverOut.Dec(),
 			expectedEffectiveSpotPriceInOverOut: expectedEffectivePriceBalancerInOverOut,
 		},
 		"balancer and transmuter in route": {
@@ -189,7 +189,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 
 			// Transmuter has spot price of one. Therefore, the spot price of the route
 			// should be the same as the spot price of the balancer pool.
-			expectedSpotPriceInOverOut:          balancerPoolSpotPriceInOverOut.Dec(),
+			expectedSpotPriceInBaseOutQuote:     balancerPoolSpotPriceInOverOut.Dec(),
 			expectedEffectiveSpotPriceInOverOut: expectedEffectivePriceBalancerInOverOut,
 		},
 	}
@@ -199,10 +199,10 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 		s.Run(name, func() {
 
 			// Note: token in is chosen arbitrarily since it is irrelevant for this test
-			actualPools, spotPriceBeforeInOverOut, _, err := tc.route.PrepareResultPools(context.TODO(), tc.tokenIn)
+			actualPools, spotPriceBeforeInBaseOutQuote, _, err := tc.route.PrepareResultPools(context.TODO(), tc.tokenIn)
 			s.Require().NoError(err)
 
-			s.Require().Equal(tc.expectedSpotPriceInOverOut, spotPriceBeforeInOverOut)
+			s.Require().Equal(tc.expectedSpotPriceInBaseOutQuote, spotPriceBeforeInBaseOutQuote)
 
 			s.ValidateRoutePools(tc.expectedPools, actualPools)
 		})

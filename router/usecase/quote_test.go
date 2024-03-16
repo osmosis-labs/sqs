@@ -262,18 +262,17 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	s.Require().NoError(err)
 
 	// Compute spot price before swap
-	spotPriceInOverOut, err := poolOne.SpotPrice(sdk.Context{}, ETH, USDC)
+	spotPriceInBaseOutQuote, err := poolOne.SpotPrice(sdk.Context{}, USDC, ETH)
 	s.Require().NoError(err)
 
 	coinIn := sdk.NewCoin(ETH, totalInAmount)
 
 	// Compute expected effective price
 	tokenInAfterFee, _ := poolmanager.CalcTakerFeeExactIn(coinIn, DefaultTakerFee)
-	// .Sub(spreadFactor.TruncateDec())
-	expectedEffectivePrice := tokenInAfterFee.Amount.ToLegacyDec().Quo(totalOutAmount.ToLegacyDec())
+	expectedEffectivePrice := totalOutAmount.ToLegacyDec().Quo(tokenInAfterFee.Amount.ToLegacyDec())
 
 	// Compute expected price impact
-	expectedPriceImpact := expectedEffectivePrice.Quo(spotPriceInOverOut.Dec()).Sub(osmomath.OneDec())
+	expectedPriceImpact := expectedEffectivePrice.Quo(spotPriceInBaseOutQuote.Dec()).Sub(osmomath.OneDec())
 
 	// Setup quote
 	testQuote := &usecase.QuoteImpl{
@@ -307,7 +306,6 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 
 	// Validate price impact.
 	s.Require().Equal(expectedPriceImpact.String(), testQuote.GetPriceImpact().String())
-
 }
 
 // validateRoutes validates that the given routes are equal.

@@ -85,6 +85,11 @@ paths:
         name: humanDenoms
         required: true
         type: boolean
+      - description: Boolean flag indicating whether to apply exponents to the spot
+          price. False by default.
+        in: query
+        name: applyExponents
+        type: boolean
       produces:
       - application/json
       responses:
