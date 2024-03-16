@@ -35,6 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.10.0
+
+* [#108](https://github.com/osmosis-labs/sqs/pull/107) Add code id (omitempty) to /quote route response
+* [#107](https://github.com/osmosis-labs/sqs/pull/107) Invert spot price in quotes. Break quote API
+
 ## v0.9.1
 
 Hot fix for white whale base quote confusion
