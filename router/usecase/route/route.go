@@ -30,7 +30,7 @@ type RouteImpl struct {
 var (
 	spotPriceErrorResultCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "sqs_routes_result_spot_price_error",
+			Name: "sqs_routes_spot_price_error_total",
 			Help: "Spot price error when preparing result pools",
 		},
 		[]string{"token_in", "cur_token_out_denom", "route_token_out_denom"},
