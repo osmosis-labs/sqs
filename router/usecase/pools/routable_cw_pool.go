@@ -21,6 +21,9 @@ const (
 	astroportPCLCodeID = 580
 	whiteWhaleCodeIDA  = 503
 	whiteWhaleCodeIDB  = 572
+
+	// placeholder for the code id of the pool that is not a cosm wasm pool
+	notCosmWasmPoolCodeID = 0
 )
 
 var _ sqsdomain.RoutablePool = &routableCosmWasmPoolImpl{}
@@ -140,4 +143,9 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 // IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
 func (*routableCosmWasmPoolImpl) IsGeneralizedCosmWasmPool() bool {
 	return true
+}
+
+// GetCodeID implements sqsdomain.RoutablePool.
+func (r *routableCosmWasmPoolImpl) GetCodeID() uint64 {
+	return r.ChainPool.CodeId
 }

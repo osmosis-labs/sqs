@@ -94,3 +94,8 @@ func (r *routableStableswapPoolImpl) CalcSpotPrice(ctx context.Context, baseDeno
 func (*routableStableswapPoolImpl) IsGeneralizedCosmWasmPool() bool {
 	return false
 }
+
+// GetCodeID implements sqsdomain.RoutablePool.
+func (r *routableStableswapPoolImpl) GetCodeID() uint64 {
+	return notCosmWasmPoolCodeID
+}

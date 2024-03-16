@@ -20,6 +20,10 @@ type RoutablePool interface {
 	// in the router.
 	IsGeneralizedCosmWasmPool() bool
 
+	// GetCodeID returns the code ID of the pool if this is a CosmWasm pool.
+	// If this is not a CosmWasm pool, it returns 0.
+	GetCodeID() uint64
+
 	GetPoolDenoms() []string
 
 	GetTokenOutDenom() string

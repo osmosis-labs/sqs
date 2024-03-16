@@ -94,3 +94,8 @@ func (r *routableBalancerPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 func (*routableBalancerPoolImpl) IsGeneralizedCosmWasmPool() bool {
 	return false
 }
+
+// GetCodeID implements sqsdomain.RoutablePool.
+func (r *routableBalancerPoolImpl) GetCodeID() uint64 {
+	return notCosmWasmPoolCodeID
+}

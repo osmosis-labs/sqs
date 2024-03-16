@@ -40,6 +40,10 @@ var (
 func (s *RouterTestSuite) TestPrepareResult() {
 	s.SetupTest()
 
+	const (
+		notCosmWasmPoolCodeID = 0
+	)
+
 	var (
 		takerFeeOne   = osmomath.NewDecWithPrec(2, 2)
 		takerFeeTwo   = osmomath.NewDecWithPrec(4, 4)
@@ -181,6 +185,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 						poolOne.GetSpreadFactor(sdk.Context{}),
 						USDT,
 						takerFeeOne,
+						notCosmWasmPoolCodeID,
 					),
 					pools.NewRoutableResultPool(
 						poolIDTwo,
@@ -188,6 +193,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 						poolTwo.GetSpreadFactor(sdk.Context{}),
 						USDC,
 						takerFeeTwo,
+						notCosmWasmPoolCodeID,
 					),
 				},
 			},
@@ -206,6 +212,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 						poolThree.GetSpreadFactor(sdk.Context{}),
 						USDC,
 						takerFeeThree,
+						notCosmWasmPoolCodeID,
 					),
 				},
 			},

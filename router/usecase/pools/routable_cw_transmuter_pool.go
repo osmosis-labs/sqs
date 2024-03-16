@@ -127,3 +127,8 @@ func (r *routableTransmuterPoolImpl) CalcSpotPrice(ctx context.Context, baseDeno
 func (*routableTransmuterPoolImpl) IsGeneralizedCosmWasmPool() bool {
 	return false
 }
+
+// GetCodeID implements sqsdomain.RoutablePool.
+func (r *routableTransmuterPoolImpl) GetCodeID() uint64 {
+	return r.ChainPool.CodeId
+}

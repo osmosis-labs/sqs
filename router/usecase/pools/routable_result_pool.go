@@ -31,16 +31,23 @@ type routableResultPoolImpl struct {
 	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
 	TokenOutDenom string                    "json:\"token_out_denom\""
 	TakerFee      osmomath.Dec              "json:\"taker_fee\""
+	CodeID        uint64                    "json:\"code_id,omitempty\""
+}
+
+// GetCodeID implements sqsdomain.RoutablePool.
+func (r *routableResultPoolImpl) GetCodeID() uint64 {
+	panic("unimplemented")
 }
 
 // NewRoutableResultPool returns the new routable result pool with the given parameters.
-func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenOutDenom string, takerFee osmomath.Dec) sqsdomain.RoutablePool {
+func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenOutDenom string, takerFee osmomath.Dec, codeID uint64) sqsdomain.RoutablePool {
 	return &routableResultPoolImpl{
 		ID:            ID,
 		Type:          poolType,
 		SpreadFactor:  spreadFactor,
 		TokenOutDenom: tokenOutDenom,
 		TakerFee:      takerFee,
+		CodeID:        codeID,
 	}
 }
 

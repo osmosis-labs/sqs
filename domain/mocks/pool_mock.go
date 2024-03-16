@@ -158,6 +158,11 @@ func (*MockRoutablePool) IsGeneralizedCosmWasmPool() bool {
 	return false
 }
 
+// GetCodeID implements sqsdomain.RoutablePool.
+func (mp *MockRoutablePool) GetCodeID() uint64 {
+	return 0
+}
+
 func deepCopyPool(mp *MockRoutablePool) *MockRoutablePool {
 	newDenoms := make([]string, len(mp.Denoms))
 	copy(newDenoms, mp.Denoms)
