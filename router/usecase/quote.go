@@ -65,7 +65,8 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 		// Update the spread factor pro-rated by the amount in
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, q.AmountIn)
+		amountInFraction := q.AmountIn.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
+		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction))
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}

@@ -512,9 +512,9 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 		"cache is not set, computes routes": {
 			amountIn: defaultAmountInCache,
 
-			// For the default amount in, we expect pool 1400 to be returned.
+			// For the default amount in, we expect pool 1265 to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -535,8 +535,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			// test execution.
 			cacheExpiryDuration: time.Nanosecond,
 
-			// We expect pool 1400 because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1400Concentrated,
+			// We expect pool 1265 because the cache with balancer pool expires.
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 	}
 
@@ -663,6 +663,47 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 	s.Zero(zeroPriceCounterMinLiq)
 	s.Require().Zero(zeroPriceCounterNoMinLiq, "There are tokens with no routes even when min osmo liquidity is set to zero")
+}
+
+// We use this test as a way to ensure that we multiply the amount in by the route fraction.
+// We caught a bug in production where for WBTC -> USDC swap the price impact was excessively large.
+// The reason ended up being using a total amount for estimating the execution price.
+// We keep this test to ensure that we don't regress on this.
+// In the future, we should have stricter unit tests for this.
+func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
+	viper.SetConfigFile("../../config.json")
+	err := viper.ReadInConfig()
+	s.Require().NoError(err)
+
+	// Unmarshal the config into your Config struct
+	var config domain.Config
+	err = viper.Unmarshal(&config)
+	s.Require().NoError(err)
+
+	// Set up mainnet mock state.
+	router, mainnetState := s.SetupMainnetRouter(*config.Router)
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
+
+	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
+
+	chainWBTC, err := mainnetUsecase.Tokens.GetChainDenom(context.Background(), "wbtc")
+	s.Require().NoError(err)
+
+	wbtcMetadata, ok := tokenMetadata[chainWBTC]
+	s.Require().True(ok)
+
+	// Get quote.
+	quote, err := mainnetUsecase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(chainWBTC, osmomath.NewInt(1_00_000_000)), USDC)
+	s.Require().NoError(err)
+
+	// Prepare quote result.
+	_, _, err = quote.PrepareResult(context.Background(), osmomath.NewDec(int64(wbtcMetadata.Precision)))
+
+	priceImpact := quote.GetPriceImpact()
+
+	// 0.07 is chosen arbitrarily with extra buffer because we update test mainnet state frequently and
+	// would like to avoid flakiness.
+	s.Require().True(priceImpact.LT(osmomath.MustNewDecFromStr("0.07")))
 }
 
 // validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.

@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.11.0
+
+Fix excessive price impact bug. 
+
 ## v0.10.0
 
 * [#108](https://github.com/osmosis-labs/sqs/pull/107) Add code id (omitempty) to /quote route response
