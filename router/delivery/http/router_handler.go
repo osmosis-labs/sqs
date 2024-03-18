@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel/trace"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -21,6 +23,7 @@ type RouterHandler struct {
 	RUsecase mvc.RouterUsecase
 	TUsecase mvc.TokensUsecase
 	logger   log.Logger
+	tracer   trace.Tracer
 }
 
 const routerResource = "/router"
@@ -64,6 +67,21 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 // @Router /router/quote [get]
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	ctx := c.Request().Context()
+	sentry.StartSpan(ctx, "optimal-quote")
+	// defer span.Finish()
+
+	// hub := sentry.GetHubFromContext(ctx)
+	// if hub != nil {
+	// 	hub.CaptureMessage("quote-test")
+	// }
+
+	// ctx, span := a.tracer.Start(ctx, "quote")
+	// defer span.End()
+
+	// span.AddEvent("here", trace.WithAttributes(attribute.String("test", "test")))
+
+	// hub := sentry.GetHubFromContext(ctx)
+	// hub.CaptureMessage("quote-test")
 
 	isSingleRouteStr := c.QueryParam("singleRoute")
 	isSingleRoute := false

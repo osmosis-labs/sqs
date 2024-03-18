@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -112,8 +113,37 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 
 // NewSideCarQueryServer creates a new sidecar query server (SQS).
 func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
+	// To initialize Sentry's handler, you need to initialize Sentry itself beforehand
+	if err := sentry.Init(sentry.ClientOptions{
+		Dsn: "https://8cbe35ace7a7a977be965ae07f55ccb5@o4505285755600896.ingest.us.sentry.io/4506923661393920",
+		// Set TracesSampleRate to 1.0 to capture 100%
+		// of transactions for performance monitoring.
+		// We recommend adjusting this value in production,
+		TracesSampleRate: 1.0,
+		EnableTracing:    true,
+		Debug:            true,
+		// // Or provide a custom sample rate:
+		// TracesSampler: sentry.TracesSampler(func(ctx sentry.SamplingContext) float64 {
+		// 	// This only sends traces from this endpoint
+		// 	if ctx.Span.Name == "quote" {
+		// 		return 1.0
+		// 	}
+
+		// 	return 0.0
+		// }),
+		ProfilesSampleRate: 1.0,
+	}); err != nil {
+		fmt.Printf("Sentry initialization failed: %v", err)
+	}
+
+	sentry.CaptureMessage("SQS started")
+
 	// Setup echo server
 	e := echo.New()
+
+	// Once it's done, you can attach the handler as one of your middleware
+	e.Use(domain.New(domain.Options{}))
+
 	middleware := middleware.InitMiddleware()
 	e.Use(middleware.CORS)
 	e.Use(middleware.InstrumentMiddleware)
