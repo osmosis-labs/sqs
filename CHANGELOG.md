@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.11.1
+
+Attempt transmuter fix
+
 ## v0.11.0
 
 Fix excessive price impact bug. 
