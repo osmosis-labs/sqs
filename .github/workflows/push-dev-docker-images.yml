@@ -1,0 +1,63 @@
+# This workflow pushes new docker images to osmolabs/droid-dev:
+#
+# 1. Every new commit to the main branch
+#     `osmolabs/sqs-dev:main-{SHORT_SHA}` is pushed.
+#     `osmolabs/sqs-dev:main-{SHORT_SHA}-$(date +%s)` is pushed.
+#
+# Note: $(date +%s) is used to sort the tags in the docker registry.
+
+name: Push Dev Images
+
+on:
+  push:
+    branches:
+      - "v[0-9]+.x"
+      - osmosis-main
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc*' # include rc
+  
+env:
+  DOCKER_REPOSITORY: osmolabs/sqs-dev
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - 
+      name: Check out repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - 
+      name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - 
+      name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - 
+      name: Create Docker Image Tags
+      run:  |
+        SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-8)
+        echo "DOCKER_IMAGE_TAG=${{ github.ref_name }}-${SHORT_SHA}" >> $GITHUB_ENV
+        echo "DOCKER_IMAGE_TAG_WITH_DATE=${{ github.ref_name }}-${SHORT_SHA}-$(date +%s)" >> $GITHUB_ENV
+    - 
+      name: Build and Push Docker Images
+      uses: docker/build-push-action@v5
+      with:
+        file: Dockerfile
+        context: .
+        push: true
+        platforms: linux/amd64
+        tags: |
+          ${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG }}
+          ${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG_WITH_DATE }}
+    - 
+      if: github.ref == 'refs/heads/{{ github.event.repository.default_branch }}'
+      name: Send Webhook to deploy automatically to stage
+      run: |
+        echo '{"sqsdockerversion":"${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG }}"}' > temp.json
+        jq -s '.[0] * .[1]' config.json temp.json > combined_config.json
+        curl -H "Content-Type: application/json" -X POST -d @combined_config.json ${{ secrets.DEPLOY_URL }}
