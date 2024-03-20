@@ -21,7 +21,7 @@ type PoolsUsecase interface {
 	// a swap. This data entails the pool data, the taker fee.
 	GetRoutesFromCandidates(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, takerFeeMap sqsdomain.TakerFeeMap, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error)
 
-	GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]sqsdomain.TickModel, error)
+	GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]*sqsdomain.TickModel, error)
 	// GetPool returns the pool with the given ID.
 	GetPool(ctx context.Context, poolID uint64) (sqsdomain.PoolI, error)
 	// GetPoolSpotPrice returns the spot price of the given pool given the taker fee, quote and base assets.

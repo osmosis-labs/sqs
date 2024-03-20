@@ -49,27 +49,8 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 		PUsecase: us,
 	}
 
-	e.GET(formatPoolsResource("/:id"), handler.GetPool)
 	e.GET(formatPoolsResource("/ticks/:id"), handler.GetConcentratedPoolTicks)
 	e.GET(formatPoolsResource(""), handler.GetPools)
-}
-
-// GetPool will fetch a pool by its id
-func (a *PoolsHandler) GetPool(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	idStr := c.Param("id")
-	poolID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
-	}
-
-	pool, err := a.PUsecase.GetPool(ctx, poolID)
-	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
-	}
-
-	return c.JSON(http.StatusOK, convertPoolToResponse(pool))
 }
 
 // @Summary Get pool(s) information

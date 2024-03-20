@@ -10,7 +10,7 @@ import (
 
 type RedisPoolsRepositoryMock struct {
 	Pools     []sqsdomain.PoolI
-	TickModel map[uint64]sqsdomain.TickModel
+	TickModel map[uint64]*sqsdomain.TickModel
 }
 
 // GetPools implements mvc.PoolsRepository.
@@ -23,7 +23,7 @@ func (r *RedisPoolsRepositoryMock) GetPools(ctx context.Context, poolIDs map[uin
 }
 
 // GetTickModelForPools implements mvc.PoolsRepository.
-func (r *RedisPoolsRepositoryMock) GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]sqsdomain.TickModel, error) {
+func (r *RedisPoolsRepositoryMock) GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]*sqsdomain.TickModel, error) {
 	return r.TickModel, nil
 }
 

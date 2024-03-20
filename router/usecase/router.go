@@ -128,7 +128,7 @@ func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 
 		router.sortedPools = append(router.sortedPools, pool)
 
-		totalTVL = totalTVL.Add(pool.GetTotalValueLockedUOSMO())
+		totalTVL = totalTVL.Add(pool.GetTotalValueLockedUSDC())
 	}
 
 	preferredPoolIDsMap := make(map[uint64]struct{})
@@ -177,7 +177,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 	ratedPools := make([]ratedPool, 0, len(pools))
 	for _, pool := range pools {
 		// Initialize rating to TVL.
-		rating := pool.GetTotalValueLockedUOSMO()
+		rating := pool.GetTotalValueLockedUSDC()
 
 		// 1/ 100 of toal value locked across all pools for no error in TVL
 		if pool.GetSQSPoolModel().TotalValueLockedError == noTotalValueLockedError {
@@ -226,7 +226,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 		pool := ratedPool.pool
 
 		sqsModel := pool.GetSQSPoolModel()
-		logger.Info("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Stringer("rate", ratedPool.rating), zap.Stringer("tvl", sqsModel.TotalValueLockedUSDC), zap.String("tvl_error", sqsModel.TotalValueLockedError))
+		logger.Debug("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Stringer("rate", ratedPool.rating), zap.Stringer("tvl", sqsModel.TotalValueLockedUSDC), zap.String("tvl_error", sqsModel.TotalValueLockedError))
 		pools[i] = ratedPool.pool
 	}
 	return pools

@@ -137,7 +137,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, candidateRou
 }
 
 // GetTickModelMap implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]sqsdomain.TickModel, error) {
+func (p *poolsUseCase) GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]*sqsdomain.TickModel, error) {
 	ctx, cancel := context.WithTimeout(ctx, p.contextTimeout)
 	defer cancel()
 
@@ -198,7 +198,7 @@ func (p *poolsUseCase) IsGeneralCosmWasmCodeID(codeId uint64) bool {
 // setTickModelMapIfConcentrated sets tick model for concentrated pools. No-op if pool is not concentrated.
 // If the pool is concentrated but the map does not contains the tick model, an error is returned.
 // The input pool parameter is mutated.
-func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]sqsdomain.TickModel) error {
+func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]*sqsdomain.TickModel) error {
 	if pool.GetType() == poolmanagertypes.Concentrated {
 		// Get tick model for concentrated pool
 		tickModel, ok := tickModelMap[pool.GetId()]
@@ -208,7 +208,7 @@ func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]sq
 			}
 		}
 
-		if err := pool.SetTickModel(&tickModel); err != nil {
+		if err := pool.SetTickModel(tickModel); err != nil {
 			return err
 		}
 	}

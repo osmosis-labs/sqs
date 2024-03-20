@@ -16,7 +16,7 @@ import (
 
 type PoolsUsecaseMock struct {
 	Pools        []sqsdomain.PoolI
-	TickModelMap map[uint64]sqsdomain.TickModel
+	TickModelMap map[uint64]*sqsdomain.TickModel
 }
 
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
@@ -75,7 +75,7 @@ func (pm *PoolsUsecaseMock) GetAllPools(ctx context.Context) ([]sqsdomain.PoolI,
 }
 
 // GetTickModelMap implements mvc.PoolsUsecase.
-func (pm *PoolsUsecaseMock) GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]sqsdomain.TickModel, error) {
+func (pm *PoolsUsecaseMock) GetTickModelMap(ctx context.Context, poolIDs []uint64) (map[uint64]*sqsdomain.TickModel, error) {
 	return pm.TickModelMap, nil
 }
 

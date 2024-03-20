@@ -143,8 +143,8 @@ func (mp *MockRoutablePool) GetPoolDenoms() []string {
 	return mp.Denoms
 }
 
-// GetTotalValueLockedUOSMO implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) GetTotalValueLockedUOSMO() math.Int {
+// GetTotalValueLockedUSDC implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) GetTotalValueLockedUSDC() math.Int {
 	return mp.TotalValueLockedUSDC
 }
 

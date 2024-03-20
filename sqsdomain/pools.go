@@ -18,7 +18,7 @@ type PoolI interface {
 	// GetType returns the type of the pool (Balancer, Stableswap, Concentrated, etc.)
 	GetType() poolmanagertypes.PoolType
 
-	GetTotalValueLockedUOSMO() osmomath.Int
+	GetTotalValueLockedUSDC() osmomath.Int
 
 	GetPoolDenoms() []string
 
@@ -87,8 +87,8 @@ func (p *PoolWrapper) GetType() poolmanagertypes.PoolType {
 	return p.ChainModel.GetType()
 }
 
-// GetTotalValueLockedUOSMO implements PoolI.
-func (p *PoolWrapper) GetTotalValueLockedUOSMO() osmomath.Int {
+// GetTotalValueLockedUSDC implements PoolI.
+func (p *PoolWrapper) GetTotalValueLockedUSDC() osmomath.Int {
 	return p.SQSModel.TotalValueLockedUSDC
 }
 
