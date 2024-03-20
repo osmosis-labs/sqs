@@ -7,7 +7,7 @@
 # to mainnet as possible.
 #
 # The mainnet state must be manually updated when needed with 'make sqs-update-mainnet-state' against a local node.
-name: Mainnet Support
+name: Mainnet Tests
 
 on:
   pull_request:
@@ -19,36 +19,44 @@ on:
       - "v[0-9]**"
 
 jobs:
-  pricing_test:
+  test_prices:
     runs-on: ubuntu-latest  # This specifies the runner environment.
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v2
+      -
+        name: Checkout repository
+        uses: actions/checkout@v4
+      -
+        name: 🐿 Setup Golang
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21' # This should match the version used in other jobs
+          go-version-file: go.mod
+      -
+        name: Run Pricing Test
+        env:
+          CI_SQS_PRICING_TEST: true
+        run: |
+          go test \
+            -timeout 30s \
+            -run TestTokensUseCaseTestSuite/TestGetPrices_Chain_FindUnsupportedTokens \
+            github.com/osmosis-labs/sqs/tokens/usecase -v -count=1
 
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Set up environment variable for Pricing Test
-        run: echo "CI_SQS_PRICING_TEST=true" >> $GITHUB_ENV
-
-      - name: Run Pricing Test
-        run: go test -timeout 30s -run TestTokensUseCaseTestSuite/TestGetPrices_Chain_FindUnsupportedTokens github.com/osmosis-labs/sqs/tokens/usecase -v -count=1
-
-  routes_test:
+  test_routes:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v2
+      -
+        name: Checkout repository
+        uses: actions/checkout@v4
+      -
+        name: 🐿 Setup Golang
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21' # This should match the version used in other jobs
-
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Set up environment variable for Routes Test
-        run: echo "CI_SQS_ROUTE_TEST=true" >> $GITHUB_ENV
-
-      - name: Run Routes Test
-        run: go test -timeout 30s -run TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes github.com/osmosis-labs/sqs/router/usecase -count=1 -v
+          go-version-file: go.mod
+      -
+        name: Run Routes Test
+        env:
+          CI_SQS_ROUTE_TEST: true
+        run: |
+          go test \
+            -timeout 30s \
+            -run TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes \
+            github.com/osmosis-labs/sqs/router/usecase -v -count=1
