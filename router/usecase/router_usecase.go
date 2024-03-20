@@ -161,7 +161,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 		return nil, err
 	}
 
-	if len(rankedRoutes) == 1 || router.config.MaxSplitRoutes == domain.DisableSplitRoutes {
+	if len(rankedRoutes) == 1 || router.config.MaxSplitIterations == domain.DisableSplitRoutes {
 		return topSingleRouteQuote, nil
 	}
 
@@ -267,7 +267,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, router 
 
 	topQuote, routes, err := estimateDirectQuote(ctx, router, routes, tokenIn)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
 
 	return topQuote, routes, nil

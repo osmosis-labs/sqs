@@ -85,8 +85,8 @@ func TestStoreFilesAndReadBack(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = parsing.StorePools([]sqsdomain.PoolI{testPoolToMarshal}, map[uint64]sqsdomain.TickModel{
-		testPoolToMarshal.GetId(): defaultTickModel,
+	err = parsing.StorePools([]sqsdomain.PoolI{testPoolToMarshal}, map[uint64]*sqsdomain.TickModel{
+		testPoolToMarshal.GetId(): &defaultTickModel,
 	}, testFileName)
 	require.NoError(t, err)
 

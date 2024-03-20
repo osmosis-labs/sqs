@@ -32,7 +32,7 @@ type RouterTestHelper struct {
 
 // Mock mainnet state
 type MockMainnetState struct {
-	TickMap        map[uint64]sqsdomain.TickModel
+	TickMap        map[uint64]*sqsdomain.TickModel
 	TakerFeeMap    sqsdomain.TakerFeeMap
 	TokensMetadata map[string]domain.Token
 }

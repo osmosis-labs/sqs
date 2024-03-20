@@ -24,7 +24,7 @@ type SerializedPool struct {
 }
 
 // StorePools stores the pools to a file.
-func StorePools(actualPools []sqsdomain.PoolI, tickModelMap map[uint64]sqsdomain.TickModel, poolsFile string) error {
+func StorePools(actualPools []sqsdomain.PoolI, tickModelMap map[uint64]*sqsdomain.TickModel, poolsFile string) error {
 	_, err := os.Stat(poolsFile)
 	if os.IsNotExist(err) {
 		file, err := os.Create(poolsFile)
@@ -43,7 +43,7 @@ func StorePools(actualPools []sqsdomain.PoolI, tickModelMap map[uint64]sqsdomain
 						PoolId: pool.GetId(),
 					})
 				}
-				if err := pool.SetTickModel(&tickModel); err != nil {
+				if err := pool.SetTickModel(tickModel); err != nil {
 					return err
 				}
 			}
@@ -121,7 +121,7 @@ func StoreTokensMetadata(tokensMetaData map[string]domain.Token, tokensFile stri
 }
 
 // ReadPools reads the pools from a file and returns them
-func ReadPools(poolsFile string) ([]sqsdomain.PoolI, map[uint64]sqsdomain.TickModel, error) {
+func ReadPools(poolsFile string) ([]sqsdomain.PoolI, map[uint64]*sqsdomain.TickModel, error) {
 	poolBytes, err := os.ReadFile(poolsFile)
 	if err != nil {
 		return nil, nil, err
@@ -135,7 +135,7 @@ func ReadPools(poolsFile string) ([]sqsdomain.PoolI, map[uint64]sqsdomain.TickMo
 
 	actualPools := make([]sqsdomain.PoolI, 0, len(serializedPools))
 
-	tickMap := make(map[uint64]sqsdomain.TickModel)
+	tickMap := make(map[uint64]*sqsdomain.TickModel)
 
 	for _, pool := range serializedPools {
 		poolWrapper, err := UnmarshalPool(pool)
@@ -144,7 +144,7 @@ func ReadPools(poolsFile string) ([]sqsdomain.PoolI, map[uint64]sqsdomain.TickMo
 		}
 
 		if poolWrapper.GetType() == poolmanagertypes.Concentrated {
-			tickMap[poolWrapper.GetId()] = *pool.TickModel
+			tickMap[poolWrapper.GetId()] = pool.TickModel
 		}
 
 		actualPools = append(actualPools, poolWrapper)

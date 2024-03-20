@@ -27,7 +27,7 @@ type PoolsRepository interface {
 	// Note that this does NOT return tick models for the concentrated pools
 	GetPools(ctx context.Context, poolIDs map[uint64]struct{}) (map[uint64]sqsdomain.PoolI, error)
 
-	GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]sqsdomain.TickModel, error)
+	GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]*sqsdomain.TickModel, error)
 
 	// StorePools atomically stores the given pools.
 	StorePools(ctx context.Context, tx repository.Tx, pools []sqsdomain.PoolI) error
@@ -317,7 +317,7 @@ func (r *redisPoolsRepo) deletePoolsTx(ctx context.Context, tx repository.Tx, st
 
 // GetTickModelForPools implements mvc.PoolsRepository.
 // CONTRACT: pools must be concentrated
-func (r *redisPoolsRepo) GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]sqsdomain.TickModel, error) {
+func (r *redisPoolsRepo) GetTickModelForPools(ctx context.Context, pools []uint64) (map[uint64]*sqsdomain.TickModel, error) {
 	tx := r.repositoryManager.StartTx()
 
 	redixTx, err := tx.AsRedisTx()
@@ -343,7 +343,7 @@ func (r *redisPoolsRepo) GetTickModelForPools(ctx context.Context, pools []uint6
 		return nil, err
 	}
 
-	result := make(map[uint64]sqsdomain.TickModel, len(poolTickData))
+	result := make(map[uint64]*sqsdomain.TickModel, len(poolTickData))
 
 	for _, tickCmdData := range poolTickData {
 		var tickData sqsdomain.TickModel
@@ -351,7 +351,7 @@ func (r *redisPoolsRepo) GetTickModelForPools(ctx context.Context, pools []uint6
 		if err != nil {
 			return nil, err
 		}
-		result[tickCmdData.poolID] = tickData
+		result[tickCmdData.poolID] = &tickData
 	}
 
 	return result, nil

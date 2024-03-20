@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/pprof"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -55,6 +56,13 @@ func NewSystemHandler(e *echo.Echo, redisAddress string, config domain.Config, l
 		grpcAddress:  config.ChainGRPCGatewayEndpoint,
 		CIUsecase:    us,
 		config:       config,
+	}
+
+	// if debug mod, enable additional profiles that are too intensive
+	// for production.
+	if !config.LoggerIsProduction {
+		runtime.SetMutexProfileFraction(2)
+		runtime.SetBlockProfileRate(2)
 	}
 
 	e.GET("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))

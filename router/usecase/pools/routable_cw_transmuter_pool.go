@@ -62,11 +62,6 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 
 	balances := r.Balances
 
-	// // Validate token in balance
-	// if err := validateBalance(tokenIn.Amount, balances, tokenIn.Denom); err != nil {
-	// 	return sdk.Coin{}, err
-	// }
-
 	// Validate token out balance
 	if err := validateBalance(tokenIn.Amount, balances, r.TokenOutDenom); err != nil {
 		return sdk.Coin{}, err
