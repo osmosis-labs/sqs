@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+* [#143](https://github.com/osmosis-labs/sqs/pull/143) light clean ups from the data ingest refactor. 
+
 ## v0.11.1
 
 Attempt transmuter fix
