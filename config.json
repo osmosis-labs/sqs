@@ -33,6 +33,11 @@
         "max-routes": 5,
         "min-osmo-liquidity": 50
     },
-    "enable-overwrite-routes-cache": true
+    "grpc-ingester":{
+        "enabled": false,
+        "max-receive-msg-size-bytes": 16777216,
+        "server-address": ":50051",
+        "server-connection-timeout-seconds": 10
+    }
 }
   
