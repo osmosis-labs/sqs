@@ -35,9 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v0.12.0
 
 * [#143](https://github.com/osmosis-labs/sqs/pull/143) light clean ups from the data ingest refactor. 
+* [#148](https://github.com/osmosis-labs/sqs/pull/148) white whale switch of base and quote denoms in spot price.
+* [#147](https://github.com/osmosis-labs/sqs/pull/147) GRPC ingester config, code gen and wiring.
 
 ## v0.11.1
 
