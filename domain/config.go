@@ -28,4 +28,6 @@ type Config struct {
 	Pools *PoolsConfig `mapstructure:"pools"`
 
 	Pricing *PricingConfig `mapstructure:"pricing"`
+
+	GRPCIngester *GRPCIngesterConfig `mapstructure:"grpc-ingester"`
 }

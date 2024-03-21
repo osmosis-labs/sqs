@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -10,6 +11,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+
+	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
+	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
 
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
@@ -39,7 +43,6 @@ import (
 // and exposes endpoints for querying formatter and processed data from frontend.
 type SideCarQueryServer interface {
 	GetTxManager() repository.TxManager
-	GetPoolsRepository() poolsredisrepo.PoolsRepository
 	GetChainInfoRepository() chaininforedisrepo.ChainInfoRepository
 	GetRouterRepository() routerredisrepo.RouterRepository
 	GetTokensUseCase() mvc.TokensUsecase
@@ -58,12 +61,6 @@ type sideCarQueryServer struct {
 	sqsAddress          string
 	logger              log.Logger
 }
-
-const (
-	// This is a directory path where the overwrite routes are backed up in case of failure.
-	// On restart, the overwrite routes are restored from this directory.
-	overwriteRoutesPath = "overwrite_routes"
-)
 
 // GetTokensUseCase implements SideCarQueryServer.
 func (sqs *sideCarQueryServer) GetTokensUseCase() mvc.TokensUsecase {
@@ -149,7 +146,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Initialize router repository, usecase
 	routerRepository := routerredisrepo.New(redisTxManager, 0)
-	routerUsecase := routerUseCase.WithOverwriteRoutesPath(routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New()), overwriteRoutesPath)
+	routerUsecase := routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Initialize system handler
 	chainInfoRepository := chaininforedisrepo.New(redisTxManager)
@@ -172,6 +169,33 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
 
+	// Start grpc ingest server if enabled
+	grpcIngesterConfig := config.GRPCIngester
+	if grpcIngesterConfig.Enabeld {
+		// Initialize ingest handler and usecase
+		ingestUseCase, err := ingestusecase.NewIngestUsecase(logger)
+		if err != nil {
+			return nil, err
+		}
+
+		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		go func() {
+			logger.Info("Starting grpc ingest server")
+
+			lis, err := net.Listen("tcp", grpcIngesterConfig.ServerAddress)
+			if err != nil {
+				panic(err)
+			}
+			if err := grpcIngestHandler.Serve(lis); err != nil {
+				panic(err)
+			}
+		}()
+	}
+
 	go func() {
 		logger.Info("Starting profiling server")
 		err = http.ListenAndServe("localhost:6062", nil)
@@ -182,7 +206,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	return &sideCarQueryServer{
 		txManager:           redisTxManager,
-		poolsRepository:     poolsRepository,
 		chainInfoRepository: chainInfoRepository,
 		routerRepository:    routerRepository,
 		tokensUseCase:       tokensUseCase,
