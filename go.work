@@ -4,4 +4,4 @@ use .
 
 use ./sqsdomain
 
-replace github.com/cometbft/cometbft => github.com/osmosis-labs/cometbft v0.37.2-v21-osmo-1
+replace github.com/cometbft/cometbft => github.com/osmosis-labs/cometbft v0.37.4-v23-osmo-3
