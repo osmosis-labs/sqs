@@ -55,7 +55,7 @@ jobs:
           ${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG }}
           ${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG_WITH_DATE }}
     - name: Get default branch name
-      run: echo "The default branch is ${{ github.event.repository.default_branch }}"
+      run: echo "The default branch is ${{ github.event.repository.default_branch }} and the actual branch is ${{ github.ref }}"
     - 
       if: github.ref == 'refs/heads/{{ github.event.repository.default_branch }}'
       name: Send Webhook to deploy automatically to stage
