@@ -35,7 +35,6 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-<<<<<<< HEAD
 ## Unreleased
 
 * [#143](https://github.com/osmosis-labs/sqs/pull/143) light clean ups from the data ingest refactor. 
@@ -57,8 +56,6 @@ Fix excessive price impact bug.
 
 Hot fix for white whale base quote confusion
 
-=======
->>>>>>> parent of 249dfac (white whale base quote hack)
 ## v0.9.0
 
 - Support all asset list v1 tokens
