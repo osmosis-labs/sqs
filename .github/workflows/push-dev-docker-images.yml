@@ -57,7 +57,7 @@ jobs:
     - name: Get default branch name
       run: echo "The default branch is ${{ github.event.repository.default_branch }} and the actual branch is ${{ github.ref }}"
     - 
-      if: github.ref == 'refs/heads/{{ github.event.repository.default_branch }}'
+      if: github.ref == 'refs/heads/' + github.event.repository.default_branch
       name: Send Webhook to deploy automatically to stage
       run: |
         echo '{"sqsdockerversion":"${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG }}"}' > temp.json
