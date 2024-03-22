@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -34,13 +35,12 @@ type routerUseCaseImpl struct {
 	cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig
 	logger              log.Logger
 
-	rankedRouteCache    *cache.Cache
-	candidateRouteCache *cache.Cache
+	rankedRouteCache *cache.Cache
 
-	// This is a path where the overwrite routes are stored as backup in case of failure.
-	// On restart, the routes are loaded from this path.
-	// It is defined on the use case for testability (s.t. we can set a temp path in tests)
-	overwriteRoutesPath string
+	sortedPoolsMu sync.RWMutex
+	sortedPools   []sqsdomain.PoolI
+
+	candidateRouteCache *cache.Cache
 }
 
 const (
@@ -94,17 +94,10 @@ func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.Ro
 
 		rankedRouteCache:    rankedRouteCache,
 		candidateRouteCache: candidateRouteCache,
-	}
-}
 
-// WithOverwriteRoutesPath sets the overwrite routes path on the router use case.
-func WithOverwriteRoutesPath(routerUsecase mvc.RouterUsecase, overwriteRoutesPath string) mvc.RouterUsecase {
-	useCaseImpl, ok := routerUsecase.(*routerUseCaseImpl)
-	if !ok {
-		panic("error casting router use case to router use case impl")
+		sortedPools:   make([]sqsdomain.PoolI, 0),
+		sortedPoolsMu: sync.RWMutex{},
 	}
-	useCaseImpl.overwriteRoutesPath = overwriteRoutesPath
-	return routerUsecase
 }
 
 // GetOptimalQuote returns the optimal quote by estimating the optimal route(s) through pools
@@ -586,12 +579,11 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 	// If no routes are cached, find them
 	if len(candidateRoutes.Routes) == 0 {
 		r.logger.Debug("calculating routes")
-		allPools, err := r.poolsUsecase.GetAllPools(ctx)
-		if err != nil {
-			return sqsdomain.CandidateRoutes{}, err
-		}
-		r.logger.Debug("retrieved pools", zap.Int("num_pools", len(allPools)))
-		router = WithSortedPools(router, allPools)
+
+		// Ensure that we copy the slice under a read lock.
+		r.sortedPoolsMu.RLock()
+		router = WithComputedSortedPools(router, r.sortedPools)
+		r.sortedPoolsMu.RUnlock()
 
 		candidateRoutes, err = router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
 		if err != nil {
@@ -724,6 +716,27 @@ func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	}
 
 	return spotPrice, nil
+}
+
+// SortPools implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) SortPools(ctx context.Context, pools []sqsdomain.PoolI) error {
+	router := r.initializeRouter(r.config)
+
+	router = WithSortedPools(router, pools)
+
+	sortedPools := router.GetSortedPools()
+
+	r.sortedPoolsMu.Lock()
+	defer r.sortedPoolsMu.Unlock()
+	r.sortedPools = sortedPools
+
+	return nil
+}
+
+// GetSortedPools implements mvc.RouterUsecase.
+// Note that this method is not thread safe.
+func (r *routerUseCaseImpl) GetSortedPools() []sqsdomain.PoolI {
+	return r.sortedPools
 }
 
 // filterOutGeneralizedCosmWasmPoolRoutes filters out routes that contain generalized cosm wasm pool.

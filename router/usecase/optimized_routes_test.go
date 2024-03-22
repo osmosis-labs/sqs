@@ -579,7 +579,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(1000_000_000),
 
-			expectedRoutesCount: 2,
+			expectedRoutesCount: 3,
 		},
 		"uosmo for uion": {
 			tokenInDenom:  UOSMO,
@@ -603,7 +603,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(100_000_000),
 
-			expectedRoutesCount: 1,
+			expectedRoutesCount: 2,
 		},
 		// This test validates that with a greater max routes value, SQS is able to find
 		// the path from umee to stOsmo
@@ -663,7 +663,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 		amountIn = osmomath.NewInt(5000000)
 	)
 
-	router, mainnetState := s.SetupMainnetRouter(config)
+	router, mainnetState := s.SetupMainnetRouter(config, defaultPricingConfig)
 
 	// Setup router repository mock
 	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{
@@ -672,11 +672,8 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
 
 	// Setup pools usecase mock.
-	poolsRepositoryMock := sqsdomainmocks.RedisPoolsRepositoryMock{
-		Pools:     router.GetSortedPools(),
-		TickModel: mainnetState.TickMap,
-	}
-	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
+	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
+	poolsUsecase.StorePools(router.GetSortedPools())
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
 	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())

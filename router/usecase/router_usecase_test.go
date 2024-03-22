@@ -225,13 +225,13 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			routerUseCase := usecase.NewRouterUsecase(defaultTimeoutDuration, routerRepositoryMock, poolsUseCaseMock, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheDisabled,
 			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
+			routerUseCase.SortPools(context.TODO(), tc.repositoryPools)
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
 
 			// Initialize router
 			router := usecase.NewRouter(defaultRouterConfig, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{})
-			router = usecase.WithSortedPools(router, poolsUseCaseMock.Pools)
 
 			// System under test
 			ctx := context.Background()
@@ -486,7 +486,7 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 // Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 18M of liquidity to date
 // Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 10M of liquidity to date
 // Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 1.4M of liquidity to date
-// Pool ID 1265: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 322K of liquidity to date
+// Pool ID 1400: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 322K of liquidity to date
 //
 // Based on this state, the small amounts of token in should go through pool 1265
 // Medium amounts of token in should go through pool 1135
@@ -512,9 +512,9 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 		"cache is not set, computes routes": {
 			amountIn: defaultAmountInCache,
 
-			// For the default amount in, we expect pool 1265 to be returned.
+			// For the default amount in, we expect pool 1400 to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1265Concentrated,
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -535,8 +535,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			// test execution.
 			cacheExpiryDuration: time.Nanosecond,
 
-			// We expect pool 1265 because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1265Concentrated,
+			// We expect pool 1400 because the cache with balancer pool expires.
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 	}
 
@@ -603,7 +603,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	s.Require().NoError(err)
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(*config.Router)
+	router, mainnetState := s.SetupMainnetRouter(*config.Router, *config.Pricing)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
@@ -641,7 +641,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	// don't have liquidity filtering.
 	config.Router.MinOSMOLiquidity = 0
 	// Set up mainnet mock state.
-	router, mainnetState = s.SetupMainnetRouter(*config.Router)
+	router, mainnetState = s.SetupMainnetRouter(*config.Router, *config.Pricing)
 	mainnetUsecase = s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 	for chainDenom, tokenMeta := range tokenMetadata {
 
@@ -681,7 +681,7 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	s.Require().NoError(err)
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(*config.Router)
+	router, mainnetState := s.SetupMainnetRouter(*config.Router, *config.Pricing)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
@@ -704,6 +704,36 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	// 0.07 is chosen arbitrarily with extra buffer because we update test mainnet state frequently and
 	// would like to avoid flakiness.
 	s.Require().True(priceImpact.LT(osmomath.MustNewDecFromStr("0.07")))
+}
+
+// This is a sanity-check to ensure that the pools are sorted as intended and persisted
+// in the router usecase state.
+func (s *RouterTestSuite) TestSortPools() {
+	const (
+		// the minimum number of pools should never change since we never delete pools. As a result
+		// this is a good high-level check to ensure that the pools are being loaded correctly.
+		expectedMinNumPools = 241
+
+		// If mainnet state is updated
+		expectedTopPoolID = uint64(1135)
+	)
+
+	router, mainnetState := s.SetupDefaultMainnetRouter()
+
+	usecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
+
+	pools, err := usecase.Pools.GetAllPools(context.Background())
+	s.Require().NoError(err)
+
+	err = usecase.Router.SortPools(context.Background(), pools)
+	s.Require().NoError(err)
+
+	sortedPools := usecase.Router.GetSortedPools()
+
+	s.Require().GreaterOrEqual(len(sortedPools), expectedMinNumPools)
+
+	// Check that the top pool is the expected one.
+	s.Require().Equal(expectedTopPoolID, sortedPools[0].GetId())
 }
 
 // validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.
