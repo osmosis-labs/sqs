@@ -38,4 +38,10 @@ type RouterUsecase interface {
 	StoreRouterStateFiles(ctx context.Context) error
 
 	GetRouterState(ctx context.Context) (domain.RouterState, error)
+
+	// GetSortedPools returns the sorted pools based on the router configuration.
+	GetSortedPools() []sqsdomain.PoolI
+
+	// SortPools sorts the given pools based on the router configuration and perists them until the next call.
+	SortPools(ctx context.Context, pools []sqsdomain.PoolI) error
 }

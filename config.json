@@ -34,7 +34,7 @@
         "min-osmo-liquidity": 50
     },
     "grpc-ingester":{
-        "enabled": false,
+        "enabled": true,
         "max-receive-msg-size-bytes": 16777216,
         "server-address": ":50051",
         "server-connection-timeout-seconds": 10

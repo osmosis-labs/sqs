@@ -7,14 +7,14 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain/repository"
-	chaininforedisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/chaininfo"
+	chaininforepo "github.com/osmosis-labs/sqs/sqsdomain/repository/memory/chaininfo"
 
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
 
 type chainInfoUseCase struct {
 	contextTimeout         time.Duration
-	chainInfoRepository    chaininforedisrepo.ChainInfoRepository
+	chainInfoRepository    chaininforepo.ChainInfoRepository
 	redisRepositoryManager repository.TxManager
 
 	// N.B. sometimes the node gets stuck and does not make progress.
@@ -33,7 +33,7 @@ const MaxAllowedHeightUpdateTimeDeltaSecs = 30
 
 var _ mvc.ChainInfoUsecase = &chainInfoUseCase{}
 
-func NewChainInfoUsecase(timeout time.Duration, chainInfoRepository chaininforedisrepo.ChainInfoRepository, redisRepositoryManager repository.TxManager) mvc.ChainInfoUsecase {
+func NewChainInfoUsecase(timeout time.Duration, chainInfoRepository chaininforepo.ChainInfoRepository, redisRepositoryManager repository.TxManager) mvc.ChainInfoUsecase {
 	return &chainInfoUseCase{
 		contextTimeout:         timeout,
 		chainInfoRepository:    chainInfoRepository,
@@ -47,10 +47,7 @@ func (p *chainInfoUseCase) GetLatestHeight(ctx context.Context) (uint64, error) 
 	ctx, cancel := context.WithTimeout(ctx, p.contextTimeout)
 	defer cancel()
 
-	latestHeight, err := p.chainInfoRepository.GetLatestHeight(ctx)
-	if err != nil {
-		return 0, err
-	}
+	latestHeight := p.chainInfoRepository.GetLatestHeight()
 
 	p.lastSeenMx.Lock()
 	defer p.lastSeenMx.Unlock()

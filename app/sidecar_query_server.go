@@ -19,9 +19,8 @@ import (
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
 	"github.com/osmosis-labs/sqs/sqsdomain/repository"
+	chaininforepo "github.com/osmosis-labs/sqs/sqsdomain/repository/memory/chaininfo"
 	redisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis"
-	chaininforedisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/chaininfo"
-	poolsredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/pools"
 	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
 	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
@@ -43,7 +42,7 @@ import (
 // and exposes endpoints for querying formatter and processed data from frontend.
 type SideCarQueryServer interface {
 	GetTxManager() repository.TxManager
-	GetChainInfoRepository() chaininforedisrepo.ChainInfoRepository
+	GetChainInfoRepository() chaininforepo.ChainInfoRepository
 	GetRouterRepository() routerredisrepo.RouterRepository
 	GetTokensUseCase() mvc.TokensUsecase
 	GetLogger() log.Logger
@@ -53,8 +52,7 @@ type SideCarQueryServer interface {
 
 type sideCarQueryServer struct {
 	txManager           repository.TxManager
-	poolsRepository     poolsredisrepo.PoolsRepository
-	chainInfoRepository chaininforedisrepo.ChainInfoRepository
+	chainInfoRepository chaininforepo.ChainInfoRepository
 	routerRepository    routerredisrepo.RouterRepository
 	tokensUseCase       mvc.TokensUsecase
 	e                   *echo.Echo
@@ -67,12 +65,7 @@ func (sqs *sideCarQueryServer) GetTokensUseCase() mvc.TokensUsecase {
 	return sqs.tokensUseCase
 }
 
-// GetPoolsRepository implements SideCarQueryServer.
-func (sqs *sideCarQueryServer) GetPoolsRepository() poolsredisrepo.PoolsRepository {
-	return sqs.poolsRepository
-}
-
-func (sqs *sideCarQueryServer) GetChainInfoRepository() chaininforedisrepo.ChainInfoRepository {
+func (sqs *sideCarQueryServer) GetChainInfoRepository() chaininforepo.ChainInfoRepository {
 	return sqs.chainInfoRepository
 }
 
@@ -140,16 +133,15 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	redisTxManager := redisrepo.NewTxManager(redisClient)
 
 	// Initialize pools repository, usecase and HTTP handler
-	poolsRepository := poolsredisrepo.New(appCodec, redisTxManager)
 	timeoutContext := time.Duration(config.ServerTimeoutDurationSecs) * time.Second
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, poolsRepository, redisTxManager, config.Pools, config.ChainGRPCGatewayEndpoint)
+	poolsUseCase := poolsUseCase.NewPoolsUsecase(timeoutContext, redisTxManager, config.Pools, config.ChainGRPCGatewayEndpoint)
 
 	// Initialize router repository, usecase
 	routerRepository := routerredisrepo.New(redisTxManager, 0)
 	routerUsecase := routerUseCase.NewRouterUsecase(timeoutContext, routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Initialize system handler
-	chainInfoRepository := chaininforedisrepo.New(redisTxManager)
+	chainInfoRepository := chaininforepo.New()
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(timeoutContext, chainInfoRepository, redisTxManager)
 
 	// Compute token metadata from chain denom.
@@ -173,7 +165,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	grpcIngesterConfig := config.GRPCIngester
 	if grpcIngesterConfig.Enabeld {
 		// Initialize ingest handler and usecase
-		ingestUseCase, err := ingestusecase.NewIngestUsecase(logger)
+		ingestUseCase, err := ingestusecase.NewIngestUsecase(redisTxManager, poolsUseCase, routerUsecase, chainInfoRepository, routerRepository, tokensUseCase, appCodec, *config.Pricing, logger)
 		if err != nil {
 			return nil, err
 		}
