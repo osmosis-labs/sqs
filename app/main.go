@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 	_ "github.com/swaggo/echo-swagger"
 
-	"github.com/osmosis-labs/osmosis/v23/app"
+	"github.com/osmosis-labs/osmosis/v24/app"
 )
 
 func init() {
