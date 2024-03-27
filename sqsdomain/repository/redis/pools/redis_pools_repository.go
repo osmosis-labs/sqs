@@ -14,7 +14,7 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 	"github.com/osmosis-labs/sqs/sqsdomain/repository"
 
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
 )
 
 // PoolsRepository represent the pool's repository contract
