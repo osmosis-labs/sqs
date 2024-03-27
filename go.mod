@@ -11,10 +11,10 @@ require (
 	github.com/cosmos/cosmos-sdk v0.47.8
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/labstack/echo/v4 v4.11.4
-	github.com/osmosis-labs/osmosis/osmomath v0.0.9-0.20240312193551-f1ac90db9b63
-	github.com/osmosis-labs/osmosis/osmoutils v0.0.9-0.20240312193551-f1ac90db9b63
-	github.com/osmosis-labs/osmosis/v24 v24.0.0-20240325170518-b6ccedc3adfe
-	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240321191701-8cfba90a2cbc
+	github.com/osmosis-labs/osmosis/osmomath v0.0.9-0.20240312193551-6c010fa93f60
+	github.com/osmosis-labs/osmosis/osmoutils v0.0.9-0.20240312193551-6c010fa93f60
+	github.com/osmosis-labs/osmosis/v24 v24.0.0-20240327131916-7cccf09b3dda
+	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240327131630-ace8856561e1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/redis/go-redis/v9 v9.5.1
 	github.com/sirupsen/logrus v1.9.3
@@ -163,7 +163,6 @@ require (
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20220708102147-0a8a51822cae // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208034658-b5664e319e8d // indirect
 	github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240312193551-6c010fa93f60 // indirect
 	github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.11-0.20240312193551-6c010fa93f60 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
@@ -249,7 +248,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.9-0.20240312193551-6c010fa93f60
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.9-0.20240312193551-6c010fa93f60
-	github.com/osmosis-labs/osmosis/v24 => github.com/osmosis-labs/osmosis/v24 v24.0.0-20240325170518-b6ccedc3adfe
+	github.com/osmosis-labs/osmosis/v24 => github.com/osmosis-labs/osmosis/v24 v24.0.0-20240327131916-7cccf09b3dda
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
