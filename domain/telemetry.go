@@ -20,7 +20,7 @@ var (
 	// * height - the height of the block being processed
 	SQSIngestUsecaseProcessBlockErrorMetricName = "sqs_ingest_usecase_process_block_error"
 
-	// sqs_ingest_usecase_process_block_error
+	// sqs_ingest_usecase_parse_pool_error
 	//
 	// counter that measures the number of errors that occur during pool parsing in ingest usecase
 	//
