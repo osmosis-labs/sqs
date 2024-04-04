@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -18,29 +19,28 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
-	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
 )
 
 var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 
 type routerUseCaseImpl struct {
 	contextTimeout      time.Duration
-	routerRepository    routerredisrepo.RouterRepository
+	routerRepository    routerrepo.RouterRepository
 	poolsUsecase        mvc.PoolsUsecase
 	config              domain.RouterConfig
 	cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig
 	logger              log.Logger
 
-	rankedRouteCache    *cache.Cache
-	candidateRouteCache *cache.Cache
+	rankedRouteCache *cache.Cache
 
-	// This is a path where the overwrite routes are stored as backup in case of failure.
-	// On restart, the routes are loaded from this path.
-	// It is defined on the use case for testability (s.t. we can set a temp path in tests)
-	overwriteRoutesPath string
+	sortedPoolsMu sync.RWMutex
+	sortedPools   []sqsdomain.PoolI
+
+	candidateRouteCache *cache.Cache
 }
 
 const (
@@ -83,9 +83,8 @@ func init() {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(routerRepository routerrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
-		contextTimeout:      timeout,
 		routerRepository:    routerRepository,
 		poolsUsecase:        poolsUsecase,
 		config:              config,
@@ -94,17 +93,10 @@ func NewRouterUsecase(timeout time.Duration, routerRepository routerredisrepo.Ro
 
 		rankedRouteCache:    rankedRouteCache,
 		candidateRouteCache: candidateRouteCache,
-	}
-}
 
-// WithOverwriteRoutesPath sets the overwrite routes path on the router use case.
-func WithOverwriteRoutesPath(routerUsecase mvc.RouterUsecase, overwriteRoutesPath string) mvc.RouterUsecase {
-	useCaseImpl, ok := routerUsecase.(*routerUseCaseImpl)
-	if !ok {
-		panic("error casting router use case to router use case impl")
+		sortedPools:   make([]sqsdomain.PoolI, 0),
+		sortedPoolsMu: sync.RWMutex{},
 	}
-	useCaseImpl.overwriteRoutesPath = overwriteRoutesPath
-	return routerUsecase
 }
 
 // GetOptimalQuote returns the optimal quote by estimating the optimal route(s) through pools
@@ -255,12 +247,9 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, router 
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
 	// TODO: this can be refactored to only retrieve the relevant taker fees.
-	takerFees, err := r.routerRepository.GetAllTakerFees(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
+	takerFees := r.routerRepository.GetAllTakerFees()
 
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(ctx, candidateRoutes, takerFees, tokenIn.Denom, tokenOutDenom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, takerFees, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -363,12 +352,9 @@ func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn
 	}
 	// TODO: abstract this
 
-	takerFees, err := r.routerRepository.GetAllTakerFees(ctx)
-	if err != nil {
-		return nil, err
-	}
+	takerFees := r.routerRepository.GetAllTakerFees()
 
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(ctx, candidateRoutes, takerFees, tokenIn.Denom, tokenOutDenom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, takerFees, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +364,7 @@ func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn
 
 // GetCustomDirectQuote implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
-	pool, err := r.poolsUsecase.GetPool(ctx, poolID)
+	pool, err := r.poolsUsecase.GetPool(poolID)
 	if err != nil {
 		return nil, err
 	}
@@ -393,9 +379,9 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	}
 
 	// Retrieve taker fee for the pool
-	takerFee, err := r.routerRepository.GetTakerFee(ctx, tokenIn.Denom, tokenOutDenom)
-	if err != nil {
-		return nil, err
+	takerFee, ok := r.routerRepository.GetTakerFee(tokenIn.Denom, tokenOutDenom)
+	if !ok {
+		return nil, fmt.Errorf("taker fee not found for pool %d, denom in (%s), denom out (%s)", poolID, tokenIn.Denom, tokenOutDenom)
 	}
 
 	// Create a taker fee map with the taker fee for the pool
@@ -420,7 +406,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	}
 
 	// Convert candidate route into a route with all the pool data
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(ctx, candidateRoutes, takerFeeMap, tokenIn.Denom, tokenOutDenom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, takerFeeMap, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
 		return nil, err
 	}
@@ -443,8 +429,8 @@ func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom
 }
 
 // GetTakerFee implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]sqsdomain.TakerFeeForPair, error) {
-	pool, err := r.poolsUsecase.GetPool(ctx, poolID)
+func (r *routerUseCaseImpl) GetTakerFee(poolID uint64) ([]sqsdomain.TakerFeeForPair, error) {
+	pool, err := r.poolsUsecase.GetPool(poolID)
 	if err != nil {
 		return []sqsdomain.TakerFeeForPair{}, err
 	}
@@ -458,9 +444,9 @@ func (r *routerUseCaseImpl) GetTakerFee(ctx context.Context, poolID uint64) ([]s
 			denom0 := poolDenoms[i]
 			denom1 := poolDenoms[j]
 
-			takerFee, err := r.routerRepository.GetTakerFee(ctx, denom0, denom1)
-			if err != nil {
-				return []sqsdomain.TakerFeeForPair{}, err
+			takerFee, ok := r.routerRepository.GetTakerFee(denom0, denom1)
+			if !ok {
+				return []sqsdomain.TakerFeeForPair{}, fmt.Errorf("taker fee not found for pool %d, denom in (%s), denom out (%s)", poolID, denom0, denom1)
 			}
 
 			result = append(result, sqsdomain.TakerFeeForPair{
@@ -586,12 +572,11 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 	// If no routes are cached, find them
 	if len(candidateRoutes.Routes) == 0 {
 		r.logger.Debug("calculating routes")
-		allPools, err := r.poolsUsecase.GetAllPools(ctx)
-		if err != nil {
-			return sqsdomain.CandidateRoutes{}, err
-		}
-		r.logger.Debug("retrieved pools", zap.Int("num_pools", len(allPools)))
-		router = WithSortedPools(router, allPools)
+
+		// Ensure that we copy the slice under a read lock.
+		r.sortedPoolsMu.RLock()
+		router = WithComputedSortedPools(router, r.sortedPools)
+		r.sortedPoolsMu.RUnlock()
 
 		candidateRoutes, err = router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
 		if err != nil {
@@ -613,8 +598,8 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 
 // StoreRouterStateFiles implements domain.RouterUsecase.
 // TODO: clean up
-func (r *routerUseCaseImpl) StoreRouterStateFiles(ctx context.Context) error {
-	routerState, err := r.GetRouterState(ctx)
+func (r *routerUseCaseImpl) StoreRouterStateFiles() error {
+	routerState, err := r.GetRouterState()
 	if err != nil {
 		return err
 	}
@@ -631,9 +616,9 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles(ctx context.Context) error {
 }
 
 // GetRouterStateJSON implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetRouterState(ctx context.Context) (domain.RouterState, error) {
+func (r *routerUseCaseImpl) GetRouterState() (domain.RouterState, error) {
 	// These pools do not contain tick model
-	pools, err := r.poolsUsecase.GetAllPools(ctx)
+	pools, err := r.poolsUsecase.GetAllPools()
 
 	if err != nil {
 		return domain.RouterState{}, err
@@ -646,7 +631,7 @@ func (r *routerUseCaseImpl) GetRouterState(ctx context.Context) (domain.RouterSt
 		}
 	}
 
-	tickModelMap, err := r.poolsUsecase.GetTickModelMap(ctx, concentratedpoolIDs)
+	tickModelMap, err := r.poolsUsecase.GetTickModelMap(concentratedpoolIDs)
 	if err != nil {
 		return domain.RouterState{}, err
 	}
@@ -655,10 +640,7 @@ func (r *routerUseCaseImpl) GetRouterState(ctx context.Context) (domain.RouterSt
 		return domain.RouterState{}, err
 	}
 
-	takerFeesMap, err := r.routerRepository.GetAllTakerFees(ctx)
-	if err != nil {
-		return domain.RouterState{}, err
-	}
+	takerFeesMap := r.routerRepository.GetAllTakerFees()
 
 	return domain.RouterState{
 		Pools:     pools,
@@ -713,9 +695,9 @@ func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.Ca
 
 // GetPoolSpotPrice implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
-	poolTakerFee, err := r.routerRepository.GetTakerFee(ctx, quoteAsset, baseAsset)
-	if err != nil {
-		return osmomath.BigDec{}, err
+	poolTakerFee, ok := r.routerRepository.GetTakerFee(quoteAsset, baseAsset)
+	if !ok {
+		return osmomath.BigDec{}, fmt.Errorf("taker fee not found for pool %d, denom in (%s), denom out (%s)", poolID, quoteAsset, baseAsset)
 	}
 
 	spotPrice, err := r.poolsUsecase.GetPoolSpotPrice(ctx, poolID, poolTakerFee, baseAsset, quoteAsset)
@@ -724,6 +706,32 @@ func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	}
 
 	return spotPrice, nil
+}
+
+// SortPools implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) SortPools(ctx context.Context, pools []sqsdomain.PoolI) error {
+	router := r.initializeRouter(r.config)
+
+	router = WithSortedPools(router, pools)
+
+	sortedPools := router.GetSortedPools()
+
+	r.sortedPoolsMu.Lock()
+	defer r.sortedPoolsMu.Unlock()
+	r.sortedPools = sortedPools
+
+	return nil
+}
+
+// SetTakerFees implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) SetTakerFees(takerFees sqsdomain.TakerFeeMap) {
+	r.routerRepository.SetTakerFees(takerFees)
+}
+
+// GetSortedPools implements mvc.RouterUsecase.
+// Note that this method is not thread safe.
+func (r *routerUseCaseImpl) GetSortedPools() []sqsdomain.PoolI {
+	return r.sortedPools
 }
 
 // filterOutGeneralizedCosmWasmPoolRoutes filters out routes that contain generalized cosm wasm pool.

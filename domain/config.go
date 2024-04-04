@@ -7,8 +7,7 @@ type Config struct {
 	StoragePort string `mapstructure:"db-port"`
 
 	// Defines the web server configuration.
-	ServerAddress             string `mapstructure:"server-address"`
-	ServerTimeoutDurationSecs int    `mapstructure:"timeout-duration-secs"`
+	ServerAddress string `mapstructure:"server-address"`
 
 	// Defines the logger configuration.
 	LoggerFilename     string `mapstructure:"logger-filename"`

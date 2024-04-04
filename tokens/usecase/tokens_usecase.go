@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
@@ -16,8 +15,6 @@ import (
 )
 
 type tokensUseCase struct {
-	contextTimeout time.Duration
-
 	metadataMapMu             sync.RWMutex
 	tokenMetadataByChainDenom map[string]domain.Token
 
@@ -80,7 +77,7 @@ var (
 )
 
 // NewTokensUsecase will create a new tokens use case object
-func NewTokensUsecase(timeout time.Duration, tokenMetadataByChainDenom map[string]domain.Token) mvc.TokensUsecase {
+func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.TokensUsecase {
 	// Create human denom to chain denom map
 	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
 	uniquePrecisionMap := make(map[int]struct{}, 0)
@@ -101,8 +98,6 @@ func NewTokensUsecase(timeout time.Duration, tokenMetadataByChainDenom map[strin
 	}
 
 	return &tokensUseCase{
-		contextTimeout: timeout,
-
 		tokenMetadataByChainDenom: tokenMetadataByChainDenom,
 		humanToChainDenomMap:      humanToChainDenomMap,
 		precisionScalingFactorMap: precisionScalingFactors,

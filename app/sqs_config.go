@@ -10,7 +10,6 @@ var DefaultConfig = domain.Config{
 	StoragePort: "6379",
 
 	ServerAddress:             ":9092",
-	ServerTimeoutDurationSecs: 2,
 
 	LoggerFilename:     "sqs.log",
 	LoggerIsProduction: true,

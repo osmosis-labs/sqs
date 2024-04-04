@@ -62,8 +62,6 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 // @Success 200  {array}  sqsdomain.PoolI  "List of pool(s) details"
 // @Router /pools [get]
 func (a *PoolsHandler) GetPools(c echo.Context) error {
-	ctx := c.Request().Context()
-
 	// Get pool ID parameters as strings.
 	poolIDsStr := c.QueryParam("IDs")
 
@@ -74,7 +72,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 
 	// if IDs are not given, get all pools
 	if len(poolIDsStr) == 0 {
-		pools, err = a.PUsecase.GetAllPools(ctx)
+		pools, err = a.PUsecase.GetAllPools()
 		if err != nil {
 			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 		}
@@ -86,7 +84,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 		}
 
 		// Get pools
-		pools, err = a.PUsecase.GetPools(ctx, poolIDs)
+		pools, err = a.PUsecase.GetPools(poolIDs)
 		if err != nil {
 			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 		}
@@ -99,15 +97,13 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 }
 
 func (a *PoolsHandler) GetConcentratedPoolTicks(c echo.Context) error {
-	ctx := c.Request().Context()
-
 	idStr := c.Param("id")
 	poolID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
 	}
 
-	pools, err := a.PUsecase.GetTickModelMap(ctx, []uint64{poolID})
+	pools, err := a.PUsecase.GetTickModelMap([]uint64{poolID})
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
