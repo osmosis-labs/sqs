@@ -18,19 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SQSIngesterClient interface {
-	// StartBlockProcess starts block processing by sending block height and taker fee updates
-	// for that block.
-	StartBlockProcess(ctx context.Context, in *StartBlockProcessRequest, opts ...grpc.CallOption) (*StartBlockProcessReply, error)
-	// ProcessChainPools processes the Osmosis liquidity pools in a streaming fashion.
-	ProcessChainPools(ctx context.Context, opts ...grpc.CallOption) (SQSIngester_ProcessChainPoolsClient, error)
-	// EndBlockProcess is called when the block processing is finished.
-	// It sorts the pools for router for use intra-block.
-	// It commits all processed state into internal SQS repositories, including:
-	// - pools for display (pools repository)
-	// - sorted pools for use in the router (router repository)
-	// - taker fees (router repository)
-	// - block height (router chain info repository)
-	EndBlockProcess(ctx context.Context, in *EndBlockProcessRequest, opts ...grpc.CallOption) (*EndBlockProcessReply, error)
+	// ProcessBlock processes a block from the Osmosis node.
+	ProcessBlock(ctx context.Context, in *ProcessBlockRequest, opts ...grpc.CallOption) (*ProcessBlockReply, error)
 }
 
 type sQSIngesterClient struct {
@@ -41,52 +30,9 @@ func NewSQSIngesterClient(cc grpc.ClientConnInterface) SQSIngesterClient {
 	return &sQSIngesterClient{cc}
 }
 
-func (c *sQSIngesterClient) StartBlockProcess(ctx context.Context, in *StartBlockProcessRequest, opts ...grpc.CallOption) (*StartBlockProcessReply, error) {
-	out := new(StartBlockProcessReply)
-	err := c.cc.Invoke(ctx, "/sqs.ingest.v1beta1.SQSIngester/StartBlockProcess", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sQSIngesterClient) ProcessChainPools(ctx context.Context, opts ...grpc.CallOption) (SQSIngester_ProcessChainPoolsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SQSIngester_ServiceDesc.Streams[0], "/sqs.ingest.v1beta1.SQSIngester/ProcessChainPools", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &sQSIngesterProcessChainPoolsClient{stream}
-	return x, nil
-}
-
-type SQSIngester_ProcessChainPoolsClient interface {
-	Send(*ChainPoolsDataChunk) error
-	CloseAndRecv() (*ProcessChainPoolsReply, error)
-	grpc.ClientStream
-}
-
-type sQSIngesterProcessChainPoolsClient struct {
-	grpc.ClientStream
-}
-
-func (x *sQSIngesterProcessChainPoolsClient) Send(m *ChainPoolsDataChunk) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *sQSIngesterProcessChainPoolsClient) CloseAndRecv() (*ProcessChainPoolsReply, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(ProcessChainPoolsReply)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *sQSIngesterClient) EndBlockProcess(ctx context.Context, in *EndBlockProcessRequest, opts ...grpc.CallOption) (*EndBlockProcessReply, error) {
-	out := new(EndBlockProcessReply)
-	err := c.cc.Invoke(ctx, "/sqs.ingest.v1beta1.SQSIngester/EndBlockProcess", in, out, opts...)
+func (c *sQSIngesterClient) ProcessBlock(ctx context.Context, in *ProcessBlockRequest, opts ...grpc.CallOption) (*ProcessBlockReply, error) {
+	out := new(ProcessBlockReply)
+	err := c.cc.Invoke(ctx, "/sqs.ingest.v1beta1.SQSIngester/ProcessBlock", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,19 +43,8 @@ func (c *sQSIngesterClient) EndBlockProcess(ctx context.Context, in *EndBlockPro
 // All implementations must embed UnimplementedSQSIngesterServer
 // for forward compatibility
 type SQSIngesterServer interface {
-	// StartBlockProcess starts block processing by sending block height and taker fee updates
-	// for that block.
-	StartBlockProcess(context.Context, *StartBlockProcessRequest) (*StartBlockProcessReply, error)
-	// ProcessChainPools processes the Osmosis liquidity pools in a streaming fashion.
-	ProcessChainPools(SQSIngester_ProcessChainPoolsServer) error
-	// EndBlockProcess is called when the block processing is finished.
-	// It sorts the pools for router for use intra-block.
-	// It commits all processed state into internal SQS repositories, including:
-	// - pools for display (pools repository)
-	// - sorted pools for use in the router (router repository)
-	// - taker fees (router repository)
-	// - block height (router chain info repository)
-	EndBlockProcess(context.Context, *EndBlockProcessRequest) (*EndBlockProcessReply, error)
+	// ProcessBlock processes a block from the Osmosis node.
+	ProcessBlock(context.Context, *ProcessBlockRequest) (*ProcessBlockReply, error)
 	mustEmbedUnimplementedSQSIngesterServer()
 }
 
@@ -117,14 +52,8 @@ type SQSIngesterServer interface {
 type UnimplementedSQSIngesterServer struct {
 }
 
-func (UnimplementedSQSIngesterServer) StartBlockProcess(context.Context, *StartBlockProcessRequest) (*StartBlockProcessReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StartBlockProcess not implemented")
-}
-func (UnimplementedSQSIngesterServer) ProcessChainPools(SQSIngester_ProcessChainPoolsServer) error {
-	return status.Errorf(codes.Unimplemented, "method ProcessChainPools not implemented")
-}
-func (UnimplementedSQSIngesterServer) EndBlockProcess(context.Context, *EndBlockProcessRequest) (*EndBlockProcessReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method EndBlockProcess not implemented")
+func (UnimplementedSQSIngesterServer) ProcessBlock(context.Context, *ProcessBlockRequest) (*ProcessBlockReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProcessBlock not implemented")
 }
 func (UnimplementedSQSIngesterServer) mustEmbedUnimplementedSQSIngesterServer() {}
 
@@ -139,64 +68,20 @@ func RegisterSQSIngesterServer(s grpc.ServiceRegistrar, srv SQSIngesterServer) {
 	s.RegisterService(&SQSIngester_ServiceDesc, srv)
 }
 
-func _SQSIngester_StartBlockProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartBlockProcessRequest)
+func _SQSIngester_ProcessBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProcessBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SQSIngesterServer).StartBlockProcess(ctx, in)
+		return srv.(SQSIngesterServer).ProcessBlock(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/sqs.ingest.v1beta1.SQSIngester/StartBlockProcess",
+		FullMethod: "/sqs.ingest.v1beta1.SQSIngester/ProcessBlock",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SQSIngesterServer).StartBlockProcess(ctx, req.(*StartBlockProcessRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SQSIngester_ProcessChainPools_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SQSIngesterServer).ProcessChainPools(&sQSIngesterProcessChainPoolsServer{stream})
-}
-
-type SQSIngester_ProcessChainPoolsServer interface {
-	SendAndClose(*ProcessChainPoolsReply) error
-	Recv() (*ChainPoolsDataChunk, error)
-	grpc.ServerStream
-}
-
-type sQSIngesterProcessChainPoolsServer struct {
-	grpc.ServerStream
-}
-
-func (x *sQSIngesterProcessChainPoolsServer) SendAndClose(m *ProcessChainPoolsReply) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *sQSIngesterProcessChainPoolsServer) Recv() (*ChainPoolsDataChunk, error) {
-	m := new(ChainPoolsDataChunk)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func _SQSIngester_EndBlockProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EndBlockProcessRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SQSIngesterServer).EndBlockProcess(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/sqs.ingest.v1beta1.SQSIngester/EndBlockProcess",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SQSIngesterServer).EndBlockProcess(ctx, req.(*EndBlockProcessRequest))
+		return srv.(SQSIngesterServer).ProcessBlock(ctx, req.(*ProcessBlockRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -209,20 +94,10 @@ var SQSIngester_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*SQSIngesterServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "StartBlockProcess",
-			Handler:    _SQSIngester_StartBlockProcess_Handler,
-		},
-		{
-			MethodName: "EndBlockProcess",
-			Handler:    _SQSIngester_EndBlockProcess_Handler,
+			MethodName: "ProcessBlock",
+			Handler:    _SQSIngester_ProcessBlock_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "ProcessChainPools",
-			Handler:       _SQSIngester_ProcessChainPools_Handler,
-			ClientStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "ingest.proto",
 }

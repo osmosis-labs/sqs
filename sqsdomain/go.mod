@@ -8,11 +8,19 @@ require (
 	cosmossdk.io/math v1.3.0
 	github.com/cosmos/cosmos-sdk v0.47.8
 	github.com/json-iterator/go v1.1.12
+<<<<<<< HEAD
 	github.com/osmosis-labs/osmosis/osmomath v0.0.9-0.20240312193551-6c010fa93f60
 	github.com/osmosis-labs/osmosis/v24 v24.0.0-20240327131916-7cccf09b3dda
 	github.com/redis/go-redis/v9 v9.5.1
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.33.0
+=======
+	github.com/osmosis-labs/osmosis/osmomath v0.0.9-0.20240208032851-f1ac90db9b63
+	github.com/osmosis-labs/osmosis/v23 v23.0.0-20240208034658-b5664e319e8d
+	github.com/redis/go-redis/v9 v9.4.0
+	google.golang.org/grpc v1.60.1
+	google.golang.org/protobuf v1.32.0
+>>>>>>> 339c645 (protobuf types (#154))
 )
 
 require (
@@ -156,9 +164,15 @@ require (
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/term v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
+<<<<<<< HEAD
 	google.golang.org/genproto v0.0.0-20240123012728-ef4313101c80 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240123012728-ef4313101c80 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
+=======
+	google.golang.org/genproto v0.0.0-20231106174013-bbf56f31fb17 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231120223509-83a465c0220f // indirect
+>>>>>>> 339c645 (protobuf types (#154))
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
