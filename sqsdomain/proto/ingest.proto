@@ -6,21 +6,8 @@ option go_package = "sqsdomain/proto/types";
 // SQSIngester is a a data ingester from an Osmosis node to
 // the sidecar query server. 
 service SQSIngester {
-  // StartBlockProcess starts block processing by sending block height and taker fee updates
-  // for that block.
-  rpc StartBlockProcess(StartBlockProcessRequest) returns (StartBlockProcessReply) {}
-
-  // ProcessChainPools processes the Osmosis liquidity pools in a streaming fashion.
-  rpc ProcessChainPools(stream ChainPoolsDataChunk) returns (ProcessChainPoolsReply) {}
-
-  // EndBlockProcess is called when the block processing is finished.
-  // It sorts the pools for router for use intra-block.
-  // It commits all processed state into internal SQS repositories, including:
-  // - pools for display (pools repository)
-  // - sorted pools for use in the router (router repository)
-  // - taker fees (router repository)
-  // - block height (router chain info repository)
-  rpc EndBlockProcess(EndBlockProcessRequest) returns (EndBlockProcessReply) {}
+  // ProcessBlock processes a block from the Osmosis node.
+  rpc ProcessBlock(ProcessBlockRequest) returns (ProcessBlockReply) {}
 }
 
 // PoolData represents a structure encapsulating an Osmosis liquidity pool.
@@ -36,39 +23,20 @@ message PoolData {
     bytes tick_model = 3;
 }
 
-// ProcessChainPools
+
+// ProcessBlock
 ////////////////////////////////////////////////////////////////////
 
-// The pools data chunks streamed by the client.
-message ChainPoolsDataChunk {
-  repeated PoolData pools = 1;
-}
-
-// The response after completing pools client-streaming.
-message ProcessChainPoolsReply{}
-
-// StartBlockProcess
-////////////////////////////////////////////////////////////////////
-
-// The start block process request.
-// Sends taker fees and block height.
-message StartBlockProcessRequest {
+// The block process request.
+// Sends taker fees, block height and pools.
+message ProcessBlockRequest {
   // block height is the height of the block being processed.
   uint64 block_height = 1;
   // taker_fees_map is the map of taker fees for the block.
   bytes taker_fees_map = 2;
+  // pools in the block.
+  repeated PoolData pools = 3;
 }
 
-// The response after completing start block processing.
-message StartBlockProcessReply{}
-
-// EndBlockProcess
-////////////////////////////////////////////////////////////////////
-
-// The request to end the block processing.
-message EndBlockProcessRequest {
-    uint64 block_height = 1;
-}
-
-// The response to end the block processing.
-message EndBlockProcessReply{}
+// The response after completing the block processing.
+message ProcessBlockReply{}
