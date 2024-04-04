@@ -28,7 +28,6 @@ import (
 var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 
 type routerUseCaseImpl struct {
-	contextTimeout      time.Duration
 	routerRepository    routerrepo.RouterRepository
 	poolsUsecase        mvc.PoolsUsecase
 	config              domain.RouterConfig
