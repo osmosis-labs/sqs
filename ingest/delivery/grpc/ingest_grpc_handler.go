@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -45,6 +46,10 @@ func (i *IngestGRPCHandler) ProcessBlock(ctx context.Context, req *prototypes.Pr
 
 	// Process block data
 	if err := i.ingestUseCase.ProcessBlockData(ctx, req.BlockHeight, takerFeeMap, req.Pools); err != nil {
+
+		// Increment error counter
+		domain.SQSIngestHandlerProcessBlockErrorCounter.WithLabelValues(err.Error(), strconv.FormatUint(req.BlockHeight, 10)).Inc()
+
 		return nil, err
 	}
 
