@@ -1,21 +1,17 @@
 package usecase
 
 import (
-	"context"
 	"sync"
 	"time"
 
+	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain/repository"
-	chaininforedisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/chaininfo"
 
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
 
 type chainInfoUseCase struct {
-	contextTimeout         time.Duration
-	chainInfoRepository    chaininforedisrepo.ChainInfoRepository
-	redisRepositoryManager repository.TxManager
+	chainInfoRepository chaininforepo.ChainInfoRepository
 
 	// N.B. sometimes the node gets stuck and does not make progress.
 	// However, it returns 200 OK for the status endpoint and claims to be not catching up.
@@ -33,24 +29,16 @@ const MaxAllowedHeightUpdateTimeDeltaSecs = 30
 
 var _ mvc.ChainInfoUsecase = &chainInfoUseCase{}
 
-func NewChainInfoUsecase(timeout time.Duration, chainInfoRepository chaininforedisrepo.ChainInfoRepository, redisRepositoryManager repository.TxManager) mvc.ChainInfoUsecase {
+func NewChainInfoUsecase(chainInfoRepository chaininforepo.ChainInfoRepository) mvc.ChainInfoUsecase {
 	return &chainInfoUseCase{
-		contextTimeout:         timeout,
-		chainInfoRepository:    chainInfoRepository,
-		redisRepositoryManager: redisRepositoryManager,
+		chainInfoRepository: chainInfoRepository,
 
 		lastSeenMx: sync.Mutex{},
 	}
 }
 
-func (p *chainInfoUseCase) GetLatestHeight(ctx context.Context) (uint64, error) {
-	ctx, cancel := context.WithTimeout(ctx, p.contextTimeout)
-	defer cancel()
-
-	latestHeight, err := p.chainInfoRepository.GetLatestHeight(ctx)
-	if err != nil {
-		return 0, err
-	}
+func (p *chainInfoUseCase) GetLatestHeight() (uint64, error) {
+	latestHeight := p.chainInfoRepository.GetLatestHeight()
 
 	p.lastSeenMx.Lock()
 	defer p.lastSeenMx.Unlock()
@@ -76,4 +64,9 @@ func (p *chainInfoUseCase) GetLatestHeight(ctx context.Context) (uint64, error) 
 	p.lastSeenUpdatedTime = currentTimeUTC
 
 	return latestHeight, nil
+}
+
+// StoreLatestHeight implements mvc.ChainInfoUsecase.
+func (p *chainInfoUseCase) StoreLatestHeight(height uint64) {
+	p.chainInfoRepository.StoreLatestHeight(height)
 }

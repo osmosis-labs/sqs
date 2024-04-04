@@ -9,8 +9,7 @@ var DefaultConfig = domain.Config{
 	StorageHost: "localhost",
 	StoragePort: "6379",
 
-	ServerAddress:             ":9092",
-	ServerTimeoutDurationSecs: 2,
+	ServerAddress: ":9092",
 
 	LoggerFilename:     "sqs.log",
 	LoggerIsProduction: true,

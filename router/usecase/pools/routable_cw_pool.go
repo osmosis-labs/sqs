@@ -112,9 +112,7 @@ func (r *routableCosmWasmPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	var request msg.SpotPriceQueryMsg
-
-	request = msg.SpotPriceQueryMsg{
+	request := msg.SpotPriceQueryMsg{
 		SpotPrice: msg.SpotPrice{
 			QuoteAssetDenom: quoteDenom,
 			BaseAssetDenom:  baseDenom,
