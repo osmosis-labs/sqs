@@ -3,13 +3,13 @@ package domain
 import "github.com/prometheus/client_golang/prometheus"
 
 var (
-	// sqs_ingest_usecase_process_block_duration_ms
+	// sqs_ingest_usecase_process_block_duration
 	//
 	// histogram that measures the duration of processing a block in milliseconds in ingest usecase
 	//
 	// Has the following labels:
 	// * height - the height of the block being processed
-	SQSIngestUsecaseProcessBlockDurationMetricName = "sqs_ingest_usecase_process_block_duration_ms"
+	SQSIngestUsecaseProcessBlockDurationMetricName = "sqs_ingest_usecase_process_block_duration"
 
 	// sqs_ingest_usecase_process_block_error
 	//
@@ -18,17 +18,17 @@ var (
 	// Has the following labels:
 	// * err - the error message occurred
 	// * height - the height of the block being processed
-	SQSIngestUsecaseProcessBlockErrorMetricName = "sqs_ingest_usecase_process_block_error"
+	SQSIngestUsecaseProcessBlockErrorMetricName = "sqs_ingest_usecase_process_block_error_total"
 
-	// sqs_ingest_usecase_parse_pool_error
+	// sqs_ingest_usecase_parse_pool_error_total
 	//
 	// counter that measures the number of errors that occur during pool parsing in ingest usecase
 	//
 	// Has the following labels:
 	// * err - the error message occurred
-	SQSIngestUsecaseParsePoolErrorMetricName = "sqs_ingest_usecase_parse_pool_error"
+	SQSIngestUsecaseParsePoolErrorMetricName = "sqs_ingest_usecase_parse_pool_error_total"
 
-	SQSIngestHandlerProcessBlockDurationMsHistogram = prometheus.NewHistogramVec(
+	SQSIngestHandlerProcessBlockDurationHistogram = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
 			Help: "histogram that measures the duration of processing a block in milliseconds in ingest usecase",
