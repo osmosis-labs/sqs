@@ -28,6 +28,16 @@ type MockRoutablePool struct {
 	mockedTokenOut sdk.Coin
 }
 
+// SetTotalValueLockedError implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) SetTotalValueLockedError(string) {
+	panic("unimplemented")
+}
+
+// SetTotalValueLockedUSDC implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) SetTotalValueLockedUSDC(math.Int) {
+	panic("unimplemented")
+}
+
 // CalcSpotPrice implements sqsdomain.RoutablePool.
 func (mp *MockRoutablePool) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	if mp.PoolType == poolmanagertypes.CosmWasm {

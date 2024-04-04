@@ -111,6 +111,20 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		cacheMissesCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 	}
 
+	// If cache miss occurs, we compute the price.
+	return c.ComputePrice(ctx, baseDenom, quoteDenom)
+}
+
+// ComputePrice implements domain.PricingStrategy.
+func (c *chainPricing) ComputePrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	cacheKey := formatCacheKey(baseDenom, quoteDenom)
+
+	if baseDenom == quoteDenom {
+		price := osmomath.OneBigDec()
+		c.cache.Set(cacheKey, price, c.cacheExpiryNs)
+		return price, nil
+	}
+
 	// Get on-chain scaling factor for base denom.
 	baseDenomScalingFactor, err := c.TUsecase.GetChainScalingFactorByDenomMut(ctx, baseDenom)
 	if err != nil {

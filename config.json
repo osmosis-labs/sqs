@@ -1,7 +1,5 @@
 {
     "debug": true,
-    "db-host": "localhost",
-    "db-port": "6379",
     "server-address": ":9092",
     "timeout-duration-secs": 2,
     "logger-filename": "sqs.log",
@@ -22,11 +20,10 @@
       "ranked-route-cache-expiry-seconds": 600
     },
     "pools": {
-        "transmuter-code-ids": [148, 254],
-        "general-cosmwasm-code-ids": [503, 572, 580]
+        "transmuter-code-ids": [148, 254]
     },
     "pricing":{
-        "cache-expiry-ms": 2000,
+        "cache-expiry-ms": 60000,
         "default-source": 0,
         "default-quote-human-denom": "usdc",
         "max-pools-per-route": 4,
@@ -34,8 +31,8 @@
         "min-osmo-liquidity": 50
     },
     "grpc-ingester":{
-        "enabled": false,
-        "max-receive-msg-size-bytes": 16777216,
+        "enabled": true,
+        "max-receive-msg-size-bytes": 26214400,
         "server-address": ":50051",
         "server-connection-timeout-seconds": 10
     }

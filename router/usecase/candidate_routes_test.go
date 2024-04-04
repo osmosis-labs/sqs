@@ -6,13 +6,17 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
+var (
+	pricingConfig = routertesting.DefaultPricingConfig
+)
+
 // Validates that the router returns the correct routes for the given token pair.
 func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOATOM() {
 	config := routertesting.DefaultRouterConfig
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
 
-	router, _ := s.SetupMainnetRouter(config)
+	router, _ := s.SetupMainnetRouter(config, pricingConfig)
 
 	candidateRoutes, err := router.GetCandidateRoutes(UOSMO, ATOM)
 	s.Require().NoError(err)
@@ -38,7 +42,9 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOstOSMO() {
 	config.MaxRoutes = 10
 	config.MinOSMOLiquidity = 1000
 
-	router, _ := s.SetupMainnetRouter(config)
+	pricingConfig := routertesting.DefaultPricingConfig
+
+	router, _ := s.SetupMainnetRouter(config, pricingConfig)
 
 	candidateRoutesUOSMOIn, err := router.GetCandidateRoutes(UOSMO, stOSMO)
 	s.Require().NoError(err)
@@ -67,7 +73,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_ATOMUSDT() {
 		RouteCacheEnabled:         false,
 	}
 
-	router, _ := s.SetupMainnetRouter(config)
+	router, _ := s.SetupMainnetRouter(config, pricingConfig)
 
 	candidateRoutesUOSMOIn, err := router.GetCandidateRoutes(ATOM, USDT)
 	s.Require().NoError(err)
@@ -81,7 +87,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_Top10VolumePairs() {
 	config := routertesting.DefaultRouterConfig
 	config.MaxPoolsPerRoute = 3
 	config.MaxRoutes = 10
-	router, _ := s.SetupMainnetRouter(config)
+	router, _ := s.SetupMainnetRouter(config, pricingConfig)
 
 	// Manually taken from https://info.osmosis.zone/ in Nov 2023.
 	top10ByVolumeDenoms := []string{

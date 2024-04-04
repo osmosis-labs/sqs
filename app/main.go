@@ -12,7 +12,6 @@ import (
 	"github.com/osmosis-labs/sqs/chaininfo/client"
 	"github.com/osmosis-labs/sqs/domain"
 	sqslog "github.com/osmosis-labs/sqs/log"
-	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	_ "github.com/swaggo/echo-swagger"
 
@@ -59,18 +58,6 @@ func main() {
 		}
 	}()
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", config.StorageHost, config.StoragePort),
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-
-	redisStatus := redisClient.Ping(context.Background())
-	_, err = redisStatus.Result()
-	if err != nil {
-		panic(err)
-	}
-
 	chainClient, err := client.NewClient(config.ChainID, config.ChainGRPCGatewayEndpoint)
 	if err != nil {
 		panic(err)
@@ -101,10 +88,6 @@ func main() {
 	go func() {
 		<-exitChan
 		cancel() // Trigger shutdown
-
-		if err := redisClient.Close(); err != nil {
-			log.Fatal(err)
-		}
 
 		err := sidecarQueryServer.Shutdown(ctx)
 		if err != nil {

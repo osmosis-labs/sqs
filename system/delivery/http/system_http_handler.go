@@ -12,7 +12,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/go-redis/redis"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
@@ -26,7 +25,6 @@ import (
 
 type SystemHandler struct {
 	logger       log.Logger
-	redisAddress string
 	grpcAddress  string
 	CIUsecase    mvc.ChainInfoUsecase
 	config       domain.Config
@@ -49,10 +47,9 @@ const (
 )
 
 // NewSystemHandler will initialize the /debug/ppof resources endpoint
-func NewSystemHandler(e *echo.Echo, redisAddress string, config domain.Config, logger log.Logger, us mvc.ChainInfoUsecase) {
+func NewSystemHandler(e *echo.Echo, config domain.Config, logger log.Logger, us mvc.ChainInfoUsecase) {
 	handler := &SystemHandler{
 		logger:       logger,
-		redisAddress: redisAddress,
 		grpcAddress:  config.ChainGRPCGatewayEndpoint,
 		CIUsecase:    us,
 		config:       config,
@@ -125,7 +122,7 @@ func extractVersion(ldGlagsValueStr string) (string, error) {
 	return substring[:index], nil
 }
 
-// GetHealthStatus handles health check requests for both GRPC gateway and Redis
+// GetHealthStatus handles health check requests for GRPC gateway
 func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 	ctx := c.Request().Context()
 
@@ -167,7 +164,7 @@ func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 	// Errors if the height has not beein updated for more than 30 seconds
 	latestStoreHeight, err := h.CIUsecase.GetLatestHeight(ctx)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to get latest height from Redis: %s", err))
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to get latest height from sqs store: %s", err))
 	}
 
 	// Check if the node is catching up. Error if so.
@@ -180,20 +177,9 @@ func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, fmt.Sprintf("Node is not synced, chain height (%d), store height (%d), tolerance (%d)", latestChainHeight, latestStoreHeight, heightTolerance))
 	}
 
-	// Check Redis status
-	rdb := redis.NewClient(&redis.Options{
-		Addr: h.redisAddress,
-	})
-
-	if _, err := rdb.Ping().Result(); err != nil {
-		h.logger.Error("Error connecting to Redis", zap.Error(err))
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "Error connecting to Redis", err)
-	}
-
 	// Return combined status
 	return c.JSON(http.StatusOK, map[string]string{
 		"grpc_gateway_status": "running",
-		"redis_status":        "running",
 		"chain_latest_height": fmt.Sprint(latestChainHeight),
 		"store_latest_height": fmt.Sprint(latestStoreHeight),
 	})

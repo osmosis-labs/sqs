@@ -41,21 +41,15 @@ run-docker:
 	docker run -d --name sqs -p 9092:9092 -p 26657:26657 -v /root/sqs/config-testnet.json/:/osmosis/config.json --net host osmolabs/sqs:local "--config /osmosis/config.json"
 	docker logs -f sqs
 
-redis-start:
-	docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 -v ./redis-cache/:/data redis/redis-stack:7.2.0-v3
-
-redis-stop:
-	docker container rm -f redis-stack
-
 osmosis-start:
 	docker run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:sqs-out-v0.2 "start"
 
 osmosis-stop:
 	docker container rm -f osmosis
 
-all-stop: osmosis-stop redis-stop
+all-stop: osmosis-stop
 
-all-start: redis-start osmosis-start run
+all-start: osmosis-start run
 
 lint:
 	@echo "--> Running linter"

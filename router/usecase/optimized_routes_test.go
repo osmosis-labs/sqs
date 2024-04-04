@@ -17,12 +17,11 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-
-	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 )
 
 const (
@@ -579,7 +578,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(1000_000_000),
 
-			expectedRoutesCount: 2,
+			expectedRoutesCount: 3,
 		},
 		"uosmo for uion": {
 			tokenInDenom:  UOSMO,
@@ -603,7 +602,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(100_000_000),
 
-			expectedRoutesCount: 1,
+			expectedRoutesCount: 2,
 		},
 		// This test validates that with a greater max routes value, SQS is able to find
 		// the path from umee to stOsmo
@@ -663,23 +662,19 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 		amountIn = osmomath.NewInt(5000000)
 	)
 
-	router, mainnetState := s.SetupMainnetRouter(config)
+	router, mainnetState := s.SetupMainnetRouter(config, defaultPricingConfig)
 
 	// Setup router repository mock
-	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{
-		TakerFees: mainnetState.TakerFeeMap,
-	}
-	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
+	routerRepositoryMock := routerrepo.New()
+	routerRepositoryMock.SetTakerFees(context.TODO(), mainnetState.TakerFeeMap)
+	routerusecase.WithRouterRepository(router, routerRepositoryMock)
 
 	// Setup pools usecase mock.
-	poolsRepositoryMock := sqsdomainmocks.RedisPoolsRepositoryMock{
-		Pools:     router.GetSortedPools(),
-		TickModel: mainnetState.TickMap,
-	}
-	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
+	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &domain.PoolsConfig{}, "node-uri-placeholder")
+	poolsUsecase.StorePools(router.GetSortedPools())
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
-	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 
 	// This pool ID is second best: https://app.osmosis.zone/pool/2
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected

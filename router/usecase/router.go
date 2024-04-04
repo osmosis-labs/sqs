@@ -1,12 +1,13 @@
 package usecase
 
 import (
+	"fmt"
 	"sort"
 
 	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v23/x/cosmwasmpool/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
-	routerredisrepo "github.com/osmosis-labs/sqs/sqsdomain/repository/redis/router"
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -22,7 +23,7 @@ type Router struct {
 	config             domain.RouterConfig
 	cosmWasmPoolConfig domain.CosmWasmPoolRouterConfig
 
-	routerRepository routerredisrepo.RouterRepository
+	routerRepository routerrepo.RouterRepository
 
 	poolsUsecase mvc.PoolsUsecase
 
@@ -96,6 +97,11 @@ func (r Router) GetSortedPools() []sqsdomain.PoolI {
 	return r.sortedPools
 }
 
+func WithComputedSortedPools(router *Router, sortedPools []sqsdomain.PoolI) *Router {
+	router.sortedPools = sortedPools
+	return router
+}
+
 func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 	// TODO: consider mutating directly on allPools
 	router.sortedPools = make([]sqsdomain.PoolI, 0)
@@ -143,7 +149,7 @@ func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 }
 
 // WithRouterRepository instruments router by setting a router repository on it and returns the router.
-func WithRouterRepository(router *Router, routerRepository routerredisrepo.RouterRepository) *Router {
+func WithRouterRepository(router *Router, routerRepository routerrepo.RouterRepository) *Router {
 	router.routerRepository = routerRepository
 	return router
 }
@@ -176,6 +182,10 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 
 	ratedPools := make([]ratedPool, 0, len(pools))
 	for _, pool := range pools {
+		if pool.GetId() == 1043 {
+			fmt.Println("pool 1043", pool.GetTotalValueLockedUSDC())
+		}
+
 		// Initialize rating to TVL.
 		rating := pool.GetTotalValueLockedUSDC()
 

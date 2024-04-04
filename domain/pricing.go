@@ -24,6 +24,8 @@ const (
 type PricingStrategy interface {
 	// GetPrice returns the price given a bse and a quote denom or otherwise error, if any.
 	GetPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
+
+	ComputePrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
 }
 
 // PricingConfig defines the configuration for the pricing.

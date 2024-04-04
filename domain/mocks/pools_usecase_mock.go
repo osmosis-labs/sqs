@@ -19,6 +19,11 @@ type PoolsUsecaseMock struct {
 	TickModelMap map[uint64]*sqsdomain.TickModel
 }
 
+// StorePools implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) StorePools(pools []sqsdomain.PoolI) error {
+	panic("unimplemented")
+}
+
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
 func (pm *PoolsUsecaseMock) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return domain.CosmWasmPoolRouterConfig{

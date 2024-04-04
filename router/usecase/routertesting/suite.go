@@ -1,6 +1,7 @@
 package routertesting
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,16 +13,18 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
-	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v23/app"
 	"github.com/osmosis-labs/osmosis/v23/app/apptesting"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
 )
@@ -35,12 +38,14 @@ type MockMainnetState struct {
 	TickMap        map[uint64]*sqsdomain.TickModel
 	TakerFeeMap    sqsdomain.TakerFeeMap
 	TokensMetadata map[string]domain.Token
+	PricingConfig  domain.PricingConfig
 }
 
 type MockMainnetUsecase struct {
 	Pools  mvc.PoolsUsecase
 	Router mvc.RouterUsecase
 	Tokens mvc.TokensUsecase
+	Ingest mvc.IngestUsecase
 }
 
 const (
@@ -271,10 +276,11 @@ func (s *RouterTestHelper) ValidateRoutePools(expectedPools []sqsdomain.Routable
 
 func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*routerusecase.Router, MockMainnetState) {
 	routerConfig := DefaultRouterConfig
-	return s.SetupMainnetRouter(routerConfig)
+	pricingConfig := DefaultPricingConfig
+	return s.SetupMainnetRouter(routerConfig, pricingConfig)
 }
 
-func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*routerusecase.Router, MockMainnetState) {
+func (s *RouterTestHelper) SetupMainnetRouter(routerConfig domain.RouterConfig, pricingConfig domain.PricingConfig) (*routerusecase.Router, MockMainnetState) {
 	pools, tickMap, err := parsing.ReadPools(absolutePathToStateFiles + poolsFileName)
 	s.Require().NoError(err)
 
@@ -287,13 +293,14 @@ func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*rout
 	// N.B. uncomment if logs are needed.
 	// logger, err := log.NewLogger(false, "", "info")
 	// s.Require().NoError(err)
-	router := routerusecase.NewRouter(config, EmpyCosmWasmPoolRouterConfig, &log.NoOpLogger{})
+	router := routerusecase.NewRouter(routerConfig, EmpyCosmWasmPoolRouterConfig, &log.NoOpLogger{})
 	router = routerusecase.WithSortedPools(router, pools)
 
 	return router, MockMainnetState{
 		TickMap:        tickMap,
 		TakerFeeMap:    takerFeeMap,
 		TokensMetadata: tokensMetadata,
+		PricingConfig:  pricingConfig,
 	}
 }
 
@@ -301,27 +308,35 @@ func (s *RouterTestHelper) SetupMainnetRouter(config domain.RouterConfig) (*rout
 // from json files.
 func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Router, mainnetState MockMainnetState, rankedRoutesCache *cache.Cache, candidateRouteCache *cache.Cache) MockMainnetUsecase {
 	// Setup router repository mock
-	routerRepositoryMock := sqsdomainmocks.RedisRouterRepositoryMock{
-		TakerFees: mainnetState.TakerFeeMap,
-	}
-	routerusecase.WithRouterRepository(router, &routerRepositoryMock)
+	routerRepositoryMock := routerrepo.New()
+	routerRepositoryMock.SetTakerFees(context.TODO(), mainnetState.TakerFeeMap)
+	routerusecase.WithRouterRepository(router, routerRepositoryMock)
+	routerusecase.WithComputedSortedPools(router, router.GetSortedPools())
 
 	// Setup pools usecase mock.
-	poolsRepositoryMock := sqsdomainmocks.RedisPoolsRepositoryMock{
-		Pools:     router.GetSortedPools(),
-		TickModel: mainnetState.TickMap,
-	}
-	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &poolsRepositoryMock, nil, &DefaultPoolsConfig, "node-uri-placeholder")
+	poolsUsecase := poolsusecase.NewPoolsUsecase(time.Hour, &DefaultPoolsConfig, "node-uri-placeholder")
+	err := poolsUsecase.StorePools(router.GetSortedPools())
+	s.Require().NoError(err)
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
-	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, &routerRepositoryMock, poolsUsecase, router.GetConfig(), router.GetCosmWasmPoolConfig(), &log.NoOpLogger{}, rankedRoutesCache, candidateRouteCache)
+	routerUsecase := routerusecase.NewRouterUsecase(time.Hour, routerRepositoryMock, poolsUsecase, router.GetConfig(), router.GetCosmWasmPoolConfig(), &log.NoOpLogger{}, rankedRoutesCache, candidateRouteCache)
+	err = routerUsecase.SortPools(context.Background(), router.GetSortedPools())
+	s.Require().NoError(err)
 
 	tokensUsecase := tokensusecase.NewTokensUsecase(time.Hour, mainnetState.TokensMetadata)
+
+	encCfg := app.MakeEncodingConfig()
+
+	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, nil, routerRepositoryMock, tokensUsecase, encCfg.Marshaler, mainnetState.PricingConfig, &log.NoOpLogger{})
+	if err != nil {
+		panic(err)
+	}
 
 	return MockMainnetUsecase{
 		Pools:  poolsUsecase,
 		Router: routerUsecase,
 		Tokens: tokensUsecase,
+		Ingest: ingestUsecase,
 	}
 }
 
