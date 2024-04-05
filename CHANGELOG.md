@@ -37,7 +37,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## v0.13.0
 
-* [#158](https://github.com/osmosis-labs/sqs/pull/158)  Integrate entry & add new configs.
+* [#158](https://github.com/osmosis-labs/sqs/pull/158)  Integrate Sentry & add new configs.
 
 ## v0.12.0
 
