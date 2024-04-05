@@ -86,6 +86,15 @@ type PoolsConfig struct {
 	GeneralCosmWasmCodeIDs []uint64 `mapstructure:"general-cosmwasm-code-ids"`
 }
 
+type OTELConfig struct {
+	DSN                string  `mapstructure:"dsn"`
+	SampleRate         float64 `mapstructure:"sample-rate"`
+	EnableTracing      bool    `mapstructure:"enable-tracing"`
+	TracesSampleRate   float64 `mapstructure:"traces-sample-rate"`
+	ProfilesSampleRate float64 `mapstructure:"profiles-sample-rate"`
+	Environment        string  `mapstructure:"environment"`
+}
+
 const DisableSplitRoutes = 0
 
 type RouterState struct {

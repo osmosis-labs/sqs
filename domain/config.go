@@ -30,4 +30,6 @@ type Config struct {
 	Pricing *PricingConfig `mapstructure:"pricing"`
 
 	GRPCIngester *GRPCIngesterConfig `mapstructure:"grpc-ingester"`
+
+	OTEL *OTELConfig `mapstructure:"otel"`
 }

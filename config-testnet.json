@@ -38,6 +38,14 @@
         "max-receive-msg-size-bytes": 16777216,
         "server-address": ":50051",
         "server-connection-timeout-seconds": 10
+    },
+    "otel": {
+        "dsn": "",
+        "sample-rate":         1,
+		"enable-tracing":      true,
+		"traces-sample-rate":   1,
+		"profiles-sample-rate": 1, 
+        "environment" : "production"
     }
   }
   

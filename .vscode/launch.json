@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/app",
-            "args": ["--config", "config.json"],
+            "args": ["--config", "config.json", "--debug", "true"],
             "cwd": "${workspaceFolder}",
         },
         {

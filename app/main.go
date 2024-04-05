@@ -8,27 +8,34 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/getsentry/sentry-go"
+	sentryotel "github.com/getsentry/sentry-go/otel"
 	"github.com/osmosis-labs/sqs/chaininfo/client"
 	"github.com/osmosis-labs/sqs/domain"
 	sqslog "github.com/osmosis-labs/sqs/log"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	_ "github.com/swaggo/echo-swagger"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
 	"github.com/osmosis-labs/osmosis/v23/app"
 )
-
-func init() {
-	if viper.GetBool(`debug`) {
-		log.Println("Service RUN on DEBUG mode")
-	}
-}
 
 // @title           Osmosis Sidecar Query Server Example API
 // @version         1.0
 func main() {
 	configPath := flag.String("config", "config.json", "config file location")
+
+	isDebug := flag.Bool("debug", false, "debug mode")
+	if *isDebug {
+		log.Println("Service RUN on DEBUG mode")
+	}
 
 	// Parse the command-line arguments
 	flag.Parse()
@@ -64,6 +71,27 @@ func main() {
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
+
+	if config.OTEL.DSN != "" {
+		otelConfig := config.OTEL
+		err = sentry.Init(sentry.ClientOptions{
+			Dsn:                otelConfig.DSN,
+			SampleRate:         otelConfig.SampleRate,
+			EnableTracing:      otelConfig.EnableTracing,
+			Debug:              *isDebug,
+			TracesSampleRate:   otelConfig.TracesSampleRate,
+			ProfilesSampleRate: otelConfig.ProfilesSampleRate,
+			Environment:        otelConfig.Environment,
+		})
+		if err != nil {
+			log.Fatalf("sentry.Init: %s", err)
+		}
+		defer sentry.Flush(2 * time.Second)
+
+		sentry.CaptureMessage("SQS started")
+
+		initOTELTracer()
+	}
 
 	redisStatus := redisClient.Ping(context.Background())
 	_, err = redisStatus.Result()
@@ -117,4 +145,30 @@ func main() {
 	if err := sidecarQueryServer.Start(ctx); err != nil {
 		panic(err)
 	}
+}
+
+// initOTELTracer initializes the OTEL tracer
+// and wires it up with the Sentry exporter.
+func initOTELTracer() {
+	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	if err != nil {
+		log.Fatalf("stdouttrace.New: %v", err)
+	}
+
+	resource, err := resource.New(context.Background(),
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String("sqs"),
+		),
+	)
+	if err != nil {
+		log.Fatalf("resource.New: %v", err)
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(resource),
+		sdktrace.WithSpanProcessor(sentryotel.NewSentrySpanProcessor()),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(sentryotel.NewSentryPropagator())
 }
