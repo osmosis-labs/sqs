@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.13.0
+
+* [#158](https://github.com/osmosis-labs/sqs/pull/158)  Integrate entry & add new configs.
+
 ## v0.12.0
 
 * [#143](https://github.com/osmosis-labs/sqs/pull/143) light clean ups from the data ingest refactor. 

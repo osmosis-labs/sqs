@@ -7,6 +7,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // GoMiddleware represent the data-struct for middleware
@@ -81,5 +85,38 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 		requestLatency.WithLabelValues(requestMethod, requestPath).Observe(duration)
 
 		return err
+	}
+}
+
+// Middleware to create a span and capture request parameters
+func (m *GoMiddleware) TraceWithParamsMiddleware(tracerName string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			tracer := otel.Tracer(tracerName)
+
+			// Extract the existing span context from the incoming request
+			parentCtx := otel.GetTextMapPropagator().Extract(c.Request().Context(), propagation.HeaderCarrier(c.Request().Header))
+
+			// Start a new span representing the request
+			// The span ends when the request is complete
+			ctx, span := tracer.Start(parentCtx, c.Path(), trace.WithSpanKind(trace.SpanKindServer))
+			defer span.End()
+
+			span.SetAttributes(attribute.String("http.method", c.Request().Method))
+
+			// Inject the span context back into the Echo context and request context
+			c.SetRequest(c.Request().WithContext(ctx))
+
+			// Iterate through query parameters and add them as attributes to the span
+			// Ensure to filter out any sensitive parameters here
+			for key, values := range c.QueryParams() {
+				// As a simple approach, we're adding only the first value of each parameter
+				// Consider handling multiple values differently if necessary
+				span.SetAttributes(attribute.String(key, values[0]))
+			}
+
+			// Proceed with the request handling
+			return next(c)
+		}
 	}
 }
