@@ -28,10 +28,6 @@ import (
 var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 
 type routerUseCaseImpl struct {
-	routerRepository    routerrepo.RouterRepository
-	poolsUsecase        mvc.PoolsUsecase
-	config              domain.RouterConfig
-	cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig
 	logger              log.Logger
 
 	rankedRouteCache *cache.Cache

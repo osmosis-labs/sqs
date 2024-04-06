@@ -35,6 +35,9 @@ type PoolResponse struct {
 	// However, we duplicate it here for client convinience to be able to always
 	// rely on it being present.
 	SpreadFactor osmomath.Dec `json:"spread_factor"`
+
+	TotalLiquidity      sdk.Coin `json:"total_liquidity"`
+	TotalLiquidityError string   `json:"total_liquidity_error"`
 }
 
 const resourcePrefix = "/pools"
@@ -137,10 +140,12 @@ func getStatusCode(err error) int {
 // convertPoolToResponse convertes a given pool to the appropriate response type.
 func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
 	return PoolResponse{
-		ChainModel:   pool.GetUnderlyingPool(),
-		Balances:     pool.GetSQSPoolModel().Balances,
-		Type:         pool.GetType(),
-		SpreadFactor: pool.GetSQSPoolModel().SpreadFactor,
+		ChainModel:          pool.GetUnderlyingPool(),
+		Balances:            pool.GetSQSPoolModel().Balances,
+		Type:                pool.GetType(),
+		SpreadFactor:        pool.GetSQSPoolModel().SpreadFactor,
+		TotalLiquidity:      sdk.NewCoin("usdc", pool.GetTotalValueLockedUSDC()),
+		TotalLiquidityError: pool.GetSQSPoolModel().TotalValueLockedError,
 	}
 }
 

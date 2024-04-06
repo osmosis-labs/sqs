@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -19,6 +20,9 @@ type PoolI interface {
 	GetType() poolmanagertypes.PoolType
 
 	GetTotalValueLockedUSDC() osmomath.Int
+
+	SetTotalValueLockedUSDC(osmomath.Int)
+	SetTotalValueLockedError(string)
 
 	GetPoolDenoms() []string
 
@@ -120,6 +124,16 @@ func (p *PoolWrapper) GetTickModel() (*TickModel, error) {
 	}
 
 	return p.TickModel, nil
+}
+
+// SetTotalValueLockedUSDC implements PoolI.
+func (p *PoolWrapper) SetTotalValueLockedUSDC(totalValueLockedUSDC math.Int) {
+	p.SQSModel.TotalValueLockedUSDC = totalValueLockedUSDC
+}
+
+// SetTotalValueLockedError implements PoolI.
+func (p *PoolWrapper) SetTotalValueLockedError(totalValueLockedError string) {
+	p.SQSModel.TotalValueLockedError = totalValueLockedError
 }
 
 // SetTickModel implements PoolI.

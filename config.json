@@ -20,11 +20,10 @@
       "ranked-route-cache-expiry-seconds": 600
     },
     "pools": {
-        "transmuter-code-ids": [148, 254],
-        "general-cosmwasm-code-ids": [503, 572, 580]
+        "transmuter-code-ids": [148, 254]
     },
     "pricing":{
-        "cache-expiry-ms": 2000,
+        "cache-expiry-ms": 60000,
         "default-source": 0,
         "default-quote-human-denom": "usdc",
         "max-pools-per-route": 4,

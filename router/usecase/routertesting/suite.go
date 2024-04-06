@@ -331,6 +331,11 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 		panic(err)
 	}
 
+	ingestUsecase, err = ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, nil, tokensUsecase, encCfg.Marshaler, mainnetState.PricingConfig, &log.NoOpLogger{})
+	if err != nil {
+		panic(err)
+	}
+
 	return MockMainnetUsecase{
 		Pools:  poolsUsecase,
 		Router: routerUsecase,

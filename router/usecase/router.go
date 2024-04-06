@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"sort"
 
 	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v23/x/cosmwasmpool/types"
@@ -181,6 +182,10 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 
 	ratedPools := make([]ratedPool, 0, len(pools))
 	for _, pool := range pools {
+		if pool.GetId() == 1043 {
+			fmt.Println("pool 1043", pool.GetTotalValueLockedUSDC())
+		}
+
 		// Initialize rating to TVL.
 		rating := pool.GetTotalValueLockedUSDC()
 

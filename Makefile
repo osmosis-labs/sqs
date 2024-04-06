@@ -52,6 +52,7 @@ redis-start:
 # prompting the need for Redis.
 redis-stop:
 	docker container rm -f redis-stack
+
 osmosis-start:
 	docker run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:sqs-out-v0.2 "start"
 
