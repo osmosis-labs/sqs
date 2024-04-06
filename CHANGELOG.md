@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.13.1
+
+* [#160](https://github.com/osmosis-labs/sqs/pull/160) Custom sampling rate per endpoint.
+
 ## v0.13.0
 
 * [#158](https://github.com/osmosis-labs/sqs/pull/158)  Integrate Sentry & add new configs.
