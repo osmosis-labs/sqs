@@ -35,6 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.13.2
+
+Revert Astroport spot price hot fix.
+https://wallet.keplr.app/chains/osmosis/proposals/762
+
 ## v0.13.1
 
 * [#160](https://github.com/osmosis-labs/sqs/pull/160) Custom sampling rate per endpoint.
