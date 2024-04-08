@@ -25,7 +25,9 @@ type RouterUsecase interface {
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
 	GetCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// GetTakerFee returns the taker fee for all token pairs in a pool.
-	GetTakerFee(ctx context.Context, poolID uint64) ([]sqsdomain.TakerFeeForPair, error)
+	GetTakerFee(poolID uint64) ([]sqsdomain.TakerFeeForPair, error)
+	// SetTakerFees sets the taker fees for all token pairs in all pools.
+	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
 	// GetPoolSpotPrice returns the spot price of a pool.
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 	// GetConfig returns the config for the SQS service
@@ -35,7 +37,13 @@ type RouterUsecase interface {
 	// Returns error if cache is disabled.
 	GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// StoreRoutes stores all router state in the files locally. Used for debugging.
-	StoreRouterStateFiles(ctx context.Context) error
+	StoreRouterStateFiles() error
 
-	GetRouterState(ctx context.Context) (domain.RouterState, error)
+	GetRouterState() (domain.RouterState, error)
+
+	// GetSortedPools returns the sorted pools based on the router configuration.
+	GetSortedPools() []sqsdomain.PoolI
+
+	// SortPools sorts the given pools based on the router configuration and perists them until the next call.
+	SortPools(ctx context.Context, pools []sqsdomain.PoolI) error
 }

@@ -21,7 +21,7 @@ func BenchmarkGetPrices(b *testing.B) {
 	s.SetT(&testing.T{})
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig)
+	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	// Set up on-chain pricing strategy

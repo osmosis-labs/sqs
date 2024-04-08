@@ -3,7 +3,6 @@ package usecase_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -16,7 +15,6 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	sqsdomainmocks "github.com/osmosis-labs/sqs/sqsdomain/mocks"
 )
 
 type PoolsUsecaseTestSuite struct {
@@ -164,16 +162,13 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		tc := tc
 		s.Run(tc.name, func() {
 
-			// Create repository mock
-			poolsRepository := &sqsdomainmocks.RedisPoolsRepositoryMock{
-				Pools: tc.pools,
-			}
-
 			// Create pools use case
-			poolsUsecase := usecase.NewPoolsUsecase(time.Second, poolsRepository, nil, &domain.PoolsConfig{}, "node-uri-placeholder")
+			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder")
+
+			poolsUsecase.StorePools(tc.pools)
 
 			// System under test
-			actualRoutes, err := poolsUsecase.GetRoutesFromCandidates(context.Background(), tc.candidateRoutes, tc.takerFeeMap, tc.tokenInDenom, tc.tokenOutDenom)
+			actualRoutes, err := poolsUsecase.GetRoutesFromCandidates(tc.candidateRoutes, tc.takerFeeMap, tc.tokenInDenom, tc.tokenOutDenom)
 
 			if tc.expectedError != nil {
 				s.Require().Error(err)

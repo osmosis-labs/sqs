@@ -15,7 +15,6 @@ import (
 	"github.com/osmosis-labs/sqs/chaininfo/client"
 	"github.com/osmosis-labs/sqs/domain"
 	sqslog "github.com/osmosis-labs/sqs/log"
-	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	_ "github.com/swaggo/echo-swagger"
 	"go.opentelemetry.io/otel"
@@ -66,12 +65,6 @@ func main() {
 		}
 	}()
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", config.StorageHost, config.StoragePort),
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-
 	if config.OTEL.DSN != "" {
 		otelConfig := config.OTEL
 		err = sentry.Init(sentry.ClientOptions{
@@ -91,12 +84,6 @@ func main() {
 		sentry.CaptureMessage("SQS started")
 
 		initOTELTracer()
-	}
-
-	redisStatus := redisClient.Ping(context.Background())
-	_, err = redisStatus.Result()
-	if err != nil {
-		panic(err)
 	}
 
 	chainClient, err := client.NewClient(config.ChainID, config.ChainGRPCGatewayEndpoint)
@@ -129,10 +116,6 @@ func main() {
 	go func() {
 		<-exitChan
 		cancel() // Trigger shutdown
-
-		if err := redisClient.Close(); err != nil {
-			log.Fatal(err)
-		}
 
 		err := sidecarQueryServer.Shutdown(ctx)
 		if err != nil {

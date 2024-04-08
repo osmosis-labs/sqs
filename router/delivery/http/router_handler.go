@@ -203,15 +203,13 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 }
 
 func (a *RouterHandler) GetTakerFee(c echo.Context) error {
-	ctx := c.Request().Context()
-
 	idStr := c.Param("id")
 	poolID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	takerFees, err := a.RUsecase.GetTakerFee(ctx, poolID)
+	takerFees, err := a.RUsecase.GetTakerFee(poolID)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -239,9 +237,7 @@ func (a *RouterHandler) GetCachedCandidateRoutes(c echo.Context) error {
 
 // TODO: authentication for the endpoint and enable only in dev mode.
 func (a *RouterHandler) StoreRouterStateInFiles(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	if err := a.RUsecase.StoreRouterStateFiles(ctx); err != nil {
+	if err := a.RUsecase.StoreRouterStateFiles(); err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
@@ -249,9 +245,7 @@ func (a *RouterHandler) StoreRouterStateInFiles(c echo.Context) error {
 }
 
 func (a *RouterHandler) GetRouterState(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	routerState, err := a.RUsecase.GetRouterState(ctx)
+	routerState, err := a.RUsecase.GetRouterState()
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
