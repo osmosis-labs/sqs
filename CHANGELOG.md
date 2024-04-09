@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.14.0
+
+  ADR-006 stage 2 - GRPC Ingest Refactor
+
 ## v0.13.2
 
 Revert Astroport spot price hot fix.
