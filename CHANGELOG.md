@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.14.1
+
+Sentry tracing config for /router/quote
+
 ## v0.14.0
 
   ADR-006 stage 2 - GRPC Ingest Refactor
