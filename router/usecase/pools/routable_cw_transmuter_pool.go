@@ -69,7 +69,7 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 
 	// No slippage swaps - just return the same amount of token out as token in
 	// as long as there is enough liquidity in the pool.
-	return sdk.NewCoin(r.TokenOutDenom, tokenIn.Amount), nil
+	return sdk.Coin{r.TokenOutDenom, tokenIn.Amount}, nil
 }
 
 // GetTokenOutDenom implements RoutablePool.
