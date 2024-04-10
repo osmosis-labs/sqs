@@ -52,3 +52,9 @@ var (
 		[]string{"err"},
 	)
 )
+
+func init() {
+	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationHistogram)
+	prometheus.MustRegister(SQSIngestHandlerProcessBlockErrorCounter)
+	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
+}

@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.14.3
+
+Register ingest Prometheus metrics.
+
 ## v0.14.2
 
 Expose port 50052 on Docker image
