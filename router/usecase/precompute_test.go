@@ -9,6 +9,15 @@ import (
 
 var (
 	testAmount = osmomath.NewInt(1234567890323344555)
+	TenE9      = osmomath.NewInt(1_000_000_000)
+	TenE8      = osmomath.NewInt(100_000_000)
+	TenE7      = osmomath.NewInt(10_000_000)
+	TenE6      = osmomath.NewInt(1_000_000)
+	TenE5      = osmomath.NewInt(100_000)
+	TenE4      = osmomath.NewInt(10_000)
+	TenE3      = osmomath.NewInt(1_000)
+	TenE2      = osmomath.NewInt(100)
+	TenE1      = osmomath.NewInt(10)
 )
 
 func (s *RouterTestSuite) TestGetPrecomputeOrderOfMagnitude() {
@@ -26,19 +35,19 @@ func (s *RouterTestSuite) TestGetPrecomputeOrderOfMagnitude() {
 			amount: osmomath.NewInt(9),
 		},
 		"10^9 - 1": {
-			amount: usecase.TenE9.Sub(osmomath.OneInt()),
+			amount: TenE9.Sub(osmomath.OneInt()),
 		},
 		"10^9": {
-			amount: usecase.TenE9,
+			amount: TenE9,
 		},
 		"10^9 +1": {
-			amount: usecase.TenE9.Add(osmomath.OneInt()),
+			amount: TenE9.Add(osmomath.OneInt()),
 		},
 		"10^18 +1": {
-			amount: usecase.TenE9.Mul(usecase.TenE9).Add(osmomath.OneInt()),
+			amount: TenE9.Mul(TenE9).Add(osmomath.OneInt()),
 		},
 		"10^15 +5": {
-			amount: usecase.TenE9.Mul(usecase.TenE6).Add(osmomath.OneInt()),
+			amount: TenE9.Mul(TenE6).Add(osmomath.OneInt()),
 		},
 	}
 
