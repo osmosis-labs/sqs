@@ -67,6 +67,32 @@ func main() {
 
 	if config.OTEL.DSN != "" {
 		otelConfig := config.OTEL
+
+		var (
+			// sentryEndpointWhitelist is a map of endpoints and their respective sampling rates
+			sentryEndpointWhitelist = map[string]float64{
+				"/router/quote":        otelConfig.TracesSampleRate,
+				"/custom-direct-quote": 0,
+				"/tokens/prices":       0,
+				"/pools":               0,
+			}
+
+			// custom sampler that samples only the whitelisted endpoints per their configured rates.
+			traceSampler sentry.TracesSampler = func(ctx sentry.SamplingContext) float64 {
+				if ctx.Span == nil {
+					return 0
+				}
+
+				spanName := ctx.Span.Name
+
+				if samplerRate, ok := sentryEndpointWhitelist[spanName]; ok {
+					return samplerRate
+				}
+
+				return 0
+			}
+		)
+
 		err = sentry.Init(sentry.ClientOptions{
 			Dsn:                otelConfig.DSN,
 			SampleRate:         otelConfig.SampleRate,
@@ -155,28 +181,3 @@ func initOTELTracer() {
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(sentryotel.NewSentryPropagator())
 }
-
-var (
-	// sentryEndpointWhitelist is a map of endpoints and their respective sampling rates
-	sentryEndpointWhitelist = map[string]float64{
-		"/router/quote":        0.5,
-		"/custom-direct-quote": 0.5,
-		"/tokens/prices":       0.5,
-		"/pools":               0.1,
-	}
-
-	// custom sampler that samples only the whitelisted endpoints per their configured rates.
-	traceSampler sentry.TracesSampler = func(ctx sentry.SamplingContext) float64 {
-		if ctx.Span == nil {
-			return 0
-		}
-
-		spanName := ctx.Span.Name
-
-		if samplerRate, ok := sentryEndpointWhitelist[spanName]; ok {
-			return samplerRate
-		}
-
-		return 0
-	}
-)
