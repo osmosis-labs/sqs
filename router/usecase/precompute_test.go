@@ -1,6 +1,7 @@
 package usecase_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -21,10 +22,10 @@ var (
 )
 
 func (s *RouterTestSuite) TestGetPrecomputeOrderOfMagnitude() {
-
-	tests := map[string]struct {
+	type testcase struct {
 		amount osmomath.Int
-	}{
+	}
+	tests := map[string]testcase{
 		"0 = 0": {
 			amount: osmomath.ZeroInt(),
 		},
@@ -34,21 +35,16 @@ func (s *RouterTestSuite) TestGetPrecomputeOrderOfMagnitude() {
 		"9.99 = 0": {
 			amount: osmomath.NewInt(9),
 		},
-		"10^9 - 1": {
-			amount: TenE9.Sub(osmomath.OneInt()),
-		},
-		"10^9": {
-			amount: TenE9,
-		},
-		"10^9 +1": {
-			amount: TenE9.Add(osmomath.OneInt()),
-		},
-		"10^18 +1": {
-			amount: TenE9.Mul(TenE9).Add(osmomath.OneInt()),
-		},
 		"10^15 +5": {
 			amount: TenE9.Mul(TenE6).Add(osmomath.OneInt()),
 		},
+	}
+	curPowTen := osmomath.OneInt()
+	for i := 1; i < 20; i++ {
+		curPowTen = curPowTen.Mul(TenE1)
+		tests[fmt.Sprintf("10^%d", i)] = testcase{amount: curPowTen}
+		tests[fmt.Sprintf("10^%d +1", i)] = testcase{amount: curPowTen.AddRaw(1)}
+		tests[fmt.Sprintf("10^%d -1", i)] = testcase{amount: curPowTen.SubRaw(1)}
 	}
 
 	for name, tc := range tests {
