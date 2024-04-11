@@ -18,6 +18,8 @@ AKT           = "ibc/1480B8FD20AD5FCAE81EA87584D269547DD4D436843C1D20F15E00EB647
 # Currently used in tests
 UMEE          = "ibc/67795E528DF67C5606FC20F824EA39A6EF55BA133F4DC79C90A8C47A0901E17C"
 
+ASTRO         = "ibc/C25A2303FE24B922DAFFDCE377AC5A42E5EF746806D32E2ED4B610DE85C203F7"
+
 
 top10ByVolumePairs = [
     UOSMO,
@@ -30,7 +32,8 @@ top10ByVolumePairs = [
     WBTC,
     ETH,
     AKT,
-    UMEE
+    UMEE,
+    ASTRO
 ];
 
 
@@ -40,7 +43,7 @@ class SQS(HttpUser):
 
     @task
     def all_pools(self):
-        self.client.get("/pools/all")
+        self.client.get("/pools")
     
     # Quote the same pair of UOSMO and USDC (UOSMO in) while progressively
     # increasing the amount of the tokenIn per endpoint.
@@ -57,10 +60,6 @@ class SQS(HttpUser):
     def quoteUOSMOUSDC_1000000In(self):
         self.client.get(f"/router/quote?tokenIn=1000000000000{UOSMO}&tokenOutDenom={USDC}")
 
-    @task
-    def singleQuoteUOSMOUSDC_1000000In(self):
-        self.client.get(f"/router/single-quote?tokenIn=1000000000000{UOSMO}&tokenOutDenom={USDC}")
-
     # Quote the same pair of UOSMO and USDC (USDC in).
     @task
     def quoteUSDCUOSMO_1000000In(self):
@@ -69,6 +68,10 @@ class SQS(HttpUser):
     @task
     def quoteUSDCTUMEE_3000IN(self):
         self.client.get(f"/router/quote?tokenIn=3000000000{USDT}&tokenOutDenom={UMEE}")
+
+    @task
+    def quoteASTROCWPool(self):
+        self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={ASTRO}")
 
     @task
     def routesUOSMOUSDC(self):
