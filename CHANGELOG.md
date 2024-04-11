@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.14.5
+
+Add CORS header for Sentry 
+
 ## v0.14.4
 
 Nanosecond block process duration metric
