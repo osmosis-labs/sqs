@@ -20,6 +20,8 @@ import (
 )
 
 var _ sqsdomain.RoutablePool = &routableConcentratedPoolImpl{}
+var zeroDec = osmomath.ZeroDec()
+var zeroBigDec = osmomath.ZeroBigDec()
 
 type routableConcentratedPoolImpl struct {
 	ChainPool     *concentratedmodel.Pool "json:\"cl_pool\""
@@ -110,7 +112,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	}
 
 	// Initialize the swap strategy.
-	swapStrategy := swapstrategy.New(isZeroForOne, osmomath.ZeroBigDec(), &storetypes.KVStoreKey{}, concentratedPool.SpreadFactor)
+	swapStrategy := swapstrategy.New(isZeroForOne, zeroBigDec, &storetypes.KVStoreKey{}, concentratedPool.SpreadFactor)
 
 	var (
 		// Swap state
@@ -127,7 +129,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	}
 
 	// Compute swap over all buckets.
-	for amountRemainingIn.GT(osmomath.ZeroDec()) {
+	for amountRemainingIn.GT(zeroDec) {
 		if currentBucketIndex >= int64(len(tickModel.Ticks)) || currentBucketIndex < 0 {
 			// This happens when there is not enough liquidity in the pool to complete the swap
 			// for a given amount of token in.
