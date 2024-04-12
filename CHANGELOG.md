@@ -35,6 +35,14 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.15.0
+
+- Sentry CORS config
+- v24 import paths
+- Speedup for Order of Magnitude
+- Remove redundant allocations
+- LRU cache for tick to sqrt price
+
 ## v0.14.5
 
 Add CORS header for Sentry 
