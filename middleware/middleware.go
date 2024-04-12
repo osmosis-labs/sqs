@@ -15,7 +15,7 @@ import (
 
 // GoMiddleware represent the data-struct for middleware
 type GoMiddleware struct {
-	// another stuff , may be needed by middleware
+	corsConfig domain.CORSConfig
 }
 
 var (
@@ -47,15 +47,18 @@ func init() {
 // CORS will handle the CORS middleware
 func (m *GoMiddleware) CORS(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		c.Response().Header().Set("Access-Control-Allow-Origin", "*")
-		c.Response().Header().Set("Access-Control-Allow-Headers", "sentry-trace, baggage")
+		c.Response().Header().Set("Access-Control-Allow-Origin", m.corsConfig.AllowedOrigin)
+		c.Response().Header().Set("Access-Control-Allow-Headers", m.corsConfig.AllowedHeaders)
+		c.Response().Header().Set("Access-Control-Allow-Methods", m.corsConfig.AllowedMethods)
 		return next(c)
 	}
 }
 
 // InitMiddleware initialize the middleware
-func InitMiddleware() *GoMiddleware {
-	return &GoMiddleware{}
+func InitMiddleware(corsConfig *domain.CORSConfig) *GoMiddleware {
+	return &GoMiddleware{
+		corsConfig: *corsConfig,
+	}
 }
 
 // InstrumentMiddleware will handle the instrumentation middleware

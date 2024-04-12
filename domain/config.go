@@ -31,4 +31,21 @@ type Config struct {
 	GRPCIngester *GRPCIngesterConfig `mapstructure:"grpc-ingester"`
 
 	OTEL *OTELConfig `mapstructure:"otel"`
+
+	CORS *CORSConfig `mapstructure:"cors"`
+}
+
+type OTELConfig struct {
+	DSN                string  `mapstructure:"dsn"`
+	SampleRate         float64 `mapstructure:"sample-rate"`
+	EnableTracing      bool    `mapstructure:"enable-tracing"`
+	TracesSampleRate   float64 `mapstructure:"traces-sample-rate"`
+	ProfilesSampleRate float64 `mapstructure:"profiles-sample-rate"`
+	Environment        string  `mapstructure:"environment"`
+}
+
+type CORSConfig struct {
+	AllowedHeaders string `mapstructure:"allowed-headers"`
+	AllowedMethods string `mapstructure:"allowed-methods"`
+	AllowedOrigin  string `mapstructure:"allowed-origin"`
 }
