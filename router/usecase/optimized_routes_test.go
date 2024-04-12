@@ -10,7 +10,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/coinutil"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmoassert"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
@@ -698,7 +698,7 @@ func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.
 	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
 	s.Require().NoError(err)
 
-	routes, err := mainnetUseCase.Pools.GetRoutesFromCandidates( candidateRoutes, mainnetState.TakerFeeMap, tokenInDenom, tokenOutDenom)
+	routes, err := mainnetUseCase.Pools.GetRoutesFromCandidates(candidateRoutes, mainnetState.TakerFeeMap, tokenInDenom, tokenOutDenom)
 	s.Require().NoError(err)
 
 	return routes
