@@ -7,6 +7,7 @@ import (
 	"cosmossdk.io/math"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -26,6 +27,23 @@ type routableConcentratedPoolImpl struct {
 	TickModel     *sqsdomain.TickModel    "json:\"tick_model\""
 	TokenOutDenom string                  "json:\"token_out_denom\""
 	TakerFee      osmomath.Dec            "json:\"taker_fee\""
+}
+
+// Size is roughly `keys * (2.5 * Key_size + 2*value_size)`. (Plus whatever excess overhead hashmaps internally have)
+// key is 8 bytes, value is ~152 bytes
+// so at 100k keys its max RAM of ~30MB
+var tickToSqrtPriceCache, _ = lru.New2Q[int64, osmomath.BigDec](1000000)
+
+func getTickToSqrtPrice(tick int64) (osmomath.BigDec, error) {
+	if sqrtPrice, ok := tickToSqrtPriceCache.Get(tick); ok {
+		return sqrtPrice, nil
+	}
+
+	sqrtPrice, err := clmath.TickToSqrtPrice(tick)
+	if err != nil {
+		tickToSqrtPriceCache.Add(tick, sqrtPrice)
+	}
+	return sqrtPrice, err
 }
 
 // GetPoolDenoms implements sqsdomain.RoutablePool.
@@ -152,7 +170,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 		}
 
 		// Get the sqrt price for the next initialized tick index.
-		sqrtPriceTarget, err := clmath.TickToSqrtPrice(nextInitializedTickIndex)
+		sqrtPriceTarget, err := getTickToSqrtPrice(nextInitializedTickIndex)
 		if err != nil {
 			return sdk.Coin{}, err
 		}
@@ -169,6 +187,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	}
 
 	// Return the total amount out.
+	//nolint:all
 	return sdk.Coin{tokenOutDenom, amountOutTotal.TruncateInt()}, nil
 }
 
