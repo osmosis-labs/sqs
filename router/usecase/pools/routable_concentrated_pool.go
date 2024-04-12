@@ -187,6 +187,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	}
 
 	// Return the total amount out.
+	//nolint:all
 	return sdk.Coin{tokenOutDenom, amountOutTotal.TruncateInt()}, nil
 }
 
