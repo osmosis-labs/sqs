@@ -29,6 +29,8 @@ require (
 	google.golang.org/grpc v1.61.1
 )
 
+require github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+
 require (
 	cloud.google.com/go v0.112.0 // indirect
 	cloud.google.com/go/compute v1.24.0 // indirect
