@@ -184,7 +184,8 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 		// Initialize rating to TVL.
 		rating := pool.GetTotalValueLockedUSDC()
 
-		// 1/ 100 of toal value locked across all pools for no error in TVL
+		// rating += 1/ 100 of TVL of asset across all pools
+		// (Ignoring any pool with an error in TVL)
 		if pool.GetSQSPoolModel().TotalValueLockedError == noTotalValueLockedError {
 			rating = rating.Add(totalTVL.QuoRaw(100))
 		}

@@ -80,6 +80,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
 	// Sort the pools and store them in the router.
+	// TODO: Don't update the router with all pools here. Just update based on diff pools.
 	if err := p.routerUsecase.SortPools(ctx, allPools); err != nil {
 		return err
 	}
