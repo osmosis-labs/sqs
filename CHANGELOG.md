@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleases
+
+- Pricing options; pricing source wiring at the app level
+
 ## v0.15.0
 
 - Sentry CORS config

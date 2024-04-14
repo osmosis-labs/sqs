@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	"github.com/stretchr/testify/suite"
@@ -43,7 +42,7 @@ func (s *PricingTestSuite) TestGetPrices_Chain() {
 
 	// Set up mainnet mock state.
 	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
 
 	// Set up on-chain pricing strategy
 	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)

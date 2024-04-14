@@ -3,7 +3,6 @@ package chainpricing
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -27,7 +26,7 @@ type chainPricing struct {
 	minOSMOLiquidity int
 }
 
-var _ domain.PricingStrategy = &chainPricing{}
+var _ domain.PricingSource = &chainPricing{}
 
 const (
 	// We use multiplier so that stablecoin quotes avoid selecting low liquidity routes.
@@ -73,7 +72,7 @@ func init() {
 	prometheus.MustRegister(cacheMissesCounter)
 }
 
-func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingStrategy {
+func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
 	return &chainPricing{
 		RUsecase: routerUseCase,
 		TUsecase: tokenUseCase,
@@ -93,7 +92,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		return osmomath.OneBigDec(), nil
 	}
 
-	cacheKey := formatCacheKey(baseDenom, quoteDenom)
+	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 
 	cachedValue, found := c.cache.Get(cacheKey)
 	if found {
@@ -109,6 +108,18 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	} else if !found {
 		// Increase cache misses
 		cacheMissesCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+	}
+
+	// If cache miss occurs, we compute the price.
+	return c.ComputePrice(ctx, baseDenom, quoteDenom)
+}
+
+// ComputePrice implements domain.PricingStrategy.
+func (c *chainPricing) ComputePrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
+
+	if baseDenom == quoteDenom {
+		return osmomath.OneBigDec(), nil
 	}
 
 	// Get on-chain scaling factor for base denom.
@@ -204,13 +215,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	return currentPrice, nil
 }
 
-func formatCacheKey(a, b string) string {
-	if a < b {
-		a, b = b, a
-	}
-
-	var sb strings.Builder
-	sb.WriteString(a)
-	sb.WriteString(b)
-	return sb.String()
+// InitializeCache implements domain.PricingSource.
+func (c *chainPricing) InitializeCache(cache *cache.Cache) {
+	c.cache = cache
 }

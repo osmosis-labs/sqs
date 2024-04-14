@@ -23,6 +23,10 @@ type tokensUseCase struct {
 
 	// No mutex since we only expect reads to this shared resource and no writes.
 	precisionScalingFactorMap map[int]osmomath.Dec
+
+	// We persist pricing strategies across endpoint calls as they
+	// may cache responses internally.
+	pricingStrategyMap map[domain.PricingSourceType]domain.PricingSource
 }
 
 // Struct to represent the JSON structure
@@ -102,6 +106,8 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 		humanToChainDenomMap:      humanToChainDenomMap,
 		precisionScalingFactorMap: precisionScalingFactors,
 
+		pricingStrategyMap: map[domain.PricingSourceType]domain.PricingSource{},
+
 		metadataMapMu: sync.RWMutex{},
 		denomMapMu:    sync.RWMutex{},
 	}
@@ -164,7 +170,18 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(ctx context.Context, den
 }
 
 // GetPrices implements pricing.PricingStrategy.
-func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingStrategy domain.PricingStrategy) (map[string]map[string]any, error) {
+func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, opts ...domain.PricingOption) (map[string]map[string]any, error) {
+	// Initialize options
+	pricingOptions := domain.PricingOptions{
+		PricingSourceType: domain.ChainPricingSourceType,
+		RecomputePrices:   false,
+	}
+
+	// Configure options
+	for _, opt := range opts {
+		opt(&pricingOptions)
+	}
+
 	byBaseDenomResult := make(map[string]map[string]any, len(baseDenoms))
 
 	// Create a channel to communicate the results
@@ -179,8 +196,8 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 		go func(baseDenom string) {
 			defer wg.Done()
 
-			prices := t.getPricesForBaseDenom(ctx, pricingStrategy, baseDenom, quoteDenoms)
-			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: nil}
+			prices, err := t.getPricesForBaseDenom(ctx, pricingOptions, baseDenom, quoteDenoms)
+			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: err}
 		}(baseDenom)
 	}
 
@@ -203,11 +220,12 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 	return byBaseDenomResult, nil
 }
 
-// getPricesForBaseDenom fetches all prices for base denom given a slice of quotes and a pricing stratey.
+// getPricesForBaseDenom fetches all prices for base denom given a slice of quotes and pricing options.
+// Pricing options determine whether to recompute prices or use the cache as well as the desired source of prices.
 // Returns a map with keys as quotes and values as prices or error, if any.
 // Returns error if base denom is not found in the token metadata.
 // Sets the price to zero in case of failing to compute the price between base and quote but these being valid tokens.
-func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrategy domain.PricingStrategy, baseDenom string, quoteDenoms []string) map[string]any {
+func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingOptions domain.PricingOptions, baseDenom string, quoteDenoms []string) (map[string]any, error) {
 	byQuoteDenomForGivenBaseResult := make(map[string]any, len(quoteDenoms))
 	// Validate base denom is a valid denom
 	// Return zeroes for all quotes if base denom is not found
@@ -216,11 +234,24 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		for _, quoteDenom := range quoteDenoms {
 			byQuoteDenomForGivenBaseResult[quoteDenom] = osmomath.ZeroBigDec()
 		}
-		return byQuoteDenomForGivenBaseResult
+		return byQuoteDenomForGivenBaseResult, nil
 	}
 
 	// Create a channel to communicate the results
 	resultsChan := make(chan priceResult, len(quoteDenoms))
+
+	// Get the pricing strategy
+	pricingStrategy, ok := t.pricingStrategyMap[pricingOptions.PricingSourceType]
+	if !ok {
+		return nil, fmt.Errorf("pricing strategy (%s) not found in the tokens use case", pricingStrategy)
+	}
+
+	// Depending on the pricing options, we either get the price by going through caches
+	// first or completely recompute them.
+	priceRetrievalMethod := pricingStrategy.GetPrice
+	if pricingOptions.RecomputePrices {
+		priceRetrievalMethod = pricingStrategy.ComputePrice
+	}
 
 	// Use a WaitGroup to wait for all goroutines to finish
 	var wg sync.WaitGroup
@@ -231,7 +262,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		go func(baseDenom, quoteDenom string) {
 			defer wg.Done()
 
-			price, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom)
+			price, err := priceRetrievalMethod(ctx, baseDenom, quoteDenom)
 			resultsChan <- priceResult{quoteDenom, price, err}
 		}(baseDenom, quoteDenom)
 	}
@@ -256,7 +287,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		byQuoteDenomForGivenBaseResult[result.quoteDenom] = result.price
 	}
 
-	return byQuoteDenomForGivenBaseResult
+	return byQuoteDenomForGivenBaseResult, nil
 }
 
 func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
@@ -333,4 +364,9 @@ func (t *tokensUseCase) GetSpotPriceScalingFactorByDenom(ctx context.Context, ba
 	}
 
 	return baseScalingFactor.Quo(quoteScalingFactor), nil
+}
+
+// RegisterPricingStrategy implements mvc.TokensUsecase.
+func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource) {
+	t.pricingStrategyMap[source] = strategy
 }

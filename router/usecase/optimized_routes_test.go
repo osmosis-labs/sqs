@@ -577,7 +577,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(1000_000_000),
 
-			expectedRoutesCount: 3,
+			expectedRoutesCount: 2,
 		},
 		"uosmo for uion": {
 			tokenInDenom:  UOSMO,
@@ -631,7 +631,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			router, mainnetState := s.SetupDefaultMainnetRouter()
 
 			// Mock router use case.
-			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
 
 			// System under test
 			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
@@ -693,7 +693,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 // - converting candidate routes to routes with all the necessary data.
 // COTRACT: router is initialized with setupMainnetRouter(...) or setupDefaultMainnetRouter(...)
 func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, mainnetState routertesting.MockMainnetState) []route.RouteImpl {
-	mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
+	mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
 
 	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
 	s.Require().NoError(err)
