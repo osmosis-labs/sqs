@@ -19,6 +19,7 @@ import (
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
 	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
+	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -110,6 +111,15 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Initialized tokens usecase
 	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom)
+
+	// Initialize chain pricing strategy
+	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, routerUsecase)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register pricing strategy on the tokens use case.
+	tokensUseCase.RegisterPricingStrategy(domain.ChainPricingSourceType, chainPricingSource)
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)

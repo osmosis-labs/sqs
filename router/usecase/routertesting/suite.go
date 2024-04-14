@@ -21,6 +21,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
+	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v24/app"
@@ -172,7 +173,7 @@ var (
 	}
 
 	DefaultPricingConfig = domain.PricingConfig{
-		DefaultSource:          domain.ChainPricingSource,
+		DefaultSource:          domain.ChainPricingSourceType,
 		CacheExpiryMs:          2000,
 		DefaultQuoteHumanDenom: "usdc",
 		MaxPoolsPerRoute:       4,
@@ -305,7 +306,19 @@ func (s *RouterTestHelper) SetupMainnetRouter(routerConfig domain.RouterConfig, 
 
 // Sets up and returns usecases for router and pools by mocking the mainnet data
 // from json files.
-func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Router, mainnetState MockMainnetState, rankedRoutesCache *cache.Cache, candidateRouteCache *cache.Cache) MockMainnetUsecase {
+func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Router, mainnetState MockMainnetState, cacheOpts ...CacheOption) MockMainnetUsecase {
+	// Initialize empty caches
+	cacheOptions := &CacheOptions{
+		CandidateRoutes: cache.New(),
+		RankedRoutes:    cache.New(),
+		Pricing:         cache.New(),
+	}
+
+	// Apply cache options
+	for _, opt := range cacheOpts {
+		opt(cacheOptions)
+	}
+
 	// Setup router repository mock
 	routerRepositoryMock := routerrepo.New()
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
@@ -318,11 +331,19 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 	s.Require().NoError(err)
 	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
-	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, router.GetConfig(), router.GetCosmWasmPoolConfig(), &log.NoOpLogger{}, rankedRoutesCache, candidateRouteCache)
+	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, router.GetConfig(), router.GetCosmWasmPoolConfig(), &log.NoOpLogger{}, cacheOptions.RankedRoutes, cacheOptions.CandidateRoutes)
 	err = routerUsecase.SortPools(context.Background(), router.GetSortedPools())
 	s.Require().NoError(err)
 
 	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata)
+
+	// Set up on-chain pricing strategy
+	pricingSource, err := pricing.NewPricingStrategy(mainnetState.PricingConfig, tokensUsecase, routerUsecase)
+	s.Require().NoError(err)
+
+	pricingSource = pricing.WithPricingCache(pricingSource, cacheOptions.Pricing)
+
+	tokensUsecase.RegisterPricingStrategy(domain.ChainPricingSourceType, pricingSource)
 
 	encCfg := app.MakeEncodingConfig()
 

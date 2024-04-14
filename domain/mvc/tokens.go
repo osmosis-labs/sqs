@@ -28,8 +28,13 @@ type TokensUsecase interface {
 	GetSpotPriceScalingFactorByDenom(ctx context.Context, baseDenom, quoteDenom string) (osmomath.Dec, error)
 
 	// GetPrices returns prices for all given base and quote denoms given a pricing strategy or, otherwise, error, if any.
+	// The options configure some customization with regards to how prices are computed.
+	// By default, the prices are computes from chain as the source and going through caches
 	// The outer map consists of base denoms as keys.
 	// The inner map consists of quote denoms as keys.
 	// The result of the inner map is prices of the outer base and inner quote.
-	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingStrategy domain.PricingStrategy) (map[string]map[string]any, error)
+	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, opts ...domain.PricingOption) (map[string]map[string]any, error)
+
+	// RegisterPricingStrategy registers a pricing strategy for a given pricing source.
+	RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource)
 }

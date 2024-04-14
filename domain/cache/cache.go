@@ -17,7 +17,7 @@ type CacheItem struct {
 	Expiration time.Time
 }
 
-const noExpiration time.Duration = 0
+const NoExpirationTTL time.Duration = 0
 
 // New creates a new concurrent cache.
 func New() *Cache {
@@ -32,7 +32,7 @@ func (c *Cache) Set(key string, value interface{}, expiration time.Duration) {
 	defer c.mutex.Unlock()
 
 	expirationTime := time.Time{}
-	if expiration != noExpiration {
+	if expiration != NoExpirationTTL {
 		expirationTime = time.Now().Add(expiration)
 	}
 	c.data[key] = CacheItem{
