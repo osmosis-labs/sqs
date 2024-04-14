@@ -5,11 +5,9 @@ import (
 
 	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v24/x/cosmwasmpool/types"
 	"github.com/osmosis-labs/sqs/domain"
-	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 
-	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -21,10 +19,6 @@ type Router struct {
 
 	config             domain.RouterConfig
 	cosmWasmPoolConfig domain.CosmWasmPoolRouterConfig
-
-	routerRepository routerrepo.RouterRepository
-
-	poolsUsecase mvc.PoolsUsecase
 
 	// The logger.
 	logger log.Logger
@@ -144,18 +138,6 @@ func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 	// sort pools so that the appropriate pools are at the top
 	router.sortedPools = sortPools(router.sortedPools, router.cosmWasmPoolConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, router.logger)
 
-	return router
-}
-
-// WithRouterRepository instruments router by setting a router repository on it and returns the router.
-func WithRouterRepository(router *Router, routerRepository routerrepo.RouterRepository) *Router {
-	router.routerRepository = routerRepository
-	return router
-}
-
-// WithPoolsUsecase instruments router by setting a pools usecase on it and returns the router.
-func WithPoolsUsecase(router *Router, poolsUsecase mvc.PoolsUsecase) *Router {
-	router.poolsUsecase = poolsUsecase
 	return router
 }
 

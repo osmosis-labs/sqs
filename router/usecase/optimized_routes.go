@@ -19,13 +19,6 @@ import (
 // getSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.
 // Returns error if router repository is not set on the router.
 func (r *Router) getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, routes []route.RouteImpl) (quote domain.Quote, err error) {
-	if r.routerRepository == nil {
-		return nil, ErrNilRouterRepository
-	}
-	if r.poolsUsecase == nil {
-		return nil, ErrNilPoolsRepository
-	}
-
 	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn)
 	if err != nil {
 		return nil, err
