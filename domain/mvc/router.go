@@ -13,9 +13,7 @@ import (
 // RouterUsecase represent the router's usecases
 type RouterUsecase interface {
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.
-	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error)
-	// GetOptimalQuoteFromConfig returns the optimal quote for the given tokenIn and tokenOutDenom from the given config.
-	GetOptimalQuoteFromConfig(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, config domain.RouterConfig) (domain.Quote, error)
+	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 	// GetBestSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.
 	GetBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error)
 	// GetCustomDirectQuote returns the custom direct quote for the given tokenIn, tokenOutDenom and poolID.
@@ -30,8 +28,6 @@ type RouterUsecase interface {
 	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
 	// GetPoolSpotPrice returns the spot price of a pool.
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error)
-	// GetConfig returns the config for the SQS service
-	GetConfig() domain.RouterConfig
 	// GetCachedCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom from cache.
 	// It does not recompute the routes if they are not present in cache.
 	// Returns error if cache is disabled.

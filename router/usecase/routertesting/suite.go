@@ -322,14 +322,12 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 	// Setup router repository mock
 	routerRepositoryMock := routerrepo.New()
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
-	routerusecase.WithRouterRepository(router, routerRepositoryMock)
 	routerusecase.WithComputedSortedPools(router, router.GetSortedPools())
 
 	// Setup pools usecase mock.
 	poolsUsecase := poolsusecase.NewPoolsUsecase(&DefaultPoolsConfig, "node-uri-placeholder")
 	err := poolsUsecase.StorePools(router.GetSortedPools())
 	s.Require().NoError(err)
-	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
 	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, router.GetConfig(), router.GetCosmWasmPoolConfig(), &log.NoOpLogger{}, cacheOptions.RankedRoutes, cacheOptions.CandidateRoutes)
 	err = routerUsecase.SortPools(context.Background(), router.GetSortedPools())

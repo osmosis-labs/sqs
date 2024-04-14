@@ -666,12 +666,10 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	// Setup router repository mock
 	routerRepositoryMock := routerrepo.New()
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
-	routerusecase.WithRouterRepository(router, routerRepositoryMock)
 
 	// Setup pools usecase mock.
 	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder")
 	poolsUsecase.StorePools(router.GetSortedPools())
-	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
 	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 

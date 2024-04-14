@@ -140,15 +140,15 @@ func (c *chainPricing) ComputePrice(ctx context.Context, baseDenom string, quote
 
 	// Overwrite default config with custom values
 	// necessary for pricing.
-	routerConfig := c.RUsecase.GetConfig()
-	routerConfig.MaxRoutes = c.maxRoutes
-	routerConfig.MaxPoolsPerRoute = c.maxPoolsPerRoute
-	routerConfig.MinOSMOLiquidity = c.minOSMOLiquidity
-	// Disable split routes
-	routerConfig.MaxSplitIterations = domain.DisableSplitRoutes
+	routingOptions := []domain.RouterOption{
+		domain.WithMaxRoutes(c.maxRoutes),
+		domain.WithMaxPoolsPerRoute(c.maxPoolsPerRoute),
+		domain.WithMinOSMOLiquidity(c.minOSMOLiquidity),
+		domain.WithDisableSplitRoutes(),
+	}
 
 	// Compute a quote for one quote coin.
-	quote, err := c.RUsecase.GetOptimalQuoteFromConfig(ctx, tenQuoteCoin, baseDenom, routerConfig)
+	quote, err := c.RUsecase.GetOptimalQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}

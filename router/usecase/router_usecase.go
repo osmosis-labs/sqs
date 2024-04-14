@@ -100,7 +100,8 @@ func NewRouterUsecase(routerRepository routerrepo.RouterRepository, poolsUsecase
 
 // GetOptimalQuote returns the optimal quote by estimating the optimal route(s) through pools
 // on the osmosis network.
-// Uses default router config.
+// Uses default router config if no options parameter is provided.
+// With the options parameter, you can customize the router behavior. See domain.RouterOption for more details.
 // Uses caching strategies for optimal performance.
 // Currently, supports candidate route caching. If candidate routes for the given token in and token out denoms
 // are present in cache, they are used without re-computing them. Otherwise, they are computed and cached.
@@ -109,22 +110,16 @@ func NewRouterUsecase(routerRepository routerrepo.RouterRepository, poolsUsecase
 // Returns error if:
 // - fails to estimate direct quotes for ranked routes
 // - fails to retrieve candidate routes
-func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error) {
-	return r.GetOptimalQuoteFromConfig(ctx, tokenIn, tokenOutDenom, r.config)
-}
+func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+	options := domain.RouterOptions{
+		Config: r.config,
+	}
 
-// GetOptimalQuoteFromConfig returns the optimal quote by estimating the optimal route(s) through pools
-// on the osmosis network.
-// Uses given routing config to compute the optimal quote.
-// Uses caching strategies for optimal performance.
-// Currently, supports candidate route caching. If candidate routes for the given token in and token out denoms
-// are present in cache, they are used without re-computing them. Otherwise, they are computed and cached.
-// In the future, we will support caching of ranked routes that are constructed from candidate and sorted
-// by the decreasing amount out within an order of magnitude of token in. Similarly, We will also support optimal split caching
-// Returns error if:
-// - fails to estimate direct quotes for ranked routes
-// - fails to retrieve candidate routes
-func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, config domain.RouterConfig) (domain.Quote, error) {
+	// Apply options
+	for _, opt := range opts {
+		opt(&options)
+	}
+
 	// Get an order of magnitude for the token in amount
 	// This is used for caching ranked routes as these might differ depending on the amount swapped in.
 	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
@@ -134,7 +129,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 		return nil, err
 	}
 
-	router := r.initializeRouter(config)
+	router := NewRouter(options.Config, r.cosmWasmPoolsConfig, r.logger)
 
 	var (
 		topSingleRouteQuote domain.Quote
@@ -522,11 +517,6 @@ func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, tokenInDe
 	return rankedRoutes, nil
 }
 
-// GetConfig implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
-	return r.config
-}
-
 // initializeDefaultRouter initializes the router per configuration defined on the use case
 // Returns error if:
 // - there is an error retrieving pools from the store
@@ -534,17 +524,6 @@ func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
 // TODO: test
 func (r *routerUseCaseImpl) initializeDefaultRouter() *Router {
 	router := NewRouter(r.config, r.cosmWasmPoolsConfig, r.logger)
-	router = WithRouterRepository(router, r.routerRepository)
-	router = WithPoolsUsecase(router, r.poolsUsecase)
-
-	return router
-}
-
-func (r *routerUseCaseImpl) initializeRouter(config domain.RouterConfig) *Router {
-	router := NewRouter(config, r.cosmWasmPoolsConfig, r.logger)
-	router = WithRouterRepository(router, r.routerRepository)
-	router = WithPoolsUsecase(router, r.poolsUsecase)
-
 	return router
 }
 
@@ -709,7 +688,7 @@ func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 
 // SortPools implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) SortPools(ctx context.Context, pools []sqsdomain.PoolI) error {
-	router := r.initializeRouter(r.config)
+	router := NewRouter(r.config, r.cosmWasmPoolsConfig, r.logger)
 
 	router = WithSortedPools(router, pools)
 
