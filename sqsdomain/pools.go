@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -120,6 +121,16 @@ func (p *PoolWrapper) GetTickModel() (*TickModel, error) {
 	}
 
 	return p.TickModel, nil
+}
+
+// SetTotalValueLockedUSDC implements PoolI.
+func (p *PoolWrapper) SetTotalValueLockedUSDC(totalValueLockedUSDC math.Int) {
+	p.SQSModel.TotalValueLockedUSDC = totalValueLockedUSDC
+}
+
+// SetTotalValueLockedError implements PoolI.
+func (p *PoolWrapper) SetTotalValueLockedError(totalValueLockedError string) {
+	p.SQSModel.TotalValueLockedError = totalValueLockedError
 }
 
 // SetTickModel implements PoolI.

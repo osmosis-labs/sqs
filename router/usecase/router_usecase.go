@@ -136,6 +136,8 @@ func (r *routerUseCaseImpl) GetOptimalQuoteFromConfig(ctx context.Context, token
 
 	router := r.initializeRouter(config)
 
+	// r.s
+
 	var (
 		topSingleRouteQuote domain.Quote
 		rankedRoutes        []route.RouteImpl

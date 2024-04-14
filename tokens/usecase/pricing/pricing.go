@@ -9,8 +9,8 @@ import (
 )
 
 // NewPricingStrategy is a factory method to create the pricing strategy based on the desired source.
-func NewPricingStrategy(config domain.PricingConfig, tokensUsecase mvc.TokensUsecase, routerUseCase mvc.RouterUsecase) (domain.PricingStrategy, error) {
-	if config.DefaultSource == domain.ChainPricingSource {
+func NewPricingStrategy(config domain.PricingConfig, tokensUsecase mvc.TokensUsecase, routerUseCase mvc.RouterUsecase) (domain.PricingSource, error) {
+	if config.DefaultSource == domain.ChainPricingSourceType {
 		return chainpricing.New(routerUseCase, tokensUsecase, config), nil
 	}
 

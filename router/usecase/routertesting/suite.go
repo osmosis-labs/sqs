@@ -21,6 +21,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
+	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v24/app"
@@ -172,7 +173,7 @@ var (
 	}
 
 	DefaultPricingConfig = domain.PricingConfig{
-		DefaultSource:          domain.ChainPricingSource,
+		DefaultSource:          domain.ChainPricingSourceType,
 		CacheExpiryMs:          2000,
 		DefaultQuoteHumanDenom: "usdc",
 		MaxPoolsPerRoute:       4,
@@ -323,6 +324,12 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 	s.Require().NoError(err)
 
 	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata)
+
+	// Set up on-chain pricing strategy
+	pricingStrategy, err := pricing.NewPricingStrategy(mainnetState.PricingConfig, tokensUsecase, routerUsecase)
+	s.Require().NoError(err)
+
+	tokensUsecase.RegisterPricingStrategy(domain.ChainPricingSourceType, pricingStrategy)
 
 	encCfg := app.MakeEncodingConfig()
 

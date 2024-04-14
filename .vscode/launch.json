@@ -23,7 +23,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestHandleRoutes",
+                "TestRouterTestSuite/TestSortPools",
                 "-test.v"
             ],
         },
@@ -37,7 +37,21 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestTokensUseCaseTestSuite/TestGetPrices_Chain_Specific",
+                "TestTokensUseCaseTestSuite/TestGetPrices_Chain_FindUnsupportedTokens",
+                "-test.v"
+            ],
+        },
+        {
+            "name": "pools/usecase/workers",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/pools/usecase/workers",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestPoolLiquidityUpdateWorkerSuite/TestComputeCoinTVL",
                 "-test.v"
             ],
         },

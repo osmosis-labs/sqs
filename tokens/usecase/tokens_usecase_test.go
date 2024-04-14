@@ -15,7 +15,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
-	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 )
 
 type TokensUseCaseTestSuite struct {
@@ -55,7 +54,7 @@ var (
 	}
 
 	defaultPricingConfig = domain.PricingConfig{
-		DefaultSource:          domain.ChainPricingSource,
+		DefaultSource:          domain.ChainPricingSourceType,
 		CacheExpiryMs:          pricingCacheExpiry,
 		DefaultQuoteHumanDenom: "usdc",
 		MaxPoolsPerRoute:       4,
@@ -139,12 +138,8 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
-	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
-	s.Require().NoError(err)
-
 	// System under test.
-	prices, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC, USDT}, pricingStrategy)
+	prices, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC, USDT})
 	s.Require().NoError(err)
 
 	errTolerance := osmomath.ErrTolerance{
@@ -196,10 +191,12 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 //
 // The mainnet state must be manually updated when needed with 'make sqs-update-mainnet-state'
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
-	env := os.Getenv("CI_SQS_PRICING_TEST")
-	if env != "true" {
-		s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
-	}
+	// env := os.Getenv("CI_SQS_PRICING_TEST")
+	// if env != "true" {
+	// 	s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
+	// }
+
+	s.T().Parallel()
 
 	viper.SetConfigFile("../../config.json")
 	err := viper.ReadInConfig()
@@ -210,15 +207,17 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	err = viper.Unmarshal(&config)
 	s.Require().NoError(err)
 
+	config.Pricing.MinOSMOLiquidity = 0
+	// We also set the same value on the router so that the pools are not excluded during sorting.
+	config.Router.MinOSMOLiquidity = config.Pricing.MinOSMOLiquidity
+
 	// Set up mainnet mock state.
+
 	router, mainnetState := s.SetupMainnetRouter(*config.Router, *config.Pricing)
+
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
 	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
-	s.Require().NoError(err)
-
-	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(*config.Pricing, mainnetUsecase.Tokens, mainnetUsecase.Router)
 	s.Require().NoError(err)
 
 	errorCounter := 0
@@ -226,7 +225,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMeta := range tokenMetadata {
 		// System under test.
-		price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{chainDenom}, []string{USDC}, pricingStrategy)
+		price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{chainDenom}, []string{USDC})
 		if err != nil {
 			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
 			errorCounter++
@@ -255,12 +254,8 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
 	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
 
-	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
-	s.Require().NoError(err)
-
 	// System under test.
-	price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{CRE}, []string{USDC}, pricingStrategy)
+	price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{CRE}, []string{USDC})
 	s.Require().NoError(err)
 
 	fmt.Println(price)

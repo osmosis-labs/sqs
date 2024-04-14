@@ -18,7 +18,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
-	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 
 	_ "github.com/osmosis-labs/sqs/docs"
 )
@@ -28,10 +27,6 @@ type TokensHandler struct {
 	TUsecase mvc.TokensUsecase
 	RUsecase mvc.RouterUsecase
 
-	// We persist pricing strategies across endpoint calls as they
-	// may cache responses internally.
-	pricingStrategyMap map[domain.PricingSource]domain.PricingStrategy
-
 	logger log.Logger
 }
 
@@ -40,7 +35,7 @@ const (
 
 	// TODO: move to config
 	defaultQuoteHumanDenom = "usdc"
-	defaultPricingSource   = domain.ChainPricingSource
+	defaultPricingSource   = domain.ChainPricingSourceType
 )
 
 var (
@@ -53,18 +48,9 @@ func formatTokensResource(resource string) string {
 
 // NewTokensHandler will initialize the pools/ resources endpoint
 func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) (err error) {
-	pricingStrategy, err := pricing.NewPricingStrategy(pricingConfig, ts, ru)
-	if err != nil {
-		return err
-	}
-
 	handler := &TokensHandler{
 		TUsecase: ts,
 		RUsecase: ru,
-
-		pricingStrategyMap: map[domain.PricingSource]domain.PricingStrategy{
-			domain.ChainPricingSource: pricingStrategy,
-		},
 
 		logger: logger,
 	}
@@ -174,12 +160,7 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		}
 	}
 
-	chainPricingStrategy, ok := a.pricingStrategyMap[domain.ChainPricingSource]
-	if !ok {
-		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
-	}
-
-	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, chainPricingStrategy)
+	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}

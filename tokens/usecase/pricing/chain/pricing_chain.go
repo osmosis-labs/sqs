@@ -25,9 +25,13 @@ type chainPricing struct {
 	maxPoolsPerRoute int
 	maxRoutes        int
 	minOSMOLiquidity int
+
+	// Quote denom, the prices with which are precomputed
+	// at the ingest level. For this denom, we never expire cache TTL.
+	preComputedQuoteDenom string
 }
 
-var _ domain.PricingStrategy = &chainPricing{}
+var _ domain.PricingSource = &chainPricing{}
 
 const (
 	// We use multiplier so that stablecoin quotes avoid selecting low liquidity routes.
@@ -73,7 +77,14 @@ func init() {
 	prometheus.MustRegister(cacheMissesCounter)
 }
 
-func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingStrategy {
+func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
+
+	// Get default quote denom.
+	chainDefaultQuoteDenom, err := tokenUseCase.GetChainDenom(context.TODO(), config.DefaultQuoteHumanDenom)
+	if err != nil {
+		panic(err)
+	}
+
 	return &chainPricing{
 		RUsecase: routerUseCase,
 		TUsecase: tokenUseCase,
@@ -83,6 +94,8 @@ func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config
 		maxPoolsPerRoute: config.MaxPoolsPerRoute,
 		maxRoutes:        config.MaxRoutes,
 		minOSMOLiquidity: config.MinOSMOLiquidity,
+
+		preComputedQuoteDenom: chainDefaultQuoteDenom,
 	}
 }
 
@@ -109,6 +122,23 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	} else if !found {
 		// Increase cache misses
 		cacheMissesCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+	}
+
+	// If cache miss occurs, we compute the price.
+	return c.ComputePrice(ctx, baseDenom, quoteDenom)
+}
+
+// ComputePrice implements domain.PricingStrategy.
+func (c *chainPricing) ComputePrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	cacheKey := formatCacheKey(baseDenom, quoteDenom)
+
+	// Never expire cache for precomputed quote denom.
+	cacheExpiry := c.getCacheExpiry(quoteDenom)
+
+	if baseDenom == quoteDenom {
+		price := osmomath.OneBigDec()
+		c.cache.Set(cacheKey, price, cacheExpiry)
+		return price, nil
 	}
 
 	// Get on-chain scaling factor for base denom.
@@ -198,10 +228,23 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 
 	// Only store values that are valid.
 	if !currentPrice.IsNil() {
-		c.cache.Set(cacheKey, currentPrice, c.cacheExpiryNs)
+		c.cache.Set(cacheKey, currentPrice, cacheExpiry)
 	}
 
 	return currentPrice, nil
+}
+
+// getCacheExpiry returns the cache expiry time for the given quote denom.
+func (c *chainPricing) getCacheExpiry(quoteDenom string) time.Duration {
+	cacheExpiry := c.cacheExpiryNs
+
+	// Never expire the pre-computed quote denoms.
+	if c.preComputedQuoteDenom == quoteDenom {
+		cacheExpiry = cache.NoExpirationTTL
+	}
+
+	// Otherwise returned the configured cache expiry value
+	return cacheExpiry
 }
 
 func formatCacheKey(a, b string) string {

@@ -6,24 +6,50 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
-// PricingSource defines the enumeration
+// PricingSourceType defines the enumeration
 // for possible pricing sources.
-type PricingSource int
+type PricingSourceType int
 
 const (
-	// ChainPricingSource defines the pricing source
+	// ChainPricingSourceType defines the pricing source
 	// by routing through on-chain pools.
-	ChainPricingSource PricingSource = iota
-	// CoinGeckoPricingSource defines the pricing source
+	ChainPricingSourceType PricingSourceType = iota
+	// CoinGeckoPricingSourceType defines the pricing source
 	// that calls CoinGecko API.
-	CoinGeckoPricingSource
+	CoinGeckoPricingSourceType
 )
 
-// PricingStrategy defines an interface that must be fulfilled by the specific
-// implementation of the pricing stratgy.
-type PricingStrategy interface {
+// PricingSource defines an interface that must be fulfilled by the specific
+// implementation of the pricing source.
+type PricingSource interface {
 	// GetPrice returns the price given a bse and a quote denom or otherwise error, if any.
 	GetPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
+
+	ComputePrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
+}
+
+type PriceRetrievalStrategy struct {
+	RecomputePrice bool
+}
+
+type PricingOptions struct {
+	RecomputePrices   bool
+	PricingSourceType PricingSourceType
+}
+
+// Option configures the options.
+type PricingOption func(*PricingOptions)
+
+func WithRecomputePrices() PricingOption {
+	return func(o *PricingOptions) {
+		o.RecomputePrices = true
+	}
+}
+
+func WithPricingSource(pricingSource PricingSourceType) PricingOption {
+	return func(o *PricingOptions) {
+		o.PricingSourceType = pricingSource
+	}
 }
 
 // PricingConfig defines the configuration for the pricing.
@@ -32,7 +58,7 @@ type PricingConfig struct {
 	CacheExpiryMs int `mapstructure:"cache-expiry-ms"`
 
 	// The default quote chain denom.
-	DefaultSource PricingSource `mapstructure:"default-source"`
+	DefaultSource PricingSourceType `mapstructure:"default-source"`
 
 	// The default quote chain denom.
 	DefaultQuoteHumanDenom string `mapstructure:"default-quote-human-denom"`

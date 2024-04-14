@@ -577,7 +577,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(1000_000_000),
 
-			expectedRoutesCount: 3,
+			expectedRoutesCount: 2,
 		},
 		"uosmo for uion": {
 			tokenInDenom:  UOSMO,
