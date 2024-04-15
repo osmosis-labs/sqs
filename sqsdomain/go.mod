@@ -7,7 +7,7 @@ toolchain go1.21.6
 require (
 	github.com/cosmos/cosmos-sdk v0.47.8
 	github.com/json-iterator/go v1.1.12
-	github.com/osmosis-labs/osmosis/osmomath v0.0.11-0.20240409164616-caf6b6543d4b
+	github.com/osmosis-labs/osmosis/osmomath v0.0.11-0.20240412195653-b203d0fae6ce
 	github.com/osmosis-labs/osmosis/v24 v24.0.1
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.33.0
@@ -116,7 +116,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
-	github.com/osmosis-labs/osmosis/osmoutils v0.0.11-0.20240409164616-caf6b6543d4b // indirect
+	github.com/osmosis-labs/osmosis/osmoutils v0.0.11-0.20240412194904-615994cda7a7 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -187,9 +187,9 @@ replace (
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 	// we explicitly follow main branch tags
-	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.10-0.20240312200410-a7cc6376cdec
-	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.10-0.20240321031442-58f616abb552
-	github.com/osmosis-labs/osmosis/v24 => github.com/osmosis-labs/osmosis/v24 v24.0.2-0.20240411235727-dd0e3754d148
+	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.11-0.20240412195653-b203d0fae6ce
+	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.11-0.20240412195653-b203d0fae6ce
+	github.com/osmosis-labs/osmosis/v24 => github.com/osmosis-labs/osmosis/v24 v24.0.2-0.20240412195653-b203d0fae6ce
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
