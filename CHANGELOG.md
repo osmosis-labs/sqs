@@ -35,7 +35,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v0.16.0
 
 - Pricing options; pricing source wiring at the app level
 - Router options; remove GetOptimalQuoteFromConfig API.
