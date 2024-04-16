@@ -30,7 +30,8 @@ var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 type routerUseCaseImpl struct {
 	routerRepository    routerrepo.RouterRepository
 	poolsUsecase        mvc.PoolsUsecase
-	config              domain.RouterConfig
+	// This is the default config used when no routing options are provided.
+	defaultConfig       domain.RouterConfig
 	cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig
 	logger              log.Logger
 
@@ -88,7 +89,7 @@ func NewRouterUsecase(routerRepository routerrepo.RouterRepository, poolsUsecase
 	return &routerUseCaseImpl{
 		routerRepository:    routerRepository,
 		poolsUsecase:        poolsUsecase,
-		config:              config,
+		defaultConfig:       config,
 		cosmWasmPoolsConfig: cosmWasmPoolsConfig,
 		logger:              logger,
 
@@ -114,7 +115,12 @@ func NewRouterUsecase(routerRepository routerrepo.RouterRepository, poolsUsecase
 // - fails to retrieve candidate routes
 func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
 	options := domain.RouterOptions{
-		Config: r.config,
+		MaxPoolsPerRoute:                 r.defaultConfig.MaxPoolsPerRoute,
+		MaxRoutes:                        r.defaultConfig.MaxRoutes,
+		MaxSplitIterations:               r.defaultConfig.MaxSplitIterations,
+		MinOSMOLiquidity:                 r.defaultConfig.MinOSMOLiquidity,
+		CandidateRouteCacheExpirySeconds: r.defaultConfig.CandidateRouteCacheExpirySeconds,
+		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
 	}
 
 	// Apply options
@@ -139,20 +145,20 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	// If cached ranked routes are not present, compute and rank routes by direct quote
 	if len(candidateRankedRoutes.Routes) == 0 {
 		// Filter pools by minimum liquidity
-		poolsAboveMinLiquidity := FilterPoolsByMinLiquidity(r.getSortedPoolsShallowCopy(), options.Config.MinOSMOLiquidity)
+		poolsAboveMinLiquidity := FilterPoolsByMinLiquidity(r.getSortedPoolsShallowCopy(), options.MinOSMOLiquidity)
 
 		r.logger.Info("filtered pools", zap.Int("num_pools", len(poolsAboveMinLiquidity)))
 
-		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options.Config.MaxRoutes, options.Config.MaxPoolsPerRoute, options.Config.MaxSplitRoutes, options.Config.CandidateRouteCacheExpirySeconds, options.Config.RankedRouteCacheExpirySeconds)
+		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options)
 	} else {
 		// Otherwise, simply compute quotes over cached ranked routes
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.Config.MaxSplitRoutes)
+		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	if len(rankedRoutes) == 1 || options.Config.MaxSplitIterations == domain.DisableSplitRoutes {
+	if len(rankedRoutes) == 1 || options.MaxSplitIterations == domain.DisableSplitRoutes {
 		return topSingleRouteQuote, nil
 	}
 
@@ -259,11 +265,11 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 }
 
 // computeAndRankRoutesByDirectQuote computes candidate routes and ranks them by token out after estimating direct quotes.
-func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute, maxSplitRoutes, candidateRouteCacheExpirySeconds int, rankedRouteCacheExpirySeconds int) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
 	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
 
 	// If top routes are not present in cache, retrieve unranked candidate routes
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, pools, tokenIn.Denom, tokenOutDenom, maxRoutes, maxPoolsPerRoute)
+	candidateRoutes, err := r.handleCandidateRoutes(ctx, pools, tokenIn.Denom, tokenOutDenom, routingOptions.MaxRoutes, routingOptions.MaxPoolsPerRoute)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))
 		return nil, nil, err
@@ -278,11 +284,11 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	if len(candidateRoutes.Routes) > 0 {
 		cacheWrite.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenIn.Denom, tokenOutDenom, noOrderOfMagnitude).Inc()
 
-		r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(candidateRouteCacheExpirySeconds)*time.Second)
+		r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds)*time.Second)
 	}
 
 	// Rank candidate routes by estimating direct quotes
-	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxSplitRoutes)
+	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes)
 	if err != nil {
 		r.logger.Error("error getting ranked routes", zap.Error(err))
 		return nil, nil, err
@@ -301,7 +307,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	if len(rankedRoutes) > 0 {
 		cacheWrite.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
 
-		r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(rankedRouteCacheExpirySeconds)*time.Second)
+		r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
 	}
 
 	return topSingleRouteQuote, rankedRoutes, nil
@@ -341,9 +347,9 @@ func estimateDirectQuote(ctx context.Context, routes []route.RouteImpl, tokenIn 
 // GetBestSingleRouteQuote returns the best single route quote to be done directly without a split.
 func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error) {
 	// Filter pools by minimum liquidity
-	poolsAboveMinLiquidity := FilterPoolsByMinLiquidity(r.getSortedPoolsShallowCopy(), r.config.MinOSMOLiquidity)
+	poolsAboveMinLiquidity := FilterPoolsByMinLiquidity(r.getSortedPoolsShallowCopy(), r.defaultConfig.MinOSMOLiquidity)
 
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, poolsAboveMinLiquidity, tokenIn.Denom, tokenOutDenom, r.config.MaxRoutes, r.config.MaxPoolsPerRoute)
+	candidateRoutes, err := r.handleCandidateRoutes(ctx, poolsAboveMinLiquidity, tokenIn.Denom, tokenOutDenom, r.defaultConfig.MaxRoutes, r.defaultConfig.MaxPoolsPerRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +418,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 
 // GetCandidateRoutes implements domain.RouterUsecase.
 func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, r.getSortedPoolsShallowCopy(), tokenInDenom, tokenOutDenom, r.config.MaxRoutes, r.config.MaxPoolsPerRoute)
+	candidateRoutes, err := r.handleCandidateRoutes(ctx, r.getSortedPoolsShallowCopy(), tokenInDenom, tokenOutDenom, r.defaultConfig.MaxRoutes, r.defaultConfig.MaxPoolsPerRoute)
 	if err != nil {
 		return sqsdomain.CandidateRoutes{}, err
 	}
@@ -454,7 +460,7 @@ func (r *routerUseCaseImpl) GetTakerFee(poolID uint64) ([]sqsdomain.TakerFeeForP
 
 // GetCachedCandidateRoutes implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, bool, error) {
-	if !r.config.RouteCacheEnabled {
+	if !r.defaultConfig.RouteCacheEnabled {
 		return sqsdomain.CandidateRoutes{}, false, nil
 	}
 
@@ -487,7 +493,7 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenI
 
 // GetCachedRankedRoutes implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string, tokenInOrderOfMagnitude int) (sqsdomain.CandidateRoutes, error) {
-	if !r.config.RouteCacheEnabled {
+	if !r.defaultConfig.RouteCacheEnabled {
 		return sqsdomain.CandidateRoutes{}, nil
 	}
 
@@ -527,7 +533,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, pools []s
 
 	// Check cache for routes if enabled
 	var isFoundCached bool
-	if r.config.RouteCacheEnabled {
+	if r.defaultConfig.RouteCacheEnabled {
 		candidateRoutes, isFoundCached, err = r.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
 		if err != nil {
 			return sqsdomain.CandidateRoutes{}, err
@@ -548,8 +554,8 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, pools []s
 		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
 
 		// Persist routes
-		if r.config.RouteCacheEnabled {
-			cacheDurationSeconds := r.config.CandidateRouteCacheExpirySeconds
+		if r.defaultConfig.RouteCacheEnabled {
+			cacheDurationSeconds := r.defaultConfig.CandidateRouteCacheExpirySeconds
 			if len(candidateRoutes.Routes) == 0 {
 				// If there are no routes, we want to cache the result for a shorter duration
 				// Add 1 to ensure that it is never 0 as zero signifies never clearing.
@@ -696,7 +702,7 @@ func (r *routerUseCaseImpl) GetSortedPools() []sqsdomain.PoolI {
 
 // GetConfig implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
-	return r.config
+	return r.defaultConfig
 }
 
 // getSortedPoolsShallowCopy returns a shallow copy of the sorted pools.
