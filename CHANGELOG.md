@@ -41,6 +41,8 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Router options; remove GetOptimalQuoteFromConfig API.
 - Fetch only required taker fees instead of all.
 - Pre-allocate buffers in GetCandidateRoutes
+- Unsafe cast in GetCandidateRoutes for performance
+- Use slice instead of map in GetCandidateRoutes for performance
 
 ## v0.15.0
 

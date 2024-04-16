@@ -1,27 +1,23 @@
 package usecase
 
 import (
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 // candidatePoolWrapper is an intermediary internal data
 // structure for constructing all candidate routes related data.
 // It contains pool denoms for validation after the initial route selection.
-// Additionally, it contains the pool type for contracting eventually constructing
-// a unque list of concentrated pools for knowing which pools require
-// a tick model.
 type candidatePoolWrapper struct {
 	sqsdomain.CandidatePool
 	PoolDenoms []string
-	PoolType   poolmanagertypes.PoolType
+	Idx        int
 }
 
 // GetCandidateRoutes returns candidate routes from tokenInDenom to tokenOutDenom using BFS.
 func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
 	routes := make([][]candidatePoolWrapper, 0, r.config.MaxRoutes)
 	// Preallocate third to avoid dynamic reallocations.
-	visited := make(map[uint64]bool, len(r.sortedPools)/3)
+	visited := make([]bool, len(r.sortedPools))
 
 	// Preallocate tenth of the pools to avoid dynamic reallocations.
 	queue := make([][]candidatePoolWrapper, 0, len(r.sortedPools)/10)
@@ -45,7 +41,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 			pool := (r.sortedPools[i]).(*sqsdomain.PoolWrapper)
 			poolID := pool.ChainModel.GetId()
 
-			if visited[poolID] {
+			if visited[i] {
 				continue
 			}
 
@@ -96,7 +92,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 							TokenOutDenom: denom,
 						},
 						PoolDenoms: poolDenoms,
-						PoolType:   pool.GetType(),
+						Idx:        i,
 					})
 
 					if len(newPath) <= r.config.MaxPoolsPerRoute {
@@ -112,7 +108,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 		}
 
 		for _, pool := range currentRoute {
-			visited[pool.ID] = true
+			visited[pool.Idx] = true
 		}
 	}
 
