@@ -19,12 +19,13 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 	// Preallocate third to avoid dynamic reallocations.
 	visited := make([]bool, len(r.sortedPools))
 
-	// Preallocate tenth of the pools to avoid dynamic reallocations.
-	queue := make([][]candidatePoolWrapper, 0, len(r.sortedPools)/10)
-	queue = append(queue, []candidatePoolWrapper{})
+	// Preallocate third of the pools to avoid dynamic reallocations.
+	queue := make([][]candidatePoolWrapper, 0, len(r.sortedPools)/3)
+	queue = append(queue, make([]candidatePoolWrapper, 0, r.config.MaxPoolsPerRoute))
 
 	for len(queue) > 0 && len(routes) < r.config.MaxRoutes {
 		currentRoute := queue[0]
+		queue[0] = nil // Clear the slice to avoid holding onto references
 		queue = queue[1:]
 
 		lastPoolID := uint64(0)

@@ -43,6 +43,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Pre-allocate buffers in GetCandidateRoutes
 - Unsafe cast in GetCandidateRoutes for performance
 - Use slice instead of map in GetCandidateRoutes for performance
+- More performance tricks in GetCandidateRoutes
 
 ## v0.15.0
 
