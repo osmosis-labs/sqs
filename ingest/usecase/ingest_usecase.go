@@ -12,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
@@ -77,12 +78,10 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		return err
 	}
 
+	// Sort and store pools.
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
+	p.sortAndStorePools(allPools)
 
-	// Sort the pools and store them in the router.
-	if err := p.routerUsecase.SortPools(ctx, allPools); err != nil {
-		return err
-	}
 	// Store the latest ingested height.
 	p.chainInfoUseCase.StoreLatestHeight(height)
 
@@ -92,6 +91,18 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	domain.SQSIngestHandlerProcessBlockDurationHistogram.WithLabelValues(strconv.FormatUint(height, 10)).Observe(float64(time.Since(startProcessingTime).Nanoseconds()))
 
 	return nil
+}
+
+// sortAndStorePools sorts the pools and stores them in the router.
+// TODO: instead of resorting all pools every block, we should put the updated pools in the correct position
+func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
+	cosmWasmPoolConfig := p.poolsUseCase.GetCosmWasmPoolConfig()
+	routerConfig := p.routerUsecase.GetConfig()
+
+	sortedPools := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
+
+	// Sort the pools and store them in the router.
+	p.routerUsecase.SetSortedPools(sortedPools)
 }
 
 // parsePoolData parses the pool data and returns the pool objects.

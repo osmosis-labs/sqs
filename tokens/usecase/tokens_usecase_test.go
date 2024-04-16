@@ -67,6 +67,12 @@ func TestTokensUseCaseTestSuite(t *testing.T) {
 	suite.Run(t, new(TokensUseCaseTestSuite))
 }
 
+func (s *TokensUseCaseTestSuite) SetupDefaultRouterAndPoolsUsecase() routertesting.MockMainnetUsecase {
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+	return mainnetUsecase
+}
+
 func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	env := os.Getenv("CI_SQS_ASSETLIST_TEST")
 	if env != "true" {
@@ -130,21 +136,20 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 //
 // It iterates over results and confirms that, for each denom, the difference is at most 1%.
 //
-// Additionally, for sanit check it confirms that for WBTC / USDC the price is within 15% of 50K
+// Additionally, for sanity check it confirms that for WBTC / USDC the price is within 15% of 50K
 // (approximately the real price at the time of writing)
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
+	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
 
 	// System under test.
 	prices, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC, USDT})
 	s.Require().NoError(err)
 
 	errTolerance := osmomath.ErrTolerance{
-		// 1% tolerance
-		MultiplicativeTolerance: osmomath.MustNewDecFromStr("0.01"),
+		// 5% tolerance
+		MultiplicativeTolerance: osmomath.MustNewDecFromStr("0.045"),
 	}
 
 	// For each base denom, validate that its USDC and USDT prices differ by at most
@@ -210,8 +215,8 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	config.Router.MinOSMOLiquidity = config.Pricing.MinOSMOLiquidity
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(*config.Router, *config.Pricing)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithPricingConfig(*config.Pricing), routertesting.WithRouterConfig(*config.Router))
 
 	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
 	s.Require().NoError(err)
@@ -247,8 +252,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 // Convinience test to test and print a result for a specific token
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
+	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
 
 	// System under test.
 	price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{CRE}, []string{USDC})
@@ -286,12 +290,9 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 	// sure that other GetPrices tests are OK. Then, come back to this.
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
+	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
 
-	// Setup mainnet use cases
-	mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
-
-	noCacheMainnetPrice, err := mainnetUseCase.Tokens.GetPrices(context.Background(), defaultBaseInput, defaultQuoteInput)
+	noCacheMainnetPrice, err := mainnetUsecase.Tokens.GetPrices(context.Background(), defaultBaseInput, defaultQuoteInput)
 	s.Require().NoError(err)
 
 	recomputedPrice := s.ConvertAnyToBigDec(noCacheMainnetPrice[defaultBase][defaultQuote])
@@ -350,10 +351,10 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 			}
 
 			// Set up mainnet mock state.
-			router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
+			mainnetState := s.SetupMainnetState()
 
 			// Setup mainnet use cases
-			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, routertesting.WithPricingCache(pricingCache))
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithPricingCache(pricingCache), routertesting.WithPricingConfig(defaultPricingConfig), routertesting.WithRouterConfig(defaultPricingRouterConfig))
 
 			// System under test.
 

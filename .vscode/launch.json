@@ -23,7 +23,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestSortPools",
+                "TestRouterTestSuite/TestGetOptimalQuote_Mainnet",
                 "-test.v"
             ],
         },
@@ -37,7 +37,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestTokensUseCaseTestSuite/TestGetPrices_Chain_FindUnsupportedTokens",
+                "TestTokensUseCaseTestSuite/TestGetPrices_Chain",
                 "-test.v"
             ],
         },

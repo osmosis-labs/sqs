@@ -41,6 +41,10 @@ type RouterUsecase interface {
 	// GetSortedPools returns the sorted pools based on the router configuration.
 	GetSortedPools() []sqsdomain.PoolI
 
-	// SortPools sorts the given pools based on the router configuration and perists them until the next call.
-	SortPools(ctx context.Context, pools []sqsdomain.PoolI) error
+	GetConfig() domain.RouterConfig
+
+	// SetSortedPools stores the pools in the router.
+	// CONTRACT: the pools are already sorted according to the desired parameters.
+	// See sortPools() function.
+	SetSortedPools(pools []sqsdomain.PoolI)
 }

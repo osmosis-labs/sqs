@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
@@ -14,16 +15,16 @@ type candidatePoolWrapper struct {
 }
 
 // GetCandidateRoutes returns candidate routes from tokenInDenom to tokenOutDenom using BFS.
-func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
-	routes := make([][]candidatePoolWrapper, 0, r.config.MaxRoutes)
+func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenInDenom, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+	routes := make([][]candidatePoolWrapper, 0, maxRoutes)
 	// Preallocate third to avoid dynamic reallocations.
-	visited := make([]bool, len(r.sortedPools))
+	visited := make([]bool, len(pools))
 
 	// Preallocate third of the pools to avoid dynamic reallocations.
-	queue := make([][]candidatePoolWrapper, 0, len(r.sortedPools)/3)
-	queue = append(queue, make([]candidatePoolWrapper, 0, r.config.MaxPoolsPerRoute))
+	queue := make([][]candidatePoolWrapper, 0, len(pools)/3)
+	queue = append(queue, make([]candidatePoolWrapper, 0, maxPoolsPerRoute))
 
-	for len(queue) > 0 && len(routes) < r.config.MaxRoutes {
+	for len(queue) > 0 && len(routes) < maxRoutes {
 		currentRoute := queue[0]
 		queue[0] = nil // Clear the slice to avoid holding onto references
 		queue = queue[1:]
@@ -36,10 +37,10 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 			currenTokenInDenom = lastPool.TokenOutDenom
 		}
 
-		for i := 0; i < len(r.sortedPools) && len(routes) < r.config.MaxRoutes; i++ {
+		for i := 0; i < len(pools) && len(routes) < maxRoutes; i++ {
 			// Unsafe cast for performance reasons.
 			// nolint: forcetypeassert
-			pool := (r.sortedPools[i]).(*sqsdomain.PoolWrapper)
+			pool := (pools[i]).(*sqsdomain.PoolWrapper)
 			poolID := pool.ChainModel.GetId()
 
 			if visited[i] {
@@ -96,7 +97,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 						Idx:        i,
 					})
 
-					if len(newPath) <= r.config.MaxPoolsPerRoute {
+					if len(newPath) <= maxPoolsPerRoute {
 						if hasTokenOut {
 							routes = append(routes, newPath)
 							break
@@ -113,7 +114,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 		}
 	}
 
-	return r.validateAndFilterRoutes(routes, tokenInDenom)
+	return validateAndFilterRoutes(routes, tokenInDenom, logger)
 }
 
 // Pool represents a pool in the decentralized exchange.

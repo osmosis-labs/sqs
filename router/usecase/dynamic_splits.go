@@ -19,7 +19,7 @@ type split struct {
 
 const totalIncrements = uint8(10)
 
-func (r *Router) GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, error) {
+func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, error) {
 	// Routes must be non-empty
 	if len(routes) == 0 {
 		return nil, errors.New("no routes")
@@ -60,7 +60,7 @@ func (r *Router) GetSplitQuote(ctx context.Context, routes []route.RouteImpl, to
 		amountOut:       osmomath.ZeroInt(),
 	}
 
-	bestSplit, err := r.findSplit(ctx, memo, routes, 0, tokenIn, totalIncrements, initialEmptySplit, initialEmptySplit)
+	bestSplit, err := findSplit(ctx, memo, routes, 0, tokenIn, totalIncrements, initialEmptySplit, initialEmptySplit)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (r *Router) GetSplitQuote(ctx context.Context, routes []route.RouteImpl, to
 
 // Recurrence relation:
 // // findSplit(currentIncrement, currentRoute) = max(estimate(currentRoute, tokeInAmt * currentIncrement / totalIncrements) + OptimalSplit(remainingIncrement - currentIncrement, remaining_routes[1:]))
-func (r *Router) findSplit(ctx context.Context, memo []map[uint8]osmomath.Int, routes []route.RouteImpl, currentRouteIndex uint8, tokenIn sdk.Coin, remainingIncrements uint8, bestSplitSoFar, currentSplit split) (split, error) {
+func findSplit(ctx context.Context, memo []map[uint8]osmomath.Int, routes []route.RouteImpl, currentRouteIndex uint8, tokenIn sdk.Coin, remainingIncrements uint8, bestSplitSoFar, currentSplit split) (split, error) {
 	// Current route index must be within range
 	if currentRouteIndex >= uint8(len(routes)) {
 		return split{}, fmt.Errorf("current route index (%d) is out of range (%d)", currentRouteIndex, len(routes))
@@ -181,7 +181,7 @@ func (r *Router) findSplit(ctx context.Context, memo []map[uint8]osmomath.Int, r
 		currentSplitCopy.routeIncrements[currentRouteIndex] = int16(currentIncrement)
 
 		// Recurse
-		bestSplitSoFar, err = r.findSplit(ctx, memo, routes, currentRouteIndex+1, tokenIn, remainingIncrements-currentIncrement, bestSplitSoFar, currentSplitCopy)
+		bestSplitSoFar, err = findSplit(ctx, memo, routes, currentRouteIndex+1, tokenIn, remainingIncrements-currentIncrement, bestSplitSoFar, currentSplitCopy)
 		if err != nil {
 			continue
 		}
