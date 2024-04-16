@@ -158,6 +158,12 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 				return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 			}
 		}
+	} else {
+		for _, baseDenom := range baseDenoms {
+			if !a.TUsecase.IsValidChainDenom(baseDenom) {
+				return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("invalid chain denom: %s", baseDenom)})
+			}
+		}
 	}
 
 	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom})

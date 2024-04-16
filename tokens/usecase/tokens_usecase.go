@@ -21,6 +21,11 @@ type tokensUseCase struct {
 	denomMapMu           sync.RWMutex
 	humanToChainDenomMap map[string]string
 
+	// Currently, we only expect reads to this shared resource and no writes.
+	// If needed, change this to sync.Map in the future.
+	// Can be considered for merge with humanToChainDenomMap in the future.
+	chainDenoms map[string]struct{}
+
 	// No mutex since we only expect reads to this shared resource and no writes.
 	precisionScalingFactorMap map[int]osmomath.Dec
 
@@ -85,6 +90,7 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 	// Create human denom to chain denom map
 	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
 	uniquePrecisionMap := make(map[int]struct{}, 0)
+	chainDenoms := map[string]struct{}{}
 
 	for chainDenom, tokenMetadata := range tokenMetadataByChainDenom {
 		// lower case human denom
@@ -93,6 +99,8 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 		humanToChainDenomMap[lowerCaseHumanDenom] = chainDenom
 
 		uniquePrecisionMap[tokenMetadata.Precision] = struct{}{}
+
+		chainDenoms[chainDenom] = struct{}{}
 	}
 
 	// Precompute precision scaling factors
@@ -110,6 +118,8 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 
 		metadataMapMu: sync.RWMutex{},
 		denomMapMu:    sync.RWMutex{},
+
+		chainDenoms: chainDenoms,
 	}
 }
 
@@ -369,4 +379,10 @@ func (t *tokensUseCase) GetSpotPriceScalingFactorByDenom(ctx context.Context, ba
 // RegisterPricingStrategy implements mvc.TokensUsecase.
 func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource) {
 	t.pricingStrategyMap[source] = strategy
+}
+
+// IsValidChainDenom implements mvc.TokensUsecase.
+func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
+	_, ok := t.chainDenoms[chainDenom]
+	return ok
 }

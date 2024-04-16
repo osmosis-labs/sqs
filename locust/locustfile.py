@@ -20,6 +20,8 @@ UMEE          = "ibc/67795E528DF67C5606FC20F824EA39A6EF55BA133F4DC79C90A8C47A090
 
 ASTRO         = "ibc/C25A2303FE24B922DAFFDCE377AC5A42E5EF746806D32E2ED4B610DE85C203F7"
 
+INVALID_DENOM = "invalid_denom"
+
 
 top10ByVolumePairs = [
     UOSMO,
@@ -72,6 +74,10 @@ class SQS(HttpUser):
     @task
     def quoteASTROCWPool(self):
         self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={ASTRO}")
+
+    @task
+    def quoteInvalidToken(self):
+        self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={INVALID_DENOM}")
 
     @task
     def routesUOSMOUSDC(self):

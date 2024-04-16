@@ -37,4 +37,6 @@ type TokensUsecase interface {
 
 	// RegisterPricingStrategy registers a pricing strategy for a given pricing source.
 	RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource)
+
+	IsValidChainDenom(chainDenom string) bool
 }

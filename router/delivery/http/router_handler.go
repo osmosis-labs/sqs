@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -320,7 +321,16 @@ func (a *RouterHandler) getChainDenoms(c echo.Context, tokenOutDenom, tokenInDen
 				return "", "", err
 			}
 		}
+	} else {
+		if !a.TUsecase.IsValidChainDenom(tokenInDenom) {
+			return "", "", fmt.Errorf("tokenInDenom is not a valid chain denom (%s)", tokenInDenom)
+		}
+
+		if !a.TUsecase.IsValidChainDenom(tokenOutDenom) {
+			return "", "", fmt.Errorf("tokenOutDenom is not a valid chain denom (%s)", tokenOutDenom)
+		}
 	}
+
 	return tokenOutDenom, tokenInDenom, nil
 }
 
