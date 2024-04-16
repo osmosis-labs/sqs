@@ -40,14 +40,16 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 		}
 
 		for i := 0; i < len(r.sortedPools) && len(routes) < r.config.MaxRoutes; i++ {
-			pool := r.sortedPools[i]
-			poolID := pool.GetId()
+
+			// Unsafe cast for performance reasons.
+			pool := (r.sortedPools[i]).(*sqsdomain.PoolWrapper)
+			poolID := pool.ChainModel.GetId()
 
 			if visited[poolID] {
 				continue
 			}
 
-			poolDenoms := pool.GetPoolDenoms()
+			poolDenoms := pool.SQSModel.PoolDenoms
 			hasTokenIn := false
 			hasTokenOut := false
 			shouldSkipPool := false
