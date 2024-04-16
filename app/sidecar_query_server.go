@@ -92,11 +92,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	e.Use(middleware.InstrumentMiddleware)
 	e.Use(middleware.TraceWithParamsMiddleware("sqs"))
 
+	routerRepository := routerrepo.New()
+
 	// Initialize pools repository, usecase and HTTP handler
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint)
+	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository)
 
 	// Initialize router repository, usecase
-	routerRepository := routerrepo.New()
 	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Initialize system handler

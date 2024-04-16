@@ -35,10 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleases
+## Unreleased
 
 - Pricing options; pricing source wiring at the app level
 - Router options; remove GetOptimalQuoteFromConfig API.
+- Fetch only required taker fees instead of all.
 
 ## v0.15.0
 
