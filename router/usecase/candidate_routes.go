@@ -37,8 +37,8 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 		}
 
 		for i := 0; i < len(r.sortedPools) && len(routes) < r.config.MaxRoutes; i++ {
-
 			// Unsafe cast for performance reasons.
+			// nolint: forcetypeassert
 			pool := (r.sortedPools[i]).(*sqsdomain.PoolWrapper)
 			poolID := pool.ChainModel.GetId()
 

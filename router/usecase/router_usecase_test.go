@@ -155,14 +155,16 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	testCases := []struct {
 		name string
 
-		repositoryRoutes sqsdomain.CandidateRoutes
-		repositoryPools  []sqsdomain.PoolI
-		takerFeeMap      sqsdomain.TakerFeeMap
-		isCacheDisabled  bool
+		repositoryRoutes     sqsdomain.CandidateRoutes
+		repositoryPools      []sqsdomain.PoolI
+		takerFeeMap          sqsdomain.TakerFeeMap
+		isCacheDisabled      bool
+		shouldSkipAddToCache bool
 
 		expectedCandidateRoutes sqsdomain.CandidateRoutes
 
-		expectedError error
+		expectedError    error
+		expectedIsCached bool
 	}{
 		{
 			name: "routes in cache -> use them",
@@ -171,6 +173,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			repositoryPools:  emptyPools,
 
 			expectedCandidateRoutes: singleDefaultRoutes,
+			expectedIsCached:        true,
 		},
 		{
 			name: "cache is disabled in config -> recomputes routes despite having available in cache",
@@ -180,22 +183,35 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			isCacheDisabled:  true,
 
 			expectedCandidateRoutes: emptyRoutes,
+			expectedIsCached:        false,
 		},
 		{
-			name: "no routes in cache but relevant pools in store -> recomputes routes",
+			name: "no routes in cache but relevant pools in store -> recomputes routes & caches them",
+
+			repositoryRoutes:     emptyRoutes,
+			repositoryPools:      defaultSinglePools,
+			shouldSkipAddToCache: true,
+
+			expectedCandidateRoutes: singleDefaultRoutes,
+			expectedIsCached:        true,
+		},
+		{
+			name: "empty routes in cache but relevant pools in store -> does not recompute routes",
 
 			repositoryRoutes: emptyRoutes,
 			repositoryPools:  defaultSinglePools,
 
-			expectedCandidateRoutes: singleDefaultRoutes,
+			expectedCandidateRoutes: emptyRoutes,
+			expectedIsCached:        true,
 		},
 		{
-			name: "no routes in cache and no relevant pools in store -> returns no routes",
+			name: "no routes in cache and no relevant pools in store -> returns no routes & caches them",
 
 			repositoryRoutes: emptyRoutes,
 			repositoryPools:  emptyPools,
 
 			expectedCandidateRoutes: emptyRoutes,
+			expectedIsCached:        true,
 		},
 
 		// TODO:
@@ -213,7 +229,10 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			routerRepositoryMock := routerrepo.New()
 
 			candidateRouteCache := cache.New()
-			candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), tc.repositoryRoutes, time.Hour)
+
+			if !tc.shouldSkipAddToCache {
+				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), tc.repositoryRoutes, time.Hour)
+			}
 
 			poolsUseCaseMock := &mocks.PoolsUsecaseMock{
 				// These are the pools returned by the call to GetAllPools
@@ -250,11 +269,12 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				s.Require().Equal(tc.expectedCandidateRoutes.Routes[i], route)
 			}
 
-			cachedCandidateRoutes, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
+			cachedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
 			// For the case where the cache is disabled, the expected routes in cache
 			// will be the same as the original routes in the repository.
 			// Check that router repository was updated
 			s.Require().Equal(tc.expectedCandidateRoutes, cachedCandidateRoutes)
+			s.Require().Equal(tc.expectedIsCached, isCached)
 		})
 	}
 }

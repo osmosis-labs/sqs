@@ -450,15 +450,15 @@ func (r *routerUseCaseImpl) GetTakerFee(poolID uint64) ([]sqsdomain.TakerFeeForP
 }
 
 // GetCachedCandidateRoutes implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
+func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (sqsdomain.CandidateRoutes, bool, error) {
 	if !r.config.RouteCacheEnabled {
-		return sqsdomain.CandidateRoutes{}, nil
+		return sqsdomain.CandidateRoutes{}, false, nil
 	}
 
 	// Get request path for metrics
 	requestURLPath, err := domain.GetURLPathFromContext(ctx)
 	if err != nil {
-		return sqsdomain.CandidateRoutes{}, err
+		return sqsdomain.CandidateRoutes{}, false, err
 	}
 
 	cachedCandidateRoutes, found := r.candidateRouteCache.Get(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom))
@@ -469,17 +469,17 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenI
 		return sqsdomain.CandidateRoutes{
 			Routes:        []sqsdomain.CandidateRoute{},
 			UniquePoolIDs: map[uint64]struct{}{},
-		}, nil
+		}, false, nil
 	}
 
 	cacheHits.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom, noOrderOfMagnitude).Inc()
 
 	candidateRoutes, ok := cachedCandidateRoutes.(sqsdomain.CandidateRoutes)
 	if !ok {
-		return sqsdomain.CandidateRoutes{}, fmt.Errorf("error casting candidate routes from cache")
+		return sqsdomain.CandidateRoutes{}, false, fmt.Errorf("error casting candidate routes from cache")
 	}
 
-	return candidateRoutes, nil
+	return candidateRoutes, true, nil
 }
 
 // GetCachedRankedRoutes implements mvc.RouterUsecase.
@@ -533,8 +533,9 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 	r.logger.Debug("getting routes")
 
 	// Check cache for routes if enabled
+	var isFoundCached bool
 	if r.config.RouteCacheEnabled {
-		candidateRoutes, err = r.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
+		candidateRoutes, isFoundCached, err = r.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
 		if err != nil {
 			return sqsdomain.CandidateRoutes{}, err
 		}
@@ -543,7 +544,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 	r.logger.Debug("cached routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
 
 	// If no routes are cached, find them
-	if len(candidateRoutes.Routes) == 0 {
+	if !isFoundCached {
 		r.logger.Debug("calculating routes")
 
 		// Ensure that we copy the slice under a read lock.
@@ -559,10 +560,16 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, router *R
 		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
 
 		// Persist routes
-		if len(candidateRoutes.Routes) > 0 && r.config.RouteCacheEnabled {
+		if r.config.RouteCacheEnabled {
+			cacheDurationSeconds := r.config.CandidateRouteCacheExpirySeconds
+			if len(candidateRoutes.Routes) == 0 {
+				// If there are no routes, we want to cache the result for a shorter duration
+				// Add 1 to ensure that it is never 0 as zero signifies never clearing.
+				cacheDurationSeconds = cacheDurationSeconds/4 + 1
+			}
+
 			r.logger.Debug("persisting routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
-			// TODO: move to config
-			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), candidateRoutes, time.Duration(r.config.CandidateRouteCacheExpirySeconds)*time.Second)
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), candidateRoutes, time.Duration(cacheDurationSeconds)*time.Second)
 		}
 	}
 
