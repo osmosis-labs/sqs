@@ -40,6 +40,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Pricing options; pricing source wiring at the app level
 - Router options; remove GetOptimalQuoteFromConfig API.
 - Fetch only required taker fees instead of all.
+- Pre-allocate buffers in GetCandidateRoutes
 
 ## v0.15.0
 

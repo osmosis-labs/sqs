@@ -19,10 +19,12 @@ type candidatePoolWrapper struct {
 
 // GetCandidateRoutes returns candidate routes from tokenInDenom to tokenOutDenom using BFS.
 func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
-	var routes [][]candidatePoolWrapper
-	var visited = make(map[uint64]bool)
+	routes := make([][]candidatePoolWrapper, 0, r.config.MaxRoutes)
+	// Preallocate third to avoid dynamic reallocations.
+	visited := make(map[uint64]bool, len(r.sortedPools)/3)
 
-	queue := make([][]candidatePoolWrapper, 0)
+	// Preallocate tenth of the pools to avoid dynamic reallocations.
+	queue := make([][]candidatePoolWrapper, 0, len(r.sortedPools)/10)
 	queue = append(queue, []candidatePoolWrapper{})
 
 	for len(queue) > 0 && len(routes) < r.config.MaxRoutes {
