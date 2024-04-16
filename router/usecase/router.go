@@ -26,7 +26,7 @@ type Router struct {
 
 type ratedPool struct {
 	pool   sqsdomain.PoolI
-	rating osmomath.Int
+	rating float64
 }
 
 const (
@@ -160,27 +160,28 @@ func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 // These heuristics are imperfect and subject to change.
 func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []sqsdomain.PoolI {
 	logger.Debug("total tvl", zap.Stringer("total_tvl", totalTVL))
+	totalTVLFloat, _ := totalTVL.BigIntMut().Float64()
 
 	ratedPools := make([]ratedPool, 0, len(pools))
 	for _, pool := range pools {
 		// Initialize rating to TVL.
-		rating := pool.GetTotalValueLockedUSDC()
+		rating, _ := pool.GetTotalValueLockedUSDC().BigIntMut().Float64()
 
 		// 1/ 100 of toal value locked across all pools for no error in TVL
 		if pool.GetSQSPoolModel().TotalValueLockedError == noTotalValueLockedError {
-			rating = rating.Add(totalTVL.QuoRaw(100))
+			rating += totalTVLFloat / 100
 		}
 
 		// Preferred pools get a boost equal to the total value locked across all pools
 		_, isPreferred := preferredPoolIDsMap[pool.GetId()]
 		if isPreferred {
-			rating = rating.Add(totalTVL)
+			rating += totalTVLFloat
 		}
 
 		// Concentrated pools get a boost equal to 1/2 of total value locked across all pools
 		isConcentrated := pool.GetType() == poolmanagertypes.Concentrated
 		if isConcentrated {
-			rating = rating.Add(totalTVL.QuoRaw(2))
+			rating += totalTVLFloat / 2
 		}
 
 		// Transmuter pools get a boost equal to 3/2 of total value locked across all pools
@@ -192,7 +193,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 			}
 			_, isTransmuter := transmuterCodeIDs[cosmWasmPool.GetCodeId()]
 			if isTransmuter {
-				rating = rating.Add(totalTVL.MulRaw(3).QuoRaw(2))
+				rating += totalTVLFloat * 1.5
 			}
 		}
 
@@ -204,7 +205,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 
 	// Sort all pools by the rating score
 	sort.Slice(ratedPools, func(i, j int) bool {
-		return ratedPools[i].rating.GT(ratedPools[j].rating)
+		return ratedPools[i].rating > ratedPools[j].rating
 	})
 
 	logger.Info("pool count in router ", zap.Int("pool_count", len(ratedPools)))
@@ -213,7 +214,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 		pool := ratedPool.pool
 
 		sqsModel := pool.GetSQSPoolModel()
-		logger.Debug("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Stringer("rate", ratedPool.rating), zap.Stringer("tvl", sqsModel.TotalValueLockedUSDC), zap.String("tvl_error", sqsModel.TotalValueLockedError))
+		logger.Debug("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Float64("rate", ratedPool.rating), zap.Stringer("tvl", sqsModel.TotalValueLockedUSDC), zap.String("tvl_error", sqsModel.TotalValueLockedError))
 		pools[i] = ratedPool.pool
 	}
 	return pools
