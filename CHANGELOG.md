@@ -45,6 +45,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Use slice instead of map in GetCandidateRoutes for performance
 - More performance tricks in GetCandidateRoutes
 - Cache zero routes for lower TTL if none found between token A and B
+- Validate chain denom parameters in /quote and /routes and /prices
 
 ## v0.15.0
 
