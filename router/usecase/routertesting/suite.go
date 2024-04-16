@@ -325,7 +325,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Rout
 	routerusecase.WithComputedSortedPools(router, router.GetSortedPools())
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&DefaultPoolsConfig, "node-uri-placeholder")
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&DefaultPoolsConfig, "node-uri-placeholder", routerRepositoryMock)
 	err := poolsUsecase.StorePools(router.GetSortedPools())
 	s.Require().NoError(err)
 

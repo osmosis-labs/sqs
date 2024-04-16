@@ -668,7 +668,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder")
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock)
 	poolsUsecase.StorePools(router.GetSortedPools())
 
 	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
@@ -682,24 +682,6 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
-}
-
-// Generates routes from mainnet state by:
-// - instrumenting pool repository mock with pools and ticks
-// - setting this mock on the pools use case
-// - setting the pool use case on the router (called during GetCandidateRoutes() method)
-// - converting candidate routes to routes with all the necessary data.
-// COTRACT: router is initialized with setupMainnetRouter(...) or setupDefaultMainnetRouter(...)
-func (s *RouterTestSuite) constructRoutesFromMainnetPools(router *routerusecase.Router, tokenInDenom, tokenOutDenom string, mainnetState routertesting.MockMainnetState) []route.RouteImpl {
-	mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
-
-	candidateRoutes, err := router.GetCandidateRoutes(tokenInDenom, tokenOutDenom)
-	s.Require().NoError(err)
-
-	routes, err := mainnetUseCase.Pools.GetRoutesFromCandidates(candidateRoutes, mainnetState.TakerFeeMap, tokenInDenom, tokenOutDenom)
-	s.Require().NoError(err)
-
-	return routes
 }
 
 // validates that the given quote has one route with one hop and the expected pool ID.

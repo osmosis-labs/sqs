@@ -12,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/pools/usecase"
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -162,13 +163,17 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		tc := tc
 		s.Run(tc.name, func() {
 
+			// Create router repository
+			routerRepo := routerrepo.New()
+			routerRepo.SetTakerFees(tc.takerFeeMap)
+
 			// Create pools use case
-			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder")
+			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo)
 
 			poolsUsecase.StorePools(tc.pools)
 
 			// System under test
-			actualRoutes, err := poolsUsecase.GetRoutesFromCandidates(tc.candidateRoutes, tc.takerFeeMap, tc.tokenInDenom, tc.tokenOutDenom)
+			actualRoutes, err := poolsUsecase.GetRoutesFromCandidates(tc.candidateRoutes, tc.tokenInDenom, tc.tokenOutDenom)
 
 			if tc.expectedError != nil {
 				s.Require().Error(err)
