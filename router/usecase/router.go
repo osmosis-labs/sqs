@@ -3,6 +3,7 @@ package usecase
 import (
 	"sort"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v24/x/cosmwasmpool/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -14,98 +15,43 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
 )
 
-type Router struct {
-	sortedPools []sqsdomain.PoolI
-
-	config             domain.RouterConfig
-	cosmWasmPoolConfig domain.CosmWasmPoolRouterConfig
-
-	// The logger.
-	logger log.Logger
-}
-
 type ratedPool struct {
 	pool   sqsdomain.PoolI
 	rating float64
 }
 
 const (
-	// OSMO token precision
-	osmoPrecisionMultiplier = 1000000
-
 	// Pool ordering constants below:
 
 	noTotalValueLockedError = ""
 )
 
-// NewRouter returns a new Router.
-// It initialized the routable pools where the given preferredPoolIDs take precedence.
-// The rest of the pools are sorted by TVL.
-// Each pool has a flag indicating whether there was an error in estimating its on-chain TVL.
-// If that is the case, the pool is to be sorted towards the end. However, the preferredPoolIDs overwrites this rule
-// and prioritizes the preferred pools.
-func NewRouter(config domain.RouterConfig, cosmWasmPoolConfig domain.CosmWasmPoolRouterConfig, logger log.Logger) *Router {
-	if logger == nil {
-		logger = &log.NoOpLogger{}
+// filterPoolsByMinLiquidity filters the given pools by the minimum liquidity.
+func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minLiquidity int) []sqsdomain.PoolI {
+	minLiquidityInt := osmomath.NewInt(int64(minLiquidity))
+	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
+	for _, pool := range pools {
+		if pool.GetTotalValueLockedUSDC().GTE(minLiquidityInt) {
+			filteredPools = append(filteredPools, pool)
+		}
 	}
-
-	return &Router{
-		config:             config,
-		cosmWasmPoolConfig: cosmWasmPoolConfig,
-		logger:             logger,
-	}
+	return filteredPools
 }
 
-// GetConfig returns the router config.
-func (r Router) GetConfig() domain.RouterConfig {
-	return r.config
-}
+// ValidateAndSortPools filters and sorts the given pools for use in the router
+// according to the given configuration.
+// Filters out pools that have no tvl error set and have zero liquidity.
+func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) []sqsdomain.PoolI {
+	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
 
-// GetConfig returns the router config.
-func (r Router) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
-	return r.cosmWasmPoolConfig
-}
-
-// GetMaxHops returns the maximum number of hops configured.
-func (r Router) GetMaxHops() int {
-	return r.config.MaxPoolsPerRoute
-}
-
-// GetMaxRoutes returns the maximum number of routes configured.
-func (r Router) GetMaxRoutes() int {
-	return r.config.MaxRoutes
-}
-
-// GetMaxSplitIterations returns the maximum number of iterations when searching for split routes.
-func (r Router) GetMaxSplitIterations() int {
-	return r.config.MaxSplitIterations
-}
-
-// GetLogger returns the logger.
-func (r Router) GetLogger() log.Logger {
-	return r.logger
-}
-
-func (r Router) GetSortedPools() []sqsdomain.PoolI {
-	return r.sortedPools
-}
-
-func WithComputedSortedPools(router *Router, sortedPools []sqsdomain.PoolI) *Router {
-	router.sortedPools = sortedPools
-	return router
-}
-
-func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
-	// TODO: consider mutating directly on allPools
-	router.sortedPools = make([]sqsdomain.PoolI, 0)
-	totalTVL := osmomath.ZeroInt()
-
-	minUOSMOTVL := osmomath.NewInt(int64(router.config.MinOSMOLiquidity * osmoPrecisionMultiplier))
+	totalTVL := sdk.ZeroInt()
 
 	// Make a copy and filter pools
-	for _, pool := range allPools {
-		if err := pool.Validate(minUOSMOTVL); err != nil {
-			router.logger.Debug("pool validation failed, skip silently", zap.Uint64("pool_id", pool.GetId()), zap.Error(err))
+	for _, pool := range pools {
+		// TODO: the zero argument can be removed in a future release
+		// since we will be filtering at a different layer of abstraction.
+		if err := pool.Validate(zero); err != nil {
+			logger.Debug("pool validation failed, skip silently", zap.Uint64("pool_id", pool.GetId()), zap.Error(err))
 			continue
 		}
 
@@ -113,32 +59,31 @@ func WithSortedPools(router *Router, allPools []sqsdomain.PoolI) *Router {
 		if pool.GetType() == poolmanagertypes.CosmWasm {
 			cosmWasmPool, ok := pool.GetUnderlyingPool().(cosmwasmpooltypes.CosmWasmExtension)
 			if !ok {
-				router.logger.Debug("failed to cast a cosm wasm pool, skip silently", zap.Uint64("pool_id", pool.GetId()))
+				logger.Debug("failed to cast a cosm wasm pool, skip silently", zap.Uint64("pool_id", pool.GetId()))
 				continue
 			}
 
-			_, isGeneralCosmWasmCodeID := router.cosmWasmPoolConfig.GeneralCosmWasmCodeIDs[cosmWasmPool.GetCodeId()]
-			_, isTransmuterCodeID := router.cosmWasmPoolConfig.TransmuterCodeIDs[cosmWasmPool.GetCodeId()]
+			_, isGeneralCosmWasmCodeID := cosmWasmPoolsConfig.GeneralCosmWasmCodeIDs[cosmWasmPool.GetCodeId()]
+			_, isTransmuterCodeID := cosmWasmPoolsConfig.TransmuterCodeIDs[cosmWasmPool.GetCodeId()]
 			if !(isGeneralCosmWasmCodeID || isTransmuterCodeID) {
-				router.logger.Debug("cw pool code id is enot added to config, skip silently", zap.Uint64("pool_id", pool.GetId()))
+				logger.Debug("cw pool code id is enot added to config, skip silently", zap.Uint64("pool_id", pool.GetId()))
 				continue
 			}
 		}
 
-		router.sortedPools = append(router.sortedPools, pool)
+		filteredPools = append(filteredPools, pool)
 
 		totalTVL = totalTVL.Add(pool.GetTotalValueLockedUSDC())
 	}
 
 	preferredPoolIDsMap := make(map[uint64]struct{})
-	for _, poolID := range router.config.PreferredPoolIDs {
+	for _, poolID := range preferredPoolIDs {
 		preferredPoolIDsMap[poolID] = struct{}{}
 	}
 
-	// sort pools so that the appropriate pools are at the top
-	router.sortedPools = sortPools(router.sortedPools, router.cosmWasmPoolConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, router.logger)
+	logger.Info("validated pools", zap.Int("num_pools", len(filteredPools)))
 
-	return router
+	return sortPools(filteredPools, cosmWasmPoolsConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger)
 }
 
 // sortPools sorts the given pools so that the most appropriate pools are at the top.
@@ -208,7 +153,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 		return ratedPools[i].rating > ratedPools[j].rating
 	})
 
-	logger.Info("pool count in router ", zap.Int("pool_count", len(ratedPools)))
+	logger.Info("sorted pools", zap.Int("pool_count", len(ratedPools)))
 	// Convert back to pools
 	for i, ratedPool := range ratedPools {
 		pool := ratedPool.pool

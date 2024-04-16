@@ -144,8 +144,10 @@ func (p *PoolWrapper) Validate(minUOSMOTVL osmomath.Int) error {
 	// Note that balances are allowed to be zero because zero coins are filtered out.
 
 	// Validate TVL
-	if sqsModel.TotalValueLockedUSDC.LT(minUOSMOTVL) {
-		return fmt.Errorf("pool (%d) has less than minimum tvl, pool tvl (%s), minimum tvl (%s)", p.GetId(), sqsModel.TotalValueLockedUSDC, minUOSMOTVL)
+	// If there is no TVL error set and the TVL is zero, return an error. This implies
+	// That pool has no liqudiity.
+	if p.SQSModel.TotalValueLockedError == "" && sqsModel.TotalValueLockedUSDC.IsZero() {
+		return fmt.Errorf("pool (%d) has no liquidity, minimum tvl (%s)", p.GetId(), minUOSMOTVL)
 	}
 
 	return nil
