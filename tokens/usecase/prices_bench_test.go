@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 )
 
@@ -30,7 +31,7 @@ func BenchmarkGetPrices(b *testing.B) {
 	// Run the benchmark
 	for i := 0; i < b.N; i++ {
 		// System under test.
-		_, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC, USDT})
+		_, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC, USDT}, domain.ChainPricingSourceType)
 		s.Require().NoError(err)
 		if err != nil {
 			b.Errorf("GetPrices returned an error: %v", err)

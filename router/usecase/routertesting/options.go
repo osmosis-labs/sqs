@@ -15,6 +15,7 @@ type MainnetTestOptions struct {
 	Pricing         *cache.Cache
 	RouterConfig    domain.RouterConfig
 	PricingConfig   domain.PricingConfig
+	PoolsConfig     domain.PoolsConfig
 }
 
 // MainnetTestOption is a function that sets the cache options for the router testing.
@@ -52,5 +53,12 @@ func WithRouterConfig(config domain.RouterConfig) MainnetTestOption {
 func WithPricingConfig(config domain.PricingConfig) MainnetTestOption {
 	return func(options *MainnetTestOptions) {
 		options.PricingConfig = config
+	}
+}
+
+// WithPoolsConfig sets the pools config on options.
+func WithPoolsConfig(config domain.PoolsConfig) MainnetTestOption {
+	return func(options *MainnetTestOptions) {
+		options.PoolsConfig = config
 	}
 }

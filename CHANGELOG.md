@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Pricing ingest worker
+
 ## v0.16.0
 
 - Pricing options; pricing source wiring at the app level

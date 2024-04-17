@@ -102,7 +102,7 @@ type RouterState struct {
 type RouterOptions struct {
 	MaxPoolsPerRoute   int
 	MaxRoutes          int
-	MaxSplitRoutes    int
+	MaxSplitRoutes     int
 	MaxSplitIterations int
 	// Denominated in OSMO (not uosmo)
 	MinOSMOLiquidity int

@@ -256,7 +256,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			// System under test
 			ctx := context.Background()
 			// TODO: filter pools per router config
-			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, sortedPools, tokenInDenom, tokenOutDenom, defaultRouterConfig.MaxRoutes, defaultRouterConfig.MaxPoolsPerRoute)
+			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, sortedPools, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, defaultRouterConfig.MaxRoutes, defaultRouterConfig.MaxPoolsPerRoute)
 
 			if tc.expectedError != nil {
 				s.Require().EqualError(err, tc.expectedError.Error())
@@ -535,9 +535,9 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 		"cache is not set, computes routes": {
 			amountIn: defaultAmountInCache,
 
-			// For the default amount in, we expect pool 1399 to be returned.
+			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1399Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -558,8 +558,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			// test execution.
 			cacheExpiryDuration: time.Nanosecond,
 
-			// We expect pool 1400 because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1399Concentrated,
+			// We expect this pool because the cache with balancer pool expires.
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 	}
 
@@ -629,17 +629,19 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	mainnetState := s.SetupMainnetState()
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing))
 
-	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
+	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata()
 	s.Require().NoError(err)
 
 	fmt.Println("Tokens with no routes when min osmo liquidity is non-zero:")
+
+	one := osmomath.OneInt()
 
 	errorCounter := 0
 	zeroPriceCounterMinLiq := 0
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, chainDenom, USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
+		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
 		if err != nil {
 			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
 			errorCounter++
@@ -669,7 +671,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, chainDenom, USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
+		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
 		if err != nil {
 			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
 			errorCounter++
@@ -708,9 +710,9 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	mainnetState := s.SetupMainnetState()
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing), routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing))
 
-	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
+	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata()
 
-	chainWBTC, err := mainnetUsecase.Tokens.GetChainDenom(context.Background(), "wbtc")
+	chainWBTC, err := mainnetUsecase.Tokens.GetChainDenom("wbtc")
 	s.Require().NoError(err)
 
 	wbtcMetadata, ok := tokenMetadata[chainWBTC]
@@ -739,7 +741,7 @@ func (s *RouterTestSuite) TestSortPools() {
 		expectedMinNumPools = 241
 
 		// If mainnet state is updated
-		expectedTopPoolID = uint64(1135)
+		expectedTopPoolID = uint64(1283)
 	)
 
 	mainnetState := s.SetupMainnetState()
