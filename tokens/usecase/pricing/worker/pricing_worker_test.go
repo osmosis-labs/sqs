@@ -209,7 +209,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 			metadata, ok := mainnetState.TokensMetadata[baseDenom]
 			s.Require().True(ok)
 
-			fmt.Printf("Zero price for %s\n", metadata.HumanDenom)
+			fmt.Printf("Zero price for %s, isUnlisted: %t\n", metadata.HumanDenom, metadata.IsUnlisted)
 			zeroPriceCounter++
 			continue
 		}
