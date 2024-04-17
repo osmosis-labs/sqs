@@ -86,7 +86,21 @@ func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config
 }
 
 // GetPrice implements pricing.PricingStrategy.
-func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, error) {
+	options := domain.PricingOptions{
+		MinLiquidity: c.minOSMOLiquidity,
+	}
+
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	// Recompute prices if desired by configuration.
+	// Otherwise, look into cache first.
+	if options.RecomputePrices {
+		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinLiquidity)
+	}
+
 	// equal base and quote yield the price of one
 	if baseDenom == quoteDenom {
 		return osmomath.OneBigDec(), nil
@@ -111,11 +125,11 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	}
 
 	// If cache miss occurs, we compute the price.
-	return c.ComputePrice(ctx, baseDenom, quoteDenom)
+	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinLiquidity)
 }
 
-// ComputePrice implements domain.PricingStrategy.
-func (c *chainPricing) ComputePrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+// computePrice computes the price for a given base and quote denom
+func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minLiquidity int) (osmomath.BigDec, error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 
 	if baseDenom == quoteDenom {
@@ -123,13 +137,13 @@ func (c *chainPricing) ComputePrice(ctx context.Context, baseDenom string, quote
 	}
 
 	// Get on-chain scaling factor for base denom.
-	baseDenomScalingFactor, err := c.TUsecase.GetChainScalingFactorByDenomMut(ctx, baseDenom)
+	baseDenomScalingFactor, err := c.TUsecase.GetChainScalingFactorByDenomMut(baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 
 	// Get on-chain scaling factor for quote denom.
-	quoteDenomScalingFactor, err := c.TUsecase.GetChainScalingFactorByDenomMut(ctx, quoteDenom)
+	quoteDenomScalingFactor, err := c.TUsecase.GetChainScalingFactorByDenomMut(quoteDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -143,7 +157,9 @@ func (c *chainPricing) ComputePrice(ctx context.Context, baseDenom string, quote
 	routingOptions := []domain.RouterOption{
 		domain.WithMaxRoutes(c.maxRoutes),
 		domain.WithMaxPoolsPerRoute(c.maxPoolsPerRoute),
-		domain.WithMinOSMOLiquidity(c.minOSMOLiquidity),
+		// Use the provided min liquidity value rather than the default
+		// Since it can be overriden by options in GetPrice(...)
+		domain.WithMinOSMOLiquidity(minLiquidity),
 		domain.WithDisableSplitRoutes(),
 	}
 

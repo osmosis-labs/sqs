@@ -1,6 +1,8 @@
 package usecase_test
 
 import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/log"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -10,6 +12,8 @@ import (
 var (
 	pricingConfig = routertesting.DefaultPricingConfig
 	noOpLogger    = &log.NoOpLogger{}
+
+	one = osmomath.OneInt()
 )
 
 // Validates that the router returns the correct routes for the given token pair.
@@ -25,7 +29,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOATOM() {
 	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, defaultRouterConfig.MinOSMOLiquidity)
 
 	// System under test.
-	candidateRoutes, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, UOSMO, ATOM, maxRoutes, maxPoolsPerRoute, noOpLogger)
+	candidateRoutes, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(UOSMO, one), ATOM, maxRoutes, maxPoolsPerRoute, noOpLogger)
 	s.Require().NoError(err)
 
 	actualRoutes := candidateRoutes.Routes
@@ -55,13 +59,13 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOstOSMO() {
 	// Prepare valid and sorted pools
 	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, minOSMOLiquidity)
 
-	candidateRoutesUOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, UOSMO, stOSMO, maxRoutes, maxPoolsPerRoute, noOpLogger)
+	candidateRoutesUOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(UOSMO, one), stOSMO, maxRoutes, maxPoolsPerRoute, noOpLogger)
 	s.Require().NoError(err)
 
 	actualRoutesUOSMOIn := candidateRoutesUOSMOIn.Routes
 
 	// Invert
-	candidateRoutesstOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, stOSMO, UOSMO, maxRoutes, maxPoolsPerRoute, noOpLogger)
+	candidateRoutesstOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(stOSMO, one), UOSMO, maxRoutes, maxPoolsPerRoute, noOpLogger)
 	s.Require().NoError(err)
 
 	actualRoutesStOSMOIn := candidateRoutesstOSMOIn.Routes
@@ -82,7 +86,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_ATOMUSDT() {
 	// Prepare valid and sorted pools
 	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, minOsmoLiquidity)
 
-	candidateRoutesUOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, ATOM, USDT, maxRoutes, maxPoolsPerRoute, noOpLogger)
+	candidateRoutesUOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(ATOM, one), USDT, maxRoutes, maxPoolsPerRoute, noOpLogger)
 	s.Require().NoError(err)
 
 	s.Require().Greater(len(candidateRoutesUOSMOIn.Routes), 0)
@@ -90,13 +94,12 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_ATOMUSDT() {
 
 func (s *RouterTestSuite) TestGetCandidateRoutes_USDT_USDC() {
 
-
 	mainnetState := s.SetupMainnetState()
 
 	// Prepare valid and sorted pools
 	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, routertesting.DefaultPricingRouterConfig.MinOSMOLiquidity)
 
-	candidateRoutesUOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, USDT, USDC, routertesting.DefaultPricingRouterConfig.MaxRoutes, routertesting.DefaultPricingRouterConfig.MaxPoolsPerRoute, noOpLogger)
+	candidateRoutesUOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(USDT, one), USDC, routertesting.DefaultPricingRouterConfig.MaxRoutes, routertesting.DefaultPricingRouterConfig.MaxPoolsPerRoute, noOpLogger)
 	s.Require().NoError(err)
 
 	s.Require().Greater(len(candidateRoutesUOSMOIn.Routes), 0)
@@ -126,6 +129,8 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_Top10VolumePairs() {
 		AKT,
 	}
 
+	one := osmomath.OneInt()
+
 	// Prepare valid and sorted pools
 	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, defaultRouterConfig.MinOSMOLiquidity)
 
@@ -134,11 +139,11 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_Top10VolumePairs() {
 			tokenI := top10ByVolumeDenoms[i]
 			tokenJ := top10ByVolumeDenoms[j]
 
-			candidateRoutes, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, tokenI, tokenJ, maxRoutes, maxPoolsPerRoute, noOpLogger)
+			candidateRoutes, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(tokenI, one), tokenJ, maxRoutes, maxPoolsPerRoute, noOpLogger)
 			s.Require().NoError(err)
 			s.Require().Greater(len(candidateRoutes.Routes), 0, "tokenI: %s, tokenJ: %s", tokenI, tokenJ)
 
-			candidateRoutes, err = routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, tokenJ, tokenI, maxRoutes, maxPoolsPerRoute, noOpLogger)
+			candidateRoutes, err = routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(tokenJ, one), tokenI, maxRoutes, maxPoolsPerRoute, noOpLogger)
 			s.Require().NoError(err)
 			s.Require().Greater(len(candidateRoutes.Routes), 0, "tokenJ: %s, tokenI: %s", tokenJ, tokenI)
 		}

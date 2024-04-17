@@ -304,6 +304,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 		Pricing:         cache.New(),
 		RouterConfig:    DefaultRouterConfig,
 		PricingConfig:   DefaultPricingConfig,
+		PoolsConfig:     DefaultPoolsConfig,
 	}
 
 	// Apply cache options
@@ -322,7 +323,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&DefaultPoolsConfig, "node-uri-placeholder", routerRepositoryMock)
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock)
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 
@@ -345,7 +346,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	encCfg := app.MakeEncodingConfig()
 
-	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, nil, tokensUsecase, encCfg.Marshaler, mainnetState.PricingConfig, logger)
+	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, nil, encCfg.Marshaler, nil, logger)
 	if err != nil {
 		panic(err)
 	}

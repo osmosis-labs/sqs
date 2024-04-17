@@ -37,21 +37,21 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestTokensUseCaseTestSuite/TestGetPrices_Chain",
+                "TestTokensUseCaseTestSuite/TestGetPrices_Chain_PricingOptions",
                 "-test.v"
             ],
         },
         {
-            "name": "pools/usecase/workers",
+            "name": "tokens/usecase/pricing/worker",
             "type": "go",
             "request": "launch",
             "mode": "test",
-            "program": "${workspaceFolder}/pools/usecase/workers",
+            "program": "${workspaceFolder}/tokens/usecase/pricing/worker",
             "args": [
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestPoolLiquidityUpdateWorkerSuite/TestComputeCoinTVL",
+                "TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens",
                 "-test.v"
             ],
         },

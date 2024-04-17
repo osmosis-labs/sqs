@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -60,7 +59,7 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 	e.GET(formatTokensResource("/usd-price-test"), handler.GetUSDPriceTest)
 	e.POST(formatTokensResource("/store-state"), handler.StoreTokensStateInFiles)
 
-	defaultQuoteChainDenom, err = ts.GetChainDenom(context.Background(), defaultQuoteHumanDenom)
+	defaultQuoteChainDenom, err = ts.GetChainDenom(defaultQuoteHumanDenom)
 	if err != nil {
 		return err
 	}
@@ -77,11 +76,9 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 // @Success 200 {object} map[string]domain.Token "Success"
 // @Router /tokens/metadata [get]
 func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
-	ctx := c.Request().Context()
-
 	denomsStr := c.QueryParam("denoms")
 	if len(denomsStr) == 0 {
-		tokenMetadata, err := a.TUsecase.GetFullTokenMetadata(ctx)
+		tokenMetadata, err := a.TUsecase.GetFullTokenMetadata()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 		}
@@ -102,19 +99,19 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 		}
 
-		tokenMetadata, err := a.TUsecase.GetMetadataByChainDenom(ctx, denom)
+		tokenMetadata, err := a.TUsecase.GetMetadataByChainDenom(denom)
 		if err == nil {
 			return c.JSON(http.StatusOK, tokenMetadata)
 		}
 
 		// If we fail to get metadata by chain denom, assume we are given a human denom and try to translate it.
-		chainDenom, err := a.TUsecase.GetChainDenom(ctx, denom)
+		chainDenom, err := a.TUsecase.GetChainDenom(denom)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 		}
 
 		// Repeat metadata retrieval
-		tokenMetadata, err = a.TUsecase.GetMetadataByChainDenom(ctx, chainDenom)
+		tokenMetadata, err = a.TUsecase.GetMetadataByChainDenom(chainDenom)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 		}
@@ -153,7 +150,7 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 
 	if isHumanDenoms {
 		for i, baseDenom := range baseDenoms {
-			baseDenoms[i], err = a.TUsecase.GetChainDenom(ctx, baseDenom)
+			baseDenoms[i], err = a.TUsecase.GetChainDenom(baseDenom)
 			if err != nil {
 				return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 			}
@@ -166,7 +163,7 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		}
 	}
 
-	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom})
+	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, domain.ChainPricingSourceType)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
@@ -224,9 +221,7 @@ func (a *TokensHandler) GetUSDPriceTest(c echo.Context) (err error) {
 }
 
 func (a *TokensHandler) StoreTokensStateInFiles(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	tokensMetadata, err := a.TUsecase.GetFullTokenMetadata(ctx)
+	tokensMetadata, err := a.TUsecase.GetFullTokenMetadata()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}

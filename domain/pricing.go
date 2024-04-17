@@ -27,16 +27,16 @@ type PricingSource interface {
 	// GetPrice returns the price given a base and a quote denom or otherwise error, if any.
 	// It attempts to find the price from the cache first, and if not found, it will proceed
 	// to recomputing it via ComputePrice().
-	GetPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
-
-	// ComputePrice computes the price given a base and a quote denom or otherwise error, if any.
-	// Writes the computed price to the cach according to the configured TVL at the time of strategy creation.
-	ComputePrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
+	GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...PricingOption) (osmomath.BigDec, error)
 
 	// InitializeCache initialize the cache for the pricing source to a given value.
 	// Panics if cache is already set.
 	InitializeCache(*cache.Cache)
 }
+
+// DefaultMinLiquidityOption defines the default min liquidity option.
+// Per the config file set at start-up
+const DefaultMinLiquidityOption = -1
 
 // PricingOptions defines the options for retrieving the prices.
 type PricingOptions struct {
@@ -44,14 +44,14 @@ type PricingOptions struct {
 	// them from cache first.
 	// If set to false, the prices might still be recomputed if the cache is empty.
 	RecomputePrices bool
-	// PricingSourceType defines the source of the pricing.
-	PricingSourceType PricingSourceType
+	// MinLiquidity defines the minimum liquidity required to consider a pool for pricing.
+	MinLiquidity int
 }
 
 // DefaultPricingOptions defines the default options for retrieving the prices.
 var DefaultPricingOptions = PricingOptions{
-	RecomputePrices:   false,
-	PricingSourceType: ChainPricingSourceType,
+	RecomputePrices: false,
+	MinLiquidity:    DefaultMinLiquidityOption,
 }
 
 // PricingOption configures the pricing options.
@@ -64,10 +64,15 @@ func WithRecomputePrices() PricingOption {
 	}
 }
 
-// WithPricingSource configures the pricing options to use the specified pricing source.
-func WithPricingSource(pricingSource PricingSourceType) PricingOption {
+// WithMinLiquidity configures the min liquidity option.
+func WithMinLiquidity(minLiquidity int) PricingOption {
 	return func(o *PricingOptions) {
-		o.PricingSourceType = pricingSource
+		// If the min liquidity is the default value, we don't need to set it.
+		if minLiquidity == DefaultMinLiquidityOption {
+			return
+		}
+
+		o.MinLiquidity = minLiquidity
 	}
 }
 
