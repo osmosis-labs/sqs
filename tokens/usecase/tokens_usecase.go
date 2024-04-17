@@ -181,7 +181,6 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 
 // GetPrices implements pricing.PricingStrategy.
 func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (map[string]map[string]any, error) {
-
 	byBaseDenomResult := make(map[string]map[string]any, len(baseDenoms))
 
 	// Create a channel to communicate the results

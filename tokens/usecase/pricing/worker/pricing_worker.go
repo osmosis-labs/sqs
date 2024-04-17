@@ -5,7 +5,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
@@ -26,9 +25,8 @@ type PricingWorker interface {
 }
 
 type pricingWorker struct {
-	pricingStrategies map[domain.PricingSourceType]domain.PricingSource
-	updateListeners   []PricingUpdateListener
-	quoteDenom        string
+	updateListeners []PricingUpdateListener
+	quoteDenom      string
 
 	// We use this flag to avoid running multiple price updates concurrently
 	// as it may cause high load on the system.
@@ -44,11 +42,6 @@ type pricingWorker struct {
 
 type PricingUpdateListener interface {
 	OnPricingUpdate(ctx context.Context, height int64, pricesBaseQuoteDenomMap map[string]map[string]any, quoteDenom string) error
-}
-
-type priceResult struct {
-	baseDenom string
-	price     osmomath.BigDec
 }
 
 const (
@@ -77,7 +70,6 @@ func (p *pricingWorker) UpdatePricesAsync(height uint64, baseDenoms map[string]s
 	}
 
 	if p.isProcessing.Load() {
-
 		p.logger.Info("pricing update queued", zap.Uint64("height", height))
 
 		return
@@ -115,7 +107,7 @@ func (p *pricingWorker) updatePrices(height uint64, baseDenoms []string) {
 	// For example, BRNCH / STRDST (1288). As a result, they are incorrectly excluded despite having appropriate liquidity.
 	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinLiquidity(0))
 	if err != nil {
-		// TODO: telemetry and skip silently
+		p.logger.Error("failed to pre-compute prices", zap.Error(err))
 	}
 
 	// Update listeners

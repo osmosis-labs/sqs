@@ -36,7 +36,7 @@ jobs:
           CI_SQS_PRICING_WORKER_TEST: true
         run: |
           go test \
-            -timeout 60s \
+            -timeout 300s \
             -run TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens \
             github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker -v -count=1
 

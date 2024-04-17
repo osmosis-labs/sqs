@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -110,7 +109,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(ctx, tokenInDenom, tokenOutDenom)
+		scalingFactor = a.getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom)
 	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
@@ -158,7 +157,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
+		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
 	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
@@ -348,7 +347,7 @@ func getValidRoutingParameters(c echo.Context) (string, sdk.Coin, error) {
 }
 
 // getSpotPriceScalingFactor returns the spot price scaling factor for a given tokenIn and tokenOutDenom.
-func (a *RouterHandler) getSpotPriceScalingFactor(ctx context.Context, tokenInDenom, tokenOutDenom string) osmomath.Dec {
+func (a *RouterHandler) getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom string) osmomath.Dec {
 	scalingFactor, err := a.TUsecase.GetSpotPriceScalingFactorByDenom(tokenOutDenom, tokenInDenom)
 	if err != nil {
 		// Note that we do not fail the quote if scaling factor fetching fails.
