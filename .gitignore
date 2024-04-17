@@ -9,3 +9,8 @@ build
 
 # Go
 go.work.sum
+
+# Tests reports
+
+tests/*/report.txt
+
