@@ -567,7 +567,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(1000_000_000),
 
-			expectedRoutesCount: 1,
+			expectedRoutesCount: 2,
 		},
 		"uosmo for uion": {
 			tokenInDenom:  UOSMO,
@@ -583,7 +583,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(5000000),
 
-			expectedRoutesCount: 3,
+			expectedRoutesCount: 1,
 		},
 		"uakt for umee": {
 			tokenInDenom:  AKT,
@@ -591,7 +591,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(100_000_000),
 
-			expectedRoutesCount: 1,
+			expectedRoutesCount: 2,
 		},
 		// This test validates that with a greater max routes value, SQS is able to find
 		// the path from umee to stOsmo

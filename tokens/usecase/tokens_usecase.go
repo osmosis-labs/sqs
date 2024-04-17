@@ -15,16 +15,12 @@ import (
 )
 
 type tokensUseCase struct {
-	metadataMapMu             sync.RWMutex
-	tokenMetadataByChainDenom map[string]domain.Token
-
-	denomMapMu           sync.RWMutex
-	humanToChainDenomMap map[string]string
-
 	// Currently, we only expect reads to this shared resource and no writes.
 	// If needed, change this to sync.Map in the future.
 	// Can be considered for merge with humanToChainDenomMap in the future.
-	chainDenoms map[string]struct{}
+	tokenMetadataByChainDenom map[string]domain.Token
+	humanToChainDenomMap      map[string]string
+	chainDenoms               map[string]struct{}
 
 	// No mutex since we only expect reads to this shared resource and no writes.
 	precisionScalingFactorMap map[int]osmomath.Dec
@@ -73,6 +69,10 @@ type priceResults struct {
 
 var _ mvc.TokensUsecase = &tokensUseCase{}
 
+const (
+	unlistedKeyword = "osmosis-unlisted"
+)
+
 var (
 	tenDec = osmomath.NewDec(10)
 
@@ -116,9 +116,6 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 
 		pricingStrategyMap: map[domain.PricingSourceType]domain.PricingSource{},
 
-		metadataMapMu: sync.RWMutex{},
-		denomMapMu:    sync.RWMutex{},
-
 		chainDenoms: chainDenoms,
 	}
 }
@@ -126,9 +123,6 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 // GetChainDenom implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetChainDenom(humanDenom string) (string, error) {
 	humanDenomLowerCase := strings.ToLower(humanDenom)
-
-	t.denomMapMu.RLock()
-	defer t.denomMapMu.RUnlock()
 
 	chainDenom, ok := t.humanToChainDenomMap[humanDenomLowerCase]
 	if !ok {
@@ -140,8 +134,6 @@ func (t *tokensUseCase) GetChainDenom(humanDenom string) (string, error) {
 
 // GetMetadataByChainDenom implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetMetadataByChainDenom(denom string) (domain.Token, error) {
-	t.metadataMapMu.RLock()
-	defer t.metadataMapMu.RUnlock()
 	token, ok := t.tokenMetadataByChainDenom[denom]
 	if !ok {
 		return domain.Token{}, fmt.Errorf("metadata for denom (%s) is not found", denom)
@@ -152,9 +144,6 @@ func (t *tokensUseCase) GetMetadataByChainDenom(denom string) (domain.Token, err
 
 // GetFullTokenMetadata implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetFullTokenMetadata() (map[string]domain.Token, error) {
-	t.metadataMapMu.RLock()
-	defer t.metadataMapMu.RUnlock()
-
 	// Do a copy of the cached metadata
 	result := make(map[string]domain.Token, len(t.tokenMetadataByChainDenom))
 	for denom, tokenMetadata := range t.tokenMetadataByChainDenom {
@@ -331,7 +320,17 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 			}
 		}
 
+		// Detect unlisted tokens
+		isUnlisted := false
+		for _, keyword := range asset.Keywords {
+			if keyword == unlistedKeyword {
+				isUnlisted = true
+				break
+			}
+		}
+
 		token.HumanDenom = asset.Symbol
+		token.IsUnlisted = isUnlisted
 
 		tokensByChainDenom[chainDenom] = token
 	}
@@ -365,6 +364,6 @@ func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType,
 
 // IsValidChainDenom implements mvc.TokensUsecase.
 func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
-	_, ok := t.chainDenoms[chainDenom]
-	return ok
+	metaData, ok := t.tokenMetadataByChainDenom[chainDenom]
+	return ok && !metaData.IsUnlisted
 }
