@@ -20,6 +20,8 @@ import (
 const (
 	// placeholder for the code id of the pool that is not a cosm wasm pool
 	notCosmWasmPoolCodeID = 0
+
+	astroportCodeID = 580
 )
 
 var _ sqsdomain.RoutablePool = &routableCosmWasmPoolImpl{}
@@ -34,6 +36,12 @@ type routableCosmWasmPoolImpl struct {
 	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
 	wasmClient    wasmtypes.QueryClient     "json:\"-\""
 }
+
+var (
+	// Assumming precision of 6, this is 10 units.
+	// This is naive since precision can be greater but should work for most cases.
+	tenE7 = sdk.NewInt(10_000_000)
+)
 
 // GetId implements sqsdomain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetId() uint64 {
@@ -117,6 +125,26 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 			QuoteAssetDenom: quoteDenom,
 			BaseAssetDenom:  baseDenom,
 		},
+	}
+
+	// If the pool is an Astroport pool, use an alternative method for
+	// calculating the spot price.
+	// Astroport spot price is an SMA (moving average) of all past trades.
+	codeID := r.ChainPool.CodeId
+	if codeID == astroportCodeID {
+		// Calculate the spot price using the pool's balances
+		out, err := r.CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(baseDenom, tenE7))
+		// If error, proceed to querying cosmwasm
+		if err == nil {
+			spotPrice := osmomath.NewBigDecFromBigIntMut(out.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(tenE7.BigIntMut()))
+
+			// If spot price is not zero, return it
+			if !spotPrice.IsZero() {
+				return spotPrice, nil
+			}
+
+			// If spot price was truncated, proceed to querying cosmwasm via the general method
+		}
 	}
 
 	response := &msg.SpotPriceQueryMsgResponse{}

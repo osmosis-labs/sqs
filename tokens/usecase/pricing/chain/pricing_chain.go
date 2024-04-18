@@ -159,6 +159,8 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		useAlternativeMethod = false
 	)
 
+	// If Astroport pool, use the alternative meth
+
 	for _, pool := range pools {
 		tempBaseDenom = pool.GetTokenOutDenom()
 
