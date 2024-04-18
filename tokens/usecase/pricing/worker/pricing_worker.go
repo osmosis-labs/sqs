@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -91,6 +92,9 @@ func (p *pricingWorker) updatePrices(height uint64, baseDenoms []string) {
 	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinLiquidity(0))
 	if err != nil {
 		p.logger.Error("failed to pre-compute prices", zap.Error(err))
+
+		// Increase error counter
+		domain.SQSPricingWorkerComputeErrorCounter.WithLabelValues(strconv.FormatUint(height, 10)).Inc()
 	}
 
 	// Update listeners
@@ -98,6 +102,9 @@ func (p *pricingWorker) updatePrices(height uint64, baseDenoms []string) {
 		// Ignore errors
 		_ = listener.OnPricingUpdate(ctx, int64(height), prices, p.quoteDenom)
 	}
+
+	// Measure duration
+	domain.SQSPricingWorkerComputeDurationGauge.WithLabelValues(strconv.FormatUint(height, 10), strconv.FormatInt(int64(len(baseDenoms)), 10)).Set(float64(time.Since(start).Milliseconds()))
 }
 
 // RegisterListener implements PricingWorker.
