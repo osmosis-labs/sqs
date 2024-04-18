@@ -35,7 +35,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v0.17.0
 
 - Pricing ingest worker
 - Remove support for unlisted tokens in the router and for prices
