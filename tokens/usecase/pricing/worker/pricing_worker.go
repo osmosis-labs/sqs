@@ -11,21 +11,8 @@ import (
 	"go.uber.org/zap"
 )
 
-type PricingWorker interface {
-	// UpdatePrices updates prices for the given base denoms asyncronously.
-	// Returns a channel that will be closed when the update is completed.
-	// Propagates the results to the listeners.
-	UpdatePricesAsync(height uint64, baseDenoms map[string]struct{})
-
-	// RegisterListener registers a listener for pricing updates.
-	RegisterListener(listener PricingUpdateListener)
-
-	// IsProcessing returns true if the worker is processing a pricing update.
-	IsProcessing() bool
-}
-
 type pricingWorker struct {
-	updateListeners []PricingUpdateListener
+	updateListeners []domain.PricingUpdateListener
 	quoteDenom      string
 
 	// We use this flag to avoid running multiple price updates concurrently
@@ -40,17 +27,13 @@ type pricingWorker struct {
 	logger log.Logger
 }
 
-type PricingUpdateListener interface {
-	OnPricingUpdate(ctx context.Context, height int64, pricesBaseQuoteDenomMap map[string]map[string]any, quoteDenom string) error
-}
-
 const (
 	priceUpdateTimeout = time.Minute * 2
 )
 
-func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, logger log.Logger) PricingWorker {
+func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, logger log.Logger) domain.PricingWorker {
 	return &pricingWorker{
-		updateListeners: []PricingUpdateListener{},
+		updateListeners: []domain.PricingUpdateListener{},
 		quoteDenom:      quoteDenom,
 		tokensUseCase:   tokensUseCase,
 
@@ -118,7 +101,7 @@ func (p *pricingWorker) updatePrices(height uint64, baseDenoms []string) {
 }
 
 // RegisterListener implements PricingWorker.
-func (p *pricingWorker) RegisterListener(listener PricingUpdateListener) {
+func (p *pricingWorker) RegisterListener(listener domain.PricingUpdateListener) {
 	p.updateListeners = append(p.updateListeners, listener)
 }
 

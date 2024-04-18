@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -21,19 +23,34 @@ type chainInfoUseCase struct {
 	lastSeenMx            sync.Mutex
 	lastSeenUpdatedHeight uint64
 	lastSeenUpdatedTime   time.Time
+
+	priceUpdateHeightMx      sync.RWMutex
+	latestPricesUpdateHeight uint64
 }
 
 // The max number of seconds allowed for there to be no updates
 // TODO: epoch???
-const MaxAllowedHeightUpdateTimeDeltaSecs = 30
+const (
+	MaxAllowedHeightUpdateTimeDeltaSecs = 30
 
-var _ mvc.ChainInfoUsecase = &chainInfoUseCase{}
+	// Number of heights of buffer between the latest state height and the latest price update height
+	// We fail the healtcheck if the difference between the two becomes greater than this constant.
+	priceUpdateHeightBuffer  = 50
+	initialPriceUpdateHeight = 0
+)
 
-func NewChainInfoUsecase(chainInfoRepository chaininforepo.ChainInfoRepository) mvc.ChainInfoUsecase {
+var (
+	_ mvc.ChainInfoUsecase         = &chainInfoUseCase{}
+	_ domain.PricingUpdateListener = &chainInfoUseCase{}
+)
+
+func NewChainInfoUsecase(chainInfoRepository chaininforepo.ChainInfoRepository) *chainInfoUseCase {
 	return &chainInfoUseCase{
 		chainInfoRepository: chainInfoRepository,
 
 		lastSeenMx: sync.Mutex{},
+
+		lastSeenUpdatedHeight: 0,
 	}
 }
 
@@ -69,4 +86,32 @@ func (p *chainInfoUseCase) GetLatestHeight() (uint64, error) {
 // StoreLatestHeight implements mvc.ChainInfoUsecase.
 func (p *chainInfoUseCase) StoreLatestHeight(height uint64) {
 	p.chainInfoRepository.StoreLatestHeight(height)
+}
+
+// OnPricingUpdate implements domain.PricingUpdateListener.
+func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height int64, pricesBaseQuoteDenomMap map[string]map[string]any, quoteDenom string) error {
+	p.priceUpdateHeightMx.Lock()
+	defer p.priceUpdateHeightMx.Unlock()
+	p.latestPricesUpdateHeight = uint64(height)
+
+	return nil
+}
+
+// ValidatePriceUpdates implements mvc.ChainInfoUsecase.
+func (p *chainInfoUseCase) ValidatePriceUpdates() error {
+	p.priceUpdateHeightMx.RLock()
+	latestPriceUpdateHeight := p.latestPricesUpdateHeight
+	p.priceUpdateHeightMx.RUnlock()
+
+	// Check that the inital prices have been computed and received.
+	if latestPriceUpdateHeight == initialPriceUpdateHeight {
+		return errors.New("healthcheck has not received initial price updates")
+	}
+
+	// Check that the price updates have been occurring
+	if latestPriceUpdateHeight < p.lastSeenUpdatedHeight-priceUpdateHeightBuffer {
+		return errors.New("latest price update height is less than the last seen updated height")
+	}
+
+	return nil
 }

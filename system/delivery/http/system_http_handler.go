@@ -175,6 +175,10 @@ func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, fmt.Sprintf("Node is not synced, chain height (%d), store height (%d), tolerance (%d)", latestChainHeight, latestStoreHeight, heightTolerance))
 	}
 
+	if err := h.CIUsecase.ValidatePriceUpdates(); err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
+	}
+
 	// Return combined status
 	return c.JSON(http.StatusOK, map[string]string{
 		"grpc_gateway_status": "running",

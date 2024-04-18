@@ -39,6 +39,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 - Pricing ingest worker
 - Remove support for unlisted tokens in the router and for prices
+- Healthcheck observes price updates
 
 ## v0.16.0
 

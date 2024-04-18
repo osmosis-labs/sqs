@@ -14,7 +14,6 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/sqsdomain"
-	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 	"github.com/osmosis-labs/sqs/sqsdomain/proto/types"
@@ -28,7 +27,7 @@ type ingestUseCase struct {
 	chainInfoUseCase mvc.ChainInfoUsecase
 
 	// Worker that computes prices for all tokens with the default quote.
-	defaultQuotePriceUpdateWorker pricingWorker.PricingWorker
+	defaultQuotePriceUpdateWorker domain.PricingWorker
 
 	logger log.Logger
 }
@@ -50,7 +49,7 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker pricingWorker.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
@@ -77,10 +76,6 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		return err
 	}
 
-	// Note: we must queue the update before we start updating prices as pool liquidity
-	// worker listens for the pricing updates at the same height.
-	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata.Denoms)
-
 	// Store the pools
 	if err := p.poolsUseCase.StorePools(pools); err != nil {
 		return err
@@ -95,6 +90,10 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	// Sort and store pools.
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 	p.sortAndStorePools(allPools)
+
+	// Note: we must queue the update before we start updating prices as pool liquidity
+	// worker listens for the pricing updates at the same height.
+	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata.Denoms)
 
 	// Store the latest ingested height.
 	p.chainInfoUseCase.StoreLatestHeight(height)

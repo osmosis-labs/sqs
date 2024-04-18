@@ -142,6 +142,10 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, logger)
 
+		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
+		// It then passes the healthcheck as long as updates are received at the appropriate intervals.
+		quotePriceUpdateWorker.RegisterListener(chainInfoUseCase)
+
 		// Initialize ingest handler and usecase
 		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)
 		if err != nil {
