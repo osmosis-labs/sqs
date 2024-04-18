@@ -21,6 +21,8 @@ type chainPricing struct {
 	cache         *cache.Cache
 	cacheExpiryNs time.Duration
 
+	defaultQuoteDenom string
+
 	maxPoolsPerRoute int
 	maxRoutes        int
 	minOSMOLiquidity int
@@ -73,15 +75,22 @@ func init() {
 }
 
 func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
+
+	chainDefaultHumanDenom, err := tokenUseCase.GetChainDenom(config.DefaultQuoteHumanDenom)
+	if err != nil {
+		panic(fmt.Sprintf("failed to get chain denom for default quote human denom (%s): %s", config.DefaultQuoteHumanDenom, err))
+	}
+
 	return &chainPricing{
 		RUsecase: routerUseCase,
 		TUsecase: tokenUseCase,
 
-		cache:            cache.New(),
-		cacheExpiryNs:    time.Duration(config.CacheExpiryMs) * time.Millisecond,
-		maxPoolsPerRoute: config.MaxPoolsPerRoute,
-		maxRoutes:        config.MaxRoutes,
-		minOSMOLiquidity: config.MinOSMOLiquidity,
+		cache:             cache.New(),
+		cacheExpiryNs:     time.Duration(config.CacheExpiryMs) * time.Millisecond,
+		maxPoolsPerRoute:  config.MaxPoolsPerRoute,
+		maxRoutes:         config.MaxRoutes,
+		minOSMOLiquidity:  config.MinOSMOLiquidity,
+		defaultQuoteDenom: chainDefaultHumanDenom,
 	}
 }
 
@@ -225,7 +234,14 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 
 	// Only store values that are valid.
 	if !currentPrice.IsNil() {
-		c.cache.Set(cacheKey, currentPrice, c.cacheExpiryNs)
+		expirationTTL := c.cacheExpiryNs
+		// We pre-compute the price for the default quote denom in ingest handler via the background
+		// pricing worker. As a result, we store them indefinitely.
+		// We track the tokens that are modified within the block and update the prices only for those tokens.
+		if quoteDenom == c.defaultQuoteDenom {
+			expirationTTL = cache.NoExpirationTTL
+		}
+		c.cache.Set(cacheKey, currentPrice, expirationTTL)
 	}
 
 	return currentPrice, nil

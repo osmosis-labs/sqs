@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
+	"github.com/osmosis-labs/sqs/domain"
 )
 
 type PricingUpdateListenerMock struct {
@@ -27,7 +27,7 @@ func NewPricingListenerMock(timeout time.Duration) *PricingUpdateListenerMock {
 	}
 }
 
-var _ pricingWorker.PricingUpdateListener = &PricingUpdateListenerMock{}
+var _ domain.PricingUpdateListener = &PricingUpdateListenerMock{}
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
 func (p *PricingUpdateListenerMock) OnPricingUpdate(ctx context.Context, height int64, pricesBaseQuoteDenomMap map[string]map[string]any, quoteDenom string) error {
