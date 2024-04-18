@@ -75,7 +75,6 @@ func init() {
 }
 
 func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
-
 	chainDefaultHumanDenom, err := tokenUseCase.GetChainDenom(config.DefaultQuoteHumanDenom)
 	if err != nil {
 		panic(fmt.Sprintf("failed to get chain denom for default quote human denom (%s): %s", config.DefaultQuoteHumanDenom, err))

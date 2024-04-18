@@ -103,7 +103,7 @@ func (p *chainInfoUseCase) ValidatePriceUpdates() error {
 	latestPriceUpdateHeight := p.latestPricesUpdateHeight
 	p.priceUpdateHeightMx.RUnlock()
 
-	// Check that the inital prices have been computed and received.
+	// Check that the initial prices have been computed and received.
 	if latestPriceUpdateHeight == initialPriceUpdateHeight {
 		return errors.New("healthcheck has not received initial price updates")
 	}

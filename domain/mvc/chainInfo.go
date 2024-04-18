@@ -13,6 +13,6 @@ type ChainInfoUsecase interface {
 	// Returns error otherwise.
 	// Price updates can be invalid if:
 	// - 50 heights have passed since the last update
-	// - The inital price update has not been received
+	// - The initial price update has not been received
 	ValidatePriceUpdates() error
 }
