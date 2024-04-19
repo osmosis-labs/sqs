@@ -146,7 +146,12 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	// If cached ranked routes are not present, compute and rank routes by direct quote
 	if len(candidateRankedRoutes.Routes) == 0 {
 		// Filter pools by minimum liquidity
-		poolsAboveMinLiquidity := FilterPoolsByMinLiquidity(r.getSortedPoolsShallowCopy(), options.MinOSMOLiquidity)
+
+		poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
+		// Zero implies no filtering, so we skip the iterations.
+		if options.MinOSMOLiquidity > 0 {
+			poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinOSMOLiquidity)
+		}
 
 		r.logger.Info("filtered pools", zap.Int("num_pools", len(poolsAboveMinLiquidity)))
 

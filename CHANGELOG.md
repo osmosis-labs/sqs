@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Skip pool filtering if min osmo liquidity is zero
+
 ## v0.17.2
 
 - Fix bug with max split routes parameter
