@@ -140,12 +140,12 @@ func WithMaxRoutes(maxRoutes int) RouterOption {
 
 // WithDisableSplitRoutes configures the router options with the disabled split routes.
 func WithDisableSplitRoutes() RouterOption {
-	return WithMaxSplitIterations(DisableSplitRoutes)
+	return WithMaxSplitRoutes(DisableSplitRoutes)
 }
 
-// WithMaxSplitRoutes configures the router options with the max split iterations.
-func WithMaxSplitIterations(maxSplitIterations int) RouterOption {
+// WithMaxSplitRoutes configures the router options with the max split routes.
+func WithMaxSplitRoutes(maxSplitRoutes int) RouterOption {
 	return func(o *RouterOptions) {
-		o.MaxSplitIterations = maxSplitIterations
+		o.MaxSplitRoutes = maxSplitRoutes
 	}
 }

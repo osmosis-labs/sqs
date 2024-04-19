@@ -121,6 +121,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		MinOSMOLiquidity:                 r.defaultConfig.MinOSMOLiquidity,
 		CandidateRouteCacheExpirySeconds: r.defaultConfig.CandidateRouteCacheExpirySeconds,
 		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
+		MaxSplitRoutes:                   r.defaultConfig.MaxSplitRoutes,
 	}
 
 	// Apply options
@@ -158,7 +159,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		return nil, err
 	}
 
-	if len(rankedRoutes) == 1 || options.MaxSplitIterations == domain.DisableSplitRoutes {
+	if len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes {
 		return topSingleRouteQuote, nil
 	}
 

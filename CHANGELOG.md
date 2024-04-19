@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.17.1
+
+- Fix bug with max split routes parameter
+
 ## v0.17.0
 
 - Pricing ingest worker
