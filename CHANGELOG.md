@@ -37,6 +37,8 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## v0.17.5
 
+- Propagate --host CLI config for Sentry
+
 ## v0.17.4
 
 - Cache no candidate or ranked routes
