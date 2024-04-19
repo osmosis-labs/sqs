@@ -78,7 +78,6 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	computeAndCacheInAmountIncrement := func(p uint8) osmomath.Int {
 		inAmountIncrement := osmomath.Int{}
 		return func() osmomath.Int {
-
 			if inAmountIncrement.IsNil() || inAmountIncrement.IsZero() {
 				inAmountIncrement = sdk.NewDec(int64(p)).QuoInt64Mut(int64(totalIncrements)).MulMut(inAmountDec).TruncateInt()
 			}
@@ -90,12 +89,13 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	// This function computes the outAmountIncrement for a given routeIndex and inAmountIncrement.
 	// It caches the result on the stack to avoid recomputing it.
 	computeAndCacheOutAmount := func(routeIndex int, inAmountIncrement osmomath.Int) osmomath.Int {
-
 		routeJOutAmountIncrement := osmomath.Int{}
 
 		return func() osmomath.Int {
-
+			// If the route has already been computed, return the cached value.
+			// Otherwise, compute the value and cache it.
 			if routeJOutAmountIncrement.IsNil() {
+				// This is the expensive computation that we aim to avoid.
 				curRouteOutAmountIncrement, _ := routes[routeIndex].CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(tokenIn.Denom, inAmountIncrement))
 
 				if curRouteOutAmountIncrement.IsNil() || curRouteOutAmountIncrement.IsZero() {
@@ -112,7 +112,6 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	// Step 2: fill the tables
 	for x := uint8(1); x <= totalIncrements; x++ {
 		for j := 1; j <= len(routes); j++ {
-
 			dp[x][j] = dp[x][j-1] // Not using the j-th route
 			proportions[x][j] = 0 // Default increment (0% of the token)
 
@@ -139,7 +138,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	optimalProportions := make([]uint8, len(routes)+1)
 	for j > 0 {
 		optimalProportions[j] = proportions[x][j]
-		x -= uint8(proportions[x][j]) // Convert proportion back to index
+		x -= proportions[x][j]
 		j -= 1
 	}
 
@@ -162,10 +161,6 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	totalAmoutOutFromSplits := osmomath.ZeroInt()
 	for i, currentRouteIncrement := range bestSplit.routeIncrements {
 		currentRoute := routes[i]
-
-		if currentRouteIncrement < 0 {
-			return nil, fmt.Errorf("best increment for route %d is negative", i)
-		}
 
 		currentRouteAmtOut := computeAndCacheOutAmount(i, computeAndCacheInAmountIncrement(currentRouteIncrement))
 
@@ -194,7 +189,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 			OutAmount: currentRouteAmtOut,
 		})
 
-		totalIncrementsInSplits += uint8(currentRouteIncrement)
+		totalIncrementsInSplits += currentRouteIncrement
 		totalAmoutOutFromSplits = totalAmoutOutFromSplits.Add(currentRouteAmtOut)
 	}
 
