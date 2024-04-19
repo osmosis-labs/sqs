@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.17.4
+
+- Cache no candidate or ranked routes
+
 ## v0.17.3
 
 - Skip pool filtering if min osmo liquidity is zero

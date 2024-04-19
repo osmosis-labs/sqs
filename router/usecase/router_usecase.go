@@ -71,7 +71,7 @@ var (
 	cacheWrite = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "sqs_routes_cache_write_total",
-			Help: "Total number of cache misses",
+			Help: "Total number of cache writes",
 		},
 		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
 	)
@@ -291,6 +291,13 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		cacheWrite.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenIn.Denom, tokenOutDenom, noOrderOfMagnitude).Inc()
 
 		r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds)*time.Second)
+	} else {
+		// If no candidate routes found, cache them for quarter of the duration
+		r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds/4)*time.Second)
+
+		r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
+
+		return nil, nil, fmt.Errorf("no candidate routes found")
 	}
 
 	// Rank candidate routes by estimating direct quotes
