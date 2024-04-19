@@ -31,6 +31,8 @@ import (
 func main() {
 	configPath := flag.String("config", "config.json", "config file location")
 
+	hostName := flag.String("host", "sqs", "the name of the host")
+
 	isDebug := flag.Bool("debug", false, "debug mode")
 	if *isDebug {
 		log.Println("Service RUN on DEBUG mode")
@@ -94,6 +96,7 @@ func main() {
 		)
 
 		err = sentry.Init(sentry.ClientOptions{
+			ServerName:         *hostName,
 			Dsn:                otelConfig.DSN,
 			SampleRate:         otelConfig.SampleRate,
 			EnableTracing:      otelConfig.EnableTracing,
@@ -109,7 +112,7 @@ func main() {
 
 		sentry.CaptureMessage("SQS started")
 
-		initOTELTracer()
+		initOTELTracer(*hostName)
 	}
 
 	chainClient, err := client.NewClient(config.ChainID, config.ChainGRPCGatewayEndpoint)
@@ -158,7 +161,7 @@ func main() {
 
 // initOTELTracer initializes the OTEL tracer
 // and wires it up with the Sentry exporter.
-func initOTELTracer() {
+func initOTELTracer(hostName string) {
 	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
 		log.Fatalf("stdouttrace.New: %v", err)
@@ -166,7 +169,7 @@ func initOTELTracer() {
 
 	resource, err := resource.New(context.Background(),
 		resource.WithAttributes(
-			semconv.ServiceNameKey.String("sqs"),
+			semconv.ServiceNameKey.String(hostName),
 		),
 	)
 	if err != nil {
