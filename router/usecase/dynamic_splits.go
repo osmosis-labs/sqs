@@ -69,6 +69,21 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		return nil, errors.New("amount out is zero, try increasing amount in")
 	}
 
+	for i := 0; i < 10; i++ {
+		zero := memo[0]
+		one := memo[1]
+
+		zeroI := zero[uint8(i)]
+		oneI := one[uint8(i)]
+
+		fmt.Println("zero", zeroI)
+		fmt.Println("one", oneI)
+
+		fmt.Println("total", zeroI.Add(oneI))
+
+		fmt.Printf("\n\n\n")
+	}
+
 	totalIncrementsInSplits := uint8(0)
 	resultRoutes := make([]domain.SplitRoute, 0, len(routes))
 	totalAmoutOutFromSplits := osmomath.ZeroInt()
@@ -148,11 +163,22 @@ func findSplit(ctx context.Context, memo []map[uint8]osmomath.Int, routes []rout
 		currentIncrement := remainingIncrements
 
 		// Attempt to get memoized value.
-		currentAmtOut, err := getAmountOut(ctx, currentRoute, currentRouteIndex, memo, currentIncrement, tokenInAmountDec, tokenIn.Denom)
-		if err != nil {
-			// Note that we should always return bestSplitSoFar if there is an error
-			// since we silently skip the failing splits and want to preserve the context about bestSplitSoFar
-			return bestSplitSoFar, err
+		currentAmtOut, ok := memo[currentRouteIndex][currentIncrement]
+		if !ok {
+			coinOut, err := currentRoute.CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(tokenIn.Denom, tokenInAmountDec.Mul(sdk.NewDec(int64(currentIncrement))).Quo(sdk.NewDec(int64(totalIncrements))).TruncateInt()))
+			if err != nil {
+				// Note that we should always return bestSplitSoFar if there is an error
+				// since we silently skip the failing splits and want to preserve the context about bestSplitSoFar
+				return bestSplitSoFar, err
+			}
+
+			if coinOut.Amount.IsNil() || coinOut.Amount.IsZero() {
+				coinOut.Amount = osmomath.ZeroInt()
+			}
+
+			// Memoize
+			memo[currentRouteIndex][currentIncrement] = coinOut.Amount
+			currentAmtOut = coinOut.Amount
 		}
 
 		currentSplit.amountOut = currentSplit.amountOut.Add(currentAmtOut)
@@ -168,9 +194,28 @@ func findSplit(ctx context.Context, memo []map[uint8]osmomath.Int, routes []rout
 
 	// TODO: start from highest and exit early
 	for currentIncrement := uint8(0); currentIncrement <= remainingIncrements; currentIncrement++ {
-		currentAmtOut, err := getAmountOut(ctx, currentRoute, currentRouteIndex, memo, currentIncrement, tokenInAmountDec, tokenIn.Denom)
-		if err != nil {
-			continue
+
+		// Attempt to get memoized value.
+		currentAmtOut, ok := memo[currentRouteIndex][currentIncrement]
+		if !ok {
+			if currentIncrement == 0 {
+				zeroResult := osmomath.ZeroInt()
+				memo[currentRouteIndex][currentIncrement] = zeroResult
+				currentAmtOut = zeroResult
+			} else {
+				coinOut, err := currentRoute.CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(tokenIn.Denom, tokenInAmountDec.Mul(sdk.NewDec(int64(currentIncrement))).Quo(sdk.NewDec(int64(totalIncrements))).TruncateInt()))
+				if err != nil {
+					continue
+				}
+
+				if coinOut.Amount.IsNil() || coinOut.Amount.IsZero() {
+					coinOut.Amount = osmomath.ZeroInt()
+				}
+
+				// Memoize
+				memo[currentRouteIndex][currentIncrement] = coinOut.Amount
+				currentAmtOut = coinOut.Amount
+			}
 		}
 
 		// TODO: consider avoiding copy
@@ -181,50 +226,16 @@ func findSplit(ctx context.Context, memo []map[uint8]osmomath.Int, routes []rout
 		currentSplitCopy.routeIncrements[currentRouteIndex] = int16(currentIncrement)
 
 		// Recurse
-		bestSplitSoFar, err = findSplit(ctx, memo, routes, currentRouteIndex+1, tokenIn, remainingIncrements-currentIncrement, bestSplitSoFar, currentSplitCopy)
+		split, err := findSplit(ctx, memo, routes, currentRouteIndex+1, tokenIn, remainingIncrements-currentIncrement, bestSplitSoFar, currentSplitCopy)
 		if err != nil {
 			continue
+		}
+
+		// Update bestSplitSoFar
+		if split.amountOut.GT(bestSplitSoFar.amountOut) {
+			bestSplitSoFar = split
 		}
 	}
 
 	return bestSplitSoFar, nil
-}
-
-// getAmountOut returns the amount out for the given route and increment.
-// If the result is already present in the memo, it returns the memoized value.
-// Otherwise, it calculates the amount out and memoizes it by mutating the memo.
-// Returns error if the amount out cannot be calculated.
-// Otherwise, returns nil.
-func getAmountOut(ctx context.Context, route route.RouteImpl, memoRouteIndex uint8, memo []map[uint8]osmomath.Int, currentIncrement uint8, totalAmountIn osmomath.Dec, tokenInDenom string) (amtOut osmomath.Int, err error) {
-	if currentIncrement == 0 {
-		zeroResult := osmomath.ZeroInt()
-		memo[memoRouteIndex][currentIncrement] = zeroResult
-		return zeroResult, nil
-	}
-
-	currentAmtOut, ok := memo[memoRouteIndex][currentIncrement]
-
-	currentRatio := osmomath.NewDec(int64(currentIncrement)).Quo(osmomath.NewDec(int64(totalIncrements)))
-	currentTokenAmountIn := currentRatio.MulMut(totalAmountIn)
-	amtIn := currentTokenAmountIn.TruncateInt()
-
-	if !ok {
-		coinOut, err := route.CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(tokenInDenom, amtIn))
-		if err != nil {
-			return osmomath.Int{}, err
-		}
-
-		if coinOut.Amount.IsNil() || coinOut.Amount.IsZero() {
-			zeroResult := osmomath.ZeroInt()
-			memo[memoRouteIndex][currentIncrement] = zeroResult
-			return zeroResult, nil
-		}
-
-		currentAmtOut = coinOut.Amount
-
-		// Memoize
-		memo[memoRouteIndex][currentIncrement] = currentAmtOut
-	}
-
-	return currentAmtOut, nil
 }

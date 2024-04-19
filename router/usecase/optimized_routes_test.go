@@ -110,7 +110,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 	secondBalancerPoolSameDenoms, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, secondBalancerPoolIDSameDenoms)
 	s.Require().NoError(err)
 
-	// // Get the thirdBalancerPool from the store
+	// Get the thirdBalancerPool from the store
 	thirdBalancerPoolSameDenoms, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, thirdBalancerPoolIDSameDenoms)
 	s.Require().NoError(err)
 
