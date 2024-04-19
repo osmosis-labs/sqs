@@ -60,7 +60,9 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		amountOut:       osmomath.ZeroInt(),
 	}
 
-	bestSplit, err := findSplit(ctx, memo, routes, 0, tokenIn.Denom, tokenIn.Amount.ToLegacyDec(), totalIncrements, initialEmptySplit, initialEmptySplit)
+	tokenAmountDec := tokenIn.Amount.ToLegacyDec()
+
+	bestSplit, err := findSplit(ctx, memo, routes, 0, tokenIn.Denom, tokenAmountDec, totalIncrements, initialEmptySplit, initialEmptySplit)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +103,9 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 			return nil, fmt.Errorf("route %d not found in memo", currentRouteIndex)
 		}
 
-		inAmount := tokenIn.Amount.ToLegacyDec().Mul(sdk.NewDec(int64(currentRouteIncrement))).Quo(sdk.NewDec(int64(totalIncrements))).TruncateInt()
+		currentRouteSplit := sdk.NewDec(int64(currentRouteIncrement)).QuoInt64Mut(int64(totalIncrements))
+
+		inAmount := currentRouteSplit.MulMut(tokenAmountDec).TruncateInt()
 		outAmount := currentRouteAmtOut
 
 		isAmountInNilOrZero := inAmount.IsNil() || inAmount.IsZero()
