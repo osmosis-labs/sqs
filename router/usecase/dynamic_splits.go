@@ -78,10 +78,11 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	computeAndCacheInAmountIncrement := func(p uint8) osmomath.Int {
 		inAmountIncrement := osmomath.Int{}
 		return func() osmomath.Int {
-			if inAmountIncrement.IsNil() || inAmountIncrement.IsZero() {
+			// If the inAmountIncrement has already been computed, return the cached value.
+			// Otherwise, compute the value and cache it.
+			if inAmountIncrement.IsNil() {
 				inAmountIncrement = sdk.NewDec(int64(p)).QuoInt64Mut(int64(totalIncrements)).MulMut(inAmountDec).TruncateInt()
 			}
-
 			return inAmountIncrement
 		}()
 	}
