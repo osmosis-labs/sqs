@@ -42,6 +42,7 @@ func main() {
 	flag.Parse()
 
 	fmt.Println("configPath", *configPath)
+	fmt.Println("hostName", *hostName)
 
 	viper.SetConfigFile(*configPath)
 	err := viper.ReadInConfig()
