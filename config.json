@@ -43,7 +43,11 @@
 		"enable-tracing":      true,
 		"traces-sample-rate":   1,
 		"profiles-sample-rate": 1, 
-        "environment" : "production"
+        "environment" : "sqs-dev",
+        "custom-sample-rate": {
+            "/router/quote": 1,
+            "other": 0
+        }
     },
     "cors": {
         "allowed-headers": "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",

@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.17.6
+
+- Custom sample rate config
+
 ## v0.17.5
 
 - Propagate --host CLI config for Sentry

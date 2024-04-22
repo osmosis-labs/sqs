@@ -35,13 +35,19 @@ type Config struct {
 	CORS *CORSConfig `mapstructure:"cors"`
 }
 
+type EndpointOTELConfig struct {
+	Quote float64 `mapstructure:"/router/quote"`
+	Other float64 `mapstructure:"other"`
+}
+
 type OTELConfig struct {
-	DSN                string  `mapstructure:"dsn"`
-	SampleRate         float64 `mapstructure:"sample-rate"`
-	EnableTracing      bool    `mapstructure:"enable-tracing"`
-	TracesSampleRate   float64 `mapstructure:"traces-sample-rate"`
-	ProfilesSampleRate float64 `mapstructure:"profiles-sample-rate"`
-	Environment        string  `mapstructure:"environment"`
+	DSN                string             `mapstructure:"dsn"`
+	SampleRate         float64            `mapstructure:"sample-rate"`
+	EnableTracing      bool               `mapstructure:"enable-tracing"`
+	TracesSampleRate   float64            `mapstructure:"traces-sample-rate"`
+	ProfilesSampleRate float64            `mapstructure:"profiles-sample-rate"`
+	Environment        string             `mapstructure:"environment"`
+	CustomSampleRate   EndpointOTELConfig `mapstructure:"custom-sample-rate"`
 }
 
 type CORSConfig struct {

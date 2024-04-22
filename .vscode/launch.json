@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/app",
-            "args": ["--config", "config.json", "--debug", "true"],
+            "args": ["--config", "config.json", "--host", "sqs-dev", "--debug", "true"],
             "cwd": "${workspaceFolder}",
         },
         {
@@ -23,7 +23,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestGetOptimalQuote_Mainnet",
+                "TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes",
                 "-test.v"
             ],
         },

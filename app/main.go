@@ -74,10 +74,10 @@ func main() {
 		var (
 			// sentryEndpointWhitelist is a map of endpoints and their respective sampling rates
 			sentryEndpointWhitelist = map[string]float64{
-				"/router/quote":        otelConfig.TracesSampleRate,
-				"/custom-direct-quote": 0,
-				"/tokens/prices":       0,
-				"/pools":               0,
+				"/router/quote":        otelConfig.CustomSampleRate.Quote,
+				"/custom-direct-quote": otelConfig.CustomSampleRate.Other,
+				"/tokens/prices":       otelConfig.CustomSampleRate.Other,
+				"/pools":               otelConfig.CustomSampleRate.Other,
 			}
 
 			// custom sampler that samples only the whitelisted endpoints per their configured rates.
