@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.17.8
+
+- Rebuild image from new dockerfile
+
 ## v0.17.7
 
 - Custom sample rate config
