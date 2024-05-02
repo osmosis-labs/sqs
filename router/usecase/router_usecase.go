@@ -153,7 +153,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		// Compute candidate routes.
 		candidateRoutes, err := GetCandidateRoutes(pools, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
 		if err != nil {
-			r.logger.Error("error handling routes for pricing", zap.Error(err))
+			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return nil, err
 		}
 
