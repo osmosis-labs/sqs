@@ -185,6 +185,10 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 			defer wg.Done()
 
 			prices, err := t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
+			if err != nil {
+				// This should not panic, so just logging the error here and continue
+				fmt.Println(err.Error())
+			}
 			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: err}
 		}(baseDenom)
 	}
