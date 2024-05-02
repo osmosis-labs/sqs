@@ -147,7 +147,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	// some pools have TVL incorrectly calculated as zero. For example, BRNCH / STRDST (1288).
 	// As a result, they are incorrectly excluded despite having appropriate liquidity.
 	// So we want to calculate price, but we never cache routes for pricing the are below the minOSMOLiquidity value, as these are returned to users.
-	if options.MinOSMOLiquidity == 0 && len(candidateRankedRoutes.Routes) == 0 {
+	if options.MinOSMOLiquidity == 0 {
 		pools := r.getSortedPoolsShallowCopy()
 
 		// Compute candidate routes.
