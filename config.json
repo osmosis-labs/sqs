@@ -14,7 +14,7 @@
       "max-routes": 20,
       "max-split-routes": 3,
       "max-split-iterations": 10,
-      "min-osmo-liquidity": 100,
+      "min-osmo-liquidity": 1000000000,
       "route-cache-enabled": true,
       "candidate-route-cache-expiry-seconds": 1200,
       "ranked-route-cache-expiry-seconds": 600
