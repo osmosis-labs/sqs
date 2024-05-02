@@ -176,6 +176,9 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
+	if quote == nil {
+		return osmomath.BigDec{}, fmt.Errorf("no quote found when computing pricing for %s (base) -> %s (quote)", baseDenom, quoteDenom)
+	}
 
 	routes := quote.GetRoute()
 	if len(routes) == 0 {

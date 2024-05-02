@@ -143,11 +143,25 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		rankedRoutes        []route.RouteImpl
 	)
 
-	// If cached ranked routes are not present, compute and rank routes by direct quote
-	if len(candidateRankedRoutes.Routes) == 0 {
-		// Filter pools by minimum liquidity
+	// If we call this function with MinOSMOLiquidity == 0, it's for pricing, we need to be able to call this as
+	// some pools have TVL incorrectly calculated as zero. For example, BRNCH / STRDST (1288).
+	// As a result, they are incorrectly excluded despite having appropriate liquidity.
+	// So we want to calculate price, but we never cache routes for pricing the are below the minOSMOLiquidity value, as these are returned to users.
+	if options.MinOSMOLiquidity == 0 && len(candidateRankedRoutes.Routes) == 0 {
+		pools := r.getSortedPoolsShallowCopy()
 
+		// Compute candidate routes.
+		candidateRoutes, err := GetCandidateRoutes(pools, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
+		if err != nil {
+			r.logger.Error("error handling routes", zap.Error(err))
+			return nil, err
+		}
+
+		// Get the route with out caching.
+		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, options.MaxRoutes)
+	} else if len(candidateRankedRoutes.Routes) == 0 {
 		poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
+
 		// Zero implies no filtering, so we skip the iterations.
 		if options.MinOSMOLiquidity > 0 {
 			poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinOSMOLiquidity)
@@ -551,6 +565,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, pools []s
 		if err != nil {
 			return sqsdomain.CandidateRoutes{}, err
 		}
+
 	}
 
 	r.logger.Debug("cached routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
