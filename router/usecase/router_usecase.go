@@ -153,12 +153,16 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		// Compute candidate routes.
 		candidateRoutes, err := GetCandidateRoutes(pools, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
 		if err != nil {
-			r.logger.Error("error handling routes", zap.Error(err))
+			r.logger.Error("error handling routes for pricing", zap.Error(err))
 			return nil, err
 		}
 
 		// Get the route with out caching.
 		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, options.MaxRoutes)
+		if err != nil {
+			r.logger.Error("error ranking routes for pricing", zap.Error(err))
+			return nil, err
+		}
 	} else if len(candidateRankedRoutes.Routes) == 0 {
 		poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
 
@@ -565,7 +569,6 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, pools []s
 		if err != nil {
 			return sqsdomain.CandidateRoutes{}, err
 		}
-
 	}
 
 	r.logger.Debug("cached routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
