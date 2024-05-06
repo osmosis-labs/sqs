@@ -7,8 +7,8 @@ toolchain go1.22.0
 require (
 	github.com/cosmos/cosmos-sdk v0.47.8
 	github.com/json-iterator/go v1.1.12
-	github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240423073233-246239a8f662
-	github.com/osmosis-labs/osmosis/v25 v25.0.0-20240429183841-537ba1600888
+	github.com/osmosis-labs/osmosis/osmomath v0.0.13
+	github.com/osmosis-labs/osmosis/v25 v25.0.0-rc0
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.33.0
 )
@@ -116,7 +116,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
-	github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240423073233-246239a8f662 // indirect
+	github.com/osmosis-labs/osmosis/osmoutils v0.0.13 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -187,9 +187,9 @@ replace (
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 	// we explicitly follow main branch tags
-	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240423073233-246239a8f662
-	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240423073233-246239a8f662
-	github.com/osmosis-labs/osmosis/v25 => github.com/osmosis-labs/osmosis/v25 v25.0.0-20240429183841-537ba1600888
+	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.13
+	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.13
+	github.com/osmosis-labs/osmosis/v25 => github.com/osmosis-labs/osmosis/v25 v25.0.0-rc0
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
