@@ -2,8 +2,6 @@ module github.com/osmosis-labs/sqs
 
 go 1.21.4
 
-toolchain go1.22.0
-
 require (
 	cosmossdk.io/math v1.3.0
 	github.com/CosmWasm/wasmd v0.45.1-0.20231128163306-4b9b61faeaa3

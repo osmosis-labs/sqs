@@ -2,8 +2,6 @@ module github.com/osmosis-labs/sqs/sqsdomain
 
 go 1.21.4
 
-toolchain go1.22.0
-
 require (
 	github.com/cosmos/cosmos-sdk v0.47.8
 	github.com/json-iterator/go v1.1.12
