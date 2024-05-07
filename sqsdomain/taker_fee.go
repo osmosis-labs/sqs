@@ -28,7 +28,7 @@ func (tfm TakerFeeMap) MarshalJSON() ([]byte, error) {
 	serializedMap := map[string]osmomath.Dec{}
 	for key, value := range tfm {
 		// Convert DenomPair to a string representation
-		keyString := fmt.Sprintf("%s-%s", key.Denom0, key.Denom1)
+		keyString := fmt.Sprintf("%s|%s", key.Denom0, key.Denom1)
 		serializedMap[keyString] = value
 	}
 
@@ -44,7 +44,7 @@ func (tfm TakerFeeMap) UnmarshalJSON(data []byte) error {
 
 	// Convert string keys back to DenomPair
 	for keyString, value := range serializedMap {
-		parts := strings.Split(keyString, "-")
+		parts := strings.Split(keyString, "|")
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid key format: %s", keyString)
 		}
