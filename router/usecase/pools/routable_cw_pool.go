@@ -21,7 +21,7 @@ const (
 	// placeholder for the code id of the pool that is not a cosm wasm pool
 	notCosmWasmPoolCodeID = 0
 
-	astroportCodeID = 580
+	astroportCodeID = 773
 )
 
 var _ sqsdomain.RoutablePool = &routableCosmWasmPoolImpl{}
