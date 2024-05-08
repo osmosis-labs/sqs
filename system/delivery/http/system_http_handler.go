@@ -40,7 +40,7 @@ type JsonResponse struct {
 	} `json:"result"`
 }
 
-// ConfigResponse defines the response for the /config-private endpoint
+// ConfigPrivateResponse defines the response for the /config-private endpoint
 type ConfigPrivateResponse struct {
 	OTEL *domain.OTELConfig `json:"otel"`
 }
