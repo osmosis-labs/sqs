@@ -72,7 +72,7 @@ func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmoma
 		stableswapPool, ok := chainPool.(*stableswap.Pool)
 		if !ok {
 			panic(domain.FailedToCastPoolModelError{
-				ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Balancer)],
+				ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Stableswap)],
 				ActualModel:   poolmanagertypes.PoolType_name[int32(poolType)],
 			})
 		}
@@ -96,7 +96,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 	cosmwasmPool, ok := chainPool.(*cwpoolmodel.CosmWasmPool)
 	if !ok {
 		return nil, domain.FailedToCastPoolModelError{
-			ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Balancer)],
+			ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.CosmWasm)],
 			ActualModel:   poolmanagertypes.PoolType_name[int32(poolType)],
 		}
 	}
