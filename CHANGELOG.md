@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- /config-private endpoint, mask OTEL config in /config endpoint
+
 ## v0.17.8
 
 - Rebuild image from new dockerfile
