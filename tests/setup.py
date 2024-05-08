@@ -48,39 +48,58 @@ def get_e2e_pool_type_from_numia_pool(pool):
     
     return e2e_pool_type
 
+def get_denoms_from_pool_tokens(pool_tokens):
+    """
+    Extracts and returns the list of denoms from the `pool_tokens` field, 
+    handling both dictionary (asset0/asset1) and list formats.
+    """
+    denoms = []
+    
+    # Concentrated pool type
+    if isinstance(pool_tokens, dict):  # Dictionary case
+        denoms.extend([pool_tokens.get('asset0', {}).get('denom'), pool_tokens.get('asset1', {}).get('denom')])
+        denoms = [denom for denom in denoms if denom]  # Remove None values
+
+    # All other types
+    elif isinstance(pool_tokens, list):  # List case
+        denoms = [token.get('denom') for token in pool_tokens if 'denom' in token]
+
+    return denoms
+
+
 def map_pool_type_to_pool_data(pool_data):
-    """Returns a dictionary mapping each pool type to associated ID, liquidity and tokens.
-    Returns {pool_type: [[pool_id, liquidity, [denoms]]]}."""
+    """
+    Returns a dictionary mapping each pool type to associated ID, liquidity, and tokens.
+
+    Example output:
+    {
+        "e2e_pool_type_1": [[pool_id, liquidity, [denoms]]],
+        "e2e_pool_type_2": [[pool_id, liquidity, [denoms]], ...],
+        ...
+    }
+    """
     if not pool_data:
         return {}
 
-    # Create the mapping from pool type to data
     pool_type_to_data = {}
+
     for pool in pool_data:
-        # Convert the Numia pool type to an e2e pool type
+        # Convert Numia pool type to e2e pool type
         e2e_pool_type = get_e2e_pool_type_from_numia_pool(pool)
 
-        denoms = []
-
-        # Check if `pool_tokens` is a list or dictionary
+        # Extract denoms using a helper function
         pool_tokens = pool.get("pool_tokens")
-        if isinstance(pool_tokens, dict):  # Handles the dictionary case (asset0/asset1)
-            if 'asset0' in pool_tokens:
-                denoms.append(pool_tokens['asset0'].get('denom'))
-            if 'asset1' in pool_tokens:
-                denoms.append(pool_tokens['asset1'].get('denom'))
-        elif isinstance(pool_tokens, list):  # Handles the list case (array of assets)
-            denoms = [token.get('denom') for token in pool_tokens if 'denom' in token]
+        denoms = get_denoms_from_pool_tokens(pool_tokens)
 
-        # Get the pool ID and liquidity
+        # Extract pool ID and liquidity
         pool_id = pool.get('pool_id')
         liquidity = pool.get('liquidity')
 
-        # Add or update the set of denoms for this pool type
+        # Initialize the pool type if not already done
         if e2e_pool_type not in pool_type_to_data:
-            pool_type_to_data[e2e_pool_type] = list()
+            pool_type_to_data[e2e_pool_type] = []
 
-        # Append the pool data to the list of pools for this pool type
+        # Append the pool data to the list for this pool type
         pool_type_to_data[e2e_pool_type].append([pool_id, liquidity, denoms])
 
     return pool_type_to_data
