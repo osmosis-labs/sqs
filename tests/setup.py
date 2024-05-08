@@ -85,10 +85,6 @@ def map_pool_type_to_pool_data(pool_data):
 
     return pool_type_to_data
 
-def filter_neq(source_list, neq_value):
-    """Keeps items that are not equal to value."""
-    return [element for element in source_list if element != neq_value]
-
 def create_display_to_data_map(tokens_data):
     """Function to map display field to the data of that token."""
 
@@ -100,7 +96,7 @@ def create_display_to_data_map(tokens_data):
     return display_map
 
 def create_chain_denom_to_data_map(tokens_data):
-    """Function to map chain denom the data of that token."""
+    """Function to map chain denom to the data of that token."""
 
     display_map = {}
     for token in tokens_data:
@@ -171,5 +167,5 @@ display_to_data_map = create_display_to_data_map(all_tokens_data)
 # Create a map of chain denom to token data
 chain_denom_to_data_map = create_chain_denom_to_data_map(all_tokens_data)
 
-# Create a map of pool type to denoms
+# Create a map of pool type to pool data
 pool_type_to_denoms = map_pool_type_to_pool_data(all_pools_data)

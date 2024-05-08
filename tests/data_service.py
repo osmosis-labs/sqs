@@ -19,7 +19,6 @@ def fetch_tokens():
 
 def fetch_pools():
     """Fetches all pools by iterating through paginated results and caches the results in memory."""
-    global cached_pool_data
     url = NUMIA_API_URL + POOLS_ENDPOINT
     all_pools = []
     next_offset = 0
