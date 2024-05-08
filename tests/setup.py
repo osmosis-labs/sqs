@@ -137,28 +137,46 @@ def get_token_data_copy():
     return copy.deepcopy(all_tokens_data)
 
 
+def choose_tokens_generic(tokens, filter_key, min_value, max_value, sort_key, num_tokens=1, asc=False):
+    """
+    A generic function to choose tokens based on given criteria.
+
+    Args:
+        tokens (list): The list of token data dictionaries.
+        filter_key (str): The field name used to filter tokens.
+        min_value (float): The minimum value for filtering.
+        max_value (float): The maximum value for filtering.
+        sort_key (str): The field name used for sorting tokens.
+        num_tokens (int): The number of tokens to return.
+        asc (bool): Whether to sort in ascending order.
+
+    Returns:
+        list: A list of denoms matching the given criteria.
+    """
+    # Filter tokens based on the specified filter_key range
+    filtered_tokens = [
+        t['denom'] for t in tokens if filter_key in t and t[filter_key] is not None and min_value <= t[filter_key] <= max_value
+    ]
+
+    # Sort tokens based on the specified sort_key
+    sorted_tokens = sorted(
+        filtered_tokens, key=lambda x: next(t[sort_key] for t in tokens if t['denom'] == x), reverse=not asc
+    )
+
+    return sorted_tokens[:num_tokens]
+
+
 def choose_tokens_liq_range(num_tokens=1, min_liq=0, max_liq=float('inf'), asc=False):
     """Function to choose tokens based on liquidity."""
     tokens = get_token_data_copy()
-    filtered_tokens = [
-        t['denom'] for t in tokens if 'liquidity' in t and t['liquidity'] is not None and min_liq <= t['liquidity'] <= max_liq
-    ]
-    sorted_tokens = sorted(
-        filtered_tokens, key=lambda x: next(t['liquidity'] for t in tokens if t['denom'] == x), reverse=not asc
-    )
-    return sorted_tokens[:num_tokens]
+    return choose_tokens_generic(tokens, 'liquidity', min_liq, max_liq, 'liquidity', num_tokens, asc)
+
 
 def choose_tokens_volume_range(num_tokens=1, min_vol=0, max_vol=float('inf'), asc=False):
     """Function to choose tokens based on volume."""
-
     tokens = get_token_data_copy()
-    filtered_tokens = [
-        t['denom'] for t in tokens if 'volume_24h' in t and t['volume_24h'] is not None and min_vol <= t['volume_24h'] <= max_vol
-    ]
-    sorted_tokens = sorted(
-        filtered_tokens, key=lambda x: next(t['volume_24h'] for t in tokens if t['denom'] == x), reverse=not asc
-    )
-    return sorted_tokens[:num_tokens]
+    return choose_tokens_generic(tokens, 'volume_24h', min_vol, max_vol, 'volume_24h', num_tokens, asc)
+
 
 def choose_pool_type_tokens_by_liq_asc(pool_type, num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
     """Function to choose pool ID and tokens associated with a specific pool type based on liquidity.
