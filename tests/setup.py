@@ -179,28 +179,50 @@ def choose_tokens_volume_range(num_tokens=1, min_vol=0, max_vol=float('inf'), as
 
 
 def choose_pool_type_tokens_by_liq_asc(pool_type, num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
-    """Function to choose pool ID and tokens associated with a specific pool type based on liquidity.
-    Returns [pool ID, [tokens]]"""
-    
-    pools_tokens_of_type = pool_type_to_denoms.get(pool_type)
+    """
+    Function to choose pool ID and tokens associated with a specific pool type based on liquidity.
 
-    sorted_pools = sorted(pools_tokens_of_type, key=lambda x: x[1], reverse=not asc)
+    Args:
+        pool_type (E2EPoolType): The pool type to filter by.
+        num_pairs (int): The number of pool pairs to return.
+        min_liq (float): The minimum liquidity value.
+        max_liq (float): The maximum liquidity value.
+        asc (bool): Whether to sort in ascending or descending order.
 
-    return [[pool_data[1], pool_data[2]] for pool_data in sorted_pools[:num_pairs]]
+    Returns:
+        list: [[pool ID, [tokens]], ...]
+    """
+    # Retrieve pools associated with the specified pool type
+    pools_tokens_of_type = pool_type_to_denoms.get(pool_type, [])
+
+    # Filter pools based on the provided min_liq and max_liq values
+    filtered_pools = [
+        pool for pool in pools_tokens_of_type if min_liq <= pool[1] <= max_liq
+    ]
+
+    # Sort the filtered pools based on liquidity
+    sorted_pools = sorted(filtered_pools, key=lambda x: x[1], reverse=not asc)
+
+    # Extract only the required number of pairs
+    return [[pool_data[0], pool_data[2]] for pool_data in sorted_pools[:num_pairs]]
+
 
 def choose_transmuter_pool_tokens_by_liq_asc(num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
     """Function to choose pool ID and tokens associated with a transmuter V1 pool type based on liquidity.
     Returns [pool ID, [tokens]]"""
     return choose_pool_type_tokens_by_liq_asc(E2EPoolType.COSMWASM_TRANSMUTER_V1, num_pairs, min_liq, max_liq, asc)
 
+
 def choose_pcl_pool_tokens_by_liq_asc(num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
     """Function to choose pool ID and tokens associated with a Astroport PCL pool type based on liquidity.
     Returns [pool ID, [tokens]]"""
     return choose_pool_type_tokens_by_liq_asc(E2EPoolType.COSMWASM_ASTROPORT, num_pairs, min_liq, max_liq, asc)
 
+
 def chain_denom_to_display(chain_denom):
     """Function to map chain denom to display."""
     return chain_denom_to_data_map.get(chain_denom, {}).get('display', chain_denom)
+
 
 def chain_denoms_to_display(chain_denoms):
     """Function to map chain denoms to display."""

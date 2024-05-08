@@ -4,7 +4,7 @@ from setup import *
 transmuter_token_pairs = choose_transmuter_pool_tokens_by_liq_asc(1)
 print("Transmuter ", [chain_denoms_to_display(pool_tokens[1]) for pool_tokens in transmuter_token_pairs])
 
-astroport_token_pairs = choose_pcl_pool_tokens_by_liq_asc(2)
+astroport_token_pairs = choose_pcl_pool_tokens_by_liq_asc(2, 1000, 10000)
 print("Astroport PCL ", [chain_denoms_to_display(pool_tokens[1]) for pool_tokens in astroport_token_pairs])
 
 print("Top Liquidity Token ", chain_denoms_to_display(choose_tokens_liq_range()))
