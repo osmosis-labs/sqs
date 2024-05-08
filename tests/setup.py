@@ -1,52 +1,57 @@
 import copy
 from data_service import all_tokens_data, all_pools_data
+from enum import Enum, IntEnum
 
-# Numia pool type constants
-NUMIA_POOL_TYPE_BALANCER = 'osmosis.gamm.v1beta1.Pool'
-NUMIA_POOL_TYPE_STABLESWAP = 'osmosis.gamm.poolmodels.stableswap.v1beta1.Pool'
-NUMIA_POOL_TYPE_CONCENTRATED = 'osmosis.concentratedliquidity.v1beta1.Pool'
-NUMIA_POOL_TYPE_COSMWASM = 'osmosis.cosmwasmpool.v1beta1.CosmWasmPool'
+# Numia pool type constants using an Enum
+class NumiaPoolType(Enum):
+    BALANCER = 'osmosis.gamm.v1beta1.Pool'
+    STABLESWAP = 'osmosis.gamm.poolmodels.stableswap.v1beta1.Pool'
+    CONCENTRATED = 'osmosis.concentratedliquidity.v1beta1.Pool'
+    COSMWASM = 'osmosis.cosmwasmpool.v1beta1.CosmWasmPool'
 
-# Cosmwasm pool code IDs
+# Cosmwasm pool code IDs using standard constants
 TRANSMUTER_CODE_ID = 148
 ASTROPORT_CODE_ID = 773
 
-# Local e2e pool types
-# We define our own pool types for convinience and consistency across e2e tests
-E2E_POOL_TYPE_BALANCER = 0
-E2E_POOL_TYPE_STABLESWAP = 1
-E2E_POOL_TYPE_CONCENTRATED = 2
-E2E_POOL_TYPE_COSMWASM_MISC = 3
-E2E_POOL_TYPE_COSMWASM_TRANSMUTER_V1 = 4
-E2E_POOL_TYPE_COSMWASM_ASTROPORT = 5
+# Local e2e pool types using an IntEnum for convenience
+class E2EPoolType(IntEnum):
+    BALANCER = 0
+    STABLESWAP = 1
+    CONCENTRATED = 2
+    COSMWASM_MISC = 3
+    COSMWASM_TRANSMUTER_V1 = 4
+    COSMWASM_ASTROPORT = 5
+
+# Mapping from Numia pool types to e2e pool types
+NUMIA_TO_E2E_MAP = {
+    NumiaPoolType.BALANCER.value: E2EPoolType.BALANCER,
+    NumiaPoolType.STABLESWAP.value: E2EPoolType.STABLESWAP,
+    NumiaPoolType.CONCENTRATED.value: E2EPoolType.CONCENTRATED
+}
 
 # Misc constants
 UOSMO = "uosmo"
 
 def get_e2e_pool_type_from_numia_pool(pool):
-    """Gets an e2e pool type from Numia pool."""
-
+    """Gets an e2e pool type from a Numia pool."""
     numia_pool_type = pool.get("type")
 
-    e2e_pool_type = None
-    if numia_pool_type == NUMIA_POOL_TYPE_BALANCER:
-        e2e_pool_type = E2E_POOL_TYPE_BALANCER
-    elif numia_pool_type == NUMIA_POOL_TYPE_STABLESWAP:
-        e2e_pool_type = E2E_POOL_TYPE_STABLESWAP
-    elif numia_pool_type == NUMIA_POOL_TYPE_CONCENTRATED:
-        e2e_pool_type = E2E_POOL_TYPE_CONCENTRATED
-    elif numia_pool_type == NUMIA_POOL_TYPE_COSMWASM:
+    # Direct mapping for common pool types
+    if numia_pool_type in NUMIA_TO_E2E_MAP:
+        return NUMIA_TO_E2E_MAP[numia_pool_type]
+
+    # Special handling for CosmWasm pools based on code_id
+    if numia_pool_type == NumiaPoolType.COSMWASM.value:
         pool_code_id = int(pool.get('code_id'))
         if pool_code_id == TRANSMUTER_CODE_ID:
-            e2e_pool_type = E2E_POOL_TYPE_COSMWASM_TRANSMUTER_V1
+            return E2EPoolType.COSMWASM_TRANSMUTER_V1
         elif pool_code_id == ASTROPORT_CODE_ID:
-            e2e_pool_type = E2E_POOL_TYPE_COSMWASM_ASTROPORT
+            return E2EPoolType.COSMWASM_ASTROPORT
         else:
-            e2e_pool_type = E2E_POOL_TYPE_COSMWASM_MISC
-    else:
-        raise ValueError(f"Unknown pool type: {numia_pool_type}")
-    
-    return e2e_pool_type
+            return E2EPoolType.COSMWASM_MISC
+
+    # Raise an error for unknown pool types
+    raise ValueError(f"Unknown pool type: {numia_pool_type}")
 
 def get_denoms_from_pool_tokens(pool_tokens):
     """
@@ -165,12 +170,12 @@ def choose_pool_type_tokens_by_liq_asc(pool_type, num_pairs=1, min_liq=0, max_li
 def choose_transmuter_pool_tokens_by_liq_asc(num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
     """Function to choose pool ID and tokens associated with a transmuter V1 pool type based on liquidity.
     Returns [pool ID, [tokens]]"""
-    return choose_pool_type_tokens_by_liq_asc(E2E_POOL_TYPE_COSMWASM_TRANSMUTER_V1, num_pairs, min_liq, max_liq, asc)
+    return choose_pool_type_tokens_by_liq_asc(E2EPoolType.COSMWASM_TRANSMUTER_V1, num_pairs, min_liq, max_liq, asc)
 
 def choose_pcl_pool_tokens_by_liq_asc(num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
     """Function to choose pool ID and tokens associated with a Astroport PCL pool type based on liquidity.
     Returns [pool ID, [tokens]]"""
-    return choose_pool_type_tokens_by_liq_asc(E2E_POOL_TYPE_COSMWASM_ASTROPORT, num_pairs, min_liq, max_liq, asc)
+    return choose_pool_type_tokens_by_liq_asc(E2EPoolType.COSMWASM_ASTROPORT, num_pairs, min_liq, max_liq, asc)
 
 def chain_denom_to_display(chain_denom):
     """Function to map chain denom to display."""
