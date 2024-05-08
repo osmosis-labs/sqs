@@ -109,25 +109,28 @@ def map_pool_type_to_pool_data(pool_data):
 
     return pool_type_to_data
 
-def create_display_to_data_map(tokens_data):
-    """Function to map display field to the data of that token."""
+def create_field_to_data_map(tokens_data, key_field):
+    """Maps a specified key field to the data of that token.
 
-    display_map = {}
+    Args:
+        tokens_data (list): List of token data dictionaries.
+        key_field (str): The field to use as the mapping key.
+
+    Returns:
+        dict: A dictionary mapping the specified key field to the token data.
+    """
+    mapping = {}
     for token in tokens_data:
-        display_field = token.get('display')
-        if display_field:
-            display_map[display_field] = token
-    return display_map
+        key_value = token.get(key_field)
+        if key_value:
+            mapping[key_value] = token
+    return mapping
+
+def create_display_to_data_map(tokens_data):
+    return create_field_to_data_map(tokens_data, 'display')
 
 def create_chain_denom_to_data_map(tokens_data):
-    """Function to map chain denom to the data of that token."""
-
-    display_map = {}
-    for token in tokens_data:
-        display_field = token.get('denom')
-        if display_field:
-            display_map[display_field] = token
-    return display_map
+    return create_field_to_data_map(tokens_data, 'denom')
 
 def get_token_data_copy():
     """Return deep copy of all tokens."""
