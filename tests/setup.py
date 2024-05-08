@@ -29,9 +29,6 @@ NUMIA_TO_E2E_MAP = {
     NumiaPoolType.CONCENTRATED.value: E2EPoolType.CONCENTRATED
 }
 
-# Misc constants
-UOSMO = "uosmo"
-
 
 def get_e2e_pool_type_from_numia_pool(pool):
     """Gets an e2e pool type from a Numia pool."""
@@ -149,7 +146,7 @@ def choose_tokens_generic(tokens, filter_key, min_value, max_value, sort_key, nu
 
     Args:
         tokens (list): The list of token data dictionaries.
-        filter_key (str): The field name used to filter tokens.
+        filter_key (str): The field name sed to filter tokens.
         min_value (float): The minimum value for filtering.
         max_value (float): The maximum value for filtering.
         sort_key (str): The field name used for sorting tokens.
@@ -242,3 +239,6 @@ chain_denom_to_data_map = create_chain_denom_to_data_map(all_tokens_data)
 
 # Create a map of pool type to pool data
 pool_type_to_denoms = map_pool_type_to_pool_data(all_pools_data)
+
+# Create a map of pool ID to pool data
+pool_by_id_map = {pool.get('pool_id'): pool for pool in all_pools_data}
