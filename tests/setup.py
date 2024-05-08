@@ -32,6 +32,7 @@ NUMIA_TO_E2E_MAP = {
 # Misc constants
 UOSMO = "uosmo"
 
+
 def get_e2e_pool_type_from_numia_pool(pool):
     """Gets an e2e pool type from a Numia pool."""
     numia_pool_type = pool.get("type")
@@ -52,6 +53,7 @@ def get_e2e_pool_type_from_numia_pool(pool):
 
     # Raise an error for unknown pool types
     raise ValueError(f"Unknown pool type: {numia_pool_type}")
+
 
 def get_denoms_from_pool_tokens(pool_tokens):
     """
@@ -109,6 +111,7 @@ def map_pool_type_to_pool_data(pool_data):
 
     return pool_type_to_data
 
+
 def create_field_to_data_map(tokens_data, key_field):
     """Maps a specified key field to the data of that token.
 
@@ -126,11 +129,14 @@ def create_field_to_data_map(tokens_data, key_field):
             mapping[key_value] = token
     return mapping
 
+
 def create_display_to_data_map(tokens_data):
     return create_field_to_data_map(tokens_data, 'display')
 
+
 def create_chain_denom_to_data_map(tokens_data):
     return create_field_to_data_map(tokens_data, 'denom')
+
 
 def get_token_data_copy():
     """Return deep copy of all tokens."""
