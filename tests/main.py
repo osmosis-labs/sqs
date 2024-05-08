@@ -1,9 +1,11 @@
 from setup import *
 
 # DEMO - to be removed in a subsequent PR
-print("Transmuter ", chain_denoms_to_display(choose_transmuter_tokens_by_liq_asc()))
+transmuter_token_pairs = choose_transmuter_pool_tokens_by_liq_asc(1)
+print("Transmuter ", [chain_denoms_to_display(pool_tokens[1]) for pool_tokens in transmuter_token_pairs])
 
-print("Astroport PCL ", chain_denoms_to_display(choose_pcl_tokens_by_liq_asc()))
+astroport_token_pairs = choose_pcl_pool_tokens_by_liq_asc(2)
+print("Astroport PCL ", [chain_denoms_to_display(pool_tokens[1]) for pool_tokens in astroport_token_pairs])
 
 print("Top Liquidity Token ", chain_denoms_to_display(choose_tokens_liq_range()))
 

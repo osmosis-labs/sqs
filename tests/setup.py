@@ -48,13 +48,14 @@ def get_e2e_pool_type_from_numia_pool(pool):
     
     return e2e_pool_type
 
-def map_pool_type_to_denoms(pool_data):
-    """Returns a dictionary mapping each pool type to associated denoms from pool_tokens."""
+def map_pool_type_to_pool_data(pool_data):
+    """Returns a dictionary mapping each pool type to associated ID, liquidity and tokens.
+    Returns {pool_type: [[pool_id, liquidity, [denoms]]]}."""
     if not pool_data:
         return {}
 
-    # Create the mapping
-    pool_type_to_denoms = {}
+    # Create the mapping from pool type to data
+    pool_type_to_data = {}
     for pool in pool_data:
         # Convert the Numia pool type to an e2e pool type
         e2e_pool_type = get_e2e_pool_type_from_numia_pool(pool)
@@ -71,28 +72,18 @@ def map_pool_type_to_denoms(pool_data):
         elif isinstance(pool_tokens, list):  # Handles the list case (array of assets)
             denoms = [token.get('denom') for token in pool_tokens if 'denom' in token]
 
+        # Get the pool ID and liquidity
+        pool_id = pool.get('pool_id')
+        liquidity = pool.get('liquidity')
+
         # Add or update the set of denoms for this pool type
-        if e2e_pool_type not in pool_type_to_denoms:
-            pool_type_to_denoms[e2e_pool_type] = set()
-        pool_type_to_denoms[e2e_pool_type].update(denoms)
-  
+        if e2e_pool_type not in pool_type_to_data:
+            pool_type_to_data[e2e_pool_type] = list()
 
-    # Precompute a lookup of denom to liquidity values
-    denom_liquidity = {
-        denom: float(data.get('liquidity', 0))
-        for denom, data in chain_denom_to_data_map.items()
-    }
+        # Append the pool data to the list of pools for this pool type
+        pool_type_to_data[e2e_pool_type].append([pool_id, liquidity, denoms])
 
-    # Sort denoms within each pool type using precomputed liquidity values
-    for pool_type, denoms in pool_type_to_denoms.items():
-        # Create a list of (denom, liquidity) tuples for sorting
-        denom_liquidity_pairs = [(denom, denom_liquidity.get(denom, 0)) for denom in denoms]
-        
-        # Sort by liquidity in descending order
-        sorted_denoms = [denom for denom, _ in sorted(denom_liquidity_pairs, key=lambda x: x[1], reverse=True)]
-        pool_type_to_denoms[pool_type] = sorted_denoms
-
-    return pool_type_to_denoms
+    return pool_type_to_data
 
 def filter_neq(source_list, neq_value):
     """Keeps items that are not equal to value."""
@@ -146,35 +137,25 @@ def choose_tokens_volume_range(num_tokens=1, min_vol=0, max_vol=float('inf'), as
     )
     return sorted_tokens[:num_tokens]
 
-def choose_pool_type_tokens_by_liq_asc(pool_type, num_tokens=1, min_liq=0, max_liq=float('inf'), asc=False):
-    """Function to choose tokens associated with a specific pool type based on liquidity."""
+def choose_pool_type_tokens_by_liq_asc(pool_type, num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
+    """Function to choose pool ID and tokens associated with a specific pool type based on liquidity.
+    Returns [pool ID, [tokens]]"""
     
-    # Choose non-UOSMO denoms
-    pcl_denoms = filter_neq(pool_type_to_denoms.get(pool_type), UOSMO)
+    pools_tokens_of_type = pool_type_to_denoms.get(pool_type)
 
-    tokens = get_token_data_copy()
+    sorted_pools = sorted(pools_tokens_of_type, key=lambda x: x[1], reverse=not asc)
 
-    pcl_denoms_set = set(pcl_denoms)
+    return [[pool_data[1], pool_data[2]] for pool_data in sorted_pools[:num_pairs]]
 
-    # Compile a list of tokens with their liquidities that are in the PCL denoms set
-    tokens_liq = []
-    for token in tokens:
-        token_denom = token['denom']
-        if token_denom in pcl_denoms_set:
-            tokens_liq.append([token_denom, token['liquidity']])
+def choose_transmuter_pool_tokens_by_liq_asc(num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
+    """Function to choose pool ID and tokens associated with a transmuter V1 pool type based on liquidity.
+    Returns [pool ID, [tokens]]"""
+    return choose_pool_type_tokens_by_liq_asc(E2E_POOL_TYPE_COSMWASM_TRANSMUTER_V1, num_pairs, min_liq, max_liq, asc)
 
-    # Sort the tokens by liquidity in ascending order
-    sorted_tokens = sorted(tokens_liq, key=lambda x: x[1], reverse=not asc)
-
-    return [pair[0] for pair in sorted_tokens[:num_tokens]]
-
-def choose_transmuter_tokens_by_liq_asc(num_tokens=1, min_liq=0, max_liq=float('inf'), asc=False):
-    """Function to choose tokens associated with a transmuter V1 pool type based on liquidity."""
-    return choose_pool_type_tokens_by_liq_asc(E2E_POOL_TYPE_COSMWASM_TRANSMUTER_V1, num_tokens, min_liq, max_liq, asc)
-
-def choose_pcl_tokens_by_liq_asc(num_tokens=1, min_liq=0, max_liq=float('inf'), asc=False):
-    """Function to choose tokens associated with an Astroport PCL pool type based on liquidity."""
-    return choose_pool_type_tokens_by_liq_asc(E2E_POOL_TYPE_COSMWASM_ASTROPORT, num_tokens, min_liq, max_liq, asc)
+def choose_pcl_pool_tokens_by_liq_asc(num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
+    """Function to choose pool ID and tokens associated with a Astroport PCL pool type based on liquidity.
+    Returns [pool ID, [tokens]]"""
+    return choose_pool_type_tokens_by_liq_asc(E2E_POOL_TYPE_COSMWASM_ASTROPORT, num_pairs, min_liq, max_liq, asc)
 
 def chain_denom_to_display(chain_denom):
     """Function to map chain denom to display."""
@@ -191,4 +172,4 @@ display_to_data_map = create_display_to_data_map(all_tokens_data)
 chain_denom_to_data_map = create_chain_denom_to_data_map(all_tokens_data)
 
 # Create a map of pool type to denoms
-pool_type_to_denoms = map_pool_type_to_denoms(all_pools_data)
+pool_type_to_denoms = map_pool_type_to_pool_data(all_pools_data)
