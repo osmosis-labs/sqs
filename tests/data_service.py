@@ -18,7 +18,7 @@ def fetch_tokens():
         return []
 
 def fetch_pools():
-    """Fetches all pools by iterating through paginated results and caches the results in memory."""
+    """Fetches all pools by iterating through paginated results."""
     url = NUMIA_API_URL + POOLS_ENDPOINT
     all_pools = []
     next_offset = 0
@@ -45,7 +45,6 @@ def fetch_pools():
             print(f"Error fetching data from Numia: {e}")
             break
 
-    # retunr the pool data
     return all_pools
 
 # Fetch all token data once
