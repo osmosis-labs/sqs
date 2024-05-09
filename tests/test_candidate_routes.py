@@ -14,18 +14,22 @@ class TestCandidateRoutes:
     # Sanity check to ensure the test setup is correct
     # before continunig with more complex test cases.
     def test_usdc_uosmo(self, environment_url):
-        # Defined by the config.json.
-        # TODO: read max-routes config from /config endpoint to get this value
-        expected_num_routes = 20
+        # Get max routes value from deployment config to expect the same number of candidate routes
+        # to be found
+        config = SQSService(environment_url).get_config()
+        expected_num_routes = config['Router']['MaxRoutes']
+        # Arbitrary choice based on performance at the time of test writing
         expected_latency_upper_bound_ms = 300
 
         self.run_candidate_routes_test(environment_url, constants.USDC, constants.UOSMO, expected_latency_upper_bound_ms, expected_min_routes=expected_num_routes, expected_max_routes=expected_num_routes)
         
     # Switch token in and out denoms compared to test_usdc_uosmo
     def test_uosmo_usdc(self, environment_url):
-        # Defined by the config.json.
-        # TODO: read max-routes config from /config endpoint to get this value
-        expected_num_routes = 20
+        # Get max routes value from deployment config to expect the same number of candidate routes
+        # to be found
+        config = SQSService(environment_url).get_config()
+        expected_num_routes = config['Router']['MaxRoutes']
+        # Arbitrary choice based on performance at the time of test writing
         expected_latency_upper_bound_ms = 300
 
         self.run_candidate_routes_test(environment_url, constants.UOSMO, constants.USDC, expected_latency_upper_bound_ms, expected_min_routes=expected_num_routes, expected_max_routes=expected_num_routes)

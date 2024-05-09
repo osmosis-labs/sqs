@@ -6,10 +6,32 @@ ROUTER_ROUTES_URL = "/router/routes"
 
 TOKENS_METADATA_URL = "/tokens/metadata"
 
+CONFIG_URL = "/config"
+
 class SQSService:
     def __init__(self, url):
         self.url = url
         self.tokens_metadata = None
+        self.config = None
+
+    def get_config(self):
+        """
+        Fetches the config from the specified endpoint and returns it.
+        Caches it internally to avoid fetching it multiple times.
+        
+        Raises error if non-200 is returned from the endpoint.
+        """
+        if self.config:
+            return self.config
+
+        response = requests.get(self.url + CONFIG_URL)
+
+        if response.status_code != 200:
+            raise Exception(f"Error fetching config: {response.text}")
+        
+        self.config = response.json()
+
+        return self.config
 
     def get_candidate_routes(self, denom_in, denom_out, human_denoms="false"):
               # Set the query parameters
