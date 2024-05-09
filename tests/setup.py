@@ -87,6 +87,8 @@ def map_pool_type_to_pool_data(pool_data):
 
     pool_type_to_data = {}
 
+    denom_to_pool_id = {}
+
     for pool in pool_data:
         # Convert Numia pool type to e2e pool type
         e2e_pool_type = get_e2e_pool_type_from_numia_pool(pool)
