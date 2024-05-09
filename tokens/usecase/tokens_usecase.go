@@ -32,24 +32,74 @@ type tokensUseCase struct {
 
 // Struct to represent the JSON structure
 type AssetList struct {
-	ChainName string `json:"chain_name"`
+	ChainName string `json:"chainName"`
 	Assets    []struct {
-		Description string `json:"description"`
-		DenomUnits  []struct {
-			Denom    string `json:"denom"`
-			Exponent int    `json:"exponent"`
-		} `json:"denom_units"`
-		Base     string        `json:"base"`
-		Name     string        `json:"name"`
-		Display  string        `json:"display"`
-		Symbol   string        `json:"symbol"`
-		Traces   []interface{} `json:"traces"`
-		LogoURIs struct {
+		ChainName        string `json:"chainName"`
+		SourceDenom      string `json:"sourceDenom"`
+		CoinMinimalDenom string `json:"coinMinimalDenom"`
+		Symbol           string `json:"symbol"`
+		Decimals         int    `json:"decimals"`
+		LogoURIs         struct {
 			PNG string `json:"png"`
 			SVG string `json:"svg"`
-		} `json:"logo_URIs"`
-		CoingeckoID string   `json:"coingecko_id"`
-		Keywords    []string `json:"keywords"`
+		} `json:"logoURIs"`
+		CoingeckoID string `json:"coingeckoId"`
+		Price       struct {
+			PoolID string `json:"poolId"`
+			Denom  string `json:"denom"`
+		} `json:"price"`
+		Categories   []string `json:"categories"`
+		PegMechanism string   `json:"pegMechanism"`
+		// Found inconsistency in the assest list file
+		// TransferMethods/CounterParty sometimes is an array and sometimes is an object
+		// So commenting out the fields for now
+		// TransferMethods []struct {
+		// 	Name         string `json:"name"`
+		// 	Type         string `json:"type"`
+		// 	DepositURL   string `json:"depositUrl"`
+		// 	WithdrawURL  string `json:"withdrawUrl"`
+		// 	CounterParty []struct {
+		// 		ChainName        string `json:"chainName"`
+		// 		ChainID          string `json:"chainId"`
+		// 		SourceDenom      string `json:"sourceDenom"`
+		// 		Port             string `json:"port"`
+		// 		ChannelID        string `json:"channelId"`
+		// 		WrappedAssetID   string `json:"wrappedAssetId"`
+		// 		UnwrappedAssetID string `json:"unwrappedAssetId"`
+		// 		EvmChainID       int    `json:"evmChainId"`
+		// 		SourceChainID    string `json:"sourceChainId"`
+		// 	} `json:"counterparty"`
+		// 	Chain []struct {
+		// 		Port      string `json:"port"`
+		// 		ChannelID string `json:"channelId"`
+		// 		Path      string `json:"path"`
+		// 	} `json:"chain"`
+		// 	WrappedAssetID   string `json:"wrappedAssetId"`
+		// 	UnwrappedAssetID string `json:"unwrappedAssetId"`
+		// } `json:"transferMethods"`
+		// CounterParty []struct {
+		// 	ChainName   string `json:"chainName"`
+		// 	SourceDenom string `json:"sourceDenom"`
+		// 	ChainType   string `json:"chainType"`
+		// 	ChainID     string `json:"chainId"`
+		// 	Address     string `json:"address"`
+		// 	Symbol      string `json:"symbol"`
+		// 	Decimals    int    `json:"decimals"`
+		// 	LogoURIs    struct {
+		// 		PNG string `json:"png"`
+		// 		SVG string `json:"svg"`
+		// 	} `json:"logoURIs"`
+		// } `json:"counterparty"`
+		VariantGroupKey string `json:"variantGroupKey"`
+		Name            string `json:"name"`
+		Verified        bool   `json:"verified"`
+		Unstable        bool   `json:"unstable"`
+		Disabled        bool   `json:"disabled"`
+		Preview         bool   `json:"preview"`
+		SortWith        struct {
+			ChainName   string `json:"chainName"`
+			SourceDenom string `json:"sourceDenom"`
+		} `json:"sortWith"`
 	} `json:"assets"`
 }
 
@@ -302,41 +352,10 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 	// Iterate through each asset and its denom units to print exponents
 	for _, asset := range assetList.Assets {
 		token := domain.Token{}
-		chainDenom := ""
-
-		for _, denom := range asset.DenomUnits {
-			if denom.Exponent == 0 {
-				chainDenom = denom.Denom
-
-				if len(asset.DenomUnits) == 1 {
-					token.Precision = denom.Exponent
-				}
-			}
-
-			if denom.Exponent > 0 {
-				// There are edge cases where we have 3 denom exponents for a token.
-				// We filter out the intermediate denom exponents and only use the human readable denom.
-				if denom.Denom == "mluna" || denom.Denom == "musd" || denom.Denom == "msomm" || denom.Denom == "mkrw" || denom.Denom == "uarch" {
-					continue
-				}
-
-				token.Precision = denom.Exponent
-			}
-		}
-
-		// Detect unlisted tokens
-		isUnlisted := false
-		for _, keyword := range asset.Keywords {
-			if keyword == unlistedKeyword {
-				isUnlisted = true
-				break
-			}
-		}
-
+		token.Precision = asset.Decimals
 		token.HumanDenom = asset.Symbol
-		token.IsUnlisted = isUnlisted
-
-		tokensByChainDenom[chainDenom] = token
+		token.IsUnlisted = asset.Disabled
+		tokensByChainDenom[asset.CoinMinimalDenom] = token
 	}
 
 	return tokensByChainDenom, nil
