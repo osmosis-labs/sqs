@@ -123,11 +123,15 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 }
 
 // @Summary Get prices
-// @Description Given a list of base denominations, returns the spot price with a system-configured quote denomination.
+// @Description Given a list of base denominations, this endpoint returns the spot price with a system-configured quote denomination.
+// If the pricing source is set to "chain" (0), it will first check the **chain** pricing cache for the price quote. If it exists, it will return it. Otherwise, it will compute the pricing using block data received from the Osmosis node and store it in the cache with an expiration time specified in the config.json file.
+// If the pricing source is set to "coingecko" (1), a similar pattern applies. It will look for the price quote in the **coingecko** pricing cache. If it exists, it will return it. Otherwise, it will fetch the price from the Coingecko API endpoint and store it in the cache with an expiration time specified in the config.json file.
+// If the token price is not available in the chain pricing source, it will fallback to the Coingecko pricing source if the quote denomination (human or chain) is USDC.
 // @Accept  json
 // @Produce  json
 // @Param   base          query     string  true  "Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)"
 // @Param   humanDenoms   query     bool    false "Specify true if input denominations are in human-readable format; defaults to false"
+// @Param	pricingSource query		int     false "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)
 // @Success 200 {object} map[string]map[string]string "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price."
 // @Router /tokens/prices [get]
 func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
@@ -148,6 +152,10 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		}
 	}
 
+	// Check if the provided denoms (which can be human or chain) are valid and existing in the asset list
+	// If human denoms, convert to chain denoms
+	// If chain denoms, validate if they are valid chain denoms
+	// If any of the denoms are invalid, reject the entire request and return an error
 	if isHumanDenoms {
 		for i, baseDenom := range baseDenoms {
 			baseDenoms[i], err = a.TUsecase.GetChainDenom(baseDenom)
@@ -163,11 +171,18 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		}
 	}
 
-	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, domain.ChainPricingSourceType)
+	// Check if pricingSource param is valid
+	pricingSourceInt, err := strconv.Atoi(c.QueryParam("pricingSource"))
+	if err != nil || !a.TUsecase.IsValidPricingSource(pricingSourceInt) {
+		// Default to using chain pricing source if invalid or not provided
+		pricingSourceInt = int(domain.ChainPricingSourceType)
+	}
+	var pricingSource domain.PricingSourceType = domain.PricingSourceType(pricingSourceInt)
+
+	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, pricingSource)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
-
 	return c.JSON(http.StatusOK, prices)
 }
 

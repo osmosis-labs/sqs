@@ -40,4 +40,10 @@ type TokensUsecase interface {
 	RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource)
 
 	IsValidChainDenom(chainDenom string) bool
+
+	// Check if the pricing source is a valid one
+	IsValidPricingSource(pricingSource int) bool
+
+	// Get the Coingecko ID by chain denom
+	GetCoingeckoIdByChainDenom(chainDenom string) (string, error)
 }

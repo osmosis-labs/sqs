@@ -14,3 +14,5 @@ go.work.sum
 
 tests/*/report.txt
 
+# log files
+sqs.log

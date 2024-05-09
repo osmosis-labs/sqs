@@ -9,29 +9,39 @@
     "chain-id": "osmosis-1",
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json",
     "router": {
-      "preferred-pool-ids": [],
-      "max-pools-per-route": 4,
-      "max-routes": 20,
-      "max-split-routes": 3,
-      "max-split-iterations": 10,
-      "min-osmo-liquidity": 1000000000,
-      "route-cache-enabled": true,
-      "candidate-route-cache-expiry-seconds": 1200,
-      "ranked-route-cache-expiry-seconds": 600
+        "preferred-pool-ids": [],
+        "max-pools-per-route": 4,
+        "max-routes": 20,
+        "max-split-routes": 3,
+        "max-split-iterations": 10,
+        "min-osmo-liquidity": 1000000000,
+        "route-cache-enabled": true,
+        "candidate-route-cache-expiry-seconds": 1200,
+        "ranked-route-cache-expiry-seconds": 600
     },
     "pools": {
-        "transmuter-code-ids": [148, 254],
-        "general-cosmwasm-code-ids": [503, 572, 773, 641]
+        "transmuter-code-ids": [
+            148,
+            254
+        ],
+        "general-cosmwasm-code-ids": [
+            503,
+            572,
+            773,
+            641
+        ]
     },
-    "pricing":{
+    "pricing": {
         "cache-expiry-ms": 2000,
         "default-source": 0,
         "default-quote-human-denom": "usdc",
         "max-pools-per-route": 4,
         "max-routes": 5,
-        "min-osmo-liquidity": 50
+        "min-osmo-liquidity": 50,
+        "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
+        "coingecko-quote-currency": "usd"
     },
-    "grpc-ingester":{
+    "grpc-ingester": {
         "enabled": true,
         "max-receive-msg-size-bytes": 26214400,
         "server-address": ":50051",
@@ -39,11 +49,11 @@
     },
     "otel": {
         "dsn": "",
-        "sample-rate":         1,
-		"enable-tracing":      true,
-		"traces-sample-rate":   1,
-		"profiles-sample-rate": 1, 
-        "environment" : "sqs-dev",
+        "sample-rate": 1,
+        "enable-tracing": true,
+        "traces-sample-rate": 1,
+        "profiles-sample-rate": 1,
+        "environment": "sqs-dev",
         "custom-sample-rate": {
             "/router/quote": 1,
             "other": 0
@@ -55,4 +65,3 @@
         "allowed-origin": "*"
     }
 }
-  

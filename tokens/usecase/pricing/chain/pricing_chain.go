@@ -255,3 +255,12 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 func (c *chainPricing) InitializeCache(cache *cache.Cache) {
 	c.cache = cache
 }
+
+// Check this strategy allow falling back to another pricing source
+func (c *chainPricing) ShouldFallback(quoteDenom string) domain.PricingSourceType {
+	if quoteDenom == c.defaultQuoteDenom {
+		return domain.CoinGeckoPricingSourceType
+	} else {
+		return domain.NoneSourceType
+	}
+}

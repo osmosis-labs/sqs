@@ -7,5 +7,6 @@ type Token struct {
 	// Precision is the precision of the token.
 	Precision int `json:"precision"`
 	// IsUnlisted is true if the token is unlisted.
-	IsUnlisted bool `json:"is_unlisted"`
+	IsUnlisted  bool   `json:"is_unlisted"`
+	CoingeckoID string `json:"coingecko_id"`
 }

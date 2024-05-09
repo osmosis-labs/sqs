@@ -120,8 +120,16 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
+	// Use the same config to initialize coingecko pricing strategy
+	config.Pricing.DefaultSource = domain.CoinGeckoPricingSourceType
+	coingeckoPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, routerUsecase)
+	if err != nil {
+		return nil, err
+	}
+
 	// Register pricing strategy on the tokens use case.
 	tokensUseCase.RegisterPricingStrategy(domain.ChainPricingSourceType, chainPricingSource)
+	tokensUseCase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
