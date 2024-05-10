@@ -441,7 +441,7 @@ These taker fees are then read from Redis to initialize the router.
 ### Token Precision
 
 The chain is agnostic to token precision. As a result, to compute OSMO-denominated TVL,
-we query [chain registry file](https://github.com/osmosis-labs/assetlists/blob/main/osmosis-1/osmosis-1.assetlist.json)
+we query [chain registry file](https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json)
 parse the precision exponent and use it scaling the spot price to the right value.
 
 The following are the tokens that are either malformed or are missing from the chain registry file:
