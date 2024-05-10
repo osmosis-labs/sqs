@@ -37,7 +37,12 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## v0.17.11
 
-- Fix Astroport PCL spot price bug - failure to utilize token out denom for quote estimate in edge cases
+- Clean up chain pricing
+
+## v0.17.11
+
+- Fix pricing bug where we would incorrectly apply scaling factor to the price
+that is already correctly scaled when computing the price using the alternative (quote-based) method.
 
 ## v0.17.10
 
