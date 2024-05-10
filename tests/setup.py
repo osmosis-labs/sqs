@@ -1,5 +1,5 @@
 import copy
-import constants
+import itertools
 from data_service import all_tokens_data, all_pools_data
 from conftest import SERVICE_SQS_PROD
 from enum import Enum, IntEnum
@@ -320,3 +320,51 @@ pool_by_id_map = {pool.get('pool_id'): pool for pool in all_pools_data}
 
 # Listed tokens that have at least one pool with liquidity
 valid_listed_tokens = choose_valid_listed_tokens() 
+
+# One Transmuter token pair [[pool_id, ['denom0', 'denom1']]]
+transmuter_token_pairs = choose_transmuter_pool_tokens_by_liq_asc(1)
+
+# One Astroport token pair [[pool_id, ['denom0', 'denom1']]]
+astroport_token_pair = choose_pcl_pool_tokens_by_liq_asc(1)
+
+def create_token_pairs():
+    """
+    Selects the following groups of tokens:
+    1. Top 5 by-liquidity
+    2. Top 5 by-volume
+    3. Five low liquidity (between 5000 and 10000 USD)
+    4. Five low volume (between 5000 and 10000 USD)
+
+    Then,
+    - Puts them all in a set
+    - Constructs combinations between each.
+
+    Returns combinations in the following format:
+    [['denom0', 'denom1']]
+    """
+
+    # Five top by-liquidity tokens
+    top_five_liquidity_tokens = choose_tokens_liq_range(5)
+
+    # Five top by-volume tokens
+    top_five_volume_tokens = choose_tokens_volume_range(5)
+
+    # Five low liquidity tokens
+    five_low_liquidity_tokens = choose_tokens_liq_range(5, 5000, 10000)
+
+    # Five low volume tokens
+    five_low_volume_tokens = choose_tokens_volume_range(5, 5000, 10000)
+
+    # Put all tokens in a set to ensure uniqueness
+    all_tokens = set(top_five_liquidity_tokens + top_five_volume_tokens +
+                     five_low_liquidity_tokens + five_low_volume_tokens)
+
+    # Construct all unique combinations of token pairs
+    token_pairs = list(itertools.combinations(all_tokens, 2))
+
+    # Format pairs for return
+    formatted_pairs = [[token1, token2] for token1, token2 in token_pairs]
+
+    return formatted_pairs
+
+misc_token_pairs = create_token_pairs()
