@@ -163,6 +163,13 @@ def validate_candidate_routes(routes, token_in, token_out, expected_min_routes, 
         assert cur_token_in == token_out, f"Error: last token out {cur_token_in} not equal to token out {token_out}"
 
 def validate_pool_id_in_route(routes, expected_pool_ids):
+    """
+    Validates that there is at least one route in routes
+    that contains pools exactly as given per expected_pool_ids
+
+    Fails if not
+    """
+
     assert len(routes) > 0
     for route in routes:
         pools = route['Pools']
