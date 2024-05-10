@@ -86,6 +86,13 @@ var (
 		},
 		[]string{"base", "quote", "err"},
 	)
+	fallbackCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_pricing_fallback_total",
+			Help: "Total number of fallback from chain pricing source to coingecko",
+		},
+		[]string{"base", "quote"},
+	)
 )
 
 // NewTokensUsecase will create a new tokens use case object
@@ -106,7 +113,6 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 
 		chainDenoms[chainDenom] = struct{}{}
 		coingeckoIds[chainDenom] = tokenMetadata.CoingeckoID
-
 	}
 
 	// Precompute precision scaling factors
@@ -257,8 +263,9 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 			var err error
 			price, err = pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 			if err != nil { // Check if we should fallback to another pricing source
-				fallbackSourceType := pricingStrategy.ShouldFallback(quoteDenom)
+				fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
 				if fallbackSourceType != domain.NoneSourceType {
+					fallbackCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 					fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
 					if ok {
 						price, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
@@ -392,15 +399,11 @@ func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
 
 // IsValidPricingSource implements mvc.TokensUsecase.
 func (t *tokensUseCase) IsValidPricingSource(pricingSource int) bool {
-	switch domain.PricingSourceType(pricingSource) {
-	case domain.ChainPricingSourceType, domain.CoinGeckoPricingSourceType:
-		return true
-	default:
-		return false
-	}
+	ps := domain.PricingSourceType(pricingSource)
+	return ps == domain.ChainPricingSourceType || ps == domain.CoinGeckoPricingSourceType
 }
 
-// Get Coingecko ID by chain denom
+// GetCoingeckoIdByChainDenom implements mvc.TokensUsecase
 func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, error) {
 	if coingeckoId, found := t.coingeckoIds[chainDenom]; found {
 		return coingeckoId, nil

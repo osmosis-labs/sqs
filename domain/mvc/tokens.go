@@ -41,9 +41,9 @@ type TokensUsecase interface {
 
 	IsValidChainDenom(chainDenom string) bool
 
-	// Check if the pricing source is a valid one
+	// IsValidPricingSource checks if the pricing source is a valid one
 	IsValidPricingSource(pricingSource int) bool
 
-	// Get the Coingecko ID by chain denom
+	// GetCoingeckoIdByChainDenom gets the Coingecko ID by chain denom
 	GetCoingeckoIdByChainDenom(chainDenom string) (string, error)
 }

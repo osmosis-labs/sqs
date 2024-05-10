@@ -124,9 +124,10 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 
 // @Summary Get prices
 // @Description Given a list of base denominations, this endpoint returns the spot price with a system-configured quote denomination.
-// If the pricing source is set to "chain" (0), it will first check the **chain** pricing cache for the price quote. If it exists, it will return it. Otherwise, it will compute the pricing using block data received from the Osmosis node and store it in the cache with an expiration time specified in the config.json file.
-// If the pricing source is set to "coingecko" (1), a similar pattern applies. It will look for the price quote in the **coingecko** pricing cache. If it exists, it will return it. Otherwise, it will fetch the price from the Coingecko API endpoint and store it in the cache with an expiration time specified in the config.json file.
-// If the token price is not available in the chain pricing source, it will fallback to the Coingecko pricing source if the quote denomination (human or chain) is USDC.
+// If the pricing source is set to "chain" (0), it will first check the **chain** pricing cache for the price quote. If it exists, it will return it. Otherwise, it will compute the pricing on-demand if the quote is non-usdc.
+// If the pricing source is set to "coingecko" (1), it will look for the price quote in the **coingecko** pricing cache. If it exists, it will return it. Otherwise, it will fetch the price from the Coingecko API endpoint and store it in the cache with an expiration time specified in the config.json file.
+// If the token price is not available from the chain pricing source for any reason, it will fallback to the Coingecko pricing source if the quote denomination (human or chain) is usdc.
+// See also: https://github.com/osmosis-labs/sqs/blob/de34d172f95b221217967799f233c52181cfa07e/README.md#pricing
 // @Accept  json
 // @Produce  json
 // @Param   base          query     string  true  "Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)"
@@ -172,12 +173,17 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 	}
 
 	// Check if pricingSource param is valid
-	pricingSourceInt, err := strconv.Atoi(c.QueryParam("pricingSource"))
-	if err != nil || !a.TUsecase.IsValidPricingSource(pricingSourceInt) {
-		// Default to using chain pricing source if invalid or not provided
-		pricingSourceInt = int(domain.ChainPricingSourceType)
+	var pricingSource domain.PricingSourceType
+	pricingSourceParam := c.QueryParam("pricingSource")
+	if pricingSourceParam == "" {
+		pricingSource = domain.ChainPricingSourceType
+	} else {
+		pricingSourceInt, err := strconv.Atoi(pricingSourceParam)
+		if err != nil || !a.TUsecase.IsValidPricingSource(pricingSourceInt) {
+			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("invalid pricing source: %s", pricingSourceParam)})
+		}
+		pricingSource = domain.PricingSourceType(pricingSourceInt)
 	}
-	var pricingSource domain.PricingSourceType = domain.PricingSourceType(pricingSourceInt)
 
 	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, pricingSource)
 	if err != nil {

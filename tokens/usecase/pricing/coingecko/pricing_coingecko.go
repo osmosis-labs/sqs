@@ -17,15 +17,15 @@ import (
 var (
 	cacheHitsCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "sqs_pricing_cache_hits_total",
-			Help: "Total number of pricing cache hits",
+			Name: "sqs_pricing_coingecko_cache_hits_total",
+			Help: "Total number of pricing coingecko cache hits",
 		},
 		[]string{"base", "quote"},
 	)
 	cacheMissesCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "sqs_pricing_cache_misses_total",
-			Help: "Total number of pricing cache misses",
+			Name: "sqs_pricing_coingecko_cache_misses_total",
+			Help: "Total number of pricing coingecko cache misses",
 		},
 		[]string{"base", "quote"},
 	)
@@ -40,8 +40,12 @@ type coingeckoPricing struct {
 }
 
 func init() {
-	prometheus.Register(cacheHitsCounter)
-	prometheus.Register(cacheMissesCounter)
+	if err := prometheus.Register(cacheHitsCounter); err != nil {
+		panic(err)
+	}
+	if err := prometheus.Register(cacheMissesCounter); err != nil {
+		panic(err)
+	}
 }
 
 func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
@@ -121,12 +125,13 @@ func (c coingeckoPricing) GetPriceByCoingeckoId(ctx context.Context, baseDenom s
 	return result, nil
 }
 
+// InitializeCache implements pricing.PricingSource
 func (c *coingeckoPricing) InitializeCache(cache *cache.Cache) {
 	c.cache = cache
 }
 
-// Check this strategy allow falling back to another pricing source
-// Currently there is no fallback mechanism for Coingecko
-func (c *coingeckoPricing) ShouldFallback(quoteDenom string) domain.PricingSourceType {
+// GetFallbackStrategy implements pricing.PricingSource
+func (c *coingeckoPricing) GetFallbackStrategy(quoteDenom string) domain.PricingSourceType {
+	// Currently there is no fallback mechanism for Coingecko
 	return domain.NoneSourceType
 }

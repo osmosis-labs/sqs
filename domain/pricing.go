@@ -34,8 +34,8 @@ type PricingSource interface {
 	// Panics if cache is already set.
 	InitializeCache(*cache.Cache)
 
-	// ShouldFallback determins what pricing source should be fallen back to in case this pricing source fails
-	ShouldFallback(quoteDenom string) PricingSourceType
+	// GetFallBackStrategy determines what pricing source should be fallen back to in case this pricing source fails
+	GetFallbackStrategy(quoteDenom string) PricingSourceType
 }
 
 // DefaultMinLiquidityOption defines the default min liquidity option.
