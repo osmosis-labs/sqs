@@ -1,8 +1,8 @@
 module github.com/osmosis-labs/sqs
 
-go 1.21
+go 1.21.4
 
-toolchain go1.21.6
+toolchain go1.21.9
 
 require (
 	cosmossdk.io/math v1.3.0
@@ -12,10 +12,10 @@ require (
 	github.com/cosmos/cosmos-sdk v0.47.8
 	github.com/getsentry/sentry-go v0.27.0
 	github.com/labstack/echo/v4 v4.11.4
-	github.com/osmosis-labs/osmosis/osmomath v0.0.11-0.20240412195653-b203d0fae6ce
-	github.com/osmosis-labs/osmosis/osmoutils v0.0.11-0.20240412194904-615994cda7a7
+	github.com/osmosis-labs/osmosis/osmomath v0.0.13
+	github.com/osmosis-labs/osmosis/osmoutils v0.0.13
 	github.com/osmosis-labs/osmosis/v24 v24.0.2-0.20240412195653-b203d0fae6ce
-	github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240415233241-9b466e56d040
+	github.com/osmosis-labs/sqs/sqsdomain v0.18.2-0.20240510144514-0ee88773ec10
 	github.com/prometheus/client_golang v1.19.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.18.2
@@ -26,15 +26,18 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.25.0
 	go.opentelemetry.io/otel/sdk v1.25.0
 	go.uber.org/zap v1.26.0
-	google.golang.org/grpc v1.62.1
+	google.golang.org/grpc v1.63.2
 )
 
-require github.com/bits-and-blooms/bitset v1.8.0 // indirect
+require (
+	github.com/bits-and-blooms/bitset v1.8.0 // indirect
+	github.com/osmosis-labs/osmosis/v25 v25.0.0-rc0 // indirect
+)
 
 require (
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/cosmos/cosmos-db v1.0.0 // indirect
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.1.1-0.20231213092633-b306e7a706e1 // indirect
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.1.1-ibc-go-v7.3-wasmvm-v1.5 // indirect
 	github.com/emicklei/dot v1.4.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 )
@@ -44,7 +47,7 @@ require (
 	cloud.google.com/go/compute v1.24.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.1.6 // indirect
-	cloud.google.com/go/storage v1.36.0 // indirect
+	cloud.google.com/go/storage v1.37.0 // indirect
 	cosmossdk.io/api v0.3.1 // indirect
 	cosmossdk.io/core v0.5.1 // indirect
 	cosmossdk.io/depinject v1.0.0-alpha.4 // indirect
@@ -137,7 +140,7 @@ require (
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/gtank/ristretto255 v0.1.2 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-getter v1.7.1 // indirect
+	github.com/hashicorp/go-getter v1.7.4 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
@@ -174,8 +177,8 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/osmosis-labs/osmosis/x/epochs v0.0.7-0.20240412194904-615994cda7a7 // indirect
-	github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.13-0.20240412194904-615994cda7a7 // indirect
+	github.com/osmosis-labs/osmosis/x/epochs v0.0.9 // indirect
+	github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.15 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -215,7 +218,7 @@ require (
 	go.uber.org/goleak v1.3.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.17.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect

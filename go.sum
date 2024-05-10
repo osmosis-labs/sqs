@@ -462,6 +462,7 @@ cloud.google.com/go/storage v1.27.0/go.mod h1:x9DOL8TK/ygDUMieqwfhdpQryTeEkhGKMi
 cloud.google.com/go/storage v1.28.1/go.mod h1:Qnisd4CqDdo6BGs2AD5LLnEsmSQ80wQ5ogcBBKhU86Y=
 cloud.google.com/go/storage v1.36.0 h1:P0mOkAcaJxhCTvAkMhxMfrTKiNcub4YmmPBtlhAyTr8=
 cloud.google.com/go/storage v1.36.0/go.mod h1:M6M/3V/D3KpzMTJyPOR/HU6n2Si5QdaXYEsng2xgOs8=
+cloud.google.com/go/storage v1.37.0/go.mod h1:i34TiT2IhiNDmcj65PqwCjcoUX7Z5pLzS8DEmoiFq1k=
 cloud.google.com/go/storagetransfer v1.5.0/go.mod h1:dxNzUopWy7RQevYFHewchb29POFv3/AaBgnhqzqiK0w=
 cloud.google.com/go/storagetransfer v1.6.0/go.mod h1:y77xm4CQV/ZhFZH75PLEXY0ROiS7Gh6pSKrM8dJyg6I=
 cloud.google.com/go/storagetransfer v1.7.0/go.mod h1:8Giuj1QNb1kfLAiWM1bN6dHzfdlDAVC9rv9abHot2W4=
@@ -722,6 +723,7 @@ github.com/cosmos/ibc-apps/modules/async-icq/v7 v7.1.1 h1:02RCbih5lQ8aGdDMSvxhTn
 github.com/cosmos/ibc-apps/modules/async-icq/v7 v7.1.1/go.mod h1:LvVkEXTORVgd87W2Yu7ZY3acKKeTMq/txdTworn8EZI=
 github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.1.1-0.20231213092633-b306e7a706e1 h1:fCtG9qasnNzhgxGR1jM9eBufZ5WQVpy0KdaOpKRfg8Y=
 github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.1.1-0.20231213092633-b306e7a706e1/go.mod h1:h114vYKBtI5zKBeSyr8y5JZ8ZtpQJInO4TYww2IQr6o=
+github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.1.1-ibc-go-v7.3-wasmvm-v1.5/go.mod h1:VR2Hg2i/X1bafbmmNsV2Khwsg0PzNeuWoVKmSN5dAwo=
 github.com/cosmos/ibc-go/v7 v7.4.0 h1:8FqYMptvksgMvlbN4UW9jFxTXzsPyfAzEZurujXac8M=
 github.com/cosmos/ibc-go/v7 v7.4.0/go.mod h1:L/KaEhzV5TGUCTfGysVgMBQtl5Dm7hHitfpk+GIeoAo=
 github.com/cosmos/ics23/go v0.10.0 h1:iXqLLgp2Lp+EdpIuwXTYIQU+AiHj9mOC2X9ab++bZDM=
@@ -1056,6 +1058,7 @@ github.com/hashicorp/go-cleanhttp v0.5.2 h1:035FKYIWjmULyFRBKPs8TBQoi0x6d9G4xc9n
 github.com/hashicorp/go-cleanhttp v0.5.2/go.mod h1:kO/YDlP8L1346E6Sodw+PrpBSV4/SoxCXGY6BqNFT48=
 github.com/hashicorp/go-getter v1.7.1 h1:SWiSWN/42qdpR0MdhaOc/bLR48PLuP1ZQtYLRlM69uY=
 github.com/hashicorp/go-getter v1.7.1/go.mod h1:W7TalhMmbPmsSMdNjD0ZskARur/9GJ17cfHTRtXV744=
+github.com/hashicorp/go-getter v1.7.4/go.mod h1:W7TalhMmbPmsSMdNjD0ZskARur/9GJ17cfHTRtXV744=
 github.com/hashicorp/go-immutable-radix v1.0.0/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
 github.com/hashicorp/go-immutable-radix v1.3.1 h1:DKHmCUm2hRBK510BaiZlwvpD40f8bJFeZnpfm2KLowc=
 github.com/hashicorp/go-immutable-radix v1.3.1/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
@@ -1287,12 +1290,18 @@ github.com/osmosis-labs/osmosis/osmoutils v0.0.11-0.20240412195653-b203d0fae6ce 
 github.com/osmosis-labs/osmosis/osmoutils v0.0.11-0.20240412195653-b203d0fae6ce/go.mod h1:3L9bl0KpynoCZOYs98UVWkI8fBPYQgfFjbM5N2Fm878=
 github.com/osmosis-labs/osmosis/v24 v24.0.2-0.20240412195653-b203d0fae6ce h1:ICt0Bdyumgq+vhOD1AjhfhVgPcGtieYGR8AXXK9MU9s=
 github.com/osmosis-labs/osmosis/v24 v24.0.2-0.20240412195653-b203d0fae6ce/go.mod h1:S8WeAflrAYifowTDfBZl/nMovNwYhOJ3G3HdXe4cLbQ=
+github.com/osmosis-labs/osmosis/v25 v25.0.0-rc0 h1:sBwcykFaSRoK9voC+SkdEbtCrVsUN8XX2EWaymk28dQ=
+github.com/osmosis-labs/osmosis/v25 v25.0.0-rc0/go.mod h1:puIjjP2XZcEv+qYeHJ760hU/sQnIBUZJLNtmJKPyeFU=
 github.com/osmosis-labs/osmosis/x/epochs v0.0.7-0.20240412194904-615994cda7a7 h1:d8y9ZXEl3lbDFH73Jeom44WsgWiB5Sh5Gvrkrwq3wJE=
 github.com/osmosis-labs/osmosis/x/epochs v0.0.7-0.20240412194904-615994cda7a7/go.mod h1:4zvJb0wcbLi3NnRqRAwfF/zH1F47z3VXIN/62D7zuFc=
+github.com/osmosis-labs/osmosis/x/epochs v0.0.9/go.mod h1:jROhCibKGjWW1IyPaCFUIEJ9P25S0VawgIpWRxcqYqQ=
 github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.13-0.20240412194904-615994cda7a7 h1:I6lOTtZDx7bhhD/rW7Z8taAWv/1TmIMgwvGDhdEjsyw=
 github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.13-0.20240412194904-615994cda7a7/go.mod h1:6C7jnwURME4NgaGX1VIrrU6cS2E0Xzy9AhvqlN8hUTw=
+github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.15/go.mod h1:c72yyA6FvQNgOm/NxQuDXQfRpYy2JCJpf1o+G4kFuyM=
 github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240415233241-9b466e56d040 h1:cll0aVxT3xv9d1FjklSE8BgA5nPsYA5AAeUiwfykbxI=
 github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240415233241-9b466e56d040/go.mod h1:NLph0eSEIDJBEffa2KzaagkbxpY4ROrWF51hTor9xV4=
+github.com/osmosis-labs/sqs/sqsdomain v0.18.2-0.20240510144514-0ee88773ec10 h1:cTP0kfcGUB9rUii1lzvy/+/VpR61SZAaR3zBLE5iTQo=
+github.com/osmosis-labs/sqs/sqsdomain v0.18.2-0.20240510144514-0ee88773ec10/go.mod h1:zIr5aJJuPrh/O4C/6ehpdrl1VT6Hs0yjAVP6f/vFJuc=
 github.com/osmosis-labs/wasmd v0.45.0-osmo h1:NIp7pvJV5HuBN1HwPgEmXKQM2TjVIVdJErIHnB9IMO8=
 github.com/osmosis-labs/wasmd v0.45.0-osmo/go.mod h1:J6eRvwii5T1WxhetZkBg1kOJS3GTn1Bw2OLyZBb8EVU=
 github.com/pact-foundation/pact-go v1.0.4/go.mod h1:uExwJY4kCzNPcHRj+hCR/HBbOOIwwtUjcrb0b5/5kLM=
@@ -2226,6 +2235,8 @@ google.golang.org/grpc v1.53.0/go.mod h1:OnIrk0ipVdj4N5d9IUoFUx72/VlD7+jUsHwZgwS
 google.golang.org/grpc v1.55.0/go.mod h1:iYEXKGkEBhg1PjZQvoYEVPTDkHo1/bjTnfwTeGONTY8=
 google.golang.org/grpc v1.62.1 h1:B4n+nfKzOICUXMgyrNd19h/I9oH0L1pizfk1d4zSgTk=
 google.golang.org/grpc v1.62.1/go.mod h1:IWTG0VlJLCh1SkC58F7np9ka9mx/WNkjl4PGJaiq+QE=
+google.golang.org/grpc v1.63.2 h1:MUeiw1B2maTVZthpU5xvASfTh3LDbxHd6IJ6QQVU+xM=
+google.golang.org/grpc v1.63.2/go.mod h1:WAX/8DgncnokcFUldAxq7GeB5DXHDbMF+lLvDomNkRA=
 google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0/go.mod h1:6Kw0yEErY5E/yWrBtf03jp27GLLJujG4z/JK95pnjjw=
 google.golang.org/protobuf v0.0.0-20200109180630-ec00e32a8dfd/go.mod h1:DFci5gLYBciE7Vtevhsrf46CRTquxDuWsQurQQe4oz8=
 google.golang.org/protobuf v0.0.0-20200221191635-4d8936d0db64/go.mod h1:kwYJMbMJ01Woi6D6+Kah6886xMZcty6N08ah7+eCXa0=

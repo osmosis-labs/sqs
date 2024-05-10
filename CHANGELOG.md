@@ -35,7 +35,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v0.17.11
 
 - Fix Astroport PCL spot price bug - failure to utilize token out denom for quote estimate in edge cases
 
