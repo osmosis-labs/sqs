@@ -119,10 +119,6 @@ type priceResults struct {
 
 var _ mvc.TokensUsecase = &tokensUseCase{}
 
-const (
-	unlistedKeyword = "osmosis-unlisted"
-)
-
 var (
 	tenDec = osmomath.NewDec(10)
 
