@@ -180,9 +180,9 @@ test-prices-mainnet:
 
 ### E2E Test
 
-# Run E2E tests in verbose mode (-s)
+# Run E2E tests in verbose mode (-s) -n 4 concurrent workers
 e2e-run-dev:
-	pytest -s
+	pytest -s -n 4
 
 #### E2E Python Setup
 

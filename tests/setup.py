@@ -1,5 +1,7 @@
 import copy
+import constants
 from data_service import all_tokens_data, all_pools_data
+from conftest import SERVICE_SQS_PROD
 from enum import Enum, IntEnum
 
 # Numia pool type constants using an Enum
@@ -29,6 +31,10 @@ NUMIA_TO_E2E_MAP = {
     NumiaPoolType.CONCENTRATED.value: E2EPoolType.CONCENTRATED
 }
 
+# This is the number of tokens we allow being skipped due to being unlisted
+# or not having liquidity. This number is hand-picked arbitrarily. We have around ~350 tokens
+# at the time of writing this test and we leave a small buffer.
+ALLOWED_NUM_TOKENS_SKIPPED = 50
 
 def get_e2e_pool_type_from_numia_pool(pool):
     """Gets an e2e pool type from a Numia pool."""
@@ -71,14 +77,26 @@ def get_denoms_from_pool_tokens(pool_tokens):
     return denoms
 
 
-def map_pool_type_to_pool_data(pool_data):
+def create_pool_data_maps(pool_data):
     """
-    Returns a dictionary mapping each pool type to associated ID, liquidity, and tokens.
+    Creates and returns pool data dictionaries for testing.
+
+    Returns two dictionaries:
+     
+    1. A dictionary mapping each pool type to associated ID, liquidity, and tokens.
 
     Example output:
     {
         "e2e_pool_type_1": [[pool_id, liquidity, [denoms]]],
         "e2e_pool_type_2": [[pool_id, liquidity, [denoms]], ...],
+        ...
+    }
+
+    2. A dictionary mapping each denom to the pool with highest liquidity
+
+    Example output:
+    {
+        "uosmo": { "pool_liquidity": 1000000, "pool_id": 1 },
         ...
     }
     """
@@ -87,7 +105,7 @@ def map_pool_type_to_pool_data(pool_data):
 
     pool_type_to_data = {}
 
-    denom_to_pool_id = {}
+    denom_top_liquidity_pool_map = {}
 
     for pool in pool_data:
         # Convert Numia pool type to e2e pool type
@@ -108,7 +126,19 @@ def map_pool_type_to_pool_data(pool_data):
         # Append the pool data to the list for this pool type
         pool_type_to_data[e2e_pool_type].append([pool_id, liquidity, denoms])
 
-    return pool_type_to_data
+        for denom in denoms:
+            denom_pool_data = denom_top_liquidity_pool_map.get(denom)
+
+            if denom_pool_data:
+                # Update the pool ID if the liquidity is higher
+                if liquidity > denom_pool_data['pool_liquidity']:
+                    denom_pool_data['pool_liquidity'] = liquidity
+                    denom_pool_data['pool_id'] = pool_id
+            else:
+                # Create first mapping for this denom
+                denom_top_liquidity_pool_map[denom] = {'pool_liquidity': liquidity, 'pool_id': pool_id}
+
+    return pool_type_to_data, denom_top_liquidity_pool_map
 
 
 def create_field_to_data_map(tokens_data, key_field):
@@ -223,6 +253,47 @@ def choose_pcl_pool_tokens_by_liq_asc(num_pairs=1, min_liq=0, max_liq=float('inf
     Returns [pool ID, [tokens]]"""
     return choose_pool_type_tokens_by_liq_asc(E2EPoolType.COSMWASM_ASTROPORT, num_pairs, min_liq, max_liq, asc)
 
+def choose_valid_listed_tokens():
+    """
+    Returns all listed tokens from the asset list that have at least one pool with liquidity.
+
+    Queries production SQS for the tokens asset list metadata.
+
+    Queries Numia for the pool liquidity data.
+    """
+
+    # We rely on SQS itself for getting the tokens metadata for configuring tests.
+    # While it is not the best practice, we make an exception since this is the most reliable way to get
+    # The asset list data. In the future, we can implement custom test parsing to replace relying on SQS
+    # in test setup.
+    tokens_metadata = SERVICE_SQS_PROD.get_tokens_metadata()
+
+    if len(tokens_metadata) == 0:
+        raise ValueError("Error: no tokens metadata retrieved from SQS during tokens setup")
+    
+    valid_listed_tokens = []
+
+    for denom, metadata in tokens_metadata.items():
+        # Skip unlisted tokens as they should be unsupported
+        # in SQS.
+        if metadata['is_unlisted']:
+            [print(f"Denom {denom} is unlisted")]
+            continue
+
+        # Skip tokens with no pools with liquidity as we cannot find routes in-between them.
+        top_liquidity_pool = denom_top_liquidity_pool_map.get(denom)
+        if top_liquidity_pool is None:
+            print(f"Denom {denom} has no pool with liquidity")
+            continue
+
+        valid_listed_tokens.append(denom)
+
+    skipped_token_count = len(tokens_metadata) - len(valid_listed_tokens)
+    if skipped_token_count > ALLOWED_NUM_TOKENS_SKIPPED:
+        raise ValueError(f"Too many tokens {skipped_token_count} from the metadata were untested, allowed {ALLOWED_NUM_TOKENS_SKIPPED} tokens to be skipped")
+
+    return valid_listed_tokens
+
 
 def chain_denom_to_display(chain_denom):
     """Function to map chain denom to display."""
@@ -239,8 +310,13 @@ display_to_data_map = create_display_to_data_map(all_tokens_data)
 # Create a map of chain denom to token data
 chain_denom_to_data_map = create_chain_denom_to_data_map(all_tokens_data)
 
-# Create a map of pool type to pool data
-pool_type_to_denoms = map_pool_type_to_pool_data(all_pools_data)
+# Create two maps:
+# 1. A map of pool type to pool data
+# 2. A map of denom to top liquidity pool
+pool_type_to_denoms, denom_top_liquidity_pool_map = create_pool_data_maps(all_pools_data)
 
 # Create a map of pool ID to pool data
 pool_by_id_map = {pool.get('pool_id'): pool for pool in all_pools_data}
+
+# Listed tokens that have at least one pool with liquidity
+valid_listed_tokens = choose_valid_listed_tokens() 
