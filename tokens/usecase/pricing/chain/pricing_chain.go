@@ -221,8 +221,6 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	if useAlternativeMethod {
 		// Compute on-chain price for 1 unit of base denom and quote denom.
 		chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
-	} else {
-		chainPrice = osmomath.OneBigDec().QuoMut(chainPrice)
 	}
 
 	if chainPrice.IsZero() {
