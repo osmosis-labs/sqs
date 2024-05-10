@@ -35,6 +35,18 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.17.11
+
+- Fix Astroport PCL spot price bug - failure to utilize token out denom for quote estimate in edge cases
+
+## v0.17.10
+
+- /config-private endpoint, mask OTEL config in /config endpoint
+
+## v0.17.9
+
+Fixes for pricing cache and min liquidity param
+
 ## v0.17.8
 
 - Rebuild image from new dockerfile

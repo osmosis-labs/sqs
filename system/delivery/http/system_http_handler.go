@@ -40,6 +40,11 @@ type JsonResponse struct {
 	} `json:"result"`
 }
 
+// ConfigPrivateResponse defines the response for the /config-private endpoint
+type ConfigPrivateResponse struct {
+	OTEL *domain.OTELConfig `json:"otel"`
+}
+
 const (
 	heightTolerance       = 10
 	versionPlaceholder    = "version="
@@ -70,6 +75,7 @@ func NewSystemHandler(e *echo.Echo, config domain.Config, logger log.Logger, us 
 
 	e.GET("/healthcheck", handler.GetHealthStatus)
 	e.GET("/config", handler.GetConfig)
+	e.GET("/config-private", handler.GetConfigPrivate)
 	e.GET("/version", handler.GetVersion)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/swagger/*", echoSwagger.EchoWrapHandler(echoSwagger.URL("docs/swagger.json"), echoSwagger.URL("swagger.yaml")))
@@ -77,7 +83,20 @@ func NewSystemHandler(e *echo.Echo, config domain.Config, logger log.Logger, us 
 
 // GetConfig returns the config for the SQS service
 func (h *SystemHandler) GetConfig(c echo.Context) error {
+	// Mask OTEL config since it contains sensitive information
+	// Fode debugging, we expose a separate endpoint that we block in LB.
+	config := h.config
+	config.OTEL = nil
+
 	return c.JSON(http.StatusOK, h.config)
+}
+
+// GetConfigPrivate returns the OTEL config that contains
+// sensitive information. This endpoint is meant to be blocked in the LB.
+func (h *SystemHandler) GetConfigPrivate(c echo.Context) error {
+	return c.JSON(http.StatusOK, ConfigPrivateResponse{
+		OTEL: h.config.OTEL,
+	})
 }
 
 func (h *SystemHandler) GetVersion(c echo.Context) error {
