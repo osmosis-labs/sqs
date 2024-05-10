@@ -209,7 +209,9 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		tempBaseDenom  string
 	)
 
-	// If we are using spot price method, we compute the price using spot prices.
+	// If we are using spot price method, we compute the result using spot-prices over
+	// pools in the quote.
+	//
 	// We fallback to quote-based compute method if there is an error in spot price computation.
 	if isSpotPriceComputeMethod {
 		for _, pool := range pools {
@@ -233,8 +235,8 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		}
 	}
 
-	// We have this as a separate branch to fallback to quote-based compute method
-	// if there is an error in spot price computation.
+	// This is a separate logic gate to fallback to quote-based compute method
+	// if there is an error in the spot price computation above.
 	if !isSpotPriceComputeMethod {
 		// Compute on-chain price for 10 units of base denom and resulted quote denom out.
 		chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
