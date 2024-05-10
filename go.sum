@@ -1293,6 +1293,8 @@ github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.13-0.20240412194904-615994cda7a
 github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.13-0.20240412194904-615994cda7a7/go.mod h1:6C7jnwURME4NgaGX1VIrrU6cS2E0Xzy9AhvqlN8hUTw=
 github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240415233241-9b466e56d040 h1:cll0aVxT3xv9d1FjklSE8BgA5nPsYA5AAeUiwfykbxI=
 github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240415233241-9b466e56d040/go.mod h1:NLph0eSEIDJBEffa2KzaagkbxpY4ROrWF51hTor9xV4=
+github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240510143751-c1863fdd2e96 h1:gG+K6lbJ5bfB/OkHj7q0z4qRziCddJfqf1H6o3BjPAs=
+github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240510143751-c1863fdd2e96/go.mod h1:NLph0eSEIDJBEffa2KzaagkbxpY4ROrWF51hTor9xV4=
 github.com/osmosis-labs/wasmd v0.45.0-osmo h1:NIp7pvJV5HuBN1HwPgEmXKQM2TjVIVdJErIHnB9IMO8=
 github.com/osmosis-labs/wasmd v0.45.0-osmo/go.mod h1:J6eRvwii5T1WxhetZkBg1kOJS3GTn1Bw2OLyZBb8EVU=
 github.com/pact-foundation/pact-go v1.0.4/go.mod h1:uExwJY4kCzNPcHRj+hCR/HBbOOIwwtUjcrb0b5/5kLM=
