@@ -33,9 +33,6 @@ type RoutablePool interface {
 	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
 	ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin)
 
-	// SetTokenOutDenom sets the token out denom on the routable pool.
-	SetTokenOutDenom(tokenOutDenom string)
-
 	GetTakerFee() osmomath.Dec
 
 	GetSpreadFactor() osmomath.Dec
