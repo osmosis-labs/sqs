@@ -34,7 +34,13 @@ NUMIA_TO_E2E_MAP = {
 # This is the number of tokens we allow being skipped due to being unlisted
 # or not having liquidity. This number is hand-picked arbitrarily. We have around ~350 tokens
 # at the time of writing this test and we leave a small buffer.
-ALLOWED_NUM_TOKENS_SKIPPED = 50
+ALLOWED_NUM_TOKENS_USDC_PAIR_SKIPPED = 50
+# This is the minimum number of misc token pairs
+# that we expect to construct in setup.
+# Since our test setup is dynamic, it is important to
+# validate we do not get false positve passes due to small
+# number of pairs constructed.
+MIN_NUM_MISC_TOKEN_PAIRS = 10
 
 def get_e2e_pool_type_from_numia_pool(pool):
     """Gets an e2e pool type from a Numia pool."""
@@ -178,7 +184,7 @@ def choose_tokens_generic(tokens, filter_key, min_value, max_value, sort_key, nu
 
     Args:
         tokens (list): The list of token data dictionaries.
-        filter_key (str): The field name sed to filter tokens.
+        filter_key (str): The field name used to filter tokens.
         min_value (float): The minimum value for filtering.
         max_value (float): The maximum value for filtering.
         sort_key (str): The field name used for sorting tokens.
@@ -289,8 +295,8 @@ def choose_valid_listed_tokens():
         valid_listed_tokens.append(denom)
 
     skipped_token_count = len(tokens_metadata) - len(valid_listed_tokens)
-    if skipped_token_count > ALLOWED_NUM_TOKENS_SKIPPED:
-        raise ValueError(f"Too many tokens {skipped_token_count} from the metadata were untested, allowed {ALLOWED_NUM_TOKENS_SKIPPED} tokens to be skipped")
+    if skipped_token_count > ALLOWED_NUM_TOKENS_USDC_PAIR_SKIPPED:
+        raise ValueError(f"Too many tokens {skipped_token_count} from the metadata were untested, allowed {ALLOWED_NUM_TOKENS_USDC_PAIR_SKIPPED} tokens to be skipped")
 
     return valid_listed_tokens
 
@@ -364,6 +370,9 @@ def create_token_pairs():
 
     # Format pairs for return
     formatted_pairs = [[token1, token2] for token1, token2 in token_pairs]
+
+    if len(formatted_pairs) > MIN_NUM_MISC_TOKEN_PAIRS:
+        ValueError(f"Constructeed {len(formatted_pairs)}, min expected {MIN_NUM_MISC_TOKEN_PAIRS}")
 
     return formatted_pairs
 
