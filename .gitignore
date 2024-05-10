@@ -11,7 +11,9 @@ build
 go.work.sum
 
 # Tests reports
+*/__pycache__
 
+tests/venv/*
 tests/*/report.txt
 
 # log files

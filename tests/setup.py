@@ -29,9 +29,6 @@ NUMIA_TO_E2E_MAP = {
     NumiaPoolType.CONCENTRATED.value: E2EPoolType.CONCENTRATED
 }
 
-# Misc constants
-UOSMO = "uosmo"
-
 
 def get_e2e_pool_type_from_numia_pool(pool):
     """Gets an e2e pool type from a Numia pool."""
@@ -242,3 +239,6 @@ chain_denom_to_data_map = create_chain_denom_to_data_map(all_tokens_data)
 
 # Create a map of pool type to pool data
 pool_type_to_denoms = map_pool_type_to_pool_data(all_pools_data)
+
+# Create a map of pool ID to pool data
+pool_by_id_map = {pool.get('pool_id'): pool for pool in all_pools_data}
