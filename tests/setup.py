@@ -146,7 +146,7 @@ def choose_tokens_generic(tokens, filter_key, min_value, max_value, sort_key, nu
 
     Args:
         tokens (list): The list of token data dictionaries.
-        filter_key (str): The field name sed to filter tokens.
+        filter_key (str): The field name used to filter tokens.
         min_value (float): The minimum value for filtering.
         max_value (float): The maximum value for filtering.
         sort_key (str): The field name used for sorting tokens.
