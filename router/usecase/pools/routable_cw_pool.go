@@ -71,6 +71,10 @@ func (r *routableCosmWasmPoolImpl) GetSpreadFactor() math.LegacyDec {
 // - the token in amount is greater than the balance of the token in
 // - the token in amount is greater than the balance of the token out
 func (r *routableCosmWasmPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
+	return r.calculateTokenOutByTokenIn(ctx, tokenIn, r.TokenOutDenom)
+}
+
+func (r *routableCosmWasmPoolImpl) calculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sdk.Coin, error) {
 	poolType := r.GetType()
 
 	// Ensure that the pool is cosmwasm
@@ -79,7 +83,7 @@ func (r *routableCosmWasmPoolImpl) CalculateTokenOutByTokenIn(ctx context.Contex
 	}
 
 	// Configure the calc query message
-	calcMessage := msg.NewCalcOutAmtGivenInRequest(tokenIn, r.TokenOutDenom, r.SpreadFactor)
+	calcMessage := msg.NewCalcOutAmtGivenInRequest(tokenIn, tokenOutDenom, r.SpreadFactor)
 
 	calcOutAmtGivenInResponse := msg.CalcOutAmtGivenInResponse{}
 	if err := queryCosmwasmContract(ctx, r.wasmClient, r.ChainPool.ContractAddress, &calcMessage, &calcOutAmtGivenInResponse); err != nil {
@@ -113,11 +117,6 @@ func (r *routableCosmWasmPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
 }
 
-// SetTokenOutDenom implements sqsdomain.RoutablePool.
-func (r *routableCosmWasmPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
-	r.TokenOutDenom = tokenOutDenom
-}
-
 // CalcSpotPrice implements sqsdomain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	request := msg.SpotPriceQueryMsg{
@@ -133,10 +132,11 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 	codeID := r.ChainPool.CodeId
 	if codeID == astroportCodeID {
 		// Calculate the spot price using the pool's balances
-		out, err := r.CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(baseDenom, tenE7))
+
+		out, err := r.calculateTokenOutByTokenIn(ctx, sdk.NewCoin(quoteDenom, tenE7), baseDenom)
 		// If error, proceed to querying cosmwasm
-		if err == nil {
-			spotPrice := osmomath.NewBigDecFromBigIntMut(out.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(tenE7.BigIntMut()))
+		if err == nil && !out.Amount.IsZero() {
+			spotPrice := osmomath.NewBigDecFromBigInt(tenE7.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigIntMut(out.Amount.BigIntMut()))
 
 			// If spot price is not zero, return it
 			if !spotPrice.IsZero() {
