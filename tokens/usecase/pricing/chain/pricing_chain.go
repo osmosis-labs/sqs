@@ -240,15 +240,16 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
 	}
 
-	// Compute precision scaling factor.
-	precisionScalingFactor := osmomath.BigDecFromDec(osmomath.NewDec(tokenInMultiplier).MulMut(baseDenomScalingFactor.Quo(tenQuoteCoin.Amount.ToLegacyDec())))
-
-	chainPrice.MulMut(precisionScalingFactor)
-
 	if chainPrice.IsZero() {
 		// Increase price truncation counter
 		pricesTruncationCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 	}
+
+	// Compute precision scaling factor.
+	precisionScalingFactor := osmomath.BigDecFromDec(osmomath.NewDec(tokenInMultiplier).MulMut(baseDenomScalingFactor.Quo(tenQuoteCoin.Amount.ToLegacyDec())))
+
+	// Apply scaling facors to descale the amounts to real amounts.
+	chainPrice = chainPrice.MulMut(precisionScalingFactor)
 
 	// Only store values that are valid.
 	if !chainPrice.IsNil() {
