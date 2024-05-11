@@ -88,7 +88,7 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
-	middleware := middleware.InitMiddleware(config.CORS)
+	middleware := middleware.InitMiddleware(config.CORS, logger)
 	e.Use(middleware.CORS)
 	e.Use(middleware.InstrumentMiddleware)
 	e.Use(middleware.TraceWithParamsMiddleware("sqs"))

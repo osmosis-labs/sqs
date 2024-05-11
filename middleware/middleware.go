@@ -84,7 +84,6 @@ func InitMiddleware(corsConfig *domain.CORSConfig, logger log.Logger) *GoMiddlew
 
 // InstrumentMiddleware will handle the instrumentation middleware
 func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-
 	// Set up the flight recorder.
 	fr := gotrace.NewFlightRecorder()
 	err := fr.Start()
@@ -117,9 +116,8 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 		// Observe the duration with the histogram
 		requestLatency.WithLabelValues(requestMethod, requestPath).Observe(duration.Seconds())
 
-		// Record outliers to the flight recorder for futher analysis
+		// Record outliers to the flight recorder for further analysis
 		if duration > flightRecorderThresholdMs*time.Millisecond {
-
 			recordFlightOnce.Do(func() {
 				// Note: we skip error handling since we don't want to interrupt the request handling
 				// with tracing errors.
