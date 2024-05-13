@@ -31,12 +31,22 @@ var (
 	)
 )
 
+// CoingeckoPriceGetterFn is a function type that fetches the price of a token from Coingecko.
+// We monkey-patch this function for testing purposes.
+type CoingeckoPriceGetterFn func(ctx context.Context, baseDenom string, coingeckoId string) (osmomath.BigDec, error)
+
+// DefaultCoingeckoPriceGetter is the default implementation of CoingeckoPriceGetterFn.
+var DefaultCoingeckoPriceGetter CoingeckoPriceGetterFn = nil
+
 type coingeckoPricing struct {
 	TUsecase      mvc.TokensUsecase
 	cache         *cache.Cache
 	cacheExpiryNs time.Duration
 	quoteCurrency string
 	coingeckoUrl  string
+
+	// We monkey-patch this function for testing purposes.
+	priceGetterFn CoingeckoPriceGetterFn
 }
 
 func init() {
@@ -48,14 +58,26 @@ func init() {
 	}
 }
 
-func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
-	return &coingeckoPricing{
+// New creates a new Coingecko pricing source.
+// if coinGeckoPriceGetterFn is nil, it uses the default implementation.
+func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig, coingeckoPriceGetterFn CoingeckoPriceGetterFn) domain.PricingSource {
+	coingeckoPricing := &coingeckoPricing{
 		TUsecase:      tokenUseCase,
 		cache:         cache.New(),
 		cacheExpiryNs: time.Duration(config.CacheExpiryMs) * time.Millisecond,
 		quoteCurrency: config.CoingeckoQuoteCurrency,
 		coingeckoUrl:  config.CoingeckoUrl,
 	}
+
+	if coingeckoPriceGetterFn == nil {
+		// Set the default price getter function.
+		coingeckoPricing.priceGetterFn = coingeckoPricing.GetPriceByCoingeckoId
+	} else {
+		// Set the custom price getter function (useful for testing purposes)
+		coingeckoPricing.priceGetterFn = coingeckoPriceGetterFn
+	}
+
+	return coingeckoPricing
 }
 
 // GetPrice implements pricing.PricingStrategy.
