@@ -350,7 +350,7 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 		token := domain.Token{}
 		token.Precision = asset.Decimals
 		token.HumanDenom = asset.Symbol
-		token.IsUnlisted = asset.Disabled
+		token.IsUnlisted = asset.Preview
 		token.CoingeckoID = asset.CoingeckoID
 		tokensByChainDenom[asset.CoinMinimalDenom] = token
 	}
