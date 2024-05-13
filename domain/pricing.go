@@ -44,14 +44,19 @@ type PricingOptions struct {
 	// them from cache first.
 	// If set to false, the prices might still be recomputed if the cache is empty.
 	RecomputePrices bool
+	// RecomputePricesIsSpotPriceComputeMethod defines whether to recompute the prices using the spot price compute method
+	// or the quote-based method.
+	// For more context, see tokens/usecase/pricing/chain defaultIsSpotPriceComputeMethod.
+	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinLiquidity defines the minimum liquidity required to consider a pool for pricing.
 	MinLiquidity int
 }
 
 // DefaultPricingOptions defines the default options for retrieving the prices.
 var DefaultPricingOptions = PricingOptions{
-	RecomputePrices: false,
-	MinLiquidity:    DefaultMinLiquidityOption,
+	RecomputePrices:                         false,
+	MinLiquidity:                            DefaultMinLiquidityOption,
+	RecomputePricesIsSpotPriceComputeMethod: true,
 }
 
 // PricingOption configures the pricing options.
@@ -61,6 +66,15 @@ type PricingOption func(*PricingOptions)
 func WithRecomputePrices() PricingOption {
 	return func(o *PricingOptions) {
 		o.RecomputePrices = true
+	}
+}
+
+// WithRecomputePricesQuoteBasedMethod configures the pricing options to recompute the prices
+// using the quote-based method
+func WithRecomputePricesQuoteBasedMethod() PricingOption {
+	return func(o *PricingOptions) {
+		o.RecomputePrices = true
+		o.RecomputePricesIsSpotPriceComputeMethod = false
 	}
 }
 
