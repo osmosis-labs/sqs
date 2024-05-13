@@ -10,6 +10,10 @@ from conftest import SERVICE_MAP
 expected_latency_upper_bound_ms = 1000
 
 # Test suite for the /router/routes endpoint
+
+# Note: this is for convinience to skip long-running tests in development
+# locally.
+# @pytest.mark.skip(reason="This test is currently disabled")
 class TestCandidateRoutes:
     # Sanity check to ensure the test setup is correct
     # before continunig with more complex test cases.
