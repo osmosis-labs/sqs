@@ -34,72 +34,11 @@ type tokensUseCase struct {
 type AssetList struct {
 	ChainName string `json:"chainName"`
 	Assets    []struct {
-		ChainName        string `json:"chainName"`
-		SourceDenom      string `json:"sourceDenom"`
 		CoinMinimalDenom string `json:"coinMinimalDenom"`
 		Symbol           string `json:"symbol"`
 		Decimals         int    `json:"decimals"`
-		LogoURIs         struct {
-			PNG string `json:"png"`
-			SVG string `json:"svg"`
-		} `json:"logoURIs"`
-		CoingeckoID string `json:"coingeckoId"`
-		Price       struct {
-			PoolID string `json:"poolId"`
-			Denom  string `json:"denom"`
-		} `json:"price"`
-		Categories   []string `json:"categories"`
-		PegMechanism string   `json:"pegMechanism"`
-		// Found inconsistency in the assest list file
-		// TransferMethods/CounterParty sometimes is an array and sometimes is an object
-		// So commenting out the fields for now
-		// TransferMethods []struct {
-		// 	Name         string `json:"name"`
-		// 	Type         string `json:"type"`
-		// 	DepositURL   string `json:"depositUrl"`
-		// 	WithdrawURL  string `json:"withdrawUrl"`
-		// 	CounterParty []struct {
-		// 		ChainName        string `json:"chainName"`
-		// 		ChainID          string `json:"chainId"`
-		// 		SourceDenom      string `json:"sourceDenom"`
-		// 		Port             string `json:"port"`
-		// 		ChannelID        string `json:"channelId"`
-		// 		WrappedAssetID   string `json:"wrappedAssetId"`
-		// 		UnwrappedAssetID string `json:"unwrappedAssetId"`
-		// 		EvmChainID       int    `json:"evmChainId"`
-		// 		SourceChainID    string `json:"sourceChainId"`
-		// 	} `json:"counterparty"`
-		// 	Chain []struct {
-		// 		Port      string `json:"port"`
-		// 		ChannelID string `json:"channelId"`
-		// 		Path      string `json:"path"`
-		// 	} `json:"chain"`
-		// 	WrappedAssetID   string `json:"wrappedAssetId"`
-		// 	UnwrappedAssetID string `json:"unwrappedAssetId"`
-		// } `json:"transferMethods"`
-		// CounterParty []struct {
-		// 	ChainName   string `json:"chainName"`
-		// 	SourceDenom string `json:"sourceDenom"`
-		// 	ChainType   string `json:"chainType"`
-		// 	ChainID     string `json:"chainId"`
-		// 	Address     string `json:"address"`
-		// 	Symbol      string `json:"symbol"`
-		// 	Decimals    int    `json:"decimals"`
-		// 	LogoURIs    struct {
-		// 		PNG string `json:"png"`
-		// 		SVG string `json:"svg"`
-		// 	} `json:"logoURIs"`
-		// } `json:"counterparty"`
-		VariantGroupKey string `json:"variantGroupKey"`
-		Name            string `json:"name"`
-		Verified        bool   `json:"verified"`
-		Unstable        bool   `json:"unstable"`
-		Disabled        bool   `json:"disabled"`
-		Preview         bool   `json:"preview"`
-		SortWith        struct {
-			ChainName   string `json:"chainName"`
-			SourceDenom string `json:"sourceDenom"`
-		} `json:"sortWith"`
+		CoingeckoID      string `json:"coingeckoId"`
+		Preview          bool   `json:"preview"`
 	} `json:"assets"`
 }
 
