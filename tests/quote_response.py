@@ -1,0 +1,30 @@
+class Coin:
+    def __init__(self, denom, amount):
+        self.denom = denom
+        self.amount = int(amount)
+
+class Pool:
+    def __init__(self, id, type, balances, spread_factor, token_out_denom, taker_fee):
+        self.id = int(id)
+        self.type = type
+        self.balances = balances
+        self.spread_factor = float(spread_factor)
+        self.token_out_denom = token_out_denom
+        self.taker_fee = float(taker_fee)
+
+class Route:
+    def __init__(self, pools, out_amount, in_amount, **kwargs):
+        self.pools = [Pool(**pool) for pool in pools]
+        self.out_amount = int(out_amount)
+        self.in_amount = int(in_amount)
+        # "has-cw-pool" format is unsupported
+        self.has_cw_pool = kwargs.get('has-cw-pool', False)
+
+class QuoteResponse:
+    def __init__(self, amount_in, amount_out, route, effective_fee, price_impact, in_base_out_quote_spot_price):
+        self.amount_in = Coin(**amount_in)
+        self.amount_out = int(amount_out)
+        self.route = [Route(**r) for r in route]
+        self.effective_fee = float(effective_fee)
+        self.price_impact = float(price_impact)
+        self.in_base_out_quote_spot_price = float(in_base_out_quote_spot_price)

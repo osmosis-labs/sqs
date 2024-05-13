@@ -4,6 +4,7 @@ SQS_STAGE = "https://sqs.stage.osmosis.zone"
 SQS_PROD = "https://sqs.osmosis.zone"
 
 ROUTER_ROUTES_URL = "/router/routes"
+ROUTER_QUOTE_URL = "/router/quote"
 
 TOKENS_METADATA_URL = "/tokens/metadata"
 
@@ -44,6 +45,26 @@ class SQSService:
 
             # Send the GET request
             return requests.get(self.url + ROUTER_ROUTES_URL, params=params)
+
+    def get_quote(self, denom_in, denom_out, human_denoms="false", singleRoute="false"):
+        """
+        Fetches quote from the specified endpoint and returns it.
+        
+        Raises error if non-200 is returned from the endpoint.
+        """
+
+            # Set the query parameters
+        params = {
+            "tokenIn": denom_in,
+            "tokenOutDenom": denom_out,
+            "humanDenoms": human_denoms,
+            "singleRoute": singleRoute,
+        }
+
+        print(params)
+
+        # Send the GET request
+        return requests.get(self.url + ROUTER_QUOTE_URL, params=params)
 
     def get_tokens_metadata(self):
         """
