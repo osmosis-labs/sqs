@@ -3,6 +3,7 @@ import itertools
 from data_service import all_tokens_data, all_pools_data
 from conftest import SERVICE_SQS_PROD
 from enum import Enum, IntEnum
+from constants import *
 
 # Numia pool type constants using an Enum
 class NumiaPoolType(Enum):
@@ -336,10 +337,10 @@ astroport_token_pair = choose_pcl_pool_tokens_by_liq_asc(1)
 def create_token_pairs():
     """
     Selects the following groups of tokens:
-    1. Top 5 by-liquidity
-    2. Top 5 by-volume
-    3. Five low liquidity (between 5000 and 10000 USD)
-    4. Five low volume (between 5000 and 10000 USD)
+    1. Top NUM_TOKENS_DEFAULT by-liquidity
+    2. Top NUM_TOKENS_DEFAULT by-volume
+    3. Five low liquidity (between MIN_LIQ_FILTER_DEFAULT and MAX_LIQ_FILTER_DEFAULT USD)
+    4. Five low volume (between MIN_VOL_FILTER_DEFAULT and MAX_LIQ_FILTER_DEFAULT USD)
 
     Then,
     - Puts them all in a set
@@ -350,16 +351,16 @@ def create_token_pairs():
     """
 
     # Five top by-liquidity tokens
-    top_five_liquidity_tokens = choose_tokens_liq_range(5)
+    top_five_liquidity_tokens = choose_tokens_liq_range(NUM_TOKENS_DEFAULT)
 
-    # Five top by-volume tokens
-    top_five_volume_tokens = choose_tokens_volume_range(5)
+    # NUM_TOKENS_DEFAULT top by-volume tokens
+    top_five_volume_tokens = choose_tokens_volume_range(NUM_TOKENS_DEFAULT)
 
-    # Five low liquidity tokens
-    five_low_liquidity_tokens = choose_tokens_liq_range(5, 5000, 10000)
+    # NUM_TOKENS_DEFAULT low liquidity tokens
+    five_low_liquidity_tokens = choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_LIQ_FILTER_DEFAULT)
 
-    # Five low volume tokens
-    five_low_volume_tokens = choose_tokens_volume_range(5, 5000, 10000)
+    # NUM_TOKENS_DEFAULT low volume tokens
+    five_low_volume_tokens = choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VOL_FILTER_DEFAULT)
 
     # Put all tokens in a set to ensure uniqueness
     all_tokens = set(top_five_liquidity_tokens + top_five_volume_tokens +

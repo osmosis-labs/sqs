@@ -6,10 +6,6 @@ from sqs_service import *
 import constants
 from conftest import SERVICE_MAP
 
-SQS_STAGE = "https://sqs.stage.osmosis.zone"
-
-ROUTES_URL = "/router/routes"
-
 # Arbitrary choice based on performance at the time of test writing
 expected_latency_upper_bound_ms = 1000
 
