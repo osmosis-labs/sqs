@@ -34,6 +34,17 @@ const (
 	// We use multiplier so that stablecoin quotes avoid selecting low liquidity routes.
 	// USDC/USDT value of 10 should be sufficient to avoid low liquidity routes.
 	tokenInMultiplier = 10
+
+	// SpotPriceComputeMethod is used to compute the price using spot prices
+	// over routes between 2 tokens.
+	// The is the default method used to compute prices.
+	//
+	// QuoteBasedComputeMethod is used to compute the price using a quote
+	// for 10 unit of the token in.
+	// This is a fallback method used when spot prices are not available due to error.
+	//
+	// The default is SpotPriceComputeMethod.
+	defaultIsSpotPriceComputeMethod bool = true
 )
 
 var (
@@ -96,7 +107,9 @@ func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config
 // GetPrice implements pricing.PricingStrategy.
 func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, error) {
 	options := domain.PricingOptions{
-		MinLiquidity: c.minOSMOLiquidity,
+		MinLiquidity:                            c.minOSMOLiquidity,
+		RecomputePricesIsSpotPriceComputeMethod: defaultIsSpotPriceComputeMethod,
+		RecomputePrices:                         false,
 	}
 
 	for _, opt := range opts {
@@ -106,7 +119,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	// Recompute prices if desired by configuration.
 	// Otherwise, look into cache first.
 	if options.RecomputePrices {
-		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinLiquidity)
+		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinLiquidity, options.RecomputePricesIsSpotPriceComputeMethod)
 	}
 
 	// equal base and quote yield the price of one
@@ -133,11 +146,11 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	}
 
 	// If cache miss occurs, we compute the price.
-	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinLiquidity)
+	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinLiquidity, options.RecomputePricesIsSpotPriceComputeMethod)
 }
 
 // computePrice computes the price for a given base and quote denom
-func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minLiquidity int) (osmomath.BigDec, error) {
+func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minLiquidity int, isSpotPriceComputeMethod bool) (osmomath.BigDec, error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 
 	if baseDenom == quoteDenom {
@@ -192,34 +205,40 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	pools := route.GetPools()
 
 	var (
-		tempQuoteDenom       = quoteDenom
-		tempBaseDenom        string
-		useAlternativeMethod = false
+		tempQuoteDenom = quoteDenom
+		tempBaseDenom  string
 	)
 
-	// If Astroport pool, use the alternative meth
+	// If we are using spot price method, we compute the result using spot-prices over
+	// pools in the quote.
+	//
+	// We fallback to quote-based compute method if there is an error in spot price computation.
+	if isSpotPriceComputeMethod {
+		for _, pool := range pools {
+			tempBaseDenom = pool.GetTokenOutDenom()
 
-	for _, pool := range pools {
-		tempBaseDenom = pool.GetTokenOutDenom()
+			// Get spot price for the pool.
+			poolSpotPrice, err := c.RUsecase.GetPoolSpotPrice(ctx, pool.GetId(), tempQuoteDenom, tempBaseDenom)
+			if err != nil || poolSpotPrice.IsNil() || poolSpotPrice.IsZero() {
+				// Increase price truncation counter
+				pricesSpotPriceError.WithLabelValues(baseDenom, quoteDenom).Inc()
 
-		// Get spot price for the pool.
-		poolSpotPrice, err := c.RUsecase.GetPoolSpotPrice(ctx, pool.GetId(), tempQuoteDenom, tempBaseDenom)
-		if err != nil || poolSpotPrice.IsNil() || poolSpotPrice.IsZero() {
-			// Increase price truncation counter
-			pricesSpotPriceError.WithLabelValues(baseDenom, quoteDenom).Inc()
+				// Error in spot price, use quote-based compute method.
+				isSpotPriceComputeMethod = false
+				break
+			}
 
-			useAlternativeMethod = true
-			break
+			// Multiply spot price by the previous spot price.
+			chainPrice = chainPrice.MulMut(poolSpotPrice)
+
+			tempQuoteDenom = tempBaseDenom
 		}
-
-		// Multiply spot price by the previous spot price.
-		chainPrice = chainPrice.MulMut(poolSpotPrice)
-
-		tempQuoteDenom = tempBaseDenom
 	}
 
-	if useAlternativeMethod {
-		// Compute on-chain price for 1 unit of base denom and quote denom.
+	// This is a separate logic gate to fallback to quote-based compute method
+	// if there is an error in the spot price computation above.
+	if !isSpotPriceComputeMethod {
+		// Compute on-chain price for 10 units of base denom and resulted quote denom out.
 		chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
 	}
 
@@ -232,10 +251,10 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	precisionScalingFactor := osmomath.BigDecFromDec(osmomath.NewDec(tokenInMultiplier).MulMut(baseDenomScalingFactor.Quo(tenQuoteCoin.Amount.ToLegacyDec())))
 
 	// Apply scaling facors to descale the amounts to real amounts.
-	currentPrice := chainPrice.MulMut(precisionScalingFactor)
+	chainPrice = chainPrice.MulMut(precisionScalingFactor)
 
 	// Only store values that are valid.
-	if !currentPrice.IsNil() {
+	if !chainPrice.IsNil() {
 		expirationTTL := c.cacheExpiryNs
 		// We pre-compute the price for the default quote denom in ingest handler via the background
 		// pricing worker. As a result, we store them indefinitely.
@@ -243,10 +262,10 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		if quoteDenom == c.defaultQuoteDenom {
 			expirationTTL = cache.NoExpirationTTL
 		}
-		c.cache.Set(cacheKey, currentPrice, expirationTTL)
+		c.cache.Set(cacheKey, chainPrice, expirationTTL)
 	}
 
-	return currentPrice, nil
+	return chainPrice, nil
 }
 
 // InitializeCache implements domain.PricingSource.
