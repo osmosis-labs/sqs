@@ -43,7 +43,8 @@ var (
 	UION    = routertesting.UION
 	CRE     = routertesting.CRE
 	// As of 2024-05, this token is unlisted but this might change.
-	AAVE_UNLISTED = "ibc/384E5DD50BDE042E1AAF51F312B55F08F95BC985C503880189258B4D9374CBBE"
+	// AAVE in v2 asset list is NOT unlisted
+	AAVE_LISTED = "ibc/384E5DD50BDE042E1AAF51F312B55F08F95BC985C503880189258B4D9374CBBE"
 
 	defaultPricingRouterConfig = domain.RouterConfig{
 		PreferredPoolIDs:  []uint64{},
@@ -114,9 +115,9 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().False(ethToken.IsUnlisted)
 
 	// AAVE is present but is unlisted
-	aaveToken, ok := tokensMap[AAVE_UNLISTED]
+	aaveToken, ok := tokensMap[AAVE_LISTED]
 	s.Require().True(ok)
-	s.Require().True(aaveToken.IsUnlisted)
+	s.Require().False(aaveToken.IsUnlisted)
 }
 
 func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
