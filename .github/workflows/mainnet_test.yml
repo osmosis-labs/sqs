@@ -10,53 +10,65 @@
 name: Mainnet Tests
 
 on:
-  pull_request:
-    branches:
-      - "**"
-  push:
-    branches:
-      - "main"
-      - "v[0-9]**"
+    pull_request:
+        branches:
+            - "**"
+    push:
+        branches:
+            - "main"
+            - "v[0-9]**"
 
 jobs:
-  test_prices:
-    runs-on: ubuntu-latest  # This specifies the runner environment.
-    steps:
-      -
-        name: Checkout repository
-        uses: actions/checkout@v4
-      -
-        name: 🐿 Setup Golang
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      -
-        name: Run Pricing Test
-        env:
-          CI_SQS_PRICING_WORKER_TEST: true
-        run: |
-          go test \
-            -timeout 300s \
-            -run TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens \
-            github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker -v -count=1
+    test_coingecko_prices:
+        runs-on: ubuntu-latest # This specifies the runner environment.
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+            - name: 🐿 Setup Golang
+              uses: actions/setup-go@v5
+              with:
+                  go-version-file: go.mod
+            - name: Run Coingecko Pricing Test
+              env:
+                  CI_SQS_PRICING_COINGECKO_TEST: true
+              run: |
+                  go test \
+                    -timeout 300s \
+                    -run TestCoingeckoPricingTestSuite/TestGetPrices_Coingecko_FindUnsupportedTokens \
+                    github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingecko -v -count=1
 
-  test_routes:
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Checkout repository
-        uses: actions/checkout@v4
-      -
-        name: 🐿 Setup Golang
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      -
-        name: Run Routes Test
-        env:
-          CI_SQS_ROUTE_TEST: true
-        run: |
-          go test \
-            -timeout 30s \
-            -run TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes \
-            github.com/osmosis-labs/sqs/router/usecase -v -count=1
+    test_prices:
+        runs-on: ubuntu-latest # This specifies the runner environment.
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+            - name: 🐿 Setup Golang
+              uses: actions/setup-go@v5
+              with:
+                  go-version-file: go.mod
+            - name: Run Pricing Test
+              env:
+                  CI_SQS_PRICING_WORKER_TEST: true
+              run: |
+                  go test \
+                    -timeout 300s \
+                    -run TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens \
+                    github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker -v -count=1
+
+    test_routes:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+            - name: 🐿 Setup Golang
+              uses: actions/setup-go@v5
+              with:
+                  go-version-file: go.mod
+            - name: Run Routes Test
+              env:
+                  CI_SQS_ROUTE_TEST: true
+              run: |
+                  go test \
+                    -timeout 30s \
+                    -run TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes \
+                    github.com/osmosis-labs/sqs/router/usecase -v -count=1
