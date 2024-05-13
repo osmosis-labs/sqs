@@ -179,6 +179,8 @@ var (
 		MaxPoolsPerRoute:       4,
 		MaxRoutes:              5,
 		MinOSMOLiquidity:       50,
+		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency: "usd",
 	}
 
 	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}
@@ -343,6 +345,12 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	pricingSource = pricing.WithPricingCache(pricingSource, options.Pricing)
 
 	tokensUsecase.RegisterPricingStrategy(domain.ChainPricingSourceType, pricingSource)
+
+	// Set up Coingecko pricing strategy
+	options.PricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
+	coingeckoPricingSource, err := pricing.NewPricingStrategy(options.PricingConfig, tokensUsecase, routerUsecase)
+	s.Require().NoError(err)
+	tokensUsecase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
 
 	encCfg := app.MakeEncodingConfig()
 
