@@ -176,8 +176,10 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 	var pricingSource domain.PricingSourceType
 	pricingSourceParam := c.QueryParam("pricingSource")
 	if pricingSourceParam == "" {
+	         // By default, if no source is explicitly provided, we use a chain pricing source. 
 		pricingSource = domain.ChainPricingSourceType
 	} else {
+	        // Otherwise, we attempt to parse the given pricing source.
 		pricingSourceInt, err := strconv.Atoi(pricingSourceParam)
 		if err != nil || !a.TUsecase.IsValidPricingSource(pricingSourceInt) {
 			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("invalid pricing source: %s", pricingSourceParam)})
