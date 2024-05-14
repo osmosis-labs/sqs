@@ -26,6 +26,7 @@ import (
 	"github.com/osmosis-labs/osmosis/v24/app"
 	"github.com/osmosis-labs/osmosis/v24/app/apptesting"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
+	coingeckopricing "github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingecko"
 )
 
 type RouterTestHelper struct {
@@ -348,9 +349,9 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	tokensUsecase.RegisterPricingStrategy(domain.ChainPricingSourceType, pricingSource)
 
-	// Set up Coingecko pricing strategy
+	// Set up Coingecko pricing strategy, use MockCoingeckoPriceGetter for testing purposes
 	options.PricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
-	coingeckoPricingSource, err := pricing.NewPricingStrategy(options.PricingConfig, tokensUsecase, routerUsecase)
+	coingeckoPricingSource := coingeckopricing.New(routerUsecase, tokensUsecase, options.PricingConfig, coingeckopricing.MockCoingeckoPriceGetter)
 	s.Require().NoError(err)
 	tokensUsecase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
 

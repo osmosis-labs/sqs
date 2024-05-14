@@ -35,8 +35,13 @@ var (
 // We monkey-patch this function for testing purposes.
 type CoingeckoPriceGetterFn func(ctx context.Context, baseDenom string, coingeckoId string) (osmomath.BigDec, error)
 
-// DefaultCoingeckoPriceGetter is the default implementation of CoingeckoPriceGetterFn.
+// DefaultCoingeckoPriceGetter is the default implementation of CoingeckoPriceGetterFn, which invokes GetPriceByCoingeckoId.
 var DefaultCoingeckoPriceGetter CoingeckoPriceGetterFn = nil
+
+// MockCoingeckoPriceGetter is a mock implementation of CoingeckoPriceGetterFn, which returns a fixed price of 1.
+var MockCoingeckoPriceGetter CoingeckoPriceGetterFn = func(ctx context.Context, baseDenom, coingeckoId string) (osmomath.BigDec, error) {
+	return osmomath.NewBigDec(1), nil
+}
 
 type coingeckoPricing struct {
 	TUsecase      mvc.TokensUsecase
@@ -105,7 +110,7 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 		cacheMissesCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 	}
 
-	price, err := c.GetPriceByCoingeckoId(ctx, baseDenom, coingeckoId)
+	price, err := c.priceGetterFn(ctx, baseDenom, coingeckoId)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
