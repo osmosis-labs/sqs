@@ -19,7 +19,7 @@ const (
 	// CoinGeckoPricingSourceType defines the pricing source
 	// that calls CoinGecko API.
 	CoinGeckoPricingSourceType
-	NoneSourceType
+	NoneSourceType = -1
 )
 
 // PricingSource defines an interface that must be fulfilled by the specific

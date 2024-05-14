@@ -142,6 +142,8 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 	s.Require().Equal(defaultCosmosExponent, osmoToken.Precision)
 }
 
+// This test takes some mainnet denoms (routertesting.MainnetDenoms) and fetch their prices with USDC as a quote from Coingecko API endpoint.
+// It then validates that every denom has non-zero price quote as returned from Coingecko
 func (s *TokensUseCaseTestSuite) TestGetPrices_Coingecko() {
 	// Set up mainnet mock state.
 	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
