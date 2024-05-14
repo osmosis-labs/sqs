@@ -40,7 +40,11 @@ var DefaultCoingeckoPriceGetter CoingeckoPriceGetterFn = nil
 
 // MockCoingeckoPriceGetter is a mock implementation of CoingeckoPriceGetterFn, which returns a fixed price of 1.
 var MockCoingeckoPriceGetter CoingeckoPriceGetterFn = func(ctx context.Context, baseDenom, coingeckoId string) (osmomath.BigDec, error) {
-	return osmomath.NewBigDec(1), nil
+	if coingeckoId == "" {
+		return osmomath.NewBigDec(0), nil
+	} else {
+		return osmomath.NewBigDec(1), nil
+	}
 }
 
 type coingeckoPricing struct {
