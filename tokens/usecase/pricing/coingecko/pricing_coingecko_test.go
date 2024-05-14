@@ -18,9 +18,6 @@ var (
 	defaultPricingConfig = routertesting.DefaultPricingConfig
 )
 
-func (suite *CoingeckoPricingTestSuite) BeforeTest(suiteName, testName string) {
-	// Run some code before each test
-}
 
 func (s *CoingeckoPricingTestSuite) SetupDefaultRouterAndPoolsUsecase() routertesting.MockMainnetUsecase {
 	mainnetState := s.SetupMainnetState()
