@@ -319,3 +319,92 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 		})
 	}
 }
+
+// Basic sanity check test case to validate the updates and retrieval of pool denom liquidity.
+// It sets up mainnet mock state and updates the pool denom metadata for ATOM and OSMO.
+// It then retrieves the liquidity of ATOM and OSMO and validates if the liquidity is updated.
+// It also validates if the liquidity of another token is not present.
+// It then updates the OSMO liquidity and validates if the ATOM liquidity is still the same and OSMO liquidity is updated.
+// Additionally, it valides that for the getter with multiple chain denoms, if the requested chain denom metadata is not present, it is nullified without erroring.
+// it will be nullified without error.
+func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
+
+	var (
+		xAmount       = osmomath.NewInt(1000)
+		doubleXAmount = xAmount.Add(xAmount)
+	)
+
+	// Set up mainnet mock state.
+	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
+
+	// System under test.
+	// Get the liquidity of ATOM
+	xAmount, err := mainnetUsecase.Tokens.GetPoolLiquidityCap(ATOM)
+	s.Require().Error(err)
+
+	s.Require().ErrorIs(err, domain.PoolDenomMetaDataNotPresentError{
+		ChainDenom: ATOM,
+	})
+
+	s.Require().Equal(osmomath.Int{}, xAmount)
+
+	// Update the pool denom metadata for ATOM and OSMO
+	atomPoolDenomMetadata := domain.PoolDenomMetaData{
+		LocalMCap: xAmount,
+	}
+
+	osmoPoolDenomMetadata := domain.PoolDenomMetaData{
+		LocalMCap: doubleXAmount,
+	}
+
+	mainnetUsecase.Tokens.UpdatePoolDenomMetadata(map[string]domain.PoolDenomMetaData{
+		ATOM:  atomPoolDenomMetadata,
+		UOSMO: osmoPoolDenomMetadata,
+	})
+
+	// Get the liquidity of ATOM again
+	atomLiquidityUpdated, err := mainnetUsecase.Tokens.GetPoolLiquidityCap(ATOM)
+	s.Require().NoError(err)
+
+	// Check if the liquidity is updated.
+	s.Require().Equal(atomPoolDenomMetadata.LocalMCap.String(), atomLiquidityUpdated.String())
+
+	// Get the liquidity of OSMO
+	osmoLiquidityUpdated, err := mainnetUsecase.Tokens.GetPoolLiquidityCap(UOSMO)
+	s.Require().NoError(err)
+
+	// Check if the liquidity is updated.
+	s.Require().Equal(osmoPoolDenomMetadata.LocalMCap.String(), osmoLiquidityUpdated.String())
+
+	// Fail to get the liquidity of another token
+	_, err = mainnetUsecase.Tokens.GetPoolLiquidityCap(UION)
+	s.Require().Error(err)
+	s.Require().ErrorIs(err, domain.PoolDenomMetaDataNotPresentError{
+		ChainDenom: UION,
+	})
+
+	// Now, update only the OSMO liquidity
+	osmoPoolDenomMetadataUpdated := domain.PoolDenomMetaData{
+		LocalMCap: xAmount,
+	}
+	mainnetUsecase.Tokens.UpdatePoolDenomMetadata(map[string]domain.PoolDenomMetaData{
+		UOSMO: osmoPoolDenomMetadataUpdated,
+	})
+
+	// Get all the pool denom metadata
+	poolDenomMetadata := mainnetUsecase.Tokens.GetPoolDenomsMetadata([]string{ATOM, UOSMO, UION})
+	s.Require().Len(poolDenomMetadata, 3)
+	for chainDenom, metadata := range poolDenomMetadata {
+		switch chainDenom {
+		case ATOM:
+			// Validate ATOM is still the same despite only OSMO being updated
+			s.Require().Equal(atomPoolDenomMetadata, metadata)
+		case UOSMO:
+			// 	// Validate OSMO is updated
+			s.Require().Equal(osmoPoolDenomMetadataUpdated, metadata)
+		case UION:
+			// Validate UION is not present and is nullified without erroring.
+			s.Require().Equal(osmomath.ZeroInt().String(), metadata.LocalMCap.String())
+		}
+	}
+}

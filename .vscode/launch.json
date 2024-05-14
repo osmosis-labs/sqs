@@ -28,6 +28,20 @@
             ],
         },
         {
+            "name": "ingest/usecase",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/ingest/usecase",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestIngestUseCaseTestSuite/TestUpdateUniqueDenomData",
+                "-test.v"
+            ],
+        },
+        {
             "name": "tokens/usecase",
             "type": "go",
             "request": "launch",
@@ -37,7 +51,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestTokensUseCaseTestSuite/TestGetPrices_Chain_PricingOptions",
+                "TestTokensUseCaseTestSuite/TestPoolDenomMetadata",
                 "-test.v"
             ],
         },

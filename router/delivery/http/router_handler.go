@@ -2,7 +2,6 @@ package http
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -88,14 +87,14 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	// translate denoms from human to chain if needed
-	tokenOutDenom, tokenInDenom, err := a.getChainDenoms(c, tokenOutDenom, tokenIn.Denom)
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn.Denom, tokenOutDenom})
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	// Update coins token in denom it case it was translated from human to chain.
-	tokenIn.Denom = tokenInDenom
+	tokenIn.Denom = chainDenoms[0]
+	tokenOutDenom = chainDenoms[1]
 
 	var quote domain.Quote
 	if isSingleRoute {
@@ -109,7 +108,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom)
+		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
 	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
@@ -185,11 +184,14 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	// translate denoms from human to chain if needed
-	tokenOutDenom, tokenIn, err = a.getChainDenoms(c, tokenOutDenom, tokenIn)
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn, tokenOutDenom})
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
+
+	// Update the tokenIn and tokenOutDenom with the chain denoms if they were translated from human to chain.
+	tokenIn = chainDenoms[0]
+	tokenOutDenom = chainDenoms[1]
 
 	routes, err := a.RUsecase.GetCandidateRoutes(ctx, sdk.NewCoin(tokenIn, osmomath.OneInt()), tokenOutDenom)
 	if err != nil {
@@ -278,57 +280,6 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, spotPrice)
-}
-
-// returns chain denoms from echo parameters. If human denoms are given, they are converted to chain denoms.
-func (a *RouterHandler) getChainDenoms(c echo.Context, tokenOutDenom, tokenInDenom string) (string, string, error) {
-	isHumanDenomsStr := c.QueryParam("humanDenoms")
-	isHumanDenoms := false
-	var err error
-	if len(isHumanDenomsStr) > 0 {
-		isHumanDenoms, err = strconv.ParseBool(isHumanDenomsStr)
-		if err != nil {
-			return "", "", err
-		}
-	}
-
-	// Note that sdk.Coins initialization
-	// auto-converts base denom from human
-	// to IBC notation.
-	// As a result, we avoid attempting the
-	// to convert a denom that is already changed.
-	baseDenom, err := sdk.GetBaseDenom()
-	if err != nil {
-		return "", "", nil
-	}
-
-	if isHumanDenoms {
-		// See definition of baseDenom.
-		if tokenOutDenom != baseDenom {
-			tokenOutDenom, err = a.TUsecase.GetChainDenom(tokenOutDenom)
-			if err != nil {
-				return "", "", err
-			}
-		}
-
-		// See definition of baseDenom.
-		if tokenInDenom != baseDenom {
-			tokenInDenom, err = a.TUsecase.GetChainDenom(tokenInDenom)
-			if err != nil {
-				return "", "", err
-			}
-		}
-	} else {
-		if !a.TUsecase.IsValidChainDenom(tokenInDenom) {
-			return "", "", fmt.Errorf("tokenInDenom is not a valid chain denom (%s)", tokenInDenom)
-		}
-
-		if !a.TUsecase.IsValidChainDenom(tokenOutDenom) {
-			return "", "", fmt.Errorf("tokenOutDenom is not a valid chain denom (%s)", tokenOutDenom)
-		}
-	}
-
-	return tokenOutDenom, tokenInDenom, nil
 }
 
 // getValidRoutingParameters returns the tokenIn and tokenOutDenom from server context if they are valid.

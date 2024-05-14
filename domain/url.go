@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"net/url"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -33,4 +34,17 @@ func GetURLPathFromContext(ctx context.Context) (string, error) {
 		requestPath = "unknown"
 	}
 	return requestPath, nil
+}
+
+// GetIsHumanDenomsQueryParam returns the value of the humanDenoms query parameter
+// If the query parameter is not present, it returns false
+// Errors if the value is not a valid boolean.
+func GetIsHumanDenomsQueryParam(c echo.Context) (bool, error) {
+	isHumanDenomsStr := c.QueryParam("humanDenoms")
+
+	if len(isHumanDenomsStr) > 0 {
+		return strconv.ParseBool(isHumanDenomsStr)
+	}
+
+	return false, nil
 }

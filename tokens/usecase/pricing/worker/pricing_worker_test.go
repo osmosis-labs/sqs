@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
@@ -30,6 +31,9 @@ var (
 
 	defaultRouterConfig  = routertesting.DefaultRouterConfig
 	defaultPricingConfig = routertesting.DefaultPricingConfig
+
+	// It is irrelevant to the test so we set this default universally.
+	defaultTotalLiquidity = osmomath.OneInt()
 )
 
 func TestPricingWorkerTestSuite(t *testing.T) {
@@ -46,37 +50,53 @@ func (s *PricingWorkerTestSuite) SetupDefaultRouterAndPoolsUsecase() routertesti
 // Tests asyncronous updating of prices for a given set of base denoms by utilzing a mock listener
 // with a 5 second timeout.
 func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
-	emptyBaseDenoms := map[string]struct{}{}
+	var (
+		emptyBaseDenoms = map[string]domain.PoolDenomMetaData{}
+	)
 
 	testCases := []struct {
 		name             string
-		baseDenoms       map[string]struct{}
-		queuedBaseDenoms map[string]struct{}
+		baseDenoms       map[string]domain.PoolDenomMetaData
+		queuedBaseDenoms map[string]domain.PoolDenomMetaData
 	}{
 		{
 			name:       "empty base denoms",
-			baseDenoms: map[string]struct{}{},
+			baseDenoms: map[string]domain.PoolDenomMetaData{},
 		},
 		{
-			name:       "one base denom",
-			baseDenoms: map[string]struct{}{UOSMO: {}},
+			name: "one base denom",
+			baseDenoms: map[string]domain.PoolDenomMetaData{UOSMO: {
+				LocalMCap: osmomath.OneInt(),
+			}},
 		},
 		{
 			name: "several base denoms",
-			baseDenoms: map[string]struct{}{
-				UOSMO: {},
-				ATOM:  {},
-				USDC:  {},
+			baseDenoms: map[string]domain.PoolDenomMetaData{
+				UOSMO: {
+					LocalMCap: defaultTotalLiquidity,
+				},
+				ATOM: {
+					LocalMCap: defaultTotalLiquidity,
+				},
+				USDC: {
+					LocalMCap: defaultTotalLiquidity,
+				},
 			},
 		},
 		{
 			name: "several base denoms with a queued base denom",
-			baseDenoms: map[string]struct{}{
-				UOSMO: {},
-				USDC:  {},
+			baseDenoms: map[string]domain.PoolDenomMetaData{
+				UOSMO: {
+					LocalMCap: defaultTotalLiquidity,
+				},
+				USDC: {
+					LocalMCap: defaultTotalLiquidity,
+				},
 			},
-			queuedBaseDenoms: map[string]struct{}{
-				ATOM: {},
+			queuedBaseDenoms: map[string]domain.PoolDenomMetaData{
+				ATOM: {
+					LocalMCap: defaultTotalLiquidity,
+				},
 			},
 		},
 	}
@@ -180,9 +200,11 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().NotZero(len(tokenMetadata))
 
 	// Populate base denoms with all possible chain denoms
-	baseDenoms := map[string]struct{}{}
+	baseDenoms := map[string]domain.PoolDenomMetaData{}
 	for chainDenom := range tokenMetadata {
-		baseDenoms[chainDenom] = struct{}{}
+		baseDenoms[chainDenom] = domain.PoolDenomMetaData{
+			LocalMCap: defaultTotalLiquidity,
+		}
 	}
 
 	// Test for empty base denoms
@@ -234,7 +256,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().Equal(25, zeroPriceCounter)
 }
 
-func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]any) {
+func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]domain.PoolDenomMetaData, expectedQuoteDenom string, prices map[string]map[string]any) {
 	for baseDenom := range initialDenoms {
 		quoteMap, ok := prices[baseDenom]
 		s.Require().True(ok)
