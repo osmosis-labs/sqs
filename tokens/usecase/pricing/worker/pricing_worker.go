@@ -47,7 +47,7 @@ func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, logger log.Logger) 
 }
 
 // UpdatePrices implements PricingWorker.
-func (p *pricingWorker) UpdatePricesAsync(height uint64, baseDenoms map[string]struct{}) {
+func (p *pricingWorker) UpdatePricesAsync(height uint64, baseDenoms map[string]domain.PoolDenomMetaData) {
 	// Queue pricing updates
 	for baseDenom := range baseDenoms {
 		p.priceUpdateBaseDenomMap[baseDenom] = struct{}{}

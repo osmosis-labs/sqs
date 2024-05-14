@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"go.uber.org/zap"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -24,6 +25,7 @@ type ingestUseCase struct {
 
 	poolsUseCase     mvc.PoolsUsecase
 	routerUsecase    mvc.RouterUsecase
+	tokensUsecase    mvc.TokensUsecase
 	chainInfoUseCase mvc.ChainInfoUsecase
 
 	// Worker that computes prices for all tokens with the default quote.
@@ -40,7 +42,7 @@ type poolResult struct {
 // UniqueBlockPoolMetaData contains the metadta about unique pools
 // and denoms modified in a block.
 type UniqueBlockPoolMetaData struct {
-	Denoms  map[string]struct{}
+	Denoms  map[string]domain.PoolDenomMetaData
 	PoolIDs map[uint64]struct{}
 }
 
@@ -49,12 +51,13 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
 		chainInfoUseCase: chainInfoUseCase,
 		routerUsecase:    routerUseCase,
+		tokensUsecase:    tokensUseCase,
 		poolsUseCase:     poolsUseCase,
 
 		logger: logger,
@@ -90,6 +93,10 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	// Sort and store pools.
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 	p.sortAndStorePools(allPools)
+
+	// Update pool denom metadata
+	p.logger.Info("updating pool denom metadata", zap.Uint64("height", height), zap.Int("denom_count", len(uniqueBlockPoolMetadata.Denoms)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
+	p.tokensUsecase.UpdatePoolDenomMetadata(uniqueBlockPoolMetadata.Denoms)
 
 	// Note: we must queue the update before we start updating prices as pool liquidity
 	// worker listens for the pricing updates at the same height.
@@ -137,7 +144,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 	parsedPools := make([]sqsdomain.PoolI, 0, len(poolData))
 
 	uniqueData := UniqueBlockPoolMetaData{
-		Denoms:  make(map[string]struct{}),
+		Denoms:  make(map[string]domain.PoolDenomMetaData),
 		PoolIDs: make(map[uint64]struct{}, len(poolData)),
 	}
 
@@ -153,9 +160,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 			}
 
 			// Update unique denoms
-			for _, balance := range poolResult.pool.GetSQSPoolModel().Balances {
-				uniqueData.Denoms[balance.Denom] = struct{}{}
-			}
+			updateUniqueDenomData(uniqueData.Denoms, poolResult.pool.GetSQSPoolModel().Balances)
 
 			// Update unique pools.
 			uniqueData.PoolIDs[poolResult.pool.GetId()] = struct{}{}
@@ -190,4 +195,22 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsdomain.PoolI, error)
 	}
 
 	return &poolWrapper, nil
+}
+
+// updateUniqueDenomData updates the unique denom data with the given balances
+// mutates the uniqueDenomData map. If the denom is already present, it updates the liquidity
+func updateUniqueDenomData(uniqueDenomData map[string]domain.PoolDenomMetaData, balances sdk.Coins) {
+	for _, balance := range balances {
+		poolLiquidity, ok := uniqueDenomData[balance.Denom]
+		if ok {
+			// Update the pool liquidity
+			poolLiquidity.LocalMCap = poolLiquidity.LocalMCap.Add(balance.Amount)
+			uniqueDenomData[balance.Denom] = poolLiquidity
+		} else {
+			// Initialize the pool liquidity
+			uniqueDenomData[balance.Denom] = domain.PoolDenomMetaData{
+				LocalMCap: balance.Amount,
+			}
+		}
+	}
 }

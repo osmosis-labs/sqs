@@ -25,6 +25,10 @@ type tokensUseCase struct {
 	// No mutex since we only expect reads to this shared resource and no writes.
 	precisionScalingFactorMap map[int]osmomath.Dec
 
+	// Metadata about denoms that is collected from the pools.
+	// E.g. total denom liquidity across all pools.
+	poolDenomMetaData sync.Map
+
 	// We persist pricing strategies across endpoint calls as they
 	// may cache responses internally.
 	pricingStrategyMap map[domain.PricingSourceType]domain.PricingSource
@@ -116,8 +120,74 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 
 		pricingStrategyMap: map[domain.PricingSourceType]domain.PricingSource{},
 
+		poolDenomMetaData: sync.Map{},
+
 		chainDenoms: chainDenoms,
 	}
+}
+
+// UpdatePoolDenomMetadata implements mvc.TokensUsecase.
+func (t *tokensUseCase) UpdatePoolDenomMetadata(poolDenomMetadata map[string]domain.PoolDenomMetaData) {
+	for chainDenom, tokenMetadata := range poolDenomMetadata {
+		t.poolDenomMetaData.Store(chainDenom, tokenMetadata)
+	}
+}
+
+// GetPoolLiquidityCap implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetPoolLiquidityCap(chainDenom string) (osmomath.Int, error) {
+	poolDenomMetadata, err := t.GetPoolDenomMetadata(chainDenom)
+	if err != nil {
+		return osmomath.Int{}, err
+	}
+	return poolDenomMetadata.LocalMCap, nil
+}
+
+// GetPoolDenomMetadata implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetPoolDenomMetadata(chainDenom string) (domain.PoolDenomMetaData, error) {
+	poolDenomMetadataObj, ok := t.poolDenomMetaData.Load(chainDenom)
+	if !ok {
+		return domain.PoolDenomMetaData{}, domain.PoolDenomMetaDataNotPresentError{
+			ChainDenom: chainDenom,
+		}
+	}
+
+	poolDenomMetadata, ok := poolDenomMetadataObj.(domain.PoolDenomMetaData)
+	if !ok {
+		// TODO: add alert
+		return domain.PoolDenomMetaData{}, fmt.Errorf("pool denom metadata for denom (%s) is not of type domain.PoolDenomMetaData", chainDenom)
+	}
+
+	return poolDenomMetadata, nil
+}
+
+// GetPoolDenomsMetadata implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) map[string]domain.PoolDenomMetaData {
+	result := make(map[string]domain.PoolDenomMetaData, len(chainDenoms))
+
+	for _, chainDenom := range chainDenoms {
+		poolDenomMetadata, err := t.GetPoolDenomMetadata(chainDenom)
+
+		// Instead of failing the entire request, we just set the local mcap to zero.
+		if err != nil {
+			result[chainDenom] = domain.PoolDenomMetaData{
+				LocalMCap: osmomath.ZeroInt(),
+			}
+		} else {
+			result[chainDenom] = poolDenomMetadata
+		}
+	}
+
+	return result
+}
+
+// GetFullPoolDenomMetadata implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetFullPoolDenomMetadata() map[string]domain.PoolDenomMetaData {
+	chainDenoms := make([]string, 0, len(t.chainDenoms))
+	for chainDenom := range t.chainDenoms {
+		chainDenoms = append(chainDenoms, chainDenom)
+	}
+
+	return t.GetPoolDenomsMetadata(chainDenoms)
 }
 
 // GetChainDenom implements mvc.TokensUsecase.

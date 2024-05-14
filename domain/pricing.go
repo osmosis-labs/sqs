@@ -123,7 +123,7 @@ type PricingWorker interface {
 	// UpdatePrices updates prices for the given base denoms asyncronously.
 	// Returns a channel that will be closed when the update is completed.
 	// Propagates the results to the listeners.
-	UpdatePricesAsync(height uint64, baseDenoms map[string]struct{})
+	UpdatePricesAsync(height uint64, baseDenoms map[string]PoolDenomMetaData)
 
 	// RegisterListener registers a listener for pricing updates.
 	RegisterListener(listener PricingUpdateListener)
