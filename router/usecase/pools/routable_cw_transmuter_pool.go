@@ -12,6 +12,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
@@ -84,9 +85,9 @@ func (r *routableTransmuterPoolImpl) String() string {
 }
 
 // ChargeTakerFeeExactIn implements sqsdomain.RoutablePool.
-// Returns tokenInAmount and does not charge any fee for transmuter pools.
 func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
-	return tokenIn
+	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
+	return tokenInAfterTakerFee
 }
 
 // validateBalance validates that the balance of the denom to validate is greater than the token in amount.
