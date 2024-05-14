@@ -501,8 +501,11 @@ The choise of 10 is such that we do not consider extremely low-liquidity routes 
 may change frequently while also derisk the price impact with high-value non-USDC quotes.
 
 #### CoinGecko
+Unless specified by using the parameter `pricingSource`, the [GET /tokens/prices](#tokens-resource) endpoint uses the above chain pricing source by default in obtaining a price quote. Coingecko pricing source is also available by using the `pricingSource` parameter. Coingecko pricing source also serves as a fallback mechanism if the following conditions are met:
+1. The quote from on-chain pricing is unavailable for any reason.
+2. The quote is USDC quote.
 
-TBD
+Internally, the Coingecko pricing source looks for the price quote in the its pricing cache and return it if it exists. Otherwise, it fetches the price from the Coingecko API endpoint and store it in the cache with an expiration time specified in the config.json file.
 
 ### Algorithm
 
