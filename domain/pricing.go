@@ -123,15 +123,15 @@ type PricingWorker interface {
 	// UpdatePrices updates prices for the given base denoms asyncronously.
 	// Returns a channel that will be closed when the update is completed.
 	// Propagates the results to the listeners.
-	UpdatePricesAsync(height uint64, baseDenoms map[string]PoolDenomMetaData)
+	UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 
 	// RegisterListener registers a listener for pricing updates.
 	RegisterListener(listener PricingUpdateListener)
+}
 
-	// IsProcessing returns true if the worker is processing a pricing update.
-	IsProcessing() bool
+type PoolLiquidityPricingWorker interface {
 }
 
 type PricingUpdateListener interface {
-	OnPricingUpdate(ctx context.Context, height int64, pricesBaseQuoteDenomMap map[string]map[string]any, quoteDenom string) error
+	OnPricingUpdate(ctx context.Context, height int64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap map[string]map[string]osmomath.BigDec, quoteDenom string) error
 }

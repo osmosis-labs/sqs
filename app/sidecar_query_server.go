@@ -142,9 +142,14 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, logger)
 
+		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase)
+
 		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
 		// It then passes the healthcheck as long as updates are received at the appropriate intervals.
 		quotePriceUpdateWorker.RegisterListener(chainInfoUseCase)
+
+		// pool liquidity compute worker listens to the quote price update worker.
+		quotePriceUpdateWorker.RegisterListener(poolLiquidityComputeWorker)
 
 		// Initialize ingest handler and usecase
 		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, tokensUseCase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)

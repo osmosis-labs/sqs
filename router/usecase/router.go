@@ -41,11 +41,12 @@ func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minLiquidity int) []sqsd
 // ValidateAndSortPools filters and sorts the given pools for use in the router
 // according to the given configuration.
 // Filters out pools that have no tvl error set and have zero liquidity.
-func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) []sqsdomain.PoolI {
+func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) ([]sqsdomain.PoolI, map[string]domain.PoolDenomMetaData) {
 	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
 
 	totalTVL := sdk.ZeroInt()
 
+	poolDenomLiquidity := map[string]domain.PoolDenomMetaData{}
 	// Make a copy and filter pools
 	for _, pool := range pools {
 		// TODO: the zero argument can be removed in a future release
@@ -74,6 +75,9 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 		filteredPools = append(filteredPools, pool)
 
 		totalTVL = totalTVL.Add(pool.GetTotalValueLockedUSDC())
+
+		// Update unique denoms
+		updateUniqueDenomData(poolDenomLiquidity, pool.GetSQSPoolModel().Balances)
 	}
 
 	preferredPoolIDsMap := make(map[uint64]struct{})
@@ -83,7 +87,7 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 
 	logger.Info("validated pools", zap.Int("num_pools", len(filteredPools)))
 
-	return sortPools(filteredPools, cosmWasmPoolsConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger)
+	return sortPools(filteredPools, cosmWasmPoolsConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger), poolDenomLiquidity
 }
 
 // sortPools sorts the given pools so that the most appropriate pools are at the top.
@@ -163,4 +167,22 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 		pools[i] = ratedPool.pool
 	}
 	return pools
+}
+
+// updateUniqueDenomData updates the unique denom data with the given balances
+// mutates the uniqueDenomData map. If the denom is already present, it updates the liquidity
+func updateUniqueDenomData(uniqueDenomData map[string]domain.PoolDenomMetaData, balances sdk.Coins) {
+	for _, balance := range balances {
+		poolLiquidity, ok := uniqueDenomData[balance.Denom]
+		if ok {
+			// Update the pool liquidity
+			poolLiquidity.TotalLiquidity = poolLiquidity.TotalLiquidity.Add(balance.Amount)
+			uniqueDenomData[balance.Denom] = poolLiquidity
+		} else {
+			// Initialize the pool liquidity
+			uniqueDenomData[balance.Denom] = domain.PoolDenomMetaData{
+				TotalLiquidity: balance.Amount,
+			}
+		}
+	}
 }

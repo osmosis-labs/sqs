@@ -245,7 +245,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
 
 			// Validate and sort pools
-			sortedPools := usecase.ValidateAndSortPools(tc.repositoryPools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
+			sortedPools, _ := usecase.ValidateAndSortPools(tc.repositoryPools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
 
 			// Filter pools by min liquidity
 			sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, minOsmoLiquidity)
@@ -759,7 +759,7 @@ func (s *RouterTestSuite) TestSortPools() {
 	s.Require().NoError(err)
 
 	// Validate and sort pools
-	sortedPools := usecase.ValidateAndSortPools(pools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
+	sortedPools, _ := usecase.ValidateAndSortPools(pools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
 
 	// Filter pools by min liquidity
 	sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, defaultRouterConfig.MinOSMOLiquidity)
