@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Unreleased
 
 - Clean up chain pricing
+- Charge taker fee for transmuter pools
 
 ## v0.17.11 & 0.18.3
 
