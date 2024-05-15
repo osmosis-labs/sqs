@@ -67,3 +67,12 @@ map[denom]struct{
 
 This would alow us to identify all pools that are associated with a particular token and read them only
 rather than reading all pools.
+
+Plan:
+- 1. Constrcut the map
+- 2. Update the map when a pool is pushed
+
+Q:
+- Where to store? a) ingester 2) tokens
+- Separate indexes or not? A: Probably not because we need to access them together at ingest time
+   * Should the stuff for queries then be a separate index??? 

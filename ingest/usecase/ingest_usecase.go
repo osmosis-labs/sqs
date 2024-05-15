@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"go.uber.org/zap"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -26,6 +27,8 @@ type ingestUseCase struct {
 	routerUsecase    mvc.RouterUsecase
 	tokensUsecase    mvc.TokensUsecase
 	chainInfoUseCase mvc.ChainInfoUsecase
+
+	denomLiquidityMap domain.DenomLiquidityMap
 
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
@@ -53,6 +56,8 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 		routerUsecase:    routerUseCase,
 		tokensUsecase:    tokensUseCase,
 		poolsUseCase:     poolsUseCase,
+
+		denomLiquidityMap: make(domain.DenomLiquidityMap),
 
 		logger: logger,
 
@@ -155,7 +160,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 	parsedPools := make([]sqsdomain.PoolI, 0, len(poolData))
 
 	uniqueData := domain.BlockPoolMetadata{
-		UpdatedDenoms: make(map[string]struct{}, len(poolData)),
+		UpdatedDenoms: make(map[string]struct{}),
 		PoolIDs:       make(map[uint64]struct{}, len(poolData)),
 	}
 
@@ -170,9 +175,31 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				continue
 			}
 
+			currentPoolBalances := poolResult.pool.GetSQSPoolModel().Balances
+			denomLiquidityMap := p.denomLiquidityMap
+
 			// Update unique denoms.
-			for _, coin := range poolResult.pool.GetSQSPoolModel().Balances {
-				uniqueData.UpdatedDenoms[coin.Denom] = struct{}{}
+			for _, coin := range currentPoolBalances {
+				denomData, ok := denomLiquidityMap[coin.Denom]
+
+				updatedLiquidity := osmomath.ZeroInt()
+				pools := map[uint64]osmomath.Int{}
+				if ok {
+					updatedLiquidity = denomData.TotalLiquidity
+					for k, v := range denomData.Pools {
+						pools[k] = v
+					}
+				}
+
+				// Update the current pool liquidity for the denom.
+				pools[poolResult.pool.GetId()] = coin.Amount
+				// Update the total liquidity for the denom.
+				updatedLiquidity = updatedLiquidity.Add(coin.Amount)
+
+				denomLiquidityMap[coin.Denom] = domain.DenomLiquidityData{
+					TotalLiquidity: updatedLiquidity,
+					Pools:          pools,
+				}
 			}
 
 			// Update unique pools.

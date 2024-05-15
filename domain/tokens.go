@@ -22,3 +22,14 @@ type PoolDenomMetaData struct {
 	// @Type string
 	TotalLiquidityUSDC osmomath.Int `json:"total_liquidity_usdc"`
 }
+
+type DenomLiquidityMap map[string]DenomLiquidityData
+
+// DenomLiquidityData contains the liquidity data for a denom
+type DenomLiquidityData struct {
+	// Total liquidity for this denom
+	TotalLiquidity osmomath.Int
+	// Mapping from pool ID to denom liquidity
+	// in that pool
+	Pools map[uint64]osmomath.Int
+}
