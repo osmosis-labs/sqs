@@ -350,11 +350,11 @@ func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
 
 	// Update the pool denom metadata for ATOM and OSMO
 	atomPoolDenomMetadata := domain.PoolDenomMetaData{
-		LocalMCap: xAmount,
+		TotalLiquidity: xAmount,
 	}
 
 	osmoPoolDenomMetadata := domain.PoolDenomMetaData{
-		LocalMCap: doubleXAmount,
+		TotalLiquidity: doubleXAmount,
 	}
 
 	mainnetUsecase.Tokens.UpdatePoolDenomMetadata(map[string]domain.PoolDenomMetaData{
@@ -367,14 +367,14 @@ func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
 	s.Require().NoError(err)
 
 	// Check if the liquidity is updated.
-	s.Require().Equal(atomPoolDenomMetadata.LocalMCap.String(), atomLiquidityUpdated.String())
+	s.Require().Equal(atomPoolDenomMetadata.TotalLiquidity.String(), atomLiquidityUpdated.String())
 
 	// Get the liquidity of OSMO
 	osmoLiquidityUpdated, err := mainnetUsecase.Tokens.GetPoolLiquidityCap(UOSMO)
 	s.Require().NoError(err)
 
 	// Check if the liquidity is updated.
-	s.Require().Equal(osmoPoolDenomMetadata.LocalMCap.String(), osmoLiquidityUpdated.String())
+	s.Require().Equal(osmoPoolDenomMetadata.TotalLiquidity.String(), osmoLiquidityUpdated.String())
 
 	// Fail to get the liquidity of another token
 	_, err = mainnetUsecase.Tokens.GetPoolLiquidityCap(UION)
@@ -385,7 +385,7 @@ func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
 
 	// Now, update only the OSMO liquidity
 	osmoPoolDenomMetadataUpdated := domain.PoolDenomMetaData{
-		LocalMCap: xAmount,
+		TotalLiquidity: xAmount,
 	}
 	mainnetUsecase.Tokens.UpdatePoolDenomMetadata(map[string]domain.PoolDenomMetaData{
 		UOSMO: osmoPoolDenomMetadataUpdated,
@@ -404,7 +404,7 @@ func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
 			s.Require().Equal(osmoPoolDenomMetadataUpdated, metadata)
 		case UION:
 			// Validate UION is not present and is nullified without erroring.
-			s.Require().Equal(osmomath.ZeroInt().String(), metadata.LocalMCap.String())
+			s.Require().Equal(osmomath.ZeroInt().String(), metadata.TotalLiquidity.String())
 		}
 	}
 }

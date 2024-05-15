@@ -14,7 +14,11 @@ type Token struct {
 
 // PoolDenomMetaData contains the metadata about the denoms collected from the pools.
 type PoolDenomMetaData struct {
-	// LocalMCap represents the local market cap.
+	// TotalLiquidity represents the total liquidity across all pools.
 	// @Type string
-	LocalMCap osmomath.Int `json:"local_mcap"`
+	TotalLiquidity osmomath.Int `json:"total_liquidity"`
+	// TotalLiquidityUSDC represents the total liquidity in USDC across all pools.
+	// If it is set to zero, that there was a failure in fetching the price.
+	// @Type string
+	TotalLiquidityUSDC osmomath.Int `json:"total_liquidity_usdc"`
 }

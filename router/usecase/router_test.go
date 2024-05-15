@@ -1,12 +1,15 @@
 package usecase_test
 
 import (
+	"reflect"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/usecase"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -206,6 +209,60 @@ func (s *RouterTestSuite) TestRouterSorting() {
 	sortedPoolIDs := getPoolIDs(sortedPools)
 
 	s.Require().Equal(expectedSortedPoolIDs, sortedPoolIDs)
+}
+
+// TestUpdateUniqueDenomData provides table-driven tests for the updateUniqueDenomData function
+func (s *RouterTestSuite) TestUpdateUniqueDenomData(t *testing.T) {
+	// Test case structure
+	type test struct {
+		name            string
+		uniqueDenomData map[string]domain.PoolDenomMetaData
+		balances        sdk.Coins
+		expected        map[string]domain.PoolDenomMetaData
+	}
+
+	var (
+		amountX     = osmomath.NewInt(100)
+		amountHalfX = osmomath.NewInt(50)
+
+		sumOfAmounts = amountX.Add(amountHalfX)
+	)
+
+	tests := []test{
+		{
+			name:            "Empty map, new entries added",
+			uniqueDenomData: map[string]domain.PoolDenomMetaData{},
+			balances:        []sdk.Coin{{Denom: UOSMO, Amount: amountX}, {Denom: USDC, Amount: amountHalfX}},
+			expected:        map[string]domain.PoolDenomMetaData{UOSMO: {TotalLiquidity: amountX}, USDC: {TotalLiquidity: amountHalfX}},
+		},
+		{
+			name:            "Existing entries, updated correctly",
+			uniqueDenomData: map[string]domain.PoolDenomMetaData{UOSMO: {TotalLiquidity: amountX}},
+			balances:        []sdk.Coin{{Denom: UOSMO, Amount: amountHalfX}},
+			expected:        map[string]domain.PoolDenomMetaData{UOSMO: {TotalLiquidity: amountX.Add(amountHalfX)}},
+		},
+		{
+			name:            "Mix of new and update entries",
+			uniqueDenomData: map[string]domain.PoolDenomMetaData{UOSMO: {TotalLiquidity: amountX}},
+			balances:        []sdk.Coin{{Denom: UOSMO, Amount: amountHalfX}, {Denom: USDC, Amount: amountHalfX}},
+			expected:        map[string]domain.PoolDenomMetaData{UOSMO: {TotalLiquidity: sumOfAmounts}, USDC: {TotalLiquidity: amountHalfX}},
+		},
+		{
+			name:            "No balances provided, map unchanged",
+			uniqueDenomData: map[string]domain.PoolDenomMetaData{UOSMO: {TotalLiquidity: amountX}},
+			balances:        []sdk.Coin{},
+			expected:        map[string]domain.PoolDenomMetaData{UOSMO: {TotalLiquidity: amountX}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			usecase.UpdateUniqueDenomData(tc.uniqueDenomData, tc.balances)
+			if !reflect.DeepEqual(tc.uniqueDenomData, tc.expected) {
+				t.Errorf("Unexpected result for '%s': got %v, want %v", tc.name, tc.uniqueDenomData, tc.expected)
+			}
+		})
+	}
 }
 
 // getTakerFeeMapForAllPoolTokenPairs returns a map of all pool token pairs to their taker fees.

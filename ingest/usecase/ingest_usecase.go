@@ -8,7 +8,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"go.uber.org/zap"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -31,19 +30,14 @@ type ingestUseCase struct {
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
 
+	poolLiquidityPricingWorker domain.PoolLiquidityPricingWorker
+
 	logger log.Logger
 }
 
 type poolResult struct {
 	pool sqsdomain.PoolI
 	err  error
-}
-
-// UniqueBlockPoolMetaData contains the metadta about unique pools
-// and denoms modified in a block.
-type UniqueBlockPoolMetaData struct {
-	Denoms  map[string]domain.PoolDenomMetaData
-	PoolIDs map[uint64]struct{}
 }
 
 var (
@@ -92,15 +86,30 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	// Sort and store pools.
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
-	p.sortAndStorePools(allPools)
+
+	// TODO: can this calculation be moved into the pool liquidity worker
+	poolDenomLiquidity := p.sortAndStorePools(allPools)
+
+	previousBlockDenomMetadata := p.tokensUsecase.GetFullPoolDenomMetadata()
+	for denom, updatedLiquidityMetadata := range poolDenomLiquidity {
+		poolDenomLiquidity[denom] = domain.PoolDenomMetaData{
+			// Note, we recompute the total liquidity across all pools
+			TotalLiquidity: updatedLiquidityMetadata.TotalLiquidity,
+			// For tokens that were not updated within this block, we keep the previous value
+			TotalLiquidityUSDC: previousBlockDenomMetadata[denom].TotalLiquidityUSDC,
+		}
+	}
+
+	// Update block pool denom metadata
+	uniqueBlockPoolMetadata.DenomLiquidityMap = poolDenomLiquidity
 
 	// Update pool denom metadata
-	p.logger.Info("updating pool denom metadata", zap.Uint64("height", height), zap.Int("denom_count", len(uniqueBlockPoolMetadata.Denoms)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
-	p.tokensUsecase.UpdatePoolDenomMetadata(uniqueBlockPoolMetadata.Denoms)
+	p.logger.Info("updating pool denom metadata", zap.Uint64("height", height), zap.Int("denom_count", len(uniqueBlockPoolMetadata.DenomLiquidityMap)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
+	p.tokensUsecase.UpdatePoolDenomMetadata(uniqueBlockPoolMetadata.DenomLiquidityMap)
 
 	// Note: we must queue the update before we start updating prices as pool liquidity
 	// worker listens for the pricing updates at the same height.
-	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata.Denoms)
+	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
 
 	// Store the latest ingested height.
 	p.chainInfoUseCase.StoreLatestHeight(height)
@@ -115,18 +124,20 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 // sortAndStorePools sorts the pools and stores them in the router.
 // TODO: instead of resorting all pools every block, we should put the updated pools in the correct position
-func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
+func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) map[string]domain.PoolDenomMetaData {
 	cosmWasmPoolConfig := p.poolsUseCase.GetCosmWasmPoolConfig()
 	routerConfig := p.routerUsecase.GetConfig()
 
-	sortedPools := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
+	sortedPools, poolDenomLiquidity := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
 
 	// Sort the pools and store them in the router.
 	p.routerUsecase.SetSortedPools(sortedPools)
+
+	return poolDenomLiquidity
 }
 
 // parsePoolData parses the pool data and returns the pool objects.
-func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsdomain.PoolI, UniqueBlockPoolMetaData, error) {
+func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsdomain.PoolI, domain.BlockPoolMetadata, error) {
 	poolResultChan := make(chan poolResult, len(poolData))
 
 	// Parse the pools concurrently
@@ -143,9 +154,9 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 
 	parsedPools := make([]sqsdomain.PoolI, 0, len(poolData))
 
-	uniqueData := UniqueBlockPoolMetaData{
-		Denoms:  make(map[string]domain.PoolDenomMetaData),
-		PoolIDs: make(map[uint64]struct{}, len(poolData)),
+	uniqueData := domain.BlockPoolMetadata{
+		UpdatedDenoms: make(map[string]struct{}, len(poolData)),
+		PoolIDs:       make(map[uint64]struct{}, len(poolData)),
 	}
 
 	// Collect the parsed pools
@@ -159,15 +170,17 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				continue
 			}
 
-			// Update unique denoms
-			updateUniqueDenomData(uniqueData.Denoms, poolResult.pool.GetSQSPoolModel().Balances)
+			// Update unique denoms.
+			for _, coin := range poolResult.pool.GetSQSPoolModel().Balances {
+				uniqueData.UpdatedDenoms[coin.Denom] = struct{}{}
+			}
 
 			// Update unique pools.
 			uniqueData.PoolIDs[poolResult.pool.GetId()] = struct{}{}
 
 			parsedPools = append(parsedPools, poolResult.pool)
 		case <-ctx.Done():
-			return nil, UniqueBlockPoolMetaData{}, ctx.Err()
+			return nil, domain.BlockPoolMetadata{}, ctx.Err()
 		}
 	}
 
@@ -195,22 +208,4 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsdomain.PoolI, error)
 	}
 
 	return &poolWrapper, nil
-}
-
-// updateUniqueDenomData updates the unique denom data with the given balances
-// mutates the uniqueDenomData map. If the denom is already present, it updates the liquidity
-func updateUniqueDenomData(uniqueDenomData map[string]domain.PoolDenomMetaData, balances sdk.Coins) {
-	for _, balance := range balances {
-		poolLiquidity, ok := uniqueDenomData[balance.Denom]
-		if ok {
-			// Update the pool liquidity
-			poolLiquidity.LocalMCap = poolLiquidity.LocalMCap.Add(balance.Amount)
-			uniqueDenomData[balance.Denom] = poolLiquidity
-		} else {
-			// Initialize the pool liquidity
-			uniqueDenomData[balance.Denom] = domain.PoolDenomMetaData{
-				LocalMCap: balance.Amount,
-			}
-		}
-	}
 }

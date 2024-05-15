@@ -9,3 +9,11 @@ type CosmWasmPoolRouterConfig struct {
 	// node URI
 	NodeURI string
 }
+
+// BlockPoolMetadata contains the metadata about unique pools
+// and denoms modified in a block.
+type BlockPoolMetadata struct {
+	UpdatedDenoms       map[string]struct{}
+	DenomLiquidityMap map[string]PoolDenomMetaData
+	PoolIDs           map[uint64]struct{}
+}

@@ -332,7 +332,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
 
 	// Validate and sort pools
-	sortedPools := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
+	sortedPools, _ := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
 
 	routerUsecase.SetSortedPools(sortedPools)
 
@@ -370,7 +370,7 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 
 // PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
 func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minOsmoLiquidity int) []sqsdomain.PoolI {
-	sortedPools := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
+	sortedPools, _ := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
 
 	// Sort pools
 	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minOsmoLiquidity)
