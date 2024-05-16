@@ -50,11 +50,9 @@ func NewPoolLiquidityWorker(tokensUseCase mvc.TokensUsecase, poolsUseCase mvc.Po
 // OnPricingUpdate implements worker.PricingUpdateListener.
 // CONTRACT: QueuePoolLiquidityCompute with the same height must be called prior to this.
 func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates map[string]map[string]osmomath.BigDec, quoteDenom string) error {
-
 	// Compute the scaling factors for the base denoms.
 	baseDenomPriceData := make(map[string]DenomPriceInfo, len(baseDenomPriceUpdates))
 	for baseDenom, quotesPrices := range baseDenomPriceUpdates {
-
 		price, ok := quotesPrices[quoteDenom]
 		if !ok {
 			return fmt.Errorf("no price update for %s when computing pool TVL", quoteDenom)
@@ -75,7 +73,6 @@ func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height
 
 	// Iterate over the denoms updated within the block
 	for denom := range blockPoolMetadata.UpdatedDenoms {
-
 		latestHeightForDenom, ok := p.latestHeightForDenom.Load(denom)
 		// Skip if the height is not the latest.
 		if ok && height < latestHeightForDenom.(int64) {
