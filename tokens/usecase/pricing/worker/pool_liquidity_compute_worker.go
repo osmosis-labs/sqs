@@ -71,6 +71,9 @@ func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height
 		}
 	}
 
+	tokensMetadata := make(map[string]domain.PoolDenomMetaData, len(blockPoolMetadata.UpdatedDenoms))
+
+	// Iterate over the denoms updated within the block
 	for denom := range blockPoolMetadata.UpdatedDenoms {
 
 		latestHeightForDenom, ok := p.latestHeightForDenom.Load(denom)
@@ -82,7 +85,7 @@ func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height
 		poolDenomMetaData, ok := blockPoolMetadata.DenomLiquidityMap[denom]
 		if !ok {
 			// If no denom liquidity metadata available, set the total liquidity to zero.
-			blockPoolMetadata.DenomLiquidityMap[denom] = domain.PoolDenomMetaData{
+			tokensMetadata[denom] = domain.PoolDenomMetaData{
 				TotalLiquidity:     osmomath.ZeroInt(),
 				TotalLiquidityUSDC: osmomath.ZeroInt(),
 			}
@@ -91,7 +94,7 @@ func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height
 		price, ok := baseDenomPriceData[denom]
 		if !ok {
 			// If no price is available, set the total liquidity to zero.
-			blockPoolMetadata.DenomLiquidityMap[denom] = domain.PoolDenomMetaData{
+			tokensMetadata[denom] = domain.PoolDenomMetaData{
 				TotalLiquidity:     poolDenomMetaData.TotalLiquidity,
 				TotalLiquidityUSDC: osmomath.ZeroInt(),
 			}
@@ -99,13 +102,13 @@ func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height
 			usdcLiquidityValue, err := computeCoinTVL(sdk.NewCoin(denom, poolDenomMetaData.TotalLiquidity), price)
 			if err != nil {
 				// If there is an error, set the total liquidity to zero.
-				blockPoolMetadata.DenomLiquidityMap[denom] = domain.PoolDenomMetaData{
+				tokensMetadata[denom] = domain.PoolDenomMetaData{
 					TotalLiquidity:     poolDenomMetaData.TotalLiquidity,
 					TotalLiquidityUSDC: osmomath.ZeroInt(),
 				}
 			} else {
 				// Set the total liquidity in USDC.
-				blockPoolMetadata.DenomLiquidityMap[denom] = domain.PoolDenomMetaData{
+				tokensMetadata[denom] = domain.PoolDenomMetaData{
 					TotalLiquidity:     poolDenomMetaData.TotalLiquidity,
 					TotalLiquidityUSDC: usdcLiquidityValue.TruncateInt(),
 				}
@@ -115,7 +118,7 @@ func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height
 		p.latestHeightForDenom.Store(denom, height)
 	}
 
-	p.tokensUseCase.UpdatePoolDenomMetadata(blockPoolMetadata.DenomLiquidityMap)
+	p.tokensUseCase.UpdatePoolDenomMetadata(tokensMetadata)
 
 	return nil
 }

@@ -14,6 +14,6 @@ type CosmWasmPoolRouterConfig struct {
 // and denoms modified in a block.
 type BlockPoolMetadata struct {
 	UpdatedDenoms     map[string]struct{}
-	DenomLiquidityMap map[string]PoolDenomMetaData
+	DenomLiquidityMap DenomLiquidityMap
 	PoolIDs           map[uint64]struct{}
 }
