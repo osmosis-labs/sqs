@@ -35,7 +35,7 @@ var (
 // We monkey-patch this function for testing purposes.
 type CoingeckoPriceGetterFn func(ctx context.Context, baseDenom string, coingeckoId string) (osmomath.BigDec, error)
 
-// DefaultCoingeckoPriceGetter is the default implementation of CoingeckoPriceGetterFn, which invokes GetPriceByCoingeckoId.
+// DefaultCoingeckoPriceGetter represents a placeholder for the default implementation of CoingeckoPriceGetterFn, which invokes GetPriceByCoingeckoId method that is defined on coingeckoPricing.
 var DefaultCoingeckoPriceGetter CoingeckoPriceGetterFn = nil
 
 // MockCoingeckoPriceGetter is a mock implementation of CoingeckoPriceGetterFn, which returns a fixed price of 1.
