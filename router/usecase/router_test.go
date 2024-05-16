@@ -1,7 +1,6 @@
 package usecase_test
 
 import (
-	"reflect"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -212,7 +211,7 @@ func (s *RouterTestSuite) TestRouterSorting() {
 }
 
 // TestUpdateUniqueDenomData provides table-driven tests for the updateUniqueDenomData function
-func (s *RouterTestSuite) TestUpdateUniqueDenomData(t *testing.T) {
+func (s *RouterTestSuite) TestUpdateUniqueDenomData() {
 	// Test case structure
 	type test struct {
 		name            string
@@ -256,11 +255,9 @@ func (s *RouterTestSuite) TestUpdateUniqueDenomData(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+		s.T().Run(tc.name, func(t *testing.T) {
 			usecase.UpdateUniqueDenomData(tc.uniqueDenomData, tc.balances)
-			if !reflect.DeepEqual(tc.uniqueDenomData, tc.expected) {
-				t.Errorf("Unexpected result for '%s': got %v, want %v", tc.name, tc.uniqueDenomData, tc.expected)
-			}
+			s.Require().Equal(tc.expected, tc.uniqueDenomData)
 		})
 	}
 }
