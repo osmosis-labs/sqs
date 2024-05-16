@@ -33,8 +33,6 @@ type ingestUseCase struct {
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
 
-	poolLiquidityPricingWorker domain.PoolLiquidityPricingWorker
-
 	logger log.Logger
 }
 

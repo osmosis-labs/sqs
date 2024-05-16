@@ -33,10 +33,6 @@ type DenomPriceInfo struct {
 	ScalingFactor osmomath.Dec
 }
 
-var (
-	poolLiquidityComputeWorkerInstance domain.PricingUpdateListener = &poolLiquidityComputeWorker{}
-)
-
 func NewPoolLiquidityWorker(tokensUseCase mvc.TokensUsecase, poolsUseCase mvc.PoolsUsecase) domain.PricingUpdateListener {
 	return &poolLiquidityComputeWorker{
 
@@ -73,10 +69,13 @@ func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height
 
 	// Iterate over the denoms updated within the block
 	for denom := range blockPoolMetadata.UpdatedDenoms {
-		latestHeightForDenom, ok := p.latestHeightForDenom.Load(denom)
-		// Skip if the height is not the latest.
-		if ok && height < latestHeightForDenom.(int64) {
-			continue
+		latestHeightForDenomObj, ok := p.latestHeightForDenom.Load(denom)
+		if ok {
+			// Skip if the height is not the latest.
+			latestHeightForDenom, ok := latestHeightForDenomObj.(int64)
+			if !ok || height < latestHeightForDenom {
+				continue
+			}
 		}
 
 		poolDenomMetaData, ok := blockPoolMetadata.DenomLiquidityMap[denom]
@@ -120,6 +119,7 @@ func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height
 	return nil
 }
 
+// nolint: unused
 func computeBalanceTVL(balance sdk.Coins, baseDenomPriceData map[string]DenomPriceInfo) (osmomath.Int, string) {
 	usdcTVL := osmomath.ZeroDec()
 
