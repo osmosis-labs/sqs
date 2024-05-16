@@ -104,7 +104,7 @@ func (p *pricingWorker) updatePrices(height uint64, baseDenoms []string) {
 	}
 
 	// Measure duration
-	domain.SQSPricingWorkerComputeDurationGauge.WithLabelValues(strconv.FormatUint(height, 10), strconv.FormatInt(int64(len(baseDenoms)), 10)).Set(float64(time.Since(start).Milliseconds()))
+	domain.SQSPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
 }
 
 // RegisterListener implements PricingWorker.

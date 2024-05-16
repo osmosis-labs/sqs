@@ -5,7 +5,7 @@ import "github.com/prometheus/client_golang/prometheus"
 var (
 	// sqs_ingest_usecase_process_block_duration
 	//
-	// histogram that measures the duration of processing a block in milliseconds in ingest usecase
+	// gauge that measures the duration of processing a block in milliseconds in ingest usecase
 	//
 	// Has the following labels:
 	// * height - the height of the block being processed
@@ -39,18 +39,13 @@ var (
 	// sqs_pricing_worker_compute_duration
 	//
 	// gauge that tracks duration of pricing worker computation
-	//
-	// Has the following labels:
-	// * height - the height of the block being processed
-	// * num_pools - the number of pools being processed
 	SQSPricingWorkerComputeDurationMetricName = "sqs_pricing_worker_compute_duration"
 
-	SQSIngestHandlerProcessBlockDurationHistogram = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
+	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
-			Help: "histogram that measures the duration of processing a block in milliseconds in ingest usecase",
+			Help: "gauge that measures the duration of processing a block in milliseconds in ingest usecase",
 		},
-		[]string{"height"},
 	)
 
 	SQSIngestHandlerProcessBlockErrorCounter = prometheus.NewCounterVec(
@@ -77,17 +72,16 @@ var (
 		[]string{"height"},
 	)
 
-	SQSPricingWorkerComputeDurationGauge = prometheus.NewGaugeVec(
+	SQSPricingWorkerComputeDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSPricingWorkerComputeDurationMetricName,
 			Help: "gauge that tracks duration of pricing worker computation",
 		},
-		[]string{"height", "num_pools"},
 	)
 )
 
 func init() {
-	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationHistogram)
+	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockErrorCounter)
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
 	prometheus.MustRegister(SQSPricingWorkerComputeDurationGauge)
