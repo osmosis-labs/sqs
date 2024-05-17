@@ -472,6 +472,38 @@ factory/osmo19pw5d0jset8jlhawvkscj2gsfuyd5v524tfgek/TURKEY
 Any pool containing these tokens would have the TVL error error set to
 non-empty string, leading to the pool being deprioritized from the router.
 
+### Pricing
+
+There are two sources of pricing data:
+1. On-chain
+2. CoinGecko
+
+#### Chain
+
+On-chain pricing has the following two-cases:
+
+**1. USDC Quote**
+
+At the start of SQS, we pre-compute prices for all listed tokens as defined by the asset list
+with USDC as the quote and store them in-memory (no expiration).
+
+In subsequent blocks, whenever a pool is updated (swapped, LPed etc), we detect that and recompute the price during ingest time via background worker and update internal memory.
+
+**2. Non-USDC Quote**
+Computed on-demand and result is stored in cache with TTL.
+
+General computation logic:
+1. Compute routes between 2 tokens
+2. Compute spot price over pools in that route
+3. If there occurs an error in computing spot price, we fallback to computing a price
+by swapping 10 units of the quote token (which in most cases today should be USDC).
+The choise of 10 is such that we do not consider extremely low-liquidity routes that
+may change frequently while also derisk the price impact with high-value non-USDC quotes.
+
+#### CoinGecko
+
+TBD
+
 ### Algorithm
 
 In this section, we describe the general router algorithm.

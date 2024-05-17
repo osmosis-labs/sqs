@@ -23,9 +23,9 @@ import (
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v24/app"
-	"github.com/osmosis-labs/osmosis/v24/app/apptesting"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v25/app"
+	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 type RouterTestHelper struct {
@@ -125,6 +125,8 @@ var (
 	UMEE    = "ibc/67795E528DF67C5606FC20F824EA39A6EF55BA133F4DC79C90A8C47A0901E17C"
 	UION    = "uion"
 	CRE     = "ibc/5A7C219BA5F7582B99629BA3B2A01A61BFDA0F6FD1FE95B5366F7334C4BC0580"
+	// DYDX is 18 decimals
+	DYDX = "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C"
 
 	MainnetDenoms = []string{
 		UOSMO,

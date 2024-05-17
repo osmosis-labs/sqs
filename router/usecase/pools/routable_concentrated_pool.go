@@ -13,15 +13,14 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	clmath "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/math"
-	concentratedmodel "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/model"
-	"github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/swapstrategy"
-	"github.com/osmosis-labs/osmosis/v24/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
+	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
+	concentratedmodel "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/swapstrategy"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 var _ sqsdomain.RoutablePool = &routableConcentratedPoolImpl{}
-var zeroDec = osmomath.ZeroDec()
 var zeroBigDec = osmomath.ZeroBigDec()
 
 type routableConcentratedPoolImpl struct {
@@ -147,7 +146,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	}
 
 	// Compute swap over all buckets.
-	for amountRemainingIn.GT(zeroDec) {
+	for amountRemainingIn.IsPositive() {
 		if currentBucketIndex >= int64(len(tickModel.Ticks)) || currentBucketIndex < 0 {
 			// This happens when there is not enough liquidity in the pool to complete the swap
 			// for a given amount of token in.

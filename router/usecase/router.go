@@ -4,7 +4,7 @@ import (
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v24/x/cosmwasmpool/types"
+	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
@@ -12,7 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 type ratedPool struct {
@@ -112,7 +112,8 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 		// Initialize rating to TVL.
 		rating, _ := pool.GetTotalValueLockedUSDC().BigIntMut().Float64()
 
-		// 1/ 100 of toal value locked across all pools for no error in TVL
+		// rating += 1/ 100 of TVL of asset across all pools
+		// (Ignoring any pool with an error in TVL)
 		if pool.GetSQSPoolModel().TotalValueLockedError == noTotalValueLockedError {
 			rating += totalTVLFloat / 100
 		}
