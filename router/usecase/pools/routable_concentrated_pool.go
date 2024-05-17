@@ -21,7 +21,6 @@ import (
 )
 
 var _ sqsdomain.RoutablePool = &routableConcentratedPoolImpl{}
-var zeroDec = osmomath.ZeroDec()
 var zeroBigDec = osmomath.ZeroBigDec()
 
 type routableConcentratedPoolImpl struct {
