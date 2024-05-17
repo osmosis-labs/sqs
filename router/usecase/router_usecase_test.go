@@ -77,6 +77,7 @@ var (
 		},
 	}
 
+	defaultRouterConfig        = routertesting.DefaultRouterConfig
 	defaultPricingRouterConfig = routertesting.DefaultPricingRouterConfig
 	defaultPricingConfig       = routertesting.DefaultPricingConfig
 )
@@ -107,7 +108,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	defaultPool := &sqsdomain.PoolWrapper{
 		ChainModel: balancerPool,
 		SQSModel: sqsdomain.SQSPool{
-			TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity*usecase.OsmoPrecisionMultiplier + 1)),
+			TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity*OsmoPrecisionMultiplier + 1)),
 			PoolDenoms:           []string{tokenInDenom, tokenOutDenom},
 			Balances:             balancerCoins,
 			SpreadFactor:         DefaultSpreadFactor,
@@ -242,17 +243,20 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheDisabled,
 			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
-			routerUseCase.SortPools(context.TODO(), tc.repositoryPools)
+
+			// Validate and sort pools
+			sortedPools := usecase.ValidateAndSortPools(tc.repositoryPools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
+
+			// Filter pools by min liquidity
+			sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, minOsmoLiquidity)
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
 
-			// Initialize router
-			router := usecase.NewRouter(defaultRouterConfig, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{})
-
 			// System under test
 			ctx := context.Background()
-			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, router, tokenInDenom, tokenOutDenom)
+			// TODO: filter pools per router config
+			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, sortedPools, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, defaultRouterConfig.MaxRoutes, defaultRouterConfig.MaxPoolsPerRoute)
 
 			if tc.expectedError != nil {
 				s.Require().EqualError(err, tc.expectedError.Error())
@@ -531,9 +535,9 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 		"cache is not set, computes routes": {
 			amountIn: defaultAmountInCache,
 
-			// For the default amount in, we expect pool 1399 to be returned.
+			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1399Concentrated,
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -554,8 +558,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			// test execution.
 			cacheExpiryDuration: time.Nanosecond,
 
-			// We expect pool 1400 because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1399Concentrated,
+			// We expect this pool because the cache with balancer pool expires.
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 	}
 
@@ -563,7 +567,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 		tc := tc
 		s.Run(name, func() {
 			// Setup mainnet router
-			router, mainnetState := s.SetupDefaultMainnetRouter()
+			mainnetState := s.SetupMainnetState()
 
 			rankedRouteCache := cache.New()
 			candidateRouteCache := cache.New()
@@ -573,7 +577,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			}
 
 			// Mock router use case.
-			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState, routertesting.WithRankedRoutesCache(rankedRouteCache), routertesting.WithCandidateRoutesCache(candidateRouteCache))
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRankedRoutesCache(rankedRouteCache), routertesting.WithCandidateRoutesCache(candidateRouteCache))
 
 			// System under test
 			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom)
@@ -612,6 +616,12 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 		s.T().Skip("This test exists to identify which mainnet routes are unsupported")
 	}
 
+	const (
+		// This was selected by looking at the routes and concluding that it's
+		// probably fine. Might need to re-evaluate in the future.
+		expectedZeroPoolCount = 20
+	)
+
 	viper.SetConfigFile("../../config.json")
 	err := viper.ReadInConfig()
 	s.Require().NoError(err)
@@ -622,20 +632,22 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	s.Require().NoError(err)
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(*config.Router, *config.Pricing)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing))
 
-	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
+	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata()
 	s.Require().NoError(err)
 
 	fmt.Println("Tokens with no routes when min osmo liquidity is non-zero:")
 
+	one := osmomath.OneInt()
+
 	errorCounter := 0
-	zeroPriceCounterMinLiq := 0
+	zeroRouteCount := 0
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := router.GetCandidateRoutes(chainDenom, USDC)
+		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
 		if err != nil {
 			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
 			errorCounter++
@@ -644,7 +656,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 		if len(routes.Routes) == 0 {
 			fmt.Printf("No route for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
-			zeroPriceCounterMinLiq++
+			zeroRouteCount++
 			continue
 		}
 	}
@@ -660,11 +672,12 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	// don't have liquidity filtering.
 	config.Router.MinOSMOLiquidity = 0
 	// Set up mainnet mock state.
-	router, mainnetState = s.SetupMainnetRouter(*config.Router, *config.Pricing)
-	mainnetUsecase = s.SetupRouterAndPoolsUsecase(router, mainnetState)
+	mainnetState = s.SetupMainnetState()
+	mainnetUsecase = s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing))
+
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := router.GetCandidateRoutes(chainDenom, USDC)
+		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
 		if err != nil {
 			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
 			errorCounter++
@@ -680,8 +693,9 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 	s.Require().Zero(errorCounter)
 
-	s.Zero(zeroPriceCounterMinLiq)
-	s.Require().Zero(zeroPriceCounterNoMinLiq, "There are tokens with no routes even when min osmo liquidity is set to zero")
+	// Note that if we update test state, these are likely to change
+	s.Require().Equal(expectedZeroPoolCount, zeroRouteCount)
+	s.Require().Equal(expectedZeroPoolCount, zeroPriceCounterNoMinLiq, "There are tokens with no routes even when min osmo liquidity is set to zero")
 }
 
 // We use this test as a way to ensure that we multiply the amount in by the route fraction.
@@ -700,12 +714,12 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	s.Require().NoError(err)
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(*config.Router, *config.Pricing)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing), routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing))
 
-	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
+	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata()
 
-	chainWBTC, err := mainnetUsecase.Tokens.GetChainDenom(context.Background(), "wbtc")
+	chainWBTC, err := mainnetUsecase.Tokens.GetChainDenom("wbtc")
 	s.Require().NoError(err)
 
 	wbtcMetadata, ok := tokenMetadata[chainWBTC]
@@ -734,20 +748,21 @@ func (s *RouterTestSuite) TestSortPools() {
 		expectedMinNumPools = 241
 
 		// If mainnet state is updated
-		expectedTopPoolID = uint64(1135)
+		expectedTopPoolID = uint64(1283)
 	)
 
-	router, mainnetState := s.SetupDefaultMainnetRouter()
+	mainnetState := s.SetupMainnetState()
 
-	usecase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
+	mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
-	pools, err := usecase.Pools.GetAllPools()
+	pools, err := mainnetUseCase.Pools.GetAllPools()
 	s.Require().NoError(err)
 
-	err = usecase.Router.SortPools(context.Background(), pools)
-	s.Require().NoError(err)
+	// Validate and sort pools
+	sortedPools := usecase.ValidateAndSortPools(pools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
 
-	sortedPools := usecase.Router.GetSortedPools()
+	// Filter pools by min liquidity
+	sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, defaultRouterConfig.MinOSMOLiquidity)
 
 	s.Require().GreaterOrEqual(len(sortedPools), expectedMinNumPools)
 

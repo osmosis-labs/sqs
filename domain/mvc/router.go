@@ -21,7 +21,7 @@ type RouterUsecase interface {
 	// This allows to bypass a min liquidity requirement in the router when attempting to swap over a specific pool.
 	GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error)
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
-	GetCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
+	GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// GetTakerFee returns the taker fee for all token pairs in a pool.
 	GetTakerFee(poolID uint64) ([]sqsdomain.TakerFeeForPair, error)
 	// SetTakerFees sets the taker fees for all token pairs in all pools.
@@ -41,6 +41,10 @@ type RouterUsecase interface {
 	// GetSortedPools returns the sorted pools based on the router configuration.
 	GetSortedPools() []sqsdomain.PoolI
 
-	// SortPools sorts the given pools based on the router configuration and perists them until the next call.
-	SortPools(ctx context.Context, pools []sqsdomain.PoolI) error
+	GetConfig() domain.RouterConfig
+
+	// SetSortedPools stores the pools in the router.
+	// CONTRACT: the pools are already sorted according to the desired parameters.
+	// See sortPools() function.
+	SetSortedPools(pools []sqsdomain.PoolI)
 }

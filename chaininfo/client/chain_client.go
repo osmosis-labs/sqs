@@ -5,7 +5,6 @@ import (
 
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/spf13/viper"
 
 	clpoolmodel "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/model"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v24/x/cosmwasmpool/model"
@@ -50,12 +49,4 @@ func (c chainClient) GetLatestHeight(ctx context.Context) (uint64, error) {
 	latestBlockHeight := statusResult.SyncInfo.LatestBlockHeight
 
 	return uint64(latestBlockHeight), nil
-}
-
-func init() {
-	viper.SetConfigFile(`config.json`)
-	err := viper.ReadInConfig()
-	if err != nil {
-		panic(err)
-	}
 }

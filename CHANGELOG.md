@@ -37,6 +37,54 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+- Clean up chain pricing
+
+## v0.17.11
+
+- Fix pricing bug where we would incorrectly apply scaling factor to the price
+that is already correctly scaled when computing the price using the alternative (quote-based) method.
+
+## v0.17.10
+
+- /config-private endpoint, mask OTEL config in /config endpoint
+
+## v0.17.9
+
+Fixes for pricing cache and min liquidity param
+
+## v0.17.8
+
+- Rebuild image from new dockerfile
+
+## v0.17.7
+
+- Custom sample rate config
+
+## v0.17.5
+
+- Propagate --host CLI config for Sentry
+
+## v0.17.4
+
+- Cache no candidate or ranked routes
+
+## v0.17.3
+
+- Skip pool filtering if min osmo liquidity is zero
+
+## v0.17.2
+
+- Fix bug with max split routes parameter
+
+## v0.17.0
+
+- Pricing ingest worker
+- Remove support for unlisted tokens in the router and for prices
+- Healthcheck observes price updates
+- Never expire cache for USDC prices as they are computed in the background on every block where update occurred
+
+## v0.16.0
+
 - Pricing options; pricing source wiring at the app level
 - Router options; remove GetOptimalQuoteFromConfig API.
 - Fetch only required taker fees instead of all.

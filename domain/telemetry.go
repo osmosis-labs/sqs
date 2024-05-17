@@ -28,6 +28,23 @@ var (
 	// * err - the error message occurred
 	SQSIngestUsecaseParsePoolErrorMetricName = "sqs_ingest_usecase_parse_pool_error_total"
 
+	// sqs_pricing_worker_compute_error_counter
+	//
+	// counter that measures the number of errors that occur during pricing worker computation
+	//
+	// Has the following labels:
+	// * height - the height of the block being processed
+	SQSPricingWorkerComputeErrorCounterMetricName = "sqs_pricing_worker_compute_error_total"
+
+	// sqs_pricing_worker_compute_duration
+	//
+	// gauge that tracks duration of pricing worker computation
+	//
+	// Has the following labels:
+	// * height - the height of the block being processed
+	// * num_pools - the number of pools being processed
+	SQSPricingWorkerComputeDurationMetricName = "sqs_pricing_worker_compute_duration"
+
 	SQSIngestHandlerProcessBlockDurationHistogram = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -51,10 +68,28 @@ var (
 		},
 		[]string{"err"},
 	)
+
+	SQSPricingWorkerComputeErrorCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSPricingWorkerComputeErrorCounterMetricName,
+			Help: "counter that measures the number of errors that occur during pricing worker computation",
+		},
+		[]string{"height"},
+	)
+
+	SQSPricingWorkerComputeDurationGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: SQSPricingWorkerComputeDurationMetricName,
+			Help: "gauge that tracks duration of pricing worker computation",
+		},
+		[]string{"height", "num_pools"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationHistogram)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockErrorCounter)
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
+	prometheus.MustRegister(SQSPricingWorkerComputeDurationGauge)
+	prometheus.MustRegister(SQSPricingWorkerComputeErrorCounter)
 }

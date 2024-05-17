@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -110,7 +109,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(ctx, tokenInDenom, tokenOutDenom)
+		scalingFactor = a.getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom)
 	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
@@ -158,7 +157,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(ctx, tokenIn.Denom, tokenOutDenom)
+		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
 	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
@@ -192,7 +191,7 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	routes, err := a.RUsecase.GetCandidateRoutes(ctx, tokenIn, tokenOutDenom)
+	routes, err := a.RUsecase.GetCandidateRoutes(ctx, sdk.NewCoin(tokenIn, osmomath.OneInt()), tokenOutDenom)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -304,11 +303,9 @@ func (a *RouterHandler) getChainDenoms(c echo.Context, tokenOutDenom, tokenInDen
 	}
 
 	if isHumanDenoms {
-		ctx := c.Request().Context()
-
 		// See definition of baseDenom.
 		if tokenOutDenom != baseDenom {
-			tokenOutDenom, err = a.TUsecase.GetChainDenom(ctx, tokenOutDenom)
+			tokenOutDenom, err = a.TUsecase.GetChainDenom(tokenOutDenom)
 			if err != nil {
 				return "", "", err
 			}
@@ -316,7 +313,7 @@ func (a *RouterHandler) getChainDenoms(c echo.Context, tokenOutDenom, tokenInDen
 
 		// See definition of baseDenom.
 		if tokenInDenom != baseDenom {
-			tokenInDenom, err = a.TUsecase.GetChainDenom(ctx, tokenInDenom)
+			tokenInDenom, err = a.TUsecase.GetChainDenom(tokenInDenom)
 			if err != nil {
 				return "", "", err
 			}
@@ -350,8 +347,8 @@ func getValidRoutingParameters(c echo.Context) (string, sdk.Coin, error) {
 }
 
 // getSpotPriceScalingFactor returns the spot price scaling factor for a given tokenIn and tokenOutDenom.
-func (a *RouterHandler) getSpotPriceScalingFactor(ctx context.Context, tokenInDenom, tokenOutDenom string) osmomath.Dec {
-	scalingFactor, err := a.TUsecase.GetSpotPriceScalingFactorByDenom(ctx, tokenOutDenom, tokenInDenom)
+func (a *RouterHandler) getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom string) osmomath.Dec {
+	scalingFactor, err := a.TUsecase.GetSpotPriceScalingFactorByDenom(tokenOutDenom, tokenInDenom)
 	if err != nil {
 		// Note that we do not fail the quote if scaling factor fetching fails.
 		// Instead, we simply set it to zero to validate future calculations downstream.

@@ -31,6 +31,8 @@ import (
 func main() {
 	configPath := flag.String("config", "config.json", "config file location")
 
+	hostName := flag.String("host", "sqs", "the name of the host")
+
 	isDebug := flag.Bool("debug", false, "debug mode")
 	if *isDebug {
 		log.Println("Service RUN on DEBUG mode")
@@ -40,6 +42,7 @@ func main() {
 	flag.Parse()
 
 	fmt.Println("configPath", *configPath)
+	fmt.Println("hostName", *hostName)
 
 	viper.SetConfigFile(*configPath)
 	err := viper.ReadInConfig()
@@ -71,10 +74,10 @@ func main() {
 		var (
 			// sentryEndpointWhitelist is a map of endpoints and their respective sampling rates
 			sentryEndpointWhitelist = map[string]float64{
-				"/router/quote":        otelConfig.TracesSampleRate,
-				"/custom-direct-quote": 0,
-				"/tokens/prices":       0,
-				"/pools":               0,
+				"/router/quote":        otelConfig.CustomSampleRate.Quote,
+				"/custom-direct-quote": otelConfig.CustomSampleRate.Other,
+				"/tokens/prices":       otelConfig.CustomSampleRate.Other,
+				"/pools":               otelConfig.CustomSampleRate.Other,
 			}
 
 			// custom sampler that samples only the whitelisted endpoints per their configured rates.
@@ -94,6 +97,7 @@ func main() {
 		)
 
 		err = sentry.Init(sentry.ClientOptions{
+			ServerName:         *hostName,
 			Dsn:                otelConfig.DSN,
 			SampleRate:         otelConfig.SampleRate,
 			EnableTracing:      otelConfig.EnableTracing,
@@ -109,7 +113,7 @@ func main() {
 
 		sentry.CaptureMessage("SQS started")
 
-		initOTELTracer()
+		initOTELTracer(*hostName)
 	}
 
 	chainClient, err := client.NewClient(config.ChainID, config.ChainGRPCGatewayEndpoint)
@@ -158,7 +162,7 @@ func main() {
 
 // initOTELTracer initializes the OTEL tracer
 // and wires it up with the Sentry exporter.
-func initOTELTracer() {
+func initOTELTracer(hostName string) {
 	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
 		log.Fatalf("stdouttrace.New: %v", err)
@@ -166,7 +170,7 @@ func initOTELTracer() {
 
 	resource, err := resource.New(context.Background(),
 		resource.WithAttributes(
-			semconv.ServiceNameKey.String("sqs"),
+			semconv.ServiceNameKey.String(hostName),
 		),
 	)
 	if err != nil {

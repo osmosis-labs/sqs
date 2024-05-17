@@ -8,4 +8,11 @@ type ChainInfoUsecase interface {
 	GetLatestHeight() (uint64, error)
 	// StoreLatestHeight stores the latest height in the usecase
 	StoreLatestHeight(height uint64)
+	// ValidatePriceUpdates validates the price updates
+	// Returns nil if the price updates are valid
+	// Returns error otherwise.
+	// Price updates can be invalid if:
+	// - 50 heights have passed since the last update
+	// - The initial price update has not been received
+	ValidatePriceUpdates() error
 }

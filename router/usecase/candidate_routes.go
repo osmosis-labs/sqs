@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
@@ -14,32 +16,32 @@ type candidatePoolWrapper struct {
 }
 
 // GetCandidateRoutes returns candidate routes from tokenInDenom to tokenOutDenom using BFS.
-func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
-	routes := make([][]candidatePoolWrapper, 0, r.config.MaxRoutes)
+func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+	routes := make([][]candidatePoolWrapper, 0, maxRoutes)
 	// Preallocate third to avoid dynamic reallocations.
-	visited := make([]bool, len(r.sortedPools))
+	visited := make([]bool, len(pools))
 
 	// Preallocate third of the pools to avoid dynamic reallocations.
-	queue := make([][]candidatePoolWrapper, 0, len(r.sortedPools)/3)
-	queue = append(queue, make([]candidatePoolWrapper, 0, r.config.MaxPoolsPerRoute))
+	queue := make([][]candidatePoolWrapper, 0, len(pools)/3)
+	queue = append(queue, make([]candidatePoolWrapper, 0, maxPoolsPerRoute))
 
-	for len(queue) > 0 && len(routes) < r.config.MaxRoutes {
+	for len(queue) > 0 && len(routes) < maxRoutes {
 		currentRoute := queue[0]
 		queue[0] = nil // Clear the slice to avoid holding onto references
 		queue = queue[1:]
 
 		lastPoolID := uint64(0)
-		currenTokenInDenom := tokenInDenom
+		currenTokenInDenom := tokenIn.Denom
 		if len(currentRoute) > 0 {
 			lastPool := currentRoute[len(currentRoute)-1]
 			lastPoolID = lastPool.ID
 			currenTokenInDenom = lastPool.TokenOutDenom
 		}
 
-		for i := 0; i < len(r.sortedPools) && len(routes) < r.config.MaxRoutes; i++ {
+		for i := 0; i < len(pools) && len(routes) < maxRoutes; i++ {
 			// Unsafe cast for performance reasons.
 			// nolint: forcetypeassert
-			pool := (r.sortedPools[i]).(*sqsdomain.PoolWrapper)
+			pool := (pools[i]).(*sqsdomain.PoolWrapper)
 			poolID := pool.ChainModel.GetId()
 
 			if visited[i] {
@@ -59,7 +61,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 				}
 
 				// Avoid going through pools that has the initial token in denom twice.
-				if len(currentRoute) > 0 && denom == tokenInDenom {
+				if len(currentRoute) > 0 && denom == tokenIn.Denom {
 					shouldSkipPool = true
 					break
 				}
@@ -71,6 +73,17 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 
 			if !hasTokenIn {
 				continue
+			}
+
+			// Microptimization for the first pool in the route.
+			if len(currentRoute) == 0 {
+				currentTokenInAmount := pool.SQSModel.Balances.AmountOf(currenTokenInDenom)
+
+				if currentTokenInAmount.LT(tokenIn.Amount) {
+					visited[i] = true
+					// Not enough tokenIn to swap.
+					continue
+				}
 			}
 
 			currentPoolID := poolID
@@ -96,7 +109,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 						Idx:        i,
 					})
 
-					if len(newPath) <= r.config.MaxPoolsPerRoute {
+					if len(newPath) <= maxPoolsPerRoute {
 						if hasTokenOut {
 							routes = append(routes, newPath)
 							break
@@ -113,7 +126,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 		}
 	}
 
-	return r.validateAndFilterRoutes(routes, tokenInDenom)
+	return validateAndFilterRoutes(routes, tokenIn.Denom, logger)
 }
 
 // Pool represents a pool in the decentralized exchange.

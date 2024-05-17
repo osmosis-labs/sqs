@@ -20,6 +20,7 @@ import (
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
 	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
+	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -133,8 +134,20 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester
 	if grpcIngesterConfig.Enabeld {
+		// Get the default quote denom
+		defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
+		if err != nil {
+			return nil, err
+		}
+
+		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, logger)
+
+		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
+		// It then passes the healthcheck as long as updates are received at the appropriate intervals.
+		quotePriceUpdateWorker.RegisterListener(chainInfoUseCase)
+
 		// Initialize ingest handler and usecase
-		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, chainInfoUseCase, tokensUseCase, appCodec, *config.Pricing, logger)
+		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)
 		if err != nil {
 			return nil, err
 		}

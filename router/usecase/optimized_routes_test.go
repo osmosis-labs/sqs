@@ -110,7 +110,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 	secondBalancerPoolSameDenoms, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, secondBalancerPoolIDSameDenoms)
 	s.Require().NoError(err)
 
-	// // Get the thirdBalancerPool from the store
+	// Get the thirdBalancerPool from the store
 	thirdBalancerPoolSameDenoms, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, thirdBalancerPoolIDSameDenoms)
 	s.Require().NoError(err)
 
@@ -196,15 +196,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 	for name, tc := range tests {
 		s.Run(name, func() {
-
-			logger, err := log.NewLogger(false, "", "")
-			s.Require().NoError(err)
-
-			r := routerusecase.NewRouter(domain.RouterConfig{
-				MaxSplitIterations: tc.maxSplitIterations,
-			}, emptyCosmWasmPoolsRouterConfig, logger)
-
-			quote, err := r.GetSplitQuote(context.TODO(), tc.routes, tc.tokenIn)
+			quote, err := routerusecase.GetSplitQuote(context.TODO(), tc.routes, tc.tokenIn)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
@@ -536,9 +528,7 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 		tc := tc
 		s.Run(name, func() {
 
-			router := routerusecase.NewRouter(domain.RouterConfig{}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{})
-
-			filteredCandidateRoutes, err := router.ValidateAndFilterRoutes(tc.routes, tc.tokenInDenom)
+			filteredCandidateRoutes, err := routerusecase.ValidateAndFilterRoutes(tc.routes, tc.tokenInDenom, noOpLogger)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
@@ -628,10 +618,10 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 		tc := tc
 		s.Run(name, func() {
 			// Setup mainnet router
-			router, mainnetState := s.SetupDefaultMainnetRouter()
+			mainnetState := s.SetupMainnetState()
 
 			// Mock router use case.
-			mainnetUseCase := s.SetupRouterAndPoolsUsecase(router, mainnetState)
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
 			// System under test
 			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
@@ -661,7 +651,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 		amountIn = osmomath.NewInt(5000000)
 	)
 
-	router, mainnetState := s.SetupMainnetRouter(config, defaultPricingConfig)
+	mainnetState := s.SetupMainnetState()
 
 	// Setup router repository mock
 	routerRepositoryMock := routerrepo.New()
@@ -669,7 +659,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 
 	// Setup pools usecase mock.
 	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock)
-	poolsUsecase.StorePools(router.GetSortedPools())
+	poolsUsecase.StorePools(mainnetState.Pools)
 
 	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 
