@@ -164,21 +164,3 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 	}
 	return pools
 }
-
-// updateUniqueDenomData updates the unique denom data with the given balances
-// mutates the uniqueDenomData map. If the denom is already present, it updates the liquidity
-func updateUniqueDenomData(uniqueDenomData map[string]domain.PoolDenomMetaData, balances sdk.Coins) {
-	for _, balance := range balances {
-		poolLiquidity, ok := uniqueDenomData[balance.Denom]
-		if ok {
-			// Update the pool liquidity
-			poolLiquidity.TotalLiquidity = poolLiquidity.TotalLiquidity.Add(balance.Amount)
-			uniqueDenomData[balance.Denom] = poolLiquidity
-		} else {
-			// Initialize the pool liquidity
-			uniqueDenomData[balance.Denom] = domain.PoolDenomMetaData{
-				TotalLiquidity: balance.Amount,
-			}
-		}
-	}
-}

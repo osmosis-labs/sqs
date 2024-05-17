@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain/cache"
 )
@@ -134,4 +135,19 @@ type PoolLiquidityPricingWorker interface {
 
 type PricingUpdateListener interface {
 	OnPricingUpdate(ctx context.Context, height int64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap map[string]map[string]osmomath.BigDec, quoteDenom string) error
+}
+
+type DenomPriceInfo struct {
+	Price         osmomath.BigDec
+	ScalingFactor osmomath.Dec
+}
+
+type LiquidityPricer interface {
+	// ComputeCoinCap computes the equivalent of the given coin in the desired quote denom that is set on ingester.
+	// Returns error if:
+	// * Price is zero
+	// * Scaling factor is zero
+	// * Truncation occurs in intermediary operations. Truncation is defined as the original amount
+	// being non-zero and the computed amount being zero.
+	ComputeCoinCap(coin sdk.Coin, baseDenomPriceData DenomPriceInfo) (osmomath.Dec, error)
 }
