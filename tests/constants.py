@@ -25,3 +25,6 @@ LOW_PRICE_DIFF = 0.02 ## 2%
 
 ## Response time threshold
 RT_THRESHOLD = 0.25 ## 250ms
+
+## Unsupported token count threshold
+UNSUPPORTED_TOKEN_COUNT_THRESHOLD = 10

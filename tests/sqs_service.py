@@ -71,10 +71,10 @@ class SQSService:
 
     # Given the base and quote denom, call the SQS API endpoint /tokens/prices
     # and return the token price in the response
-    def get_tokens_prices(self, denom, quote_denom, human_denoms="false"):
+    def get_tokens_prices(self, denoms, human_denoms="false"):
         # Set the query parameters
         params = {
-            "base": denom,
+            "base": ",".join(denoms),
             "humanDenoms": human_denoms
         }
         # Send the GET request
@@ -82,8 +82,7 @@ class SQSService:
         if response.status_code != 200:
             raise Exception(f"Error fetching token price: {response.text}")
         
-        response_json = response.json()
-        return response_json.get(denom, {}).get(quote_denom, None)
+        return response.json()
 
     # Given the chain denom, fetch the asset list, parse it and return its coingecko id
     # Asset list is cached internally for performance reasons
