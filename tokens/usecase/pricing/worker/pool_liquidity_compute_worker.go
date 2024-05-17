@@ -12,10 +12,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
 
-type PoolLiquidityComputeListener interface {
-	OnPoolLiquidityCompute(height int64, updatedPoolIDs []uint64) error
-}
-
 var (
 	_ domain.PricingUpdateListener = &poolLiquidityComputeWorker{}
 )
@@ -26,6 +22,10 @@ type poolLiquidityComputeWorker struct {
 
 	liquidityPricer domain.LiquidityPricer
 
+	// Denom -> Last height of the pricing update.
+	// This exists because pricing computations are asyncronous. As a result, a pricing update for a later
+	// height might arrive before a pricing update for an earlier height. This map is used to ensure that
+	// the latest height pricing update for a denom is used.
 	latestHeightForDenom sync.Map
 }
 
@@ -42,7 +42,6 @@ func NewPoolLiquidityWorker(tokensUseCase mvc.TokensUsecase, poolsUseCase mvc.Po
 }
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
-// CONTRACT: QueuePoolLiquidityCompute with the same height must be called prior to this.
 func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates map[string]map[string]osmomath.BigDec, quoteDenom string) error {
 	// Compute the scaling factors for the base denoms.
 	baseDenomPriceData := make(map[string]domain.DenomPriceInfo, len(baseDenomPriceUpdates))

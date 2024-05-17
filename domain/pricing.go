@@ -130,9 +130,6 @@ type PricingWorker interface {
 	RegisterListener(listener PricingUpdateListener)
 }
 
-type PoolLiquidityPricingWorker interface {
-}
-
 type PricingUpdateListener interface {
 	OnPricingUpdate(ctx context.Context, height int64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap map[string]map[string]osmomath.BigDec, quoteDenom string) error
 }
@@ -150,4 +147,11 @@ type LiquidityPricer interface {
 	// * Truncation occurs in intermediary operations. Truncation is defined as the original amount
 	// being non-zero and the computed amount being zero.
 	ComputeCoinCap(coin sdk.Coin, baseDenomPriceData DenomPriceInfo) (osmomath.Dec, error)
+}
+
+// PoolLiquidityComputeListener defines the interface for the pool liquidity compute listener.
+// It is used to notify the listeners of the pool liquidity compute worker that the computation
+// for a given height is completed.
+type PoolLiquidityComputeListener interface {
+	OnPoolLiquidityCompute(height int64, updatedPoolIDs []uint64) error
 }
