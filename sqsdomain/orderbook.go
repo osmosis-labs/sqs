@@ -36,8 +36,7 @@ func (s *OrderbookTickState) GetTickValues(direction int64) (OrderbookTickValues
 	} else if direction == 1 {
 		return s.BidValues, nil
 	} else {
-		// TODO: Add correct error
-		return OrderbookTickValues{}, nil
+		return OrderbookTickValues{}, OrderbookPoolInvalidDirectionError{Direction: direction}
 	}
 }
 
