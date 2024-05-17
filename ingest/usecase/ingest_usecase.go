@@ -90,8 +90,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	// Sort and store pools.
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
-	// TODO: can this calculation be moved into the pool liquidity worker
-	_ = p.sortAndStorePools(allPools)
+	p.sortAndStorePools(allPools)
 
 	// Update pool denom metadata
 	p.logger.Info("updating pool denom metadata", zap.Uint64("height", height), zap.Int("denom_count", len(uniqueBlockPoolMetadata.DenomLiquidityMap)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
@@ -113,16 +112,14 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 // sortAndStorePools sorts the pools and stores them in the router.
 // TODO: instead of resorting all pools every block, we should put the updated pools in the correct position
-func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) map[string]domain.PoolDenomMetaData {
+func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
 	cosmWasmPoolConfig := p.poolsUseCase.GetCosmWasmPoolConfig()
 	routerConfig := p.routerUsecase.GetConfig()
 
-	sortedPools, poolDenomLiquidity := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
+	sortedPools := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
 
 	// Sort the pools and store them in the router.
 	p.routerUsecase.SetSortedPools(sortedPools)
-
-	return poolDenomLiquidity
 }
 
 // parsePoolData parses the pool data and returns the pool objects.

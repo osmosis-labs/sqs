@@ -41,12 +41,11 @@ func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minLiquidity int) []sqsd
 // ValidateAndSortPools filters and sorts the given pools for use in the router
 // according to the given configuration.
 // Filters out pools that have no tvl error set and have zero liquidity.
-func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) ([]sqsdomain.PoolI, map[string]domain.PoolDenomMetaData) {
+func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) []sqsdomain.PoolI {
 	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
 
 	totalTVL := sdk.ZeroInt()
 
-	poolDenomLiquidity := map[string]domain.PoolDenomMetaData{}
 	// Make a copy and filter pools
 	for _, pool := range pools {
 		// TODO: the zero argument can be removed in a future release
@@ -75,9 +74,6 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 		filteredPools = append(filteredPools, pool)
 
 		totalTVL = totalTVL.Add(pool.GetTotalValueLockedUSDC())
-
-		// Update unique denoms
-		updateUniqueDenomData(poolDenomLiquidity, pool.GetSQSPoolModel().Balances)
 	}
 
 	preferredPoolIDsMap := make(map[uint64]struct{})
@@ -87,7 +83,7 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 
 	logger.Info("validated pools", zap.Int("num_pools", len(filteredPools)))
 
-	return sortPools(filteredPools, cosmWasmPoolsConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger), poolDenomLiquidity
+	return sortPools(filteredPools, cosmWasmPoolsConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger)
 }
 
 // sortPools sorts the given pools so that the most appropriate pools are at the top.
