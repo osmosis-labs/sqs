@@ -9,7 +9,6 @@
 name: Push Dev Images
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - "v[0-9]+.x"
