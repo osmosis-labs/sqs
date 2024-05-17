@@ -1,7 +1,6 @@
 package routertesting
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,6 +20,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
+	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v24/app"
@@ -34,6 +34,7 @@ type RouterTestHelper struct {
 
 // Mock mainnet state
 type MockMainnetState struct {
+	Pools          []sqsdomain.PoolI
 	TickMap        map[uint64]*sqsdomain.TickModel
 	TakerFeeMap    sqsdomain.TakerFeeMap
 	TokensMetadata map[string]domain.Token
@@ -124,6 +125,8 @@ var (
 	UMEE    = "ibc/67795E528DF67C5606FC20F824EA39A6EF55BA133F4DC79C90A8C47A0901E17C"
 	UION    = "uion"
 	CRE     = "ibc/5A7C219BA5F7582B99629BA3B2A01A61BFDA0F6FD1FE95B5366F7334C4BC0580"
+	// DYDX is 18 decimals
+	DYDX = "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C"
 
 	MainnetDenoms = []string{
 		UOSMO,
@@ -172,13 +175,15 @@ var (
 	}
 
 	DefaultPricingConfig = domain.PricingConfig{
-		DefaultSource:          domain.ChainPricingSource,
+		DefaultSource:          domain.ChainPricingSourceType,
 		CacheExpiryMs:          2000,
 		DefaultQuoteHumanDenom: "usdc",
 		MaxPoolsPerRoute:       4,
 		MaxRoutes:              5,
 		MinOSMOLiquidity:       50,
 	}
+
+	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}
 )
 
 func init() {
@@ -273,13 +278,7 @@ func (s *RouterTestHelper) ValidateRoutePools(expectedPools []sqsdomain.Routable
 	}
 }
 
-func (s *RouterTestHelper) SetupDefaultMainnetRouter() (*routerusecase.Router, MockMainnetState) {
-	routerConfig := DefaultRouterConfig
-	pricingConfig := DefaultPricingConfig
-	return s.SetupMainnetRouter(routerConfig, pricingConfig)
-}
-
-func (s *RouterTestHelper) SetupMainnetRouter(routerConfig domain.RouterConfig, pricingConfig domain.PricingConfig) (*routerusecase.Router, MockMainnetState) {
+func (s *RouterTestHelper) SetupMainnetState() MockMainnetState {
 	pools, tickMap, err := parsing.ReadPools(absolutePathToStateFiles + poolsFileName)
 	s.Require().NoError(err)
 
@@ -289,44 +288,67 @@ func (s *RouterTestHelper) SetupMainnetRouter(routerConfig domain.RouterConfig, 
 	tokensMetadata, err := parsing.ReadTokensMetadata(absolutePathToStateFiles + tokensMetadataFileName)
 	s.Require().NoError(err)
 
-	// N.B. uncomment if logs are needed.
-	// logger, err := log.NewLogger(false, "", "info")
-	// s.Require().NoError(err)
-	router := routerusecase.NewRouter(routerConfig, EmpyCosmWasmPoolRouterConfig, &log.NoOpLogger{})
-	router = routerusecase.WithSortedPools(router, pools)
-
-	return router, MockMainnetState{
+	return MockMainnetState{
+		Pools:          pools,
 		TickMap:        tickMap,
 		TakerFeeMap:    takerFeeMap,
 		TokensMetadata: tokensMetadata,
-		PricingConfig:  pricingConfig,
 	}
 }
 
 // Sets up and returns usecases for router and pools by mocking the mainnet data
 // from json files.
-func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(router *routerusecase.Router, mainnetState MockMainnetState, rankedRoutesCache *cache.Cache, candidateRouteCache *cache.Cache) MockMainnetUsecase {
+func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetState, cacheOpts ...MainnetTestOption) MockMainnetUsecase {
+	// Initialize empty caches
+	options := &MainnetTestOptions{
+		CandidateRoutes: cache.New(),
+		RankedRoutes:    cache.New(),
+		Pricing:         cache.New(),
+		RouterConfig:    DefaultRouterConfig,
+		PricingConfig:   DefaultPricingConfig,
+		PoolsConfig:     DefaultPoolsConfig,
+	}
+
+	// Apply cache options
+	for _, opt := range cacheOpts {
+		opt(options)
+	}
+
+	// logger := &log.NoOpLogger{}
+
+	// N.B. uncomment if logs are needed.
+	logger, err := log.NewLogger(false, "", "info")
+	s.Require().NoError(err)
+
 	// Setup router repository mock
 	routerRepositoryMock := routerrepo.New()
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
-	routerusecase.WithRouterRepository(router, routerRepositoryMock)
-	routerusecase.WithComputedSortedPools(router, router.GetSortedPools())
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&DefaultPoolsConfig, "node-uri-placeholder")
-	err := poolsUsecase.StorePools(router.GetSortedPools())
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock)
+	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
-	routerusecase.WithPoolsUsecase(router, poolsUsecase)
 
-	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, router.GetConfig(), router.GetCosmWasmPoolConfig(), &log.NoOpLogger{}, rankedRoutesCache, candidateRouteCache)
-	err = routerUsecase.SortPools(context.Background(), router.GetSortedPools())
-	s.Require().NoError(err)
+	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
+
+	// Validate and sort pools
+	sortedPools := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
+
+	routerUsecase.SetSortedPools(sortedPools)
 
 	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata)
 
+	// Set up on-chain pricing strategy
+	pricingSource, err := pricing.NewPricingStrategy(options.PricingConfig, tokensUsecase, routerUsecase)
+	s.Require().NoError(err)
+
+	pricingSource = pricing.WithPricingCache(pricingSource, options.Pricing)
+
+	tokensUsecase.RegisterPricingStrategy(domain.ChainPricingSourceType, pricingSource)
+
 	encCfg := app.MakeEncodingConfig()
 
-	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, nil, tokensUsecase, encCfg.Marshaler, mainnetState.PricingConfig, &log.NoOpLogger{})
+	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, nil, encCfg.Marshaler, nil, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -344,4 +366,14 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 	bigDec, ok := any.(osmomath.BigDec)
 	s.Require().True(ok)
 	return bigDec
+}
+
+// PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
+func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minOsmoLiquidity int) []sqsdomain.PoolI {
+	sortedPools := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
+
+	// Sort pools
+	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minOsmoLiquidity)
+
+	return poolsAboveMinLiquidity
 }

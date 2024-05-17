@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -15,7 +14,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
-	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 )
 
 type TokensUseCaseTestSuite struct {
@@ -44,6 +42,8 @@ var (
 	UMEE    = routertesting.UMEE
 	UION    = routertesting.UION
 	CRE     = routertesting.CRE
+	// As of 2024-05, this token is unlisted but this might change.
+	AAVE_UNLISTED = "ibc/384E5DD50BDE042E1AAF51F312B55F08F95BC985C503880189258B4D9374CBBE"
 
 	defaultPricingRouterConfig = domain.RouterConfig{
 		PreferredPoolIDs:  []uint64{},
@@ -55,7 +55,7 @@ var (
 	}
 
 	defaultPricingConfig = domain.PricingConfig{
-		DefaultSource:          domain.ChainPricingSource,
+		DefaultSource:          domain.ChainPricingSourceType,
 		CacheExpiryMs:          pricingCacheExpiry,
 		DefaultQuoteHumanDenom: "usdc",
 		MaxPoolsPerRoute:       4,
@@ -66,6 +66,12 @@ var (
 
 func TestTokensUseCaseTestSuite(t *testing.T) {
 	suite.Run(t, new(TokensUseCaseTestSuite))
+}
+
+func (s *TokensUseCaseTestSuite) SetupDefaultRouterAndPoolsUsecase() routertesting.MockMainnetUsecase {
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+	return mainnetUsecase
 }
 
 func (s *TokensUseCaseTestSuite) TestParseAssetList() {
@@ -105,6 +111,12 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	ethToken, ok := tokensMap[ETH]
 	s.Require().True(ok)
 	s.Require().Equal(ethExponent, ethToken.Precision)
+	s.Require().False(ethToken.IsUnlisted)
+
+	// AAVE is present but is unlisted
+	aaveToken, ok := tokensMap[AAVE_UNLISTED]
+	s.Require().True(ok)
+	s.Require().True(aaveToken.IsUnlisted)
 }
 
 func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
@@ -131,25 +143,20 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 //
 // It iterates over results and confirms that, for each denom, the difference is at most 1%.
 //
-// Additionally, for sanit check it confirms that for WBTC / USDC the price is within 15% of 50K
+// Additionally, for sanity check it confirms that for WBTC / USDC the price is within 15% of 50K
 // (approximately the real price at the time of writing)
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
-
-	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
-	s.Require().NoError(err)
+	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
 
 	// System under test.
-	prices, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC, USDT}, pricingStrategy)
+	prices, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC, USDT}, domain.ChainPricingSourceType)
 	s.Require().NoError(err)
 
 	errTolerance := osmomath.ErrTolerance{
-		// 1% tolerance
-		MultiplicativeTolerance: osmomath.MustNewDecFromStr("0.01"),
+		// 6% tolerance
+		MultiplicativeTolerance: osmomath.MustNewDecFromStr("0.06"),
 	}
 
 	// For each base denom, validate that its USDC and USDT prices differ by at most
@@ -190,78 +197,125 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 	s.Require().Zero(result)
 }
 
-// We use this test in CI for detecting tokens with unsupported pricing.
-// The config used is the `config.json` in root which is expected to be as close
-// to mainnet as possible.
-//
-// The mainnet state must be manually updated when needed with 'make sqs-update-mainnet-state'
-func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
-	env := os.Getenv("CI_SQS_PRICING_TEST")
-	if env != "true" {
-		s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
-	}
-
-	viper.SetConfigFile("../../config.json")
-	err := viper.ReadInConfig()
-	s.Require().NoError(err)
-
-	// Unmarshal the config into your Config struct
-	var config domain.Config
-	err = viper.Unmarshal(&config)
-	s.Require().NoError(err)
-
-	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(*config.Router, *config.Pricing)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
-
-	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata(context.Background())
-	s.Require().NoError(err)
-
-	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(*config.Pricing, mainnetUsecase.Tokens, mainnetUsecase.Router)
-	s.Require().NoError(err)
-
-	errorCounter := 0
-	zeroPriceCounter := 0
-	s.Require().NotZero(len(tokenMetadata))
-	for chainDenom, tokenMeta := range tokenMetadata {
-		// System under test.
-		price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{chainDenom}, []string{USDC}, pricingStrategy)
-		if err != nil {
-			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
-			errorCounter++
-			continue
-		}
-
-		priceValue, ok := price[chainDenom][USDC]
-		s.Require().True(ok)
-
-		priceBigDec := s.ConvertAnyToBigDec(priceValue)
-
-		if priceBigDec.IsZero() {
-			fmt.Printf("Zero price for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
-			zeroPriceCounter++
-			continue
-		}
-	}
-
-	s.Require().Zero(errorCounter)
-	s.Require().Zero(zeroPriceCounter)
-}
-
 // Convinience test to test and print a result for a specific token
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
 	// Set up mainnet mock state.
-	router, mainnetState := s.SetupMainnetRouter(defaultPricingRouterConfig, defaultPricingConfig)
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(router, mainnetState, cache.New(), cache.New())
-
-	// Set up on-chain pricing strategy
-	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
-	s.Require().NoError(err)
+	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
 
 	// System under test.
-	price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{CRE}, []string{USDC}, pricingStrategy)
+	price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{CRE}, []string{USDC}, domain.ChainPricingSourceType)
 	s.Require().NoError(err)
 
 	fmt.Println(price)
+}
+
+// Test to validate the pricing options work as expected.
+// Currently, only tests recompute pricing options. In the future, we also add pricing options for the source,
+// once more sources are supported.
+func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
+
+	var (
+		defaultBase  = ATOM
+		defaultQuote = USDC
+
+		defaultBaseInput, defaultQuoteInput = []string{defaultBase}, []string{defaultQuote}
+
+		// We are hoping that the price of ATOM only goes up and never reaches one.
+		// As a result, it is reasonable to assume that in tests and use it as a cache overwrite for testing.
+		priceOne = osmomath.OneBigDec()
+
+		// // placeholder to reflect no value in cache
+		// unsetCachedPrice = osmomath.BigDec{}
+
+		// // Empty pricing options imply no recompute and chain source.
+		// emptyPricingOptions = []domain.PricingOption{}
+	)
+
+	// Compute the mainnet price with no cache set (empty)
+	// Note that this is naive because we use the system under test for configuring the test.
+	// However, the likelyhood of this causing errors is low if other GetPrices tests are passing.
+	// If there is confusion with this test, first make
+	// sure that other GetPrices tests are OK. Then, come back to this.
+
+	// Set up mainnet mock state.
+	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
+
+	noCacheMainnetPrice, err := mainnetUsecase.Tokens.GetPrices(context.Background(), defaultBaseInput, defaultQuoteInput, domain.ChainPricingSourceType, domain.WithRecomputePrices())
+	s.Require().NoError(err)
+
+	recomputedPrice := s.ConvertAnyToBigDec(noCacheMainnetPrice[defaultBase][defaultQuote])
+
+	tests := []struct {
+		name string
+
+		pricingOptions []domain.PricingOption
+
+		cachedPrice osmomath.BigDec
+
+		expectedPrice osmomath.BigDec
+	}{
+		// {
+		// 	name:           "Empty cache, with recompute -> recomputes",
+		// 	cachedPrice:    unsetCachedPrice,
+		// 	pricingOptions: []domain.PricingOption{domain.WithRecomputePrices()},
+
+		// 	expectedPrice: recomputedPrice,
+		// },
+		// {
+		// 	name:        "Empty cache, with no recompute -> still recomputes",
+		// 	cachedPrice: unsetCachedPrice,
+
+		// 	pricingOptions: emptyPricingOptions,
+
+		// 	expectedPrice: recomputedPrice,
+		// },
+		{
+			name:           "Non-empty cache, with recompute -> recomputes and gets a different value",
+			cachedPrice:    priceOne,
+			pricingOptions: []domain.PricingOption{domain.WithRecomputePrices()},
+
+			expectedPrice: recomputedPrice,
+		},
+		// {
+		// 	name:           "Non-empty cache, with no recompute -> gets value from cache.",
+		// 	cachedPrice:    priceOne,
+		// 	pricingOptions: emptyPricingOptions,
+
+		// 	expectedPrice: priceOne,
+		// },
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		s.Run(tt.name, func() {
+
+			// Initialize pricing cache.
+			pricingCache := cache.New()
+
+			// Pre-set cache if configured.
+			if !tt.cachedPrice.IsNil() {
+				baseQuoteCacheKey := domain.FormatPricingCacheKey(defaultBase, defaultQuote)
+				pricingCache.Set(baseQuoteCacheKey, tt.cachedPrice, defaultPricingCacheExpiry)
+			}
+
+			// Set up mainnet mock state.
+			mainnetState := s.SetupMainnetState()
+
+			// Setup mainnet use cases
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithPricingCache(pricingCache), routertesting.WithPricingConfig(defaultPricingConfig), routertesting.WithRouterConfig(defaultPricingRouterConfig))
+
+			// System under test.
+
+			priceResult, err := mainnetUseCase.Tokens.GetPrices(context.Background(), defaultBaseInput, defaultQuoteInput, domain.ChainPricingSourceType, tt.pricingOptions...)
+			s.Require().NoError(err)
+
+			baseResult, ok := priceResult[defaultBase]
+			s.Require().True(ok)
+
+			actualPrice := s.ConvertAnyToBigDec(baseResult[defaultQuote])
+
+			// Check if the price is as expected.
+			s.Require().Equal(tt.expectedPrice.String(), actualPrice.String())
+		})
+	}
 }

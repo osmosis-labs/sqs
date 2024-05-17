@@ -11,6 +11,8 @@ The use case for this is performing certain data and computationally intensive t
 the chain node or the clients. For example, routing falls under this category because it requires
 all pool data for performing the complex routing algorithm.
 
+![alt text](docs/image.png)
+
 ## Integrator Guide
 
 Follow [this link](https://hackmd.io/@osmosis/HkyIHvCH6) to find a guide on how to 
@@ -53,9 +55,11 @@ It operates on data from `osmosis-1` mainnet.
 Note that in this environment we block all endpoints at nginx level except for:
 - `/router/quote`
 - `/router/custom-direct-quote`
+- `/tokens/prices`
 - `/pools`
-- `/pools:id`
 - all debug and infra endpoints
+
+There is swagger available [here](https://sqs.osmosis.zone/swagger/index.html#/default/get-token-metadata)
 
 ### Staging
 
@@ -70,8 +74,8 @@ It operates on data from `osmosis-1` mainnet.
 Note that in this environment we block all endpoints at nginx level except for:
 - `/router/quote`
 - `/router/custom-direct-quote`
+- `/tokens/prices`
 - `/pools`
-- `/pools:id`
 - all debug and infra endpoints
 
 ### Testnet
@@ -84,73 +88,12 @@ This environment exposes all endpoints listed below.
 
 ## Supported Endpoints
 
+Note that there are more endpoints that can be found in the codebase but we
+do not expose them publicly in out production environment.
+
 ### Pools Resource
 
-1. GET `/pools/:id`
-
-Description: returns the pool with the given id instrumented with sqs-specific data for routing.
-
-Arguments: id of a pool
-
-Response example:
-
-```bash
-curl "https://sqs.osmosis.zone/pools/1" | jq .
-{
-"chain_model": {
-    "address": "osmo1mw0ac6rwlp5r8wapwk3zs6g29h8fcscxqakdzw9emkne6c8wjp9q0t3v8t",
-    "id": 1,
-    "pool_params": {
-    "swap_fee": "0.002000000000000000",
-    "exit_fee": "0.000000000000000000"
-    },
-    "future_pool_governor": "24h",
-    "total_weight": "1073741824000000.000000000000000000",
-    "total_shares": {
-    "denom": "gamm/pool/1",
-    "amount": "68705408290810473783205087"
-    },
-    "pool_assets": [
-    {
-        "token": {
-        "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-        "amount": "1099238954791"
-        },
-        "weight": "536870912000000"
-    },
-    {
-        "token": {
-        "denom": "uosmo",
-        "amount": "6560268370850"
-        },
-        "weight": "536870912000000"
-    }
-    ]
-},
-"balances": [
-    {
-    "denom": "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-    "amount": "1099238954791"
-    },
-    {
-    "denom": "ibc/9989AD6CCA39D1131523DB0617B50F6442081162294B4795E26746292467B525",
-    "amount": "1000000000"
-    },
-    {
-    "denom": "ibc/B9E0A1A524E98BB407D3CED8720EFEFD186002F90C1B1B7964811DD0CCC12228",
-    "amount": "999800"
-    },
-    {
-    "denom": "uosmo",
-    "amount": "6560268370850"
-    }
-],
-"type": 0,
-"spread_factor": "0.002000000000000000"
-}
-```
-
-2. GET `/pools?IDs=<IDs>`
+1. GET `/pools?IDs=<IDs>`
 
 Description: Returns of pools if IDs parameter is not given. Otherwise, 
 batch fetches specific pools by the given parameter pool IDs.
@@ -216,20 +159,6 @@ curl "http://localhost:9092/pools?IDs=1,2" | jq .
 ]
 ```
 
-3. GET `/pools/ticks/:id`
-
-Description: returns the tick data for the given concentrated pool ID.
-Returns non-200 if the pool is not concentrated or does not exist.
-
-Argument: id of a pool
-
-Response example:
-
-```bash
-curl "https://sqs.osmosis.zone/pools/ticks/1221" | jq .
-# Response ommitted for brevity
-```
-
 ### Router Resource
 
 
@@ -275,46 +204,7 @@ curl "https://sqs.osmosis.zone/router/quote?tokenIn=1000000uosmo&tokenOutDenom=u
 }
 ```
 
-2. GET `/router/single-quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>`
-
-Description: returns the best quote it can compute w/o performing route splits,
-performing single direct route estimates only.
-
-Parameters:
-- `tokenIn` the string representation of the sdk.Coin for the token in
-- `tokenOutDenom` the string representing the denom of the token out
-
-Response example:
-
-```bash
-curl "https://sqs.osmosis.zone/router/single-quote?tokenIn=1000000uosmo&tokenOutDenom=uion" | jq .
-{
-  "amount_in": {
-    "denom": "uosmo",
-    "amount": "1000000"
-  },
-  "amount_out": "1803",
-  "route": [
-    {
-      "pools": [
-        {
-          "id": 2,
-          "type": 0,
-          "balances": [],
-          "spread_factor": "0.005000000000000000",
-          "token_out_denom": "uion",
-          "taker_fee": "0.001000000000000000"
-        }
-      ],
-      "out_amount": "1803",
-      "in_amount": "1000000"
-    }
-  ],
-  "effective_fee": "0.006000000000000000"
-}
-```
-
-3. GET `/router/routes?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>`
+2. GET `/router/routes?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>`
 
 Description: returns all routes that can be used for routing from tokenIn to tokenOutDenom
 
@@ -390,7 +280,7 @@ curl "https://sqs.osmosis.zone/router/routes?tokenIn=uosmo&tokenOutDenom=uion" |
   }
 }
 ```
-4. GET `/router/custom-direct-quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>&poolIDs=<poolIDs>`
+3. GET `/router/custom-direct-quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>&poolIDs=<poolIDs>`
 
 Description: returns the quote over route with the given poolIDs. If such route does not exist, returns error.
 This endpoint does not use the router route search. As a result, it is not affected by the minimum liquidity parameter. As long as the pool exists on-chain, it will return a quote.
@@ -428,104 +318,6 @@ curl "https://sqs.osmosis.zone/router/custom-direct-quote?tokenIn=1000000uosmo&t
   ],
   "effective_fee": "0.006000000000000000"
 }
-```
-
-5. GET `/router/cached-routes?tokenIn=uosmo&tokenOutDenom=uion`
-
-Description: returns cached routes for the given tokenIn and tokenOutDenomn if cache
-is enabled. If not, returns error. Contrary to `/router/routes...` endpoint, does
-not attempt to compute routes if cache is not enabled.
-
-Parameters: none
-
-Parameters:
-- `tokenIn` the string representation of the denom of the token in
-- `tokenOutDenom` the string representing the denom of the token out
-
-
-Response example:
-
-```bash
-curl "https://sqs.osmosis.zone/cached-routes?tokenIn=uosmo&tokenOutDenom=uion" | jq .
-{
-  "Routes": [
-    {
-      "Pools": [
-        {
-          "ID": 1100,
-          "TokenOutDenom": "uion"
-        }
-      ]
-    },
-    {
-      "Pools": [
-        {
-          "ID": 2,
-          "TokenOutDenom": "uion"
-        }
-      ]
-    },
-    {
-      "Pools": [
-        {
-          "ID": 1013,
-          "TokenOutDenom": "uion"
-        }
-      ]
-    },
-    {
-      "Pools": [
-        {
-          "ID": 1092,
-          "TokenOutDenom": "ibc/E6931F78057F7CC5DA0FD6CEF82FF39373A6E0452BF1FD76910B93292CF356C1"
-        },
-        {
-          "ID": 476,
-          "TokenOutDenom": "uion"
-        }
-      ]
-    },
-    {
-      "Pools": [
-        {
-          "ID": 1108,
-          "TokenOutDenom": "ibc/9712DBB13B9631EDFA9BF61B55F1B2D290B2ADB67E3A4EB3A875F3B6081B3B84"
-        },
-        {
-          "ID": 26,
-          "TokenOutDenom": "uion"
-        }
-      ]
-    }
-  ],
-  "UniquePoolIDs": {
-    "1013": {},
-    "1092": {},
-    "1100": {},
-    "1108": {},
-    "2": {},
-    "26": {},
-    "476": {}
-  }
-}
-```
-
-6. POST `/router/store-state`
-
-Description: stores the current state of the router in a JSON file locally. Used for debugging purposes.
-This endpoint should be disabled in production.
-
-Parameters: none
-
-7. GET `/router/spot-price-pool/:id`
-
-Parameters:
-- `quoteAsset` the quote asset denom
-- `baseAsset` the base asset denom
-
-```bash
-curl "https://sqs.osmosis.zone/router/spot-price-pool/1212?quoteAsset=ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858&baseAsset=ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
-"1.000000000000000000000000000000000000"
 ```
 
 ### Tokens Resource
@@ -600,26 +392,28 @@ Description: returns the configuration of the server, including the router.
 
 ### Mainnet
 
+#### Node Configuration
+
+Ensure the following in `app.toml`
+
+```toml
+[osmosis-sqs]
+
+# SQS service is disabled by default.
+is-enabled = "true"
+
+# The hostname and address of the sidecar query server storage.
+grpc-ingest-address = "localhost:50051"
+grpc-ingest-max-call-size-bytes = "50000000"
+```
+
 To setup a development environment against mainnet, sync the node in the default
 home directory and then run the following commands:
 
 ```bash
-# Starts a detached redis container, to stop: 'make redis-stop'
-make redis-start
-
-# Rebuild the binary and start the node with sqs enabled in-process
-make sqs-start
-```
-
-### Localosmosis
-
-It is also possible to run the sidecar query server against a localosmosis node.
-
-```bash
-# Starts localosmosis with all services enabled and a few pools pre-created
-# make localnset-start for empty state
-# See localosmosis docs for more details
-make localnet-start-with-state
+# Starts the Osmosis node from the default $HOME directory
+# Starts sqs from the config.json in the root of this repository
+make all-start
 ```
 
 ## Data
@@ -678,6 +472,38 @@ factory/osmo19pw5d0jset8jlhawvkscj2gsfuyd5v524tfgek/TURKEY
 Any pool containing these tokens would have the TVL error error set to
 non-empty string, leading to the pool being deprioritized from the router.
 
+### Pricing
+
+There are two sources of pricing data:
+1. On-chain
+2. CoinGecko
+
+#### Chain
+
+On-chain pricing has the following two-cases:
+
+**1. USDC Quote**
+
+At the start of SQS, we pre-compute prices for all listed tokens as defined by the asset list
+with USDC as the quote and store them in-memory (no expiration).
+
+In subsequent blocks, whenever a pool is updated (swapped, LPed etc), we detect that and recompute the price during ingest time via background worker and update internal memory.
+
+**2. Non-USDC Quote**
+Computed on-demand and result is stored in cache with TTL.
+
+General computation logic:
+1. Compute routes between 2 tokens
+2. Compute spot price over pools in that route
+3. If there occurs an error in computing spot price, we fallback to computing a price
+by swapping 10 units of the quote token (which in most cases today should be USDC).
+The choise of 10 is such that we do not consider extremely low-liquidity routes that
+may change frequently while also derisk the price impact with high-value non-USDC quotes.
+
+#### CoinGecko
+
+TBD
+
 ### Algorithm
 
 In this section, we describe the general router algorithm.
@@ -722,10 +548,6 @@ See the recommended enabled configuration below:
 ```js
 {
     "debug": false,
-    // Redis host.
-    "db-host": "localhost",
-    // Redis port.
-    "db-port": "6379",
     // Web server port.
     "server-address": ":9092",
     // Endpoint timeout duration.
@@ -786,3 +608,10 @@ See the recommended enabled configuration below:
     "enable-overwrite-routes-cache": false
 }
 ```
+
+## Useful Osmosis Resources
+
+- [ADR-002 SQS GRPC Refactor](https://www.notion.so/osmosiszone/ADR-002-SQS-GRPC-Ingest-Refactor-19fa05956d0344f58d40fbab57c08af7)
+- [ADR-004 Cosmos SDK Streaming For SQS](https://www.notion.so/osmosiszone/ADR-003-Cosmos-SDK-Streaming-for-SQS-64dbc8b9ba6149259bf9870a43b7a4fc)
+- [ADR-006 Streaming & GRPC Ingest](https://www.notion.so/osmosiszone/ADR-006-Streaming-GRPC-SQS-Ingest-4e3b2ff7d23e43e2a1f3c43adc3c26bc?pvs=13)
+- [C4 L3 SQS Deployments](https://app.excalidraw.com/s/72t6r0pKvg5/4xLEjXi3KiU)

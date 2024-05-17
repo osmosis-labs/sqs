@@ -14,14 +14,14 @@
       "max-routes": 20,
       "max-split-routes": 3,
       "max-split-iterations": 10,
-      "min-osmo-liquidity": 100,
+      "min-osmo-liquidity": 1000000000,
       "route-cache-enabled": true,
       "candidate-route-cache-expiry-seconds": 1200,
       "ranked-route-cache-expiry-seconds": 600
     },
     "pools": {
         "transmuter-code-ids": [148, 254],
-        "general-cosmwasm-code-ids": [503, 572, 580]
+        "general-cosmwasm-code-ids": [503, 572, 773, 641]
     },
     "pricing":{
         "cache-expiry-ms": 2000,
@@ -43,7 +43,11 @@
 		"enable-tracing":      true,
 		"traces-sample-rate":   1,
 		"profiles-sample-rate": 1, 
-        "environment" : "production"
+        "environment" : "sqs-dev",
+        "custom-sample-rate": {
+            "/router/quote": 1,
+            "other": 0
+        }
     },
     "cors": {
         "allowed-headers": "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",

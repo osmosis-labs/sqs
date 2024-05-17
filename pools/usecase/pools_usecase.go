@@ -10,6 +10,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
@@ -18,14 +19,15 @@ import (
 )
 
 type poolsUseCase struct {
-	pools          sync.Map
-	cosmWasmConfig domain.CosmWasmPoolRouterConfig
+	pools            sync.Map
+	routerRepository routerrepo.RouterRepository
+	cosmWasmConfig   domain.CosmWasmPoolRouterConfig
 }
 
 var _ mvc.PoolsUsecase = &poolsUseCase{}
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string) mvc.PoolsUsecase {
+func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepository routerrepo.RouterRepository) mvc.PoolsUsecase {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
 	for _, codeId := range poolsConfig.TransmuterCodeIDs {
 		transmuterCodeIDsMap[codeId] = struct{}{}
@@ -43,7 +45,8 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string) mvc.PoolsU
 			NodeURI:                nodeURI,
 		},
 
-		pools: sync.Map{},
+		pools:            sync.Map{},
+		routerRepository: routerRepository,
 	}
 }
 
@@ -64,7 +67,7 @@ func (p *poolsUseCase) GetAllPools() (pools []sqsdomain.PoolI, err error) {
 }
 
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.CandidateRoutes, takerFeeMap sqsdomain.TakerFeeMap, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
+func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
 	// We track whether a route contains a generalized cosmwasm pool
 	// so that we can exclude it from split quote logic.
 	// The reason for this is that making network requests to chain is expensive.
@@ -83,7 +86,10 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 			}
 
 			// Get taker fee
-			takerFee := takerFeeMap.GetTakerFee(previousTokenOutDenom, candidatePool.TokenOutDenom)
+			takerFee, exists := p.routerRepository.GetTakerFee(previousTokenOutDenom, candidatePool.TokenOutDenom)
+			if !exists {
+				takerFee = sqsdomain.DefaultTakerFee
+			}
 
 			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmConfig)
 			if err != nil {

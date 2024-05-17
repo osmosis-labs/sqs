@@ -15,14 +15,19 @@ import (
 )
 
 type tokensUseCase struct {
-	metadataMapMu             sync.RWMutex
+	// Currently, we only expect reads to this shared resource and no writes.
+	// If needed, change this to sync.Map in the future.
+	// Can be considered for merge with humanToChainDenomMap in the future.
 	tokenMetadataByChainDenom map[string]domain.Token
-
-	denomMapMu           sync.RWMutex
-	humanToChainDenomMap map[string]string
+	humanToChainDenomMap      map[string]string
+	chainDenoms               map[string]struct{}
 
 	// No mutex since we only expect reads to this shared resource and no writes.
 	precisionScalingFactorMap map[int]osmomath.Dec
+
+	// We persist pricing strategies across endpoint calls as they
+	// may cache responses internally.
+	pricingStrategyMap map[domain.PricingSourceType]domain.PricingSource
 }
 
 // Struct to represent the JSON structure
@@ -64,6 +69,10 @@ type priceResults struct {
 
 var _ mvc.TokensUsecase = &tokensUseCase{}
 
+const (
+	unlistedKeyword = "osmosis-unlisted"
+)
+
 var (
 	tenDec = osmomath.NewDec(10)
 
@@ -81,6 +90,7 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 	// Create human denom to chain denom map
 	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
 	uniquePrecisionMap := make(map[int]struct{}, 0)
+	chainDenoms := map[string]struct{}{}
 
 	for chainDenom, tokenMetadata := range tokenMetadataByChainDenom {
 		// lower case human denom
@@ -89,6 +99,8 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 		humanToChainDenomMap[lowerCaseHumanDenom] = chainDenom
 
 		uniquePrecisionMap[tokenMetadata.Precision] = struct{}{}
+
+		chainDenoms[chainDenom] = struct{}{}
 	}
 
 	// Precompute precision scaling factors
@@ -102,17 +114,15 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 		humanToChainDenomMap:      humanToChainDenomMap,
 		precisionScalingFactorMap: precisionScalingFactors,
 
-		metadataMapMu: sync.RWMutex{},
-		denomMapMu:    sync.RWMutex{},
+		pricingStrategyMap: map[domain.PricingSourceType]domain.PricingSource{},
+
+		chainDenoms: chainDenoms,
 	}
 }
 
 // GetChainDenom implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetChainDenom(ctx context.Context, humanDenom string) (string, error) {
+func (t *tokensUseCase) GetChainDenom(humanDenom string) (string, error) {
 	humanDenomLowerCase := strings.ToLower(humanDenom)
-
-	t.denomMapMu.RLock()
-	defer t.denomMapMu.RUnlock()
 
 	chainDenom, ok := t.humanToChainDenomMap[humanDenomLowerCase]
 	if !ok {
@@ -123,9 +133,7 @@ func (t *tokensUseCase) GetChainDenom(ctx context.Context, humanDenom string) (s
 }
 
 // GetMetadataByChainDenom implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetMetadataByChainDenom(ctx context.Context, denom string) (domain.Token, error) {
-	t.metadataMapMu.RLock()
-	defer t.metadataMapMu.RUnlock()
+func (t *tokensUseCase) GetMetadataByChainDenom(denom string) (domain.Token, error) {
 	token, ok := t.tokenMetadataByChainDenom[denom]
 	if !ok {
 		return domain.Token{}, fmt.Errorf("metadata for denom (%s) is not found", denom)
@@ -135,10 +143,7 @@ func (t *tokensUseCase) GetMetadataByChainDenom(ctx context.Context, denom strin
 }
 
 // GetFullTokenMetadata implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetFullTokenMetadata(ctx context.Context) (map[string]domain.Token, error) {
-	t.metadataMapMu.RLock()
-	defer t.metadataMapMu.RUnlock()
-
+func (t *tokensUseCase) GetFullTokenMetadata() (map[string]domain.Token, error) {
 	// Do a copy of the cached metadata
 	result := make(map[string]domain.Token, len(t.tokenMetadataByChainDenom))
 	for denom, tokenMetadata := range t.tokenMetadataByChainDenom {
@@ -149,8 +154,8 @@ func (t *tokensUseCase) GetFullTokenMetadata(ctx context.Context) (map[string]do
 }
 
 // GetChainScalingFactorByDenomMut implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetChainScalingFactorByDenomMut(ctx context.Context, denom string) (osmomath.Dec, error) {
-	denomMetadata, err := t.GetMetadataByChainDenom(ctx, denom)
+func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.Dec, error) {
+	denomMetadata, err := t.GetMetadataByChainDenom(denom)
 	if err != nil {
 		return osmomath.Dec{}, err
 	}
@@ -164,7 +169,7 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(ctx context.Context, den
 }
 
 // GetPrices implements pricing.PricingStrategy.
-func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingStrategy domain.PricingStrategy) (map[string]map[string]any, error) {
+func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (map[string]map[string]any, error) {
 	byBaseDenomResult := make(map[string]map[string]any, len(baseDenoms))
 
 	// Create a channel to communicate the results
@@ -179,8 +184,12 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 		go func(baseDenom string) {
 			defer wg.Done()
 
-			prices := t.getPricesForBaseDenom(ctx, pricingStrategy, baseDenom, quoteDenoms)
-			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: nil}
+			prices, err := t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
+			if err != nil {
+				// This should not panic, so just logging the error here and continue
+				fmt.Println(err.Error())
+			}
+			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: err}
 		}(baseDenom)
 	}
 
@@ -203,24 +212,31 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 	return byBaseDenomResult, nil
 }
 
-// getPricesForBaseDenom fetches all prices for base denom given a slice of quotes and a pricing stratey.
+// getPricesForBaseDenom fetches all prices for base denom given a slice of quotes and pricing options.
+// Pricing options determine whether to recompute prices or use the cache as well as the desired source of prices.
 // Returns a map with keys as quotes and values as prices or error, if any.
 // Returns error if base denom is not found in the token metadata.
 // Sets the price to zero in case of failing to compute the price between base and quote but these being valid tokens.
-func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrategy domain.PricingStrategy, baseDenom string, quoteDenoms []string) map[string]any {
+func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, pricingOptions ...domain.PricingOption) (map[string]any, error) {
 	byQuoteDenomForGivenBaseResult := make(map[string]any, len(quoteDenoms))
 	// Validate base denom is a valid denom
 	// Return zeroes for all quotes if base denom is not found
-	_, err := t.GetMetadataByChainDenom(ctx, baseDenom)
+	_, err := t.GetMetadataByChainDenom(baseDenom)
 	if err != nil {
 		for _, quoteDenom := range quoteDenoms {
 			byQuoteDenomForGivenBaseResult[quoteDenom] = osmomath.ZeroBigDec()
 		}
-		return byQuoteDenomForGivenBaseResult
+		return byQuoteDenomForGivenBaseResult, nil
 	}
 
 	// Create a channel to communicate the results
 	resultsChan := make(chan priceResult, len(quoteDenoms))
+
+	// Get the pricing strategy
+	pricingStrategy, ok := t.pricingStrategyMap[pricingSourceType]
+	if !ok {
+		return nil, fmt.Errorf("pricing strategy (%s) not found in the tokens use case", pricingStrategy)
+	}
 
 	// Use a WaitGroup to wait for all goroutines to finish
 	var wg sync.WaitGroup
@@ -231,7 +247,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		go func(baseDenom, quoteDenom string) {
 			defer wg.Done()
 
-			price, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom)
+			price, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 			resultsChan <- priceResult{quoteDenom, price, err}
 		}(baseDenom, quoteDenom)
 	}
@@ -256,7 +272,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, pricingStrate
 		byQuoteDenomForGivenBaseResult[result.quoteDenom] = result.price
 	}
 
-	return byQuoteDenomForGivenBaseResult
+	return byQuoteDenomForGivenBaseResult, nil
 }
 
 func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
@@ -308,7 +324,17 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 			}
 		}
 
+		// Detect unlisted tokens
+		isUnlisted := false
+		for _, keyword := range asset.Keywords {
+			if keyword == unlistedKeyword {
+				isUnlisted = true
+				break
+			}
+		}
+
 		token.HumanDenom = asset.Symbol
+		token.IsUnlisted = isUnlisted
 
 		tokensByChainDenom[chainDenom] = token
 	}
@@ -317,13 +343,13 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 }
 
 // GetSpotPriceScalingFactorByDenomMut implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetSpotPriceScalingFactorByDenom(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.Dec, error) {
-	baseScalingFactor, err := t.GetChainScalingFactorByDenomMut(ctx, baseDenom)
+func (t *tokensUseCase) GetSpotPriceScalingFactorByDenom(baseDenom string, quoteDenom string) (osmomath.Dec, error) {
+	baseScalingFactor, err := t.GetChainScalingFactorByDenomMut(baseDenom)
 	if err != nil {
 		return osmomath.Dec{}, err
 	}
 
-	quoteScalingFactor, err := t.GetChainScalingFactorByDenomMut(ctx, quoteDenom)
+	quoteScalingFactor, err := t.GetChainScalingFactorByDenomMut(quoteDenom)
 	if err != nil {
 		return osmomath.Dec{}, err
 	}
@@ -333,4 +359,15 @@ func (t *tokensUseCase) GetSpotPriceScalingFactorByDenom(ctx context.Context, ba
 	}
 
 	return baseScalingFactor.Quo(quoteScalingFactor), nil
+}
+
+// RegisterPricingStrategy implements mvc.TokensUsecase.
+func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource) {
+	t.pricingStrategyMap[source] = strategy
+}
+
+// IsValidChainDenom implements mvc.TokensUsecase.
+func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
+	metaData, ok := t.tokenMetadataByChainDenom[chainDenom]
+	return ok && !metaData.IsUnlisted
 }

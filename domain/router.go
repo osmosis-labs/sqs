@@ -93,3 +93,59 @@ type RouterState struct {
 	TakerFees sqsdomain.TakerFeeMap
 	TickMap   map[uint64]*sqsdomain.TickModel
 }
+
+// RouterOptions defines the options for the router
+// By default, the router config that is defined on the router usecase is set.
+// The caller of GetQuote(...) may overwrite the config with the options provided here.
+// This is useful for pricing where we may want to use different parameters than the default config.
+// With pricing, it is desired to use more pools with lower min liquidity parameter.
+type RouterOptions struct {
+	MaxPoolsPerRoute   int
+	MaxRoutes          int
+	MaxSplitRoutes     int
+	MaxSplitIterations int
+	// Denominated in OSMO (not uosmo)
+	MinOSMOLiquidity int
+	// The number of milliseconds to cache candidate routes for before expiry.
+	CandidateRouteCacheExpirySeconds int
+	RankedRouteCacheExpirySeconds    int
+}
+
+// DefaultRouterOptions defines the default options for the router
+var DefaultRouterOptions = RouterOptions{}
+
+// RouterOption configures the router options.
+type RouterOption func(*RouterOptions)
+
+// WithMinOSMOLiquidity configures the router options with the min OSMO liquidity.
+func WithMinOSMOLiquidity(minOSMOLiquidity int) RouterOption {
+	return func(o *RouterOptions) {
+		o.MinOSMOLiquidity = minOSMOLiquidity
+	}
+}
+
+// WithMaxPoolsPerRoute configures the router options with the max pools per route.
+func WithMaxPoolsPerRoute(maxPoolsPerRoute int) RouterOption {
+	return func(o *RouterOptions) {
+		o.MaxPoolsPerRoute = maxPoolsPerRoute
+	}
+}
+
+// WithMaxRoutes configures the router options with the max routes.
+func WithMaxRoutes(maxRoutes int) RouterOption {
+	return func(o *RouterOptions) {
+		o.MaxRoutes = maxRoutes
+	}
+}
+
+// WithDisableSplitRoutes configures the router options with the disabled split routes.
+func WithDisableSplitRoutes() RouterOption {
+	return WithMaxSplitRoutes(DisableSplitRoutes)
+}
+
+// WithMaxSplitRoutes configures the router options with the max split routes.
+func WithMaxSplitRoutes(maxSplitRoutes int) RouterOption {
+	return func(o *RouterOptions) {
+		o.MaxSplitRoutes = maxSplitRoutes
+	}
+}

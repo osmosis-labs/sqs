@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -18,7 +17,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
-	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 
 	_ "github.com/osmosis-labs/sqs/docs"
 )
@@ -28,10 +26,6 @@ type TokensHandler struct {
 	TUsecase mvc.TokensUsecase
 	RUsecase mvc.RouterUsecase
 
-	// We persist pricing strategies across endpoint calls as they
-	// may cache responses internally.
-	pricingStrategyMap map[domain.PricingSource]domain.PricingStrategy
-
 	logger log.Logger
 }
 
@@ -40,7 +34,7 @@ const (
 
 	// TODO: move to config
 	defaultQuoteHumanDenom = "usdc"
-	defaultPricingSource   = domain.ChainPricingSource
+	defaultPricingSource   = domain.ChainPricingSourceType
 )
 
 var (
@@ -53,18 +47,9 @@ func formatTokensResource(resource string) string {
 
 // NewTokensHandler will initialize the pools/ resources endpoint
 func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) (err error) {
-	pricingStrategy, err := pricing.NewPricingStrategy(pricingConfig, ts, ru)
-	if err != nil {
-		return err
-	}
-
 	handler := &TokensHandler{
 		TUsecase: ts,
 		RUsecase: ru,
-
-		pricingStrategyMap: map[domain.PricingSource]domain.PricingStrategy{
-			domain.ChainPricingSource: pricingStrategy,
-		},
 
 		logger: logger,
 	}
@@ -74,7 +59,7 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 	e.GET(formatTokensResource("/usd-price-test"), handler.GetUSDPriceTest)
 	e.POST(formatTokensResource("/store-state"), handler.StoreTokensStateInFiles)
 
-	defaultQuoteChainDenom, err = ts.GetChainDenom(context.Background(), defaultQuoteHumanDenom)
+	defaultQuoteChainDenom, err = ts.GetChainDenom(defaultQuoteHumanDenom)
 	if err != nil {
 		return err
 	}
@@ -91,11 +76,9 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 // @Success 200 {object} map[string]domain.Token "Success"
 // @Router /tokens/metadata [get]
 func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
-	ctx := c.Request().Context()
-
 	denomsStr := c.QueryParam("denoms")
 	if len(denomsStr) == 0 {
-		tokenMetadata, err := a.TUsecase.GetFullTokenMetadata(ctx)
+		tokenMetadata, err := a.TUsecase.GetFullTokenMetadata()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 		}
@@ -116,19 +99,19 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 		}
 
-		tokenMetadata, err := a.TUsecase.GetMetadataByChainDenom(ctx, denom)
+		tokenMetadata, err := a.TUsecase.GetMetadataByChainDenom(denom)
 		if err == nil {
 			return c.JSON(http.StatusOK, tokenMetadata)
 		}
 
 		// If we fail to get metadata by chain denom, assume we are given a human denom and try to translate it.
-		chainDenom, err := a.TUsecase.GetChainDenom(ctx, denom)
+		chainDenom, err := a.TUsecase.GetChainDenom(denom)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 		}
 
 		// Repeat metadata retrieval
-		tokenMetadata, err = a.TUsecase.GetMetadataByChainDenom(ctx, chainDenom)
+		tokenMetadata, err = a.TUsecase.GetMetadataByChainDenom(chainDenom)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 		}
@@ -167,19 +150,20 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 
 	if isHumanDenoms {
 		for i, baseDenom := range baseDenoms {
-			baseDenoms[i], err = a.TUsecase.GetChainDenom(ctx, baseDenom)
+			baseDenoms[i], err = a.TUsecase.GetChainDenom(baseDenom)
 			if err != nil {
 				return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 			}
 		}
+	} else {
+		for _, baseDenom := range baseDenoms {
+			if !a.TUsecase.IsValidChainDenom(baseDenom) {
+				return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("invalid chain denom: %s", baseDenom)})
+			}
+		}
 	}
 
-	chainPricingStrategy, ok := a.pricingStrategyMap[domain.ChainPricingSource]
-	if !ok {
-		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
-	}
-
-	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, chainPricingStrategy)
+	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, domain.ChainPricingSourceType)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
@@ -237,9 +221,7 @@ func (a *TokensHandler) GetUSDPriceTest(c echo.Context) (err error) {
 }
 
 func (a *TokensHandler) StoreTokensStateInFiles(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	tokensMetadata, err := a.TUsecase.GetFullTokenMetadata(ctx)
+	tokensMetadata, err := a.TUsecase.GetFullTokenMetadata()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}

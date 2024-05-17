@@ -46,5 +46,9 @@ EXPOSE 50051
 RUN apt-get update && \
     apt-get install curl vim nano -y
 
-ENTRYPOINT cd /osmosis && /bin/sqsd
+# Use JSON array format for ENTRYPOINT
+# If array is not used, the command arguments to docker run are ignored.
+ENTRYPOINT ["/bin/sqsd"]
 
+# Default CMD
+CMD ["--config", "/osmosis/config.json", "--host", "sqs--default-host"]

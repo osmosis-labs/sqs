@@ -33,12 +33,12 @@ jobs:
       -
         name: Run Pricing Test
         env:
-          CI_SQS_PRICING_TEST: true
+          CI_SQS_PRICING_WORKER_TEST: true
         run: |
           go test \
-            -timeout 30s \
-            -run TestTokensUseCaseTestSuite/TestGetPrices_Chain_FindUnsupportedTokens \
-            github.com/osmosis-labs/sqs/tokens/usecase -v -count=1
+            -timeout 300s \
+            -run TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens \
+            github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker -v -count=1
 
   test_routes:
     runs-on: ubuntu-latest

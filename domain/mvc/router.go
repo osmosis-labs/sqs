@@ -13,9 +13,7 @@ import (
 // RouterUsecase represent the router's usecases
 type RouterUsecase interface {
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.
-	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error)
-	// GetOptimalQuoteFromConfig returns the optimal quote for the given tokenIn and tokenOutDenom from the given config.
-	GetOptimalQuoteFromConfig(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, config domain.RouterConfig) (domain.Quote, error)
+	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 	// GetBestSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.
 	GetBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error)
 	// GetCustomDirectQuote returns the custom direct quote for the given tokenIn, tokenOutDenom and poolID.
@@ -23,19 +21,18 @@ type RouterUsecase interface {
 	// This allows to bypass a min liquidity requirement in the router when attempting to swap over a specific pool.
 	GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error)
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
-	GetCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
+	GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// GetTakerFee returns the taker fee for all token pairs in a pool.
 	GetTakerFee(poolID uint64) ([]sqsdomain.TakerFeeForPair, error)
 	// SetTakerFees sets the taker fees for all token pairs in all pools.
 	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
 	// GetPoolSpotPrice returns the spot price of a pool.
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error)
-	// GetConfig returns the config for the SQS service
-	GetConfig() domain.RouterConfig
 	// GetCachedCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom from cache.
 	// It does not recompute the routes if they are not present in cache.
+	// Since we may cache zero routes, it returns false if the routes are not present in cache. Returns true otherwise.
 	// Returns error if cache is disabled.
-	GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
+	GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, bool, error)
 	// StoreRoutes stores all router state in the files locally. Used for debugging.
 	StoreRouterStateFiles() error
 
@@ -44,6 +41,10 @@ type RouterUsecase interface {
 	// GetSortedPools returns the sorted pools based on the router configuration.
 	GetSortedPools() []sqsdomain.PoolI
 
-	// SortPools sorts the given pools based on the router configuration and perists them until the next call.
-	SortPools(ctx context.Context, pools []sqsdomain.PoolI) error
+	GetConfig() domain.RouterConfig
+
+	// SetSortedPools stores the pools in the router.
+	// CONTRACT: the pools are already sorted according to the desired parameters.
+	// See sortPools() function.
+	SetSortedPools(pools []sqsdomain.PoolI)
 }

@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
@@ -18,15 +19,8 @@ import (
 
 // getSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.
 // Returns error if router repository is not set on the router.
-func (r *Router) getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, routes []route.RouteImpl) (quote domain.Quote, err error) {
-	if r.routerRepository == nil {
-		return nil, ErrNilRouterRepository
-	}
-	if r.poolsUsecase == nil {
-		return nil, ErrNilPoolsRepository
-	}
-
-	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn)
+func getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, routes []route.RouteImpl, logger log.Logger) (quote domain.Quote, err error) {
+	bestSingleRouteQuote, _, err := estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +31,7 @@ func (r *Router) getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, 
 // Returns best quote as well as all routes sorted by amount out and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *Router) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+func estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
@@ -49,7 +43,7 @@ func (r *Router) estimateAndRankSingleRouteQuote(ctx context.Context, routes []r
 	for _, route := range routes {
 		directRouteTokenOut, err := route.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
-			r.logger.Debug("skipping single route due to error in estimate", zap.Error(err))
+			logger.Debug("skipping single route due to error in estimate", zap.Error(err))
 			errors = append(errors, err)
 			continue
 		}
@@ -94,7 +88,7 @@ func (r *Router) estimateAndRankSingleRouteQuote(ctx context.Context, routes []r
 // - the previous pool token out denom is in the current pool.
 // - the current pool token out denom is in the current pool.
 // Returns error if not. Nil otherwise.
-func (r *Router) validateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string) (sqsdomain.CandidateRoutes, error) {
+func validateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
 	var (
 		tokenOutDenom  string
 		filteredRoutes []sqsdomain.CandidateRoute
@@ -147,12 +141,12 @@ ROUTE_LOOP:
 				// Validate that intermediary pools do not contain the token in denom or token out denom
 				if j > 0 && j < len(candidateRoute)-1 {
 					if denom == tokenInDenom {
-						r.logger.Warn("route skipped - found token in intermediary pool", zap.Error(RoutePoolWithTokenInDenomError{RouteIndex: i, TokenInDenom: tokenInDenom}))
+						logger.Warn("route skipped - found token in intermediary pool", zap.Error(RoutePoolWithTokenInDenomError{RouteIndex: i, TokenInDenom: tokenInDenom}))
 						continue ROUTE_LOOP
 					}
 
 					if denom == currentRouteTokenOutDenom {
-						r.logger.Warn("route skipped- found token out in intermediary pool", zap.Error(RoutePoolWithTokenOutDenomError{RouteIndex: i, TokenOutDenom: currentPoolTokenOutDenom}))
+						logger.Warn("route skipped- found token out in intermediary pool", zap.Error(RoutePoolWithTokenOutDenomError{RouteIndex: i, TokenOutDenom: currentPoolTokenOutDenom}))
 						continue ROUTE_LOOP
 					}
 				}

@@ -1,20 +1,18 @@
 package usecase
 
 import (
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 // candidatePoolWrapper is an intermediary internal data
 // structure for constructing all candidate routes related data.
 // It contains pool denoms for validation after the initial route selection.
-// Additionally, it contains the pool type for contracting eventually constructing
-// a unque list of concentrated pools for knowing which pools require
-// a tick model.
 type candidatePoolWrapper struct {
 	sqsdomain.CandidatePool
 	PoolDenoms []string
-	PoolType   poolmanagertypes.PoolType
+	Idx        int
 }
 
 // GetCandidateRoutes returns candidate routes from tokenInDenom to tokenOutDenom using BFS.
@@ -25,34 +23,39 @@ type candidatePoolWrapper struct {
 // * sortedPoolsByDenom map[string][]sqsdomain.PoolI. Where the return value is all pools that contain the denom, sorted.
 //   - Right now we have linear time iteration per route rather than N^2 by making every route get created in sorted order.
 //   - We can do similar here by actually making the value of the hashmap be a []struct{global sort index, sqsdomain pool}
-func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
-	var routes [][]candidatePoolWrapper
-	var visited = make(map[uint64]bool)
+func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+	routes := make([][]candidatePoolWrapper, 0, maxRoutes)
+	// Preallocate third to avoid dynamic reallocations.
+	visited := make([]bool, len(pools))
 
-	queue := make([][]candidatePoolWrapper, 0)
-	queue = append(queue, []candidatePoolWrapper{})
+	// Preallocate third of the pools to avoid dynamic reallocations.
+	queue := make([][]candidatePoolWrapper, 0, len(pools)/3)
+	queue = append(queue, make([]candidatePoolWrapper, 0, maxPoolsPerRoute))
 
-	for len(queue) > 0 && len(routes) < r.config.MaxRoutes {
+	for len(queue) > 0 && len(routes) < maxRoutes {
 		currentRoute := queue[0]
+		queue[0] = nil // Clear the slice to avoid holding onto references
 		queue = queue[1:]
 
 		lastPoolID := uint64(0)
-		currenTokenInDenom := tokenInDenom
+		currenTokenInDenom := tokenIn.Denom
 		if len(currentRoute) > 0 {
 			lastPool := currentRoute[len(currentRoute)-1]
 			lastPoolID = lastPool.ID
 			currenTokenInDenom = lastPool.TokenOutDenom
 		}
 
-		for i := 0; i < len(r.sortedPools) && len(routes) < r.config.MaxRoutes; i++ {
-			pool := r.sortedPools[i]
-			poolID := pool.GetId()
+		for i := 0; i < len(pools) && len(routes) < maxRoutes; i++ {
+			// Unsafe cast for performance reasons.
+			// nolint: forcetypeassert
+			pool := (pools[i]).(*sqsdomain.PoolWrapper)
+			poolID := pool.ChainModel.GetId()
 
-			if visited[poolID] {
+			if visited[i] {
 				continue
 			}
 
-			poolDenoms := pool.GetPoolDenoms()
+			poolDenoms := pool.SQSModel.PoolDenoms
 			hasTokenIn := false
 			hasTokenOut := false
 			shouldSkipPool := false
@@ -65,7 +68,7 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 				}
 
 				// Avoid going through pools that has the initial token in denom twice.
-				if len(currentRoute) > 0 && denom == tokenInDenom {
+				if len(currentRoute) > 0 && denom == tokenIn.Denom {
 					shouldSkipPool = true
 					break
 				}
@@ -77,6 +80,17 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 
 			if !hasTokenIn {
 				continue
+			}
+
+			// Microptimization for the first pool in the route.
+			if len(currentRoute) == 0 {
+				currentTokenInAmount := pool.SQSModel.Balances.AmountOf(currenTokenInDenom)
+
+				if currentTokenInAmount.LT(tokenIn.Amount) {
+					visited[i] = true
+					// Not enough tokenIn to swap.
+					continue
+				}
 			}
 
 			currentPoolID := poolID
@@ -99,10 +113,10 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 							TokenOutDenom: denom,
 						},
 						PoolDenoms: poolDenoms,
-						PoolType:   pool.GetType(),
+						Idx:        i,
 					})
 
-					if len(newPath) <= r.config.MaxPoolsPerRoute {
+					if len(newPath) <= maxPoolsPerRoute {
 						if hasTokenOut {
 							routes = append(routes, newPath)
 							break
@@ -115,11 +129,11 @@ func (r Router) GetCandidateRoutes(tokenInDenom, tokenOutDenom string) (sqsdomai
 		}
 
 		for _, pool := range currentRoute {
-			visited[pool.ID] = true
+			visited[pool.Idx] = true
 		}
 	}
 
-	return r.validateAndFilterRoutes(routes, tokenInDenom)
+	return validateAndFilterRoutes(routes, tokenIn.Denom, logger)
 }
 
 // Pool represents a pool in the decentralized exchange.

@@ -39,7 +39,7 @@ var DefaultConfig = domain.Config{
 	},
 
 	Pricing: &domain.PricingConfig{
-		DefaultSource:          domain.ChainPricingSource,
+		DefaultSource:          domain.ChainPricingSourceType,
 		CacheExpiryMs:          2000, // 2 seconds.
 		DefaultQuoteHumanDenom: "usdc",
 

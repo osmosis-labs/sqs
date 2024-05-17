@@ -12,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
@@ -23,8 +24,10 @@ type ingestUseCase struct {
 
 	poolsUseCase     mvc.PoolsUsecase
 	routerUsecase    mvc.RouterUsecase
-	tokensUseCase    mvc.TokensUsecase
 	chainInfoUseCase mvc.ChainInfoUsecase
+
+	// Worker that computes prices for all tokens with the default quote.
+	defaultQuotePriceUpdateWorker domain.PricingWorker
 
 	logger log.Logger
 }
@@ -34,12 +37,19 @@ type poolResult struct {
 	err  error
 }
 
+// UniqueBlockPoolMetaData contains the metadta about unique pools
+// and denoms modified in a block.
+type UniqueBlockPoolMetaData struct {
+	Denoms  map[string]struct{}
+	PoolIDs map[uint64]struct{}
+}
+
 var (
 	_ mvc.IngestUsecase = &ingestUseCase{}
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, chainInfoUseCase mvc.ChainInfoUsecase, tokensUseCase mvc.TokensUsecase, codec codec.Codec, pricingConfig domain.PricingConfig, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
@@ -49,7 +59,7 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 
 		logger: logger,
 
-		tokensUseCase: tokensUseCase,
+		defaultQuotePriceUpdateWorker: quotePriceUpdateWorker,
 	}, nil
 }
 
@@ -61,7 +71,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.routerUsecase.SetTakerFees(takerFeesMap)
 
 	// Parse the pools
-	pools, err := p.parsePoolData(ctx, poolData)
+	pools, uniqueBlockPoolMetadata, err := p.parsePoolData(ctx, poolData)
 	if err != nil {
 		return err
 	}
@@ -77,13 +87,14 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		return err
 	}
 
+	// Sort and store pools.
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
+	p.sortAndStorePools(allPools)
 
-	// Sort the pools and store them in the router.
-	// TODO: Don't update the router with all pools here. Just update based on diff pools.
-	if err := p.routerUsecase.SortPools(ctx, allPools); err != nil {
-		return err
-	}
+	// Note: we must queue the update before we start updating prices as pool liquidity
+	// worker listens for the pricing updates at the same height.
+	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata.Denoms)
+
 	// Store the latest ingested height.
 	p.chainInfoUseCase.StoreLatestHeight(height)
 
@@ -95,8 +106,20 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	return nil
 }
 
+// sortAndStorePools sorts the pools and stores them in the router.
+// TODO: instead of resorting all pools every block, we should put the updated pools in the correct position
+func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
+	cosmWasmPoolConfig := p.poolsUseCase.GetCosmWasmPoolConfig()
+	routerConfig := p.routerUsecase.GetConfig()
+
+	sortedPools := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
+
+	// Sort the pools and store them in the router.
+	p.routerUsecase.SetSortedPools(sortedPools)
+}
+
 // parsePoolData parses the pool data and returns the pool objects.
-func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsdomain.PoolI, error) {
+func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsdomain.PoolI, UniqueBlockPoolMetaData, error) {
 	poolResultChan := make(chan poolResult, len(poolData))
 
 	// Parse the pools concurrently
@@ -113,6 +136,11 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 
 	parsedPools := make([]sqsdomain.PoolI, 0, len(poolData))
 
+	uniqueData := UniqueBlockPoolMetaData{
+		Denoms:  make(map[string]struct{}),
+		PoolIDs: make(map[uint64]struct{}, len(poolData)),
+	}
+
 	// Collect the parsed pools
 	for i := 0; i < len(poolData); i++ {
 		select {
@@ -124,13 +152,21 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				continue
 			}
 
+			// Update unique denoms
+			for _, balance := range poolResult.pool.GetSQSPoolModel().Balances {
+				uniqueData.Denoms[balance.Denom] = struct{}{}
+			}
+
+			// Update unique pools.
+			uniqueData.PoolIDs[poolResult.pool.GetId()] = struct{}{}
+
 			parsedPools = append(parsedPools, poolResult.pool)
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, UniqueBlockPoolMetaData{}, ctx.Err()
 		}
 	}
 
-	return parsedPools, nil
+	return parsedPools, uniqueData, nil
 }
 
 // parsePool parses the pool data and returns the pool object

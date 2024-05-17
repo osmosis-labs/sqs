@@ -1,7 +1,5 @@
 {
     "debug": true,
-    "db-host": "localhost",
-    "db-port": "6379",
     "server-address": ":9092",
     "timeout-duration-secs": 2,
     "logger-filename": "sqs.log",
