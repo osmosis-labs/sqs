@@ -288,8 +288,9 @@ def choose_valid_listed_tokens():
             continue
 
         # Skip tokens with no pools with liquidity as we cannot find routes in-between them.
+        # Note: if tests prove to be flaky due to pools with low liq
         top_liquidity_pool = denom_top_liquidity_pool_map.get(denom)
-        if top_liquidity_pool is None:
+        if top_liquidity_pool is None or top_liquidity_pool['pool_liquidity'] == 0:
             print(f"Denom {denom} has no pool with liquidity")
             continue
 

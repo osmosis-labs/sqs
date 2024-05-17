@@ -1,7 +1,4 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
@@ -10,8 +7,15 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/app",
-            "args": ["--config", "config.json", "--host", "sqs-dev", "--debug", "true"],
-            "cwd": "${workspaceFolder}",
+            "args": [
+                "--config",
+                "config.json",
+                "--host",
+                "sqs-dev",
+                "--debug",
+                "true"
+            ],
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "router/usecase",
@@ -25,7 +29,7 @@
                 "-test.run",
                 "TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes",
                 "-test.v"
-            ],
+            ]
         },
         {
             "name": "ingest/usecase",
@@ -39,7 +43,7 @@
                 "-test.run",
                 "TestIngestUseCaseTestSuite/TestUpdateUniqueDenomData",
                 "-test.v"
-            ],
+            ]
         },
         {
             "name": "tokens/usecase",
@@ -53,7 +57,7 @@
                 "-test.run",
                 "TestTokensUseCaseTestSuite/TestPoolDenomMetadata",
                 "-test.v"
-            ],
+            ]
         },
         {
             "name": "tokens/usecase/pricing/worker",
@@ -67,7 +71,20 @@
                 "-test.run",
                 "TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens",
                 "-test.v"
-            ],
+            ]
         },
+        {
+            "name": "SQS E2E",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "-v",
+                "tests"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "${workspaceFolder}/tests/venv/bin/python3"
+        }
     ]
 }
