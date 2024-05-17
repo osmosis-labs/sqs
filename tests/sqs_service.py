@@ -99,7 +99,3 @@ class SQSService:
                 self.asset_list[asset[coin_minimal_denom_key]] = asset.get(coingecko_id_key, None)
             
         return self.asset_list.get(denom, None) 
-
-    
-
-    
