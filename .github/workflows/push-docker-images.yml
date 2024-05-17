@@ -53,3 +53,10 @@ jobs:
               ${{ env.DOCKER_REPOSITORY }}:${{ env.MAJOR_VERSION }}
               ${{ env.DOCKER_REPOSITORY }}:${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}
               ${{ env.DOCKER_REPOSITORY }}:${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}
+          labels: |
+              repository_full_name=${{ github.repository }}
+              repository_docker=${{ env.DOCKER_REPOSITORY }}
+              ref_name=${{ github.ref_name }}
+              commit_sha=${{ env.GITHUB_SHA }} 
+              tag=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}
+              build_date=${{ env.BUILD_DATE }}

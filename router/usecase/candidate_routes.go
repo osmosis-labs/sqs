@@ -16,6 +16,13 @@ type candidatePoolWrapper struct {
 }
 
 // GetCandidateRoutes returns candidate routes from tokenInDenom to tokenOutDenom using BFS.
+// TODO: Build a better algorithm for finding routes.
+// Right now we iterate over the etnire sorted list to try building routes. But most of the work is wasted
+// in every iteration, as we have to think about pools that won't relate to the needed asset.
+// instead we should have in router:
+// * sortedPoolsByDenom map[string][]sqsdomain.PoolI. Where the return value is all pools that contain the denom, sorted.
+//   - Right now we have linear time iteration per route rather than N^2 by making every route get created in sorted order.
+//   - We can do similar here by actually making the value of the hashmap be a []struct{global sort index, sqsdomain pool}
 func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
 	routes := make([][]candidatePoolWrapper, 0, maxRoutes)
 	// Preallocate third to avoid dynamic reallocations.
