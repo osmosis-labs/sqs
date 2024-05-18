@@ -105,7 +105,7 @@ type PricingConfig struct {
 
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
 	MaxRoutes        int `mapstructure:"max-routes"`
-	// MinPoolLiquidityCapFilter is the minimum liquidity required for a pool to be considered in the router.
+	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.
 	MinPoolLiquidityCap int `mapstructure:"min-pool-liquidity-cap"`
 }
 
