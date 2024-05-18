@@ -17,10 +17,10 @@ type PoolDenomMetaData struct {
 	// TotalLiquidity represents the total liquidity across all pools.
 	// @Type string
 	TotalLiquidity osmomath.Int `json:"total_liquidity"`
-	// TotalLiquidityUSDC represents the total liquidity in USDC across all pools.
+	// TotalLiquidityCap represents the total liquidity capitalization across all pools.
 	// If it is set to zero, that there was a failure in fetching the price.
 	// @Type string
-	TotalLiquidityUSDC osmomath.Int `json:"total_liquidity_usdc"`
+	TotalLiquidityCap osmomath.Int `json:"total_liquidity_cap"`
 }
 
 type DenomLiquidityMap map[string]DenomLiquidityData

@@ -162,10 +162,3 @@ type PoolLiquidityComputeListener interface {
 // from the /tokens/prices endpoint. Be mindful of changing it without
 // separating the API response for backward compatibility.
 type PricesResult map[string]map[string]osmomath.BigDec
-
-// PoolDenomMetaDataMap defines the map of pool denom metadata.
-// [chain denom] => pool denom metadata
-// Note: BREAKING API - this is an API breaking type as it is serialized as an output
-// of tokens/pool-metadata. Be mindful of changing it without
-// separating the API response for backward compatibility.
-type PoolDenomMetaDataMap map[string]PoolDenomMetaData

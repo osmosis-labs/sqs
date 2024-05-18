@@ -53,20 +53,14 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 
 		blockPoolDenomMetaData, ok := blockPoolMetadata.DenomLiquidityMap[updatedBlockDenom]
 		if !ok {
-			// If no denom liquidity metadata available, set the total liquidity to zero.
-			tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
-				TotalLiquidity:     osmomath.ZeroInt(),
-				TotalLiquidityUSDC: osmomath.ZeroInt(),
-			}
+			// If no denom liquidity metadata available, set the total liquidity & its capitalization to zero.
+			tokensMetadata.Set(updatedBlockDenom, osmomath.ZeroInt(), osmomath.ZeroInt())
 		}
 
 		quotePrices, ok := baseDenomPriceUpdates[updatedBlockDenom]
 		if !ok {
-			// If no price is available, set the total liquidity to zero.
-			tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
-				TotalLiquidity:     blockPoolDenomMetaData.TotalLiquidity,
-				TotalLiquidityUSDC: osmomath.ZeroInt(),
-			}
+			// If no price is available, keep the total liquidity but set the capitalization to zero.
+			tokensMetadata.Set(updatedBlockDenom, blockPoolDenomMetaData.TotalLiquidity, osmomath.ZeroInt())
 		} else {
 			currentBaseScalingFactor, err := p.tokensUseCase.GetChainScalingFactorByDenomMut(updatedBlockDenom)
 			if err != nil {
@@ -75,11 +69,8 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 
 			currentPrice, ok := quotePrices[quoteDenom]
 			if !ok {
-				// If no price is available, set the total USDC liquidity to zero.
-				tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
-					TotalLiquidity:     blockPoolDenomMetaData.TotalLiquidity,
-					TotalLiquidityUSDC: osmomath.ZeroInt(),
-				}
+				// If no price is available, keep the total liquidity but set the capitalization to zero.
+				tokensMetadata.Set(updatedBlockDenom, blockPoolDenomMetaData.TotalLiquidity, osmomath.ZeroInt())
 			}
 
 			currentPriceInfo := domain.DenomPriceInfo{
@@ -87,19 +78,13 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 				ScalingFactor: currentBaseScalingFactor,
 			}
 
-			usdcLiquidityValue, err := p.liquidityPricer.ComputeCoinCap(sdk.NewCoin(updatedBlockDenom, blockPoolDenomMetaData.TotalLiquidity), currentPriceInfo)
+			liquidityCapitalization, err := p.liquidityPricer.ComputeCoinCap(sdk.NewCoin(updatedBlockDenom, blockPoolDenomMetaData.TotalLiquidity), currentPriceInfo)
 			if err != nil {
-				// If there is an error, set the total liquidity to zero.
-				tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
-					TotalLiquidity:     blockPoolDenomMetaData.TotalLiquidity,
-					TotalLiquidityUSDC: osmomath.ZeroInt(),
-				}
+				// If there is an error, keep the total liquidity but set the capitalization to zero.
+				tokensMetadata.Set(updatedBlockDenom, blockPoolDenomMetaData.TotalLiquidity, osmomath.ZeroInt())
 			} else {
-				// Set the total liquidity in USDC.
-				tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
-					TotalLiquidity:     blockPoolDenomMetaData.TotalLiquidity,
-					TotalLiquidityUSDC: usdcLiquidityValue.TruncateInt(),
-				}
+				// Set the computed liquidity liquidity capitalization.
+				tokensMetadata.Set(updatedBlockDenom, blockPoolDenomMetaData.TotalLiquidity, liquidityCapitalization.TruncateInt())
 			}
 		}
 
