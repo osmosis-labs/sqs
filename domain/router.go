@@ -117,8 +117,8 @@ var DefaultRouterOptions = RouterOptions{}
 // RouterOption configures the router options.
 type RouterOption func(*RouterOptions)
 
-// WithMinOSMOLiquidity configures the router options with the min OSMO liquidity.
-func WithMinOSMOLiquidity(minOSMOLiquidity int) RouterOption {
+// WithMinLiquidityCap configures the router options with the min liquidity capitalization.
+func WithMinLiquidityCap(minOSMOLiquidity int) RouterOption {
 	return func(o *RouterOptions) {
 		o.MinOSMOLiquidity = minOSMOLiquidity
 	}

@@ -180,7 +180,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		domain.WithMaxPoolsPerRoute(c.maxPoolsPerRoute),
 		// Use the provided min liquidity value rather than the default
 		// Since it can be overridden by options in GetPrice(...)
-		domain.WithMinOSMOLiquidity(minLiquidity),
+		domain.WithMinLiquidityCap(minLiquidity),
 		domain.WithDisableSplitRoutes(),
 	}
 

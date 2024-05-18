@@ -440,3 +440,7 @@ func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
 	metaData, ok := t.tokenMetadataByChainDenom[chainDenom]
 	return ok && !metaData.IsUnlisted
 }
+
+func (r *tokensUseCase) ComputeDynamicMinLiquidityFilter(denomA, denomB string) (int, error) {
+	return 0, nil
+}

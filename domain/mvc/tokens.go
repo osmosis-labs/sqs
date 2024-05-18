@@ -39,6 +39,8 @@ type TokensUsecase interface {
 	// The result of the inner map is prices of the outer base and inner quote.
 	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
 
+	ComputeDynamicMinLiquidityFilter(denomA, denomB string) (int, error)
+
 	// UpdatePoolDenomMetadata updates the pool denom metadata, completely overwriting any previous
 	// denom results stored internally, if any. The denoms metadata that is present internally
 	// but not in the provided map will be left unchanged.

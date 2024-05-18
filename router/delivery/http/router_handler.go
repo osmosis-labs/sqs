@@ -64,22 +64,19 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 
-	isSingleRouteStr := c.QueryParam("singleRoute")
-	isSingleRoute := false
-	if isSingleRouteStr != "" {
-		isSingleRoute, err = strconv.ParseBool(isSingleRouteStr)
-		if err != nil {
-			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-		}
+	isSingleRoute, err := domain.ParseBooleanQueryParam(c, "singleRoute")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	shouldApplyExponentsStr := c.QueryParam("applyExponents")
-	shouldApplyExponents := false
-	if shouldApplyExponentsStr != "" {
-		shouldApplyExponents, err = strconv.ParseBool(shouldApplyExponentsStr)
-		if err != nil {
-			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-		}
+	shouldApplyExponents, err := domain.ParseBooleanQueryParam(c, "applyExponents")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	disableMinLiquidityFallback, err := domain.ParseBooleanQueryParam(c, "disableMinLiquidityFallback")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
@@ -96,12 +93,22 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	tokenIn.Denom = chainDenoms[0]
 	tokenOutDenom = chainDenoms[1]
 
-	var quote domain.Quote
-	if isSingleRoute {
-		quote, err = a.RUsecase.GetBestSingleRouteQuote(ctx, tokenIn, tokenOutDenom)
-	} else {
-		quote, err = a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom)
+	// Get the min liquidity cap filter for the given tokenIn and tokenOutDenom.
+	minLiquidityFilter, err := a.getMinLiquidityCapFilter(tokenIn.Denom, tokenOutDenom, disableMinLiquidityFallback)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
+
+	routerOpts := []domain.RouterOption{
+		domain.WithMinLiquidityCap(minLiquidityFilter),
+	}
+
+	// Disable split routes if singleRoute is true
+	if isSingleRoute {
+		routerOpts = append(routerOpts, domain.WithMaxSplitRoutes(domain.DisableSplitRoutes))
+	}
+
+	quote, err := a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, routerOpts...)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -117,6 +124,22 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	}
 
 	return c.JSON(http.StatusOK, quote)
+}
+
+// getMinLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
+// If disableMinLiquidityFallback is true, it returns an error if the min liquidity cap cannot be computed.
+// If disableMinLiquidityFallback is false, it returns the default config value as fallback.
+// Returns the min liquidity cap filter and an error if any.
+func (a *RouterHandler) getMinLiquidityCapFilter(tokenInDenom, tokenOutDenom string, disableMinLiquidityFallback bool) (int, error) {
+	minLiquidityFilter, err := a.TUsecase.ComputeDynamicMinLiquidityFilter(tokenInDenom, tokenOutDenom)
+	if err != nil && disableMinLiquidityFallback {
+		// If fallback is disabled, error
+		return 0, err
+	} else if err != nil {
+		// If fallback is enabled, get defaiult config value as fallback
+		minLiquidityFilter = a.RUsecase.GetConfig().MinOSMOLiquidity
+	}
+	return minLiquidityFilter, nil
 }
 
 // GetDirectCustomQuote returns a direct custom quote. It does not search for the route.
