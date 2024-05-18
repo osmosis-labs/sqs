@@ -70,7 +70,7 @@ type RouterConfig struct {
 	MaxRoutes          int      `mapstructure:"max-routes"`
 	MaxSplitRoutes     int      `mapstructure:"max-split-routes"`
 	MaxSplitIterations int      `mapstructure:"max-split-iterations"`
-	// MinPoolLiquidityCap is the minimum liquidity required for a pool to be considered in the route.
+	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the route.
 	MinPoolLiquidityCap       int  `mapstructure:"min-pool-liquidity-cap"`
 	RouteUpdateHeightInterval int  `mapstructure:"route-update-height-interval"`
 	RouteCacheEnabled         bool `mapstructure:"route-cache-enabled"`
