@@ -91,7 +91,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		tokenInDenom  = "uosmo"
 		tokenOutDenom = "uion"
 
-		minOsmoLiquidity = 100
+		minPoolLiquidityCap = 100
 	)
 
 	// Create test balancer pool
@@ -108,7 +108,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	defaultPool := &sqsdomain.PoolWrapper{
 		ChainModel: balancerPool,
 		SQSModel: sqsdomain.SQSPool{
-			TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity*OsmoPrecisionMultiplier + 1)),
+			TotalValueLockedUSDC: osmomath.NewInt(int64(minPoolLiquidityCap*OsmoPrecisionMultiplier + 1)),
 			PoolDenoms:           []string{tokenInDenom, tokenOutDenom},
 			Balances:             balancerCoins,
 			SpreadFactor:         DefaultSpreadFactor,
@@ -148,7 +148,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			// These configs are not relevant for this test.
 			PreferredPoolIDs:          []uint64{},
 			MaxSplitIterations:        10,
-			MinOSMOLiquidity:          minOsmoLiquidity,
+			MinPoolLiquidityCap:       minPoolLiquidityCap,
 			RouteUpdateHeightInterval: 10,
 		}
 	)
@@ -248,7 +248,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			sortedPools := usecase.ValidateAndSortPools(tc.repositoryPools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
 
 			// Filter pools by min liquidity
-			sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, minOsmoLiquidity)
+			sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
@@ -668,9 +668,9 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	fmt.Println("Tokens with no routes even when min osmo liquidity is set to zero:")
 
 	zeroPriceCounterNoMinLiq := 0
-	// Now set min osmo liquidity to zero to identify which tokens are missing prices even when we
+	// Now set min liquidity capitalization to zero to identify which tokens are missing prices even when we
 	// don't have liquidity filtering.
-	config.Router.MinOSMOLiquidity = 0
+	config.Router.MinPoolLiquidityCap = 0
 	// Set up mainnet mock state.
 	mainnetState = s.SetupMainnetState()
 	mainnetUsecase = s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing))
@@ -762,7 +762,7 @@ func (s *RouterTestSuite) TestSortPools() {
 	sortedPools := usecase.ValidateAndSortPools(pools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
 
 	// Filter pools by min liquidity
-	sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, defaultRouterConfig.MinOSMOLiquidity)
+	sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, defaultRouterConfig.MinPoolLiquidityCap)
 
 	s.Require().GreaterOrEqual(len(sortedPools), expectedMinNumPools)
 

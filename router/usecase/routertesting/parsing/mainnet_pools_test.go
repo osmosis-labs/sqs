@@ -21,8 +21,8 @@ import (
 const testFileName = "pools.json"
 
 var (
-	zeroMinOSMOTVL                    = osmomath.ZeroInt()
-	testPoolToMarshal sqsdomain.PoolI = &mocks.MockRoutablePool{
+	zeroMinPoolLiquidityCap                 = osmomath.ZeroInt()
+	testPoolToMarshal       sqsdomain.PoolI = &mocks.MockRoutablePool{
 		ChainPoolModel: &concentratedmodel.Pool{
 			Id:                   1,
 			Token0:               routertesting.Denom0,
@@ -65,7 +65,7 @@ func TestReadPoolsFileFromState(t *testing.T) {
 	require.Greater(t, len(pools), 500)
 
 	for _, pool := range pools {
-		err := pool.Validate(zeroMinOSMOTVL)
+		err := pool.Validate(zeroMinPoolLiquidityCap)
 		if err != nil {
 			t.Logf("pool %d failed validation: %s", pool.GetId(), err)
 		}
@@ -95,7 +95,7 @@ func TestStoreFilesAndReadBack(t *testing.T) {
 
 	require.Equal(t, 1, len(pools))
 	for _, pool := range pools {
-		require.NoError(t, pool.Validate(zeroMinOSMOTVL))
+		require.NoError(t, pool.Validate(zeroMinPoolLiquidityCap))
 	}
 }
 

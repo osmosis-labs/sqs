@@ -103,9 +103,9 @@ func (s *RouterTestSuite) TestRouterSorting() {
 
 	var (
 		// Inputs
-		minOsmoLiquidity = 2
-		logger, _        = log.NewLogger(false, "", "")
-		defaultAllPools  = []sqsdomain.PoolI{
+		minPoolLiquidityCap = 2
+		logger, _           = log.NewLogger(false, "", "")
+		defaultAllPools     = []sqsdomain.PoolI{
 			&sqsdomain.PoolWrapper{
 				ChainModel: balancerPool,
 				SQSModel: sqsdomain.SQSPool{
@@ -116,7 +116,7 @@ func (s *RouterTestSuite) TestRouterSorting() {
 			&sqsdomain.PoolWrapper{
 				ChainModel: stableswapPool,
 				SQSModel: sqsdomain.SQSPool{
-					TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity) - 1), // 1
+					TotalValueLockedUSDC: osmomath.NewInt(int64(minPoolLiquidityCap) - 1), // 1
 					PoolDenoms:           defaultDenoms,
 				},
 			},

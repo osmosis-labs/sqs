@@ -25,7 +25,7 @@ var DefaultConfig = domain.Config{
 		MaxRoutes:                        5,
 		MaxSplitRoutes:                   3,
 		MaxSplitIterations:               10,
-		MinOSMOLiquidity:                 100, // 100 OSMO
+		MinPoolLiquidityCap:              100,
 		RouteCacheEnabled:                false,
 		CandidateRouteCacheExpirySeconds: 600, // 10 minutes
 		RankedRouteCacheExpirySeconds:    300, // 5 minutes
@@ -43,8 +43,8 @@ var DefaultConfig = domain.Config{
 		CacheExpiryMs:          2000, // 2 seconds.
 		DefaultQuoteHumanDenom: "usdc",
 
-		MaxPoolsPerRoute: 4,
-		MaxRoutes:        5,
-		MinOSMOLiquidity: 50,
+		MaxPoolsPerRoute:    4,
+		MaxRoutes:           5,
+		MinPoolLiquidityCap: 50,
 	},
 }

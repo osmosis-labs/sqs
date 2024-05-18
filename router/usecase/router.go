@@ -27,8 +27,8 @@ const (
 )
 
 // filterPoolsByMinLiquidity filters the given pools by the minimum liquidity.
-func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minLiquidity int) []sqsdomain.PoolI {
-	minLiquidityInt := osmomath.NewInt(int64(minLiquidity))
+func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minPoolLiquidityCap int) []sqsdomain.PoolI {
+	minLiquidityInt := osmomath.NewInt(int64(minPoolLiquidityCap))
 	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
 	for _, pool := range pools {
 		if pool.GetTotalValueLockedUSDC().GTE(minLiquidityInt) {
