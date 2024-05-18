@@ -51,8 +51,8 @@ type TickModel struct {
 }
 
 type SQSPool struct {
-	PoolLiquidityCap      osmomath.Int `json:"total_value_locked_uosmo"`
-	TotalValueLockedError string       `json:"total_value_locked_error,omitempty"`
+	PoolLiquidityCap      osmomath.Int `json:"pool_liquidity_cap"`
+	PoolLiquidityCapError string       `json:"pool_liquidity_cap_error,omitempty"`
 	// Only CL and Cosmwasm pools need balances appended
 	Balances     sdk.Coins    `json:"balances"`
 	PoolDenoms   []string     `json:"pool_denoms"`
@@ -133,7 +133,7 @@ func (p *PoolWrapper) SetTickModel(tickModel *TickModel) error {
 	return nil
 }
 
-func (p *PoolWrapper) Validate(minUOSMOTVL osmomath.Int) error {
+func (p *PoolWrapper) Validate(minPoolLiquidityCapitalization osmomath.Int) error {
 	sqsModel := p.GetSQSPoolModel()
 	poolDenoms := p.GetPoolDenoms()
 
@@ -143,11 +143,11 @@ func (p *PoolWrapper) Validate(minUOSMOTVL osmomath.Int) error {
 
 	// Note that balances are allowed to be zero because zero coins are filtered out.
 
-	// Validate TVL
-	// If there is no TVL error set and the TVL is zero, return an error. This implies
+	// Validate pool liquidity capitalization.
+	// If there is no pool liquidity capitalization error set and the pool liquidity capitalization is zero, return an error. This implies
 	// That pool has no liqudiity.
-	if p.SQSModel.TotalValueLockedError == "" && sqsModel.PoolLiquidityCap.IsZero() {
-		return fmt.Errorf("pool (%d) has no liquidity, minimum tvl (%s)", p.GetId(), minUOSMOTVL)
+	if p.SQSModel.PoolLiquidityCapError == "" && sqsModel.PoolLiquidityCap.IsZero() {
+		return fmt.Errorf("pool (%d) has no liquidity, minimum pool liquidity capitalization (%s)", p.GetId(), minPoolLiquidityCapitalization)
 	}
 
 	return nil

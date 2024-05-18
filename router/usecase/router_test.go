@@ -24,7 +24,7 @@ func TestRouterTestSuite(t *testing.T) {
 }
 
 const (
-	dummyTotalValueLockedErrorStr = "total value locked error string"
+	dummyPoolLiquidityCapErrorStr = "pool liquidity cap error string"
 
 	// OSMO token precision
 	OsmoPrecisionMultiplier = 1000000
@@ -154,7 +154,7 @@ func (s *RouterTestSuite) TestRouterSorting() {
 				SQSModel: sqsdomain.SQSPool{
 					PoolLiquidityCap:      osmomath.NewInt(10 * OsmoPrecisionMultiplier), // 10
 					PoolDenoms:            defaultDenoms,
-					TotalValueLockedError: dummyTotalValueLockedErrorStr,
+					PoolLiquidityCapError: dummyPoolLiquidityCapErrorStr,
 				},
 			},
 			&sqsdomain.PoolWrapper{
@@ -162,7 +162,7 @@ func (s *RouterTestSuite) TestRouterSorting() {
 				SQSModel: sqsdomain.SQSPool{
 					PoolLiquidityCap:      osmomath.NewInt(11 * OsmoPrecisionMultiplier), // 11
 					PoolDenoms:            defaultDenoms,
-					TotalValueLockedError: dummyTotalValueLockedErrorStr,
+					PoolLiquidityCapError: dummyPoolLiquidityCapErrorStr,
 				},
 			},
 		}

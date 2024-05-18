@@ -23,7 +23,7 @@ type ratedPool struct {
 const (
 	// Pool ordering constants below:
 
-	noTotalValueLockedError = ""
+	noPoolLiquidityCapError = ""
 )
 
 // filterPoolsByMinLiquidity filters the given pools by the minimum liquidity
@@ -115,7 +115,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 
 		// rating += 1/ 100 of TVL of asset across all pools
 		// (Ignoring any pool with an error in TVL)
-		if pool.GetSQSPoolModel().TotalValueLockedError == noTotalValueLockedError {
+		if pool.GetSQSPoolModel().PoolLiquidityCapError == noPoolLiquidityCapError {
 			rating += totalTVLFloat / 100
 		}
 
@@ -161,7 +161,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 		pool := ratedPool.pool
 
 		sqsModel := pool.GetSQSPoolModel()
-		logger.Debug("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Float64("rate", ratedPool.rating), zap.Stringer("tvl", sqsModel.PoolLiquidityCap), zap.String("tvl_error", sqsModel.TotalValueLockedError))
+		logger.Debug("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Float64("rate", ratedPool.rating), zap.Stringer("pool_liquidity_cap", sqsModel.PoolLiquidityCap), zap.String("pool_liquidity_cap_error", sqsModel.PoolLiquidityCapError))
 		pools[i] = ratedPool.pool
 	}
 	return pools
