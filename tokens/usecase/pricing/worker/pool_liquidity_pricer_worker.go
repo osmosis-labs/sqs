@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -43,75 +42,86 @@ func NewPoolLiquidityWorker(tokensUseCase mvc.TokensUsecase, poolsUseCase mvc.Po
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
 func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) error {
-	// Compute the scaling factors for the base denoms.
-	baseDenomPriceData := make(map[string]domain.DenomPriceInfo, len(baseDenomPriceUpdates))
-	for baseDenom, quotesPrices := range baseDenomPriceUpdates {
-		price, ok := quotesPrices[quoteDenom]
-		if !ok {
-			return fmt.Errorf("no price update for %s when computing pool TVL", quoteDenom)
-		}
-
-		baseScalingFactor, err := p.tokensUseCase.GetChainScalingFactorByDenomMut(baseDenom)
-		if err != nil {
-			return err
-		}
-
-		baseDenomPriceData[baseDenom] = domain.DenomPriceInfo{
-			Price:         price,
-			ScalingFactor: baseScalingFactor,
-		}
-	}
-
 	tokensMetadata := make(map[string]domain.PoolDenomMetaData, len(blockPoolMetadata.UpdatedDenoms))
 
 	// Iterate over the denoms updated within the block
-	for denom := range blockPoolMetadata.UpdatedDenoms {
-		latestHeightForDenomObj, ok := p.latestHeightForDenom.Load(denom)
-		if ok {
-			// Skip if the height is not the latest.
-			latestHeightForDenom, ok := latestHeightForDenomObj.(int64)
-			if !ok || height < latestHeightForDenom {
-				continue
-			}
+	for updatedBlockDenom := range blockPoolMetadata.UpdatedDenoms {
+		// Skip if the denom has a later update than the current height.
+		if p.hasLaterUpdateThanCurrent(updatedBlockDenom, uint64(height)) {
+			continue
 		}
 
-		poolDenomMetaData, ok := blockPoolMetadata.DenomLiquidityMap[denom]
+		blockPoolDenomMetaData, ok := blockPoolMetadata.DenomLiquidityMap[updatedBlockDenom]
 		if !ok {
 			// If no denom liquidity metadata available, set the total liquidity to zero.
-			tokensMetadata[denom] = domain.PoolDenomMetaData{
+			tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
 				TotalLiquidity:     osmomath.ZeroInt(),
 				TotalLiquidityUSDC: osmomath.ZeroInt(),
 			}
 		}
 
-		price, ok := baseDenomPriceData[denom]
+		quotePrices, ok := baseDenomPriceUpdates[updatedBlockDenom]
 		if !ok {
 			// If no price is available, set the total liquidity to zero.
-			tokensMetadata[denom] = domain.PoolDenomMetaData{
-				TotalLiquidity:     poolDenomMetaData.TotalLiquidity,
+			tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
+				TotalLiquidity:     blockPoolDenomMetaData.TotalLiquidity,
 				TotalLiquidityUSDC: osmomath.ZeroInt(),
 			}
 		} else {
-			usdcLiquidityValue, err := p.liquidityPricer.ComputeCoinCap(sdk.NewCoin(denom, poolDenomMetaData.TotalLiquidity), price)
+			currentBaseScalingFactor, err := p.tokensUseCase.GetChainScalingFactorByDenomMut(updatedBlockDenom)
+			if err != nil {
+				return err
+			}
+
+			currentPrice, ok := quotePrices[quoteDenom]
+			if !ok {
+				// If no price is available, set the total USDC liquidity to zero.
+				tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
+					TotalLiquidity:     blockPoolDenomMetaData.TotalLiquidity,
+					TotalLiquidityUSDC: osmomath.ZeroInt(),
+				}
+			}
+
+			currentPriceInfo := domain.DenomPriceInfo{
+				Price:         currentPrice,
+				ScalingFactor: currentBaseScalingFactor,
+			}
+
+			usdcLiquidityValue, err := p.liquidityPricer.ComputeCoinCap(sdk.NewCoin(updatedBlockDenom, blockPoolDenomMetaData.TotalLiquidity), currentPriceInfo)
 			if err != nil {
 				// If there is an error, set the total liquidity to zero.
-				tokensMetadata[denom] = domain.PoolDenomMetaData{
-					TotalLiquidity:     poolDenomMetaData.TotalLiquidity,
+				tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
+					TotalLiquidity:     blockPoolDenomMetaData.TotalLiquidity,
 					TotalLiquidityUSDC: osmomath.ZeroInt(),
 				}
 			} else {
 				// Set the total liquidity in USDC.
-				tokensMetadata[denom] = domain.PoolDenomMetaData{
-					TotalLiquidity:     poolDenomMetaData.TotalLiquidity,
+				tokensMetadata[updatedBlockDenom] = domain.PoolDenomMetaData{
+					TotalLiquidity:     blockPoolDenomMetaData.TotalLiquidity,
 					TotalLiquidityUSDC: usdcLiquidityValue.TruncateInt(),
 				}
 			}
 		}
 
-		p.latestHeightForDenom.Store(denom, height)
+		p.latestHeightForDenom.Store(updatedBlockDenom, height)
 	}
 
 	p.tokensUseCase.UpdatePoolDenomMetadata(tokensMetadata)
 
 	return nil
+}
+
+// hasLaterUpdateThanCurrent checks if the given denom has a later update than the current height.
+// Returns true if the denom has a later update than the current height.
+// False otherwise.
+// TODO: test
+func (p *poolLiquidityPricerWorker) hasLaterUpdateThanCurrent(denom string, currentHeight uint64) bool {
+	latestHeightForDenomObj, ok := p.latestHeightForDenom.Load(denom)
+
+	if ok {
+		latestHeightForDenom, ok := latestHeightForDenomObj.(int64)
+		return ok && int64(currentHeight) < latestHeightForDenom
+	}
+
+	return false
 }
