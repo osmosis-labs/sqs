@@ -40,7 +40,7 @@ func (p *pricingWorker) UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData
 }
 
 func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
-	baseDenoms := keysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
+	baseDenoms := keysFromMap(uniqueBlockPoolMetaData.DenomLiquidityMap)
 
 	ctx, cancel := context.WithTimeout(context.Background(), priceUpdateTimeout)
 	start := time.Now()

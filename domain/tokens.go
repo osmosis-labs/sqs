@@ -21,11 +21,17 @@ type PoolDenomMetaData struct {
 	// If it is set to zero, that there was a failure in fetching the price.
 	// @Type string
 	TotalLiquidityCap osmomath.Int `json:"total_liquidity_cap"`
+	// Price represents the price of the token.
+	// @Type string
+	Price osmomath.BigDec `json:"price"`
 }
 
+// DenomLiquidityMap is a map from denom to liquidity data
 type DenomLiquidityMap map[string]DenomLiquidityData
 
 // DenomLiquidityData contains the liquidity data for a denom
+// It has the total liquidity for the denom as well as all the
+// pools with their individual contributions to the total.
 type DenomLiquidityData struct {
 	// Total liquidity for this denom
 	TotalLiquidity osmomath.Int

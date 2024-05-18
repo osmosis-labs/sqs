@@ -13,7 +13,9 @@ type CosmWasmPoolRouterConfig struct {
 // BlockPoolMetadata contains the metadata about unique pools
 // and denoms modified in a block.
 type BlockPoolMetadata struct {
-	UpdatedDenoms     map[string]struct{}
+	// DenomLiquidityMap is a map of denoms to their liquidity.
+	// These are constructed from the pool IDs updated within a block.
 	DenomLiquidityMap DenomLiquidityMap
-	PoolIDs           map[uint64]struct{}
+	// PoolIDs are the IDs of all pools updated within a block.
+	PoolIDs map[uint64]struct{}
 }

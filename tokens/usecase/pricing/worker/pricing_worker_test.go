@@ -71,7 +71,7 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 		{
 			name: "several base denoms",
 			baseDenoms: domain.BlockPoolMetadata{
-				UpdatedDenoms: map[string]struct{}{
+				DenomLiquidityMap: domain.DenomLiquidityMap{
 					UOSMO: {},
 					ATOM:  {},
 					USDC:  {},
@@ -81,7 +81,7 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 		{
 			name: "several base denoms with a queued base denom",
 			baseDenoms: domain.BlockPoolMetadata{
-				UpdatedDenoms: map[string]struct{}{
+				DenomLiquidityMap: domain.DenomLiquidityMap{
 					UOSMO: {},
 					USDC:  {},
 				},
@@ -120,10 +120,10 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 			s.Require().False(didTimeout)
 
 			// Ensure that the correct number of base denoms are set
-			s.Require().Equal(len(tc.baseDenoms.UpdatedDenoms), len(mockPricingUpdateListener.PricesBaseQuteDenomMap))
+			s.Require().Equal(len(tc.baseDenoms.DenomLiquidityMap), len(mockPricingUpdateListener.PricesBaseQuteDenomMap))
 
 			// Ensure that non-zero prices are set for each base denom
-			s.ValidatePrices(tc.baseDenoms.UpdatedDenoms, defaultQuoteDenom, mockPricingUpdateListener.PricesBaseQuteDenomMap)
+			s.ValidatePrices(tc.baseDenoms.DenomLiquidityMap, defaultQuoteDenom, mockPricingUpdateListener.PricesBaseQuteDenomMap)
 		})
 	}
 }
@@ -166,10 +166,10 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 
 	// Populate base denoms with all possible chain denoms
 	baseDenoms := domain.BlockPoolMetadata{
-		UpdatedDenoms: map[string]struct{}{},
+		DenomLiquidityMap: domain.DenomLiquidityMap{},
 	}
 	for chainDenom := range tokenMetadata {
-		baseDenoms.UpdatedDenoms[chainDenom] = struct{}{}
+		baseDenoms.DenomLiquidityMap[chainDenom] = domain.DenomLiquidityData{}
 	}
 
 	// Test for empty base denoms
@@ -221,7 +221,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().Equal(25, zeroPriceCounter)
 }
 
-func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {
+func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms domain.DenomLiquidityMap, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {
 	for baseDenom := range initialDenoms {
 		quoteMap, ok := prices[baseDenom]
 		s.Require().True(ok)
