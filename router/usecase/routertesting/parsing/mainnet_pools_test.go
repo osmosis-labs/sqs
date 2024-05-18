@@ -34,11 +34,11 @@ var (
 			SpreadFactor:         routertesting.DefaultSpreadFactor,
 			CurrentSqrtPrice:     osmomath.OneBigDec(),
 		},
-		TotalValueLockedUSDC: osmomath.OneInt(),
-		Balances:             routertesting.DefaultPoolBalances,
-		Denoms:               []string{routertesting.Denom0, routertesting.Denom1},
-		SpreadFactor:         routertesting.DefaultSpreadFactor,
-		PoolType:             poolmanagertypes.Concentrated,
+		PoolLiquidityCap: osmomath.OneInt(),
+		Balances:         routertesting.DefaultPoolBalances,
+		Denoms:           []string{routertesting.Denom0, routertesting.Denom1},
+		SpreadFactor:     routertesting.DefaultSpreadFactor,
+		PoolType:         poolmanagertypes.Concentrated,
 	}
 
 	defaultTickModel = sqsdomain.TickModel{

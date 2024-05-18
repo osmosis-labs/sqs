@@ -18,7 +18,7 @@ type PoolI interface {
 	// GetType returns the type of the pool (Balancer, Stableswap, Concentrated, etc.)
 	GetType() poolmanagertypes.PoolType
 
-	GetTotalValueLockedUSDC() osmomath.Int
+	GetPoolLiquidityCap() osmomath.Int
 
 	GetPoolDenoms() []string
 
@@ -51,7 +51,7 @@ type TickModel struct {
 }
 
 type SQSPool struct {
-	TotalValueLockedUSDC  osmomath.Int `json:"total_value_locked_uosmo"`
+	PoolLiquidityCap      osmomath.Int `json:"total_value_locked_uosmo"`
 	TotalValueLockedError string       `json:"total_value_locked_error,omitempty"`
 	// Only CL and Cosmwasm pools need balances appended
 	Balances     sdk.Coins    `json:"balances"`
@@ -87,9 +87,9 @@ func (p *PoolWrapper) GetType() poolmanagertypes.PoolType {
 	return p.ChainModel.GetType()
 }
 
-// GetTotalValueLockedUSDC implements PoolI.
-func (p *PoolWrapper) GetTotalValueLockedUSDC() osmomath.Int {
-	return p.SQSModel.TotalValueLockedUSDC
+// GetPoolLiquidityCap implements PoolI.
+func (p *PoolWrapper) GetPoolLiquidityCap() osmomath.Int {
+	return p.SQSModel.PoolLiquidityCap
 }
 
 // GetPoolDenoms implements PoolI.
@@ -146,7 +146,7 @@ func (p *PoolWrapper) Validate(minUOSMOTVL osmomath.Int) error {
 	// Validate TVL
 	// If there is no TVL error set and the TVL is zero, return an error. This implies
 	// That pool has no liqudiity.
-	if p.SQSModel.TotalValueLockedError == "" && sqsModel.TotalValueLockedUSDC.IsZero() {
+	if p.SQSModel.TotalValueLockedError == "" && sqsModel.PoolLiquidityCap.IsZero() {
 		return fmt.Errorf("pool (%d) has no liquidity, minimum tvl (%s)", p.GetId(), minUOSMOTVL)
 	}
 

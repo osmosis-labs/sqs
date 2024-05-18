@@ -108,10 +108,10 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	defaultPool := &sqsdomain.PoolWrapper{
 		ChainModel: balancerPool,
 		SQSModel: sqsdomain.SQSPool{
-			TotalValueLockedUSDC: osmomath.NewInt(int64(minPoolLiquidityCap*OsmoPrecisionMultiplier + 1)),
-			PoolDenoms:           []string{tokenInDenom, tokenOutDenom},
-			Balances:             balancerCoins,
-			SpreadFactor:         DefaultSpreadFactor,
+			PoolLiquidityCap: osmomath.NewInt(int64(minPoolLiquidityCap*OsmoPrecisionMultiplier + 1)),
+			PoolDenoms:       []string{tokenInDenom, tokenOutDenom},
+			Balances:         balancerCoins,
+			SpreadFactor:     DefaultSpreadFactor,
 		},
 	}
 

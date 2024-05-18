@@ -89,13 +89,13 @@ var (
 	DefaultSpreadFactor = osmomath.MustNewDecFromStr("0.005")
 
 	DefaultPool = &mocks.MockRoutablePool{
-		ID:                   DefaultPoolID,
-		Denoms:               []string{DenomOne, DenomTwo},
-		TotalValueLockedUSDC: osmomath.NewInt(10),
-		PoolType:             poolmanagertypes.Balancer,
-		Balances:             DefaultPoolBalances,
-		TakerFee:             DefaultTakerFee,
-		SpreadFactor:         DefaultSpreadFactor,
+		ID:               DefaultPoolID,
+		Denoms:           []string{DenomOne, DenomTwo},
+		PoolLiquidityCap: osmomath.NewInt(10),
+		PoolType:         poolmanagertypes.Balancer,
+		Balances:         DefaultPoolBalances,
+		TakerFee:         DefaultTakerFee,
+		SpreadFactor:     DefaultSpreadFactor,
 	}
 	EmptyRoute                   = route.RouteImpl{}
 	EmpyCosmWasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{
