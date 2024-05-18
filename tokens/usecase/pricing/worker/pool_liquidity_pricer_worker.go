@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	_ domain.PricingUpdateListener = &poolLiquidityComputeWorker{}
+	_ domain.PricingUpdateListener = &poolLiquidityPricerWorker{}
 )
 
-type poolLiquidityComputeWorker struct {
+type poolLiquidityPricerWorker struct {
 	poolsUseCase  mvc.PoolsUsecase
 	tokensUseCase mvc.TokensUsecase
 
@@ -30,7 +30,7 @@ type poolLiquidityComputeWorker struct {
 }
 
 func NewPoolLiquidityWorker(tokensUseCase mvc.TokensUsecase, poolsUseCase mvc.PoolsUsecase, liquidityPricer domain.LiquidityPricer) domain.PricingUpdateListener {
-	return &poolLiquidityComputeWorker{
+	return &poolLiquidityPricerWorker{
 
 		poolsUseCase:  poolsUseCase,
 		tokensUseCase: tokensUseCase,
@@ -42,7 +42,7 @@ func NewPoolLiquidityWorker(tokensUseCase mvc.TokensUsecase, poolsUseCase mvc.Po
 }
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
-func (p *poolLiquidityComputeWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates map[string]map[string]osmomath.BigDec, quoteDenom string) error {
+func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates map[string]map[string]osmomath.BigDec, quoteDenom string) error {
 	// Compute the scaling factors for the base denoms.
 	baseDenomPriceData := make(map[string]domain.DenomPriceInfo, len(baseDenomPriceUpdates))
 	for baseDenom, quotesPrices := range baseDenomPriceUpdates {
