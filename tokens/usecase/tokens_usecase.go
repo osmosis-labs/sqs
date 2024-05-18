@@ -127,7 +127,7 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 }
 
 // UpdatePoolDenomMetadata implements mvc.TokensUsecase.
-func (t *tokensUseCase) UpdatePoolDenomMetadata(poolDenomMetadata map[string]domain.PoolDenomMetaData) {
+func (t *tokensUseCase) UpdatePoolDenomMetadata(poolDenomMetadata domain.PoolDenomMetaDataMap) {
 	for chainDenom, tokenMetadata := range poolDenomMetadata {
 		t.poolDenomMetaData.Store(chainDenom, tokenMetadata)
 	}
@@ -161,8 +161,8 @@ func (t *tokensUseCase) GetPoolDenomMetadata(chainDenom string) (domain.PoolDeno
 }
 
 // GetPoolDenomsMetadata implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) map[string]domain.PoolDenomMetaData {
-	result := make(map[string]domain.PoolDenomMetaData, len(chainDenoms))
+func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) domain.PoolDenomMetaDataMap {
+	result := make(domain.PoolDenomMetaDataMap, len(chainDenoms))
 
 	for _, chainDenom := range chainDenoms {
 		poolDenomMetadata, err := t.GetPoolDenomMetadata(chainDenom)
@@ -181,7 +181,7 @@ func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) map[string]d
 }
 
 // GetFullPoolDenomMetadata implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetFullPoolDenomMetadata() map[string]domain.PoolDenomMetaData {
+func (t *tokensUseCase) GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap {
 	chainDenoms := make([]string, 0, len(t.chainDenoms))
 	for chainDenom := range t.chainDenoms {
 		chainDenoms = append(chainDenoms, chainDenom)

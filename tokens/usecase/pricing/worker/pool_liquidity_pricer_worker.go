@@ -42,7 +42,7 @@ func NewPoolLiquidityWorker(tokensUseCase mvc.TokensUsecase, poolsUseCase mvc.Po
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
 func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) error {
-	tokensMetadata := make(map[string]domain.PoolDenomMetaData, len(blockPoolMetadata.UpdatedDenoms))
+	tokensMetadata := make(domain.PoolDenomMetaDataMap, len(blockPoolMetadata.UpdatedDenoms))
 
 	// Iterate over the denoms updated within the block
 	for updatedBlockDenom := range blockPoolMetadata.UpdatedDenoms {

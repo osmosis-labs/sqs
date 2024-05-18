@@ -42,7 +42,7 @@ type TokensUsecase interface {
 	// UpdatePoolDenomMetadata updates the pool denom metadata, completely overwriting any previous
 	// denom results stored internally, if any. The denoms metadata that is present internally
 	// but not in the provided map will be left unchanged.
-	UpdatePoolDenomMetadata(tokensMetadata map[string]domain.PoolDenomMetaData)
+	UpdatePoolDenomMetadata(tokensMetadata domain.PoolDenomMetaDataMap)
 
 	// GetPoolDenomMetadata returns the pool denom metadata of a pool denom.
 	// This metadata is accumulated from all pools.
@@ -54,12 +54,12 @@ type TokensUsecase interface {
 
 	// GetPoolDenomsMetadata returns the pool denom metadata for the given chain denoms.
 	// These values are accumulated from all Osmosis pools.
-	GetPoolDenomsMetadata(chainDenoms []string) map[string]domain.PoolDenomMetaData
+	GetPoolDenomsMetadata(chainDenoms []string) domain.PoolDenomMetaDataMap
 
 	// GetFullPoolDenomMetadata returns the local market caps for all chain denoms.
 	// For any valid (per the asset list) denom, if there is no metadata, it will be set to empty
 	// and all values such as local market cap will be set to zero.
-	GetFullPoolDenomMetadata() map[string]domain.PoolDenomMetaData
+	GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap
 
 	// RegisterPricingStrategy registers a pricing strategy for a given pricing source.
 	RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource)

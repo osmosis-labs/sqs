@@ -357,7 +357,7 @@ func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
 		TotalLiquidity: doubleXAmount,
 	}
 
-	mainnetUsecase.Tokens.UpdatePoolDenomMetadata(map[string]domain.PoolDenomMetaData{
+	mainnetUsecase.Tokens.UpdatePoolDenomMetadata(domain.PoolDenomMetaDataMap{
 		ATOM:  atomPoolDenomMetadata,
 		UOSMO: osmoPoolDenomMetadata,
 	})
@@ -387,7 +387,7 @@ func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
 	osmoPoolDenomMetadataUpdated := domain.PoolDenomMetaData{
 		TotalLiquidity: xAmount,
 	}
-	mainnetUsecase.Tokens.UpdatePoolDenomMetadata(map[string]domain.PoolDenomMetaData{
+	mainnetUsecase.Tokens.UpdatePoolDenomMetadata(domain.PoolDenomMetaDataMap{
 		UOSMO: osmoPoolDenomMetadataUpdated,
 	})
 
