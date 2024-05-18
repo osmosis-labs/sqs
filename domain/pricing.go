@@ -131,7 +131,7 @@ type PricingWorker interface {
 }
 
 type PricingUpdateListener interface {
-	OnPricingUpdate(ctx context.Context, height int64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap map[string]map[string]osmomath.BigDec, quoteDenom string) error
+	OnPricingUpdate(ctx context.Context, height int64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap PricesResult, quoteDenom string) error
 }
 
 type DenomPriceInfo struct {
@@ -155,3 +155,10 @@ type LiquidityPricer interface {
 type PoolLiquidityComputeListener interface {
 	OnPoolLiquidityCompute(height int64, updatedPoolIDs []uint64) error
 }
+
+// PricesResult defines the result of the prices.
+// [base denom][quote denom] => price
+// Note: this type is API breaking as it is serialized to JSON.
+// from the /tokens/prices endpoint. Be mindful of changing it without
+// separating the API response for backward compatibility.
+type PricesResult map[string]map[string]osmomath.BigDec

@@ -32,3 +32,17 @@ var (
 func TestPoolLiquidityComputeWorkerSuite(t *testing.T) {
 	suite.Run(t, new(PoolLiquidityComputeWorkerSuite))
 }
+
+func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
+
+	tests := []struct {
+		name string
+	}{}
+
+	for _, tt := range tests {
+		tt := tt
+		s.T().Run(tt.name, func(t *testing.T) {
+
+		})
+	}
+}

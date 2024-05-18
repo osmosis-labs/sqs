@@ -37,7 +37,7 @@ type TokensUsecase interface {
 	// The outer map consists of base denoms as keys.
 	// The inner map consists of quote denoms as keys.
 	// The result of the inner map is prices of the outer base and inner quote.
-	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (map[string]map[string]osmomath.BigDec, error)
+	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
 
 	// UpdatePoolDenomMetadata updates the pool denom metadata, completely overwriting any previous
 	// denom results stored internally, if any. The denoms metadata that is present internally

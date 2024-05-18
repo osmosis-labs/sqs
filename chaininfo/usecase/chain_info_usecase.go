@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	"github.com/osmosis-labs/sqs/domain"
 
@@ -97,7 +96,7 @@ func (p *chainInfoUseCase) StoreLatestHeight(height uint64) {
 }
 
 // OnPricingUpdate implements domain.PricingUpdateListener.
-func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height int64, blockMetadata domain.BlockPoolMetadata, pricesBaseQuoteDenomMap map[string]map[string]osmomath.BigDec, quoteDenom string) error {
+func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height int64, blockMetadata domain.BlockPoolMetadata, pricesBaseQuoteDenomMap domain.PricesResult, quoteDenom string) error {
 	p.priceUpdateHeightMx.Lock()
 	defer p.priceUpdateHeightMx.Unlock()
 	p.latestPricesUpdateHeight = uint64(height)

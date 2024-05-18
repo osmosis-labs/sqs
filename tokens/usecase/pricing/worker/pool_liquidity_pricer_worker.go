@@ -42,7 +42,7 @@ func NewPoolLiquidityWorker(tokensUseCase mvc.TokensUsecase, poolsUseCase mvc.Po
 }
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
-func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates map[string]map[string]osmomath.BigDec, quoteDenom string) error {
+func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) error {
 	// Compute the scaling factors for the base denoms.
 	baseDenomPriceData := make(map[string]domain.DenomPriceInfo, len(baseDenomPriceUpdates))
 	for baseDenom, quotesPrices := range baseDenomPriceUpdates {

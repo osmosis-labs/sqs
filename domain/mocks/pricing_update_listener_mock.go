@@ -31,7 +31,7 @@ func NewPricingListenerMock(timeout time.Duration) *PricingUpdateListenerMock {
 var _ domain.PricingUpdateListener = &PricingUpdateListenerMock{}
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
-func (p *PricingUpdateListenerMock) OnPricingUpdate(ctx context.Context, height int64, blockMetadata domain.BlockPoolMetadata, pricesBaseQuoteDenomMap map[string]map[string]osmomath.BigDec, quoteDenom string) error {
+func (p *PricingUpdateListenerMock) OnPricingUpdate(ctx context.Context, height int64, blockMetadata domain.BlockPoolMetadata, pricesBaseQuoteDenomMap domain.PricesResult, quoteDenom string) error {
 	p.Height = int(height)
 	p.QuoteDenom = quoteDenom
 
