@@ -167,12 +167,11 @@ func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) domain.PoolD
 	for _, chainDenom := range chainDenoms {
 		poolDenomMetadata, err := t.GetPoolDenomMetadata(chainDenom)
 
-		// Instead of failing the entire request, we just set the local mcap to zero.
+		// Instead of failing the entire request, we just set the results to zero
 		if err != nil {
-			result[chainDenom] = domain.PoolDenomMetaData{
-				TotalLiquidity: osmomath.ZeroInt(),
-			}
+			result.Set(chainDenom, osmomath.ZeroInt(), osmomath.ZeroInt())
 		} else {
+			// Otherwise, we set the correct value
 			result[chainDenom] = poolDenomMetadata
 		}
 	}
