@@ -52,7 +52,7 @@ type TickModel struct {
 
 type SQSPool struct {
 	PoolLiquidityCap      osmomath.Int `json:"pool_liquidity_cap"`
-	PoolLiquidityCapError string       `json:"pool_liquidity_cap_error,omitempty"`
+	PoolLiquidityCapError string       `json:"pool_liquidity_error,omitempty"`
 	// Only CL and Cosmwasm pools need balances appended
 	Balances     sdk.Coins    `json:"balances"`
 	PoolDenoms   []string     `json:"pool_denoms"`
@@ -144,7 +144,7 @@ func (p *PoolWrapper) Validate(minPoolLiquidityCapitalization osmomath.Int) erro
 	// Note that balances are allowed to be zero because zero coins are filtered out.
 
 	// Validate pool liquidity capitalization.
-	// If there is no pool liquidity capitalization error set and the pool liquidity capitalization is zero, return an error. This implies
+	// If there is no pool liquidity capitalization error set and the pool liquidity capitalization is nil or zero, return an error. This implies
 	// That pool has no liqudiity.
 	if p.SQSModel.PoolLiquidityCapError == "" && sqsModel.PoolLiquidityCap.IsZero() {
 		return fmt.Errorf("pool (%d) has no liquidity, minimum pool liquidity capitalization (%s)", p.GetId(), minPoolLiquidityCapitalization)
