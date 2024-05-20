@@ -53,8 +53,3 @@ func (t *OrderbookTickValues) GetFillableAmount(input osmomath.BigDec) osmomath.
 	}
 	return t.TotalAmountOfLiquidity
 }
-
-type OrderbookDenomModel struct {
-	BaseDenom  string
-	QuoteDenom string
-}
