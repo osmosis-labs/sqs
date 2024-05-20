@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type tokensUseCase struct {
+type t struct {
 	// Currently, we only expect reads to this shared resource and no writes.
 	// If needed, change this to sync.Map in the future.
 	// Can be considered for merge with humanToChainDenomMap in the future.
@@ -71,7 +71,7 @@ type priceResults struct {
 	err       error
 }
 
-var _ mvc.TokensUsecase = &tokensUseCase{}
+var _ mvc.TokensUsecase = &t{}
 
 const (
 	unlistedKeyword = "osmosis-unlisted"
@@ -113,7 +113,7 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 		precisionScalingFactors[precision] = tenDec.Power(uint64(precision))
 	}
 
-	return &tokensUseCase{
+	return &t{
 		tokenMetadataByChainDenom: tokenMetadataByChainDenom,
 		humanToChainDenomMap:      humanToChainDenomMap,
 		precisionScalingFactorMap: precisionScalingFactors,
@@ -127,14 +127,14 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 }
 
 // UpdatePoolDenomMetadata implements mvc.TokensUsecase.
-func (t *tokensUseCase) UpdatePoolDenomMetadata(poolDenomMetadata domain.PoolDenomMetaDataMap) {
+func (t *t) UpdatePoolDenomMetadata(poolDenomMetadata domain.PoolDenomMetaDataMap) {
 	for chainDenom, tokenMetadata := range poolDenomMetadata {
 		t.poolDenomMetaData.Store(chainDenom, tokenMetadata)
 	}
 }
 
 // GetPoolLiquidityCap implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetPoolLiquidityCap(chainDenom string) (osmomath.Int, error) {
+func (t *t) GetPoolLiquidityCap(chainDenom string) (osmomath.Int, error) {
 	poolDenomMetadata, err := t.GetPoolDenomMetadata(chainDenom)
 	if err != nil {
 		return osmomath.Int{}, err
@@ -143,7 +143,7 @@ func (t *tokensUseCase) GetPoolLiquidityCap(chainDenom string) (osmomath.Int, er
 }
 
 // GetPoolDenomMetadata implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetPoolDenomMetadata(chainDenom string) (domain.PoolDenomMetaData, error) {
+func (t *t) GetPoolDenomMetadata(chainDenom string) (domain.PoolDenomMetaData, error) {
 	poolDenomMetadataObj, ok := t.poolDenomMetaData.Load(chainDenom)
 	if !ok {
 		return domain.PoolDenomMetaData{}, domain.PoolDenomMetaDataNotPresentError{
@@ -161,7 +161,7 @@ func (t *tokensUseCase) GetPoolDenomMetadata(chainDenom string) (domain.PoolDeno
 }
 
 // GetPoolDenomsMetadata implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) domain.PoolDenomMetaDataMap {
+func (t *t) GetPoolDenomsMetadata(chainDenoms []string) domain.PoolDenomMetaDataMap {
 	result := make(domain.PoolDenomMetaDataMap, len(chainDenoms))
 
 	for _, chainDenom := range chainDenoms {
@@ -180,7 +180,7 @@ func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) domain.PoolD
 }
 
 // GetFullPoolDenomMetadata implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap {
+func (t *t) GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap {
 	chainDenoms := make([]string, 0, len(t.chainDenoms))
 	for chainDenom := range t.chainDenoms {
 		chainDenoms = append(chainDenoms, chainDenom)
@@ -190,7 +190,7 @@ func (t *tokensUseCase) GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap {
 }
 
 // GetChainDenom implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetChainDenom(humanDenom string) (string, error) {
+func (t *t) GetChainDenom(humanDenom string) (string, error) {
 	humanDenomLowerCase := strings.ToLower(humanDenom)
 
 	chainDenom, ok := t.humanToChainDenomMap[humanDenomLowerCase]
@@ -202,7 +202,7 @@ func (t *tokensUseCase) GetChainDenom(humanDenom string) (string, error) {
 }
 
 // GetMetadataByChainDenom implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetMetadataByChainDenom(denom string) (domain.Token, error) {
+func (t *t) GetMetadataByChainDenom(denom string) (domain.Token, error) {
 	token, ok := t.tokenMetadataByChainDenom[denom]
 	if !ok {
 		return domain.Token{}, fmt.Errorf("metadata for denom (%s) is not found", denom)
@@ -212,7 +212,7 @@ func (t *tokensUseCase) GetMetadataByChainDenom(denom string) (domain.Token, err
 }
 
 // GetFullTokenMetadata implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetFullTokenMetadata() (map[string]domain.Token, error) {
+func (t *t) GetFullTokenMetadata() (map[string]domain.Token, error) {
 	// Do a copy of the cached metadata
 	result := make(map[string]domain.Token, len(t.tokenMetadataByChainDenom))
 	for denom, tokenMetadata := range t.tokenMetadataByChainDenom {
@@ -223,7 +223,7 @@ func (t *tokensUseCase) GetFullTokenMetadata() (map[string]domain.Token, error) 
 }
 
 // GetChainScalingFactorByDenomMut implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.Dec, error) {
+func (t *t) GetChainScalingFactorByDenomMut(denom string) (osmomath.Dec, error) {
 	denomMetadata, err := t.GetMetadataByChainDenom(denom)
 	if err != nil {
 		return osmomath.Dec{}, err
@@ -238,7 +238,7 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 }
 
 // GetPrices implements pricing.PricingStrategy.
-func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+func (t *t) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
 	byBaseDenomResult := make(map[string]map[string]osmomath.BigDec, len(baseDenoms))
 
 	// Create a channel to communicate the results
@@ -286,7 +286,7 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 // Returns a map with keys as quotes and values as prices or error, if any.
 // Returns error if base denom is not found in the token metadata.
 // Sets the price to zero in case of failing to compute the price between base and quote but these being valid tokens.
-func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, pricingOptions ...domain.PricingOption) (map[string]osmomath.BigDec, error) {
+func (t *t) getPricesForBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, pricingOptions ...domain.PricingOption) (map[string]osmomath.BigDec, error) {
 	byQuoteDenomForGivenBaseResult := make(map[string]osmomath.BigDec, len(quoteDenoms))
 	// Validate base denom is a valid denom
 	// Return zeroes for all quotes if base denom is not found
@@ -344,7 +344,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 	return byQuoteDenomForGivenBaseResult, nil
 }
 
-func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
+func (t *t) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
 	result, ok := t.precisionScalingFactorMap[precision]
 	return result, ok
 }
@@ -412,7 +412,7 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 }
 
 // GetSpotPriceScalingFactorByDenomMut implements mvc.TokensUsecase.
-func (t *tokensUseCase) GetSpotPriceScalingFactorByDenom(baseDenom string, quoteDenom string) (osmomath.Dec, error) {
+func (t *t) GetSpotPriceScalingFactorByDenom(baseDenom string, quoteDenom string) (osmomath.Dec, error) {
 	baseScalingFactor, err := t.GetChainScalingFactorByDenomMut(baseDenom)
 	if err != nil {
 		return osmomath.Dec{}, err
@@ -431,16 +431,35 @@ func (t *tokensUseCase) GetSpotPriceScalingFactorByDenom(baseDenom string, quote
 }
 
 // RegisterPricingStrategy implements mvc.TokensUsecase.
-func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource) {
+func (t *t) RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource) {
 	t.pricingStrategyMap[source] = strategy
 }
 
 // IsValidChainDenom implements mvc.TokensUsecase.
-func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
+func (t *t) IsValidChainDenom(chainDenom string) bool {
 	metaData, ok := t.tokenMetadataByChainDenom[chainDenom]
 	return ok && !metaData.IsUnlisted
 }
 
-func (r *tokensUseCase) ComputeDynamicMinLiquidityFilter(denomA, denomB string) (int, error) {
-	return 0, nil
+// GetMinPoolLiquidityCap implements mvc.TokensUsecase.
+func (t *t) GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error) {
+	// Get the pool denoms metadata
+	poolDenomMetadataA, err := t.GetPoolDenomMetadata(denomA)
+	if err != nil {
+		return 0, err
+	}
+
+	poolDenomMetadataB, err := t.GetPoolDenomMetadata(denomB)
+	if err != nil {
+		return 0, err
+	}
+
+	// Get min liquidity
+	minLiquidityCapBetweenTokens := osmomath.MinInt(poolDenomMetadataA.TotalLiquidityCap, poolDenomMetadataB.TotalLiquidityCap)
+
+	if !minLiquidityCapBetweenTokens.IsUint64() {
+		return 0, fmt.Errorf("min liquidity cap is greater than uint64, denomA: %s (%s), denomB: %s (%s)", denomA, poolDenomMetadataA.TotalLiquidity, denomB, poolDenomMetadataB.TotalLiquidity)
+	}
+
+	return minLiquidityCapBetweenTokens.Uint64(), nil
 }

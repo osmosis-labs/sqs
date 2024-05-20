@@ -64,6 +64,11 @@ type Quote interface {
 	String() string
 }
 
+type DynamicMinLiquidityCapFilterEntry struct {
+	MinTokensCap uint64 `mapstructure:"min-tokens-capitalization"`
+	FilterValue  uint64 `mapstructure:"filter-value"`
+}
+
 type RouterConfig struct {
 	PreferredPoolIDs   []uint64 `mapstructure:"preferred-pool-ids"`
 	MaxPoolsPerRoute   int      `mapstructure:"max-pools-per-route"`
@@ -71,14 +76,17 @@ type RouterConfig struct {
 	MaxSplitRoutes     int      `mapstructure:"max-split-routes"`
 	MaxSplitIterations int      `mapstructure:"max-split-iterations"`
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the route.
-	MinPoolLiquidityCap       int  `mapstructure:"min-pool-liquidity-cap"`
-	RouteUpdateHeightInterval int  `mapstructure:"route-update-height-interval"`
-	RouteCacheEnabled         bool `mapstructure:"route-cache-enabled"`
+	MinPoolLiquidityCap       uint64 `mapstructure:"min-pool-liquidity-cap"`
+	RouteUpdateHeightInterval int    `mapstructure:"route-update-height-interval"`
+	RouteCacheEnabled         bool   `mapstructure:"route-cache-enabled"`
 	// The number of milliseconds to cache candidate routes for before expiry.
 	CandidateRouteCacheExpirySeconds int `mapstructure:"candidate-route-cache-expiry-seconds"`
 	RankedRouteCacheExpirySeconds    int `mapstructure:"ranked-route-cache-expiry-seconds"`
 	// Flag indicating whether we should have a cache for overwrite routes enabled.
 	EnableOverwriteRoutesCache bool `mapstructure:"enable-overwrite-routes-cache"`
+
+	// DynamicMinLiquidityCapFiltersAsc is a list of dynamic min liquidity cap filters in descending order.
+	DynamicMinLiquidityCapFiltersDesc []DynamicMinLiquidityCapFilterEntry `mapstructure:"dynamic-min-liquidity-cap-filters-desc"`
 }
 
 type PoolsConfig struct {
@@ -105,7 +113,7 @@ type RouterOptions struct {
 	MaxSplitRoutes     int
 	MaxSplitIterations int
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the route.
-	MinPoolLiquidityCap int
+	MinPoolLiquidityCap uint64
 	// The number of milliseconds to cache candidate routes for before expiry.
 	CandidateRouteCacheExpirySeconds int
 	RankedRouteCacheExpirySeconds    int
@@ -119,7 +127,7 @@ type RouterOption func(*RouterOptions)
 
 // WithMinPoolLiquidityCap configures the router options with the min pool liquidity
 // capitalization.
-func WithMinPoolLiquidityCap(minPoolLiquidityCap int) RouterOption {
+func WithMinPoolLiquidityCap(minPoolLiquidityCap uint64) RouterOption {
 	return func(o *RouterOptions) {
 		o.MinPoolLiquidityCap = minPoolLiquidityCap
 	}

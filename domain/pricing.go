@@ -50,14 +50,7 @@ type PricingOptions struct {
 	// For more context, see tokens/usecase/pricing/chain defaultIsSpotPriceComputeMethod.
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
-	MinPoolLiquidityCap int
-}
-
-// DefaultPricingOptions defines the default options for retrieving the prices.
-var DefaultPricingOptions = PricingOptions{
-	RecomputePrices:                         false,
-	MinPoolLiquidityCap:                     DefaultMinPoolLiquidityOption,
-	RecomputePricesIsSpotPriceComputeMethod: true,
+	MinPoolLiquidityCap uint64
 }
 
 // PricingOption configures the pricing options.
@@ -82,13 +75,8 @@ func WithRecomputePricesQuoteBasedMethod() PricingOption {
 // WithMinPricingPoolLiquidityCap configures the min liquidity capitalization option
 // for pricing. Note, that non-pricing routing has its own RouterOption to configure
 // the min liquidity capitalization.
-func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap int) PricingOption {
+func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap uint64) PricingOption {
 	return func(o *PricingOptions) {
-		// If the min liquidity is the default value, we don't need to set it.
-		if minPoolLiquidityCap == DefaultMinPoolLiquidityOption {
-			return
-		}
-
 		o.MinPoolLiquidityCap = minPoolLiquidityCap
 	}
 }
@@ -107,7 +95,7 @@ type PricingConfig struct {
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
 	MaxRoutes        int `mapstructure:"max-routes"`
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.
-	MinPoolLiquidityCap int `mapstructure:"min-pool-liquidity-cap"`
+	MinPoolLiquidityCap uint64 `mapstructure:"min-pool-liquidity-cap"`
 }
 
 // FormatCacheKey formats the cache key for the given denoms.

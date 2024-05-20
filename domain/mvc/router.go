@@ -41,6 +41,14 @@ type RouterUsecase interface {
 
 	GetConfig() domain.RouterConfig
 
+	// ConvertMinTokensPoolLiquidityCapToFilter converts the minTokensPoolLiquidityCap to a filter.
+	// It is used to filter out pools with liquidity less than the output of this function.
+	// We use min(tokenInPoolLiquidityCap, tokenOutPoolLiquidityCap) as a proxy for finding the appropriate
+	// filter if configured.
+	// If there is no entry in the config that has min tokens capitalization smaller than the given value,
+	// the default router min pool liquidity capitalization is returned.
+	ConvertMinTokensPoolLiquidityCapToFilter(minTokensPoolLiquidityCap uint64) uint64
+
 	// SetSortedPools stores the pools in the router.
 	// CONTRACT: the pools are already sorted according to the desired parameters.
 	// See sortPools() function.

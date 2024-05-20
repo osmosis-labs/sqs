@@ -94,13 +94,13 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	tokenOutDenom = chainDenoms[1]
 
 	// Get the min liquidity cap filter for the given tokenIn and tokenOutDenom.
-	minLiquidityFilter, err := a.getMinLiquidityCapFilter(tokenIn.Denom, tokenOutDenom, disableMinLiquidityFallback)
+	minLiquidityCapFilter, err := a.getMinPoolLiquidityCapFilter(tokenIn.Denom, tokenOutDenom, disableMinLiquidityFallback)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	routerOpts := []domain.RouterOption{
-		domain.WithMinPoolLiquidityCap(minLiquidityFilter),
+		domain.WithMinPoolLiquidityCap(minLiquidityCapFilter),
 	}
 
 	// Disable split routes if singleRoute is true
@@ -126,20 +126,25 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, quote)
 }
 
-// getMinLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
+// getMinPoolLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
 // If disableMinLiquidityFallback is true, it returns an error if the min liquidity cap cannot be computed.
 // If disableMinLiquidityFallback is false, it returns the default config value as fallback.
 // Returns the min liquidity cap filter and an error if any.
-func (a *RouterHandler) getMinLiquidityCapFilter(tokenInDenom, tokenOutDenom string, disableMinLiquidityFallback bool) (int, error) {
-	minLiquidityFilter, err := a.TUsecase.ComputeDynamicMinLiquidityFilter(tokenInDenom, tokenOutDenom)
+func (a *RouterHandler) getMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom string, disableMinLiquidityFallback bool) (uint64, error) {
+	minPoolLiquidityCapBetweenTokens, err := a.TUsecase.GetMinPoolLiquidityCap(tokenInDenom, tokenOutDenom)
 	if err != nil && disableMinLiquidityFallback {
 		// If fallback is disabled, error
 		return 0, err
 	} else if err != nil {
 		// If fallback is enabled, get defaiult config value as fallback
-		minLiquidityFilter = a.RUsecase.GetConfig().MinPoolLiquidityCap
+		return a.RUsecase.GetConfig().MinPoolLiquidityCap, nil
 	}
-	return minLiquidityFilter, nil
+
+	// Otherwise, use the mapping to convert from min pool liquidity cap between token in and out denoms
+	// to the proposed filter.
+	minPoolLiquidityCapFilter := a.RUsecase.ConvertMinTokensPoolLiquidityCapToFilter(minPoolLiquidityCapBetweenTokens)
+
+	return minPoolLiquidityCapFilter, nil
 }
 
 // GetDirectCustomQuote returns a direct custom quote. It does not search for the route.

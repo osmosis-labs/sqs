@@ -22,7 +22,7 @@ type poolLiquidityPricerWorker struct {
 	liquidityPricer domain.LiquidityPricer
 
 	// Denom -> Last height of the pricing update.
-	// This exists because pricing computations are asyncronous. As a result, a pricing update for a later
+	// This exists because pricing computations are asynchronous. As a result, a pricing update for a later
 	// height might arrive before a pricing update for an earlier height. This map is used to ensure that
 	// the latest height pricing update for a denom is used.
 	latestHeightForDenom sync.Map
@@ -42,16 +42,9 @@ func NewPoolLiquidityWorker(tokensUseCase mvc.TokensUsecase, poolsUseCase mvc.Po
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
 func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) error {
-
 	// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
 	// for concurrency.
-	repricedTokenMetadata, err := p.repriceDenomMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata.DenomLiquidityMap)
-	if err != nil {
-		// TODO:
-		// log
-		// alert
-
-	}
+	repricedTokenMetadata := p.repriceDenomMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata.DenomLiquidityMap)
 
 	// Update the pool denom metadata.
 	p.tokensUseCase.UpdatePoolDenomMetadata(repricedTokenMetadata)
@@ -74,7 +67,7 @@ func (p *poolLiquidityPricerWorker) hasLaterUpdateThanCurrent(denom string, curr
 	return false
 }
 
-func (p *poolLiquidityPricerWorker) repriceDenomMetadata(updateHeight int64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap domain.DenomLiquidityMap) (domain.PoolDenomMetaDataMap, error) {
+func (p *poolLiquidityPricerWorker) repriceDenomMetadata(updateHeight int64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap domain.DenomLiquidityMap) domain.PoolDenomMetaDataMap {
 	blockTokenMetadataUpdates := make(domain.PoolDenomMetaDataMap, len(blockDenomLiquidityUpdatesMap))
 
 	// Iterate over the denoms updated within the block
@@ -127,5 +120,5 @@ func (p *poolLiquidityPricerWorker) repriceDenomMetadata(updateHeight int64, blo
 	}
 
 	// Return the updated token metadata for testability
-	return blockTokenMetadataUpdates, nil
+	return blockTokenMetadataUpdates
 }

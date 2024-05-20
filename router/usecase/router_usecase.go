@@ -697,6 +697,16 @@ func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.Ca
 	return candidateRoutes
 }
 
+// ConvertMinTokensPoolLiquidityCapToFilter implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) ConvertMinTokensPoolLiquidityCapToFilter(minTokensPoolLiquidityCap uint64) uint64 {
+	for _, filter := range r.defaultConfig.DynamicMinLiquidityCapFiltersDesc {
+		if minTokensPoolLiquidityCap >= filter.MinTokensCap {
+			return filter.FilterValue
+		}
+	}
+	return r.defaultConfig.MinPoolLiquidityCap
+}
+
 // GetPoolSpotPrice implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
 	poolTakerFee, ok := r.routerRepository.GetTakerFee(quoteAsset, baseAsset)

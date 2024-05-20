@@ -31,6 +31,8 @@ var DefaultConfig = domain.Config{
 		RankedRouteCacheExpirySeconds:    300, // 5 minutes
 
 		EnableOverwriteRoutesCache: false,
+
+		DynamicMinLiquidityCapFiltersDesc: []domain.DynamicMinLiquidityCapFilterEntry{},
 	},
 	Pools: &domain.PoolsConfig{
 		// This is what we have on mainnet as of Jan 2024.

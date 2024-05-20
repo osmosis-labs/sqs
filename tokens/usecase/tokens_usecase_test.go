@@ -408,3 +408,111 @@ func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
 		}
 	}
 }
+
+// Test to validate the min pool liquidity cap retrieval works as expected.
+func (s *TokensUseCaseTestSuite) TestGetMinPoolLiquidityCap() {
+	const (
+		minLiquidityCap = 10000
+		maxUint64Value  = ^uint64(0)
+	)
+
+	var (
+		denomNoMetadata                = UION
+		denomOverFlowA                 = USDC
+		denomOverFlowB                 = USDT
+		overflowVlaue                  = osmomath.NewIntFromUint64(maxUint64Value).Add(osmomath.OneInt())
+		defaultPoolDenomMetadataPreSet = domain.PoolDenomMetaDataMap{
+			ATOM: domain.PoolDenomMetaData{
+				TotalLiquidityCap: osmomath.NewInt(minLiquidityCap),
+			},
+			UOSMO: domain.PoolDenomMetaData{
+				TotalLiquidityCap: osmomath.NewInt(2 * minLiquidityCap),
+			},
+			denomOverFlowA: domain.PoolDenomMetaData{
+				TotalLiquidityCap: overflowVlaue,
+			},
+			denomOverFlowB: domain.PoolDenomMetaData{
+				TotalLiquidityCap: overflowVlaue,
+			},
+		}
+	)
+
+	tests := []struct {
+		name string
+
+		preSetPoolDenomMetadata domain.PoolDenomMetaDataMap
+
+		denomA string
+		denomB string
+
+		expectedMinPoolLiquidityCap uint64
+		expectError                 bool
+	}{
+		{
+			name: "valid case",
+
+			preSetPoolDenomMetadata: defaultPoolDenomMetadataPreSet,
+
+			denomA: ATOM,
+			denomB: UOSMO,
+
+			expectedMinPoolLiquidityCap: minLiquidityCap,
+		},
+		{
+			name: "denom A does not have metadata",
+
+			preSetPoolDenomMetadata: defaultPoolDenomMetadataPreSet,
+
+			denomA: denomNoMetadata,
+			denomB: UOSMO,
+
+			expectError: true,
+		},
+		{
+			name: "denom B does not have metadata",
+
+			preSetPoolDenomMetadata: defaultPoolDenomMetadataPreSet,
+
+			denomA: ATOM,
+			denomB: denomNoMetadata,
+
+			expectError: true,
+		},
+
+		{
+			name: "overflow occurs",
+
+			preSetPoolDenomMetadata: defaultPoolDenomMetadataPreSet,
+
+			denomA: denomOverFlowA,
+			denomB: denomOverFlowB,
+
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		s.Run(tt.name, func() {
+			// Set up mainnet mock state.
+			mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
+
+			// System under test
+			mainnetUsecase.Tokens.UpdatePoolDenomMetadata(tt.preSetPoolDenomMetadata)
+
+			// System under test.
+			actualMinPoolLiquidityCap, err := mainnetUsecase.Tokens.GetMinPoolLiquidityCap(tt.denomA, tt.denomB)
+
+			if tt.expectError {
+				s.Require().Error(err)
+				return
+			}
+
+			s.Require().NoError(err)
+
+			// Check if the min pool liquidity cap is as expected.
+			s.Require().Equal(tt.expectedMinPoolLiquidityCap, actualMinPoolLiquidityCap)
+		})
+	}
+
+}
