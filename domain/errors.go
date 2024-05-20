@@ -147,6 +147,23 @@ func (e ConcentratedTickModelNotSetError) Error() string {
 	return fmt.Sprintf("tick model is not set on pool (%d)", e.PoolId)
 }
 
+type TransmuterAlloyedDataMissingError struct {
+	PoolId uint64
+}
+
+func (e TransmuterAlloyedDataMissingError) Error() string {
+	return fmt.Sprintf("Transmuter Alloyed data is missing for pool (%d)", e.PoolId)
+}
+
+type MissingNormalizationFactorError struct {
+	PoolId uint64
+	Denom  string
+}
+
+func (e MissingNormalizationFactorError) Error() string {
+	return fmt.Sprintf("Missing normalization factor for denom (%s) in pool (%d)", e.Denom, e.PoolId)
+}
+
 type TransmuterInsufficientBalanceError struct {
 	Denom         string
 	BalanceAmount string

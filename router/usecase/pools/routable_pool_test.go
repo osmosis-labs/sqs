@@ -35,6 +35,7 @@ var (
 	ETH    = apptesting.ETH
 	USDC   = apptesting.USDC
 	USDT   = "usdt"
+	ALLUSD = "allusd"
 	Denom0 = ETH
 	Denom1 = USDC
 

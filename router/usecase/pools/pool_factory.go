@@ -68,7 +68,7 @@ func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmoma
 			})
 		}
 
-		// Check if pools is balancer
+		// Check if pools is stableswap
 		stableswapPool, ok := chainPool.(*stableswap.Pool)
 		if !ok {
 			panic(domain.FailedToCastPoolModelError{
@@ -101,15 +101,46 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		}
 	}
 
+	// Check if the pool is a transmuter pool with alloyed assets
+	model, err := pool.GetCWPoolModel()
+	if err != nil {
+		return nil, err
+	}
+
+	if model != nil {
+		// since v2, we introduce concept of alloyed assets but not yet actively used
+		// since v3, we introduce concept of normalization factor
+		// `routableTransmuterAlloyedPoolImpl` is v3 compatible
+		if model.ContractInfo.Matches("crates.io:transmuter", "3.0.0") {
+			spreadFactor := pool.GetSQSPoolModel().SpreadFactor
+			balances := pool.GetSQSPoolModel().Balances
+
+			if model.Data.TransmuterAlloyed == nil {
+				return nil, domain.TransmuterAlloyedDataMissingError{PoolId: pool.GetId()}
+			}
+
+			return &routableTransmuterAlloyedPoolImpl{
+				ChainPool:             cosmwasmPool,
+				TransmuterAlloyedData: model.Data.TransmuterAlloyed,
+				Balances:              balances,
+				TokenOutDenom:         tokenOutDenom,
+				TakerFee:              takerFee,
+				SpreadFactor:          spreadFactor,
+			}, nil
+		}
+	}
+
+	// TODO: change this to use the above method
 	// Check if the pool is a transmuter pool
 	_, isTransmuter := cosmWasmConfig.TransmuterCodeIDs[cosmwasmPool.CodeId]
 	if isTransmuter {
 		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
+		balances := pool.GetSQSPoolModel().Balances
 
 		// Transmuter has a custom implementation since it does not need to interact with the chain.
 		return &routableTransmuterPoolImpl{
 			ChainPool:     cosmwasmPool,
-			Balances:      pool.GetSQSPoolModel().Balances,
+			Balances:      balances,
 			TokenOutDenom: tokenOutDenom,
 			TakerFee:      takerFee,
 			SpreadFactor:  spreadFactor,

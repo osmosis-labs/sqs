@@ -27,7 +27,7 @@ type PoolI interface {
 	GetSQSPoolModel() SQSPool
 
 	// GetTickModel returns the tick model for the pool
-	// If this is a concentrated pool. Errors otherwise
+	// if this is a concentrated pool. Errors otherwise
 	// Also errors if this is a concentrated pool but
 	// the tick model is not set
 	GetTickModel() (*TickModel, error)
@@ -35,6 +35,15 @@ type PoolI interface {
 	// SetTickModel sets the tick model for the pool
 	// If this is not a concentrated pool, errors
 	SetTickModel(*TickModel) error
+
+	// GetCWPoolModel returns the CosmWasm pool model for the pool
+	// if this is a CosmWasm pool. Errors otherwise
+	// No error if this is a CosmWasm pool but the model is not set
+	GetCWPoolModel() (*CWPoolModel, error)
+
+	// SetCWPoolModel sets the CosmWasm pool model for the pool
+	// If this is not a CosmWasm pool, errors
+	SetCWPoolModel(*CWPoolModel) error
 
 	// Validate validates the pool
 	// Returns nil if the pool is valid
@@ -60,9 +69,10 @@ type SQSPool struct {
 }
 
 type PoolWrapper struct {
-	ChainModel poolmanagertypes.PoolI `json:"underlying_pool"`
-	SQSModel   SQSPool                `json:"sqs_model"`
-	TickModel  *TickModel             `json:"tick_model,omitempty"`
+	ChainModel  poolmanagertypes.PoolI `json:"underlying_pool"`
+	SQSModel    SQSPool                `json:"sqs_model"`
+	TickModel   *TickModel             `json:"tick_model,omitempty"`
+	CWPoolModel *CWPoolModel           `json:"cw_pool_model,omitempty"`
 }
 
 var _ PoolI = &PoolWrapper{}
@@ -129,6 +139,26 @@ func (p *PoolWrapper) SetTickModel(tickModel *TickModel) error {
 	}
 
 	p.TickModel = tickModel
+
+	return nil
+}
+
+// GetCWPoolModel implements PoolI.
+func (p *PoolWrapper) GetCWPoolModel() (*CWPoolModel, error) {
+	if p.GetType() != poolmanagertypes.CosmWasm {
+		return nil, fmt.Errorf("pool (%d) is not a CosmWasm pool, type (%d)", p.GetId(), p.GetType())
+	}
+
+	return p.CWPoolModel, nil
+}
+
+// SetCWPoolModel implements PoolI.
+func (p *PoolWrapper) SetCWPoolModel(cwPoolModel *CWPoolModel) error {
+	if p.GetType() != poolmanagertypes.CosmWasm {
+		return fmt.Errorf("pool (%d) is not a CosmWasm pool, type (%d)", p.GetId(), p.GetType())
+	}
+
+	p.CWPoolModel = cwPoolModel
 
 	return nil
 }
