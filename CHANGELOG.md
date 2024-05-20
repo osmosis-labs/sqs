@@ -35,6 +35,21 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## 0.18.4
+
+- Reduce cardinality of duration metrics
+- Clean up chain pricing
+- Charge taker fee for transmuter pools
+
+## v0.17.11 & 0.18.3
+
+- Fix pricing bug where we would incorrectly apply scaling factor to the price
+that is already correctly scaled when computing the price using the alternative (quote-based) method.
+
+## v0.17.10
+
+- /config-private endpoint, mask OTEL config in /config endpoint
+
 ## v0.17.8
 
 - Rebuild image from new dockerfile

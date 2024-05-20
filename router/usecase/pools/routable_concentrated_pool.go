@@ -21,7 +21,6 @@ import (
 )
 
 var _ sqsdomain.RoutablePool = &routableConcentratedPoolImpl{}
-var zeroDec = osmomath.ZeroDec()
 var zeroBigDec = osmomath.ZeroBigDec()
 
 type routableConcentratedPoolImpl struct {
@@ -147,7 +146,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	}
 
 	// Compute swap over all buckets.
-	for amountRemainingIn.GT(zeroDec) {
+	for amountRemainingIn.IsPositive() {
 		if currentBucketIndex >= int64(len(tickModel.Ticks)) || currentBucketIndex < 0 {
 			// This happens when there is not enough liquidity in the pool to complete the swap
 			// for a given amount of token in.

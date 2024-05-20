@@ -43,6 +43,7 @@ jobs:
         SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-8)
         echo "DOCKER_IMAGE_TAG=${{ github.ref_name }}-${SHORT_SHA}" >> $GITHUB_ENV
         echo "DOCKER_IMAGE_TAG_WITH_DATE=${{ github.ref_name }}-${SHORT_SHA}-$(date +%s)" >> $GITHUB_ENV
+        echo "BUILD_DATE=$(date +%s)" >> $GITHUB_ENV
     -
       name: Build and Push Docker Images
       uses: docker/build-push-action@v5
@@ -54,6 +55,13 @@ jobs:
         tags: |
           ${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG }}
           ${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG_WITH_DATE }}
+        labels: |
+          repository_full_name=${{ github.repository }}
+          repository_docker=${{ env.DOCKER_REPOSITORY }}
+          ref_name=${{ github.ref_name }}
+          commit_sha=${{ env.GITHUB_SHA }} 
+          tag=${{ env.DOCKER_IMAGE_TAG }}
+          build_date=${{ env.BUILD_DATE }}
     - name: Get default branch name
       run: echo "The default branch is ${{ github.event.repository.default_branch }} and the actual branch is ${{ github.ref }}"
     - 
