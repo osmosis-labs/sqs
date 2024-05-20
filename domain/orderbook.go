@@ -1,4 +1,4 @@
-package sqsdomain
+package domain
 
 import (
 	"github.com/osmosis-labs/osmosis/osmomath"

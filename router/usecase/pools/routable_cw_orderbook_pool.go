@@ -19,32 +19,32 @@ import (
 var _ sqsdomain.RoutablePool = &routableOrderbookPoolImpl{}
 
 type routableOrderbookPoolImpl struct {
-	ChainPool     *cwpoolmodel.CosmWasmPool     "json:\"pool\""
-	Balances      sdk.Coins                     "json:\"balances\""
-	TokenOutDenom string                        "json:\"token_out_denom\""
-	TakerFee      osmomath.Dec                  "json:\"taker_fee\""
-	SpreadFactor  osmomath.Dec                  "json:\"spread_factor\""
-	TickModel     *sqsdomain.OrderbookTickModel "json:\"orderbook_tick_model\""
-	QuoteDenom    string                        "json:\"quote_denom\""
-	BaseDenom     string                        "json:\"base_denom\""
+	ChainPool     *cwpoolmodel.CosmWasmPool  "json:\"pool\""
+	Balances      sdk.Coins                  "json:\"balances\""
+	TokenOutDenom string                     "json:\"token_out_denom\""
+	TakerFee      osmomath.Dec               "json:\"taker_fee\""
+	SpreadFactor  osmomath.Dec               "json:\"spread_factor\""
+	TickModel     *domain.OrderbookTickModel "json:\"orderbook_tick_model\""
+	QuoteDenom    string                     "json:\"quote_denom\""
+	BaseDenom     string                     "json:\"base_denom\""
 }
 
-// GetId implements sqsdomain.RoutablePool.
+// GetId implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) GetId() uint64 {
 	return r.ChainPool.PoolId
 }
 
-// GetPoolDenoms implements sqsdomain.RoutablePool.
+// GetPoolDenoms implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) GetPoolDenoms() []string {
 	return r.Balances.Denoms()
 }
 
-// GetType implements sqsdomain.RoutablePool.
+// GetType implements domain.RoutablePool.
 func (*routableOrderbookPoolImpl) GetType() poolmanagertypes.PoolType {
 	return poolmanagertypes.CosmWasm
 }
 
-// GetSpreadFactor implements sqsdomain.RoutablePool.
+// GetSpreadFactor implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
 }
@@ -74,16 +74,16 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 	// ASSUMPTION: Ticks are ordered
 	for amountInRemaining.GT(zeroBigDec) {
 		if tickIdx >= len(r.TickModel.TickStates) || tickIdx < 0 {
-			return sdk.Coin{}, sqsdomain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn}
+			return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn}
 		}
 		tick := r.TickModel.TickStates[tickIdx]
 
-		if direction == sqsdomain.ASK {
+		if direction == domain.ASK {
 			tickIdx++
-		} else if direction == sqsdomain.BID {
+		} else if direction == domain.BID {
 			tickIdx--
 		} else {
-			return sdk.Coin{}, sqsdomain.OrderbookPoolInvalidDirectionError{Direction: direction}
+			return sdk.Coin{}, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
 		}
 
 		// Calculate the price for the current tick
@@ -123,64 +123,64 @@ func (r *routableOrderbookPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
-// String implements sqsdomain.RoutablePool.
+// String implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d) Orderbook, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
 }
 
-// ChargeTakerFeeExactIn implements sqsdomain.RoutablePool.
+// ChargeTakerFeeExactIn implements domain.RoutablePool.
 // Returns tokenInAmount and does not charge any fee for transmuter pools.
 func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
 	return tokenIn
 }
 
-// GetTakerFee implements sqsdomain.RoutablePool.
+// GetTakerFee implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
 }
 
-// SetTokenOutDenom implements sqsdomain.RoutablePool.
+// SetTokenOutDenom implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 	r.TokenOutDenom = tokenOutDenom
 }
 
-// CalcSpotPrice implements sqsdomain.RoutablePool.
+// CalcSpotPrice implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	return osmomath.OneBigDec(), nil
 }
 
-// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
+// IsGeneralizedCosmWasmPool implements domain.RoutablePool.
 func (*routableOrderbookPoolImpl) IsGeneralizedCosmWasmPool() bool {
 	return false
 }
 
-// GetCodeID implements sqsdomain.RoutablePool.
+// GetCodeID implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) GetCodeID() uint64 {
 	return r.ChainPool.CodeId
 }
 
 func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (int64, error) {
 	if tokenInDenom == r.BaseDenom && tokenOutDenom == r.QuoteDenom {
-		return sqsdomain.ASK, nil
+		return domain.ASK, nil
 	} else if tokenInDenom == r.QuoteDenom && tokenOutDenom == r.BaseDenom {
-		return sqsdomain.BID, nil
+		return domain.BID, nil
 	} else {
-		return 0, sqsdomain.OrderbookPoolMismatchError{PoolId: r.GetId(), TokenInDenom: tokenInDenom, TokenOutDenom: tokenOutDenom}
+		return 0, domain.OrderbookPoolMismatchError{PoolId: r.GetId(), TokenInDenom: tokenInDenom, TokenOutDenom: tokenOutDenom}
 	}
 }
 
 func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction int64) (int, error) {
-	if direction == sqsdomain.ASK {
+	if direction == domain.ASK {
 		return r.TickModel.GetTickIndexById(r.TickModel.NextAskTickId), nil
-	} else if direction == sqsdomain.BID {
+	} else if direction == domain.BID {
 		return r.TickModel.GetTickIndexById(r.TickModel.NextBidTickId), nil
 	} else {
-		return -1, sqsdomain.OrderbookPoolInvalidDirectionError{Direction: direction}
+		return -1, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
 	}
 }
 
 func amountToValue(amount osmomath.BigDec, price osmomath.BigDec, direction int64) osmomath.BigDec {
-	if direction == sqsdomain.ASK {
+	if direction == domain.ASK {
 		return amount.MulMut(price)
 	} else {
 		return amount.QuoMut(price)
