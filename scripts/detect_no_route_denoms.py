@@ -36,7 +36,7 @@ for pool in data:
             print("Pattern not found in the input string.")
 
 # Create a map of denom names
-url = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json"
+url = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json"
 response = requests.get(url)
 
 if response.status_code == 200:

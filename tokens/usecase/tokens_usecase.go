@@ -32,24 +32,13 @@ type tokensUseCase struct {
 
 // Struct to represent the JSON structure
 type AssetList struct {
-	ChainName string `json:"chain_name"`
+	ChainName string `json:"chainName"`
 	Assets    []struct {
-		Description string `json:"description"`
-		DenomUnits  []struct {
-			Denom    string `json:"denom"`
-			Exponent int    `json:"exponent"`
-		} `json:"denom_units"`
-		Base     string        `json:"base"`
-		Name     string        `json:"name"`
-		Display  string        `json:"display"`
-		Symbol   string        `json:"symbol"`
-		Traces   []interface{} `json:"traces"`
-		LogoURIs struct {
-			PNG string `json:"png"`
-			SVG string `json:"svg"`
-		} `json:"logo_URIs"`
-		CoingeckoID string   `json:"coingecko_id"`
-		Keywords    []string `json:"keywords"`
+		CoinMinimalDenom string `json:"coinMinimalDenom"`
+		Symbol           string `json:"symbol"`
+		Decimals         int    `json:"decimals"`
+		CoingeckoID      string `json:"coingeckoId"`
+		Preview          bool   `json:"preview"`
 	} `json:"assets"`
 }
 
@@ -68,10 +57,6 @@ type priceResults struct {
 }
 
 var _ mvc.TokensUsecase = &tokensUseCase{}
-
-const (
-	unlistedKeyword = "osmosis-unlisted"
-)
 
 var (
 	tenDec = osmomath.NewDec(10)
@@ -302,41 +287,11 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 	// Iterate through each asset and its denom units to print exponents
 	for _, asset := range assetList.Assets {
 		token := domain.Token{}
-		chainDenom := ""
-
-		for _, denom := range asset.DenomUnits {
-			if denom.Exponent == 0 {
-				chainDenom = denom.Denom
-
-				if len(asset.DenomUnits) == 1 {
-					token.Precision = denom.Exponent
-				}
-			}
-
-			if denom.Exponent > 0 {
-				// There are edge cases where we have 3 denom exponents for a token.
-				// We filter out the intermediate denom exponents and only use the human readable denom.
-				if denom.Denom == "mluna" || denom.Denom == "musd" || denom.Denom == "msomm" || denom.Denom == "mkrw" || denom.Denom == "uarch" {
-					continue
-				}
-
-				token.Precision = denom.Exponent
-			}
-		}
-
-		// Detect unlisted tokens
-		isUnlisted := false
-		for _, keyword := range asset.Keywords {
-			if keyword == unlistedKeyword {
-				isUnlisted = true
-				break
-			}
-		}
-
+		token.Precision = asset.Decimals
 		token.HumanDenom = asset.Symbol
-		token.IsUnlisted = isUnlisted
-
-		tokensByChainDenom[chainDenom] = token
+		token.IsUnlisted = asset.Preview
+		token.CoingeckoID = asset.CoingeckoID
+		tokensByChainDenom[asset.CoinMinimalDenom] = token
 	}
 
 	return tokensByChainDenom, nil
