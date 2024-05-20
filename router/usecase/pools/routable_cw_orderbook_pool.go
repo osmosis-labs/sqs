@@ -181,8 +181,8 @@ func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction int64) (int, err
 
 func amountToValue(amount osmomath.BigDec, price osmomath.BigDec, direction int64) osmomath.BigDec {
 	if direction == sqsdomain.ASK {
-		return amount.Mul(price)
+		return amount.MulMut(price)
 	} else {
-		return amount.Quo(price)
+		return amount.QuoMut(price)
 	}
 }
