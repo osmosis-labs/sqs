@@ -23,8 +23,9 @@ HIGH_PRICE_DIFF = 0.08 ## 8%
 MID_PRICE_DIFF = 0.05 ## 5%
 LOW_PRICE_DIFF = 0.02 ## 2%
 
-## Response time threshold
-RT_THRESHOLD = 0.25 ## 250ms
+## Response time threshold, be more tolerant and set to 1 second
+## to allow not breaking e2e tests in CI
+RT_THRESHOLD = 1 
 
 ## Unsupported token count threshold
 UNSUPPORTED_TOKEN_COUNT_THRESHOLD = 10

@@ -11,3 +11,4 @@ pytest-xdist==3.6.1
 requests==2.31.0
 tomli==2.0.1
 urllib3==2.2.1
+filelock==3.14.0

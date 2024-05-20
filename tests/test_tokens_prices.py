@@ -2,6 +2,7 @@ import setup
 import pytest
 import timeit
 import time
+import os
 
 from datetime import datetime
 from sqs_service import *
@@ -9,10 +10,45 @@ from coingecko_service import *
 from conftest import SERVICE_MAP
 from conftest import SERVICE_COINGECKO
 from constants import *
+from filelock import FileLock
+
+counter_file = "/tmp/counter.txt"
+lock_file = "/tmp/counter.lock"
 
 class TestTokensPrices:
 
+    # Function to read the current counter value
+    def read_counter(self):
+        if not os.path.exists(counter_file):
+            return 0
+        with open(counter_file, "r") as file:
+            return int(file.read().strip())
 
+    # Function to write the new counter value
+    def write_counter(self, value):
+        with open(counter_file, "w") as file:
+            file.write(str(value))
+
+    # Function to safely increment the counter
+    def increment_counter(self):
+        with FileLock(lock_file):
+            counter = self.read_counter()
+            counter += 1
+            self.write_counter(counter)
+
+    # Initialize the counter file at the beginning of the test
+    def setup_method(self):
+        if os.path.exists(counter_file):
+            os.remove(counter_file)
+        self.write_counter(0)
+
+    # Assert that the unsupported token count is within the threshold
+    # Clean up the counter file at the end of the test
+    def teardown_method(self):
+        unsupported_token_count = self.read_counter()
+        assert unsupported_token_count <= UNSUPPORTED_TOKEN_COUNT_THRESHOLD, f"Unsupported token count: {unsupported_token_count} exceeds threshold {UNSUPPORTED_TOKEN_COUNT_THRESHOLD}"
+        if os.path.exists(counter_file):
+            os.remove(counter_file)
 
     # NUM_TOKENS_DEFAULT low liquidity tokens
     @pytest.mark.parametrize("token",setup.choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT))
@@ -34,16 +70,37 @@ class TestTokensPrices:
     def test_top_volume_token_prices(self, environment_url, token):
         self.run_coingecko_comparison_test(environment_url, token, LOW_PRICE_DIFF)
 
+    # Test every valid listed token if it is supported by the /tokens/prices endpoint
+    # Tests are run by separate processes in parallel, thus using the filelock
+    # to ensure that the counter is updated safely 
+    @pytest.mark.parametrize("token", setup.choose_valid_listed_tokens())
+    def test_unsupported_token_count(self, environment_url, token):
+        sqs_service = SERVICE_MAP[environment_url]
+        try:
+            sqs_price_json = sqs_service.get_tokens_prices([token])
+        except Exception as e:
+            # Increment unsupported token count if an exception is raised
+            self.increment_counter
+            f"Unsupported token {token}: error fetching sqs price {str(e)}"
+        sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
+        if sqs_price_str is None:
+            self.increment_counter
+            # Increment unsupported token count if the price is not available
+            f"Unsupported token {token}: SQS price is none in response"
+        sqs_price = float(sqs_price_str)
+        if sqs_price <= 0:
+            self.increment_counter
+            # Increment unsupported token count if the price is zero
+            f"Unsupported token {token}: SQS price is zero"
+
     # NUM_TOKENS_DEFAULT top by-volume tokens in a batch request, in which multiple tokens
     # are requested in a single request to /tokens/prices
     def test_top_volume_token_prices_in_batch(self, environment_url):
         tokens = setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT)
-        date_format = '%Y-%m-%d %H:%M:%S'
         sqs_service = SERVICE_MAP[environment_url]
         # Assert the latency of the sqs pricing request is within the threshold
         measure_latency = lambda: sqs_service.get_tokens_prices(tokens)
         latency = timeit.timeit(measure_latency, number=1)
-        print(f"{datetime.fromtimestamp(time.time()).strftime(date_format)}: sqs pricing response time = {latency}")
         assert latency < RT_THRESHOLD, f"SQS pricing request response time {latency} exceeds {RT_THRESHOLD} second"
 
         # Assert sqs price is available for the token
@@ -53,34 +110,6 @@ class TestTokensPrices:
             assert sqs_price_str is not None, f"{token} SQS price is none"
             sqs_price = float(sqs_price_str)
             assert sqs_price > 0, f"{token} SQS price is zero"
-
-    # Test every valid listed token if it is supported by the /tokens/prices endpoint
-    # Count the number of unsupported tokens and assert it is below the threshold
-    def test_unsupported_token_count(self, environment_url):
-        tokens = setup.choose_valid_listed_tokens()
-        sqs_service = SERVICE_MAP[environment_url]
-        supported_token_count = 0
-        unsupported_token_count = 0
-        for token in tokens:
-            try:
-                sqs_price_json = sqs_service.get_tokens_prices([token])
-            except Exception as e:
-                # Increment unsupported token count if an exception is raised
-                unsupported_token_count += 1
-                f"Unsupported token {token}: error fetching sqs price {str(e)}"
-            sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
-            if sqs_price_str is None:
-                unsupported_token_count += 1
-                # Increment unsupported token count if the price is not available
-                f"Unsupported token {token}: SQS price is none in response"
-            sqs_price = float(sqs_price_str)
-            if sqs_price <= 0:
-                unsupported_token_count += 1
-                # Increment unsupported token count if the price is zero
-                f"Unsupported token {token}: SQS price is zero"
-            else:
-                supported_token_count += 1
-        assert unsupported_token_count <= UNSUPPORTED_TOKEN_COUNT_THRESHOLD, f"Unsupported token count: {unsupported_token_count} exceeds threshold {UNSUPPORTED_TOKEN_COUNT_THRESHOLD}"
 
     # Helper function to run the coingecko/sqs price comparison test
     # The following tests are performed given the token denom
