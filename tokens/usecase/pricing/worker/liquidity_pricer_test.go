@@ -187,7 +187,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestComputeCoinCap_AllCoin() {
 	quoteChainDenom, err := mainnetUsecase.Tokens.GetChainDenom(defaultPricingConfig.DefaultQuoteHumanDenom)
 	s.Require().NoError(err)
 
-	prices, err := mainnetUsecase.Tokens.GetPrices(context.TODO(), baseDenoms, []string{quoteChainDenom}, domain.ChainPricingSourceType, domain.WithMinLiquidity(0))
+	prices, err := mainnetUsecase.Tokens.GetPrices(context.TODO(), baseDenoms, []string{quoteChainDenom}, domain.ChainPricingSourceType, domain.WithMinPricingPoolLiquidityCap(0))
 	s.Require().NoError(err)
 
 	type errorData struct {

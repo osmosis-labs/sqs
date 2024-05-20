@@ -100,7 +100,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	}
 
 	routerOpts := []domain.RouterOption{
-		domain.WithMinLiquidityCap(minLiquidityFilter),
+		domain.WithMinPoolLiquidityCap(minLiquidityFilter),
 	}
 
 	// Disable split routes if singleRoute is true
@@ -137,7 +137,7 @@ func (a *RouterHandler) getMinLiquidityCapFilter(tokenInDenom, tokenOutDenom str
 		return 0, err
 	} else if err != nil {
 		// If fallback is enabled, get defaiult config value as fallback
-		minLiquidityFilter = a.RUsecase.GetConfig().MinOSMOLiquidity
+		minLiquidityFilter = a.RUsecase.GetConfig().MinPoolLiquidityCap
 	}
 	return minLiquidityFilter, nil
 }

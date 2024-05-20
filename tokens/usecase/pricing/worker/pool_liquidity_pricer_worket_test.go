@@ -14,12 +14,12 @@ type PoolLiquidityComputeWorkerSuite struct {
 
 var (
 	defaultPricingRouterConfig = domain.RouterConfig{
-		PreferredPoolIDs:  []uint64{},
-		MaxRoutes:         5,
-		MaxPoolsPerRoute:  3,
-		MaxSplitRoutes:    3,
-		MinOSMOLiquidity:  50,
-		RouteCacheEnabled: true,
+		PreferredPoolIDs:    []uint64{},
+		MaxRoutes:           5,
+		MaxPoolsPerRoute:    3,
+		MaxSplitRoutes:      3,
+		MinPoolLiquidityCap: 50,
+		RouteCacheEnabled:   true,
 	}
 
 	pricingCacheExpiry = 2000
