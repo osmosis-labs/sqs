@@ -14,7 +14,7 @@
       "max-routes": 20,
       "max-split-routes": 3,
       "max-split-iterations": 10,
-      "min-osmo-liquidity": 10,
+      "min-pool-liquidity-cap": 10,
       "route-cache-enabled": true,
       "candidate-route-cache-expiry-seconds": 1200,
       "ranked-route-cache-expiry-seconds": 600
@@ -29,7 +29,7 @@
         "default-quote-human-denom": "usdc",
         "max-pools-per-route": 4,
         "max-routes": 5,
-        "min-osmo-liquidity": 0
+        "min-pool-liquidity-cap": 0
     },
     "grpc-ingester":{
         "enabled": false,

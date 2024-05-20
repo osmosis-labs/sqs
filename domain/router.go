@@ -70,8 +70,8 @@ type RouterConfig struct {
 	MaxRoutes          int      `mapstructure:"max-routes"`
 	MaxSplitRoutes     int      `mapstructure:"max-split-routes"`
 	MaxSplitIterations int      `mapstructure:"max-split-iterations"`
-	// Denominated in OSMO (not uosmo)
-	MinOSMOLiquidity          int  `mapstructure:"min-osmo-liquidity"`
+	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the route.
+	MinPoolLiquidityCap       int  `mapstructure:"min-pool-liquidity-cap"`
 	RouteUpdateHeightInterval int  `mapstructure:"route-update-height-interval"`
 	RouteCacheEnabled         bool `mapstructure:"route-cache-enabled"`
 	// The number of milliseconds to cache candidate routes for before expiry.
@@ -104,8 +104,8 @@ type RouterOptions struct {
 	MaxRoutes          int
 	MaxSplitRoutes     int
 	MaxSplitIterations int
-	// Denominated in OSMO (not uosmo)
-	MinOSMOLiquidity int
+	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the route.
+	MinPoolLiquidityCap int
 	// The number of milliseconds to cache candidate routes for before expiry.
 	CandidateRouteCacheExpirySeconds int
 	RankedRouteCacheExpirySeconds    int
@@ -117,10 +117,11 @@ var DefaultRouterOptions = RouterOptions{}
 // RouterOption configures the router options.
 type RouterOption func(*RouterOptions)
 
-// WithMinLiquidityCap configures the router options with the min liquidity capitalization.
-func WithMinLiquidityCap(minOSMOLiquidity int) RouterOption {
+// WithMinPoolLiquidityCap configures the router options with the min pool liquidity
+// capitalization.
+func WithMinPoolLiquidityCap(minPoolLiquidityCap int) RouterOption {
 	return func(o *RouterOptions) {
-		o.MinOSMOLiquidity = minOSMOLiquidity
+		o.MinPoolLiquidityCap = minPoolLiquidityCap
 	}
 }
 

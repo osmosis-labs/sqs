@@ -24,3 +24,11 @@ In Python, we need to persist any new dependencies to the `requirements.txt` fil
 ```bash
 make e2e-update-requirements
 ```
+
+## Using Debugger
+
+It is possible to launch the test suite directly from VS Code.
+We have a debug configuration under `.vscode/launch.json` called .
+
+This configuration runs the test suite in verbose mode without parallelization.
+It alows setting breakpoints for streamlined debugging.

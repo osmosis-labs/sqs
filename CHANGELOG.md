@@ -37,6 +37,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+- Consistently rename min liqudity filter across pool models & configs to min pool liquidity capitalization (cap)
+
+## 0.18.4
+
+- Reduce cardinality of duration metrics
 - Clean up chain pricing
 - Charge taker fee for transmuter pools
 

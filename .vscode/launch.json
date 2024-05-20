@@ -83,5 +83,18 @@
                 "-test.v"
             ],
         },
+        {
+            "name": "SQS E2E",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "-v",
+                "tests"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "${workspaceFolder}/tests/venv/bin/python3"
+        }
     ]
 }

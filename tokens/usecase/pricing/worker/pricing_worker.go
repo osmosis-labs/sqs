@@ -56,7 +56,7 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 	// Note that we recompute prices entirely.
 	// Min osmo liquidity must be zero. The reason is that some pools have TVL incorrectly calculated as zero.
 	// For example, BRNCH / STRDST (1288). As a result, they are incorrectly excluded despite having appropriate liquidity.
-	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinLiquidity(0))
+	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(0))
 	if err != nil {
 		p.logger.Error("failed to pre-compute prices", zap.Error(err))
 
@@ -71,7 +71,7 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 	}
 
 	// Measure duration
-	domain.SQSPricingWorkerComputeDurationGauge.WithLabelValues(strconv.FormatUint(height, 10), strconv.FormatInt(int64(len(baseDenoms)), 10)).Set(float64(time.Since(start).Milliseconds()))
+	domain.SQSPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
 }
 
 // RegisterListener implements PricingWorker.

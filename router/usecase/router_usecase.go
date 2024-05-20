@@ -118,7 +118,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		MaxPoolsPerRoute:                 r.defaultConfig.MaxPoolsPerRoute,
 		MaxRoutes:                        r.defaultConfig.MaxRoutes,
 		MaxSplitIterations:               r.defaultConfig.MaxSplitIterations,
-		MinOSMOLiquidity:                 r.defaultConfig.MinOSMOLiquidity,
+		MinPoolLiquidityCap:              r.defaultConfig.MinPoolLiquidityCap,
 		CandidateRouteCacheExpirySeconds: r.defaultConfig.CandidateRouteCacheExpirySeconds,
 		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
 		MaxSplitRoutes:                   r.defaultConfig.MaxSplitRoutes,
@@ -142,11 +142,11 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		rankedRoutes        []route.RouteImpl
 	)
 
-	// If we call this function with MinOSMOLiquidity == 0, it's for pricing, we need to be able to call this as
+	// If we call this function with MinPoolLiquidityCap == 0, it's for pricing, we need to be able to call this as
 	// some pools have TVL incorrectly calculated as zero. For example, BRNCH / STRDST (1288).
 	// As a result, they are incorrectly excluded despite having appropriate liquidity.
-	// So we want to calculate price, but we never cache routes for pricing the are below the minOSMOLiquidity value, as these are returned to users.
-	if options.MinOSMOLiquidity == 0 {
+	// So we want to calculate price, but we never cache routes for pricing the are below the minPoolLiquidityCap value, as these are returned to users.
+	if options.MinPoolLiquidityCap == 0 {
 		pools := r.getSortedPoolsShallowCopy()
 
 		// Compute candidate routes.
@@ -166,8 +166,8 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
 
 		// Zero implies no filtering, so we skip the iterations.
-		if options.MinOSMOLiquidity > 0 {
-			poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinOSMOLiquidity)
+		if options.MinPoolLiquidityCap > 0 {
+			poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinPoolLiquidityCap)
 		}
 
 		r.logger.Info("filtered pools", zap.Int("num_pools", len(poolsAboveMinLiquidity)))
@@ -377,9 +377,9 @@ func estimateDirectQuote(ctx context.Context, routes []route.RouteImpl, tokenIn 
 // GetBestSingleRouteQuote returns the best single route quote to be done directly without a split.
 func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error) {
 	// Filter pools by minimum liquidity
-	poolsAboveMinLiquidity := FilterPoolsByMinLiquidity(r.getSortedPoolsShallowCopy(), r.defaultConfig.MinOSMOLiquidity)
+	poolsAboveMinLiquidityCap := FilterPoolsByMinLiquidity(r.getSortedPoolsShallowCopy(), r.defaultConfig.MinPoolLiquidityCap)
 
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, poolsAboveMinLiquidity, tokenIn, tokenOutDenom, r.defaultConfig.MaxRoutes, r.defaultConfig.MaxPoolsPerRoute)
+	candidateRoutes, err := r.handleCandidateRoutes(ctx, poolsAboveMinLiquidityCap, tokenIn, tokenOutDenom, r.defaultConfig.MaxRoutes, r.defaultConfig.MaxPoolsPerRoute)
 	if err != nil {
 		return nil, err
 	}

@@ -26,7 +26,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOATOM() {
 	mainnetState := s.SetupMainnetState()
 
 	// Prepare valid and sorted pools
-	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, defaultRouterConfig.MinOSMOLiquidity)
+	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, defaultRouterConfig.MinPoolLiquidityCap)
 
 	// System under test.
 	candidateRoutes, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(UOSMO, one), ATOM, maxRoutes, maxPoolsPerRoute, noOpLogger)
@@ -49,15 +49,15 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOATOM() {
 // Inverting the swap direction should return the same routes.
 func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOstOSMO() {
 	var (
-		maxPoolsPerRoute = 5
-		maxRoutes        = 10
-		minOSMOLiquidity = 1000
+		maxPoolsPerRoute    = 5
+		maxRoutes           = 10
+		minPoolLiquidityCap = 1000
 	)
 
 	mainnetState := s.SetupMainnetState()
 
 	// Prepare valid and sorted pools
-	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, minOSMOLiquidity)
+	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, minPoolLiquidityCap)
 
 	candidateRoutesUOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(UOSMO, one), stOSMO, maxRoutes, maxPoolsPerRoute, noOpLogger)
 	s.Require().NoError(err)
@@ -76,15 +76,15 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOstOSMO() {
 
 func (s *RouterTestSuite) TestGetCandidateRoutesBFS_ATOMUSDT() {
 	var (
-		maxRoutes        = 5
-		maxPoolsPerRoute = 4
-		minOsmoLiquidity = 10000 // 10_000 OSMO
+		maxRoutes           = 5
+		maxPoolsPerRoute    = 4
+		minPoolLiquidityCap = 10000
 	)
 
 	mainnetState := s.SetupMainnetState()
 
 	// Prepare valid and sorted pools
-	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, minOsmoLiquidity)
+	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, minPoolLiquidityCap)
 
 	candidateRoutesUOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(ATOM, one), USDT, maxRoutes, maxPoolsPerRoute, noOpLogger)
 	s.Require().NoError(err)
@@ -97,7 +97,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_USDT_USDC() {
 	mainnetState := s.SetupMainnetState()
 
 	// Prepare valid and sorted pools
-	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, routertesting.DefaultPricingRouterConfig.MinOSMOLiquidity)
+	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, routertesting.DefaultPricingRouterConfig.MinPoolLiquidityCap)
 
 	candidateRoutesUOSMOIn, err := routerusecase.GetCandidateRoutes(poolsAboveMinLiquidity, sdk.NewCoin(USDT, one), USDC, routertesting.DefaultPricingRouterConfig.MaxRoutes, routertesting.DefaultPricingRouterConfig.MaxPoolsPerRoute, noOpLogger)
 	s.Require().NoError(err)
@@ -132,7 +132,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_Top10VolumePairs() {
 	one := osmomath.OneInt()
 
 	// Prepare valid and sorted pools
-	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, defaultRouterConfig.MinOSMOLiquidity)
+	poolsAboveMinLiquidity := routertesting.PrepareValidSortedRouterPools(mainnetState.Pools, defaultRouterConfig.MinPoolLiquidityCap)
 
 	for i := 0; i < len(top10ByVolumeDenoms); i++ {
 		for j := i + 1; j < len(top10ByVolumeDenoms); j++ {
