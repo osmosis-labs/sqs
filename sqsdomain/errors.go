@@ -1,8 +1,6 @@
 package sqsdomain
 
-import (
-	"fmt"
-)
+import "fmt"
 
 type ConcentratedPoolNoTickModelError struct {
 	PoolId uint64
