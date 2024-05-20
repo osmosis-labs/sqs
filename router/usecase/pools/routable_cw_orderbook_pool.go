@@ -49,6 +49,13 @@ func (r *routableOrderbookPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
 }
 
+// CalculateTokenOutByTokenIn implements sqsdomain.RoutablePool.
+// It calculates the amount of token out given the amount of token in for a concentrated liquidity pool.
+// Fails if:
+// - the underlying chain pool set on the routable pool is not of cosmwasm type
+// - fails to retrieve the tick model for the pool
+// - the provided denom pair is not supported by the orderbook
+// - runs out of ticks during swap (token in is too high for liquidity in the pool)
 func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	poolType := r.GetType()
 
@@ -73,11 +80,13 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 
 	// ASSUMPTION: Ticks are ordered
 	for amountInRemaining.GT(zeroBigDec) {
+		// Order has run out of ticks to iterate
 		if tickIdx >= len(r.TickModel.TickStates) || tickIdx < 0 {
 			return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn}
 		}
 		tick := r.TickModel.TickStates[tickIdx]
 
+		// Increment or decrement the current tick index depending on order direction
 		if direction == domain.ASK {
 			tickIdx++
 		} else if direction == domain.BID {
@@ -159,6 +168,11 @@ func (r *routableOrderbookPoolImpl) GetCodeID() uint64 {
 	return r.ChainPool.CodeId
 }
 
+// Determines order direction for the current orderbook given token in and out denoms
+// Returns:
+// - 1 if the order is a bid (buying token out)
+// - -1 if the order is an ask (selling token out)
+// - 0 if the order is not valid
 func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (int64, error) {
 	if tokenInDenom == r.BaseDenom && tokenOutDenom == r.QuoteDenom {
 		return domain.ASK, nil
@@ -169,6 +183,7 @@ func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom str
 	}
 }
 
+// Get the index for the tick state array for the starting index given direction
 func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction int64) (int, error) {
 	if direction == domain.ASK {
 		return r.TickModel.GetTickIndexById(r.TickModel.NextAskTickId), nil
@@ -179,6 +194,7 @@ func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction int64) (int, err
 	}
 }
 
+// Converts an amount of token in to the value of token out given a price and direction
 func amountToValue(amount osmomath.BigDec, price osmomath.BigDec, direction int64) osmomath.BigDec {
 	if direction == domain.ASK {
 		return amount.MulMut(price)
