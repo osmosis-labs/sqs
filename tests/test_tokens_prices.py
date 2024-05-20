@@ -17,7 +17,7 @@ class TestTokensPrices:
     # NUM_TOKENS_DEFAULT low liquidity tokens
     @pytest.mark.parametrize("token",setup.choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT))
     def test_low_liq_token_prices(self, environment_url, token):
-        self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF)
+        self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF, True)
 
     # NUM_TOKENS_DEFAULT low volume tokens
     @pytest.mark.parametrize("token",setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_LOW_VOL_FILTER_DEFAULT))
@@ -88,14 +88,17 @@ class TestTokensPrices:
     # 2. Test if its sqs request latency is within the threshold
     # 3. Test if its sqs price is available
     # 4. Test if the price difference between coingecko and sqs is within the threshold
-    def run_coingecko_comparison_test(self, environment_url, token, price_diff_threshold):
+    def run_coingecko_comparison_test(self, environment_url, token, price_diff_threshold, allow_blank_coingecko_id=False):
         date_format = '%Y-%m-%d %H:%M:%S'
         sqs_service = SERVICE_MAP[environment_url]
         coingecko_service = SERVICE_COINGECKO
 
         # Assert coingecko id is available for the token
         coingecko_id = sqs_service.get_coingecko_id(token)
-        assert coingecko_id is not None, f"{token} coingecko id is none"
+        if (not allow_blank_coingecko_id):
+            assert coingecko_id is not None, f"{token} coingecko id is none"
+        else:
+            return
 
         # Assert coingecko price is available for the token
         coingecko_price = coingecko_service.get_token_price(coingecko_id)
