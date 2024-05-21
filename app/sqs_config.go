@@ -25,7 +25,7 @@ var DefaultConfig = domain.Config{
 		MaxRoutes:                        5,
 		MaxSplitRoutes:                   3,
 		MaxSplitIterations:               10,
-		MinPoolLiquidityCap:              100,
+		MinPoolLiquidityCap:              100, // The denomination assummed is set by Pricing.DefaultHumanDenom
 		RouteCacheEnabled:                false,
 		CandidateRouteCacheExpirySeconds: 600, // 10 minutes
 		RankedRouteCacheExpirySeconds:    300, // 5 minutes
