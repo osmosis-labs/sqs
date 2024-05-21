@@ -575,6 +575,7 @@ See the recommended enabled configuration below:
       // Maximum number of iterations to split a route across.
       "max-split-iterations": 10,
       // Minimum liquidity capitalization for a pool to be considered in the router.
+      // The denomination assumed is pricnig.default-quote-human-denom.
       "min-liquidity-cap": 100,
       // Whether to enable route caching
       "route-cache-enabled": true,
