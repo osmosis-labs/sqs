@@ -40,6 +40,9 @@ jobs:
           echo "MAJOR_VERSION=$MAJOR_VERSION" >> $GITHUB_ENV
           echo "MINOR_VERSION=$MINOR_VERSION" >> $GITHUB_ENV
           echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date +%s)" >> $GITHUB_ENV
+          SHA=$(git rev-parse $(git describe --tags --abbrev=0))
+          echo "SHA=$SHA" >> $GITHUB_ENV
       -
         name: Build and Push Docker Images
         uses: docker/build-push-action@v5
@@ -57,6 +60,6 @@ jobs:
               repository_full_name=${{ github.repository }}
               repository_docker=${{ env.DOCKER_REPOSITORY }}
               ref_name=${{ github.ref_name }}
-              commit_sha=${{ env.GITHUB_SHA }} 
+              commit_sha=${{ env.SHA }} 
               tag=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}
               build_date=${{ env.BUILD_DATE }}
