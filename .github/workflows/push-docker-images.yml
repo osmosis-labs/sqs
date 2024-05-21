@@ -41,7 +41,7 @@ jobs:
           echo "MINOR_VERSION=$MINOR_VERSION" >> $GITHUB_ENV
           echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
           echo "BUILD_DATE=$(date +%s)" >> $GITHUB_ENV
-          SHA=$(git rev-parse $(git describe --tags --abbrev=0))
+          SHA=$(git rev-parse $(git rev-parse --abbrev-ref HEAD))
           echo "SHA=$SHA" >> $GITHUB_ENV
       -
         name: Build and Push Docker Images
