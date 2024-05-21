@@ -17,6 +17,20 @@ lock_file = "/tmp/counter.lock"
 
 class TestTokensPrices:
 
+    # Initialize the counter file at the beginning of the test
+    def setup_class(cls):
+        if os.path.exists(counter_file):
+            os.remove(counter_file)
+        cls().write_counter(0)
+
+    # Assert that the unsupported token count is within the threshold
+    # Clean up the counter file at the end of the test
+    def teardown_class(cls):
+        unsupported_token_count = cls().read_counter()
+        if os.path.exists(counter_file):
+            os.remove(counter_file)
+        assert unsupported_token_count <= UNSUPPORTED_TOKEN_COUNT_THRESHOLD, f"Unsupported token count: {unsupported_token_count} exceeds threshold {UNSUPPORTED_TOKEN_COUNT_THRESHOLD}"
+
     # Function to read the current counter value
     def read_counter(self):
         if not os.path.exists(counter_file):
@@ -35,20 +49,6 @@ class TestTokensPrices:
             counter = self.read_counter()
             counter += 1
             self.write_counter(counter)
-
-    # Initialize the counter file at the beginning of the test
-    def setup_method(self):
-        if os.path.exists(counter_file):
-            os.remove(counter_file)
-        self.write_counter(0)
-
-    # Assert that the unsupported token count is within the threshold
-    # Clean up the counter file at the end of the test
-    def teardown_method(self):
-        unsupported_token_count = self.read_counter()
-        assert unsupported_token_count <= UNSUPPORTED_TOKEN_COUNT_THRESHOLD, f"Unsupported token count: {unsupported_token_count} exceeds threshold {UNSUPPORTED_TOKEN_COUNT_THRESHOLD}"
-        if os.path.exists(counter_file):
-            os.remove(counter_file)
 
     # NUM_TOKENS_DEFAULT low liquidity tokens
     @pytest.mark.parametrize("token",setup.choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT))
@@ -80,16 +80,16 @@ class TestTokensPrices:
             sqs_price_json = sqs_service.get_tokens_prices([token])
         except Exception as e:
             # Increment unsupported token count if an exception is raised
-            self.increment_counter
+            self.increment_counter()
             f"Unsupported token {token}: error fetching sqs price {str(e)}"
         sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
         if sqs_price_str is None:
-            self.increment_counter
+            self.increment_counter()
             # Increment unsupported token count if the price is not available
             f"Unsupported token {token}: SQS price is none in response"
         sqs_price = float(sqs_price_str)
         if sqs_price <= 0:
-            self.increment_counter
+            self.increment_counter()
             # Increment unsupported token count if the price is zero
             f"Unsupported token {token}: SQS price is zero"
 
