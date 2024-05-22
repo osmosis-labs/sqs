@@ -351,7 +351,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	// Set up Coingecko pricing strategy, use MockCoingeckoPriceGetter for testing purposes
 	options.PricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
-	coingeckoPricingSource := coingeckopricing.New(routerUsecase, tokensUsecase, options.PricingConfig, coingeckopricing.MockCoingeckoPriceGetter)
+	coingeckoPricingSource := coingeckopricing.New(routerUsecase, tokensUsecase, options.PricingConfig, mocks.DefaultMockCoingeckoPriceGetter)
 	s.Require().NoError(err)
 	tokensUsecase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
 

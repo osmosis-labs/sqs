@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -31,21 +32,15 @@ var (
 	)
 )
 
+const USDC_DENOM = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+const USDT_DENOM = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
+
 // CoingeckoPriceGetterFn is a function type that fetches the price of a token from Coingecko.
 // We monkey-patch this function for testing purposes.
 type CoingeckoPriceGetterFn func(ctx context.Context, baseDenom string, coingeckoId string) (osmomath.BigDec, error)
 
 // DefaultCoingeckoPriceGetter represents a placeholder for the default implementation of CoingeckoPriceGetterFn, which invokes GetPriceByCoingeckoId method that is defined on coingeckoPricing.
 var DefaultCoingeckoPriceGetter CoingeckoPriceGetterFn = nil
-
-// MockCoingeckoPriceGetter is a mock implementation of CoingeckoPriceGetterFn, which returns a fixed price of 1.
-var MockCoingeckoPriceGetter CoingeckoPriceGetterFn = func(ctx context.Context, baseDenom, coingeckoId string) (osmomath.BigDec, error) {
-	if coingeckoId == "" {
-		return osmomath.NewBigDec(0), nil
-	} else {
-		return osmomath.NewBigDec(1), nil
-	}
-}
 
 type coingeckoPricing struct {
 	TUsecase      mvc.TokensUsecase
@@ -90,8 +85,12 @@ func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config
 }
 
 // GetPrice implements pricing.PricingStrategy.
-// quoteDenom is ignored as it uses always coingecko-quote-currency in config.json
+// Coingecko pricing is always usd (i.e. usdc or usdt), as specified in the coingecko-quote-currency in config.json
+// So quoteDenom has to be nil or usdc or usdt
 func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, error) {
+	if quoteDenom != USDC_DENOM && quoteDenom != USDT_DENOM && strings.TrimSpace(quoteDenom) != "" {
+		return osmomath.BigDec{}, fmt.Errorf("only usdc/usdt denom or nil is allowed for the quote denom param")
+	}
 	coingeckoId, err := c.TUsecase.GetCoingeckoIdByChainDenom(baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
