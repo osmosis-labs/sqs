@@ -110,22 +110,22 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 	if model != nil {
 		// since v2, we introduce concept of alloyed assets but not yet actively used
 		// since v3, we introduce concept of normalization factor
-		// `routableTransmuterAlloyedPoolImpl` is v3 compatible
-		if model.ContractInfo.Matches("crates.io:transmuter", "3.0.0") {
+		// `routableAlloyTransmuterPoolImpl` is v3 compatible
+		if model.IsAlloyTransmuter() {
 			spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 			balances := pool.GetSQSPoolModel().Balances
 
-			if model.Data.TransmuterAlloyed == nil {
-				return nil, domain.TransmuterAlloyedDataMissingError{PoolId: pool.GetId()}
+			if model.Data.AlloyTransmuter == nil {
+				return nil, domain.AlloyTransmuterDataMissingError{PoolId: pool.GetId()}
 			}
 
-			return &routableTransmuterAlloyedPoolImpl{
-				ChainPool:             cosmwasmPool,
-				TransmuterAlloyedData: model.Data.TransmuterAlloyed,
-				Balances:              balances,
-				TokenOutDenom:         tokenOutDenom,
-				TakerFee:              takerFee,
-				SpreadFactor:          spreadFactor,
+			return &routableAlloyTransmuterPoolImpl{
+				ChainPool:           cosmwasmPool,
+				AlloyTransmuterData: model.Data.AlloyTransmuter,
+				Balances:            balances,
+				TokenOutDenom:       tokenOutDenom,
+				TakerFee:            takerFee,
+				SpreadFactor:        spreadFactor,
 			}, nil
 		}
 	}

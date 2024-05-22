@@ -147,12 +147,12 @@ func (e ConcentratedTickModelNotSetError) Error() string {
 	return fmt.Sprintf("tick model is not set on pool (%d)", e.PoolId)
 }
 
-type TransmuterAlloyedDataMissingError struct {
+type AlloyTransmuterDataMissingError struct {
 	PoolId uint64
 }
 
-func (e TransmuterAlloyedDataMissingError) Error() string {
-	return fmt.Sprintf("Transmuter Alloyed data is missing for pool (%d)", e.PoolId)
+func (e AlloyTransmuterDataMissingError) Error() string {
+	return fmt.Sprintf("Alloy Transmuter data is missing for pool (%d)", e.PoolId)
 }
 
 type MissingNormalizationFactorError struct {

@@ -14,7 +14,7 @@ import (
 )
 
 // Tests no slippage quotes and validation edge cases aroun transmuter pools.
-func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_TransmuterAlloyed() {
+func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter() {
 	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, osmomath.NewInt(1000000)), sdk.NewCoin(USDT, osmomath.NewInt(1000000)))
 
 	tests := map[string]struct {
@@ -63,7 +63,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_TransmuterAlloyed
 				CWPoolModel: sqsdomain.NewCWPoolModel(
 					"crates.io:transmuter", "3.0.0",
 					sqsdomain.CWPoolData{
-						TransmuterAlloyed: &sqsdomain.TransmuterAlloyedData{
+						AlloyTransmuter: &sqsdomain.AlloyTransmuterData{
 							AlloyedDenom: ALLUSD,
 							AssetConfigs: []sqsdomain.TransmuterAssetConfig{
 								{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
