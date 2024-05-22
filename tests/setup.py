@@ -283,7 +283,7 @@ def choose_valid_listed_tokens():
     for denom, metadata in tokens_metadata.items():
         # Skip unlisted tokens as they should be unsupported
         # in SQS.
-        if metadata['preview']:
+        if metadata['is_unlisted']:
             [print(f"Denom {denom} is unlisted")]
             continue
 
