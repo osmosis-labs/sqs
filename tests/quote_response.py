@@ -1,16 +1,22 @@
+from decimal import *
+
 class Coin:
     def __init__(self, denom, amount):
         self.denom = denom
         self.amount = int(amount)
 
 class Pool:
-    def __init__(self, id, type, balances, spread_factor, token_out_denom, taker_fee):
+    def __init__(self, id, type, balances, spread_factor, token_out_denom, taker_fee, **kwargs):
         self.id = int(id)
         self.type = type
         self.balances = balances
         self.spread_factor = float(spread_factor)
         self.token_out_denom = token_out_denom
         self.taker_fee = float(taker_fee)
+        code_id = kwargs.get('code_id', 0)
+        # Only CW pools have code id
+        if code_id:
+            self.code_id = int(code_id)
 
 class Route:
     def __init__(self, pools, out_amount, in_amount, **kwargs):
@@ -25,6 +31,6 @@ class QuoteResponse:
         self.amount_in = Coin(**amount_in)
         self.amount_out = int(amount_out)
         self.route = [Route(**r) for r in route]
-        self.effective_fee = float(effective_fee)
-        self.price_impact = float(price_impact)
-        self.in_base_out_quote_spot_price = float(in_base_out_quote_spot_price)
+        self.effective_fee = Decimal(effective_fee)
+        self.price_impact = Decimal(price_impact)
+        self.in_base_out_quote_spot_price = Decimal(in_base_out_quote_spot_price)

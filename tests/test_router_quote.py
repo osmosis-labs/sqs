@@ -6,98 +6,106 @@ from sqs_service import *
 import constants
 from conftest import SERVICE_MAP
 from quote_response import *
-from rand_util import get_random_numbers
+from rand_util import *
+from e2e_math import *
+from decimal import *
 
 SQS_STAGE = "https://sqs.stage.osmosis.zone"
 
 ROUTES_URL = "/router/quote"
 
+NUM_TOP_LIQUIDITY_DENOMS = 20
+
 # Arbitrary choice based on performance at the time of test writing
 expected_latency_upper_bound_ms = 1000
+
+def idfn(coin_obj):
+    # This function creates a custom ID for each test case
+    if coin_obj is None:
+        return "None"
+    return f"{coin_obj['amount_str'] + coin_obj['denom']}"
 
 # Test suite for the /router/quote endpoint
 class TestQuote:
 
-    # Sanity check to ensure the test setup is correct
-    # before continunig with more complex test cases.
-    # Test all valid listed tokens with appropriate liquidity with dynamic parameterization
-    @pytest.mark.parametrize("amount_str", get_random_numbers(1))
-    def test_usdc_uosmo(self, environment_url, amount_str):
-        sqs_service = SERVICE_MAP[environment_url]
+    @pytest.mark.parametrize("coin_obj", construct_token_in_combos(setup.choose_tokens_liq_range(NUM_TOP_LIQUIDITY_DENOMS), constants.USDC_PRECISION - 1, constants.USDC_PRECISION + 4), ids=idfn)
+    def test_usdc_in_high_liq_out(self, environment_url, coin_obj):
+        """
+        This test case validates quotes betwen USDC in and NUM_TOP_LIQUIDITY_DENOMS.
+        The amounts are constructed to be seeded random values between 10^constants.USDC_PRECISION-1 and 10 ^(constants.USDC_PRECISION + 4)
 
-        config = sqs_service.get_config()
-        expected_num_routes = config['Router']['MaxRoutes']
+        This allows us to validate that we can continue to quote at reasonable USDC values for all majore token pairs without errors.
 
-        token_in = amount_str + constants.USDC
+        Note: the reason we use Decimal in this test is because floats truncate in some edge cases, leading
+        to flakiness.
+        """
 
-        quote = self.run_quote_test(environment_url, token_in, constants.UOSMO, expected_latency_upper_bound_ms)
+        # This is the max error tolerance of 5% that we allow.
+        error_tolerance = 0.05
 
-        # quote.amount_in 
+        denom_out = coin_obj["denom"]
+        amount_str = coin_obj["amount_str"]
 
+        # Skip USDC quotes
+        if denom_out == constants.USDC:
+            return
 
+        token_in_coin = amount_str + constants.USDC
 
-    # # Switch token in and out denoms compared to test_usdc_uosmo
-    # def test_uosmo_usdc(self, environment_url):
-    #     sqs_service = SERVICE_MAP[environment_url]
+        denom_out_data = setup.chain_denom_to_data_map.get(denom_out)
+        denom_out_precision = denom_out_data.get("exponent")
+        
+        spot_price_scaling_factor = Decimal(10)**6 / Decimal(10)**denom_out_precision
 
-    #     config = sqs_service.get_config()
-    #     expected_num_routes = config['Router']['MaxRoutes']
+        out_base_in_quote_price = Decimal(denom_out_data.get("price"))
 
-    #     self.run_candidate_routes_test(environment_url, constants.UOSMO, constants.USDC, expected_latency_upper_bound_ms, expected_min_routes=expected_num_routes, expected_max_routes=expected_num_routes)
-
-#     # Test all valid listed tokens with appropriate liquidity with dynamic parameterization
-#     @pytest.mark.parametrize("denom", setup.valid_listed_tokens)
-#     def test_all_valid_tokens(self, environment_url, denom):
-#         sqs_service = SERVICE_MAP[environment_url]
-
-#         config = sqs_service.get_config()
-#         expected_num_routes = config['Router']['MaxRoutes']
+        quote = self.run_quote_test(environment_url, token_in_coin, denom_out, expected_latency_upper_bound_ms)
 
 
-#         self.run_candidate_routes_test(environment_url, denom, constants.USDC, expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
+        # Validate routes are generally present
+        assert len(quote.route) > 0
 
-#     def test_transmuter_tokens(self, environment_url):
-#         sqs_service = SERVICE_MAP[environment_url]
+        is_transmuter_route = False
+        if len(quote.route) == 1 and len(quote.route[0].pools) == 1:
+            pool_in_route = quote.route[0].pools[0]
 
-#         transmuter_token_data = setup.transmuter_token_pairs[0]
-#         transmuter_pool_id = transmuter_token_data[0]
-#         tansmuter_token_pair = transmuter_token_data[1]
+            pool = setup.pool_by_id_map.get(pool_in_route.id)
 
-#         config = sqs_service.get_config()
-#         expected_num_routes = config['Router']['MaxRoutes']
+            e2e_type = setup.get_e2e_pool_type_from_numia_pool(pool)
 
-#         routes = self.run_candidate_routes_test(environment_url, tansmuter_token_pair[0], tansmuter_token_pair[1], expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
+            if e2e_type == setup.E2EPoolType.COSMWASM_TRANSMUTER_V1:
+                is_transmuter_route = True
 
-#         validate_pool_id_in_route(routes, [transmuter_pool_id])
-    
-#     def test_astroport_tokens(self, environment_url):
-#         sqs_service = SERVICE_MAP[environment_url]
+        assert quote.price_impact is not None
 
-#         astroport_token_data = setup.astroport_token_pair[0]
-#         astroport_pool_id = astroport_token_data[0]
-#         astroport_token_pair = astroport_token_data[1]
+        # If it is a transmuter route, we expect the price impact to be 0
+        # Price impact is returned as a negative number
+        assert not is_transmuter_route and quote.price_impact < 0
+        price_impact_positive = quote.price_impact * -1
 
-#         config = sqs_service.get_config()
-#         expected_num_routes = config['Router']['MaxRoutes']
 
-#         routes = self.run_candidate_routes_test(environment_url, astroport_token_pair[0], astroport_token_pair[1], expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
+        # Validate amount in and denom are as input
+        assert quote.amount_in.amount == int(amount_str)
+        assert quote.amount_in.denom == constants.USDC
 
-#         validate_pool_id_in_route(routes, [astroport_pool_id])
+        # Validate that the fee is charged
+        assert quote.effective_fee > 0
 
-#     # Test various combinations between tokens in the following groups:
-#     # Selects the following groups of tokens:
-#     # 1. Top 5 by-liquidity
-#     # 2. Top 5 by-volume
-#     # 3. Five low liquidity (between 5000 and 10000 USD)
-#     # 4. Five low volume (between 5000 and 10000 USD)
-#     @pytest.mark.parametrize("pair", setup.misc_token_pairs)
-#     def test_misc_token_pairs(self, environment_url, pair):
-#         sqs_service = SERVICE_MAP[environment_url]
+        # Validate that the spot price is present
+        assert quote.in_base_out_quote_spot_price is not None
 
-#         config = sqs_service.get_config()
-#         expected_num_routes = config['Router']['MaxRoutes']
 
-#         self.run_candidate_routes_test(environment_url, pair[0], pair[1], expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
+        in_base_out_quote_price = 1 / out_base_in_quote_price
+        expected_token_out = int(amount_str) / out_base_in_quote_price
+
+        assert relative_error(quote.in_base_out_quote_spot_price * spot_price_scaling_factor, in_base_out_quote_price) < error_tolerance, f"Error: in base out quote spot price {quote.in_base_out_quote_spot_price} is not within {error_tolerance} of expected {in_base_out_quote_price}"
+
+        # If there is a price impact greater than the provided error tolerance, we dynamically set the error tolerance to be
+        # the price impact * (1 + error_tolerance) to account for the price impact
+        if price_impact_positive > error_tolerance:
+            error_tolerance = price_impact_positive * Decimal(1 + error_tolerance)
+
+        assert relative_error(quote.amount_out * spot_price_scaling_factor, expected_token_out) < error_tolerance, f"Error: amount out {quote.amount_out} is not within {error_tolerance} of expected {expected_token_out}"
 
     def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteResponse:
         """
@@ -125,76 +133,3 @@ class TestQuote:
 
         # Return route for more detailed validation
         return QuoteResponse(**response_json)
-
-# def validate_candidate_routes(routes, token_in, token_out, expected_min_routes, expected_max_routes):
-#     """
-#     Validates the given routes.
-
-#     Validates:
-#     - Following pools in each route, all tokens within these pools are present and valid
-#     - The number of routes is within the expected range
-#     """
-
-#     if token_in == token_out:
-#         assert routes is None, f"equal tokens in and out for candidate route must have no route"
-#         return
-
-#     assert routes is not None, f"Error: no routes found for token in {token_in} and token out {token_out}"
-#     assert len(routes) <= expected_max_routes, f"Error: found more than {expected_max_routes} routes with token in {token_in} and token out {token_out}"
-#     assert len(routes) >= expected_min_routes, f"Error: found fewer than {expected_min_routes} routes with token in {token_in} and token out {token_out}"
-
-#     for route in routes:
-#         cur_token_in = token_in
-
-#         pools = route['Pools']
-
-#         assert len(pools) > 0, f"Error: no pools found in route {route}"
-#         for pool in pools:
-#             pool_id = pool['ID']
-
-#             expected_pool_data = setup.pool_by_id_map.get(pool_id)
-
-#             assert expected_pool_data, f"Error: pool ID {pool_id} not found in test data"
-
-#             # Extract denoms using a helper function
-#             pool_tokens = expected_pool_data.get("pool_tokens")
-#             denoms = setup.get_denoms_from_pool_tokens(pool_tokens)
-
-#             found_denom = cur_token_in in denoms
-
-#             assert found_denom, f"Error: token in {cur_token_in} not found in pool denoms {denoms}"
-
-#             cur_token_out = pool['TokenOutDenom']
-
-#             cur_token_in = cur_token_out
-
-#         # Last token in must be equal to token out
-#         assert cur_token_in == token_out, f"Error: last token out {cur_token_in} not equal to token out {token_out}"
-
-# def validate_pool_id_in_route(routes, expected_pool_ids):
-#     """
-#     Validates that there is at least one route in routes
-#     that contains pools exactly as given per expected_pool_ids
-
-#     Fails if not
-#     """
-
-#     assert len(routes) > 0
-#     for route in routes:
-#         pools = route['Pools']
-
-#         if len(pools) != len(expected_pool_ids):
-#             continue
-
-#         is_expected_route = True
-#         for pool, expected_pool_id in zip(pools, expected_pool_ids):
-#             pool_id = pool['ID']
-
-#             if pool_id != expected_pool_id:
-#                 is_expected_route = False
-#                 break
-        
-#         if is_expected_route:
-#             return
-
-#     assert False, f"{routes} do not contain {expected_pool_id}"
