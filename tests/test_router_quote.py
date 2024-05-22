@@ -50,36 +50,36 @@ class TestQuote:
         if denom_out == constants.USDC:
             return
 
-        token_in_coin = amount_str + constants.USDC
-
         denom_out_data = setup.chain_denom_to_data_map.get(denom_out)
         denom_out_precision = denom_out_data.get("exponent")
         
+        # Compute spot price scaling factor.
         spot_price_scaling_factor = Decimal(10)**6 / Decimal(10)**denom_out_precision
 
+        # Compute expected spot prices
         out_base_in_quote_price = Decimal(denom_out_data.get("price"))
+        expected_in_base_out_quote_price = 1 / out_base_in_quote_price
+        
+        # Compute expected token out
+        expected_token_out = int(amount_str) / out_base_in_quote_price
 
+        # Set the token in coin
+        token_in_coin = amount_str + constants.USDC
+
+        # Run the quote test
         quote = self.run_quote_test(environment_url, token_in_coin, denom_out, expected_latency_upper_bound_ms)
-
 
         # Validate routes are generally present
         assert len(quote.route) > 0
 
-        is_transmuter_route = False
-        if len(quote.route) == 1 and len(quote.route[0].pools) == 1:
-            pool_in_route = quote.route[0].pools[0]
+        # Check if the route is a single pool single transmuter route
+        # For such routes, the price impact is 0.
+        is_transmuter_route = self.is_transmuter_in_single_route(quote.route)
 
-            pool = setup.pool_by_id_map.get(pool_in_route.id)
-
-            e2e_type = setup.get_e2e_pool_type_from_numia_pool(pool)
-
-            if e2e_type == setup.E2EPoolType.COSMWASM_TRANSMUTER_V1:
-                is_transmuter_route = True
-
-        assert quote.price_impact is not None
-
+        # Validate price impact
         # If it is a single pool single transmuter route, we expect the price impact to be 0
         # Price impact is returned as a negative number for any other route.
+        assert quote.price_impact is not None
         assert ((not is_transmuter_route) and (quote.price_impact < 0)) or ((is_transmuter_route) and (quote.price_impact == 0)), f"Error: price impact {quote.price_impact} is not 0 for transmuter route"
         price_impact_positive = quote.price_impact * -1
 
@@ -93,17 +93,15 @@ class TestQuote:
         # Validate that the spot price is present
         assert quote.in_base_out_quote_spot_price is not None
 
-
-        in_base_out_quote_price = 1 / out_base_in_quote_price
-        expected_token_out = int(amount_str) / out_base_in_quote_price
-
-        assert relative_error(quote.in_base_out_quote_spot_price * spot_price_scaling_factor, in_base_out_quote_price) < error_tolerance, f"Error: in base out quote spot price {quote.in_base_out_quote_spot_price} is not within {error_tolerance} of expected {in_base_out_quote_price}"
+        # Validate that the spot price is within the error tolerance
+        assert relative_error(quote.in_base_out_quote_spot_price * spot_price_scaling_factor, expected_in_base_out_quote_price) < error_tolerance, f"Error: in base out quote spot price {quote.in_base_out_quote_spot_price} is not within {error_tolerance} of expected {expected_in_base_out_quote_price}"
 
         # If there is a price impact greater than the provided error tolerance, we dynamically set the error tolerance to be
         # the price impact * (1 + error_tolerance) to account for the price impact
         if price_impact_positive > error_tolerance:
             error_tolerance = price_impact_positive * Decimal(1 + error_tolerance)
 
+        # Validate that the amount out is within the error tolerance
         assert relative_error(quote.amount_out * spot_price_scaling_factor, expected_token_out) < error_tolerance, f"Error: amount out {quote.amount_out} is not within {error_tolerance} of expected {expected_token_out}"
 
     def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteResponse:
@@ -132,3 +130,17 @@ class TestQuote:
 
         # Return route for more detailed validation
         return QuoteResponse(**response_json)
+
+    def is_transmuter_in_single_route(self, routes):
+        """
+        Returns true if there is a single route with
+        one transmuter pool in it.
+        """
+        if len(routes) == 1 and len(routes[0].pools) == 1:
+            pool_in_route = routes[0].pools[0]
+            pool = setup.pool_by_id_map.get(pool_in_route.id)
+            e2e_pool_type = setup.get_e2e_pool_type_from_numia_pool(pool)
+
+            return  e2e_pool_type == setup.E2EPoolType.COSMWASM_TRANSMUTER_V1
+        
+        return False
