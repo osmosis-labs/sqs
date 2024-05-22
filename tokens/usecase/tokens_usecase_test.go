@@ -25,7 +25,7 @@ const (
 	ethExponent               = 18
 	defaultPricingCacheExpiry = time.Second * 2
 
-	mainnetAssetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json"
+	mainnetAssetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json"
 )
 
 var (
