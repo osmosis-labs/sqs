@@ -3,12 +3,13 @@ import time
 import pytest
 
 from sqs_service import *
-import constants
 from conftest import SERVICE_MAP
 from quote_response import *
 from rand_util import *
 from e2e_math import *
 from decimal import *
+from constants import *
+from util import *
 
 SQS_STAGE = "https://sqs.stage.osmosis.zone"
 
@@ -19,20 +20,14 @@ NUM_TOP_LIQUIDITY_DENOMS = 20
 # Arbitrary choice based on performance at the time of test writing
 expected_latency_upper_bound_ms = 1000
 
-def idfn(coin_obj):
-    # This function creates a custom ID for each test case
-    if coin_obj is None:
-        return "None"
-    return f"{coin_obj['amount_str'] + coin_obj['denom']}"
-
 # Test suite for the /router/quote endpoint
 class TestQuote:
 
-    @pytest.mark.parametrize("coin_obj", construct_token_in_combos(setup.choose_tokens_liq_range(NUM_TOP_LIQUIDITY_DENOMS), constants.USDC_PRECISION - 1, constants.USDC_PRECISION + 4), ids=idfn)
+    @pytest.mark.parametrize("coin_obj", construct_token_in_combos(setup.choose_tokens_liq_range(NUM_TOP_LIQUIDITY_DENOMS), USDC_PRECISION - 1, USDC_PRECISION + 4), ids=id_from_coin)
     def test_usdc_in_high_liq_out(self, environment_url, coin_obj):
         """
         This test case validates quotes betwen USDC in and NUM_TOP_LIQUIDITY_DENOMS.
-        The amounts are constructed to be seeded random values between 10^constants.USDC_PRECISION-1 and 10 ^(constants.USDC_PRECISION + 4)
+        The amounts are constructed to be seeded random values between 10^USDC_PRECISION-1 and 10 ^(USDC_PRECISION + 4)
 
         This allows us to validate that we can continue to quote at reasonable USDC values for all majore token pairs without errors.
 
@@ -47,7 +42,7 @@ class TestQuote:
         amount_str = coin_obj["amount_str"]
 
         # Skip USDC quotes
-        if denom_out == constants.USDC:
+        if denom_out == USDC:
             return
 
         denom_out_data = setup.chain_denom_to_data_map.get(denom_out)
@@ -64,7 +59,7 @@ class TestQuote:
         expected_token_out = int(amount_str) / out_base_in_quote_price
 
         # Set the token in coin
-        token_in_coin = amount_str + constants.USDC
+        token_in_coin = amount_str + USDC
 
         # Run the quote test
         quote = self.run_quote_test(environment_url, token_in_coin, denom_out, expected_latency_upper_bound_ms)
@@ -85,7 +80,7 @@ class TestQuote:
 
         # Validate amount in and denom are as input
         assert quote.amount_in.amount == int(amount_str)
-        assert quote.amount_in.denom == constants.USDC
+        assert quote.amount_in.denom == USDC
 
         # Validate that the fee is charged
         assert quote.effective_fee > 0
