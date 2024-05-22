@@ -2,9 +2,9 @@
 
 This is a sidecar query server that is used for performing query tasks outside of the main chain.
 The high-level architecture is that the chain reads data at the end of the block, parses it
-and then writes into a Redis instance.
+and then stores it in RAM.
 
-The sidecar query server then reads the parsed data from Redis and serves it to the client
+The sidecar query server then reads the parsed data from cache and serves it to the client
 via HTTP endpoints.
 
 The use case for this is performing certain data and computationally intensive tasks outside of
@@ -370,11 +370,10 @@ curl https://sqs.osmosis.zone//tokens/prices?base=wbtc,dydx&humanDenoms=true
 
 Description: returns 200 if the server is healthy.
 Validates the following conditions:
-- Redis is reachable
 - Node is reachable
 - Node is not syncing
-- The latest height in Redis is within threshold of the latest height in the node
-- The latest height in Redis was updated within a configurable number of seconds
+- The latest height in cache is within threshold of the latest height in the node
+- The latest height in cache was updated within a configurable number of seconds
 
 2. GET `/metrics`
 
@@ -420,12 +419,12 @@ make all-start
 
 ### Pools
 
-For every chain pool, its pool model is written to Redis.
+For every chain pool, its pool model is written to cache.
 
 Additionally, we instrument each pool model with bank balances and OSMO-denominated TVL.
 
 Some pool models do not contain balances by default. As a result, clients have to requery balance
-for each pool model directly from chain. Having the balances in Redis allows us to avoid this and serve
+for each pool model directly from chain. Having the balances in cache allows us to avoid this and serve
 pools with balances directly.
 
 The routing algorithm requires the knowledge of TVL for prioritizing pools. As a result, each pool model
@@ -434,9 +433,9 @@ is instrumented with OSMO-denominated TVL.
 ### Router
 
 For routing, we must know about the taker fee for every denom pair. As a result, in the router
-repository, we stote the taker fee keyed by the denom pair.
+repository, we store the taker fee keyed by the denom pair.
 
-These taker fees are then read from Redis to initialize the router.
+These taker fees are then read from cache to initialize the router.
 
 ### Token Precision
 
@@ -530,7 +529,6 @@ In this section, we describe the general router algorithm.
 ### Caching
 
 We perform caching of routes to avoid having to recompute them on every request.
-The routes are cached in a Redis instance.
 
 There is a configuration parameter that enables the route cache to be updated every X blocks.
 However, that is an experimental feature. See the configuration section for details.
