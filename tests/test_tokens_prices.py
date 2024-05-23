@@ -51,22 +51,22 @@ class TestTokensPrices:
     # NUM_TOKENS_DEFAULT low liquidity tokens
     @pytest.mark.parametrize("token",conftest.choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT))
     def test_low_liq_token_prices(self, environment_url, token):
-        self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF, True)
+        self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF, allow_blank_coingecko_id=True)
 
     # NUM_TOKENS_DEFAULT low volume tokens
     @pytest.mark.parametrize("token",conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_LOW_VOL_FILTER_DEFAULT))
     def test_low_volume_token_prices(self, environment_url, token):
-        self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF)
+        self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF, allow_blank_coingecko_id=True)
 
     # NUM_TOKENS_DEFAULT mid volume tokens
     @pytest.mark.parametrize("token",conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_MID_VOL_FILTER_DEFAULT))
     def test_mid_volume_token_prices(self, environment_url, token):
-        self.run_coingecko_comparison_test(environment_url, token, MID_PRICE_DIFF)
+        self.run_coingecko_comparison_test(environment_url, token, MID_PRICE_DIFF, allow_blank_coingecko_id=True)
 
     # NUM_TOKENS_DEFAULT top by-volume tokens
     @pytest.mark.parametrize("token", conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT))
     def test_top_volume_token_prices(self, environment_url, token):
-        self.run_coingecko_comparison_test(environment_url, token, LOW_PRICE_DIFF)
+        self.run_coingecko_comparison_test(environment_url, token, LOW_PRICE_DIFF, allow_blank_coingecko_id=False)
 
     # Test every valid listed token if it is supported by the /tokens/prices endpoint
     # Tests are run by separate processes in parallel, thus using the filelock
@@ -118,37 +118,36 @@ class TestTokensPrices:
     def run_coingecko_comparison_test(self, environment_url, token, price_diff_threshold, allow_blank_coingecko_id=False):
         date_format = '%Y-%m-%d %H:%M:%S'
         sqs_service = conftest.SERVICE_MAP[environment_url]
-        coingecko_service = conftest.SERVICE_COINGECKO
-
-        # Assert coingecko id is available for the token
-        coingecko_id = sqs_service.get_coingecko_id(token)
-        if (not allow_blank_coingecko_id):
-            assert coingecko_id is not None, f"{token} coingecko id is none"
-        else:
-            return
-
-        # Assert coingecko price is available for the token
-        coingecko_price = coingecko_service.get_token_price(coingecko_id)
-        assert coingecko_price is not None, f"{token},{coingecko_id} coingecko price is none"
-        print(f"{datetime.fromtimestamp(time.time()).strftime(date_format)}: {token},{coingecko_id}, coingecko price = {coingecko_price}")
-        assert coingecko_price > 0, f"{token},{coingecko_id} coingecko price is zero"
 
         # Assert the latency of the sqs pricing request is within the threshold
         measure_latency = lambda: sqs_service.get_tokens_prices([token])
         latency = timeit.timeit(measure_latency, number=1)
-        print(f"{datetime.fromtimestamp(time.time()).strftime(date_format)}: {token},{coingecko_id}, sqs pricing response time = {latency}")
-        assert latency < RT_THRESHOLD, f"{token},{coingecko_id} SQS pricing request response time {latency} exceeds {RT_THRESHOLD} second"
+        print(f"{datetime.fromtimestamp(time.time()).strftime(date_format)}: {token},, sqs pricing response time = {latency}")
+        assert latency < RT_THRESHOLD, f"{token}, SQS pricing request response time {latency} exceeds {RT_THRESHOLD} second"
 
         # Assert sqs price is available for the token
         sqs_price_json = sqs_service.get_tokens_prices([token])
         sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
-        assert sqs_price_str is not None, f"{token},{coingecko_id} SQS price is none"
+        assert sqs_price_str is not None, f"{token},s SQS price is none"
         sqs_price = float(sqs_price_str)
-        assert sqs_price > 0, f"{token},{coingecko_id} SQS price is zero"
-        print(f"{datetime.fromtimestamp(time.time()).strftime(date_format)}: {token},${coingecko_id}, sqs price = {coingecko_price}")
+        assert sqs_price > 0, f"{token}, SQS price is zero"
+        print(f"{datetime.fromtimestamp(time.time()).strftime(date_format)}: {token}, sqs price = {sqs_price}")
 
-        # Assert price difference between coingecko and sqs is within the threshold
-        price_diff = abs(coingecko_price - sqs_price)/sqs_price 
-        assert price_diff < price_diff_threshold, f"{token},{coingecko_id} price difference ({price_diff}) is greater than {price_diff_threshold}, sqs price = {sqs_price}, coingecko price = {coingecko_price}"
+        # Assert coingecko id is available for the token if it is not allowed to be blank
+        coingecko_id = sqs_service.get_coingecko_id(token)
+        assert allow_blank_coingecko_id or coingecko_id is not None, f"{token}, coingecko id is none"
+
+        # If coingecko id is available, perform the price comparison against its price
+        if coingecko_id is not None and not allow_blank_coingecko_id:
+            coingecko_service = conftest.SERVICE_COINGECKO
+            # Assert coingecko price is available for the token
+            coingecko_price = coingecko_service.get_token_price(coingecko_id)
+            assert coingecko_price is not None, f"{token},{coingecko_id} coingecko price is none"
+            print(f"{datetime.fromtimestamp(time.time()).strftime(date_format)}: {token},{coingecko_id}, coingecko price = {coingecko_price}")
+            assert coingecko_price > 0, f"{token},{coingecko_id} coingecko price is zero"
+
+            # Assert price difference between coingecko and sqs is within the threshold
+            price_diff = abs(coingecko_price - sqs_price)/sqs_price 
+            assert price_diff < price_diff_threshold, f"{token},{coingecko_id} price difference ({price_diff}) is greater than {price_diff_threshold}, sqs price = {sqs_price}, coingecko price = {coingecko_price}"
 
 

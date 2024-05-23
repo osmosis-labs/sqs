@@ -44,18 +44,6 @@ run-docker:
 	$(DOCKER) run -d --name sqs -p 9092:9092 -p 26657:26657 -v /root/sqs/config-testnet.json/:/osmosis/config.json --net host osmolabs/sqs:local "--config /osmosis/config.json"
 	$(DOCKER) logs -f sqs
 
-# Note: we migrated away from Redis.
-# This is left in case we require more data in the near future
-# prompting the need for Redis.
-redis-start:
-	$(DOCKER) run -d --name redis-stack -p 6379:6379 -p 8001:8001 -v ./redis-cache/:/data redis/redis-stack:7.2.0-v3
-
-# Note: we migrated away from Redis.
-# This is left in case we require more data in the near future
-# prompting the need for Redis.
-redis-stop:
-	$(DOCKER) container rm -f redis-stack
-
 osmosis-start:
 	$(DOCKER) run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -p 50051:50051 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:v24.x-4c99a57e-1712870916 "start"
 
