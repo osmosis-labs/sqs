@@ -143,7 +143,7 @@ def validate_candidate_routes(routes, token_in, token_out, expected_min_routes, 
         for pool in pools:
             pool_id = pool['ID']
 
-            expected_pool_data = conftest.shared_test_state.pool_by_id_map.get(pool_id)
+            expected_pool_data = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
 
             assert expected_pool_data, f"Error: pool ID {pool_id} not found in test data"
 
