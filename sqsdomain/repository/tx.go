@@ -16,10 +16,6 @@ type Tx interface {
 	// IsActive returns true if transaction is in progress.
 	IsActive() bool
 
-	// AsRedisTx returns a redis transaction.
-	// Returns an error if this is not a redis transaction.
-	AsRedisTx() (*RedisTx, error)
-
 	// ClearAll clears all data. Returns an error if any.
 	ClearAll(ctx context.Context) error
 }
@@ -28,8 +24,4 @@ type Tx interface {
 type TxManager interface {
 	// StartTx starts a new atomic transaction.
 	StartTx() Tx
-}
-
-// RedisTx is a redis transaction.
-type RedisTx struct {
 }
