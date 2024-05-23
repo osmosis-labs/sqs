@@ -73,8 +73,7 @@ class TestQuote:
         # If it is a single pool single transmuter route, we expect the price impact to be 0
         # Price impact is returned as a negative number for any other route.
         assert quote.price_impact is not None
-        assert (not is_transmuter_route) and (quote.price_impact < 0), f"Error: price impact {quote.price_impact} is zero for non-transmuter route"
-        assert (is_transmuter_route) and (quote.price_impact == 0), f"Error: price impact {quote.price_impact} is not 0 for transmuter route"
+        assert (not is_transmuter_route) and (quote.price_impact < 0) or (is_transmuter_route) and (quote.price_impact == 0), f"Error: price impact {quote.price_impact} is zero for non-transmuter route"
         price_impact_positive = quote.price_impact * -1
 
         # Validate amount in and denom are as input
