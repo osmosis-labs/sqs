@@ -25,8 +25,9 @@ def construct_token_in_combos(denoms, start_order, end_order):
     - amount_str: str
     """
     test_cases = []
-    
+
     seed = 1
+    
     for denom in denoms:
         random_numbers = get_random_numbers(seed, start_order, end_order)
 

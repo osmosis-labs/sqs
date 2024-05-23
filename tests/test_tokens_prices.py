@@ -1,4 +1,4 @@
-import setup
+import tests.conftest as conftest
 import pytest
 import timeit
 import time
@@ -51,29 +51,29 @@ class TestTokensPrices:
             self.write_counter(counter)
 
     # NUM_TOKENS_DEFAULT low liquidity tokens
-    @pytest.mark.parametrize("token",setup.choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT))
+    @pytest.mark.parametrize("token",conftest.choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT))
     def test_low_liq_token_prices(self, environment_url, token):
         self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF, True)
 
     # NUM_TOKENS_DEFAULT low volume tokens
-    @pytest.mark.parametrize("token",setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_LOW_VOL_FILTER_DEFAULT))
+    @pytest.mark.parametrize("token",conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_LOW_VOL_FILTER_DEFAULT))
     def test_low_volume_token_prices(self, environment_url, token):
         self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF)
 
     # NUM_TOKENS_DEFAULT mid volume tokens
-    @pytest.mark.parametrize("token",setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_MID_VOL_FILTER_DEFAULT))
+    @pytest.mark.parametrize("token",conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_MID_VOL_FILTER_DEFAULT))
     def test_mid_volume_token_prices(self, environment_url, token):
         self.run_coingecko_comparison_test(environment_url, token, MID_PRICE_DIFF)
 
     # NUM_TOKENS_DEFAULT top by-volume tokens
-    @pytest.mark.parametrize("token", setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT))
+    @pytest.mark.parametrize("token", conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT))
     def test_top_volume_token_prices(self, environment_url, token):
         self.run_coingecko_comparison_test(environment_url, token, LOW_PRICE_DIFF)
 
     # Test every valid listed token if it is supported by the /tokens/prices endpoint
     # Tests are run by separate processes in parallel, thus using the filelock
     # to ensure that the counter is updated safely 
-    @pytest.mark.parametrize("token", setup.choose_valid_listed_tokens())
+    @pytest.mark.parametrize("token", conftest.choose_valid_listed_tokens())
     def test_unsupported_token_count(self, environment_url, token):
         sqs_service = SERVICE_MAP[environment_url]
         try:
@@ -96,7 +96,7 @@ class TestTokensPrices:
     # NUM_TOKENS_DEFAULT top by-volume tokens in a batch request, in which multiple tokens
     # are requested in a single request to /tokens/prices
     def test_top_volume_token_prices_in_batch(self, environment_url):
-        tokens = setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT)
+        tokens = conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT)
         sqs_service = SERVICE_MAP[environment_url]
         # Assert the latency of the sqs pricing request is within the threshold
         measure_latency = lambda: sqs_service.get_tokens_prices(tokens)

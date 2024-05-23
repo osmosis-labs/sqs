@@ -1,4 +1,4 @@
-import setup
+import conftest
 import time
 import pytest
 
@@ -35,7 +35,7 @@ class TestCandidateRoutes:
         self.run_candidate_routes_test(environment_url, constants.UOSMO, constants.USDC, expected_latency_upper_bound_ms, expected_min_routes=expected_num_routes, expected_max_routes=expected_num_routes)
 
     # Test all valid listed tokens with appropriate liquidity with dynamic parameterization
-    @pytest.mark.parametrize("denom", setup.valid_listed_tokens)
+    @pytest.mark.parametrize("denom", conftest.valid_listed_tokens)
     def test_all_valid_tokens(self, environment_url, denom):
         sqs_service = SERVICE_MAP[environment_url]
 
@@ -48,7 +48,7 @@ class TestCandidateRoutes:
     def test_transmuter_tokens(self, environment_url):
         sqs_service = SERVICE_MAP[environment_url]
 
-        transmuter_token_data = setup.transmuter_token_pairs[0]
+        transmuter_token_data = conftest.transmuter_token_pairs[0]
         transmuter_pool_id = transmuter_token_data[0]
         tansmuter_token_pair = transmuter_token_data[1]
 
@@ -62,7 +62,7 @@ class TestCandidateRoutes:
     def test_astroport_tokens(self, environment_url):
         sqs_service = SERVICE_MAP[environment_url]
 
-        astroport_token_data = setup.astroport_token_pair[0]
+        astroport_token_data = conftest.astroport_token_pair[0]
         astroport_pool_id = astroport_token_data[0]
         astroport_token_pair = astroport_token_data[1]
 
@@ -79,7 +79,7 @@ class TestCandidateRoutes:
     # 2. Top 5 by-volume
     # 3. Five low liquidity (between 5000 and 10000 USD)
     # 4. Five low volume (between 5000 and 10000 USD)
-    @pytest.mark.parametrize("pair", setup.misc_token_pairs)
+    @pytest.mark.parametrize("pair", conftest.misc_token_pairs)
     def test_misc_token_pairs(self, environment_url, pair):
         sqs_service = SERVICE_MAP[environment_url]
 
@@ -143,13 +143,13 @@ def validate_candidate_routes(routes, token_in, token_out, expected_min_routes, 
         for pool in pools:
             pool_id = pool['ID']
 
-            expected_pool_data = setup.pool_by_id_map.get(pool_id)
+            expected_pool_data = conftest.pool_by_id_map.get(pool_id)
 
             assert expected_pool_data, f"Error: pool ID {pool_id} not found in test data"
 
             # Extract denoms using a helper function
             pool_tokens = expected_pool_data.get("pool_tokens")
-            denoms = setup.get_denoms_from_pool_tokens(pool_tokens)
+            denoms = conftest.get_denoms_from_pool_tokens(pool_tokens)
 
             found_denom = cur_token_in in denoms
 

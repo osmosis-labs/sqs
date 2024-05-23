@@ -1,9 +1,8 @@
-import setup
 import time
 import pytest
 
+import conftest
 from sqs_service import *
-from conftest import SERVICE_MAP
 from quote_response import *
 from rand_util import *
 from e2e_math import *
@@ -23,7 +22,7 @@ expected_latency_upper_bound_ms = 1000
 # Test suite for the /router/quote endpoint
 class TestQuote:
 
-    @pytest.mark.parametrize("coin_obj", construct_token_in_combos(setup.choose_tokens_liq_range(NUM_TOP_LIQUIDITY_DENOMS), USDC_PRECISION - 1, USDC_PRECISION + 4), ids=id_from_coin)
+    @pytest.mark.parametrize("coin_obj", construct_token_in_combos(conftest.choose_tokens_liq_range(NUM_TOP_LIQUIDITY_DENOMS), USDC_PRECISION - 1, USDC_PRECISION + 4), ids=id_from_coin)
     def test_usdc_in_high_liq_out(self, environment_url, coin_obj):
         """
         This test case validates quotes betwen USDC in and NUM_TOP_LIQUIDITY_DENOMS.
@@ -34,7 +33,6 @@ class TestQuote:
         Note: the reason we use Decimal in this test is because floats truncate in some edge cases, leading
         to flakiness.
         """
-
         # This is the max error tolerance of 5% that we allow.
         error_tolerance = 0.05
 
@@ -45,7 +43,7 @@ class TestQuote:
         if denom_out == USDC:
             return
 
-        denom_out_data = setup.chain_denom_to_data_map.get(denom_out)
+        denom_out_data = conftest.chain_denom_to_data_map.get(denom_out)
         denom_out_precision = denom_out_data.get("exponent")
         
         # Compute spot price scaling factor.
@@ -99,6 +97,16 @@ class TestQuote:
         # Validate that the amount out is within the error tolerance
         assert relative_error(quote.amount_out * spot_price_scaling_factor, expected_token_out) < error_tolerance, f"Error: amount out {quote.amount_out} is not within {error_tolerance} of expected {expected_token_out}"
 
+    # Test various combinations between tokens in the following groups:
+    # Selects the following groups of tokens:
+    # 1. Top 5 by-liquidity
+    # 2. Top 5 by-volume
+    # 3. Five low liquidity (between 5000 and 10000 USD)
+    # 4. Five low volume (between 5000 and 10000 USD)
+    @pytest.mark.parametrize("swap_pair", conftest.create_coins_from_pairs(conftest.global_misc_token_pairs, 6, 9), ids=id_from_swap_pair)
+    def test_misc_token_pairs(self, environment_url, swap_pair):
+       pass
+
     def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteResponse:
         """
         Runs a test for the /router/quote endpoint with the given input parameters.
@@ -112,7 +120,7 @@ class TestQuote:
         - Latency is under the given bound
         """
         
-        sqs_service = SERVICE_MAP[environment_url]
+        sqs_service = conftest.SERVICE_MAP[environment_url]
 
         start_time = time.time()
         response = sqs_service.get_quote(token_in, token_out)
@@ -133,9 +141,9 @@ class TestQuote:
         """
         if len(routes) == 1 and len(routes[0].pools) == 1:
             pool_in_route = routes[0].pools[0]
-            pool = setup.pool_by_id_map.get(pool_in_route.id)
-            e2e_pool_type = setup.get_e2e_pool_type_from_numia_pool(pool)
+            pool = conftest.pool_by_id_map.get(pool_in_route.id)
+            e2e_pool_type = conftest.get_e2e_pool_type_from_numia_pool(pool)
 
-            return  e2e_pool_type == setup.E2EPoolType.COSMWASM_TRANSMUTER_V1
+            return  e2e_pool_type == conftest.E2EPoolType.COSMWASM_TRANSMUTER_V1
         
         return False
