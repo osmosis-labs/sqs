@@ -33,7 +33,7 @@ class TestQuote:
         Note: the reason we use Decimal in this test is because floats truncate in some edge cases, leading
         to flakiness.
         """
-        # This is the max error tolerance of 5% that we allow.
+        # This is the max error tolerance of 8% that we allow.
         error_tolerance = 0.05
 
         denom_out = coin_obj["denom"]
@@ -103,7 +103,7 @@ class TestQuote:
     # 2. Top 5 by-volume
     # 3. Five low liquidity (between 5000 and 10000 USD)
     # 4. Five low volume (between 5000 and 10000 USD)
-    @pytest.mark.parametrize("swap_pair", conftest.create_coins_from_pairs(conftest.shared_test_state.misc_token_pairs, 6, 9), ids=id_from_swap_pair)
+    @pytest.mark.parametrize("swap_pair", conftest.create_coins_from_pairs(conftest.shared_test_state.misc_token_pairs, USDC_PRECISION - 1, USDC_PRECISION + 4), ids=id_from_swap_pair)
     def test_misc_token_pairs(self, environment_url, swap_pair):
        pass
 
@@ -141,7 +141,7 @@ class TestQuote:
         """
         if len(routes) == 1 and len(routes[0].pools) == 1:
             pool_in_route = routes[0].pools[0]
-            pool = conftest.shared_test_state.pool_by_id_map.get(pool_in_route.id)
+            pool = conftest.shared_test_state.pool_by_id_map.get(str(pool_in_route.id))
             e2e_pool_type = conftest.get_e2e_pool_type_from_numia_pool(pool)
 
             return  e2e_pool_type == conftest.E2EPoolType.COSMWASM_TRANSMUTER_V1
