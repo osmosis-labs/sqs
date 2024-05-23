@@ -5,7 +5,7 @@ import itertools
 import json
 
 from sqs_service import *
-from data_service import all_tokens_data, all_pools_data
+from data_service import fetch_tokens, fetch_pools
 from enum import Enum, IntEnum
 from constants import *
 from rand_util import construct_token_in_combos
@@ -69,6 +69,27 @@ ALLOWED_NUM_TOKENS_USDC_PAIR_SKIPPED = 50
 # validate we do not get false positve passes due to small
 # number of pairs constructed.
 MIN_NUM_MISC_TOKEN_PAIRS = 10
+
+class SharedTestState:
+    def __init__(self, **kwargs):
+        self.all_tokens_data = kwargs.get('all_tokens_data', None)
+        self.all_pools_data = kwargs.get('all_pools_data', None)
+        self.display_to_data_map = kwargs.get('display_to_data_map', None)
+        self.chain_denom_to_data_map = kwargs.get('chain_denom_to_data_map', None)
+        self.pool_type_to_denoms = kwargs.get('pool_type_to_denoms', None)
+        self.denom_top_liquidity_pool_map = kwargs.get('denom_top_liquidity_pool_map', None)
+        self.pool_by_id_map = kwargs.get('pool_by_id_map', None)
+        self.valid_listed_tokens = kwargs.get('valid_listed_tokens', None)
+        self.transmuter_token_pairs = kwargs.get('transmuter_token_pairs', None)
+        self.astroport_token_pair = kwargs.get('astroport_token_pair', None)
+        self.misc_token_pairs = kwargs.get('misc_token_pairs', None)
+
+    def to_json(self):
+            # Dynamically create a dictionary of all attributes for serialization
+            return {attr: getattr(self, attr) for attr in dir(self) if not attr.startswith('__') and not callable(getattr(self, attr))}
+
+global shared_test_state
+shared_test_state = SharedTestState()
 
 def get_e2e_pool_type_from_numia_pool(pool):
     """Gets an e2e pool type from a Numia pool."""
@@ -202,8 +223,9 @@ def create_chain_denom_to_data_map(tokens_data):
 
 
 def get_token_data_copy():
-    """Return deep copy of all tokens."""
-    return copy.deepcopy(all_tokens_data)
+    """Return deep copy of all tokens from shared_test_state."""
+    global all_tokens_data
+    return copy.deepcopy(shared_test_state.all_tokens_data)
 
 
 def choose_tokens_generic(tokens, filter_key, min_value, max_value, sort_key, num_tokens=1, asc=False):
@@ -247,7 +269,7 @@ def choose_tokens_volume_range(num_tokens=1, min_vol=0, max_vol=float('inf'), as
     return choose_tokens_generic(tokens, 'volume_24h', min_vol, max_vol, 'volume_24h', num_tokens, asc)
 
 
-def choose_pool_type_tokens_by_liq_asc(pool_type, num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
+def choose_pool_type_tokens_by_liq_asc(pool_type_to_denoms, pool_type, num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
     """
     Function to choose pool ID and tokens associated with a specific pool type based on liquidity.
 
@@ -262,7 +284,7 @@ def choose_pool_type_tokens_by_liq_asc(pool_type, num_pairs=1, min_liq=0, max_li
         list: [[pool ID, [tokens]], ...]
     """
     # Retrieve pools associated with the specified pool type
-    pools_tokens_of_type = pool_type_to_denoms.get(pool_type, [])
+    pools_tokens_of_type =  pool_type_to_denoms.get(pool_type, [])
 
     # Filter pools based on the provided min_liq and max_liq values
     filtered_pools = [
@@ -276,18 +298,18 @@ def choose_pool_type_tokens_by_liq_asc(pool_type, num_pairs=1, min_liq=0, max_li
     return [[pool_data[0], pool_data[2]] for pool_data in sorted_pools[:num_pairs]]
 
 
-def choose_transmuter_pool_tokens_by_liq_asc(num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
+def choose_transmuter_pool_tokens_by_liq_asc(pool_type_to_denoms, num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
     """Function to choose pool ID and tokens associated with a transmuter V1 pool type based on liquidity.
     Returns [pool ID, [tokens]]"""
-    return choose_pool_type_tokens_by_liq_asc(E2EPoolType.COSMWASM_TRANSMUTER_V1, num_pairs, min_liq, max_liq, asc)
+    return choose_pool_type_tokens_by_liq_asc(pool_type_to_denoms, E2EPoolType.COSMWASM_TRANSMUTER_V1, num_pairs, min_liq, max_liq, asc)
 
 
-def choose_pcl_pool_tokens_by_liq_asc(num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
+def choose_pcl_pool_tokens_by_liq_asc(pool_type_to_denoms, num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
     """Function to choose pool ID and tokens associated with a Astroport PCL pool type based on liquidity.
     Returns [pool ID, [tokens]]"""
-    return choose_pool_type_tokens_by_liq_asc(E2EPoolType.COSMWASM_ASTROPORT, num_pairs, min_liq, max_liq, asc)
+    return choose_pool_type_tokens_by_liq_asc(pool_type_to_denoms, E2EPoolType.COSMWASM_ASTROPORT, num_pairs, min_liq, max_liq, asc)
 
-def choose_valid_listed_tokens():
+def choose_valid_listed_tokens(denom_top_liquidity_pool_map):
     """
     Returns all listed tokens from the asset list that have at least one pool with liquidity.
 
@@ -340,28 +362,6 @@ def chain_denoms_to_display(chain_denoms):
     """Function to map chain denoms to display."""
     return [chain_denom_to_display(denom) for denom in chain_denoms]
 
-# Create a map of display to token data
-display_to_data_map = create_display_to_data_map(all_tokens_data)
-
-# Create a map of chain denom to token data
-chain_denom_to_data_map = create_chain_denom_to_data_map(all_tokens_data)
-
-# Create two maps:
-# 1. A map of pool type to pool data
-# 2. A map of denom to top liquidity pool
-pool_type_to_denoms, denom_top_liquidity_pool_map = create_pool_data_maps(all_pools_data)
-
-# Create a map of pool ID to pool data
-pool_by_id_map = {pool.get('pool_id'): pool for pool in all_pools_data}
-
-# Listed tokens that have at least one pool with liquidity
-valid_listed_tokens = choose_valid_listed_tokens() 
-
-# One Transmuter token pair [[pool_id, ['denom0', 'denom1']]]
-transmuter_token_pairs = choose_transmuter_pool_tokens_by_liq_asc(1)
-
-# One Astroport token pair [[pool_id, ['denom0', 'denom1']]]
-astroport_token_pair = choose_pcl_pool_tokens_by_liq_asc(1)
 
 def create_token_pairs():
     """
@@ -430,11 +430,8 @@ def create_coins_from_pairs(pairs, start_order, end_order):
 
     return result
 
-
 data_lock_file = "/tmp/e2e_setup_data.lock"
-token_pair_file = "/tmp/token_pairs.txt"
-
-global_misc_token_pairs = None
+sqs_e2e_shared_test_state_file = "/tmp/sqs_e2e_shared_test_state.txt"
 
 def pytest_sessionstart(session):
     """
@@ -443,19 +440,50 @@ def pytest_sessionstart(session):
     """
     print("Session is starting. Worker ID:", getattr(session.config, 'workerinput', {}).get('workerid', 'master'))
 
+    global shared_test_state
+
     # Example setup logic
     if not hasattr(session.config, 'workerinput'):  # This checks if the code is running on the master node
-        misc_token_pairs = create_token_pairs()
+        
+        # Fetch all token data once
+        shared_test_state.all_tokens_data = fetch_tokens()
+
+        # Fetch all pools data once
+        shared_test_state.all_pools_data = fetch_pools()
+
+                # Create a map of display to token data
+        shared_test_state.display_to_data_map = create_display_to_data_map(shared_test_state.all_tokens_data)
+
+        # Create a map of chain denom to token data
+        shared_test_state.chain_denom_to_data_map = create_chain_denom_to_data_map(shared_test_state.all_tokens_data)
+
+        # Create two maps:
+        # 1. A map of pool type to pool data
+        # 2. A map of denom to top liquidity pool
+        shared_test_state.pool_type_to_denoms, shared_test_state.denom_top_liquidity_pool_map = create_pool_data_maps(shared_test_state.all_pools_data)
+
+        # Create a map of pool ID to pool data
+        shared_test_state.pool_by_id_map = {pool.get('pool_id'): pool for pool in shared_test_state.all_pools_data}
+
+        # Listed tokens that have at least one pool with liquidity
+        shared_test_state.valid_listed_tokens = choose_valid_listed_tokens(shared_test_state.denom_top_liquidity_pool_map) 
+
+        # One Transmuter token pair [[pool_id, ['denom0', 'denom1']]]
+        shared_test_state.transmuter_token_pairs = choose_transmuter_pool_tokens_by_liq_asc(shared_test_state.pool_type_to_denoms, 1)
+
+        # One Astroport token pair [[pool_id, ['denom0', 'denom1']]]
+        shared_test_state.astroport_token_pair = choose_pcl_pool_tokens_by_liq_asc(shared_test_state.pool_type_to_denoms, 1)
+
+        shared_test_state.misc_token_pairs = create_token_pairs()
 
         with FileLock(data_lock_file):
-            with open(token_pair_file, "w") as file:
-                file.write(json.dumps(misc_token_pairs))
+            with open(sqs_e2e_shared_test_state_file, "w") as file:
+                shared_test_state_json = shared_test_state.to_json()
+                file.write(json.dumps(shared_test_state_json))
     else:
         print("Performing worker-specific setup tasks...")
-    
-        global global_misc_token_pairs
 
         with FileLock(data_lock_file):
-            with open(token_pair_file, "r") as file:
+            with open(sqs_e2e_shared_test_state_file, "r") as file:
                 data_read_from_file = json.load(file)
-                global_misc_token_pairs = data_read_from_file
+                shared_test_state = SharedTestState(**data_read_from_file)

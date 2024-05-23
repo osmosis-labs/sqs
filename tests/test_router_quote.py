@@ -43,7 +43,7 @@ class TestQuote:
         if denom_out == USDC:
             return
 
-        denom_out_data = conftest.chain_denom_to_data_map.get(denom_out)
+        denom_out_data = conftest.shared_test_state.chain_denom_to_data_map.get(denom_out)
         denom_out_precision = denom_out_data.get("exponent")
         
         # Compute spot price scaling factor.
@@ -73,7 +73,8 @@ class TestQuote:
         # If it is a single pool single transmuter route, we expect the price impact to be 0
         # Price impact is returned as a negative number for any other route.
         assert quote.price_impact is not None
-        assert ((not is_transmuter_route) and (quote.price_impact < 0)) or ((is_transmuter_route) and (quote.price_impact == 0)), f"Error: price impact {quote.price_impact} is not 0 for transmuter route"
+        assert (not is_transmuter_route) and (quote.price_impact < 0), f"Error: price impact {quote.price_impact} is zero for non-transmuter route"
+        assert (is_transmuter_route) and (quote.price_impact == 0), f"Error: price impact {quote.price_impact} is not 0 for transmuter route"
         price_impact_positive = quote.price_impact * -1
 
         # Validate amount in and denom are as input
@@ -103,7 +104,7 @@ class TestQuote:
     # 2. Top 5 by-volume
     # 3. Five low liquidity (between 5000 and 10000 USD)
     # 4. Five low volume (between 5000 and 10000 USD)
-    @pytest.mark.parametrize("swap_pair", conftest.create_coins_from_pairs(conftest.global_misc_token_pairs, 6, 9), ids=id_from_swap_pair)
+    @pytest.mark.parametrize("swap_pair", conftest.create_coins_from_pairs(conftest.shared_test_state.misc_token_pairs, 6, 9), ids=id_from_swap_pair)
     def test_misc_token_pairs(self, environment_url, swap_pair):
        pass
 
@@ -141,7 +142,7 @@ class TestQuote:
         """
         if len(routes) == 1 and len(routes[0].pools) == 1:
             pool_in_route = routes[0].pools[0]
-            pool = conftest.pool_by_id_map.get(pool_in_route.id)
+            pool = conftest.shared_test_state.pool_by_id_map.get(pool_in_route.id)
             e2e_pool_type = conftest.get_e2e_pool_type_from_numia_pool(pool)
 
             return  e2e_pool_type == conftest.E2EPoolType.COSMWASM_TRANSMUTER_V1

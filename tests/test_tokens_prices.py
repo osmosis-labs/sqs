@@ -1,4 +1,3 @@
-import tests.conftest as conftest
 import pytest
 import timeit
 import time
@@ -7,8 +6,7 @@ import os
 from datetime import datetime
 from sqs_service import *
 from coingecko_service import *
-from conftest import SERVICE_MAP
-from conftest import SERVICE_COINGECKO
+import conftest 
 from constants import *
 from filelock import FileLock
 
@@ -73,9 +71,9 @@ class TestTokensPrices:
     # Test every valid listed token if it is supported by the /tokens/prices endpoint
     # Tests are run by separate processes in parallel, thus using the filelock
     # to ensure that the counter is updated safely 
-    @pytest.mark.parametrize("token", conftest.choose_valid_listed_tokens())
+    @pytest.mark.parametrize("token", conftest.shared_test_state.valid_listed_tokens)
     def test_unsupported_token_count(self, environment_url, token):
-        sqs_service = SERVICE_MAP[environment_url]
+        sqs_service = conftest.SERVICE_MAP[environment_url]
         try:
             sqs_price_json = sqs_service.get_tokens_prices([token])
         except Exception as e:
@@ -97,7 +95,7 @@ class TestTokensPrices:
     # are requested in a single request to /tokens/prices
     def test_top_volume_token_prices_in_batch(self, environment_url):
         tokens = conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT)
-        sqs_service = SERVICE_MAP[environment_url]
+        sqs_service = conftest.SERVICE_MAP[environment_url]
         # Assert the latency of the sqs pricing request is within the threshold
         measure_latency = lambda: sqs_service.get_tokens_prices(tokens)
         latency = timeit.timeit(measure_latency, number=1)
@@ -119,8 +117,8 @@ class TestTokensPrices:
     # 4. Test if the price difference between coingecko and sqs is within the threshold
     def run_coingecko_comparison_test(self, environment_url, token, price_diff_threshold, allow_blank_coingecko_id=False):
         date_format = '%Y-%m-%d %H:%M:%S'
-        sqs_service = SERVICE_MAP[environment_url]
-        coingecko_service = SERVICE_COINGECKO
+        sqs_service = conftest.SERVICE_MAP[environment_url]
+        coingecko_service = conftest.SERVICE_COINGECKO
 
         # Assert coingecko id is available for the token
         coingecko_id = sqs_service.get_coingecko_id(token)
