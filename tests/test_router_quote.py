@@ -90,10 +90,56 @@ class TestQuote:
         # Run the quote test
         quote = self.run_quote_test(environment_url, token_in_coin, denom_out, expected_latency_upper_bound_ms)
 
+        # Validate quote results
         self.validate_quote_test(quote, amount_str, token_in_denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
 
-    ## TODO:
-    # 18 exponent
+    @pytest.mark.parametrize("amount", get_random_numbers(1, USDC_PRECISION, USDC_PRECISION + 3))
+    def test_transmuter_tokens(self, environment_url, amount):
+        """
+        This test validates that swapping over a route with a transmuter pool works as expected.
+
+        Generates tests with amounts of order of magnitude of USDC_PRECISION to USDC_PRECISION + 3 inclusive.
+
+        Runs quote validations.
+
+        Asserts that transmuter pool is present in route.
+        """
+        transmuter_token_data = conftest.shared_test_state.transmuter_token_pairs[0]
+        transmuter_token_pair = transmuter_token_data[1]
+
+        denom_in = transmuter_token_pair[0]
+        denom_out = transmuter_token_pair[1]
+
+        # This is the max error tolerance of 8% that we allow.
+        error_tolerance = 0.05
+
+        # Get denom in precision.
+        denom_in_precision = conftest.get_denom_exponent(denom_in)
+
+        # Get denom out data to retrieve precision and price 
+        denom_out_data = conftest.shared_test_state.chain_denom_to_data_map.get(denom_out)
+        denom_out_precision = denom_out_data.get("exponent")
+        
+        # Compute spot price scaling factor.
+        spot_price_scaling_factor = Decimal(10)**denom_in_precision / Decimal(10)**denom_out_precision
+
+        # Compute expected spot prices
+        out_base_in_quote_price = Decimal(denom_out_data.get("price"))
+        expected_in_base_out_quote_price = 1 / out_base_in_quote_price
+        
+        # Compute expected token out
+        expected_token_out = int(amount) * expected_in_base_out_quote_price
+
+        # Run the quote test
+        quote = self.run_quote_test(environment_url, amount + denom_in, denom_out, expected_latency_upper_bound_ms)
+
+        # Validate transmuter was in route
+        assert self.is_transmuter_in_single_route(quote.route) is True
+
+        # Validate the quote test
+        self.validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
+
+
     # transmuter
     # Astroport
 

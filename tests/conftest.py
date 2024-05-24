@@ -454,6 +454,13 @@ def get_usd_price_scaled(denom):
     denom_precision = denom_data.get("exponent")
     return Decimal(denom_data.get("price")) * Decimal(10)**denom_precision
 
+def get_denom_exponent(denom):
+    """
+    Returns the denom exponent given the denom itself.
+    """
+    denom_data = shared_test_state.chain_denom_to_data_map.get(denom)
+    return denom_data.get("exponent")
+
 data_lock_file = "/tmp/e2e_setup_data.lock"
 sqs_e2e_shared_test_state_file = "/tmp/sqs_e2e_shared_test_state.txt"
 
