@@ -16,7 +16,7 @@ func NewPricingStrategy(config domain.PricingConfig, tokensUsecase mvc.TokensUse
 		return chainpricing.New(routerUseCase, tokensUsecase, config), nil
 	}
 	if config.DefaultSource == domain.CoinGeckoPricingSourceType {
-		return coingeckopricing.New(routerUseCase, tokensUsecase, config, coingeckopricing.DefaultCoingeckoPriceGetter), nil
+		return coingeckopricing.New(tokensUsecase, config, coingeckopricing.DefaultCoingeckoPriceGetter), nil
 	}
 
 	return nil, fmt.Errorf("pricing source (%d) is not supported", config.DefaultSource)

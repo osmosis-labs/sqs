@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -39,43 +40,40 @@ func TestCoingeckoPricingTestSuite(t *testing.T) {
 
 // TestGetPrices tests the GetPrice method of CoingeckoPricing.
 // MockCoingeckoPriceGetter is used to mock the CoingeckoPriceGetterFn function
-// The main goal of this test is to check if the GetPrice method returns 0 and error given non-supported base or quote denom
+// The main goal of this test is to check if the GetPrice method returns 0 given non-supported base or quote denom
+// and if it returns the expected price given supported base and quote denom.
 func (s *CoingeckoPricingTestSuite) TestGetPrices() {
 
 	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
 	defaultPricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
-	coingeckoPricingSource := coingeckopricing.New(mainnetUsecase.Router, mainnetUsecase.Tokens, defaultPricingConfig, mocks.DefaultMockCoingeckoPriceGetter)
+	coingeckoPricingSource := coingeckopricing.New(mainnetUsecase.Tokens, defaultPricingConfig, mocks.DefaultMockCoingeckoPriceGetter)
 
 	tests := []struct {
-		desc       string
-		baseDenom  string
-		quoteDenom string
-		shouldZero bool
-		shouldErr  bool
+		desc          string
+		baseDenom     string
+		quoteDenom    string
+		expectedPrice osmomath.BigDec
+		shouldErr     bool
 	}{
-		{"Test coingecko GetPrice with quote denom as USDC", ATOM, USDC, false, false},
-		{"Test coingecko GetPrice with quote denom as USDT", ATOM, USDT, false, false},
-		{"Test coingecko GetPrice with quote denom as empty string", ATOM, "", false, false},
-		{"Test coingecko GetPrice with quote denom as some spaces", ATOM, " ", false, false},
-		{"Test coingecko GetPrice with quote denom as ATOM", ATOM, ETH, true, true},
-		{"Test coingecko GetPrice with invalid base denom", "-DUMMY-", USDC, true, true},
-		{"Test coingecko GetPrice with empty base denom", "", USDC, true, true},
-		{"Test coingecko GetPrice with some spaces as base denom", " ", USDC, true, true},
+		{"Test coingecko GetPrice with quote denom as USDC", ATOM, USDC, mocks.AtomPrice, false},
+		{"Test coingecko GetPrice with quote denom as USDT", ATOM, USDT, mocks.AtomPrice, false},
+		{"Test coingecko GetPrice with quote denom as empty string", ATOM, "", mocks.AtomPrice, false},
+		{"Test coingecko GetPrice with quote denom as some spaces", ATOM, " ", mocks.AtomPrice, false},
+		{"Test coingecko GetPrice with quote denom as USDC", ETH, USDC, mocks.OneBigDec, false},
+		{"Test coingecko GetPrice with quote denom as USDT", ETH, USDT, mocks.OneBigDec, false},
+		{"Test coingecko GetPrice with quote denom as empty string", ETH, "", mocks.OneBigDec, false},
+		{"Test coingecko GetPrice with quote denom as some spaces", ETH, " ", mocks.OneBigDec, false},
+		{"Test coingecko GetPrice with quote denom as ATOM", ATOM, ETH, mocks.ZeroBigDec, true},
+		{"Test coingecko GetPrice with invalid base denom", "-DUMMY-", USDC, mocks.ZeroBigDec, true},
+		{"Test coingecko GetPrice with empty base denom", "", USDC, mocks.ZeroBigDec, true},
+		{"Test coingecko GetPrice with some spaces as base denom", " ", USDC, mocks.ZeroBigDec, true},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.desc, func() {
 			price, err := coingeckoPricingSource.GetPrice(context.Background(), tt.baseDenom, tt.quoteDenom)
-			if tt.shouldErr {
-				s.Require().Error(err)
-			} else {
-				s.Require().NoError(err)
-			}
-			if tt.shouldZero {
-				s.Require().Zero(price)
-			} else {
-				s.Require().NotZero(price)
-			}
+			s.Require().Equal(tt.expectedPrice, price)
+			s.Require().Equal(tt.shouldErr, err != nil)
 		})
 	}
 

@@ -64,7 +64,7 @@ func init() {
 
 // New creates a new Coingecko pricing source.
 // if coinGeckoPriceGetterFn is nil, it uses the default implementation.
-func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig, coingeckoPriceGetterFn CoingeckoPriceGetterFn) domain.PricingSource {
+func New(tokenUseCase mvc.TokensUsecase, config domain.PricingConfig, coingeckoPriceGetterFn CoingeckoPriceGetterFn) domain.PricingSource {
 	coingeckoPricing := &coingeckoPricing{
 		TUsecase:      tokenUseCase,
 		cache:         cache.New(),
@@ -89,11 +89,11 @@ func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config
 // So quoteDenom has to be nil or usdc or usdt
 func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, error) {
 	if quoteDenom != USDC_DENOM && quoteDenom != USDT_DENOM && strings.TrimSpace(quoteDenom) != "" {
-		return osmomath.BigDec{}, fmt.Errorf("only usdc/usdt denom or nil is allowed for the quote denom param")
+		return osmomath.ZeroBigDec(), fmt.Errorf("only usdc/usdt denom or nil is allowed for the quote denom param")
 	}
 	coingeckoId, err := c.TUsecase.GetCoingeckoIdByChainDenom(baseDenom)
 	if err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.ZeroBigDec(), err
 	}
 
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, c.quoteCurrency)
@@ -103,7 +103,7 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 		// Cast cached value to correct type.
 		cachedBigDecPrice, ok := cachedValue.(osmomath.BigDec)
 		if !ok {
-			return osmomath.BigDec{}, fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
+			return osmomath.ZeroBigDec(), fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
 		}
 		// Increase cache hits
 		cacheHitsCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
@@ -115,7 +115,7 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 
 	price, err := c.priceGetterFn(ctx, baseDenom, coingeckoId)
 	if err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.ZeroBigDec(), err
 	}
 	return price, nil
 }

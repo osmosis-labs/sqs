@@ -122,7 +122,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Use the same config to initialize coingecko pricing strategy
 	config.Pricing.DefaultSource = domain.CoinGeckoPricingSourceType
-	coingeckoPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, routerUsecase)
+	coingeckoPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, nil)
 	if err != nil {
 		return nil, err
 	}
