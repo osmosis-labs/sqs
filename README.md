@@ -2,9 +2,9 @@
 
 This is a sidecar query server that is used for performing query tasks outside of the main chain.
 The high-level architecture is that the chain reads data at the end of the block, parses it
-and then writes into a Redis instance.
+and then stores it in RAM.
 
-The sidecar query server then reads the parsed data from Redis and serves it to the client
+The sidecar query server then reads the parsed data from cache and serves it to the client
 via HTTP endpoints.
 
 The use case for this is performing certain data and computationally intensive tasks outside of
@@ -15,23 +15,24 @@ all pool data for performing the complex routing algorithm.
 
 ## Integrator Guide
 
-Follow [this link](https://hackmd.io/@osmosis/HkyIHvCH6) to find a guide on how to 
+Follow [this link](https://hackmd.io/@osmosis/HkyIHvCH6) to find a guide on how to
 integrate with the sidecar query server.
 
 ## Custom CosmWasm Pools
 
 The sidecar query server supports custom CosmWasm pools.
 There are two options of integrating them into the Osmosis router:
+
 1. Implement a pool type similar to [transmuter](https://github.com/osmosis-labs/sqs/blob/e95c66e3ee6a22d57118c74a384253f016a9bb85/router/usecase/pools/routable_transmuter_pool.go#L19)
-   * This assumes that the pool quote and spot price logic is trivial enough for implementing
-   it directly in SQS without having to interact with the chain.
+    - This assumes that the pool quote and spot price logic is trivial enough for implementing
+      it directly in SQS without having to interact with the chain.
 2. Utilize a [generalized CosmWasm pool type](https://github.com/osmosis-labs/sqs/blob/437086c683f4f90d915f7e042617552c68410796/router/usecase/pools/routable_cw_pool.go#L24)
-   * This assumes that the pool quote and spot price logic is complex enough for requiring
-   interaction with the chain.
-   * For quotes and spot prices, SQS service would make network API queries to the chain.
-   * This is the simplest approach but it is less performant than the first option.
-   * Due to performance reasons, the routes containing these pools are not utilized in
-   more performant split quotes. Only direct quotes are supported.
+    - This assumes that the pool quote and spot price logic is complex enough for requiring
+      interaction with the chain.
+    - For quotes and spot prices, SQS service would make network API queries to the chain.
+    - This is the simplest approach but it is less performant than the first option.
+    - Due to performance reasons, the routes containing these pools are not utilized in
+      more performant split quotes. Only direct quotes are supported.
 
 To enable support for either option, a [config.json](https://github.com/osmosis-labs/sqs/blob/437086c683f4f90d915f7e042617552c68410796/config.json#L22-L25)
 must be updated accordingly. For option 1, add a new field under `pools` and make a PR propagating
@@ -53,11 +54,12 @@ production application `https://app.osmosis.zone`.
 It operates on data from `osmosis-1` mainnet.
 
 Note that in this environment we block all endpoints at nginx level except for:
-- `/router/quote`
-- `/router/custom-direct-quote`
-- `/tokens/prices`
-- `/pools`
-- all debug and infra endpoints
+
+-   `/router/quote`
+-   `/router/custom-direct-quote`
+-   `/tokens/prices`
+-   `/pools`
+-   all debug and infra endpoints
 
 There is swagger available [here](https://sqs.osmosis.zone/swagger/index.html#/default/get-token-metadata)
 
@@ -72,11 +74,12 @@ due to experimental features.
 It operates on data from `osmosis-1` mainnet.
 
 Note that in this environment we block all endpoints at nginx level except for:
-- `/router/quote`
-- `/router/custom-direct-quote`
-- `/tokens/prices`
-- `/pools`
-- all debug and infra endpoints
+
+-   `/router/quote`
+-   `/router/custom-direct-quote`
+-   `/tokens/prices`
+-   `/pools`
+-   all debug and infra endpoints
 
 ### Testnet
 
@@ -95,7 +98,7 @@ do not expose them publicly in out production environment.
 
 1. GET `/pools?IDs=<IDs>`
 
-Description: Returns of pools if IDs parameter is not given. Otherwise, 
+Description: Returns of pools if IDs parameter is not given. Otherwise,
 batch fetches specific pools by the given parameter pool IDs.
 
 Parameter: `IDs` - the list of pool IDs to batch fetch.
@@ -161,18 +164,18 @@ curl "http://localhost:9092/pools?IDs=1,2" | jq .
 
 ### Router Resource
 
-
 1. GET `/router/quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>?singleRoute=<singleRoute>`
 
 Description: returns the best quote it can compute for the given tokenIn and tokenOutDenom. If `singRoute` parameter is set to true, it gives the best single
 quote while excluding splits
 
 Parameters:
-- `tokenIn` the string representation of the sdk.Coin for the token in
-- `tokenOutDenom` the string representing the denom of the token out
-- `singleRoute` (optional) boolean flag indicating whether to return single routes (no splits).
-False (splits enabled) by default.
-- `humanReadable` (optional) boolean flag indicating whether a human readable denom is given as opposed to chain.
+
+-   `tokenIn` the string representation of the sdk.Coin for the token in
+-   `tokenOutDenom` the string representing the denom of the token out
+-   `singleRoute` (optional) boolean flag indicating whether to return single routes (no splits).
+    False (splits enabled) by default.
+-   `humanReadable` (optional) boolean flag indicating whether a human readable denom is given as opposed to chain.
 
 Response example:
 
@@ -209,10 +212,10 @@ curl "https://sqs.osmosis.zone/router/quote?tokenIn=1000000uosmo&tokenOutDenom=u
 Description: returns all routes that can be used for routing from tokenIn to tokenOutDenom
 
 Parameters:
-- `tokenIn` the string representation of the denom of the token in
-- `tokenOutDenom` the string representing the denom of the token out
-- `humanReadable` (optional) boolean flag indicating whether a human readable denom is given as opposed to chain.
 
+-   `tokenIn` the string representation of the denom of the token in
+-   `tokenOutDenom` the string representing the denom of the token out
+-   `humanReadable` (optional) boolean flag indicating whether a human readable denom is given as opposed to chain.
 
 Response example:
 
@@ -280,15 +283,17 @@ curl "https://sqs.osmosis.zone/router/routes?tokenIn=uosmo&tokenOutDenom=uion" |
   }
 }
 ```
+
 3. GET `/router/custom-direct-quote?tokenIn=<tokenIn>&tokenOutDenom=<tokenOutDenom>&poolIDs=<poolIDs>`
 
 Description: returns the quote over route with the given poolIDs. If such route does not exist, returns error.
 This endpoint does not use the router route search. As a result, it is not affected by the minimum liquidity parameter. As long as the pool exists on-chain, it will return a quote.
 
 Parameters:
-- `tokenIn` the string representation of the sdk.Coin for the token in
-- `tokenOutDenom` the string representing the denom of the token out
-- `poolID` comma-separated list of pool IDs
+
+-   `tokenIn` the string representation of the sdk.Coin for the token in
+-   `tokenOutDenom` the string representing the denom of the token out
+-   `poolID` comma-separated list of pool IDs
 
 Response example:
 
@@ -345,8 +350,9 @@ curl "https://sqs.osmosis.zone/tokens/metadata/statom" | jq .
 2. GET `/tokens/prices`
 
 Parameters:
-- `base` Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)
-- `humanDenoms` Specify true if input denominations are in human-readable format; defaults to false.
+
+-   `base` Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)
+-   `humanDenoms` Specify true if input denominations are in human-readable format; defaults to false.
 
 Response:
 
@@ -370,11 +376,11 @@ curl https://sqs.osmosis.zone//tokens/prices?base=wbtc,dydx&humanDenoms=true
 
 Description: returns 200 if the server is healthy.
 Validates the following conditions:
-- Redis is reachable
-- Node is reachable
-- Node is not syncing
-- The latest height in Redis is within threshold of the latest height in the node
-- The latest height in Redis was updated within a configurable number of seconds
+
+-   Node is reachable
+-   Node is not syncing
+-   The latest height in cache is within threshold of the latest height in the node
+-   The latest height in cache was updated within a configurable number of seconds
 
 2. GET `/metrics`
 
@@ -420,12 +426,12 @@ make all-start
 
 ### Pools
 
-For every chain pool, its pool model is written to Redis.
+For every chain pool, its pool model is written to cache.
 
 Additionally, we instrument each pool model with bank balances and OSMO-denominated TVL.
 
 Some pool models do not contain balances by default. As a result, clients have to requery balance
-for each pool model directly from chain. Having the balances in Redis allows us to avoid this and serve
+for each pool model directly from chain. Having the balances in cache allows us to avoid this and serve
 pools with balances directly.
 
 The routing algorithm requires the knowledge of TVL for prioritizing pools. As a result, each pool model
@@ -434,17 +440,18 @@ is instrumented with OSMO-denominated TVL.
 ### Router
 
 For routing, we must know about the taker fee for every denom pair. As a result, in the router
-repository, we stote the taker fee keyed by the denom pair.
+repository, we store the taker fee keyed by the denom pair.
 
-These taker fees are then read from Redis to initialize the router.
+These taker fees are then read from cache to initialize the router.
 
 ### Token Precision
 
 The chain is agnostic to token precision. As a result, to compute OSMO-denominated TVL,
-we query [chain registry file](https://github.com/osmosis-labs/assetlists/blob/main/osmosis-1/osmosis-1.assetlist.json)
+we query [chain registry file](https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json)
 parse the precision exponent and use it scaling the spot price to the right value.
 
 The following are the tokens that are either malformed or are missing from the chain registry file:
+
 ```md
 ibc/CD942F878C80FBE9DEAB8F8E57F592C7252D06335F193635AF002ACBD69139CC
 ibc/FE2CD1E6828EC0FAB8AF39BAC45BC25B965BA67CCBC50C13A14BD610B0D1E2C4
@@ -475,6 +482,7 @@ non-empty string, leading to the pool being deprioritized from the router.
 ### Pricing
 
 There are two sources of pricing data:
+
 1. On-chain
 2. CoinGecko
 
@@ -493,15 +501,18 @@ In subsequent blocks, whenever a pool is updated (swapped, LPed etc), we detect 
 Computed on-demand and result is stored in cache with TTL.
 
 General computation logic:
+
 1. Compute routes between 2 tokens
 2. Compute spot price over pools in that route
 3. If there occurs an error in computing spot price, we fallback to computing a price
-by swapping 10 units of the quote token (which in most cases today should be USDC).
-The choise of 10 is such that we do not consider extremely low-liquidity routes that
-may change frequently while also derisk the price impact with high-value non-USDC quotes.
+   by swapping 10 units of the quote token (which in most cases today should be USDC).
+   The choise of 10 is such that we do not consider extremely low-liquidity routes that
+   may change frequently while also derisk the price impact with high-value non-USDC quotes.
 
 #### CoinGecko
+
 Unless specified by using the parameter `pricingSource`, the [GET /tokens/prices](#tokens-resource) endpoint uses the above chain pricing source by default in obtaining a price quote. Coingecko pricing source is also available by using the `pricingSource` parameter. Coingecko pricing source also serves as a fallback mechanism if the following conditions are met:
+
 1. The quote from on-chain pricing is unavailable for any reason.
 2. The quote is USDC quote.
 
@@ -514,26 +525,27 @@ In this section, we describe the general router algorithm.
 1. Retrieve pools from storage.
 2. Filter out low liquidity pools.
 3. Rank pools by several heuristics such as:
- - liquidity
- - pool type (priority: transmuter, concentrated, stableswap, balancer)
- - presence of error in TVL computation.
+
+-   liquidity
+-   pool type (priority: transmuter, concentrated, stableswap, balancer)
+-   presence of error in TVL computation.
+
 4. Compute candidate routes
-   * For the given token in and token out denom, find all possible routes
-   between them using the pool ranking discussed above as well as by limiting
-   the algorithm per configuration.
-   * The configurations are:
-      * Max Hops: The maximum number of hops allowed in a route.
-      * Max Routes: The maximum number of routes to consider.
-   * The algorithm that is currently used is breadth first search.
+    - For the given token in and token out denom, find all possible routes
+      between them using the pool ranking discussed above as well as by limiting
+      the algorithm per configuration.
+    - The configurations are:
+        - Max Hops: The maximum number of hops allowed in a route.
+        - Max Routes: The maximum number of routes to consider.
+    - The algorithm that is currently used is breadth first search.
 5. Compute the best quote when swapping amount in in-full directly over each route.
 6. Sort routes by best quote.
 7. Keep "Max Splittable Routes" and attempt to determine an optimal quote split across them
-   * If the split quote is more optimal, return that. Otherwise, return the best single direct quote.
+    - If the split quote is more optimal, return that. Otherwise, return the best single direct quote.
 
 ### Caching
 
 We perform caching of routes to avoid having to recompute them on every request.
-The routes are cached in a Redis instance.
 
 There is a configuration parameter that enables the route cache to be updated every X blocks.
 However, that is an experimental feature. See the configuration section for details.
@@ -614,7 +626,7 @@ See the recommended enabled configuration below:
 
 ## Useful Osmosis Resources
 
-- [ADR-002 SQS GRPC Refactor](https://www.notion.so/osmosiszone/ADR-002-SQS-GRPC-Ingest-Refactor-19fa05956d0344f58d40fbab57c08af7)
-- [ADR-004 Cosmos SDK Streaming For SQS](https://www.notion.so/osmosiszone/ADR-003-Cosmos-SDK-Streaming-for-SQS-64dbc8b9ba6149259bf9870a43b7a4fc)
-- [ADR-006 Streaming & GRPC Ingest](https://www.notion.so/osmosiszone/ADR-006-Streaming-GRPC-SQS-Ingest-4e3b2ff7d23e43e2a1f3c43adc3c26bc?pvs=13)
-- [C4 L3 SQS Deployments](https://app.excalidraw.com/s/72t6r0pKvg5/4xLEjXi3KiU)
+-   [ADR-002 SQS GRPC Refactor](https://www.notion.so/osmosiszone/ADR-002-SQS-GRPC-Ingest-Refactor-19fa05956d0344f58d40fbab57c08af7)
+-   [ADR-004 Cosmos SDK Streaming For SQS](https://www.notion.so/osmosiszone/ADR-003-Cosmos-SDK-Streaming-for-SQS-64dbc8b9ba6149259bf9870a43b7a4fc)
+-   [ADR-006 Streaming & GRPC Ingest](https://www.notion.so/osmosiszone/ADR-006-Streaming-GRPC-SQS-Ingest-4e3b2ff7d23e43e2a1f3c43adc3c26bc?pvs=13)
+-   [C4 L3 SQS Deployments](https://app.excalidraw.com/s/72t6r0pKvg5/4xLEjXi3KiU)

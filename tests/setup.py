@@ -1,7 +1,7 @@
 import copy
 import itertools
 from data_service import all_tokens_data, all_pools_data
-from conftest import SERVICE_SQS_PROD
+from conftest import SERVICE_SQS_STAGE
 from enum import Enum, IntEnum
 from constants import *
 
@@ -273,7 +273,7 @@ def choose_valid_listed_tokens():
     # While it is not the best practice, we make an exception since this is the most reliable way to get
     # The asset list data. In the future, we can implement custom test parsing to replace relying on SQS
     # in test setup.
-    tokens_metadata = SERVICE_SQS_PROD.get_tokens_metadata()
+    tokens_metadata = SERVICE_SQS_STAGE.get_tokens_metadata()
 
     if len(tokens_metadata) == 0:
         raise ValueError("Error: no tokens metadata retrieved from SQS during tokens setup")
@@ -283,13 +283,15 @@ def choose_valid_listed_tokens():
     for denom, metadata in tokens_metadata.items():
         # Skip unlisted tokens as they should be unsupported
         # in SQS.
-        if metadata['is_unlisted']:
+        if metadata['preview']:
             [print(f"Denom {denom} is unlisted")]
             continue
 
         # Skip tokens with no pools with liquidity as we cannot find routes in-between them.
+        # Note: if tests prove to be flaky due to pools with low liq > 10 but < min liq filter, we can
+        # dynamically set the min liquidity filter by querying the config.
         top_liquidity_pool = denom_top_liquidity_pool_map.get(denom)
-        if top_liquidity_pool is None:
+        if top_liquidity_pool is None or top_liquidity_pool['pool_liquidity'] == 0:
             print(f"Denom {denom} has no pool with liquidity")
             continue
 
@@ -339,8 +341,8 @@ def create_token_pairs():
     Selects the following groups of tokens:
     1. Top NUM_TOKENS_DEFAULT by-liquidity
     2. Top NUM_TOKENS_DEFAULT by-volume
-    3. Five low liquidity (between MIN_LIQ_FILTER_DEFAULT and MAX_LIQ_FILTER_DEFAULT USD)
-    4. Five low volume (between MIN_VOL_FILTER_DEFAULT and MAX_LIQ_FILTER_DEFAULT USD)
+    3. Five low liquidity (between MIN_LIQ_FILTER_DEFAULT and MAX_VAL_LOW_LIQ_FILTER_DEFAULT USD)
+    4. Five low volume (between MIN_VOL_FILTER_DEFAULT and MAX_VAL_LOW_LIQ_FILTER_DEFAULT USD)
 
     Then,
     - Puts them all in a set
@@ -357,10 +359,10 @@ def create_token_pairs():
     top_five_volume_tokens = choose_tokens_volume_range(NUM_TOKENS_DEFAULT)
 
     # NUM_TOKENS_DEFAULT low liquidity tokens
-    five_low_liquidity_tokens = choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_LIQ_FILTER_DEFAULT)
+    five_low_liquidity_tokens = choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT)
 
     # NUM_TOKENS_DEFAULT low volume tokens
-    five_low_volume_tokens = choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VOL_FILTER_DEFAULT)
+    five_low_volume_tokens = choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_LOW_VOL_FILTER_DEFAULT)
 
     # Put all tokens in a set to ensure uniqueness
     all_tokens = set(top_five_liquidity_tokens + top_five_volume_tokens +

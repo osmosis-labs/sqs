@@ -2,13 +2,12 @@ package usecase
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"go.uber.org/zap"
 
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
@@ -101,7 +100,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.logger.Info("completed block processing", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
 	// Observe the processing duration with height
-	domain.SQSIngestHandlerProcessBlockDurationHistogram.WithLabelValues(strconv.FormatUint(height, 10)).Observe(float64(time.Since(startProcessingTime).Nanoseconds()))
+	domain.SQSIngestHandlerProcessBlockDurationGauge.Add(float64(time.Since(startProcessingTime).Milliseconds()))
 
 	return nil
 }
