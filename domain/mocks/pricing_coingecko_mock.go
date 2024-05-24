@@ -17,7 +17,7 @@ var (
 	AtomPrice  = osmomath.NewBigDec(5)
 )
 
-// MockCoingeckoPriceGetter is a mock implementation of CoingeckoPriceGetterFn
+// DefaultMockCoingeckoPriceGetter is a mock implementation of CoingeckoPriceGetterFn
 var DefaultMockCoingeckoPriceGetter coingeckopricing.CoingeckoPriceGetterFn = func(ctx context.Context, baseDenom string, coingeckoId string) (osmomath.BigDec, error) {
 	if coingeckoId == "" {
 		return ZeroBigDec, nil
