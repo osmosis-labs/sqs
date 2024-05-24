@@ -46,7 +46,7 @@
         "server-connection-timeout-seconds": 10
     },
     "otel": {
-        "dsn": "",
+        "dsn": "enabled",
         "sample-rate": 1,
         "enable-tracing": true,
         "traces-sample-rate": 1,

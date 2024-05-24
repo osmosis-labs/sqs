@@ -7,6 +7,8 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -65,12 +67,22 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 
+	span := trace.SpanFromContext(ctx)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		}
+
+		// Note: we do not end the span here as it is ended in the middleware.
+	}()
+
 	isSingleRouteStr := c.QueryParam("singleRoute")
 	isSingleRoute := false
 	if isSingleRouteStr != "" {
 		isSingleRoute, err = strconv.ParseBool(isSingleRouteStr)
 		if err != nil {
-			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+			return err
 		}
 	}
 
@@ -79,19 +91,19 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	if shouldApplyExponentsStr != "" {
 		shouldApplyExponents, err = strconv.ParseBool(shouldApplyExponentsStr)
 		if err != nil {
-			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+			return err
 		}
 	}
 
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return err
 	}
 
 	// translate denoms from human to chain if needed
 	tokenOutDenom, tokenInDenom, err := a.getChainDenoms(c, tokenOutDenom, tokenIn.Denom)
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return err
 	}
 
 	// Update coins token in denom it case it was translated from human to chain.
@@ -104,7 +116,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		quote, err = a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom)
 	}
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return err
 	}
 
 	scalingFactor := oneDec
@@ -114,8 +126,11 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return err
 	}
+
+	span.SetAttributes(attribute.Stringer("token_out", quote.GetAmountOut()))
+	span.SetAttributes(attribute.Stringer("price_impact", quote.GetPriceImpact()))
 
 	return c.JSON(http.StatusOK, quote)
 }
