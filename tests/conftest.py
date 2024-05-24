@@ -76,6 +76,10 @@ sqs_e2e_data_lock_file = "/tmp/sqs_e2e_setup_data.lock"
 # The shared state file to store the setup data
 sqs_e2e_shared_test_state_file = "/tmp/sqs_e2e_shared_test_state.txt"
 
+# SharedTestState class to store all the setup data
+# If run in parallel mode, we generate this once from master process, write it to file
+# and read it in worker processes for detereminism
+# See tests/README.md for details.
 class SharedTestState:
     def __init__(self, **kwargs):
         self.all_tokens_data = kwargs.get('all_tokens_data', None)
