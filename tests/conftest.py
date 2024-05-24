@@ -364,16 +364,6 @@ def choose_valid_listed_tokens(denom_top_liquidity_pool_map):
     return valid_listed_tokens
 
 
-def chain_denom_to_display(chain_denom):
-    """Function to map chain denom to display."""
-    return chain_denom_to_data_map.get(chain_denom, {}).get('display', chain_denom)
-
-
-def chain_denoms_to_display(chain_denoms):
-    """Function to map chain denoms to display."""
-    return [chain_denom_to_display(denom) for denom in chain_denoms]
-
-
 def create_misc_token_pairs():
     """
     Selects the following groups of tokens:
@@ -432,6 +422,16 @@ def create_no_dupl_token_pairs(token_list):
     return filtered_list
 
 def create_coins_from_pairs(pairs, start_order, end_order):
+    """
+    Create a list of token in and out pairs from the given list of token pairs, starting and ending orders of magnitude.
+
+    For every pair, it takes the first token as the token in and the second token as the token out. Generates amounts from [10^start_order, 10^end_order].
+   
+    Then, changes the token in and token out and repeats generation.
+
+    Adds all results to a slice and returns it.
+    """
+
     result = []
 
     for pair in pairs:
@@ -496,7 +496,7 @@ def pytest_sessionstart(session):
         # Fetch all pools data once
         shared_test_state.all_pools_data = fetch_pools()
 
-                # Create a map of display to token data
+        # Create a map of display to token data
         shared_test_state.display_to_data_map = create_display_to_data_map(shared_test_state.all_tokens_data)
 
         # Create a map of chain denom to token data
