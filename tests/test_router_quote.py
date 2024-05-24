@@ -14,15 +14,14 @@ SQS_STAGE = "https://sqs.stage.osmosis.zone"
 
 ROUTES_URL = "/router/quote"
 
-NUM_TOP_LIQUIDITY_DENOMS = 20
+QUOTE_NUM_TOP_LIQUIDITY_DENOMS = 20
 
 # Arbitrary choice based on performance at the time of test writing
 expected_latency_upper_bound_ms = 1000
 
 # Test suite for the /router/quote endpoint
 class TestQuote:
-
-    @pytest.mark.parametrize("coin_obj", construct_token_in_combos(conftest.choose_tokens_liq_range(NUM_TOP_LIQUIDITY_DENOMS), USDC_PRECISION - 1, USDC_PRECISION + 4), ids=id_from_coin)
+    @pytest.mark.parametrize("coin_obj", construct_token_in_combos(conftest.choose_tokens_liq_range(QUOTE_NUM_TOP_LIQUIDITY_DENOMS), USDC_PRECISION - 1, USDC_PRECISION + 4), ids=id_from_coin)
     def test_usdc_in_high_liq_out(self, environment_url, coin_obj):
         """
         This test case validates quotes betwen USDC in and NUM_TOP_LIQUIDITY_DENOMS.
@@ -139,10 +138,6 @@ class TestQuote:
         # Validate the quote test
         self.validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
 
-
-    # transmuter
-    # Astroport
-
     def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteResponse:
         """
         Runs a test for the /router/quote endpoint with the given input parameters.
@@ -171,7 +166,15 @@ class TestQuote:
         return QuoteResponse(**response_json)
 
     def validate_quote_test(self, quote, expected_amount_in_str, expected_denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance):
-                # Validate routes are generally present
+        """
+        Runs the following validations:
+        - Basic presence of fields
+        - Transmuter has no price impact. Otherwise, it is negative.
+        - Token out amount is within error tolerance from expected.
+        - Returned spot price is within error tolerance from expected.
+        """
+        
+        # Validate routes are generally present
         assert len(quote.route) > 0
 
         # Check if the route is a single pool single transmuter route
