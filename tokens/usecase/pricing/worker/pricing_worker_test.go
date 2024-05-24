@@ -205,7 +205,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 
 		priceBigDec := s.ConvertAnyToBigDec(price)
 
-		if priceBigDec.IsZero() {
+		if priceBigDec.IsNil() || priceBigDec.IsZero() {
 			metadata, ok := mainnetState.TokensMetadata[baseDenom]
 			s.Require().True(ok)
 
