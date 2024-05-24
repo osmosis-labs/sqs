@@ -71,6 +71,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	defer func() {
 		if err != nil {
 			span.RecordError(err)
+			// nolint:errcheck // ignore error
 			c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 		}
 

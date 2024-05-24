@@ -77,6 +77,9 @@ func main() {
 			resource.WithAttributes(semconv.ServiceNameKey.String(*hostName)),
 			resource.WithFromEnv(),
 		)
+		if err != nil {
+			panic(err)
+		}
 
 		tp, err := initOTELTracer(ctx, res)
 		if err != nil {

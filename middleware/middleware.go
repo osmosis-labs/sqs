@@ -97,12 +97,10 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 
 // Middleware to create a span and capture request parameters
 func (m *GoMiddleware) TraceWithParamsMiddleware(tracerName string) echo.MiddlewareFunc {
-
 	tracer := otel.Tracer(tracerName)
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-
 			// Extract the existing span context from the incoming request
 			parentCtx := otel.GetTextMapPropagator().Extract(c.Request().Context(), propagation.HeaderCarrier(c.Request().Header))
 
