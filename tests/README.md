@@ -79,5 +79,5 @@ that sometimes has outdated data (from rumors, by 20 or so blocks).
 ## Common Flakiness
 
 - Transmuter v1 pool imbalance (All liquidity gets swapped into one token)
-- Astroport pool spot price isssues (their spot price query scales output amount by scaling factor)
+- Astroport pool spot-price isssues (their spot price query scales output amount by scaling factor)
 - Latency issues (need to be investigated and fixed, sometimes restart helps to warm up caches)
