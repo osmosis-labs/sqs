@@ -12,6 +12,7 @@ from rand_util import construct_token_in_combos
 from coingecko_service import *
 from constants import *
 from util import *
+from decimal import *
 
 
 SERVICE_SQS_STAGE = SQSService(SQS_STAGE)
@@ -228,7 +229,7 @@ def get_token_data_copy():
     return copy.deepcopy(shared_test_state.all_tokens_data)
 
 
-def choose_tokens_generic(tokens, filter_key, min_value, max_value, sort_key, num_tokens=1, asc=False):
+def choose_tokens_generic(tokens, filter_key, min_value, max_value, sort_key, num_tokens=1, asc=False, exponent_filter=None):
     """
     A generic function to choose tokens based on given criteria.
 
@@ -240,13 +241,14 @@ def choose_tokens_generic(tokens, filter_key, min_value, max_value, sort_key, nu
         sort_key (str): The field name used for sorting tokens.
         num_tokens (int): The number of tokens to return.
         asc (bool): Whether to sort in ascending order.
+        exponent_filter (int): The exponent to filter by. None by default, signifying no filter.
 
     Returns:
         list: A list of denoms matching the given criteria.
     """
     # Filter tokens based on the specified filter_key range
     filtered_tokens = [
-        t['denom'] for t in tokens if filter_key in t and t[filter_key] is not None and min_value <= t[filter_key] <= max_value
+        t['denom'] for t in tokens if filter_key in t and t[filter_key] is not None and min_value <= t[filter_key] <= max_value and (exponent_filter is None or t['exponent'] == exponent_filter)
     ]
 
     # Sort tokens based on the specified sort_key
@@ -257,10 +259,10 @@ def choose_tokens_generic(tokens, filter_key, min_value, max_value, sort_key, nu
     return sorted_tokens[:num_tokens]
 
 
-def choose_tokens_liq_range(num_tokens=1, min_liq=0, max_liq=float('inf'), asc=False):
+def choose_tokens_liq_range(num_tokens=1, min_liq=0, max_liq=float('inf'), asc=False, exponent_filter=None):
     """Function to choose tokens based on liquidity."""
     tokens = get_token_data_copy()
-    return choose_tokens_generic(tokens, 'liquidity', min_liq, max_liq, 'liquidity', num_tokens, asc)
+    return choose_tokens_generic(tokens, 'liquidity', min_liq, max_liq, 'liquidity', num_tokens, asc, exponent_filter)
 
 
 def choose_tokens_volume_range(num_tokens=1, min_vol=0, max_vol=float('inf'), asc=False):
@@ -363,7 +365,7 @@ def chain_denoms_to_display(chain_denoms):
     return [chain_denom_to_display(denom) for denom in chain_denoms]
 
 
-def create_token_pairs():
+def create_misc_token_pairs():
     """
     Selects the following groups of tokens:
     1. Top NUM_TOKENS_DEFAULT by-liquidity
@@ -396,7 +398,7 @@ def create_token_pairs():
                      five_low_liquidity_tokens + five_low_volume_tokens)
 
     # Construct all unique combinations of token pairs
-    token_pairs = list(itertools.combinations(all_tokens, 2))
+    token_pairs = create_no_dupl_token_pairs(all_tokens)
 
     # Format pairs for return
     formatted_pairs = [[token1, token2] for token1, token2 in token_pairs]
@@ -405,6 +407,20 @@ def create_token_pairs():
         ValueError(f"Constructeed {len(formatted_pairs)}, min expected {MIN_NUM_MISC_TOKEN_PAIRS}")
 
     return formatted_pairs
+
+def create_no_dupl_token_pairs(token_list):
+    """
+    Creates all unique combinations of token pairs from a list of tokens.
+    """
+
+    combinations = list(itertools.combinations(token_list, 2))
+
+    filtered_list = []
+    for combo in combinations:
+        if combo[0] != combo[1]:
+            filtered_list.append(combo)
+
+    return filtered_list
 
 def create_coins_from_pairs(pairs, start_order, end_order):
     result = []
@@ -425,10 +441,18 @@ def create_coins_from_pairs(pairs, start_order, end_order):
         for coin in coin_denom_b_combos:
             result.append({
                 "token_in": coin,
-                "out_denom": denomB,
+                "out_denom": denomA,
             })
 
     return result
+
+def get_usd_price_scaled(denom):
+    """
+    Returns the USD price of a token from the test data scaled by its precision.
+    """
+    denom_data = shared_test_state.chain_denom_to_data_map.get(denom)
+    denom_precision = denom_data.get("exponent")
+    return Decimal(denom_data.get("price")) * Decimal(10)**denom_precision
 
 data_lock_file = "/tmp/e2e_setup_data.lock"
 sqs_e2e_shared_test_state_file = "/tmp/sqs_e2e_shared_test_state.txt"
@@ -474,7 +498,7 @@ def pytest_sessionstart(session):
         # One Astroport token pair [[pool_id, ['denom0', 'denom1']]]
         shared_test_state.astroport_token_pair = choose_pcl_pool_tokens_by_liq_asc(shared_test_state.pool_type_to_denoms, 1)
 
-        shared_test_state.misc_token_pairs = create_token_pairs()
+        shared_test_state.misc_token_pairs = create_misc_token_pairs()
 
         with FileLock(data_lock_file):
             with open(sqs_e2e_shared_test_state_file, "w") as file:
