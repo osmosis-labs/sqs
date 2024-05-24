@@ -22,7 +22,7 @@ QUOTE_NUM_TOP_LIQUIDITY_DENOMS = 20
 TRANSMUTER_MIN_TOKEN_LIQ_USD = 10000
 
 # Arbitrary choice based on performance at the time of test writing
-expected_latency_upper_bound_ms = 2000
+expected_latency_upper_bound_ms = 1000
 
 # Test suite for the /router/quote endpoint
 class TestQuote:

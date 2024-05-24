@@ -71,6 +71,11 @@ ALLOWED_NUM_TOKENS_USDC_PAIR_SKIPPED = 50
 # number of pairs constructed.
 MIN_NUM_MISC_TOKEN_PAIRS = 10
 
+# The file lock to ensure only one process interacts with the shared state file
+sqs_e2e_data_lock_file = "/tmp/sqs_e2e_setup_data.lock"
+# The shared state file to store the setup data
+sqs_e2e_shared_test_state_file = "/tmp/sqs_e2e_shared_test_state.txt"
+
 class SharedTestState:
     def __init__(self, **kwargs):
         self.all_tokens_data = kwargs.get('all_tokens_data', None)
@@ -461,13 +466,18 @@ def get_denom_exponent(denom):
     denom_data = shared_test_state.chain_denom_to_data_map.get(denom)
     return denom_data.get("exponent")
 
-data_lock_file = "/tmp/e2e_setup_data.lock"
-sqs_e2e_shared_test_state_file = "/tmp/sqs_e2e_shared_test_state.txt"
-
 def pytest_sessionstart(session):
     """
     This hook is called after the Session object has been created and
     before performing collection and entering the run test loop.
+
+    This is where we perform the setup tasks for the tests.
+    If the code is running on the master node, we fetch all the data once and store it in a shared state.
+
+    If the code is running on a worker node, we perform worker-specific setup tasks by reading from a shared
+    state file for determinism.
+
+    See tests/README.md for details.
     """
     print("Session is starting. Worker ID:", getattr(session.config, 'workerinput', {}).get('workerid', 'master'))
 
@@ -507,14 +517,14 @@ def pytest_sessionstart(session):
 
         shared_test_state.misc_token_pairs = create_misc_token_pairs()
 
-        with FileLock(data_lock_file):
+        with FileLock(sqs_e2e_data_lock_file):
             with open(sqs_e2e_shared_test_state_file, "w") as file:
                 shared_test_state_json = shared_test_state.to_json()
                 file.write(json.dumps(shared_test_state_json))
     else:
         print("Performing worker-specific setup tasks...")
 
-        with FileLock(data_lock_file):
+        with FileLock(sqs_e2e_data_lock_file):
             with open(sqs_e2e_shared_test_state_file, "r") as file:
                 data_read_from_file = json.load(file)
                 shared_test_state = SharedTestState(**data_read_from_file)
