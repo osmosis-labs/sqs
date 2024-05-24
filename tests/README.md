@@ -56,3 +56,28 @@ the output to a file. See `conftest.py::pytest_sessionstart` for more details.
 
 We serialize the setup state as `conftest.py::SharedTestState`, letting each worker to then deserialize it
 for deterministic test parameter generation.
+
+## Quote Test Suite
+
+We have 3 kinds of quotes tests:
+1. USDC input from 10^6 to 10^9 amount with every supported token as output denom
+2. Top X by-liquidity tokens with each other. Generate amounts from 10^6 to 10^9
+3. Transmuter pool test (disabled if transmuter pool is imbalanced)
+
+For every test, we run the quote and then validate the following:
+- Basic presence of fields
+- Transmuter has no price impact. Otherwise, it is negative.
+- Token out amount is within error tolerance from expected.
+- Returned spot price is within error tolerance from expected.
+
+We hand-pick error tolerance as roughly 5-10% of the expected value. We account for quote price impact
+in the error tolerance calculation.
+
+The reason why such large error tolerance is reasonable is because we rely on an external data source (Numia)
+that sometimes has outdated data (from rumors, by 20 or so blocks).
+
+## Common Flakiness
+
+- Transmuter v1 pool imbalance (All liquidity gets swapped into one token)
+- Astroport pool spot price isssues (their spot price query scales output amount by scaling factor)
+- Latency issues (need to be investigated and fixed, sometimes restart helps to warm up caches)
