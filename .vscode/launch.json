@@ -62,9 +62,6 @@
             "module": "pytest",
             "args": [
                 "-v",
-                // "tests/test_router_quote.py",
-                // "-n",
-                // "4",
             ],
             "console": "integratedTerminal",
             "justMyCode": true,
