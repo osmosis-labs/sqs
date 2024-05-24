@@ -63,17 +63,17 @@ func (s *CoingeckoPricingTestSuite) TestGetPrices() {
 		{"Test coingecko GetPrice with quote denom as USDT", ETH, USDT, mocks.OneBigDec, false},
 		{"Test coingecko GetPrice with quote denom as empty string", ETH, "", mocks.OneBigDec, false},
 		{"Test coingecko GetPrice with quote denom as some spaces", ETH, " ", mocks.OneBigDec, false},
-		{"Test coingecko GetPrice with quote denom as ATOM", ATOM, ETH, mocks.ZeroBigDec, true},
-		{"Test coingecko GetPrice with invalid base denom", "-DUMMY-", USDC, mocks.ZeroBigDec, true},
-		{"Test coingecko GetPrice with empty base denom", "", USDC, mocks.ZeroBigDec, true},
-		{"Test coingecko GetPrice with some spaces as base denom", " ", USDC, mocks.ZeroBigDec, true},
+		{"Test coingecko GetPrice with quote denom as ATOM", ATOM, ETH, mocks.NilBigDec, true},
+		{"Test coingecko GetPrice with invalid base denom", "-DUMMY-", USDC, mocks.NilBigDec, true},
+		{"Test coingecko GetPrice with empty base denom", "", USDC, mocks.NilBigDec, true},
+		{"Test coingecko GetPrice with some spaces as base denom", " ", USDC, mocks.NilBigDec, true},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.desc, func() {
 			price, err := coingeckoPricingSource.GetPrice(context.Background(), tt.baseDenom, tt.quoteDenom)
-			s.Require().Equal(tt.expectedPrice, price)
 			s.Require().Equal(tt.shouldErr, err != nil)
+			s.Require().Equal(tt.expectedPrice, price)
 		})
 	}
 

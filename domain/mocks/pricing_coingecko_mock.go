@@ -12,15 +12,15 @@ const (
 )
 
 var (
-	ZeroBigDec = osmomath.ZeroBigDec()
-	OneBigDec  = osmomath.NewBigDec(1)
-	AtomPrice  = osmomath.NewBigDec(5)
+	NilBigDec = osmomath.BigDec{}
+	OneBigDec = osmomath.NewBigDec(1)
+	AtomPrice = osmomath.NewBigDec(5)
 )
 
 // DefaultMockCoingeckoPriceGetter is a mock implementation of CoingeckoPriceGetterFn
 var DefaultMockCoingeckoPriceGetter coingeckopricing.CoingeckoPriceGetterFn = func(ctx context.Context, baseDenom string, coingeckoId string) (osmomath.BigDec, error) {
 	if coingeckoId == "" {
-		return ZeroBigDec, nil
+		return NilBigDec, nil
 	} else if coingeckoId == ATOM_COINGECKO_ID {
 		return AtomPrice, nil
 	} else {
