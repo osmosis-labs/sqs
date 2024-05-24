@@ -62,6 +62,7 @@
             "module": "pytest",
             "args": [
                 "-v",
+                "tests"
             ],
             "console": "integratedTerminal",
             "justMyCode": true,
