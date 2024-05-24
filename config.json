@@ -37,7 +37,9 @@
         "default-quote-human-denom": "usdc",
         "max-pools-per-route": 4,
         "max-routes": 5,
-        "min-osmo-liquidity": 50
+        "min-osmo-liquidity": 50,
+        "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
+        "coingecko-quote-currency": "usd"
     },
     "grpc-ingester": {
         "enabled": true,

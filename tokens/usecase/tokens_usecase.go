@@ -28,6 +28,9 @@ type tokensUseCase struct {
 	// We persist pricing strategies across endpoint calls as they
 	// may cache responses internally.
 	pricingStrategyMap map[domain.PricingSourceType]domain.PricingSource
+
+	// Map of chain denoms to coingecko IDs
+	coingeckoIds map[string]string
 }
 
 // Struct to represent the JSON structure
@@ -68,6 +71,13 @@ var (
 		},
 		[]string{"base", "quote", "err"},
 	)
+	fallbackCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_pricing_fallback_total",
+			Help: "Total number of fallback from chain pricing source to coingecko",
+		},
+		[]string{"base", "quote"},
+	)
 )
 
 // NewTokensUsecase will create a new tokens use case object
@@ -76,6 +86,7 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
 	uniquePrecisionMap := make(map[int]struct{}, 0)
 	chainDenoms := map[string]struct{}{}
+	coingeckoIds := make(map[string]string, len(tokenMetadataByChainDenom))
 
 	for chainDenom, tokenMetadata := range tokenMetadataByChainDenom {
 		// lower case human denom
@@ -86,6 +97,7 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 		uniquePrecisionMap[tokenMetadata.Precision] = struct{}{}
 
 		chainDenoms[chainDenom] = struct{}{}
+		coingeckoIds[chainDenom] = tokenMetadata.CoingeckoID
 	}
 
 	// Precompute precision scaling factors
@@ -101,7 +113,8 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 
 		pricingStrategyMap: map[domain.PricingSourceType]domain.PricingSource{},
 
-		chainDenoms: chainDenoms,
+		chainDenoms:  chainDenoms,
+		coingeckoIds: coingeckoIds,
 	}
 }
 
@@ -231,8 +244,19 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 		wg.Add(1)
 		go func(baseDenom, quoteDenom string) {
 			defer wg.Done()
-
-			price, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
+			var price osmomath.BigDec
+			var err error
+			price, err = pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
+			if err != nil { // Check if we should fallback to another pricing source
+				fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
+				if fallbackSourceType != domain.NoneSourceType {
+					fallbackCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+					fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
+					if ok {
+						price, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
+					}
+				}
+			}
 			resultsChan <- priceResult{quoteDenom, price, err}
 		}(baseDenom, quoteDenom)
 	}
@@ -325,4 +349,19 @@ func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType,
 func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
 	metaData, ok := t.tokenMetadataByChainDenom[chainDenom]
 	return ok && !metaData.IsUnlisted
+}
+
+// IsValidPricingSource implements mvc.TokensUsecase.
+func (t *tokensUseCase) IsValidPricingSource(pricingSource int) bool {
+	ps := domain.PricingSourceType(pricingSource)
+	return ps == domain.ChainPricingSourceType || ps == domain.CoinGeckoPricingSourceType
+}
+
+// GetCoingeckoIdByChainDenom implements mvc.TokensUsecase
+func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, error) {
+	if coingeckoId, found := t.coingeckoIds[chainDenom]; found {
+		return coingeckoId, nil
+	} else {
+		return "", fmt.Errorf("chain denom not found in chain registry")
+	}
 }
