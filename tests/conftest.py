@@ -435,12 +435,15 @@ def create_coins_from_pairs(pairs, start_order, end_order):
     result = []
 
     for pair in pairs:
+        # Construct combinations with denomA as token in
         denomA = pair[0]
         coin_denom_a_combos = construct_token_in_combos([denomA], start_order, end_order)
 
+        # Construct combinations with denomB as token in
         denomB = pair[1]
         coin_denom_b_combos = construct_token_in_combos([denomB], start_order, end_order)
 
+        # Add all combinations to the result
         for coin in coin_denom_a_combos:
             result.append({
                 "token_in": coin,
