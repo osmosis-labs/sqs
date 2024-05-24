@@ -494,7 +494,7 @@ def pytest_sessionstart(session):
         shared_test_state.pool_type_to_denoms, shared_test_state.denom_top_liquidity_pool_map = create_pool_data_maps(shared_test_state.all_pools_data)
 
         # Create a map of pool ID to pool data
-        shared_test_state.pool_by_id_map = {pool.get('pool_id'): pool for pool in shared_test_state.all_pools_data}
+        shared_test_state.pool_by_id_map = {str(pool.get('pool_id')): pool for pool in shared_test_state.all_pools_data}
 
         # Listed tokens that have at least one pool with liquidity
         shared_test_state.valid_listed_tokens = choose_valid_listed_tokens(shared_test_state.denom_top_liquidity_pool_map) 
