@@ -1,10 +1,12 @@
 from decimal import *
 
+# Coin represents a coin in the /router/quote response
 class Coin:
     def __init__(self, denom, amount):
         self.denom = denom
         self.amount = int(amount)
 
+# Pool represents a pool in the /router/quote response
 class Pool:
     def __init__(self, id, type, balances, spread_factor, token_out_denom, taker_fee, **kwargs):
         self.id = int(id)
@@ -18,6 +20,7 @@ class Pool:
         if code_id:
             self.code_id = int(code_id)
 
+# Route represents a route in the /router/quote response
 class Route:
     def __init__(self, pools, out_amount, in_amount, **kwargs):
         self.pools = [Pool(**pool) for pool in pools]
@@ -26,6 +29,8 @@ class Route:
         # "has-cw-pool" format is unsupported
         self.has_cw_pool = kwargs.get('has-cw-pool', False)
 
+# QuoteResponse represents the response format
+# of the /router/quote endpoint
 class QuoteResponse:
     def __init__(self, amount_in, amount_out, route, effective_fee, price_impact, in_base_out_quote_spot_price):
         self.amount_in = Coin(**amount_in)
