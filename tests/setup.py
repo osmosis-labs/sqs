@@ -1,7 +1,7 @@
 import copy
 import itertools
 from data_service import all_tokens_data, all_pools_data
-from conftest import SERVICE_SQS_STAGE
+from conftest import SERVICE_SQS_PROD
 from enum import Enum, IntEnum
 from constants import *
 
@@ -273,7 +273,7 @@ def choose_valid_listed_tokens():
     # While it is not the best practice, we make an exception since this is the most reliable way to get
     # The asset list data. In the future, we can implement custom test parsing to replace relying on SQS
     # in test setup.
-    tokens_metadata = SERVICE_SQS_STAGE.get_tokens_metadata()
+    tokens_metadata = SERVICE_SQS_PROD.get_tokens_metadata()
 
     if len(tokens_metadata) == 0:
         raise ValueError("Error: no tokens metadata retrieved from SQS during tokens setup")
