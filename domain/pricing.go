@@ -128,16 +128,13 @@ func FormatPricingCacheKey(a, b string) string {
 }
 
 type PricingWorker interface {
-	// UpdatePrices updates prices for the given base denoms asyncronously.
-	// Returns a channel that will be closed when the update is completed.
+	// UpdatePrices updates prices for the tokens from the unique block pool metadata
+	// that contains information about changed denoms and pools within a block.
 	// Propagates the results to the listeners.
-	UpdatePricesAsync(height uint64, baseDenoms map[string]struct{})
+	UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 
 	// RegisterListener registers a listener for pricing updates.
 	RegisterListener(listener PricingUpdateListener)
-
-	// IsProcessing returns true if the worker is processing a pricing update.
-	IsProcessing() bool
 }
 
 type PricingUpdateListener interface {
