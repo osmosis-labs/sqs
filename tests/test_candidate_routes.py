@@ -102,6 +102,11 @@ class TestCandidateRoutes:
         response = sqs_service.get_candidate_routes(token_in, token_out)
         elapsed_time_ms = (time.time() - start_time) * 1000
 
+        # If denoms are equal, there can be no routes between them
+        if token_in == token_out:
+            assert response.status_code == 500, f"Error: {response.text}"
+            return
+
         assert response.status_code == 200, f"Error: {response.text}"
         assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
 
