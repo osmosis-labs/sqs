@@ -29,11 +29,6 @@ type GoMiddleware struct {
 	logger             log.Logger
 }
 
-const (
-	// Name of the flight recorder trace
-	flightRecorderTraceName = "flight-trace.out"
-)
-
 var (
 	// total number of requests counter
 	requestsTotal = prometheus.NewCounterVec(
@@ -84,7 +79,6 @@ func InitMiddleware(corsConfig *domain.CORSConfig, flightRecordConfig *domain.Fl
 
 // InstrumentMiddleware will handle the instrumentation middleware
 func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-
 	// Set up the flight recorder.
 	fr := gotrace.NewFlightRecorder()
 	err := fr.Start()
@@ -117,7 +111,7 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 		// Observe the duration with the histogram
 		requestLatency.WithLabelValues(requestMethod, requestPath).Observe(duration.Seconds())
 
-		// Record outliers to the flight recorder for futher analysis
+		// Record outliers to the flight recorder for further analysis
 		if m.flightRecordConfig.Enabled && duration > time.Duration(m.flightRecordConfig.TraceThresholdMS)*time.Millisecond {
 			recordFlightOnce.Do(func() {
 				// Note: we skip error handling since we don't want to interrupt the request handling
