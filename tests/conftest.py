@@ -1,8 +1,10 @@
 import pytest
 from sqs_service import *
+from coingecko_service import *
 
 SERVICE_SQS_STAGE = SQSService(SQS_STAGE)
 SERVICE_SQS_PROD = SQSService(SQS_PROD)
+SERVICE_COINGECKO = CoingeckoService()
 
 # Define the environment URLs
 # All tests will be run against these URLs

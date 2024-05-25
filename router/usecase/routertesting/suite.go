@@ -26,6 +26,7 @@ import (
 	"github.com/osmosis-labs/osmosis/v25/app"
 	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	coingeckopricing "github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingecko"
 )
 
 type RouterTestHelper struct {
@@ -181,6 +182,8 @@ var (
 		MaxPoolsPerRoute:       4,
 		MaxRoutes:              5,
 		MinPoolLiquidityCap:    50,
+		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency: "usd",
 	}
 
 	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}
@@ -345,6 +348,12 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	pricingSource = pricing.WithPricingCache(pricingSource, options.Pricing)
 
 	tokensUsecase.RegisterPricingStrategy(domain.ChainPricingSourceType, pricingSource)
+
+	// Set up Coingecko pricing strategy, use MockCoingeckoPriceGetter for testing purposes
+	options.PricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
+	coingeckoPricingSource := coingeckopricing.New(tokensUsecase, options.PricingConfig, mocks.DefaultMockCoingeckoPriceGetter)
+	s.Require().NoError(err)
+	tokensUsecase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
 
 	encCfg := app.MakeEncodingConfig()
 

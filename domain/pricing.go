@@ -19,6 +19,7 @@ const (
 	// CoinGeckoPricingSourceType defines the pricing source
 	// that calls CoinGecko API.
 	CoinGeckoPricingSourceType
+	NoneSourceType = -1
 )
 
 // PricingSource defines an interface that must be fulfilled by the specific
@@ -32,6 +33,9 @@ type PricingSource interface {
 	// InitializeCache initialize the cache for the pricing source to a given value.
 	// Panics if cache is already set.
 	InitializeCache(*cache.Cache)
+
+	// GetFallBackStrategy determines what pricing source should be fallen back to in case this pricing source fails
+	GetFallbackStrategy(quoteDenom string) PricingSourceType
 }
 
 // DefaultMinPoolLiquidityOption defines the default min liquidity capitalization option.
@@ -102,6 +106,8 @@ type PricingConfig struct {
 
 	// The default quote chain denom.
 	DefaultQuoteHumanDenom string `mapstructure:"default-quote-human-denom"`
+	CoingeckoUrl           string `mapstructure:"coingecko-url"`
+	CoingeckoQuoteCurrency string `mapstructure:"coingecko-quote-currency"`
 
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
 	MaxRoutes        int `mapstructure:"max-routes"`

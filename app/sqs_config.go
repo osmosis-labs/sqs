@@ -43,8 +43,10 @@ var DefaultConfig = domain.Config{
 		CacheExpiryMs:          2000, // 2 seconds.
 		DefaultQuoteHumanDenom: "usdc",
 
-		MaxPoolsPerRoute:    4,
-		MaxRoutes:           5,
-		MinPoolLiquidityCap: 50,
+		MaxPoolsPerRoute:       4,
+		MaxRoutes:              5,
+		MinPoolLiquidityCap:    50,
+		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency: "usd",
 	},
 }

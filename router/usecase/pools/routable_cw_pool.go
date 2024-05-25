@@ -41,6 +41,10 @@ var (
 	// Assumming precision of 6, this is 10 units.
 	// This is naive since precision can be greater but should work for most cases.
 	tenE7 = sdk.NewInt(10_000_000)
+
+	// We observed price impact breaking in-production with 18 decimal tokens.
+	// This is a workaround to fallback to precision of 18 if 10^7 fails.
+	tenE18 = sdk.NewInt(1_000_000_000_000_000_000)
 )
 
 // GetId implements sqsdomain.RoutablePool.
@@ -134,9 +138,17 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 		// Calculate the spot price using the pool's balances
 
 		out, err := r.calculateTokenOutByTokenIn(ctx, sdk.NewCoin(quoteDenom, tenE7), baseDenom)
+
+		// HACK: If the estimated quote is zero and there is no error, this is likely due to insufficient amount
+		// of token in to calculate the spot price. This is a workaround to fallback to higher precision which is in
+		// most cases 18.
+		if err == nil && out.IsZero() {
+			out, err = r.calculateTokenOutByTokenIn(ctx, sdk.NewCoin(quoteDenom, tenE18), baseDenom)
+		}
+
 		// If error, proceed to querying cosmwasm
 		if err == nil && !out.Amount.IsZero() {
-			spotPrice := osmomath.NewBigDecFromBigInt(tenE7.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigIntMut(out.Amount.BigIntMut()))
+			spotPrice := osmomath.NewBigDecFromBigInt(tenE18.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigIntMut(out.Amount.BigIntMut()))
 
 			// If spot price is not zero, return it
 			if !spotPrice.IsZero() {
