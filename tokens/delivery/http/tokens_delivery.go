@@ -26,19 +26,16 @@ type TokensHandler struct {
 	TUsecase mvc.TokensUsecase
 	RUsecase mvc.RouterUsecase
 
+	defaultQuoteChainDenom string
+	defaultCoingeckoDenom  string
+
 	logger log.Logger
 }
 
 const (
 	routerResource = "/tokens"
 
-	// TODO: move to config
-	defaultQuoteHumanDenom = "usdc"
-	defaultPricingSource   = domain.ChainPricingSourceType
-)
-
-var (
-	defaultQuoteChainDenom string
+	defaultPricingSource = domain.ChainPricingSourceType
 )
 
 func formatTokensResource(resource string) string {
@@ -47,9 +44,17 @@ func formatTokensResource(resource string) string {
 
 // NewTokensHandler will initialize the pools/ resources endpoint
 func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) (err error) {
+
+	defaultQuoteChainDenom, err := ts.GetChainDenom(pricingConfig.DefaultQuoteHumanDenom)
+	if err != nil {
+		return err
+	}
+
 	handler := &TokensHandler{
 		TUsecase: ts,
 		RUsecase: ru,
+
+		defaultQuoteChainDenom: defaultQuoteChainDenom,
 
 		logger: logger,
 	}
@@ -59,10 +64,6 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 	e.GET(formatTokensResource("/usd-price-test"), handler.GetUSDPriceTest)
 	e.POST(formatTokensResource("/store-state"), handler.StoreTokensStateInFiles)
 
-	defaultQuoteChainDenom, err = ts.GetChainDenom(defaultQuoteHumanDenom)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -153,45 +154,88 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		}
 	}
 
-	// Check if the provided denoms (which can be human or chain) are valid and existing in the asset list
-	// If human denoms, convert to chain denoms
-	// If chain denoms, validate if they are valid chain denoms
-	// If any of the denoms are invalid, reject the entire request and return an error
-	if isHumanDenoms {
-		for i, baseDenom := range baseDenoms {
-			baseDenoms[i], err = a.TUsecase.GetChainDenom(baseDenom)
-			if err != nil {
-				return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-			}
-		}
-	} else {
-		for _, baseDenom := range baseDenoms {
-			if !a.TUsecase.IsValidChainDenom(baseDenom) {
-				return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("invalid chain denom: %s", baseDenom)})
-			}
-		}
+	// Get pricing source type.
+	pricingSourceType, err := a.getPricingSource(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	// Check if pricingSource param is valid
-	var pricingSource domain.PricingSourceType
-	pricingSourceParam := c.QueryParam("pricingSource")
-	if pricingSourceParam == "" {
-		// By default, if no source is explicitly provided, we use a chain pricing source.
-		pricingSource = domain.ChainPricingSourceType
-	} else {
-		// Otherwise, we attempt to parse the given pricing source.
-		pricingSourceInt, err := strconv.Atoi(pricingSourceParam)
-		if err != nil || !a.TUsecase.IsValidPricingSource(pricingSourceInt) {
-			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("invalid pricing source: %s", pricingSourceParam)})
-		}
-		pricingSource = domain.PricingSourceType(pricingSourceInt)
+	// Get quote denom based on pricing source type.
+	quoteDenom, err := a.getQuoteDenom(pricingSourceType)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{defaultQuoteChainDenom}, pricingSource)
+	// Validate base denoms
+	if err := a.validateBaseDenoms(baseDenoms, isHumanDenoms); err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
+
+	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{quoteDenom}, pricingSourceType)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
 	return c.JSON(http.StatusOK, prices)
+}
+
+// getPricingSource retrieves the pricing sources.
+// If not parameter is given, chain pricing source is used by default.
+// If the parameter is given, it is validated and returned.
+func (a TokensHandler) getPricingSource(c echo.Context) (domain.PricingSourceType, error) {
+	pricingSourceParam := c.QueryParam("pricingSource")
+	if pricingSourceParam == "" {
+		return domain.ChainPricingSourceType, nil
+	}
+
+	pricingSourceInt, err := strconv.Atoi(pricingSourceParam)
+	if err != nil {
+		return 0, err
+	}
+
+	if !a.TUsecase.IsValidPricingSource(pricingSourceInt) {
+		return 0, fmt.Errorf("invalid pricing source: %d", pricingSourceInt)
+	}
+
+	return domain.PricingSourceType(pricingSourceInt), nil
+}
+
+// getQuoteDenom returns the quote denomination based on the pricing source type.
+func (a TokensHandler) getQuoteDenom(pricingSourceType domain.PricingSourceType) (string, error) {
+	if pricingSourceType == domain.ChainPricingSourceType {
+		return a.defaultQuoteChainDenom, nil
+	} else if pricingSourceType == domain.CoinGeckoPricingSourceType {
+		return a.defaultCoingeckoDenom, nil
+	} else {
+		return "", fmt.Errorf("unsupported pricing source type: %d", pricingSourceType)
+	}
+}
+
+// validateBaseDenoms validates the base denominations. If the base denominations are in human-readable format, it translates them to chain format.
+// Check if the provided denoms (which can be human or chain) are valid and existing in the asset list
+// If human denoms, convert to chain denoms
+// If chain denoms, validate if they are valid chain denoms
+// If any of the denoms are invalid return an error
+func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms bool) (err error) {
+	for i, baseDenom := range baseDenoms {
+
+		// If human, convert to chain format
+		if isHumanBaseDenoms {
+			baseDenom, err = a.TUsecase.GetChainDenom(baseDenom)
+			if err != nil {
+				return err
+			}
+
+			baseDenoms[i] = baseDenom
+		}
+
+		for _, baseDenom := range baseDenoms {
+			if !a.TUsecase.IsValidChainDenom(baseDenom) {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // validateDenomsParam validates the denoms param string

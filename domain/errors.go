@@ -166,3 +166,12 @@ type StaleHeightError struct {
 func (e StaleHeightError) Error() string {
 	return fmt.Sprintf("stored height (%d) is stale, time since last update (%d), max allowed seconds (%d)", e.StoredHeight, e.TimeSinceLastUpdate, e.MaxAllowedTimeDeltaSecs)
 }
+
+type SameDenomError struct {
+	DenomA string
+	DenomB string
+}
+
+func (e SameDenomError) Error() string {
+	return fmt.Sprintf("two input denoms are equal (%s), must not be the same", e.DenomA)
+}
