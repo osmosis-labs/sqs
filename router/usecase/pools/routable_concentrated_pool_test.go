@@ -82,8 +82,8 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 					HasNoLiquidity:   false,
 				},
 				SQSModel: sqsdomain.SQSPool{
-					TotalValueLockedUSDC:  osmomath.NewInt(100),
-					TotalValueLockedError: "",
+					PoolLiquidityCap:      osmomath.NewInt(100),
+					PoolLiquidityCapError: "",
 					Balances:              sdk.Coins{},
 					PoolDenoms:            []string{"foo", "bar"},
 				},

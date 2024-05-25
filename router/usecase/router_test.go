@@ -24,7 +24,7 @@ func TestRouterTestSuite(t *testing.T) {
 }
 
 const (
-	dummyTotalValueLockedErrorStr = "total value locked error string"
+	dummyPoolLiquidityCapErrorStr = "pool liquidity cap error string"
 
 	// OSMO token precision
 	OsmoPrecisionMultiplier = 1000000
@@ -103,28 +103,28 @@ func (s *RouterTestSuite) TestRouterSorting() {
 
 	var (
 		// Inputs
-		minOsmoLiquidity = 2
-		logger, _        = log.NewLogger(false, "", "")
-		defaultAllPools  = []sqsdomain.PoolI{
+		minPoolLiquidityCap = 2
+		logger, _           = log.NewLogger(false, "", "")
+		defaultAllPools     = []sqsdomain.PoolI{
 			&sqsdomain.PoolWrapper{
 				ChainModel: balancerPool,
 				SQSModel: sqsdomain.SQSPool{
-					TotalValueLockedUSDC: osmomath.NewInt(5 * OsmoPrecisionMultiplier), // 5
-					PoolDenoms:           defaultDenoms,
+					PoolLiquidityCap: osmomath.NewInt(5 * OsmoPrecisionMultiplier), // 5
+					PoolDenoms:       defaultDenoms,
 				},
 			},
 			&sqsdomain.PoolWrapper{
 				ChainModel: stableswapPool,
 				SQSModel: sqsdomain.SQSPool{
-					TotalValueLockedUSDC: osmomath.NewInt(int64(minOsmoLiquidity) - 1), // 1
-					PoolDenoms:           defaultDenoms,
+					PoolLiquidityCap: osmomath.NewInt(int64(minPoolLiquidityCap) - 1), // 1
+					PoolDenoms:       defaultDenoms,
 				},
 			},
 			&sqsdomain.PoolWrapper{
 				ChainModel: concentratedPool,
 				SQSModel: sqsdomain.SQSPool{
-					TotalValueLockedUSDC: osmomath.NewInt(4 * OsmoPrecisionMultiplier), // 4
-					PoolDenoms:           defaultDenoms,
+					PoolLiquidityCap: osmomath.NewInt(4 * OsmoPrecisionMultiplier), // 4
+					PoolDenoms:       defaultDenoms,
 				},
 				TickModel: &sqsdomain.TickModel{
 					Ticks: []sqsdomain.LiquidityDepthsWithRange{
@@ -141,8 +141,8 @@ func (s *RouterTestSuite) TestRouterSorting() {
 			&sqsdomain.PoolWrapper{
 				ChainModel: cosmWasmPool,
 				SQSModel: sqsdomain.SQSPool{
-					TotalValueLockedUSDC: osmomath.NewInt(3 * OsmoPrecisionMultiplier), // 3
-					PoolDenoms:           defaultDenoms,
+					PoolLiquidityCap: osmomath.NewInt(3 * OsmoPrecisionMultiplier), // 3
+					PoolDenoms:       defaultDenoms,
 				},
 			},
 
@@ -152,17 +152,17 @@ func (s *RouterTestSuite) TestRouterSorting() {
 			&sqsdomain.PoolWrapper{
 				ChainModel: secondBalancerPool,
 				SQSModel: sqsdomain.SQSPool{
-					TotalValueLockedUSDC:  osmomath.NewInt(10 * OsmoPrecisionMultiplier), // 10
+					PoolLiquidityCap:      osmomath.NewInt(10 * OsmoPrecisionMultiplier), // 10
 					PoolDenoms:            defaultDenoms,
-					TotalValueLockedError: dummyTotalValueLockedErrorStr,
+					PoolLiquidityCapError: dummyPoolLiquidityCapErrorStr,
 				},
 			},
 			&sqsdomain.PoolWrapper{
 				ChainModel: thirdBalancerPool,
 				SQSModel: sqsdomain.SQSPool{
-					TotalValueLockedUSDC:  osmomath.NewInt(11 * OsmoPrecisionMultiplier), // 11
+					PoolLiquidityCap:      osmomath.NewInt(11 * OsmoPrecisionMultiplier), // 11
 					PoolDenoms:            defaultDenoms,
-					TotalValueLockedError: dummyTotalValueLockedErrorStr,
+					PoolLiquidityCapError: dummyPoolLiquidityCapErrorStr,
 				},
 			},
 		}
@@ -196,7 +196,7 @@ func (s *RouterTestSuite) TestRouterSorting() {
 
 	totalTVL := osmomath.ZeroInt()
 	for _, pool := range defaultAllPools {
-		totalTVL = totalTVL.Add(pool.GetTotalValueLockedUSDC())
+		totalTVL = totalTVL.Add(pool.GetPoolLiquidityCap())
 	}
 
 	sortedPools := routerusecase.SortPools(defaultAllPools, cosmWasmPoolConfig.TransmuterCodeIDs, totalTVL, map[uint64]struct{}{

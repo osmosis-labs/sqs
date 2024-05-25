@@ -25,7 +25,7 @@ var DefaultConfig = domain.Config{
 		MaxRoutes:                        5,
 		MaxSplitRoutes:                   3,
 		MaxSplitIterations:               10,
-		MinOSMOLiquidity:                 100, // 100 OSMO
+		MinPoolLiquidityCap:              100, // The denomination assummed is set by Pricing.DefaultHumanDenom
 		RouteCacheEnabled:                false,
 		CandidateRouteCacheExpirySeconds: 600, // 10 minutes
 		RankedRouteCacheExpirySeconds:    300, // 5 minutes
@@ -45,7 +45,7 @@ var DefaultConfig = domain.Config{
 
 		MaxPoolsPerRoute:       4,
 		MaxRoutes:              5,
-		MinOSMOLiquidity:       50,
+		MinPoolLiquidityCap:    50,
 		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
 		CoingeckoQuoteCurrency: "usd",
 	},

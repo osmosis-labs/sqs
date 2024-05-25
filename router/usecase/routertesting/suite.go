@@ -90,13 +90,13 @@ var (
 	DefaultSpreadFactor = osmomath.MustNewDecFromStr("0.005")
 
 	DefaultPool = &mocks.MockRoutablePool{
-		ID:                   DefaultPoolID,
-		Denoms:               []string{DenomOne, DenomTwo},
-		TotalValueLockedUSDC: osmomath.NewInt(10),
-		PoolType:             poolmanagertypes.Balancer,
-		Balances:             DefaultPoolBalances,
-		TakerFee:             DefaultTakerFee,
-		SpreadFactor:         DefaultSpreadFactor,
+		ID:               DefaultPoolID,
+		Denoms:           []string{DenomOne, DenomTwo},
+		PoolLiquidityCap: osmomath.NewInt(10),
+		PoolType:         poolmanagertypes.Balancer,
+		Balances:         DefaultPoolBalances,
+		TakerFee:         DefaultTakerFee,
+		SpreadFactor:     DefaultSpreadFactor,
 	}
 	EmptyRoute                   = route.RouteImpl{}
 	EmpyCosmWasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{
@@ -155,7 +155,7 @@ var (
 		MaxPoolsPerRoute:          4,
 		MaxSplitRoutes:            4,
 		MaxSplitIterations:        10,
-		MinOSMOLiquidity:          20000,
+		MinPoolLiquidityCap:       20000,
 		RouteUpdateHeightInterval: 0,
 		RouteCacheEnabled:         true,
 	}
@@ -167,12 +167,12 @@ var (
 	}
 
 	DefaultPricingRouterConfig = domain.RouterConfig{
-		PreferredPoolIDs:  []uint64{},
-		MaxRoutes:         5,
-		MaxPoolsPerRoute:  3,
-		MaxSplitRoutes:    3,
-		MinOSMOLiquidity:  50,
-		RouteCacheEnabled: true,
+		PreferredPoolIDs:    []uint64{},
+		MaxRoutes:           5,
+		MaxPoolsPerRoute:    3,
+		MaxSplitRoutes:      3,
+		MinPoolLiquidityCap: 50,
+		RouteCacheEnabled:   true,
 	}
 
 	DefaultPricingConfig = domain.PricingConfig{
@@ -181,7 +181,7 @@ var (
 		DefaultQuoteHumanDenom: "usdc",
 		MaxPoolsPerRoute:       4,
 		MaxRoutes:              5,
-		MinOSMOLiquidity:       50,
+		MinPoolLiquidityCap:    50,
 		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
 		CoingeckoQuoteCurrency: "usd",
 	}
@@ -378,11 +378,11 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 }
 
 // PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
-func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minOsmoLiquidity int) []sqsdomain.PoolI {
+func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap int) []sqsdomain.PoolI {
 	sortedPools := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
 
 	// Sort pools
-	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minOsmoLiquidity)
+	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)
 
 	return poolsAboveMinLiquidity
 }

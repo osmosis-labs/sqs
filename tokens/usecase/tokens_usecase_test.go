@@ -46,12 +46,12 @@ var (
 	AAVE_UNLISTED = "ibc/384E5DD50BDE042E1AAF51F312B55F08F95BC985C503880189258B4D9374CBBE"
 
 	defaultPricingRouterConfig = domain.RouterConfig{
-		PreferredPoolIDs:  []uint64{},
-		MaxRoutes:         5,
-		MaxPoolsPerRoute:  3,
-		MaxSplitRoutes:    3,
-		MinOSMOLiquidity:  50,
-		RouteCacheEnabled: true,
+		PreferredPoolIDs:    []uint64{},
+		MaxRoutes:           5,
+		MaxPoolsPerRoute:    3,
+		MaxSplitRoutes:      3,
+		MinPoolLiquidityCap: 50,
+		RouteCacheEnabled:   true,
 	}
 
 	defaultPricingConfig = domain.PricingConfig{
@@ -60,7 +60,7 @@ var (
 		DefaultQuoteHumanDenom: "usdc",
 		MaxPoolsPerRoute:       4,
 		MaxRoutes:              5,
-		MinOSMOLiquidity:       50,
+		MinPoolLiquidityCap:    50,
 		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
 		CoingeckoQuoteCurrency: "usd",
 	}
