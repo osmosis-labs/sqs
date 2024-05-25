@@ -20,6 +20,8 @@ type Config struct {
 	// Chain registry assets firl URL.
 	ChainRegistryAssetsFileURL string `mapstructure:"chain-registry-assets-url"`
 
+	FlightRecord *FlightRecordConfig `mapstructure:"flight-record"`
+
 	// Router encapsulates the router config.
 	Router *RouterConfig `mapstructure:"router"`
 
@@ -54,4 +56,14 @@ type CORSConfig struct {
 	AllowedHeaders string `mapstructure:"allowed-headers"`
 	AllowedMethods string `mapstructure:"allowed-methods"`
 	AllowedOrigin  string `mapstructure:"allowed-origin"`
+}
+
+// FlightRecordConfig encapsulates the flight recording configuration.
+type FlightRecordConfig struct {
+	// Enabled defines if the flight recording is enabled.
+	Enabled bool `mapstructure:"enabled"`
+	// TraceThresholdMS defines the trace threshold in milliseconds.
+	TraceThresholdMS int `mapstructure:"trace-threshold-ms"`
+	// TraceFileName defines the trace file name to output to.
+	TraceFileName string `mapstructure:"trace-file-name"`
 }
