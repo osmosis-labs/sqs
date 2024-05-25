@@ -34,8 +34,6 @@ type TokensHandler struct {
 
 const (
 	routerResource = "/tokens"
-
-	defaultPricingSource = domain.ChainPricingSourceType
 )
 
 func formatTokensResource(resource string) string {
@@ -44,7 +42,6 @@ func formatTokensResource(resource string) string {
 
 // NewTokensHandler will initialize the pools/ resources endpoint
 func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) (err error) {
-
 	defaultQuoteChainDenom, err := ts.GetChainDenom(pricingConfig.DefaultQuoteHumanDenom)
 	if err != nil {
 		return err
@@ -217,7 +214,6 @@ func (a TokensHandler) getQuoteDenom(pricingSourceType domain.PricingSourceType)
 // If any of the denoms are invalid return an error
 func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms bool) (err error) {
 	for i, baseDenom := range baseDenoms {
-
 		// If human, convert to chain format
 		if isHumanBaseDenoms {
 			baseDenom, err = a.TUsecase.GetChainDenom(baseDenom)
