@@ -1,6 +1,6 @@
 module github.com/osmosis-labs/sqs
 
-go 1.21.8
+go 1.21.4
 
 require (
 	cosmossdk.io/math v1.3.0
@@ -12,8 +12,8 @@ require (
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.13
-	github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240525182212-e39ab0021f3e
-	github.com/osmosis-labs/sqs/sqsdomain v0.18.4-0.20240525150306-5031af5f1640
+	github.com/osmosis-labs/osmosis/v25 v25.0.0-rc0
+	github.com/osmosis-labs/sqs/sqsdomain v0.18.4-0.20240518180933-518a93302cf3
 	github.com/prometheus/client_golang v1.19.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.18.2
@@ -85,7 +85,7 @@ require (
 	github.com/cosmos/iavl v1.1.2-0.20240405173644-e52f7630d3b7 // indirect
 	github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v7 v7.1.3 // indirect
 	github.com/cosmos/ibc-apps/modules/async-icq/v7 v7.1.1 // indirect
-	github.com/cosmos/ibc-go/v7 v7.4.1 // indirect
+	github.com/cosmos/ibc-go/v7 v7.4.0 // indirect
 	github.com/cosmos/ics23/go v0.10.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.12.4 // indirect
 	github.com/cosmos/rosetta-sdk-go v0.10.0 // indirect
@@ -217,7 +217,7 @@ require (
 	go.uber.org/goleak v1.3.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
+	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/oauth2 v0.17.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
@@ -254,17 +254,21 @@ replace (
 
 	// Our cosmos-sdk branch is: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo-v22/v0.47.5, current branch: osmo-v22/v0.47.5. Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/cf358f6fc20cabfb5cb8ce75fc10b2623150869e
 	// https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.47.5-v22-osmo-2
-	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.47.6-0.20240520015414-d958d4441808
+	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.47.5-v24-osmo-5
+	github.com/cosmos/gogoproto => github.com/cosmos/gogoproto v1.4.10
 	github.com/cosmos/iavl => github.com/cosmos/iavl v1.1.2-0.20240405172238-7f92c6b356ac
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.13
-	github.com/osmosis-labs/osmosis/v25 => github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240525182212-e39ab0021f3e
+	github.com/osmosis-labs/osmosis/v25 => github.com/osmosis-labs/osmosis/v25 v25.0.0-20240520002618-b177b9e9f1d0
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
+
+	// newer versions of exp treat sorting differently, which is incompatible with the current version of cosmos-sdk
+	golang.org/x/exp => golang.org/x/exp v0.0.0-20230711153332-06a737ee72cb
 )
 
 exclude github.com/cosmos/cosmos-sdk v0.50.1
