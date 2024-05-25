@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Hack to fallback to precision of 18 when estimating spot price for Astroport pools via quotes.
+
 ## 0.18.4
 
 -   Reduce cardinality of duration metrics
