@@ -24,15 +24,14 @@ import (
 
 // GoMiddleware represent the data-struct for middleware
 type GoMiddleware struct {
-	corsConfig domain.CORSConfig
-	logger     log.Logger
+	corsConfig         domain.CORSConfig
+	flightRecordConfig domain.FlightRecordConfig
+	logger             log.Logger
 }
 
 const (
 	// Name of the flight recorder trace
 	flightRecorderTraceName = "flight-trace.out"
-	// The latency threshold in milliseconds to record traces
-	flightRecorderThresholdMs = 500
 )
 
 var (
@@ -75,10 +74,11 @@ func (m *GoMiddleware) CORS(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 // InitMiddleware initialize the middleware
-func InitMiddleware(corsConfig *domain.CORSConfig, logger log.Logger) *GoMiddleware {
+func InitMiddleware(corsConfig *domain.CORSConfig, flightRecordConfig *domain.FlightRecordConfig, logger log.Logger) *GoMiddleware {
 	return &GoMiddleware{
-		corsConfig: *corsConfig,
-		logger:     logger,
+		corsConfig:         *corsConfig,
+		flightRecordConfig: *flightRecordConfig,
+		logger:             logger,
 	}
 }
 
@@ -118,8 +118,7 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 		requestLatency.WithLabelValues(requestMethod, requestPath).Observe(duration.Seconds())
 
 		// Record outliers to the flight recorder for futher analysis
-		if duration > flightRecorderThresholdMs*time.Millisecond {
-
+		if m.flightRecordConfig.Enabled && duration > time.Duration(m.flightRecordConfig.TraceThresholdMS)*time.Millisecond {
 			recordFlightOnce.Do(func() {
 				// Note: we skip error handling since we don't want to interrupt the request handling
 				// with tracing errors.
@@ -133,7 +132,7 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 				}
 
 				// Write it to a file.
-				err = os.WriteFile(flightRecorderTraceName, b.Bytes(), 0o755)
+				err = os.WriteFile(m.flightRecordConfig.TraceFileName, b.Bytes(), 0o755)
 				if err != nil {
 					m.logger.Error("failed to write trace to file", zap.Error(err))
 					return

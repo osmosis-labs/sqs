@@ -12,8 +12,8 @@ require (
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.13
-	github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240524131320-44f70454a543
-	github.com/osmosis-labs/sqs/sqsdomain v0.18.4-0.20240518180933-518a93302cf3
+	github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240525182212-e39ab0021f3e
+	github.com/osmosis-labs/sqs/sqsdomain v0.18.4-0.20240525150306-5031af5f1640
 	github.com/prometheus/client_golang v1.19.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.18.2
@@ -261,7 +261,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.13
-	github.com/osmosis-labs/osmosis/v25 => github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240524131320-44f70454a543
+	github.com/osmosis-labs/osmosis/v25 => github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240525182212-e39ab0021f3e
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
