@@ -26,18 +26,26 @@
       ]
     },
     "pools": {
-        "transmuter-code-ids": [3084, 4643],
-        "general-cosmwasm-code-ids": [5005, 6688]
+        "transmuter-code-ids": [
+            3084,
+            4643
+        ],
+        "general-cosmwasm-code-ids": [
+            5005,
+            6688
+        ]
     },
-    "pricing":{
+    "pricing": {
         "cache-expiry-ms": 2000,
         "default-source": 0,
         "default-quote-human-denom": "usdc",
         "max-pools-per-route": 4,
         "max-routes": 5,
-        "min-pool-liquidity-cap": 0
+        "min-pool-liquidity-cap": 0,
+        "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
+        "coingecko-quote-currency": "usd"
     },
-    "grpc-ingester":{
+    "grpc-ingester": {
         "enabled": false,
         "max-receive-msg-size-bytes": 16777216,
         "server-address": ":50051",
@@ -45,16 +53,15 @@
     },
     "otel": {
         "dsn": "",
-        "sample-rate":         1,
-		"enable-tracing":      true,
-		"traces-sample-rate":   1,
-		"profiles-sample-rate": 1, 
-        "environment" : "production"
+        "sample-rate": 1,
+        "enable-tracing": true,
+        "traces-sample-rate": 1,
+        "profiles-sample-rate": 1,
+        "environment": "production"
     },
     "cors": {
         "allowed-headers": "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
         "allowed-methods": "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
         "allowed-origins": "*"
     }
-  }
-  
+}

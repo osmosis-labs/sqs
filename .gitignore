@@ -16,5 +16,5 @@ go.work.sum
 tests/venv/*
 tests/*/report.txt
 
-# Log
+# log files
 sqs.log

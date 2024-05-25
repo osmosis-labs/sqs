@@ -7,7 +7,7 @@
     "logger-level": "info",
     "grpc-gateway-endpoint": "http://localhost:26657",
     "chain-id": "osmosis-1",
-    "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/osmosis-1.assetlist.json",
+    "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
     "router": {
       "preferred-pool-ids": [],
       "max-pools-per-route": 4,
@@ -26,18 +26,28 @@
       ]
     },
     "pools": {
-        "transmuter-code-ids": [148, 254],
-        "general-cosmwasm-code-ids": [503, 572, 773, 641]
+        "transmuter-code-ids": [
+            148,
+            254
+        ],
+        "general-cosmwasm-code-ids": [
+            503,
+            572,
+            773,
+            641
+        ]
     },
-    "pricing":{
+    "pricing": {
         "cache-expiry-ms": 2000,
         "default-source": 0,
         "default-quote-human-denom": "usdc",
         "max-pools-per-route": 4,
         "max-routes": 5,
-        "min-pool-liquidity-cap": 50
+        "min-pool-liquidity-cap": 50,
+        "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
+        "coingecko-quote-currency": "usd"
     },
-    "grpc-ingester":{
+    "grpc-ingester": {
         "enabled": true,
         "max-receive-msg-size-bytes": 26214400,
         "server-address": ":50051",
@@ -45,11 +55,11 @@
     },
     "otel": {
         "dsn": "",
-        "sample-rate":         1,
-		"enable-tracing":      true,
-		"traces-sample-rate":   1,
-		"profiles-sample-rate": 1, 
-        "environment" : "sqs-dev",
+        "sample-rate": 1,
+        "enable-tracing": true,
+        "traces-sample-rate": 1,
+        "profiles-sample-rate": 1,
+        "environment": "sqs-dev",
         "custom-sample-rate": {
             "/router/quote": 1,
             "other": 0
@@ -61,4 +71,3 @@
         "allowed-origin": "*"
     }
 }
-  

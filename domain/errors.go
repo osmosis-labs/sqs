@@ -174,3 +174,12 @@ type PoolDenomMetaDataNotPresentError struct {
 func (e PoolDenomMetaDataNotPresentError) Error() string {
 	return fmt.Sprintf("pool denom metadata for denom (%s) is not found", e.ChainDenom)
 }
+
+type SameDenomError struct {
+	DenomA string
+	DenomB string
+}
+
+func (e SameDenomError) Error() string {
+	return fmt.Sprintf("two input denoms are equal (%s), must not be the same", e.DenomA)
+}

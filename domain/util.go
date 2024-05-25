@@ -39,6 +39,20 @@ func ParseBooleanQueryParam(c echo.Context, paramName string) (paramValue bool, 
 	return paramValue, nil
 }
 
+// ValidateInputDenoms returns nil of two denoms are valid, otherwise an error.
+// This is to be used as a parameter validation for queries.
+// For example, token in denom must not equal token out denom for quotes.
+func ValidateInputDenoms(denomA, denomB string) error {
+	if denomA == denomB {
+		return SameDenomError{
+			DenomA: denomA,
+			DenomB: denomB,
+		}
+	}
+
+	return nil
+}
+
 // splitAndTrim splits a string by a separator and trims the resulting strings.
 func splitAndTrim(s, sep string) []string {
 	var result []string

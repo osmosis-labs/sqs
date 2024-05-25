@@ -29,7 +29,7 @@ const (
 // filterPoolsByMinLiquidity filters the given pools by the minimum liquidity
 // capitalization.
 func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minPoolLiquidityCap uint64) []sqsdomain.PoolI {
-	minLiquidityCapInt := osmomath.NewInt(int64(minPoolLiquidityCap))
+	minLiquidityCapInt := osmomath.NewIntFromUint64(minPoolLiquidityCap)
 	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
 	for _, pool := range pools {
 		if pool.GetPoolLiquidityCap().GTE(minLiquidityCapInt) {
