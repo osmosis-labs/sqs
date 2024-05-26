@@ -19,6 +19,7 @@ const (
 	// CoinGeckoPricingSourceType defines the pricing source
 	// that calls CoinGecko API.
 	CoinGeckoPricingSourceType
+	NoneSourceType = -1
 )
 
 // PricingSource defines an interface that must be fulfilled by the specific
@@ -32,11 +33,14 @@ type PricingSource interface {
 	// InitializeCache initialize the cache for the pricing source to a given value.
 	// Panics if cache is already set.
 	InitializeCache(*cache.Cache)
+
+	// GetFallBackStrategy determines what pricing source should be fallen back to in case this pricing source fails
+	GetFallbackStrategy(quoteDenom string) PricingSourceType
 }
 
-// DefaultMinLiquidityOption defines the default min liquidity option.
+// DefaultMinPoolLiquidityOption defines the default min liquidity capitalization option.
 // Per the config file set at start-up
-const DefaultMinLiquidityOption = -1
+const DefaultMinPoolLiquidityOption = -1
 
 // PricingOptions defines the options for retrieving the prices.
 type PricingOptions struct {
@@ -48,14 +52,14 @@ type PricingOptions struct {
 	// or the quote-based method.
 	// For more context, see tokens/usecase/pricing/chain defaultIsSpotPriceComputeMethod.
 	RecomputePricesIsSpotPriceComputeMethod bool
-	// MinLiquidity defines the minimum liquidity required to consider a pool for pricing.
-	MinLiquidity int
+	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
+	MinPoolLiquidityCap int
 }
 
 // DefaultPricingOptions defines the default options for retrieving the prices.
 var DefaultPricingOptions = PricingOptions{
 	RecomputePrices:                         false,
-	MinLiquidity:                            DefaultMinLiquidityOption,
+	MinPoolLiquidityCap:                     DefaultMinPoolLiquidityOption,
 	RecomputePricesIsSpotPriceComputeMethod: true,
 }
 
@@ -78,15 +82,17 @@ func WithRecomputePricesQuoteBasedMethod() PricingOption {
 	}
 }
 
-// WithMinLiquidity configures the min liquidity option.
-func WithMinLiquidity(minLiquidity int) PricingOption {
+// WithMinPricingPoolLiquidityCap configures the min liquidity capitalization option
+// for pricing. Note, that non-pricing routing has its own RouterOption to configure
+// the min liquidity capitalization.
+func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap int) PricingOption {
 	return func(o *PricingOptions) {
 		// If the min liquidity is the default value, we don't need to set it.
-		if minLiquidity == DefaultMinLiquidityOption {
+		if minPoolLiquidityCap == DefaultMinPoolLiquidityOption {
 			return
 		}
 
-		o.MinLiquidity = minLiquidity
+		o.MinPoolLiquidityCap = minPoolLiquidityCap
 	}
 }
 
@@ -100,11 +106,13 @@ type PricingConfig struct {
 
 	// The default quote chain denom.
 	DefaultQuoteHumanDenom string `mapstructure:"default-quote-human-denom"`
+	CoingeckoUrl           string `mapstructure:"coingecko-url"`
+	CoingeckoQuoteCurrency string `mapstructure:"coingecko-quote-currency"`
 
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
 	MaxRoutes        int `mapstructure:"max-routes"`
-	// Denominated in OSMO (not uosmo)
-	MinOSMOLiquidity int `mapstructure:"min-osmo-liquidity"`
+	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.
+	MinPoolLiquidityCap int `mapstructure:"min-pool-liquidity-cap"`
 }
 
 // FormatCacheKey formats the cache key for the given denoms.

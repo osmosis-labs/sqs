@@ -21,7 +21,7 @@ type (
 )
 
 const (
-	NoTotalValueLockedError = noTotalValueLockedError
+	NoPoolLiquidityCapError = noPoolLiquidityCapError
 )
 
 func ValidateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {

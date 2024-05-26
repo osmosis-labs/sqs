@@ -46,12 +46,12 @@ var (
 	AAVE_UNLISTED = "ibc/384E5DD50BDE042E1AAF51F312B55F08F95BC985C503880189258B4D9374CBBE"
 
 	defaultPricingRouterConfig = domain.RouterConfig{
-		PreferredPoolIDs:  []uint64{},
-		MaxRoutes:         5,
-		MaxPoolsPerRoute:  3,
-		MaxSplitRoutes:    3,
-		MinOSMOLiquidity:  50,
-		RouteCacheEnabled: true,
+		PreferredPoolIDs:    []uint64{},
+		MaxRoutes:           5,
+		MaxPoolsPerRoute:    3,
+		MaxSplitRoutes:      3,
+		MinPoolLiquidityCap: 50,
+		RouteCacheEnabled:   true,
 	}
 
 	defaultPricingConfig = domain.PricingConfig{
@@ -60,7 +60,9 @@ var (
 		DefaultQuoteHumanDenom: "usdc",
 		MaxPoolsPerRoute:       4,
 		MaxRoutes:              5,
-		MinOSMOLiquidity:       50,
+		MinPoolLiquidityCap:    50,
+		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency: "usd",
 	}
 )
 
@@ -88,20 +90,23 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	atomToken, ok := tokensMap[ATOM]
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, atomToken.Precision)
+	s.Require().NotEmpty(atomToken.CoingeckoID)
 
 	// ION is present
 	ionMainnetDenom := "uion"
 	ionToken, ok := tokensMap[ionMainnetDenom]
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, ionToken.Precision)
+	s.Require().NotEmpty(ionToken.CoingeckoID)
 
 	// IBCX is present
 	ibcxMainnetDenom := "factory/osmo14klwqgkmackvx2tqa0trtg69dmy0nrg4ntq4gjgw2za4734r5seqjqm4gm/uibcx"
 	ibcxToken, ok := tokensMap[ibcxMainnetDenom]
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, ibcxToken.Precision)
+	s.Require().NotEmpty(ibcxToken.CoingeckoID)
 
-	// DYSON is present
+	// DYSON is present, but doesn't have coingecko id
 	dysonMainnetDenom := "ibc/E27CD305D33F150369AB526AEB6646A76EC3FFB1A6CA58A663B5DE657A89D55D"
 	dysonToken, ok := tokensMap[dysonMainnetDenom]
 	s.Require().True(ok)
@@ -112,11 +117,13 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().True(ok)
 	s.Require().Equal(ethExponent, ethToken.Precision)
 	s.Require().False(ethToken.IsUnlisted)
+	s.Require().NotEmpty(ethToken.CoingeckoID)
 
 	// AAVE is present but is unlisted
 	aaveToken, ok := tokensMap[AAVE_UNLISTED]
 	s.Require().True(ok)
 	s.Require().True(aaveToken.IsUnlisted)
+	s.Require().NotEmpty(aaveToken.CoingeckoID)
 }
 
 func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
@@ -133,6 +140,23 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 	osmoToken, ok := tokensMap[UOSMO]
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, osmoToken.Precision)
+}
+
+// This test takes some mainnet denoms (routertesting.MainnetDenoms) and fetch their prices with USDC as a quote from Coingecko API endpoint.
+// It then validates that every denom has non-zero price quote as returned from Coingecko
+func (s *TokensUseCaseTestSuite) TestGetPrices_Coingecko() {
+	// Set up mainnet mock state.
+	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
+	prices, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC}, domain.CoinGeckoPricingSourceType)
+	s.Require().NoError(err)
+	s.Require().Len(prices, len(routertesting.MainnetDenoms))
+	for _, baseAssetPrices := range prices {
+		s.Require().Len(baseAssetPrices, 1)
+		usdcQuoteAny, ok := baseAssetPrices[USDC]
+		s.Require().True(ok)
+		usdcQuote := s.ConvertAnyToBigDec(usdcQuoteAny)
+		s.Require().NotZero(usdcQuote)
+	}
 }
 
 // This test validates that on-chain pricing works as intended.
