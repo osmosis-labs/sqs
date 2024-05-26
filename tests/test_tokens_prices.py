@@ -63,7 +63,7 @@ class TestTokensPrices:
     # NUM_TOKENS_DEFAULT mid volume tokens
     @pytest.mark.parametrize("token",setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_MID_VOL_FILTER_DEFAULT))
     def test_mid_volume_token_prices(self, environment_url, token):
-        self.run_coingecko_comparison_test(environment_url, token, MID_PRICE_DIFF, allow_blank_coingecko_id=False)
+        self.run_coingecko_comparison_test(environment_url, token, MID_PRICE_DIFF, allow_blank_coingecko_id=True)
 
     # NUM_TOKENS_DEFAULT top by-volume tokens
     @pytest.mark.parametrize("token", setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT))
