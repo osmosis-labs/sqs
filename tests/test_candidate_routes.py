@@ -4,6 +4,7 @@ import pytest
 
 from sqs_service import *
 import constants
+import util
 from conftest import SERVICE_MAP
 
 # Arbitrary choice based on performance at the time of test writing
@@ -48,6 +49,8 @@ class TestCandidateRoutes:
         transmuter_pool_id = transmuter_token_data[0]
         tansmuter_token_pair = transmuter_token_data[1]
 
+        util.skip_imbalanced_pool_test(transmuter_token_data)
+
         config = sqs_service.get_config()
         expected_num_routes = config['Router']['MaxRoutes']
 
@@ -56,6 +59,11 @@ class TestCandidateRoutes:
         validate_pool_id_in_route(routes, [transmuter_pool_id])
     
     def test_astroport_tokens(self, environment_url):
+
+        # See:
+        # https://linear.app/osmosis/issue/DATA-191/[techdebt]-re-enable-astroport-integration-test-for-candidate-routes
+        pytest.skip("Skipping Astroport PCL candidate route test per DATA-191")
+
         sqs_service = SERVICE_MAP[environment_url]
 
         astroport_token_data = setup.astroport_token_pair[0]
