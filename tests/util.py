@@ -1,6 +1,7 @@
-import setup
-import constants
 import pytest
+
+import constants
+import conftest
 
 def id_from_coin(coin_obj):
     """
@@ -34,7 +35,7 @@ def skip_imbalanced_pool_test(token_data):
     only of one token and causing the flakiness in our test suite.
     """
     pool_id = token_data[0]
-    pool_data = setup.pool_by_id_map.get(pool_id)
+    pool_data = conftest.pool_by_id_map.get(str(pool_id))
     pool_tokens = pool_data.get("pool_tokens")
     for token in pool_tokens:
         if float(token.get("amount")) < constants.TRANSMUTER_MIN_TOKEN_LIQ_USD:
