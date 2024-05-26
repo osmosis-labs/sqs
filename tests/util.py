@@ -26,7 +26,7 @@ def id_from_swap_pair(swap_pair):
     return f"{token_in_str + '-' + swap_pair['out_denom']}"
 
 
-def skip_imbalanced_pool_test(token_data):
+def skip_imbalanced_pool_test_if_imbalanced(token_data):
     """
     Skip the test if any of the tokens in the pool (token_data[0]) have less than TRANSMUTER_MIN_TOKEN_LIQ_USD liquidity.
     See definition of TRANSMUTER_MIN_TOKEN_LIQ_USD for more information.

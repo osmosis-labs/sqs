@@ -53,7 +53,7 @@ class TestCandidateRoutes:
         transmuter_pool_id = transmuter_token_data[0]
         tansmuter_token_pair = transmuter_token_data[1]
 
-        util.skip_imbalanced_pool_test(transmuter_token_data)
+        util.skip_imbalanced_pool_test_if_imbalanced(transmuter_token_data)
 
         config = sqs_service.get_config()
         expected_num_routes = config['Router']['MaxRoutes']

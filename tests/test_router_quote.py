@@ -120,13 +120,7 @@ class TestQuote:
 
         # Skip the transmuter test if any of the tokens in the transmuter pool have less than TRANSMUTER_MIN_TOKEN_LIQ_USD liquidity.
         # See definition of TRANSMUTER_MIN_TOKEN_LIQ_USD for more information.
-        transmuter_pool_id = transmuter_token_data[0]
-        transmuter_pool_data = conftest.shared_test_state.pool_by_id_map.get(str(transmuter_pool_id))
-        transmuter_pool_tokens = transmuter_pool_data.get("pool_tokens")
-        for token in transmuter_pool_tokens:
-            if float(token.get("amount")) < TRANSMUTER_MIN_TOKEN_LIQ_USD:
-                print("Skipped transmuter test")
-                return
+        skip_imbalanced_pool_test_if_imbalanced(transmuter_token_data)
 
         transmuter_token_pair = transmuter_token_data[1]
 
