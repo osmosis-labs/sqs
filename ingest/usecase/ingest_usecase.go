@@ -188,5 +188,12 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsdomain.PoolI, error)
 		}
 	}
 
+	if poolWrapper.GetType() == poolmanagertypes.CosmWasm {
+		poolWrapper.CWPoolModel = &sqsdomain.CWPoolModel{}
+		if err := json.Unmarshal(pool.CwPoolModel, poolWrapper.CWPoolModel); err != nil {
+			return nil, err
+		}
+	}
+
 	return &poolWrapper, nil
 }
