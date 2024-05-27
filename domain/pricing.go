@@ -102,11 +102,16 @@ type PricingConfig struct {
 	CacheExpiryMs int `mapstructure:"cache-expiry-ms"`
 
 	// The default quote chain denom.
+	// 0 stands for chain. 1 for Coingecko.
 	DefaultSource PricingSourceType `mapstructure:"default-source"`
 
 	// The default quote chain denom.
 	DefaultQuoteHumanDenom string `mapstructure:"default-quote-human-denom"`
-	CoingeckoUrl           string `mapstructure:"coingecko-url"`
+
+	// Coingecko URL endpoint.
+	CoingeckoUrl string `mapstructure:"coingecko-url"`
+
+	// Coingecko quote currency for fetching prices.
 	CoingeckoQuoteCurrency string `mapstructure:"coingecko-quote-currency"`
 
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`

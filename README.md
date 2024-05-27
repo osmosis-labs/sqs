@@ -565,8 +565,6 @@ See the recommended enabled configuration below:
     "debug": false,
     // Web server port.
     "server-address": ":9092",
-    // Endpoint timeout duration.
-    "timeout-duration-secs": 2,
     // Log file to write to.
     "logger-filename": "sqs.log",
     // Flag indicating whether this is a production logger.
@@ -577,6 +575,8 @@ See the recommended enabled configuration below:
     "grpc-gateway-endpoint": "http://localhost:26657",
     // Chain ID
     "chain-id": "osmosis-1",
+    // Chain assets URL
+    "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
     // Router-specific configuration
     "router": {
       // Pool IDs that are prioritized in the router.
@@ -587,22 +587,22 @@ See the recommended enabled configuration below:
       "max-routes": 20,
       // Maximum number of routes to split across.
       "max-split-routes": 3,
-      // Maximum number of iterations to split a route across.
-      "max-split-iterations": 10,
       // Minimum liquidity capitalization for a pool to be considered in the router.
       // The denomination assumed is pricing.default-quote-human-denom.
       "min-liquidity-cap": 100,
       // Whether to enable route caching
       "route-cache-enabled": true,
+       // The number of milliseconds to cache candidate routes for before expiry.
+      "candidate-route-cache-expiry-seconds": 1200,
       // How long the route is cached for before expiry in seconds.
-      "route-cache-expiry-seconds": 600
+      "ranked-route-cache-expiry-seconds": 600
     },
     "pools": {
         // Code IDs of Transmuter CosmWasm pools that
         // are supported
         "transmuter-code-ids": [148, 254],
         // Code IDs of generalized CosmWasm pools that
-        // are suported. Note that these pools make network
+        // are supported. Note that these pools make network
         // requests to chain for quote estimation. As a result,
         // they are excluded from split routes.
         "general-cosmwasm-code-ids": []
@@ -613,14 +613,56 @@ See the recommended enabled configuration below:
         "cache-expiry-ms": 2000,
         // The default quote chain denom.
         // 0 stands for chain. 1 for Coingecko.
-        // Currently, only on-chain is supported.
         "default-source": "0",
         // The default quote chain denom.
-        "default-quote-human-denom": "usdc"
+        "default-quote-human-denom": "usdc",
+        // Overrides provided in "router" configuration.
+        "max-pools-per-route": 4,
+        // Overrides provided in "router" configuration.
+        "max-routes": 20,
+        // Overrides provided in "router" configuration.
+        "min-pool-liquidity-cap": 100,
+         // Coingecko URL endpoint.
+        "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
+        // Coingecko quote currency for fetching prices.
+        "coingecko-quote-currency": "usd"
     },
-    // Whether to enable routes cache overwrite. An overwrite can be set via
-    // the following endpoint: POST `/router/overwrite-route`
-    "enable-overwrite-routes-cache": false
+    "grpc-ingester": {
+        // Flag to enable the GRPC ingester server
+        "enabled": true,
+        // The maximum number of bytes to receive in a single GRPC message
+        "max-receive-msg-size-bytes": 26214400,
+        // The address of the GRPC ingester server
+        "server-address": ":50051",
+        // The number of seconds to wait for a connection to the server.
+        "server-connection-timeout-seconds": 10
+    },
+    "otel": {
+        // The DSN to use.
+        "dsn": "",
+        // The sample rate for event submission in the range [0.0, 1.0].
+        // By default, all events are sent.
+        "sample-rate": 1,
+        // Enable performance tracing.
+        "enable-tracing": true,
+        // The sample rate for profiling traces in the range [0.0, 1.0].
+        // This is relative to TracesSampleRate - it is a ratio of profiled traces out of all sampled traces.
+        "profiles-sample-rate": 1,
+        // The environment to be sent with events.
+        "environment": "sqs-dev",
+        "custom-sample-rate": {
+            "/router/quote": 1,
+            "other": 0
+        }
+    },
+    "cors": {
+        // Specifies Access-Control-Allow-Headers header value.
+        "allowed-headers": "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
+         // Specifies Access-Control-Allow-Methods header value.
+        "allowed-methods": "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
+        // Specifies Access-Control-Allow-Origin header value.
+        "allowed-origin": "*"
+    }
 }
 ```
 

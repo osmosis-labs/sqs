@@ -117,7 +117,6 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	options := domain.RouterOptions{
 		MaxPoolsPerRoute:                 r.defaultConfig.MaxPoolsPerRoute,
 		MaxRoutes:                        r.defaultConfig.MaxRoutes,
-		MaxSplitIterations:               r.defaultConfig.MaxSplitIterations,
 		MinPoolLiquidityCap:              r.defaultConfig.MinPoolLiquidityCap,
 		CandidateRouteCacheExpirySeconds: r.defaultConfig.CandidateRouteCacheExpirySeconds,
 		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
