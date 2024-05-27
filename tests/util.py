@@ -35,7 +35,7 @@ def skip_imbalanced_pool_test_if_imbalanced(token_data):
     only of one token and causing the flakiness in our test suite.
     """
     pool_id = token_data[0]
-    pool_data = conftest.pool_by_id_map.get(str(pool_id))
+    pool_data = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
     pool_tokens = pool_data.get("pool_tokens")
     for token in pool_tokens:
         if float(token.get("amount")) < constants.TRANSMUTER_MIN_TOKEN_LIQ_USD:
