@@ -3,6 +3,7 @@ package sqsdomain
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -146,7 +147,8 @@ func (p *PoolWrapper) Validate(minPoolLiquidityCapitalization osmomath.Int) erro
 	// Validate pool liquidity capitalization.
 	// If there is no pool liquidity capitalization error set and the pool liquidity capitalization is nil or zero, return an error. This implies
 	// That pool has no liqudiity.
-	if p.SQSModel.PoolLiquidityCapError == "" && sqsModel.PoolLiquidityCap.IsZero() {
+	poolLiquidityCapError := strings.TrimSpace(p.SQSModel.PoolLiquidityCapError)
+	if poolLiquidityCapError == "" && sqsModel.PoolLiquidityCap.IsZero() {
 		return fmt.Errorf("pool (%d) has no liquidity, minimum pool liquidity capitalization (%s)", p.GetId(), minPoolLiquidityCapitalization)
 	}
 
