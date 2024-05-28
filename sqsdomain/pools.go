@@ -58,8 +58,8 @@ type SQSPool struct {
 	PoolDenoms   []string     `json:"pool_denoms"`
 	SpreadFactor osmomath.Dec `json:"spread_factor"`
 
-	// Only CosmWasm pools need CWPoolModel appended
-	CWPoolModel *CWPoolModel `json:"cw_pool_model,omitempty"`
+	// Only CosmWasm pools need CosmWasmPoolModel appended
+	CosmWasmPoolModel *CosmWasmPoolModel `json:"cosmwasm_pool_model,omitempty"`
 }
 
 type PoolWrapper struct {

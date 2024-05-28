@@ -16,7 +16,7 @@ import (
 type MockRoutablePool struct {
 	ChainPoolModel       poolmanagertypes.PoolI
 	TickModel            *sqsdomain.TickModel
-	CWPoolModel          *sqsdomain.CWPoolModel
+	CWPoolModel          *sqsdomain.CosmWasmPoolModel
 	ID                   uint64
 	Balances             sdk.Coins
 	Denoms               []string
@@ -107,17 +107,6 @@ func (mp *MockRoutablePool) GetTickModel() (*sqsdomain.TickModel, error) {
 // SetTickModel implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) SetTickModel(tickModel *sqsdomain.TickModel) error {
 	mp.TickModel = tickModel
-	return nil
-}
-
-// GetCWPoolModel implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) GetCWPoolModel() (*sqsdomain.CWPoolModel, error) {
-	return mp.CWPoolModel, nil
-}
-
-// SetCWPoolModel implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) SetCWPoolModel(cwPoolModel *sqsdomain.CWPoolModel) error {
-	mp.CWPoolModel = cwPoolModel
 	return nil
 }
 

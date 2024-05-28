@@ -102,7 +102,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 	}
 
 	// Check if the pool is a transmuter pool with alloyed assets
-	model := pool.GetSQSPoolModel().CWPoolModel
+	model := pool.GetSQSPoolModel().CosmWasmPoolModel
 	if model != nil {
 		// since v2, we introduce concept of alloyed assets but not yet actively used
 		// since v3, we introduce concept of normalization factor

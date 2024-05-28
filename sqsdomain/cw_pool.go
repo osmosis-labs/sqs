@@ -14,7 +14,7 @@ func (ci *ContractInfo) Matches(contract, version string) bool {
 	return ci.Contract == contract && ci.Version == version
 }
 
-type CWPoolModel struct {
+type CosmWasmPoolModel struct {
 	ContractInfo ContractInfo `json:"contract_info"`
 	Data         CWPoolData   `json:"data"`
 }
@@ -23,8 +23,8 @@ type CWPoolData struct {
 	AlloyTransmuter *AlloyTransmuterData `json:"alloy_transmuter,omitempty"`
 }
 
-func NewCWPoolModel(contract string, version string, data CWPoolData) *CWPoolModel {
-	return &CWPoolModel{
+func NewCWPoolModel(contract string, version string, data CWPoolData) *CosmWasmPoolModel {
+	return &CosmWasmPoolModel{
 		ContractInfo: ContractInfo{
 			Contract: contract,
 			Version:  version,
@@ -33,7 +33,7 @@ func NewCWPoolModel(contract string, version string, data CWPoolData) *CWPoolMod
 	}
 }
 
-func (model *CWPoolModel) IsAlloyTransmuter() bool {
+func (model *CosmWasmPoolModel) IsAlloyTransmuter() bool {
 	return model.ContractInfo.Matches("crates.io:transmuter", "3.0.0")
 }
 
