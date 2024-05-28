@@ -341,8 +341,8 @@ def create_token_pairs():
     Selects the following groups of tokens:
     1. Top NUM_TOKENS_DEFAULT by-liquidity
     2. Top NUM_TOKENS_DEFAULT by-volume
-    3. Five low liquidity (between MIN_LIQ_FILTER_DEFAULT and MAX_LIQ_FILTER_DEFAULT USD)
-    4. Five low volume (between MIN_VOL_FILTER_DEFAULT and MAX_LIQ_FILTER_DEFAULT USD)
+    3. Five low liquidity (between MIN_LIQ_FILTER_DEFAULT and MAX_VAL_LOW_LIQ_FILTER_DEFAULT USD)
+    4. Five low volume (between MIN_VOL_FILTER_DEFAULT and MAX_VAL_LOW_LIQ_FILTER_DEFAULT USD)
 
     Then,
     - Puts them all in a set
@@ -359,10 +359,10 @@ def create_token_pairs():
     top_five_volume_tokens = choose_tokens_volume_range(NUM_TOKENS_DEFAULT)
 
     # NUM_TOKENS_DEFAULT low liquidity tokens
-    five_low_liquidity_tokens = choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_LIQ_FILTER_DEFAULT)
+    five_low_liquidity_tokens = choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT)
 
     # NUM_TOKENS_DEFAULT low volume tokens
-    five_low_volume_tokens = choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VOL_FILTER_DEFAULT)
+    five_low_volume_tokens = choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_LOW_VOL_FILTER_DEFAULT)
 
     # Put all tokens in a set to ensure uniqueness
     all_tokens = set(top_five_liquidity_tokens + top_five_volume_tokens +

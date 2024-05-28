@@ -205,11 +205,11 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 
 		priceBigDec := s.ConvertAnyToBigDec(price)
 
-		if priceBigDec.IsZero() {
+		if priceBigDec.IsNil() || priceBigDec.IsZero() {
 			metadata, ok := mainnetState.TokensMetadata[baseDenom]
 			s.Require().True(ok)
 
-			fmt.Printf("Zero price for %s, isUnlisted: %t\n", metadata.HumanDenom, metadata.IsUnlisted)
+			fmt.Printf("Zero price for %s, isUnlisted: %t, coingecko id: %s\n", metadata.HumanDenom, metadata.IsUnlisted, metadata.CoingeckoID)
 			zeroPriceCounter++
 			continue
 		}
@@ -231,7 +231,9 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	// SHARK - CW pool (unsupported in tests but should be supported on mainnet)
 	// FURY - listed but no pools
 	// FURY.legacy - listed but no pools
-	s.Require().Equal(25, zeroPriceCounter)
+	//
+	// Update on May 13, 2024: 14 unsupported tokens because some tokens have been fallen back to backup pricining source Coingecko
+	s.Require().Equal(14, zeroPriceCounter)
 }
 
 func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]any) {

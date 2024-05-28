@@ -80,8 +80,8 @@ func (r *routableResultPoolImpl) GetTickModel() (*sqsdomain.TickModel, error) {
 	return nil, errors.New("not implemented")
 }
 
-// GetTotalValueLockedUSDC implements sqsdomain.RoutablePool.
-func (r *routableResultPoolImpl) GetTotalValueLockedUSDC() math.Int {
+// GetPoolLiquidityCap implements sqsdomain.RoutablePool.
+func (r *routableResultPoolImpl) GetPoolLiquidityCap() math.Int {
 	return osmomath.Int{}
 }
 

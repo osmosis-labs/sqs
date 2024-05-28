@@ -23,9 +23,9 @@ type chainPricing struct {
 
 	defaultQuoteDenom string
 
-	maxPoolsPerRoute int
-	maxRoutes        int
-	minOSMOLiquidity int
+	maxPoolsPerRoute    int
+	maxRoutes           int
+	minPoolLiquidityCap int
 }
 
 var _ domain.PricingSource = &chainPricing{}
@@ -95,19 +95,19 @@ func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config
 		RUsecase: routerUseCase,
 		TUsecase: tokenUseCase,
 
-		cache:             cache.New(),
-		cacheExpiryNs:     time.Duration(config.CacheExpiryMs) * time.Millisecond,
-		maxPoolsPerRoute:  config.MaxPoolsPerRoute,
-		maxRoutes:         config.MaxRoutes,
-		minOSMOLiquidity:  config.MinOSMOLiquidity,
-		defaultQuoteDenom: chainDefaultHumanDenom,
+		cache:               cache.New(),
+		cacheExpiryNs:       time.Duration(config.CacheExpiryMs) * time.Millisecond,
+		maxPoolsPerRoute:    config.MaxPoolsPerRoute,
+		maxRoutes:           config.MaxRoutes,
+		minPoolLiquidityCap: config.MinPoolLiquidityCap,
+		defaultQuoteDenom:   chainDefaultHumanDenom,
 	}
 }
 
 // GetPrice implements pricing.PricingStrategy.
 func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, error) {
 	options := domain.PricingOptions{
-		MinLiquidity:                            c.minOSMOLiquidity,
+		MinPoolLiquidityCap:                     c.minPoolLiquidityCap,
 		RecomputePricesIsSpotPriceComputeMethod: defaultIsSpotPriceComputeMethod,
 		RecomputePrices:                         false,
 	}
@@ -119,7 +119,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	// Recompute prices if desired by configuration.
 	// Otherwise, look into cache first.
 	if options.RecomputePrices {
-		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinLiquidity, options.RecomputePricesIsSpotPriceComputeMethod)
+		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 	}
 
 	// equal base and quote yield the price of one
@@ -146,11 +146,11 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	}
 
 	// If cache miss occurs, we compute the price.
-	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinLiquidity, options.RecomputePricesIsSpotPriceComputeMethod)
+	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 }
 
 // computePrice computes the price for a given base and quote denom
-func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minLiquidity int, isSpotPriceComputeMethod bool) (osmomath.BigDec, error) {
+func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap int, isSpotPriceComputeMethod bool) (osmomath.BigDec, error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 
 	if baseDenom == quoteDenom {
@@ -180,7 +180,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		domain.WithMaxPoolsPerRoute(c.maxPoolsPerRoute),
 		// Use the provided min liquidity value rather than the default
 		// Since it can be overridden by options in GetPrice(...)
-		domain.WithMinOSMOLiquidity(minLiquidity),
+		domain.WithMinPoolLiquidityCap(minPoolLiquidityCap),
 		domain.WithDisableSplitRoutes(),
 	}
 
@@ -271,4 +271,13 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 // InitializeCache implements domain.PricingSource.
 func (c *chainPricing) InitializeCache(cache *cache.Cache) {
 	c.cache = cache
+}
+
+// GetFallbackStrategy implements pricing.PricingSource
+func (c *chainPricing) GetFallbackStrategy(quoteDenom string) domain.PricingSourceType {
+	if quoteDenom == c.defaultQuoteDenom {
+		return domain.CoinGeckoPricingSourceType
+	} else {
+		return domain.NoneSourceType
+	}
 }

@@ -14,19 +14,18 @@ import (
 )
 
 type MockRoutablePool struct {
-	ChainPoolModel       poolmanagertypes.PoolI
-	TickModel            *sqsdomain.TickModel
-	CosmWasmPoolModel    *sqsdomain.CosmWasmPoolModel
-	ID                   uint64
-	Balances             sdk.Coins
-	Denoms               []string
-	TotalValueLockedUSDC osmomath.Int
-	PoolType             poolmanagertypes.PoolType
-	TokenOutDenom        string
-	TakerFee             osmomath.Dec
-	SpreadFactor         osmomath.Dec
-
-	mockedTokenOut sdk.Coin
+	ChainPoolModel    poolmanagertypes.PoolI
+	TickModel         *sqsdomain.TickModel
+	CosmWasmPoolModel *sqsdomain.CosmWasmPoolModel
+	ID                uint64
+	Balances          sdk.Coins
+	Denoms            []string
+	PoolLiquidityCap  osmomath.Int
+	PoolType          poolmanagertypes.PoolType
+	TokenOutDenom     string
+	TakerFee          osmomath.Dec
+	SpreadFactor      osmomath.Dec
+	mockedTokenOut    sdk.Coin
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
@@ -67,11 +66,11 @@ func (mp *MockRoutablePool) GetUnderlyingPool() poolmanagertypes.PoolI {
 // GetSQSPoolModel implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) GetSQSPoolModel() sqsdomain.SQSPool {
 	return sqsdomain.SQSPool{
-		Balances:             mp.Balances,
-		TotalValueLockedUSDC: mp.TotalValueLockedUSDC,
-		SpreadFactor:         DefaultSpreadFactor,
-		PoolDenoms:           mp.Denoms,
-		CosmWasmPoolModel:    mp.CosmWasmPoolModel,
+		Balances:          mp.Balances,
+		PoolLiquidityCap:  mp.PoolLiquidityCap,
+		SpreadFactor:      DefaultSpreadFactor,
+		PoolDenoms:        mp.Denoms,
+		CosmWasmPoolModel: mp.CosmWasmPoolModel,
 	}
 }
 
@@ -145,9 +144,9 @@ func (mp *MockRoutablePool) GetPoolDenoms() []string {
 	return mp.Denoms
 }
 
-// GetTotalValueLockedUSDC implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) GetTotalValueLockedUSDC() math.Int {
-	return mp.TotalValueLockedUSDC
+// GetPoolLiquidityCap implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) GetPoolLiquidityCap() math.Int {
+	return mp.PoolLiquidityCap
 }
 
 // GetType implements sqsdomain.PoolI.
@@ -169,15 +168,15 @@ func deepCopyPool(mp *MockRoutablePool) *MockRoutablePool {
 	newDenoms := make([]string, len(mp.Denoms))
 	copy(newDenoms, mp.Denoms)
 
-	newTotalValueLocker := osmomath.NewIntFromBigInt(mp.TotalValueLockedUSDC.BigInt())
+	newPoolLiquidityCap := osmomath.NewIntFromBigInt(mp.PoolLiquidityCap.BigInt())
 
 	newBalances := sdk.NewCoins(mp.Balances...)
 
 	return &MockRoutablePool{
-		ID:                   mp.ID,
-		Denoms:               newDenoms,
-		TotalValueLockedUSDC: newTotalValueLocker,
-		PoolType:             mp.PoolType,
+		ID:               mp.ID,
+		Denoms:           newDenoms,
+		PoolLiquidityCap: newPoolLiquidityCap,
+		PoolType:         mp.PoolType,
 
 		// Note these are not deep copied.
 		ChainPoolModel: mp.ChainPoolModel,
