@@ -624,6 +624,18 @@ See the recommended enabled configuration below:
 }
 ```
 
+## Debugging
+
+### Containers
+
+For debugging SQS Docker containers with dlv, build the binary using `make docker-build-debug`.
+This builds the binary with the debug symbols and then builds the Docker image with the debug binary.
+It also starts sqs via dlv inside the container while exposing port 4000.
+
+A client can then attach their debugger via port 4000.
+
+See `.vscode/launch.json` for the "Debug Docker Container" configuration.
+
 ## Useful Osmosis Resources
 
 -   [ADR-002 SQS GRPC Refactor](https://www.notion.so/osmosiszone/ADR-002-SQS-GRPC-Ingest-Refactor-19fa05956d0344f58d40fbab57c08af7)
