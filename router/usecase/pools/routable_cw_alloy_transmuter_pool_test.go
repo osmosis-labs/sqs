@@ -60,7 +60,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 
 			mock := &mocks.MockRoutablePool{
 				ChainPoolModel: cosmwasmPool.AsSerializablePool(),
-				CWPoolModel: sqsdomain.NewCWPoolModel(
+				CosmWasmPoolModel: sqsdomain.NewCWPoolModel(
 					"crates.io:transmuter", "3.0.0",
 					sqsdomain.CWPoolData{
 						AlloyTransmuter: &sqsdomain.AlloyTransmuterData{

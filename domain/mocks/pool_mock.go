@@ -16,7 +16,7 @@ import (
 type MockRoutablePool struct {
 	ChainPoolModel       poolmanagertypes.PoolI
 	TickModel            *sqsdomain.TickModel
-	CWPoolModel          *sqsdomain.CosmWasmPoolModel
+	CosmWasmPoolModel    *sqsdomain.CosmWasmPoolModel
 	ID                   uint64
 	Balances             sdk.Coins
 	Denoms               []string
@@ -71,6 +71,7 @@ func (mp *MockRoutablePool) GetSQSPoolModel() sqsdomain.SQSPool {
 		TotalValueLockedUSDC: mp.TotalValueLockedUSDC,
 		SpreadFactor:         DefaultSpreadFactor,
 		PoolDenoms:           mp.Denoms,
+		CosmWasmPoolModel:    mp.CosmWasmPoolModel,
 	}
 }
 
