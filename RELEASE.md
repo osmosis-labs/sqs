@@ -1,5 +1,4 @@
-# Relase Process
-
+# Release Process
 
 ## Steps
 
@@ -14,6 +13,14 @@ This is a summary of the steps to get a change into production.
 7. Tag the non-RC release e.g. `v0.20.0` and push it to the repo
 8. Repeat step 3 and 4 for prod
 9. Manually perform prod deployment
+
+### Tagging RC
+
+The rc numbers should be incremented for any changes that occur in staging and before getting to production.
+
+Example:
+
+Let's say that we plan a release, and the current version is v0.18.5. Then, we tag a v0.18.-6-rc0 and push it to the stage for testing. QA uncovers a bug during stage testing. We push a fix, incrementing the rc number for a new stage tag - v0.18.6-rc1. Now, the stage QA passes, and we proceed to production with v0.18.6.
 
 ## Versioning
 
