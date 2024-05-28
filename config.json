@@ -1,7 +1,6 @@
 {
     "debug": true,
     "server-address": ":9092",
-    "timeout-duration-secs": 2,
     "logger-filename": "sqs.log",
     "logger-is-production": true,
     "logger-level": "info",
@@ -13,7 +12,6 @@
       "max-pools-per-route": 4,
       "max-routes": 20,
       "max-split-routes": 3,
-      "max-split-iterations": 10,
       "min-pool-liquidity-cap": 1000,
       "route-cache-enabled": true,
       "candidate-route-cache-expiry-seconds": 1200,
@@ -51,7 +49,6 @@
         "dsn": "",
         "sample-rate": 1,
         "enable-tracing": true,
-        "traces-sample-rate": 1,
         "profiles-sample-rate": 1,
         "environment": "sqs-dev",
         "custom-sample-rate": {

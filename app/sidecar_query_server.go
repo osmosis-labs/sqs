@@ -141,7 +141,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester
-	if grpcIngesterConfig.Enabeld {
+	if grpcIngesterConfig.Enabled {
 		// Get the default quote denom
 		defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
 		if err != nil {

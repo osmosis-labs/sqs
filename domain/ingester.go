@@ -2,7 +2,7 @@ package domain
 
 type GRPCIngesterConfig struct {
 	// Flag to enable the GRPC ingester server
-	Enabeld bool `mapstructure:"enabled"`
+	Enabled bool `mapstructure:"enabled"`
 
 	// The maximum number of bytes to receive in a single GRPC message
 	MaxReceiveMsgSizeBytes int `mapstructure:"max-receive-msg-size-bytes"`
