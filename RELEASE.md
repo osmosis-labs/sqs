@@ -12,7 +12,12 @@ This is a summary of the steps to get a change into production.
 6. Test & request QA
 7. Tag the non-RC release e.g. `v0.20.0` and push it to the repo
 8. Repeat step 3 and 4 for prod
-9. Manually perform prod deployment
+  * Reference the configuration from step 4.
+9.  Manually perform prod deployment via Rundeck
+  * Post updates in #eng-team-data-services.
+     * Deployment start
+     * Issues/blockers, if any
+     * Deployment end
 
 ### Tagging RC
 
