@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 # See README.md#Debugging for more information
 
-ARG GO_VERSION="1.21"
-ARG RUNNER_IMAGE="golang:1.21"
+ARG GO_VERSION="1.22"
+ARG RUNNER_IMAGE="golang:1.22"
 
 # --------------------------------------------------------
 # Builder
