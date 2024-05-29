@@ -38,16 +38,6 @@ type routableCosmWasmPoolImpl struct {
 	spotPriceQuoteCalculator domain.SpotPriceQuoteCalculator "json:\"-\""
 }
 
-var (
-	// Assumming precision of 6, this is 10 units.
-	// This is naive since precision can be greater but should work for most cases.
-	tenE7 = sdk.NewInt(10_000_000)
-
-	// We observed price impact breaking in-production with 18 decimal tokens.
-	// This is a workaround to fallback to precision of 18 if 10^7 fails.
-	tenE18 = sdk.NewInt(1_000_000_000_000_000_000)
-)
-
 // NewRoutableCosmWasmPool returns a new routable cosmwasm pool with the given parameters.
 func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, wasmClient wasmtypes.QueryClient, scalingFactorGetterCb domain.ScalingFactorGetterCb) sqsdomain.RoutablePool {
 	// Initializa routable cosmwasm pool
