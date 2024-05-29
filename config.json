@@ -15,7 +15,7 @@
       "max-split-routes": 3,
       "max-split-iterations": 10,
       "min-pool-liquidity-cap": 1000,
-      "route-cache-enabled": true,
+      "route-cache-enabled": false,
       "candidate-route-cache-expiry-seconds": 1200,
       "ranked-route-cache-expiry-seconds": 600
     },

@@ -1,6 +1,6 @@
 import requests
 
-SQS_STAGE = "https://sqs-eu.stage.osmosis.zone"
+SQS_STAGE = "http://localhost:9092"
 SQS_PROD = "https://sqs.osmosis.zone"
 
 ROUTER_ROUTES_URL = "/router/routes"

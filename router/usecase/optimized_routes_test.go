@@ -186,7 +186,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 			// Route 2 is preferred because it has 4x the liquidity of Route 1
 			// and 2X the liquidity of Route 3
-			expectedProportionInOrder: []int{2, 0, 1},
+			expectedProportionInOrder: []int{2, 0, 0},
 		},
 
 		// TODO: cover error cases

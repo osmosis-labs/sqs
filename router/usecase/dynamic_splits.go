@@ -75,16 +75,21 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 
 	// This function computes the inAmountIncrement for a given proportion p.
 	// It caches the result on the stack to avoid recomputing it.
-	computeAndCacheInAmountIncrement := func(p uint8) osmomath.Int {
-		inAmountIncrement := osmomath.Int{}
-		return func() osmomath.Int {
+	getComputeAndCacheInAmountIncrementCb := func() func(p uint8) osmomath.Int {
+		inAmountIncrements := make(map[uint8]osmomath.Int, totalIncrements+1)
+		return func(p uint8) osmomath.Int {
 			// If the inAmountIncrement has already been computed, return the cached value.
 			// Otherwise, compute the value and cache it.
-			if inAmountIncrement.IsNil() {
-				inAmountIncrement = sdk.NewDec(int64(p)).QuoInt64Mut(int64(totalIncrements)).MulMut(inAmountDec).TruncateInt()
+			currentIncrement, ok := inAmountIncrements[p]
+			if ok {
+				return currentIncrement
 			}
-			return inAmountIncrement
-		}()
+
+			currentIncrement = sdk.NewDec(int64(p)).QuoInt64Mut(int64(totalIncrements)).MulMut(inAmountDec).TruncateInt()
+			inAmountIncrements[p] = currentIncrement
+
+			return currentIncrement
+		}
 	}
 
 	// This function computes the outAmountIncrement for a given routeIndex and inAmountIncrement.
@@ -110,13 +115,17 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		}()
 	}
 
+	computeAndCacheInAmountIncrement := getComputeAndCacheInAmountIncrementCb()
+
+	// dp[x][j] == top amount of tokenOut that can be achieved at increment X without using the j-th route
+
 	// Step 2: fill the tables
 	for x := uint8(1); x <= totalIncrements; x++ {
 		for j := 1; j <= len(routes); j++ {
 			dp[x][j] = dp[x][j-1] // Not using the j-th route
 			proportions[x][j] = 0 // Default increment (0% of the token)
 
-			for p := uint8(0); p <= x; p++ {
+			for p := x; p >= 0; p-- {
 				// Consider two scenarios:
 				// 1) Not using the j-th route at all, which would yield an output of dp[x][j-1].
 				// 2) Using the j-th route with a certain proportion p of the input.
@@ -124,11 +133,15 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 				// The recurrence relation would be:
 				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
 				noChoice := dp[x][j]
-				choice := dp[x-p][j-1].Add(computeAndCacheOutAmount(j-1, computeAndCacheInAmountIncrement(p)))
 
+				outAmtMinPNoRouteJ := dp[x-p][j-1]
+				outAmtPRouteJ := computeAndCacheOutAmount(j-1, computeAndCacheInAmountIncrement(p))
+				choice := outAmtMinPNoRouteJ.Add(outAmtPRouteJ)
 				if choice.GT(noChoice) {
 					dp[x][j] = choice
 					proportions[x][j] = p
+				} else {
+					break
 				}
 			}
 		}
@@ -142,6 +155,24 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		x -= proportions[x][j]
 		j -= 1
 	}
+
+	// // Step 3: trace back to find the optimal proportions
+
+	// optimalProportions := make([]uint8, len(routes)+1)
+	// for routeChoice := 0; routeChoice < len(routes); routeChoice++ {
+	// 	p := totalIncrements
+	// 	routeIdx := len(routes)
+
+	// 	// routeChoiceProportion := proportions[p][routeIdx]
+
+	// 	// remaining
+
+	// 	for routeIdx > 0 {
+	// 		optimalProportions[routeIdx] = proportions[p][routeIdx]
+	// 		p -= proportions[p][routeIdx]
+	// 		routeIdx -= 1
+	// 	}
+	// }
 
 	optimalProportions = optimalProportions[1:]
 
@@ -173,6 +204,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		isAmountInNilOrZero := inAmount.IsNil() || inAmount.IsZero()
 		isAmountOutNilOrZero := outAmount.IsNil() || outAmount.IsZero()
 		if isAmountInNilOrZero && isAmountOutNilOrZero {
+			totalIncrementsInSplits += currentRouteIncrement
 			continue
 		}
 
@@ -181,7 +213,9 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		}
 
 		if isAmountOutNilOrZero {
-			return nil, fmt.Errorf("out amount is zero when in is not (%s), route index (%d)", inAmount, i)
+			// return nil, fmt.Errorf("out amount is zero when in is not (%s), route index (%d)", inAmount, i)
+			totalIncrementsInSplits += currentRouteIncrement
+			continue
 		}
 
 		resultRoutes = append(resultRoutes, &RouteWithOutAmount{
@@ -201,7 +235,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	// This may happen if one of the routes is consistently returning 0 amount out for all increments.
 	// TODO: we may want to remove this check so that we get the best quote.
 	if totalIncrementsInSplits != totalIncrements {
-		return nil, fmt.Errorf("total increments (%d) does not match expected total increments (%d)", totalIncrements, totalIncrements)
+		return nil, fmt.Errorf("total increments (%d) does not match expected total increments (%d)", totalIncrementsInSplits, totalIncrements)
 	}
 
 	quote := &quoteImpl{

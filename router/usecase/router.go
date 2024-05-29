@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -50,6 +51,10 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 
 	// Make a copy and filter pools
 	for _, pool := range pools {
+		if pool.GetId() == 1505 {
+			fmt.Println("here")
+		}
+
 		// TODO: the zero argument can be removed in a future release
 		// since we will be filtering at a different layer of abstraction.
 		if err := pool.Validate(zero); err != nil {
