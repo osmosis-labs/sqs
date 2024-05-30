@@ -8,7 +8,9 @@ on:
         type: choice
         required: true
         default: 'false'
-        options: [ "https://sqs.stage.osmosis.zone", "https://sqsprod.osmosis.zone","https://sqs.osmosis.zone", "https://sqs-us.osmosis.zone", "https://sqs-eu.osmosis.zone", "https://sqs-sg.osmosis.zone"]
+        # Note, stage is hardcoded in the test suite today.
+        # We need to propagate the option to pytest.
+        options: [ "https://sqs.stage.osmosis.zone"]
 
 jobs:
   execute_sqs_integration_test:
