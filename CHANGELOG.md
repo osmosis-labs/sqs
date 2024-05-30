@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Unreleased
 
 - CoinGecko pricing source support
+- Flight recording of slow requests and dependency updates
 - Consistently rename min liqudity filter across pool models & configs to min pool liquidity capitalization (cap)
 - Validate token in and out in /router quote endpoints to ensure that they are not equal to each other & clean up tokens/prices
 - Hack to fallback to precision of 18 when estimating spot price for Astroport pools via quotes.
