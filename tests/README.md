@@ -45,6 +45,8 @@ There are 3 possible triggers:
 2. Hourly Schedule
 * Runs across all supported environments.
 
+3. Post auto-deployment to stage ([TBD](https://linear.app/osmosis/issue/PLAT-207/sqs-stage-deployment-completion-hook-in-ci))
+
 ### Supported Environmnets
 
 - `prod` -> `https://sqs.osmosis.zone`
