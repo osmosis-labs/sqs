@@ -1,0 +1,35 @@
+name: SQS Integration Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      sqs_endpoint: 
+        description: 'Which sqs domain to test.'
+        type: choice
+        required: true
+        default: 'false'
+        options: [ "https://sqs.stage.osmosis.zone", "https://sqsprod.osmosis.zone","https://sqs.osmosis.zone", "https://sqs-us.osmosis.zone", "https://sqs-eu.osmosis.zone", "https://sqs-sg.osmosis.zone"]
+
+jobs:
+  execute_pools_test:
+    env:
+      SQS_DOMAIN: "${{ github.event.inputs.sqs_endpoint }}"
+    runs-on: self-hosted
+    steps:
+      - name: Checkout sqs repository
+        uses: actions/checkout@v4
+        with:
+          repository: osmosis-labs/sqs
+
+      - name: 🐍 Install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
+      - name: ⚡ Execute Price Comparison Testing
+        working-directory: tests/price-validation/
+        run:  |
+          pytest -s -n auto
