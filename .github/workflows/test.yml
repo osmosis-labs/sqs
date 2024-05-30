@@ -11,6 +11,9 @@ on:
         # Note, stage is hardcoded in the test suite today.
         # We need to propagate the option to pytest.
         options: [ "https://sqs.stage.osmosis.zone"]
+  schedule:
+      # Runs at the beginning of every hour
+      - cron: '0 * * * *'
 
 jobs:
   execute_sqs_integration_test:
