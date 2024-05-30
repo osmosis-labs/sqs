@@ -60,7 +60,7 @@ func (r *routableAlloyTransmuterPoolImpl) GetSpreadFactor() math.LegacyDec {
 //
 // Note that balance validation does not apply to alloyed asset since it can be minted or burned by the pool.
 func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-	tokenOutAmt, err := r.calcTokenOutAmt(tokenIn, r.TokenOutDenom)
+	tokenOutAmt, err := r.CalcTokenOutAmt(tokenIn, r.TokenOutDenom)
 	if err != nil {
 		return sdk.Coin{}, err
 	}
@@ -105,7 +105,7 @@ func (r *routableAlloyTransmuterPoolImpl) SetTokenOutDenom(tokenOutDenom string)
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	return r.calcTokenOutAmt(sdk.Coin{Denom: baseDenom, Amount: osmomath.OneInt()}, quoteDenom)
+	return r.CalcTokenOutAmt(sdk.Coin{Denom: baseDenom, Amount: osmomath.OneInt()}, quoteDenom)
 }
 
 // IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
@@ -154,7 +154,7 @@ func (r *routableAlloyTransmuterPoolImpl) FindNormalizationFactors(tokenInDenom,
 //
 // token_out_amt / token_out_norm_factor = token_in_amt / token_in_norm_factor
 // token_out_amt = token_in_amt * token_out_norm_factor / token_in_norm_factor
-func (r *routableAlloyTransmuterPoolImpl) calcTokenOutAmt(tokenIn sdk.Coin, tokenOutDenom string) (osmomath.BigDec, error) {
+func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, tokenOutDenom string) (osmomath.BigDec, error) {
 	tokenInNormFactor, tokenOutNormFactor, err := r.FindNormalizationFactors(tokenIn.Denom, tokenOutDenom)
 	if err != nil {
 		return osmomath.ZeroBigDec(), err
