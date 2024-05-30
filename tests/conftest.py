@@ -9,7 +9,12 @@ def parse_api_key():
 
     If the environment variable is not set, the default API key is ""
     """
-    return os.getenv('SQS_API_KEY', None)
+    api_key = os.getenv('SQS_API_KEY', None)
+
+    if api_key is None:
+        raise Exception("API key is required")
+    
+    return api_key
 
 api_key = parse_api_key()
 
