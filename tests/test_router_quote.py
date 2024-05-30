@@ -10,8 +10,6 @@ from decimal import *
 from constants import *
 from util import *
 
-SQS_STAGE = "https://sqs.stage.osmosis.zone"
-
 ROUTES_URL = "/router/quote"
 
 QUOTE_NUM_TOP_LIQUIDITY_DENOMS = 20
