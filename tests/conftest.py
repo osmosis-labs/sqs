@@ -410,6 +410,8 @@ def create_misc_token_pairs():
 def create_no_dupl_token_pairs(token_list):
     """
     Creates all unique combinations of token pairs from a list of tokens.
+
+
     """
 
     combinations = list(itertools.combinations(token_list, 2))
@@ -424,6 +426,8 @@ def create_no_dupl_token_pairs(token_list):
 def create_coins_from_pairs(pairs, start_order, end_order):
     """
     Create a list of token in and out pairs from the given list of token pairs, starting and ending orders of magnitude.
+    For example, start_order=10^6, end_order=10^8 will generate a sequence of 3 pseudo-random amounts in the order of magnitude of 6, 7 and 8.
+    E.g. [123_456, 1_234_567, 12_345_678].
 
     For every pair, it takes the first token as the token in and the second token as the token out. Generates amounts from [10^start_order, 10^end_order].
    
