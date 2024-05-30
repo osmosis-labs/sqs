@@ -100,9 +100,9 @@ type PoolsConfig struct {
 	// NOTE: that these pools make network requests to chain for quote estimation.
 	// As a result, they are excluded from split routes.
 	GeneralCosmWasmCodeIDs []uint64 `mapstructure:"general-cosmwasm-code-ids"`
-  
-  // Feature flag for alloyed transmuter
-  IsAlloyedTransmuterEnabled bool `mapstructure:"is-alloyed-transmuter-enabled"`
+
+	// Feature flag for alloyed transmuter
+	IsAlloyedTransmuterEnabled bool `mapstructure:"is-alloyed-transmuter-enabled"`
 }
 
 const DisableSplitRoutes = 0
