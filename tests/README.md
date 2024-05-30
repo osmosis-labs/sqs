@@ -47,7 +47,8 @@ There are 2 modes of running the suite:
 2. Multi-process
 
 With the multi-process mode, the setup logic in `conftest.py` is executed by every worker.
-Every worker then aggregates their results to construct parametrized tests and split them across each other.
+Prior to running the tests, each worker uses the shared setup from `conftest.py` to generate test parameters.
+Then, workers aggregate their generated results to compare and split them across each other.
 
 As a result, the test parameters must be computed in a deterministic way. Our setup logic depends on
 the external data provider (Numia). With the millisecond differences, in is possible to observe non-determinism.
