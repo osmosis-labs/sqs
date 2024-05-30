@@ -32,7 +32,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes",
+                "TestRouterTestSuite/TestGetSplitQuote",
                 "-test.v"
             ],
         },
