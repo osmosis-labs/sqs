@@ -150,14 +150,12 @@ var (
 	absolutePathToStateFiles = ""
 
 	DefaultRouterConfig = domain.RouterConfig{
-		PreferredPoolIDs:          []uint64{},
-		MaxRoutes:                 4,
-		MaxPoolsPerRoute:          4,
-		MaxSplitRoutes:            4,
-		MaxSplitIterations:        10,
-		MinPoolLiquidityCap:       20000,
-		RouteUpdateHeightInterval: 0,
-		RouteCacheEnabled:         true,
+		PreferredPoolIDs:    []uint64{},
+		MaxRoutes:           4,
+		MaxPoolsPerRoute:    4,
+		MaxSplitRoutes:      4,
+		MinPoolLiquidityCap: 20000,
+		RouteCacheEnabled:   true,
 	}
 
 	DefaultPoolsConfig = domain.PoolsConfig{
