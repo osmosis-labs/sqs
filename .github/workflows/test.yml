@@ -11,16 +11,13 @@ on:
         options: [ "https://sqs.stage.osmosis.zone", "https://sqsprod.osmosis.zone","https://sqs.osmosis.zone", "https://sqs-us.osmosis.zone", "https://sqs-eu.osmosis.zone", "https://sqs-sg.osmosis.zone"]
 
 jobs:
-  execute_pools_test:
+  execute_sqs_integration_test:
     env:
       SQS_DOMAIN: "${{ github.event.inputs.sqs_endpoint }}"
     runs-on: self-hosted
     steps:
       - name: Checkout sqs repository
         uses: actions/checkout@v4
-        with:
-          repository: osmosis-labs/sqs
-
       - name: 🐍 Install python
         uses: actions/setup-python@v5
         with:
@@ -29,7 +26,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
-      - name: ⚡ Execute Price Comparison Testing
+      - name: ⚡ Execute SQS Integration Test
         working-directory: tests/price-validation/
         run:  |
           pytest -s -n auto
