@@ -14,11 +14,6 @@ ROUTES_URL = "/router/quote"
 
 QUOTE_NUM_TOP_LIQUIDITY_DENOMS = 20
 
-# Minimum liquidity of each token in the transmuter pool for the test to be valid.
-# Tranmsuter USDC pool frequently gets imbalanced since people move from
-# USDC.axl to USDC.noble. Without this limit, the test would fail frequently.
-TRANSMUTER_MIN_TOKEN_LIQ_USD = 10000
-
 # Arbitrary choice based on performance at the time of test writing
 expected_latency_upper_bound_ms = 1000
 
