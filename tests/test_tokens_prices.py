@@ -78,20 +78,24 @@ class TestTokensPrices:
         sqs_service = SERVICE_MAP[environment_url]
         try:
             sqs_price_json = sqs_service.get_tokens_prices([token])
+            sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
+
+            if sqs_price_str is None:
+                self.increment_counter()
+                # Increment unsupported token count if the price is not available
+                f"Unsupported token {token}: SQS price is none in response"
+
+            sqs_price = float(sqs_price_str)
+            if sqs_price <= 0:
+                self.increment_counter()
+                # Increment unsupported token count if the price is zero
+                f"Unsupported token {token}: SQS price is zero"
+
+
         except Exception as e:
             # Increment unsupported token count if an exception is raised
             self.increment_counter()
             f"Unsupported token {token}: error fetching sqs price {str(e)}"
-        sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
-        if sqs_price_str is None:
-            self.increment_counter()
-            # Increment unsupported token count if the price is not available
-            f"Unsupported token {token}: SQS price is none in response"
-        sqs_price = float(sqs_price_str)
-        if sqs_price <= 0:
-            self.increment_counter()
-            # Increment unsupported token count if the price is zero
-            f"Unsupported token {token}: SQS price is zero"
 
     # NUM_TOKENS_DEFAULT top by-volume tokens in a batch request, in which multiple tokens
     # are requested in a single request to /tokens/prices
