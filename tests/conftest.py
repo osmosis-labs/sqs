@@ -3,8 +3,18 @@ from sqs_service import *
 from coingecko_service import *
 import os
 
-SERVICE_SQS_STAGE = SQSService(SQS_STAGE)
-SERVICE_SQS_PROD = SQSService(SQS_PROD)
+def parse_api_key():
+    """
+    Parse the API_KEY environment variable and return it
+
+    If the environment variable is not set, the default API key is ""
+    """
+    return os.getenv('SQS_API_KEY', None)
+
+api_key = parse_api_key()
+
+SERVICE_SQS_STAGE = SQSService(SQS_STAGE, api_key)
+SERVICE_SQS_PROD = SQSService(SQS_PROD, api_key)
 SERVICE_COINGECKO = CoingeckoService()
 
 STAGE_INPUT_NAME = "stage"

@@ -36,6 +36,7 @@ jobs:
         run: pytest -s -n auto
         env:
           SQS_ENVIRONMENTS: ${{ github.event.inputs.environment }}
+          SQS_API_KEY: ${{ secrets.SQS_API_KEY }}
           
   scheduled_integration_test:
     if: github.event_name == 'schedule'
@@ -63,3 +64,4 @@ jobs:
         run: pytest -s -n auto
         env:
           SQS_ENVIRONMENTS: ${{ matrix.include.env }}
+          SQS_API_KEY: ${{ secrets.SQS_API_KEY }}
