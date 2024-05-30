@@ -27,6 +27,5 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
       - name: ⚡ Execute SQS Integration Test
-        working-directory: tests/price-validation/
         run:  |
           pytest -s -n auto
