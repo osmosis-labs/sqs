@@ -77,7 +77,9 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 				PoolType: poolType,
 			}
 
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOut.Denom, noTakerFee, domain.CosmWasmPoolRouterConfig{})
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOut.Denom, noTakerFee, domain.CosmWasmPoolRouterConfig{
+				IsAlloyedTransmuterEnabled: true,
+			})
 			s.Require().NoError(err)
 
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
@@ -89,6 +91,91 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 			}
 			s.Require().NoError(err)
 			s.Require().Equal(tc.tokenOut, tokenOut)
+		})
+	}
+}
+
+func (s *RoutablePoolTestSuite) TestFindNormalizationFactors() {
+	tests := map[string]struct {
+		tokenInDenom          string
+		tokenOutDenom         string
+		expectedInNormFactor  osmomath.Int
+		expectedOutNormFactor osmomath.Int
+		expectError           error
+	}{
+		"valid normalization factors": {
+			tokenInDenom:          USDC,
+			tokenOutDenom:         USDT,
+			expectedInNormFactor:  osmomath.NewInt(100),
+			expectedOutNormFactor: osmomath.NewInt(1),
+			expectError:           nil,
+		},
+		"missing normalization factor for token in": {
+			tokenInDenom:          "INVALID",
+			tokenOutDenom:         USDT,
+			expectedInNormFactor:  osmomath.Int{},
+			expectedOutNormFactor: osmomath.NewInt(1),
+			expectError:           domain.MissingNormalizationFactorError{Denom: "INVALID", PoolId: 1},
+		},
+		"missing normalization factor for token out": {
+			tokenInDenom:          USDC,
+			tokenOutDenom:         "INVALID",
+			expectedInNormFactor:  osmomath.NewInt(100),
+			expectedOutNormFactor: osmomath.Int{},
+			expectError:           domain.MissingNormalizationFactorError{Denom: "INVALID", PoolId: 1},
+		},
+		"missing normalization factors for both token in and token out": {
+			tokenInDenom:          "INVALID1",
+			tokenOutDenom:         "INVALID2",
+			expectedInNormFactor:  osmomath.Int{},
+			expectedOutNormFactor: osmomath.Int{},
+			expectError:           domain.MissingNormalizationFactorError{Denom: "INVALID1", PoolId: 1},
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+
+			cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{USDC, USDT})
+
+			poolType := cosmwasmPool.GetType()
+
+			mock := &mocks.MockRoutablePool{
+				ChainPoolModel: cosmwasmPool.AsSerializablePool(),
+				CosmWasmPoolModel: sqsdomain.NewCWPoolModel(
+					"crates.io:transmuter", "3.0.0",
+					sqsdomain.CWPoolData{
+						AlloyTransmuter: &sqsdomain.AlloyTransmuterData{
+							AlloyedDenom: ALLUSD,
+							AssetConfigs: []sqsdomain.TransmuterAssetConfig{
+								{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
+								{Denom: USDT, NormalizationFactor: osmomath.NewInt(1)},
+								{Denom: ALLUSD, NormalizationFactor: osmomath.NewInt(10)},
+							},
+						},
+					},
+				),
+				PoolType: poolType,
+			}
+
+			routablePool, err := pools.NewRoutablePool(mock, USDT, noTakerFee, domain.CosmWasmPoolRouterConfig{
+				IsAlloyedTransmuterEnabled: true,
+			})
+			s.Require().NoError(err)
+
+			r := routablePool.(*pools.RouteableAlloyTransmuterPoolImpl)
+
+			inNormFactor, outNormFactor, err := r.FindNormalizationFactors(tc.tokenInDenom, tc.tokenOutDenom)
+
+			if tc.expectError != nil {
+				s.Require().Error(err)
+				s.Require().ErrorIs(err, tc.expectError)
+			} else {
+				s.Require().NoError(err)
+				s.Require().Equal(tc.expectedInNormFactor, inNormFactor)
+				s.Require().Equal(tc.expectedOutNormFactor, outNormFactor)
+			}
 		})
 	}
 }
