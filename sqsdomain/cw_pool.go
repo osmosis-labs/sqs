@@ -14,12 +14,20 @@ func (ci *ContractInfo) Matches(contract, version string) bool {
 	return ci.Contract == contract && ci.Version == version
 }
 
+// CosmWasmPoolModel is a model for the pool data of a CosmWasm pool
+// It includes the contract info and the pool data
+// The CWPoolData works like a tagged union to hold different types of data
+// depending on the contract and its version
 type CosmWasmPoolModel struct {
 	ContractInfo ContractInfo `json:"contract_info"`
 	Data         CWPoolData   `json:"data"`
 }
 
+// CWPoolData is the custom data for each type of CosmWasm pool
+// This struct is intended to work like tagged union in other languages
+// so that it can hold different types of data depending on the contract
 type CWPoolData struct {
+	// Data for AlloyTransmuter contract, must be present if and only if `IsAlloyTransmuter()` is true
 	AlloyTransmuter *AlloyTransmuterData `json:"alloy_transmuter,omitempty"`
 }
 
@@ -46,7 +54,12 @@ type AlloyTransmuterData struct {
 	AssetConfigs []TransmuterAssetConfig `json:"asset_configs"`
 }
 
+// Configuration for each asset in the transmuter pool
 type TransmuterAssetConfig struct {
-	Denom               string       `json:"denom"`
+	// Denom of the asset
+	Denom string `json:"denom"`
+
+	// Normalization factor for the asset.
+	// [more info](https://github.com/osmosis-labs/transmuter/tree/v3.0.0?tab=readme-ov-file#normalization-factors)
 	NormalizationFactor osmomath.Int `json:"normalization_factor"`
 }

@@ -118,6 +118,9 @@ func (r *routableAlloyTransmuterPoolImpl) GetCodeID() uint64 {
 	return r.ChainPool.CodeId
 }
 
+// findNormalizationFactors finds the normalization factors for the given token in and token out denoms.
+// It is required for calculating token out & spot price.
+// For more information about normalization factor, please refer to [transmuter documentation](https://github.com/osmosis-labs/transmuter/tree/v3.0.0?tab=readme-ov-file#normalization-factors).
 func (r *routableAlloyTransmuterPoolImpl) findNormalizationFactors(tokenInDenom, tokenOutDenom string) (osmomath.Int, osmomath.Int, error) {
 	tokenInNormalizationFactor := osmomath.Int{}
 	tokenOutNormalizationFactor := osmomath.Int{}
