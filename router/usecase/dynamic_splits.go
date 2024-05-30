@@ -202,7 +202,6 @@ func getComputeAndCacheInAmountIncrementCb(totalInAmountDec osmomath.Dec) func(p
 // This function computes the outAmountIncrement for a given routeIndex and inAmountIncrement.
 // It caches the result on the stack to avoid recomputing it.
 func getComputeAndCacheOutAmountCb(ctx context.Context, totalInAmountDec osmomath.Dec, tokenInDenom string, routes []route.RouteImpl) func(int, uint8) osmomath.Int {
-
 	// Pre-compute routes cache map.
 	routeOutAmtCache := make(map[int]map[uint8]osmomath.Int, len(routes))
 	for routeIndex := 0; routeIndex < len(routes); routeIndex++ {
