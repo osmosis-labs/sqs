@@ -82,8 +82,9 @@ type RouterConfig struct {
 }
 
 type PoolsConfig struct {
-	TransmuterCodeIDs      []uint64 `mapstructure:"transmuter-code-ids"`
-	GeneralCosmWasmCodeIDs []uint64 `mapstructure:"general-cosmwasm-code-ids"`
+	TransmuterCodeIDs          []uint64 `mapstructure:"transmuter-code-ids"`
+	GeneralCosmWasmCodeIDs     []uint64 `mapstructure:"general-cosmwasm-code-ids"`
+	IsAlloyedTransmuterEnabled bool     `mapstructure:"is-alloyed-transmuter-enabled"`
 }
 
 const DisableSplitRoutes = 0

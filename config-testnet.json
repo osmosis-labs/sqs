@@ -27,7 +27,8 @@
         "general-cosmwasm-code-ids": [
             5005,
             6688
-        ]
+        ],
+        "is-alloyed-transmuter-enabled": true
     },
     "pricing": {
         "cache-expiry-ms": 2000,

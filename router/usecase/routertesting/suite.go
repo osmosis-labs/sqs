@@ -162,8 +162,9 @@ var (
 
 	DefaultPoolsConfig = domain.PoolsConfig{
 		// Transmuter V1 and V2
-		TransmuterCodeIDs:      []uint64{148, 254},
-		GeneralCosmWasmCodeIDs: []uint64{},
+		TransmuterCodeIDs:          []uint64{148, 254},
+		GeneralCosmWasmCodeIDs:     []uint64{},
+		IsAlloyedTransmuterEnabled: true,
 	}
 
 	DefaultPricingRouterConfig = domain.RouterConfig{

@@ -7,7 +7,7 @@
     "logger-level": "info",
     "grpc-gateway-endpoint": "http://localhost:26657",
     "chain-id": "osmosis-1",
-    "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+    "chain-registry-assets-url": "https://raw.githubusercontent.com/iboss-ptk/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
     "router": {
       "preferred-pool-ids": [],
       "max-pools-per-route": 4,
@@ -29,7 +29,8 @@
             572,
             773,
             641
-        ]
+        ],
+        "is-alloyed-transmuter-enabled": true
     },
     "pricing": {
         "cache-expiry-ms": 2000,

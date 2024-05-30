@@ -40,9 +40,10 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepo
 
 	return &poolsUseCase{
 		cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
-			TransmuterCodeIDs:      transmuterCodeIDsMap,
-			GeneralCosmWasmCodeIDs: generalizedCosmWasmCodeIDsMap,
-			NodeURI:                nodeURI,
+			TransmuterCodeIDs:          transmuterCodeIDsMap,
+			GeneralCosmWasmCodeIDs:     generalizedCosmWasmCodeIDsMap,
+			IsAlloyedTransmuterEnabled: poolsConfig.IsAlloyedTransmuterEnabled,
+			NodeURI:                    nodeURI,
 		},
 
 		pools:            sync.Map{},
