@@ -61,7 +61,7 @@ for deterministic test parameter generation.
 ## Quote Test Suite
 
 We have 3 kinds of quotes tests:
-1. USDC input from 10^6 to 10^9 amount with every supported token as output denom
+1. USDC input from 10^6 to 10^9 in each order of magnitude for amount in with every supported token as output denom
 2. Top X by-liquidity tokens with each other. Generate amounts from 10^6 to 10^9
 3. Transmuter pool test (disabled if transmuter pool is imbalanced)
 
