@@ -15,7 +15,7 @@ import (
 
 // NewRoutablePool creates a new RoutablePool.
 // Panics if pool is of invalid type or if does not contain tick data when a concentrated pool.
-func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) (sqsdomain.RoutablePool, error) {
+func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig, scalingFactorGetterCb domain.ScalingFactorGetterCb) (sqsdomain.RoutablePool, error) {
 	poolType := pool.GetType()
 	chainPool := pool.GetUnderlyingPool()
 	if poolType == poolmanagertypes.Concentrated {
@@ -84,12 +84,12 @@ func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmoma
 		}, nil
 	}
 
-	return newRoutableCosmWasmPool(pool, cosmWasmConfig, tokenOutDenom, takerFee)
+	return newRoutableCosmWasmPool(pool, cosmWasmConfig, tokenOutDenom, takerFee, scalingFactorGetterCb)
 }
 
 // newRoutableCosmWasmPool creates a new RoutablePool for CosmWasm pools.
 // Panics if the given pool is not a cosmwasm pool or if the
-func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWasmPoolRouterConfig, tokenOutDenom string, takerFee osmomath.Dec) (sqsdomain.RoutablePool, error) {
+func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWasmPoolRouterConfig, tokenOutDenom string, takerFee osmomath.Dec, scalingFactorGetterCb domain.ScalingFactorGetterCb) (sqsdomain.RoutablePool, error) {
 	chainPool := pool.GetUnderlyingPool()
 	poolType := pool.GetType()
 
@@ -101,6 +101,8 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		}
 	}
 
+	balances := pool.GetSQSPoolModel().Balances
+
 	// Check if the pool is a transmuter pool
 	_, isTransmuter := cosmWasmConfig.TransmuterCodeIDs[cosmwasmPool.CodeId]
 	if isTransmuter {
@@ -109,7 +111,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		// Transmuter has a custom implementation since it does not need to interact with the chain.
 		return &routableTransmuterPoolImpl{
 			ChainPool:     cosmwasmPool,
-			Balances:      pool.GetSQSPoolModel().Balances,
+			Balances:      balances,
 			TokenOutDenom: tokenOutDenom,
 			TakerFee:      takerFee,
 			SpreadFactor:  spreadFactor,
@@ -127,14 +129,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 
 		// for most other cosm wasm pools, interaction with the chain will
 		// be required. As a result, we have a custom implementation.
-		return &routableCosmWasmPoolImpl{
-			ChainPool:     cosmwasmPool,
-			Balances:      pool.GetSQSPoolModel().Balances,
-			TokenOutDenom: tokenOutDenom,
-			TakerFee:      takerFee,
-			SpreadFactor:  spreadFactor,
-			wasmClient:    wasmClient,
-		}, nil
+		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, wasmClient, scalingFactorGetterCb), nil
 	}
 
 	return nil, domain.UnsupportedCosmWasmPoolTypeError{

@@ -185,6 +185,16 @@ var (
 	}
 
 	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}
+
+	// UnsetScalingFactorGetterCb is a callback that is unset by default for various tests
+	// due to no need.
+	UnsetScalingFactorGetterCb domain.ScalingFactorGetterCb = func(denom string) (osmomath.Dec, error) {
+		// Note: for many tests the scaling factor getter cb is irrelevant.
+		// As a result, we unset it for simplicity.
+		// If you run into this panic, your test might benefit from properly wiring the scaling factor
+		// getter callback (defined on the tokens use case)
+		panic("scaling factor getter cb is unset")
+	}
 )
 
 func init() {
@@ -326,7 +336,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock)
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb)
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 

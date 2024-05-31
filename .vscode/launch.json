@@ -65,6 +65,20 @@
             ],
         },
         {
+            "name": "router/usecase/pools",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/router/usecase/pools",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestRoutablePoolTestSuite/TestSpotPriceQuoteCalculator_Calculate",
+                "-test.v"
+            ],
+        },
+        {
             "name": "SQS E2E",
             "type": "debugpy",
             "request": "launch",
