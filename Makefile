@@ -79,6 +79,18 @@ docker-build:
 	--build-arg GIT_COMMIT=$(COMMIT) \
 	-f Dockerfile .
 
+# This builds a debug image with the same version as the main image
+# The binary is built with the debug symbols and has started via Delve debugger.
+# Developer can then attach their IDE to the running container.
+# See README.md#Debugging for more details.
+docker-build-debug:
+	@DOCKER_BUILDKIT=1 $(DOCKER) build \
+	-t osmolabs/sqs:$(VERSION)-debug \
+	--build-arg GO_VERSION=$(GO_VERSION) \
+	--build-arg GIT_VERSION=$(VERSION) \
+	--build-arg GIT_COMMIT=$(COMMIT) \
+	-f Dockerfile.debug .
+
 # Cross-building for arm64 from amd64 (or vice-versa) takes
 # a lot of time due to QEMU virtualization but it's the only way (afaik)
 # to get a statically linked binary with CosmWasm

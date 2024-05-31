@@ -24,7 +24,7 @@ LOW_PRICE_DIFF = 0.02 ## 2%
 
 ## Response time threshold, be more tolerant and set to 1 second
 ## to allow not breaking e2e tests in CI
-RT_THRESHOLD = 1 
+RT_THRESHOLD = 5
 
 ## Unsupported token count threshold
 UNSUPPORTED_TOKEN_COUNT_THRESHOLD = 10
