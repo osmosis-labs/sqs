@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
-ARG GO_VERSION="1.21"
+ARG GO_VERSION="1.22"
 ARG RUNNER_IMAGE="ubuntu"
 
 # --------------------------------------------------------
 # Builder
 # --------------------------------------------------------
 
-FROM golang:1.21-alpine as builder
+FROM golang:1.22-alpine as builder
 
 ARG GIT_VERSION
 ARG GIT_COMMIT

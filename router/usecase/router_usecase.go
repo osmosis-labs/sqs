@@ -196,7 +196,9 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	// Compute split route quote
 	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenIn)
 	if err != nil {
-		return nil, err
+		// If error occurs in splits, return the single route quote
+		// rather than failing.
+		return topSingleRouteQuote, nil
 	}
 
 	finalQuote := topSingleRouteQuote
