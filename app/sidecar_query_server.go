@@ -88,7 +88,7 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
-	middleware := middleware.InitMiddleware(config.CORS)
+	middleware := middleware.InitMiddleware(config.CORS, config.FlightRecord, logger)
 	e.Use(middleware.CORS)
 	e.Use(middleware.InstrumentMiddleware)
 	e.Use(middleware.TraceWithParamsMiddleware("sqs"))
@@ -120,8 +120,16 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
+	// Use the same config to initialize coingecko pricing strategy
+	config.Pricing.DefaultSource = domain.CoinGeckoPricingSourceType
+	coingeckoPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	// Register pricing strategy on the tokens use case.
 	tokensUseCase.RegisterPricingStrategy(domain.ChainPricingSourceType, chainPricingSource)
+	tokensUseCase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
@@ -133,7 +141,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester
-	if grpcIngesterConfig.Enabeld {
+	if grpcIngesterConfig.Enabled {
 		// Get the default quote denom
 		defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
 		if err != nil {

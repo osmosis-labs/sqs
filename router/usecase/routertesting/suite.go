@@ -26,6 +26,7 @@ import (
 	"github.com/osmosis-labs/osmosis/v25/app"
 	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	coingeckopricing "github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingecko"
 )
 
 type RouterTestHelper struct {
@@ -89,13 +90,13 @@ var (
 	DefaultSpreadFactor = osmomath.MustNewDecFromStr("0.005")
 
 	DefaultPool = &mocks.MockRoutablePool{
-		ID:                   DefaultPoolID,
-		Denoms:               []string{DenomOne, DenomTwo},
-		TotalValueLockedUSDC: osmomath.NewInt(10),
-		PoolType:             poolmanagertypes.Balancer,
-		Balances:             DefaultPoolBalances,
-		TakerFee:             DefaultTakerFee,
-		SpreadFactor:         DefaultSpreadFactor,
+		ID:               DefaultPoolID,
+		Denoms:           []string{DenomOne, DenomTwo},
+		PoolLiquidityCap: osmomath.NewInt(10),
+		PoolType:         poolmanagertypes.Balancer,
+		Balances:         DefaultPoolBalances,
+		TakerFee:         DefaultTakerFee,
+		SpreadFactor:     DefaultSpreadFactor,
 	}
 	EmptyRoute                   = route.RouteImpl{}
 	EmpyCosmWasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{
@@ -149,14 +150,12 @@ var (
 	absolutePathToStateFiles = ""
 
 	DefaultRouterConfig = domain.RouterConfig{
-		PreferredPoolIDs:          []uint64{},
-		MaxRoutes:                 4,
-		MaxPoolsPerRoute:          4,
-		MaxSplitRoutes:            4,
-		MaxSplitIterations:        10,
-		MinOSMOLiquidity:          20000,
-		RouteUpdateHeightInterval: 0,
-		RouteCacheEnabled:         true,
+		PreferredPoolIDs:    []uint64{},
+		MaxRoutes:           4,
+		MaxPoolsPerRoute:    4,
+		MaxSplitRoutes:      4,
+		MinPoolLiquidityCap: 20000,
+		RouteCacheEnabled:   true,
 	}
 
 	DefaultPoolsConfig = domain.PoolsConfig{
@@ -166,12 +165,12 @@ var (
 	}
 
 	DefaultPricingRouterConfig = domain.RouterConfig{
-		PreferredPoolIDs:  []uint64{},
-		MaxRoutes:         5,
-		MaxPoolsPerRoute:  3,
-		MaxSplitRoutes:    3,
-		MinOSMOLiquidity:  50,
-		RouteCacheEnabled: true,
+		PreferredPoolIDs:    []uint64{},
+		MaxRoutes:           5,
+		MaxPoolsPerRoute:    3,
+		MaxSplitRoutes:      3,
+		MinPoolLiquidityCap: 50,
+		RouteCacheEnabled:   true,
 	}
 
 	DefaultPricingConfig = domain.PricingConfig{
@@ -180,7 +179,9 @@ var (
 		DefaultQuoteHumanDenom: "usdc",
 		MaxPoolsPerRoute:       4,
 		MaxRoutes:              5,
-		MinOSMOLiquidity:       50,
+		MinPoolLiquidityCap:    50,
+		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency: "usd",
 	}
 
 	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}
@@ -346,6 +347,12 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	tokensUsecase.RegisterPricingStrategy(domain.ChainPricingSourceType, pricingSource)
 
+	// Set up Coingecko pricing strategy, use MockCoingeckoPriceGetter for testing purposes
+	options.PricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
+	coingeckoPricingSource := coingeckopricing.New(tokensUsecase, options.PricingConfig, mocks.DefaultMockCoingeckoPriceGetter)
+	s.Require().NoError(err)
+	tokensUsecase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
+
 	encCfg := app.MakeEncodingConfig()
 
 	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, nil, encCfg.Marshaler, nil, logger)
@@ -369,11 +376,11 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 }
 
 // PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
-func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minOsmoLiquidity int) []sqsdomain.PoolI {
+func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap int) []sqsdomain.PoolI {
 	sortedPools := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
 
 	// Sort pools
-	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minOsmoLiquidity)
+	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)
 
 	return poolsAboveMinLiquidity
 }

@@ -396,5 +396,10 @@ func getValidTokenInTokenOutStr(c echo.Context) (tokenOutStr, tokenInStr string,
 		return "", "", errors.New("tokenOutDenom is required")
 	}
 
+	// Validate inpit denoms
+	if err := domain.ValidateInputDenoms(tokenInStr, tokenOutStr); err != nil {
+		return "", "", err
+	}
+
 	return tokenOutStr, tokenInStr, nil
 }

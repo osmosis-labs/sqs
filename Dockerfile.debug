@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1
+# See README.md#Debugging for more information
+
+ARG GO_VERSION="1.22"
+ARG RUNNER_IMAGE="golang:1.22"
+
+# --------------------------------------------------------
+# Builder
+# --------------------------------------------------------
+
+FROM golang:1.21-alpine as builder
+
+ARG GIT_VERSION
+ARG GIT_COMMIT
+
+WORKDIR /osmosis
+
+COPY go.mod go.sum ./
+COPY . .
+
+RUN set -eux; apk add --no-cache ca-certificates build-base linux-headers && \
+    go mod download
+
+RUN ARCH=$(uname -m) && WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm | sed 's/.* //') && \
+    wget https://github.com/CosmWasm/wasmvm/releases/download/$WASMVM_VERSION/libwasmvm_muslc.$ARCH.a \
+        -O /lib/libwasmvm_muslc.a && \
+    wget https://github.com/CosmWasm/wasmvm/releases/download/$WASMVM_VERSION/checksums.txt -O /tmp/checksums.txt && \
+    sha256sum /lib/libwasmvm_muslc.a | grep $(cat /tmp/checksums.txt | grep libwasmvm_muslc.$ARCH | cut -d ' ' -f 1)
+
+RUN BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
+    -tags "netgo,ledger,muslc" \
+    -gcflags "all=-N -l" \
+    -ldflags \
+    "-X github.com/osmosis-labs/sqs/version=${GIT_VERSION} \
+    -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
+    -v -o /osmosis/build/sqsd /osmosis/app/*.go 
+
+# --------------------------------------------------------
+# Runner
+# --------------------------------------------------------
+
+FROM ${RUNNER_IMAGE}
+COPY --from=builder /osmosis/build/sqsd /bin/sqsd
+ENV HOME /osmosis
+WORKDIR $HOME
+EXPOSE 9092
+EXPOSE 50051
+EXPOSE 4000
+RUN apt-get update && \
+    apt-get install curl vim nano -y
+
+RUN CGO_ENABLED=0 go install -ldflags "-s -w -extldflags '-static'" github.com/go-delve/delve/cmd/dlv@latest
+
+# Use JSON array format for ENTRYPOINT
+# If array is not used, the command arguments to docker run are ignored.
+CMD ["/go/bin/dlv", "--listen=:4000", "--headless=true", "--log=true", "--accept-multiclient", "--api-version=2", "exec", "/bin/sqsd", "--", "--config", "/osmosis/config.json", "--host", "sqs-default-host"]

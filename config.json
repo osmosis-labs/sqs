@@ -1,23 +1,26 @@
 {
     "debug": true,
     "server-address": ":9092",
-    "timeout-duration-secs": 2,
     "logger-filename": "sqs.log",
     "logger-is-production": true,
     "logger-level": "info",
     "grpc-gateway-endpoint": "http://localhost:26657",
     "chain-id": "osmosis-1",
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+    "flight-record": {
+        "enabled": false,
+        "trace-threshold-ms": 1000,
+        "trace-file-name": "/tmp/sqs-flight-record.trace"
+    },
     "router": {
-        "preferred-pool-ids": [],
-        "max-pools-per-route": 4,
-        "max-routes": 20,
-        "max-split-routes": 3,
-        "max-split-iterations": 10,
-        "min-osmo-liquidity": 1000000000,
-        "route-cache-enabled": true,
-        "candidate-route-cache-expiry-seconds": 1200,
-        "ranked-route-cache-expiry-seconds": 600
+      "preferred-pool-ids": [],
+      "max-pools-per-route": 4,
+      "max-routes": 20,
+      "max-split-routes": 3,
+      "min-pool-liquidity-cap": 1000,
+      "route-cache-enabled": true,
+      "candidate-route-cache-expiry-seconds": 1200,
+      "ranked-route-cache-expiry-seconds": 600
     },
     "pools": {
         "transmuter-code-ids": [
@@ -37,7 +40,9 @@
         "default-quote-human-denom": "usdc",
         "max-pools-per-route": 4,
         "max-routes": 5,
-        "min-osmo-liquidity": 50
+        "min-pool-liquidity-cap": 50,
+        "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
+        "coingecko-quote-currency": "usd"
     },
     "grpc-ingester": {
         "enabled": true,
@@ -49,7 +54,6 @@
         "dsn": "enabled",
         "sample-rate": 1,
         "enable-tracing": true,
-        "traces-sample-rate": 1,
         "profiles-sample-rate": 1,
         "environment": "sqs-dev",
         "custom-sample-rate": {

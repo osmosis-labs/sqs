@@ -6,9 +6,6 @@ import (
 
 // DefaultConfig defines the default config for the sidecar query server.
 var DefaultConfig = domain.Config{
-	StorageHost: "localhost",
-	StoragePort: "6379",
-
 	ServerAddress: ":9092",
 
 	LoggerFilename:     "sqs.log",
@@ -24,13 +21,10 @@ var DefaultConfig = domain.Config{
 		MaxPoolsPerRoute:                 4,
 		MaxRoutes:                        5,
 		MaxSplitRoutes:                   3,
-		MaxSplitIterations:               10,
-		MinOSMOLiquidity:                 100, // 100 OSMO
+		MinPoolLiquidityCap:              100, // The denomination assummed is set by Pricing.DefaultHumanDenom
 		RouteCacheEnabled:                false,
 		CandidateRouteCacheExpirySeconds: 600, // 10 minutes
 		RankedRouteCacheExpirySeconds:    300, // 5 minutes
-
-		EnableOverwriteRoutesCache: false,
 	},
 	Pools: &domain.PoolsConfig{
 		// This is what we have on mainnet as of Jan 2024.
@@ -43,8 +37,10 @@ var DefaultConfig = domain.Config{
 		CacheExpiryMs:          2000, // 2 seconds.
 		DefaultQuoteHumanDenom: "usdc",
 
-		MaxPoolsPerRoute: 4,
-		MaxRoutes:        5,
-		MinOSMOLiquidity: 50,
+		MaxPoolsPerRoute:       4,
+		MaxRoutes:              5,
+		MinPoolLiquidityCap:    50,
+		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency: "usd",
 	},
 }

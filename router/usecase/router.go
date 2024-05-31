@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"sort"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/types"
@@ -23,15 +24,16 @@ type ratedPool struct {
 const (
 	// Pool ordering constants below:
 
-	noTotalValueLockedError = ""
+	noPoolLiquidityCapError = ""
 )
 
-// filterPoolsByMinLiquidity filters the given pools by the minimum liquidity.
-func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minLiquidity int) []sqsdomain.PoolI {
-	minLiquidityInt := osmomath.NewInt(int64(minLiquidity))
+// filterPoolsByMinLiquidity filters the given pools by the minimum liquidity
+// capitalization.
+func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minPoolLiquidityCap int) []sqsdomain.PoolI {
+	minLiquidityCapInt := osmomath.NewInt(int64(minPoolLiquidityCap))
 	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
 	for _, pool := range pools {
-		if pool.GetTotalValueLockedUSDC().GTE(minLiquidityInt) {
+		if pool.GetPoolLiquidityCap().GTE(minLiquidityCapInt) {
 			filteredPools = append(filteredPools, pool)
 		}
 	}
@@ -73,7 +75,7 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 
 		filteredPools = append(filteredPools, pool)
 
-		totalTVL = totalTVL.Add(pool.GetTotalValueLockedUSDC())
+		totalTVL = totalTVL.Add(pool.GetPoolLiquidityCap())
 	}
 
 	preferredPoolIDsMap := make(map[uint64]struct{})
@@ -110,11 +112,11 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 	ratedPools := make([]ratedPool, 0, len(pools))
 	for _, pool := range pools {
 		// Initialize rating to TVL.
-		rating, _ := pool.GetTotalValueLockedUSDC().BigIntMut().Float64()
+		rating, _ := pool.GetPoolLiquidityCap().BigIntMut().Float64()
 
 		// rating += 1/ 100 of TVL of asset across all pools
 		// (Ignoring any pool with an error in TVL)
-		if pool.GetSQSPoolModel().TotalValueLockedError == noTotalValueLockedError {
+		if strings.TrimSpace(pool.GetSQSPoolModel().PoolLiquidityCapError) == noPoolLiquidityCapError {
 			rating += totalTVLFloat / 100
 		}
 
@@ -160,7 +162,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 		pool := ratedPool.pool
 
 		sqsModel := pool.GetSQSPoolModel()
-		logger.Debug("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Float64("rate", ratedPool.rating), zap.Stringer("tvl", sqsModel.TotalValueLockedUSDC), zap.String("tvl_error", sqsModel.TotalValueLockedError))
+		logger.Debug("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Float64("rate", ratedPool.rating), zap.Stringer("pool_liquidity_cap", sqsModel.PoolLiquidityCap), zap.String("pool_liquidity_cap_error", sqsModel.PoolLiquidityCapError))
 		pools[i] = ratedPool.pool
 	}
 	return pools
