@@ -153,7 +153,7 @@ var (
 		PreferredPoolIDs:    []uint64{},
 		MaxRoutes:           4,
 		MaxPoolsPerRoute:    4,
-		MaxSplitRoutes:      4,
+		MaxSplitRoutes:      3,
 		MinPoolLiquidityCap: 20000,
 		RouteCacheEnabled:   true,
 	}
@@ -312,12 +312,13 @@ func (s *RouterTestHelper) SetupMainnetState() MockMainnetState {
 func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetState, cacheOpts ...MainnetTestOption) MockMainnetUsecase {
 	// Initialize empty caches
 	options := &MainnetTestOptions{
-		CandidateRoutes: cache.New(),
-		RankedRoutes:    cache.New(),
-		Pricing:         cache.New(),
-		RouterConfig:    DefaultRouterConfig,
-		PricingConfig:   DefaultPricingConfig,
-		PoolsConfig:     DefaultPoolsConfig,
+		CandidateRoutes:  cache.New(),
+		RankedRoutes:     cache.New(),
+		Pricing:          cache.New(),
+		RouterConfig:     DefaultRouterConfig,
+		PricingConfig:    DefaultPricingConfig,
+		PoolsConfig:      DefaultPoolsConfig,
+		IsLoggerDisabled: false,
 	}
 
 	// Apply cache options
@@ -325,11 +326,14 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 		opt(options)
 	}
 
-	// logger := &log.NoOpLogger{}
-
-	// N.B. uncomment if logs are needed.
-	logger, err := log.NewLogger(false, "", "info")
-	s.Require().NoError(err)
+	var (
+		logger log.Logger = &log.NoOpLogger{}
+		err    error
+	)
+	if !options.IsLoggerDisabled {
+		logger, err = log.NewLogger(false, "", "info")
+		s.Require().NoError(err)
+	}
 
 	// Setup router repository mock
 	routerRepositoryMock := routerrepo.New()

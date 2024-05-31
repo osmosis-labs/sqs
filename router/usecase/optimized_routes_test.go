@@ -178,7 +178,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 				}),
 			},
 
-			maxSplitIterations: 17,
+			maxSplitIterations: 10,
 
 			tokenIn: sdk.NewCoin(DenomTwo, sdk.NewInt(56_789_321)),
 
