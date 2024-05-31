@@ -51,5 +51,5 @@ var UnsetScalingFactorGetterCb ScalingFactorGetterCb = func(denom string) (osmom
 	// As a result, we unset it for simplicity.
 	// If you run into this panic, your test might benefit from properly wiring the scaling factor
 	// getter callback (defined on the tokens use case)
-	panic("scaling factor getter cb is unser")
+	panic("scaling factor getter cb is unset")
 }
