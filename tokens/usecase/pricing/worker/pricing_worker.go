@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -15,13 +14,6 @@ import (
 type pricingWorker struct {
 	updateListeners []domain.PricingUpdateListener
 	quoteDenom      string
-
-	// We use this flag to avoid running multiple price updates concurrently
-	// as it may cause high load on the system.
-	// If an update is missed, cache eviction will trigger it to be recomputed anyways.
-	isProcessing atomic.Bool
-
-	priceUpdateBaseDenomMap map[string]struct{}
 
 	tokensUseCase mvc.TokensUsecase
 
@@ -38,46 +30,21 @@ func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, logger log.Logger) 
 		quoteDenom:      quoteDenom,
 		tokensUseCase:   tokensUseCase,
 
-		isProcessing: atomic.Bool{},
-
-		priceUpdateBaseDenomMap: make(map[string]struct{}),
-
 		logger: logger,
 	}
 }
 
 // UpdatePrices implements PricingWorker.
-func (p *pricingWorker) UpdatePricesAsync(height uint64, baseDenoms map[string]struct{}) {
-	// Queue pricing updates
-	for baseDenom := range baseDenoms {
-		p.priceUpdateBaseDenomMap[baseDenom] = struct{}{}
-	}
-
-	if p.isProcessing.Load() {
-		p.logger.Info("pricing update queued", zap.Uint64("height", height))
-
-		return
-	}
-
-	p.isProcessing.Store(true)
-
-	// Get all tokens from the queue map
-
-	baseDenomsSlice := keysFromMap(p.priceUpdateBaseDenomMap)
-
-	// Empty the queue
-	p.priceUpdateBaseDenomMap = make(map[string]struct{})
-
-	go p.updatePrices(height, baseDenomsSlice)
+func (p *pricingWorker) UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+	go p.updatePrices(height, uniqueBlockPoolMetaData)
 }
 
-func (p *pricingWorker) updatePrices(height uint64, baseDenoms []string) {
+func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+	baseDenoms := keysFromMap(uniqueBlockPoolMetaData.DenomMap)
+
 	ctx, cancel := context.WithTimeout(context.Background(), priceUpdateTimeout)
 	start := time.Now()
 	defer func() {
-		// Reset the processing flag
-		p.isProcessing.Store(false)
-
 		// Cancel the context
 		cancel()
 
@@ -110,11 +77,6 @@ func (p *pricingWorker) updatePrices(height uint64, baseDenoms []string) {
 // RegisterListener implements PricingWorker.
 func (p *pricingWorker) RegisterListener(listener domain.PricingUpdateListener) {
 	p.updateListeners = append(p.updateListeners, listener)
-}
-
-// IsProcessing implements PricingWorker.
-func (p *pricingWorker) IsProcessing() bool {
-	return p.isProcessing.Load()
 }
 
 // Generic function to extract keys from any map.

@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Unreleased
 
 - Optimize dynamic splits by caching repeated calls within callback.
+- Remove queue from pricing worker
 - Return single route quote if split quote fails
 - CoinGecko pricing source support
 - Flight recording of slow requests and dependency updates
