@@ -146,10 +146,8 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			MaxRoutes:        4,
 
 			// These configs are not relevant for this test.
-			PreferredPoolIDs:          []uint64{},
-			MaxSplitIterations:        10,
-			MinPoolLiquidityCap:       minPoolLiquidityCap,
-			RouteUpdateHeightInterval: 10,
+			PreferredPoolIDs:    []uint64{},
+			MinPoolLiquidityCap: minPoolLiquidityCap,
 		}
 	)
 

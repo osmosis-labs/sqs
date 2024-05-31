@@ -1,6 +1,6 @@
 import requests
 
-SQS_STAGE = "http://localhost:9092"
+SQS_STAGE = "https://sqs.stage.osmosis.zone"
 SQS_PROD = "https://sqs.osmosis.zone"
 
 ROUTER_ROUTES_URL = "/router/routes"
@@ -14,11 +14,17 @@ CONFIG_URL = "/config"
 ASSET_LIST_URL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json"
 
 class SQSService:
-    def __init__(self, url):
+    def __init__(self, url, api_key):
         self.url = url
         self.tokens_metadata = None
         self.config = None
         self.asset_list = None
+
+        headers={}
+        if api_key is not None:
+            headers["x-api-key"] = api_key
+
+        self.headers = headers
 
     def get_config(self):
         """
@@ -30,7 +36,7 @@ class SQSService:
         if self.config:
             return self.config
 
-        response = requests.get(self.url + CONFIG_URL)
+        response = requests.get(self.url + CONFIG_URL, headers=self.headers)
 
         if response.status_code != 200:
             raise Exception(f"Error fetching config: {response.text}")
@@ -48,7 +54,7 @@ class SQSService:
         }
 
         # Send the GET request
-        return requests.get(self.url + ROUTER_ROUTES_URL, params=params)
+        return requests.get(self.url + ROUTER_ROUTES_URL, params=params, headers=self.headers)
 
     def get_tokens_metadata(self):
         """
@@ -60,7 +66,7 @@ class SQSService:
         if self.tokens_metadata:
             return self.tokens_metadata
 
-        response = requests.get(self.url + TOKENS_METADATA_URL)
+        response = requests.get(self.url + TOKENS_METADATA_URL, headers=self.headers)
 
         if response.status_code != 200:
             raise Exception(f"Error fetching tokens metadata: {response.text}")
@@ -78,7 +84,7 @@ class SQSService:
             "humanDenoms": human_denoms
         }
         # Send the GET request
-        response = requests.get(self.url + TOKENS_PRICES_URL, params=params)
+        response = requests.get(self.url + TOKENS_PRICES_URL, params=params, headers=self.headers)
         if response.status_code != 200:
             raise Exception(f"Error fetching token price: {response.text}")
         

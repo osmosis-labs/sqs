@@ -14,6 +14,15 @@
             "cwd": "${workspaceFolder}",
         },
         {
+            // See README.md#Debugging for more information
+            "name": "Debug Docker Container",
+            "type": "go",
+            "request": "attach",
+            "mode": "remote",
+            "port": 4000,
+            "host": "127.0.0.1"
+        },
+        {
             "name": "router/usecase",
             "type": "go",
             "request": "launch",
