@@ -46,9 +46,3 @@ def fetch_pools():
             break
 
     return all_pools
-
-# Fetch all token data once
-all_tokens_data = fetch_tokens()
-
-# Fetch all pools data once
-all_pools_data = fetch_pools()
