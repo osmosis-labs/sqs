@@ -43,9 +43,7 @@ jobs:
     runs-on: self-hosted
     strategy:
       matrix:
-        include:
-          - env: stage
-          - env: prod
+        environment: [stage, prod]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -63,5 +61,5 @@ jobs:
       - name: Execute tests
         run: pytest -s -n auto
         env:
-          SQS_ENVIRONMENTS: ${{ matrix.include.env }}
+          SQS_ENVIRONMENTS: ${{ matrix.environment }}
           SQS_API_KEY: ${{ secrets.SQS_API_KEY }}
