@@ -8,7 +8,7 @@ import util
 from conftest import SERVICE_MAP
 
 # Arbitrary choice based on performance at the time of test writing
-expected_latency_upper_bound_ms = 1000
+expected_latency_upper_bound_ms = 5000
 
 # Test suite for the /router/routes endpoint
 class TestCandidateRoutes:

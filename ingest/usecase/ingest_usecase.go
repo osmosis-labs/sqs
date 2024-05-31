@@ -92,7 +92,12 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	// Note: we must queue the update before we start updating prices as pool liquidity
 	// worker listens for the pricing updates at the same height.
-	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata.Denoms)
+	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, domain.BlockPoolMetadata{
+		DenomMap: uniqueBlockPoolMetadata.Denoms,
+		// TODO: add in the future PR.
+		// Ref: https://github.com/osmosis-labs/sqs/pull/224
+		// PoolIDs: ,
+	})
 
 	// Store the latest ingested height.
 	p.chainInfoUseCase.StoreLatestHeight(height)

@@ -10,3 +10,6 @@ type Token struct {
 	IsUnlisted  bool   `json:"preview"`
 	CoingeckoID string `json:"coingeckoId"`
 }
+
+// DenomMap is a map of denoms
+type DenomMap map[string]struct{}
