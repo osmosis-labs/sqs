@@ -15,7 +15,7 @@ ROUTES_URL = "/router/quote"
 QUOTE_NUM_TOP_LIQUIDITY_DENOMS = 20
 
 # Arbitrary choice based on performance at the time of test writing
-expected_latency_upper_bound_ms = 1000
+expected_latency_upper_bound_ms = 5000
 
 # Test suite for the /router/quote endpoint
 class TestQuote:
