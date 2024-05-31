@@ -337,7 +337,7 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 }
 
 func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) sqsdomain.RoutablePool {
-	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmConfig)
+	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmConfig, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)
 	return routablePool
 }

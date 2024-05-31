@@ -14,6 +14,15 @@
             "cwd": "${workspaceFolder}",
         },
         {
+            // See README.md#Debugging for more information
+            "name": "Debug Docker Container",
+            "type": "go",
+            "request": "attach",
+            "mode": "remote",
+            "port": 4000,
+            "host": "127.0.0.1"
+        },
+        {
             "name": "router/usecase",
             "type": "go",
             "request": "launch",
@@ -23,7 +32,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes",
+                "TestRouterTestSuite/TestGetSplitQuote",
                 "-test.v"
             ],
         },
@@ -75,11 +84,18 @@
             "request": "launch",
             "mode": "test",
             "program": "${workspaceFolder}/tokens/usecase/pricing/worker",
+        },
+        {
+            "name": "router/usecase/pools",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/router/usecase/pools",
             "args": [
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestPoolLiquidityComputeWorkerSuite/TestComputeCoinCap",
+                "TestRoutablePoolTestSuite/TestSpotPriceQuoteCalculator_Calculate",
                 "-test.v"
             ],
         },

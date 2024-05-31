@@ -69,28 +69,44 @@ type DynamicMinLiquidityCapFilterEntry struct {
 	FilterValue  uint64 `mapstructure:"filter-value"`
 }
 
+// Router-specific configuration
 type RouterConfig struct {
-	PreferredPoolIDs   []uint64 `mapstructure:"preferred-pool-ids"`
-	MaxPoolsPerRoute   int      `mapstructure:"max-pools-per-route"`
-	MaxRoutes          int      `mapstructure:"max-routes"`
-	MaxSplitRoutes     int      `mapstructure:"max-split-routes"`
-	MaxSplitIterations int      `mapstructure:"max-split-iterations"`
-	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the route.
-	MinPoolLiquidityCap       uint64 `mapstructure:"min-pool-liquidity-cap"`
-	RouteUpdateHeightInterval int    `mapstructure:"route-update-height-interval"`
-	RouteCacheEnabled         bool   `mapstructure:"route-cache-enabled"`
+	// Pool IDs that are prioritized in the router.
+	PreferredPoolIDs []uint64 `mapstructure:"preferred-pool-ids"`
+
+	// Maximum number of pools in one route.
+	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
+
+	// Maximum number of routes to search for.
+	MaxRoutes int `mapstructure:"max-routes"`
+
+	// Maximum number of routes to split across.
+	MaxSplitRoutes int `mapstructure:"max-split-routes"`
+
+	// Minimum liquidity capitalization for a pool to be considered in the router.
+	// The denomination assumed is pricing.default-quote-human-denom.
+	MinPoolLiquidityCap uint64 `mapstructure:"min-pool-liquidity-cap"`
+
+	// Whether to enable route caching
+	RouteCacheEnabled bool `mapstructure:"route-cache-enabled"`
+
 	// The number of milliseconds to cache candidate routes for before expiry.
 	CandidateRouteCacheExpirySeconds int `mapstructure:"candidate-route-cache-expiry-seconds"`
-	RankedRouteCacheExpirySeconds    int `mapstructure:"ranked-route-cache-expiry-seconds"`
-	// Flag indicating whether we should have a cache for overwrite routes enabled.
-	EnableOverwriteRoutesCache bool `mapstructure:"enable-overwrite-routes-cache"`
+
+	// How long the route is cached for before expiry in seconds.
+	RankedRouteCacheExpirySeconds int `mapstructure:"ranked-route-cache-expiry-seconds"`
 
 	// DynamicMinLiquidityCapFiltersAsc is a list of dynamic min liquidity cap filters in descending order.
 	DynamicMinLiquidityCapFiltersDesc []DynamicMinLiquidityCapFilterEntry `mapstructure:"dynamic-min-liquidity-cap-filters-desc"`
 }
 
 type PoolsConfig struct {
-	TransmuterCodeIDs      []uint64 `mapstructure:"transmuter-code-ids"`
+	// Code IDs of Transmuter CosmWasm pools that are supported.
+	TransmuterCodeIDs []uint64 `mapstructure:"transmuter-code-ids"`
+
+	// Code IDs of generalized CosmWasm pools that are supported.
+	// NOTE: that these pools make network requests to chain for quote estimation.
+	// As a result, they are excluded from split routes.
 	GeneralCosmWasmCodeIDs []uint64 `mapstructure:"general-cosmwasm-code-ids"`
 }
 
@@ -108,10 +124,9 @@ type RouterState struct {
 // This is useful for pricing where we may want to use different parameters than the default config.
 // With pricing, it is desired to use more pools with lower min liquidity parameter.
 type RouterOptions struct {
-	MaxPoolsPerRoute   int
-	MaxRoutes          int
-	MaxSplitRoutes     int
-	MaxSplitIterations int
+	MaxPoolsPerRoute int
+	MaxRoutes        int
+	MaxSplitRoutes   int
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the route.
 	MinPoolLiquidityCap uint64
 	// The number of milliseconds to cache candidate routes for before expiry.

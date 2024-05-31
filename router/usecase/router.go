@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"sort"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/types"
@@ -115,7 +116,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 
 		// rating += 1/ 100 of TVL of asset across all pools
 		// (Ignoring any pool with an error in TVL)
-		if pool.GetSQSPoolModel().PoolLiquidityCapError == noPoolLiquidityCapError {
+		if strings.TrimSpace(pool.GetSQSPoolModel().PoolLiquidityCapError) == noPoolLiquidityCapError {
 			rating += totalTVLFloat / 100
 		}
 

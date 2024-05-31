@@ -6,9 +6,6 @@ import (
 
 // DefaultConfig defines the default config for the sidecar query server.
 var DefaultConfig = domain.Config{
-	StorageHost: "localhost",
-	StoragePort: "6379",
-
 	ServerAddress: ":9092",
 
 	LoggerFilename:     "sqs.log",
@@ -24,15 +21,10 @@ var DefaultConfig = domain.Config{
 		MaxPoolsPerRoute:                 4,
 		MaxRoutes:                        5,
 		MaxSplitRoutes:                   3,
-		MaxSplitIterations:               10,
 		MinPoolLiquidityCap:              100, // The denomination assummed is set by Pricing.DefaultHumanDenom
 		RouteCacheEnabled:                false,
 		CandidateRouteCacheExpirySeconds: 600, // 10 minutes
 		RankedRouteCacheExpirySeconds:    300, // 5 minutes
-
-		EnableOverwriteRoutesCache: false,
-
-		DynamicMinLiquidityCapFiltersDesc: []domain.DynamicMinLiquidityCapFilterEntry{},
 	},
 	Pools: &domain.PoolsConfig{
 		// This is what we have on mainnet as of Jan 2024.

@@ -87,11 +87,16 @@ type PricingConfig struct {
 	CacheExpiryMs int `mapstructure:"cache-expiry-ms"`
 
 	// The default quote chain denom.
+	// 0 stands for chain. 1 for Coingecko.
 	DefaultSource PricingSourceType `mapstructure:"default-source"`
 
 	// The default quote chain denom.
 	DefaultQuoteHumanDenom string `mapstructure:"default-quote-human-denom"`
-	CoingeckoUrl           string `mapstructure:"coingecko-url"`
+
+	// Coingecko URL endpoint.
+	CoingeckoUrl string `mapstructure:"coingecko-url"`
+
+	// Coingecko quote currency for fetching prices.
 	CoingeckoQuoteCurrency string `mapstructure:"coingecko-quote-currency"`
 
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
@@ -113,8 +118,8 @@ func FormatPricingCacheKey(a, b string) string {
 }
 
 type PricingWorker interface {
-	// UpdatePrices updates prices for the given base denoms asyncronously.
-	// Returns a channel that will be closed when the update is completed.
+	// UpdatePrices updates prices for the tokens from the unique block pool metadata
+	// that contains information about changed denoms and pools within a block.
 	// Propagates the results to the listeners.
 	UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 

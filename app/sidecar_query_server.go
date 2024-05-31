@@ -88,22 +88,12 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
-	middleware := middleware.InitMiddleware(config.CORS)
+	middleware := middleware.InitMiddleware(config.CORS, config.FlightRecord, logger)
 	e.Use(middleware.CORS)
 	e.Use(middleware.InstrumentMiddleware)
 	e.Use(middleware.TraceWithParamsMiddleware("sqs"))
 
 	routerRepository := routerrepo.New()
-
-	// Initialize pools repository, usecase and HTTP handler
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository)
-
-	// Initialize router repository, usecase
-	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
-
-	// Initialize system handler
-	chainInfoRepository := chaininforepo.New()
-	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository)
 
 	// Compute token metadata from chain denom.
 	tokenMetadataByChainDenom, err := tokensUseCase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
@@ -113,6 +103,16 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Initialized tokens usecase
 	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom)
+
+	// Initialize pools repository, usecase and HTTP handler
+	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
+
+	// Initialize router repository, usecase
+	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+
+	// Initialize system handler
+	chainInfoRepository := chaininforepo.New()
+	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository)
 
 	// Initialize chain pricing strategy
 	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, routerUsecase)
@@ -141,7 +141,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester
-	if grpcIngesterConfig.Enabeld {
+	if grpcIngesterConfig.Enabled {
 		// Get the default quote denom
 		defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
 		if err != nil {

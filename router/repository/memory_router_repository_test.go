@@ -131,7 +131,7 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestSetTakerFee() {
 
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.repository.SetTakerFee( tt.denom0, tt.denom1, tt.fee)
+			suite.repository.SetTakerFee(tt.denom0, tt.denom1, tt.fee)
 
 			fee, ok := suite.repository.GetTakerFee(tt.denom0, tt.denom1)
 			assert.True(suite.T(), ok)
@@ -163,7 +163,7 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestSetTakerFees() {
 
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.repository.SetTakerFees( tt.takerFees)
+			suite.repository.SetTakerFees(tt.takerFees)
 
 			fees := suite.repository.GetAllTakerFees()
 			assert.Equal(suite.T(), tt.expectedFees, fees)

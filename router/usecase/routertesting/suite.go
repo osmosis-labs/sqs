@@ -150,14 +150,12 @@ var (
 	absolutePathToStateFiles = ""
 
 	DefaultRouterConfig = domain.RouterConfig{
-		PreferredPoolIDs:          []uint64{},
-		MaxRoutes:                 4,
-		MaxPoolsPerRoute:          4,
-		MaxSplitRoutes:            4,
-		MaxSplitIterations:        10,
-		MinPoolLiquidityCap:       20000,
-		RouteUpdateHeightInterval: 0,
-		RouteCacheEnabled:         true,
+		PreferredPoolIDs:    []uint64{},
+		MaxRoutes:           4,
+		MaxPoolsPerRoute:    4,
+		MaxSplitRoutes:      3,
+		MinPoolLiquidityCap: 20000,
+		RouteCacheEnabled:   true,
 
 		// Set proper dynamic min liquidity config here
 		DynamicMinLiquidityCapFiltersDesc: []domain.DynamicMinLiquidityCapFilterEntry{
@@ -196,6 +194,16 @@ var (
 	}
 
 	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}
+
+	// UnsetScalingFactorGetterCb is a callback that is unset by default for various tests
+	// due to no need.
+	UnsetScalingFactorGetterCb domain.ScalingFactorGetterCb = func(denom string) (osmomath.Dec, error) {
+		// Note: for many tests the scaling factor getter cb is irrelevant.
+		// As a result, we unset it for simplicity.
+		// If you run into this panic, your test might benefit from properly wiring the scaling factor
+		// getter callback (defined on the tokens use case)
+		panic("scaling factor getter cb is unset")
+	}
 )
 
 func init() {
@@ -313,12 +321,13 @@ func (s *RouterTestHelper) SetupMainnetState() MockMainnetState {
 func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetState, cacheOpts ...MainnetTestOption) MockMainnetUsecase {
 	// Initialize empty caches
 	options := &MainnetTestOptions{
-		CandidateRoutes: cache.New(),
-		RankedRoutes:    cache.New(),
-		Pricing:         cache.New(),
-		RouterConfig:    DefaultRouterConfig,
-		PricingConfig:   DefaultPricingConfig,
-		PoolsConfig:     DefaultPoolsConfig,
+		CandidateRoutes:  cache.New(),
+		RankedRoutes:     cache.New(),
+		Pricing:          cache.New(),
+		RouterConfig:     DefaultRouterConfig,
+		PricingConfig:    DefaultPricingConfig,
+		PoolsConfig:      DefaultPoolsConfig,
+		IsLoggerDisabled: false,
 	}
 
 	// Apply cache options
@@ -326,18 +335,21 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 		opt(options)
 	}
 
-	// logger := &log.NoOpLogger{}
-
-	// N.B. uncomment if logs are needed.
-	logger, err := log.NewLogger(false, "", "info")
-	s.Require().NoError(err)
+	var (
+		logger log.Logger = &log.NoOpLogger{}
+		err    error
+	)
+	if !options.IsLoggerDisabled {
+		logger, err = log.NewLogger(false, "", "info")
+		s.Require().NoError(err)
+	}
 
 	// Setup router repository mock
 	routerRepositoryMock := routerrepo.New()
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock)
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb)
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 

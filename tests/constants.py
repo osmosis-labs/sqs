@@ -1,8 +1,7 @@
-import setup
-
 # Misc constants
 UOSMO = "uosmo"
 USDC = 'ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4'
+USDC_PRECISION = 6
 
 # Defaults
 
@@ -25,7 +24,12 @@ LOW_PRICE_DIFF = 0.02 ## 2%
 
 ## Response time threshold, be more tolerant and set to 1 second
 ## to allow not breaking e2e tests in CI
-RT_THRESHOLD = 1 
+RT_THRESHOLD = 5
 
 ## Unsupported token count threshold
 UNSUPPORTED_TOKEN_COUNT_THRESHOLD = 10
+
+# Min liquidity in USD of each token in the transmuter pool
+# required to run the transmuter test. This is to avoid the flakiness
+# stemming from transmuter pool imbalance.
+TRANSMUTER_MIN_TOKEN_LIQ_USD = 15000
