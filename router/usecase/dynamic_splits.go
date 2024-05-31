@@ -139,7 +139,6 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		isAmountInNilOrZero := inAmount.IsNil() || inAmount.IsZero()
 		isAmountOutNilOrZero := outAmount.IsNil() || outAmount.IsZero()
 		if isAmountInNilOrZero && isAmountOutNilOrZero {
-			// totalIncrementsInSplits += currentRouteIncrement
 			continue
 		}
 
