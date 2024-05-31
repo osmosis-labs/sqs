@@ -13,6 +13,41 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, tokenOutDenom string, balances sdk.Coins) sqsdomain.RoutablePool {
+	cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{tokenInDenom, tokenOutDenom})
+
+	poolType := cosmwasmPool.GetType()
+
+	veryBigNormalizationFactor, _ := osmomath.NewIntFromString("999999999999999999999999999999999999999999")
+
+	mock := &mocks.MockRoutablePool{
+		ChainPoolModel: cosmwasmPool.AsSerializablePool(),
+		CosmWasmPoolModel: sqsdomain.NewCWPoolModel(
+			"crates.io:transmuter", "3.0.0",
+			sqsdomain.CWPoolData{
+				AlloyTransmuter: &sqsdomain.AlloyTransmuterData{
+					AlloyedDenom: ALLUSD,
+					AssetConfigs: []sqsdomain.TransmuterAssetConfig{
+						{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
+						{Denom: USDT, NormalizationFactor: osmomath.NewInt(1)},
+						{Denom: "overlypreciseusd", NormalizationFactor: veryBigNormalizationFactor},
+						{Denom: ALLUSD, NormalizationFactor: osmomath.NewInt(10)},
+					},
+				},
+			},
+		),
+		Balances: balances,
+		PoolType: poolType,
+	}
+
+	routablePool, err := pools.NewRoutablePool(mock, tokenOutDenom, noTakerFee, domain.CosmWasmPoolRouterConfig{
+		IsAlloyedTransmuterEnabled: true,
+	})
+	s.Require().NoError(err)
+
+	return routablePool
+}
+
 // Tests no slippage quotes and validation edge cases aroun transmuter pools.
 func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter() {
 	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, osmomath.NewInt(1000000)), sdk.NewCoin(USDT, osmomath.NewInt(1000000)))
@@ -26,6 +61,11 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 		"valid transmuter quote": {
 			tokenIn:  sdk.NewCoin(USDT, osmomath.NewInt(10000)),
 			tokenOut: sdk.NewCoin(USDC, osmomath.NewInt(1000000)),
+			balances: defaultBalances,
+		},
+		"trancate to 0": {
+			tokenIn:  sdk.NewCoin("overlypreciseusd", osmomath.NewInt(10)),
+			tokenOut: sdk.NewCoin(USDC, osmomath.NewInt(0)),
 			balances: defaultBalances,
 		},
 		"no error: token in is larger than balance of token in": {
@@ -53,35 +93,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 	for name, tc := range tests {
 		s.Run(name, func() {
 			s.Setup()
-
-			cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{tc.tokenIn.Denom, tc.tokenOut.Denom})
-
-			poolType := cosmwasmPool.GetType()
-
-			mock := &mocks.MockRoutablePool{
-				ChainPoolModel: cosmwasmPool.AsSerializablePool(),
-				CosmWasmPoolModel: sqsdomain.NewCWPoolModel(
-					"crates.io:transmuter", "3.0.0",
-					sqsdomain.CWPoolData{
-						AlloyTransmuter: &sqsdomain.AlloyTransmuterData{
-							AlloyedDenom: ALLUSD,
-							AssetConfigs: []sqsdomain.TransmuterAssetConfig{
-								{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
-								{Denom: USDT, NormalizationFactor: osmomath.NewInt(1)},
-								{Denom: ALLUSD, NormalizationFactor: osmomath.NewInt(10)},
-							},
-						},
-					},
-				),
-				Balances: tc.balances,
-				PoolType: poolType,
-			}
-
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOut.Denom, noTakerFee, domain.CosmWasmPoolRouterConfig{
-				IsAlloyedTransmuterEnabled: true,
-			})
-			s.Require().NoError(err)
-
+			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenOut.Denom, tc.balances)
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
 
 			if tc.expectError != nil {
@@ -136,33 +148,7 @@ func (s *RoutablePoolTestSuite) TestFindNormalizationFactors_AlloyTransmuter() {
 	for name, tc := range tests {
 		s.Run(name, func() {
 			s.Setup()
-
-			cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{USDC, USDT})
-
-			poolType := cosmwasmPool.GetType()
-
-			mock := &mocks.MockRoutablePool{
-				ChainPoolModel: cosmwasmPool.AsSerializablePool(),
-				CosmWasmPoolModel: sqsdomain.NewCWPoolModel(
-					"crates.io:transmuter", "3.0.0",
-					sqsdomain.CWPoolData{
-						AlloyTransmuter: &sqsdomain.AlloyTransmuterData{
-							AlloyedDenom: ALLUSD,
-							AssetConfigs: []sqsdomain.TransmuterAssetConfig{
-								{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
-								{Denom: USDT, NormalizationFactor: osmomath.NewInt(1)},
-								{Denom: ALLUSD, NormalizationFactor: osmomath.NewInt(10)},
-							},
-						},
-					},
-				),
-				PoolType: poolType,
-			}
-
-			routablePool, err := pools.NewRoutablePool(mock, USDT, noTakerFee, domain.CosmWasmPoolRouterConfig{
-				IsAlloyedTransmuterEnabled: true,
-			})
-			s.Require().NoError(err)
+			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenInDenom, tc.tokenOutDenom, sdk.Coins{})
 
 			r := routablePool.(*pools.RouteableAlloyTransmuterPoolImpl)
 
@@ -229,35 +215,7 @@ func (s *RoutablePoolTestSuite) TestCalcTokenOutAmt_AlloyTransmuter() {
 		s.Run(name, func() {
 			s.Setup()
 
-			cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{USDC, USDT})
-
-			poolType := cosmwasmPool.GetType()
-
-			veryBigNormalizationFactor, _ := osmomath.NewIntFromString("999999999999999999999999999999999999999999")
-
-			mock := &mocks.MockRoutablePool{
-				ChainPoolModel: cosmwasmPool.AsSerializablePool(),
-				CosmWasmPoolModel: sqsdomain.NewCWPoolModel(
-					"crates.io:transmuter", "3.0.0",
-					sqsdomain.CWPoolData{
-						AlloyTransmuter: &sqsdomain.AlloyTransmuterData{
-							AlloyedDenom: ALLUSD,
-							AssetConfigs: []sqsdomain.TransmuterAssetConfig{
-								{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
-								{Denom: USDT, NormalizationFactor: osmomath.NewInt(1)},
-								{Denom: "overlypreciseusd", NormalizationFactor: veryBigNormalizationFactor},
-								{Denom: ALLUSD, NormalizationFactor: osmomath.NewInt(10)},
-							},
-						},
-					},
-				),
-				PoolType: poolType,
-			}
-
-			routablePool, err := pools.NewRoutablePool(mock, USDT, noTakerFee, domain.CosmWasmPoolRouterConfig{
-				IsAlloyedTransmuterEnabled: true,
-			})
-			s.Require().NoError(err)
+			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenOutDenom, sdk.Coins{})
 
 			r := routablePool.(*pools.RouteableAlloyTransmuterPoolImpl)
 
