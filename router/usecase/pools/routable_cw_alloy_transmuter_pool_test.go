@@ -31,6 +31,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 						{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
 						{Denom: USDT, NormalizationFactor: osmomath.NewInt(1)},
 						{Denom: "overlypreciseusd", NormalizationFactor: veryBigNormalizationFactor},
+						{Denom: "noprecisionusd", NormalizationFactor: osmomath.ZeroInt()},
 						{Denom: ALLUSD, NormalizationFactor: osmomath.NewInt(10)},
 					},
 				},
@@ -78,6 +79,24 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 			tokenOut: sdk.NewCoin(ALLUSD, osmomath.NewInt(10000010)),
 			balances: defaultBalances,
 		},
+		"error: zero token in normalization factor": {
+			tokenIn:  sdk.NewCoin("noprecisionusd", osmomath.NewInt(10000)),
+			tokenOut: sdk.NewCoin(ALLUSD, osmomath.NewInt(0)),
+			balances: defaultBalances,
+			expectError: domain.ZeroNormalizationFactorError{
+				Denom:  "noprecisionusd",
+				PoolId: 1,
+			},
+		},
+		"error: zero token out normalization factor": {
+			tokenIn:  sdk.NewCoin(ALLUSD, osmomath.NewInt(10000)),
+			tokenOut: sdk.NewCoin("noprecisionusd", osmomath.NewInt(0)),
+			balances: defaultBalances,
+			expectError: domain.ZeroNormalizationFactorError{
+				Denom:  "noprecisionusd",
+				PoolId: 1,
+			},
+		},
 		"error: token out is larger than balance of token out": {
 			tokenIn:  sdk.NewCoin(USDT, osmomath.NewInt(10001)),
 			tokenOut: sdk.NewCoin(USDC, osmomath.NewInt(1000100)),
@@ -102,6 +121,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 				return
 			}
 			s.Require().NoError(err)
+
 			s.Require().Equal(tc.tokenOut, tokenOut)
 		})
 	}

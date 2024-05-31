@@ -160,6 +160,14 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 		return osmomath.ZeroBigDec(), err
 	}
 
+	if tokenInNormFactor.IsZero() {
+		return osmomath.ZeroBigDec(), domain.ZeroNormalizationFactorError{Denom: tokenIn.Denom, PoolId: r.GetId()}
+	}
+
+	if tokenOutNormFactor.IsZero() {
+		return osmomath.ZeroBigDec(), domain.ZeroNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
+	}
+
 	tokenInAmount := osmomath.NewBigDec(tokenIn.Amount.Int64())
 
 	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())

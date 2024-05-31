@@ -164,6 +164,15 @@ func (e MissingNormalizationFactorError) Error() string {
 	return fmt.Sprintf("Missing normalization factor for denom (%s) in pool (%d)", e.Denom, e.PoolId)
 }
 
+type ZeroNormalizationFactorError struct {
+	PoolId uint64
+	Denom  string
+}
+
+func (e ZeroNormalizationFactorError) Error() string {
+	return fmt.Sprintf("Normalization factor is zero for denom (%s) in pool (%d)", e.Denom, e.PoolId)
+}
+
 type TransmuterInsufficientBalanceError struct {
 	Denom         string
 	BalanceAmount string
