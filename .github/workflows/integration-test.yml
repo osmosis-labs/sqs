@@ -44,6 +44,8 @@ jobs:
     strategy:
       matrix:
         environment: [stage, prod]
+      # Do not cancel concurrent jobs in matrix.
+      fail-fast: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
