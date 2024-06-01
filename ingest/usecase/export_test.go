@@ -12,3 +12,7 @@ type (
 func UpdateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomLiquidityMap {
 	return updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap, currentPoolBalances, poolID)
 }
+
+func TransferDenomLiquidityMap(transferTo, transferFrom domain.DenomLiquidityMap) domain.DenomLiquidityMap {
+	return transferDenomLiquidityMap(transferTo, transferFrom)
+}

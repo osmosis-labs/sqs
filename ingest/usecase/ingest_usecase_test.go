@@ -11,14 +11,64 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-var (
-	UOSMO = routertesting.UOSMO
-	USDC  = routertesting.USDC
-)
-
 type IngestUseCaseTestSuite struct {
 	routertesting.RouterTestHelper
 }
+
+const (
+	defaltPoolID uint64 = 1
+)
+
+var (
+	emptyBlockLiqMap = domain.DenomLiquidityMap{}
+	defaultAmount    = osmomath.NewInt(1_000)
+
+	UOSMO = routertesting.UOSMO
+	USDC  = routertesting.USDC
+	ATOM  = routertesting.ATOM
+
+	defaultUOSMOBalance = sdk.NewCoin(UOSMO, defaultAmount)
+
+	defaultUSDCBalance = sdk.NewCoin(USDC, defaultAmount.Add(defaultAmount))
+
+	defaultATOMBalance = sdk.NewCoin(ATOM, defaultAmount)
+
+	defaultMapUOSMOEntry = domain.DenomLiquidityMap{
+		UOSMO: domain.DenomLiquidityData{
+			TotalLiquidity: defaultAmount,
+			Pools: map[uint64]osmomath.Int{
+				defaltPoolID: defaultAmount,
+			},
+		},
+	}
+
+	defaultUSDCLiquidityMapEntry = domain.DenomLiquidityMap{
+		USDC: domain.DenomLiquidityData{
+			TotalLiquidity: defaultAmount.Add(defaultAmount),
+			Pools: map[uint64]osmomath.Int{
+				defaltPoolID + 1: defaultAmount.Add(defaultAmount),
+			},
+		},
+	}
+
+	mergedUOSMOandUSDCMap = domain.DenomLiquidityMap{
+		UOSMO: domain.DenomLiquidityData{
+			TotalLiquidity: defaultAmount,
+			Pools: map[uint64]osmomath.Int{
+				defaltPoolID: defaultAmount,
+			},
+		},
+
+		USDC: domain.DenomLiquidityData{
+			TotalLiquidity: defaultUSDCBalance.Amount,
+			Pools: map[uint64]osmomath.Int{
+				defaltPoolID + 1: defaultUSDCBalance.Amount,
+			},
+		},
+	}
+
+	emptyDenomLiquidityMap = domain.DenomLiquidityMap{}
+)
 
 func TestIngestUseCaseTestSuite(t *testing.T) {
 	suite.Run(t, new(IngestUseCaseTestSuite))
@@ -26,29 +76,6 @@ func TestIngestUseCaseTestSuite(t *testing.T) {
 
 // Validates updateCurrentBlockLiquidityMapFromBalances per the spec.
 func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances() {
-	const (
-		defaltPoolID uint64 = 1
-	)
-
-	var (
-		emptyBlockLiqMap = domain.DenomLiquidityMap{}
-		defaultAmount    = osmomath.NewInt(1_000)
-
-		defaultUOSMOBalance = sdk.NewCoin(UOSMO, defaultAmount)
-
-		defaultUSDCBalance = sdk.NewCoin(USDC, defaultAmount)
-
-		defaultATOMBalance = sdk.NewCoin(routertesting.ATOM, defaultAmount)
-
-		defaultMapUOSMOEntry = domain.DenomLiquidityMap{
-			UOSMO: domain.DenomLiquidityData{
-				TotalLiquidity: defaultAmount,
-				Pools: map[uint64]osmomath.Int{
-					defaltPoolID: defaultAmount,
-				},
-			},
-		}
-	)
 
 	tests := []struct {
 		name string
@@ -69,7 +96,6 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 			expectedBlockLiqMap: emptyBlockLiqMap,
 		},
 		{
-			// TODO: consider error since this should not be possible.
 			name: "Token in map, one token in balance no pools pre-existing -> updated the token in map & added pool",
 
 			blockLiqMap: domain.DenomLiquidityMap{
@@ -103,21 +129,7 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 
 			poolID: defaltPoolID + 1,
 
-			expectedBlockLiqMap: domain.DenomLiquidityMap{
-				UOSMO: domain.DenomLiquidityData{
-					TotalLiquidity: defaultAmount,
-					Pools: map[uint64]osmomath.Int{
-						defaltPoolID: defaultAmount,
-					},
-				},
-
-				USDC: domain.DenomLiquidityData{
-					TotalLiquidity: defaultAmount,
-					Pools: map[uint64]osmomath.Int{
-						defaltPoolID + 1: defaultAmount,
-					},
-				},
-			},
+			expectedBlockLiqMap: mergedUOSMOandUSDCMap,
 		},
 		{
 			name: "One token in map, zero tokens in balance -> no-op",
@@ -133,12 +145,12 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 		{
 			name: "Zero tokens in balance, none in map -> no-op",
 
-			blockLiqMap: domain.DenomLiquidityMap{},
+			blockLiqMap: emptyDenomLiquidityMap,
 
 			balances: sdk.NewCoins(),
 			poolID:   defaltPoolID,
 
-			expectedBlockLiqMap: domain.DenomLiquidityMap{},
+			expectedBlockLiqMap: emptyDenomLiquidityMap,
 		},
 		{
 			name: "Some tokens in map, some tokens in balance -> updates as expected",
@@ -177,19 +189,19 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 				},
 				USDC: domain.DenomLiquidityData{
 					// Doubled
-					TotalLiquidity: defaultAmount.Add(defaultAmount),
+					TotalLiquidity: defaultAmount.Add(defaultUSDCBalance.Amount),
 					Pools: map[uint64]osmomath.Int{
 						defaltPoolID: defaultAmount,
 						// Another pool entry created.
-						defaltPoolID + 1: defaultAmount,
+						defaltPoolID + 1: defaultUSDCBalance.Amount,
 					},
 				},
 
 				// New entry for atom created.
-				routertesting.ATOM: domain.DenomLiquidityData{
-					TotalLiquidity: defaultAmount,
+				ATOM: domain.DenomLiquidityData{
+					TotalLiquidity: defaultATOMBalance.Amount,
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID + 1: defaultAmount,
+						defaltPoolID + 1: defaultATOMBalance.Amount,
 					},
 				},
 			},
@@ -206,6 +218,139 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 
 			// Validate.
 			s.Require().Equal(tc.expectedBlockLiqMap, actualBlockLiqMap)
+		})
+	}
+}
+
+// Validates transferDenomLiquidityMap per the spec.
+func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
+	tests := []struct {
+		name string
+
+		transferTo   domain.DenomLiquidityMap
+		transferFrom domain.DenomLiquidityMap
+
+		expectedResult domain.DenomLiquidityMap
+	}{
+		{
+			name: "both empty -> no-op",
+
+			transferTo:   emptyDenomLiquidityMap,
+			transferFrom: emptyDenomLiquidityMap,
+
+			expectedResult: emptyDenomLiquidityMap,
+		},
+
+		{
+			name: "transferTo empty -> transferred over",
+
+			transferTo:   emptyDenomLiquidityMap,
+			transferFrom: defaultMapUOSMOEntry,
+
+			expectedResult: defaultMapUOSMOEntry,
+		},
+
+		{
+			name: "transferFrom empty -> no-op",
+
+			transferTo:   defaultMapUOSMOEntry,
+			transferFrom: emptyBlockLiqMap,
+
+			expectedResult: defaultMapUOSMOEntry,
+		},
+
+		{
+			name: "entry is in transferFrom but not transferTo -> copied over",
+
+			transferTo:   defaultMapUOSMOEntry,
+			transferFrom: defaultUSDCLiquidityMapEntry,
+
+			expectedResult: mergedUOSMOandUSDCMap,
+		},
+
+		{
+			name: "same entry is in transferTo and transferFrom -> overwritten",
+
+			transferTo: defaultMapUOSMOEntry,
+			transferFrom: domain.DenomLiquidityMap{
+				UOSMO: domain.DenomLiquidityData{
+					TotalLiquidity: defaultAmount.Add(defaultAmount),
+					Pools: map[uint64]osmomath.Int{
+						defaltPoolID:     defaultAmount,
+						defaltPoolID + 1: defaultAmount,
+					},
+				},
+			},
+
+			expectedResult: domain.DenomLiquidityMap{
+				UOSMO: domain.DenomLiquidityData{
+					TotalLiquidity: defaultAmount.Add(defaultAmount),
+					Pools: map[uint64]osmomath.Int{
+						defaltPoolID:     defaultAmount,
+						defaltPoolID + 1: defaultAmount,
+					},
+				},
+			},
+		},
+
+		{
+			name: "2 entries in transfer from, 3 exist in transfer to (1 copied, 1 updated, 1 untouched)",
+
+			transferTo: mergedUOSMOandUSDCMap,
+			transferFrom: domain.DenomLiquidityMap{
+				UOSMO: defaultUSDCLiquidityMapEntry[UOSMO],
+				USDC:  defaultUSDCLiquidityMapEntry[USDC],
+				ATOM: domain.DenomLiquidityData{
+					TotalLiquidity: defaultAmount,
+					Pools: map[uint64]osmomath.Int{
+						defaltPoolID: defaultAmount,
+					},
+				},
+			},
+
+			expectedResult: domain.DenomLiquidityMap{
+				// Double UOSMO
+				UOSMO: domain.DenomLiquidityData{
+					TotalLiquidity: defaultUOSMOBalance.Amount,
+					Pools: map[uint64]osmomath.Int{
+						defaltPoolID: defaultUOSMOBalance.Amount,
+					},
+				},
+				// Double USDC
+				USDC: domain.DenomLiquidityData{
+					TotalLiquidity: defaultUSDCBalance.Amount,
+					Pools: map[uint64]osmomath.Int{
+						defaltPoolID + 1: defaultUSDCBalance.Amount,
+					},
+				},
+
+				// ATOM unchanged.
+				ATOM: domain.DenomLiquidityData{
+					TotalLiquidity: defaultAmount,
+					Pools: map[uint64]osmomath.Int{
+						defaltPoolID: defaultAmount,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+
+		s.T().Run(tc.name, func(t *testing.T) {
+			// Note that the transferTo parameter is mutated, so we need to copy it
+			// to avoid flakiness across tests.
+			transferToCopy := make(domain.DenomLiquidityMap, len(tc.transferTo))
+			for k, v := range tc.transferTo {
+				transferToCopy[k] = v
+			}
+
+			// System under test
+			result := usecase.TransferDenomLiquidityMap(transferToCopy, tc.transferFrom)
+
+			// Validation
+			s.Require().Equal(tc.expectedResult, result)
 		})
 	}
 }

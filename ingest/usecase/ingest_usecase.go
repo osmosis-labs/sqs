@@ -174,34 +174,10 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 		}
 	}
 
-	// Transfer the updated liquidity data to the global map.
+	// Transfer the updated block denom liquidity data to the global map.
 	// Note, the updated liquidity data contains updates only for the pools updated
-	// in the current block. We need to merge this data with the existing data.
-	for denom, currentDenomLiquidityData := range currentBlockLiquidityMap {
-		fullLiquidityDataForDenom, ok := p.denomLiquidityMap[denom]
-		if !ok {
-			p.denomLiquidityMap[denom] = currentBlockLiquidityMap[denom]
-			continue
-		}
-
-		for poolID, liquidity := range currentDenomLiquidityData.Pools {
-			// Current pool data
-
-			currentPoolLiquidity, ok := fullLiquidityDataForDenom.Pools[poolID]
-			if ok {
-				// Subtract the existing liquidity from the total liquidity.
-				fullLiquidityDataForDenom.TotalLiquidity = fullLiquidityDataForDenom.TotalLiquidity.Sub(currentPoolLiquidity)
-			}
-
-			// Add the new liquidity to the total liquidity.
-			fullLiquidityDataForDenom.TotalLiquidity = fullLiquidityDataForDenom.TotalLiquidity.Add(liquidity)
-			// Overwrite liquidity for the pool or set it if it doesn't exist.
-			fullLiquidityDataForDenom.Pools[poolID] = liquidity
-		}
-
-		// Update the global map with the updated data.
-		p.denomLiquidityMap[denom] = fullLiquidityDataForDenom
-	}
+	// in the current block. We need to merge this data with the holistic existing data.
+	p.denomLiquidityMap = transferDenomLiquidityMap(p.denomLiquidityMap, currentBlockLiquidityMap)
 
 	// Update unique denoms.
 	uniqueData.DenomLiquidityMap = p.denomLiquidityMap
@@ -238,6 +214,54 @@ func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.
 
 	// Return for idiomacy despite param mutation.
 	return currentBlockLiquidityMap
+}
+
+// transferDenomLiquidityMap transfer the updated block denom liquidity data from transferFrom to
+// transferTo map.
+//
+// Note, the updated liquidity data contains updates only for the pools updated
+// in the current block. We need to merge this data with the holistic existing data.
+//
+// Returns the updated map.
+//
+// Transfer process:
+// If there is an entry in transferFrom map that does not exist in transferTo, it is copied to the transferTo map.
+// If there is an entry for the same denom in both maps, it is merged from one map to the other.
+//
+// Merge process:
+// For all pools in the transfer from map, if there is an entry for that pool in the transferTo map, we subtract
+// that pools liquidity contribution from total in the transferTo map.
+//
+// We then simply add the transferFrom liquidity map to the total to reflect the new total.
+// the updated denom liquidity data is then set for that denom.
+func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomLiquidityMap) domain.DenomLiquidityMap {
+	for denom, transferFromDenomLiquidityData := range transferFrom {
+		transferToLiquidityDataForDenom, ok := transferTo[denom]
+		if !ok {
+			transferTo[denom] = transferFromDenomLiquidityData
+			continue
+		}
+
+		// Transfer pools
+		for transferFromPoolID, transferFromLiquidity := range transferFromDenomLiquidityData.Pools {
+			// Current pool data
+			transferToPoolLiquidity, ok := transferToLiquidityDataForDenom.Pools[transferFromPoolID]
+			if ok {
+				// Subtract the existing liquidity from the total liquidity.
+				transferToLiquidityDataForDenom.TotalLiquidity = transferToLiquidityDataForDenom.TotalLiquidity.Sub(transferToPoolLiquidity)
+			}
+
+			// Add the new liquidity to the total liquidity.
+			transferToLiquidityDataForDenom.TotalLiquidity = transferToLiquidityDataForDenom.TotalLiquidity.Add(transferFromLiquidity)
+			// Overwrite liquidity for the pool or set it if it doesn't exist.
+			transferToLiquidityDataForDenom.Pools[transferFromPoolID] = transferFromLiquidity
+		}
+
+		// Update the global map with the updated data.
+		transferTo[denom] = transferToLiquidityDataForDenom
+	}
+
+	return transferTo
 }
 
 // parsePool parses the pool data and returns the pool object
