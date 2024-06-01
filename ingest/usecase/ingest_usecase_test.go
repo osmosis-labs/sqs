@@ -76,7 +76,6 @@ func TestIngestUseCaseTestSuite(t *testing.T) {
 
 // Validates updateCurrentBlockLiquidityMapFromBalances per the spec.
 func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances() {
-
 	tests := []struct {
 		name string
 
@@ -210,11 +209,13 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 
 	for _, tc := range tests {
 		tc := tc
-
 		s.T().Run(tc.name, func(t *testing.T) {
+			// Note that the transferTo parameter is mutated, so we need to copy it
+			// to avoid flakiness across tests.
+			blockLiqMapCopy := deepCopyDenomLiquidityMap(tc.blockLiqMap)
 
 			// System under test.
-			actualBlockLiqMap := usecase.UpdateCurrentBlockLiquidityMapFromBalances(tc.blockLiqMap, tc.balances, tc.poolID)
+			actualBlockLiqMap := usecase.UpdateCurrentBlockLiquidityMapFromBalances(blockLiqMapCopy, tc.balances, tc.poolID)
 
 			// Validate.
 			s.Require().Equal(tc.expectedBlockLiqMap, actualBlockLiqMap)
@@ -341,10 +342,7 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 		s.T().Run(tc.name, func(t *testing.T) {
 			// Note that the transferTo parameter is mutated, so we need to copy it
 			// to avoid flakiness across tests.
-			transferToCopy := make(domain.DenomLiquidityMap, len(tc.transferTo))
-			for k, v := range tc.transferTo {
-				transferToCopy[k] = v
-			}
+			transferToCopy := deepCopyDenomLiquidityMap(tc.transferTo)
 
 			// System under test
 			result := usecase.TransferDenomLiquidityMap(transferToCopy, tc.transferFrom)
@@ -353,4 +351,19 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 			s.Require().Equal(tc.expectedResult, result)
 		})
 	}
+}
+
+// deepCopyDenomLiquidityMap is a helper function to deep copy a DenomLiquidityMap.
+func deepCopyDenomLiquidityMap(m domain.DenomLiquidityMap) domain.DenomLiquidityMap {
+	copy := make(domain.DenomLiquidityMap, len(m))
+	for k, v := range m {
+		copy[k] = domain.DenomLiquidityData{
+			TotalLiquidity: v.TotalLiquidity,
+			Pools:          make(map[uint64]osmomath.Int, len(v.Pools)),
+		}
+		for pk, pv := range v.Pools {
+			copy[k].Pools[pk] = pv
+		}
+	}
+	return copy
 }
