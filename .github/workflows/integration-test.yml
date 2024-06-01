@@ -43,7 +43,9 @@ jobs:
     runs-on: self-hosted
     strategy:
       matrix:
-        environment: [stage, prod]
+        # TODO: re-add prod environment ", prod"
+        # https://linear.app/osmosis/issue/DATA-198/production-deployment-june-11
+        environment: [stage]
       # Do not cancel concurrent jobs in matrix.
       fail-fast: false
     steps:
