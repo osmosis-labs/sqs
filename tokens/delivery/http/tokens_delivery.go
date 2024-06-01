@@ -224,10 +224,8 @@ func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms
 			baseDenoms[i] = baseDenom
 		}
 
-		for _, baseDenom := range baseDenoms {
-			if !a.TUsecase.IsValidChainDenom(baseDenom) {
-				return err
-			}
+		if !a.TUsecase.IsValidChainDenom(baseDenom) {
+			return err
 		}
 	}
 
