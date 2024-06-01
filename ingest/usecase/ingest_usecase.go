@@ -7,6 +7,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"go.uber.org/zap"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
@@ -156,34 +158,15 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				continue
 			}
 
+			// Get balances and pool ID.
 			currentPoolBalances := poolResult.pool.GetSQSPoolModel().Balances
+			poolID := poolResult.pool.GetId()
 
-			// Update unique denoms.
-			for _, coin := range currentPoolBalances {
-				denomData, ok := currentBlockLiquidityMap[coin.Denom]
-
-				updatedLiquidity := osmomath.ZeroInt()
-				pools := map[uint64]osmomath.Int{}
-				if ok {
-					updatedLiquidity = denomData.TotalLiquidity
-					for k, v := range denomData.Pools {
-						pools[k] = v
-					}
-				}
-
-				// Update the current pool liquidity for the denom.
-				pools[poolResult.pool.GetId()] = coin.Amount
-				// Update the total liquidity for the denom.
-				updatedLiquidity = updatedLiquidity.Add(coin.Amount)
-
-				currentBlockLiquidityMap[coin.Denom] = domain.DenomLiquidityData{
-					TotalLiquidity: updatedLiquidity,
-					Pools:          pools,
-				}
-			}
+			// Update block liquidity map.
+			currentBlockLiquidityMap = updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap, currentPoolBalances, poolID)
 
 			// Update unique pools.
-			uniqueData.PoolIDs[poolResult.pool.GetId()] = struct{}{}
+			uniqueData.PoolIDs[poolID] = struct{}{}
 
 			parsedPools = append(parsedPools, poolResult.pool)
 		case <-ctx.Done():
@@ -224,6 +207,41 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 	uniqueData.DenomLiquidityMap = p.denomLiquidityMap
 
 	return parsedPools, uniqueData, nil
+}
+
+// updateCurrentBlockLiquidityMapFromBalances updates the current block liquidity map with the balance from the pool of the supplied ID.
+// For each denom, if there is pre-existent denom data, it is updated, if there is no denom dat, it is initialized to the given balances.
+// CONTRACT: if thehere is a liqudiity entry for a denom, it must have been previously initialized by calling this function.
+// Returns the updated map.
+func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomLiquidityMap {
+	// For evey coin in balance
+	for _, coin := range currentPoolBalances {
+		// Get denom data for this denom
+		denomData, ok := currentBlockLiquidityMap[coin.Denom]
+		if !ok {
+			// Initialize if does not exist
+			denomData = domain.DenomLiquidityData{
+				TotalLiquidity: osmomath.ZeroInt(),
+				Pools:          map[uint64]osmomath.Int{},
+			}
+		}
+
+		if !denomData.TotalLiquidity.IsZero() && len(denomData.Pools) == 0 {
+			// TODO: consider error
+		}
+
+		// Set the denom liquidity contribution from the given pool
+		denomData.Pools[poolID] = coin.Amount
+
+		// Update total liquidity
+		denomData.TotalLiquidity = denomData.TotalLiquidity.Add(coin.Amount)
+
+		// Update the block liquidity map
+		currentBlockLiquidityMap[coin.Denom] = denomData
+	}
+
+	// Return for idiomacy despite param mutation.
+	return currentBlockLiquidityMap
 }
 
 // parsePool parses the pool data and returns the pool object
