@@ -226,10 +226,6 @@ func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.
 			}
 		}
 
-		if !denomData.TotalLiquidity.IsZero() && len(denomData.Pools) == 0 {
-			// TODO: consider error
-		}
-
 		// Set the denom liquidity contribution from the given pool
 		denomData.Pools[poolID] = coin.Amount
 
