@@ -88,7 +88,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestPoolLiquidityComputeWorkerSuite/TestHasLaterUpdateThanHeight",
+                "TestPoolLiquidityComputeWorkerSuite/TestComputeLiquidityCapitalization",
                 "-test.v"
             ],
         },

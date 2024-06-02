@@ -33,7 +33,7 @@ func (l *liquidityPricer) ComputeCoinCap(coin sdk.Coin, baseDenomPriceData domai
 		return osmomath.Dec{}, fmt.Errorf("scaling factor for %s is zero", coin.Denom)
 	}
 
-	currentCoinCap := osmomath.NewBigDecFromBigInt(coin.Amount.BigIntMut()).MulMut(baseDenomPriceData.Price)
+	currentCoinCap := osmomath.BigDecFromSDKInt(coin.Amount).MulMut(baseDenomPriceData.Price)
 	isOriginalAmountZero := coin.Amount.IsZero()
 
 	// Truncation in intermediary operation - return error.

@@ -3,7 +3,9 @@ package worker_test
 import (
 	"testing"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 	"github.com/stretchr/testify/suite"
@@ -24,6 +26,8 @@ var (
 	}
 
 	pricingCacheExpiry = 2000
+
+	defaultScalingFactor = osmomath.NewDec(1_000_000)
 )
 
 var (
@@ -50,7 +54,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 
 // TestHasLaterUpdateThanHeight tests the HasLaterUpdateThanHeight method by following the spec.
 func (s *PoolLiquidityComputeWorkerSuite) TestHasLaterUpdateThanHeight() {
-
 	const defaultHeight = 1
 
 	var (
@@ -158,6 +161,119 @@ func (s *PoolLiquidityComputeWorkerSuite) TestHasLaterUpdateThanHeight() {
 
 			// Check the result.
 			s.Require().Equal(tt.expected, actual)
+		})
+	}
+}
+
+// TestStoreHeightForDenom tests the StoreHeightForDenom method by following the spec.
+func (s *PoolLiquidityComputeWorkerSuite) TestComputeLiquidityCapitalization() {
+	var (
+		defaultScalingFactorMap = map[string]osmomath.Dec{
+			UOSMO: defaultScalingFactor,
+		}
+
+		defaultLiqidity = osmomath.NewInt(1_000_000)
+
+		ethScaledLiquidity = ethScalingFactor.MulInt(defaultLiqidity).TruncateInt()
+
+		defaultPriceOne = osmomath.OneBigDec()
+
+		zeroCapitalization = osmomath.ZeroInt()
+	)
+
+	tests := []struct {
+		name string
+
+		preSetScalingFactorMap map[string]osmomath.Dec
+
+		denom          string
+		totalLiquidity osmomath.Int
+		price          osmomath.BigDec
+
+		expectedCapitalization osmomath.Int
+	}{
+		{
+			name: "scaling factor unset",
+
+			preSetScalingFactorMap: map[string]osmomath.Dec{},
+
+			denom:          UOSMO,
+			totalLiquidity: defaultLiqidity,
+			price:          defaultPriceOne,
+
+			expectedCapitalization: zeroCapitalization,
+		},
+		{
+			name: "zero price -> produces zero capitalization",
+
+			preSetScalingFactorMap: defaultScalingFactorMap,
+
+			denom:          UOSMO,
+			totalLiquidity: defaultLiqidity,
+			price:          osmomath.ZeroBigDec(),
+
+			expectedCapitalization: zeroCapitalization,
+		},
+		{
+			name: "truncate -> produces zero capitalization",
+
+			// totalLiquidity * price / (quoteScalingFactor / baseScalingFactor)
+			// 1 * 10^-36 / 10^12 => below the precision of 36
+			preSetScalingFactorMap: map[string]osmomath.Dec{
+				UOSMO: ethScalingFactor,
+			},
+
+			denom:          UOSMO,
+			totalLiquidity: osmomath.OneInt(),
+			price:          osmomath.SmallestBigDec(),
+
+			expectedCapitalization: zeroCapitalization,
+		},
+		{
+			name: "happy path",
+
+			preSetScalingFactorMap: defaultScalingFactorMap,
+
+			denom:          UOSMO,
+			totalLiquidity: defaultLiqidity,
+			price:          defaultPriceOne,
+
+			expectedCapitalization: defaultLiqidity,
+		},
+		{
+			name: "happy path with different inputs",
+
+			preSetScalingFactorMap: map[string]osmomath.Dec{
+				ATOM: ethScalingFactor,
+			},
+
+			denom:          ATOM,
+			totalLiquidity: ethScaledLiquidity.MulRaw(2),
+			price:          osmomath.NewBigDec(2),
+
+			expectedCapitalization: ethScaledLiquidity.ToLegacyDec().MulMut(defaultScalingFactor).QuoMut(ethScalingFactor).TruncateInt().MulRaw(4),
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		s.T().Run(tt.name, func(t *testing.T) {
+			// Create liquidity pricer
+			liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
+
+			// Set up the tokens pool liquidity mock handler
+			poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
+				DenomScalingFactorMap: tt.preSetScalingFactorMap,
+			}
+
+			// Create the worker
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
+
+			// System under test
+			liquidityCapitalization := poolLiquidityPricerWorker.ComputeLiquidityCapitalization(tt.denom, tt.totalLiquidity, tt.price)
+
+			// Check the result
+			s.Require().Equal(tt.expectedCapitalization.String(), liquidityCapitalization.String())
 		})
 	}
 }

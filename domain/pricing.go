@@ -127,8 +127,21 @@ type PricingWorker interface {
 	RegisterListener(listener PricingUpdateListener)
 }
 
+// PricingUpdateListener defines the interface for the pricing update listener.
 type PricingUpdateListener interface {
+	// OnPricingUpdate notifies the listener of the pricing update.
 	OnPricingUpdate(ctx context.Context, height int64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap PricesResult, quoteDenom string) error
+}
+
+// PoolLiquidityPricerWorker defines the interface for the pool liquidity pricer worker.
+type PoolLiquidityPricerWorker interface {
+	// Implements PricingUpdateListener
+	PricingUpdateListener
+	// ComputeLiquidityCapitalization computes the capitalization of the liquidity for the given denom
+	// using the total liquidity and the price.
+	// Returs zero if the price is zero or if there is any internal error.
+	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
+	ComputeLiquidityCapitalization(denom string, totalLiquidity osmomath.Int, price osmomath.BigDec) osmomath.Int
 }
 
 type DenomPriceInfo struct {
