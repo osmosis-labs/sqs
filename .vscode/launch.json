@@ -46,7 +46,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestIngestUseCaseTestSuite/TestUpdateUniqueDenomData",
+                "TestIngestUseCaseTestSuite/TestTransferDenomLiquidityMap",
                 "-test.v"
             ],
         },
@@ -84,6 +84,13 @@
             "request": "launch",
             "mode": "test",
             "program": "${workspaceFolder}/tokens/usecase/pricing/worker",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestPoolLiquidityComputeWorkerSuite/TestHasLaterUpdateThanHeight",
+                "-test.v"
+            ],
         },
         {
             "name": "router/usecase/pools",

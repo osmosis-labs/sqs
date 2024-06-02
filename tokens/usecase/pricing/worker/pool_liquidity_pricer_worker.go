@@ -52,16 +52,15 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	return nil
 }
 
-// hasLaterUpdateThanCurrent checks if the given denom has a later update than the current height.
+// hasLaterUpdateThanHeight checks if the given denom has a later update than the current height.
 // Returns true if the denom has a later update than the current height.
 // False otherwise.
-// TODO: test
-func (p *poolLiquidityPricerWorker) hasLaterUpdateThanCurrent(denom string, currentHeight uint64) bool {
+func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, height uint64) bool {
 	latestHeightForDenomObj, ok := p.latestHeightForDenom.Load(denom)
 
 	if ok {
-		latestHeightForDenom, ok := latestHeightForDenomObj.(int64)
-		return ok && int64(currentHeight) < latestHeightForDenom
+		latestHeightForDenom, ok := latestHeightForDenomObj.(uint64)
+		return ok && height < latestHeightForDenom
 	}
 
 	return false
@@ -73,7 +72,7 @@ func (p *poolLiquidityPricerWorker) repriceDenomMetadata(updateHeight int64, blo
 	// Iterate over the denoms updated within the block
 	for updatedBlockDenom := range blockDenomLiquidityUpdatesMap {
 		// Skip if the denom has a later update than the current height.
-		if p.hasLaterUpdateThanCurrent(updatedBlockDenom, uint64(updateHeight)) {
+		if p.hasLaterUpdateThanHeight(updatedBlockDenom, uint64(updateHeight)) {
 			continue
 		}
 
@@ -116,9 +115,14 @@ func (p *poolLiquidityPricerWorker) repriceDenomMetadata(updateHeight int64, blo
 			}
 		}
 
-		p.latestHeightForDenom.Store(updatedBlockDenom, updateHeight)
+		p.storeHeightForDenom(updatedBlockDenom, uint64(updateHeight))
 	}
 
 	// Return the updated token metadata for testability
 	return blockTokenMetadataUpdates
+}
+
+// storeHeightForDenom stores the latest height for the given denom.
+func (p *poolLiquidityPricerWorker) storeHeightForDenom(denom string, height uint64) {
+	p.latestHeightForDenom.Store(denom, height)
 }
