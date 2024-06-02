@@ -15,7 +15,17 @@ ROUTES_URL = "/router/quote"
 QUOTE_NUM_TOP_LIQUIDITY_DENOMS = 20
 
 # Arbitrary choice based on performance at the time of test writing
-expected_latency_upper_bound_ms = 5000
+EXPECTED_LATENCY_UPPER_BOUND_MS = 5000
+
+# The max amount in value in USD to run the price impact check
+# This is primarily to avoid flakiness due to swapping large amounts.
+# The choice is arbitrary and was made based on testing at the time of creation.
+# In the future, we might lower or increase this value based on the performance of the system.
+HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD = 5000
+
+# The max price impact threshold for the high liquidity check
+HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD = 0.5
+
 
 # Test suite for the /router/quote endpoint
 class TestQuote:
@@ -68,7 +78,7 @@ class TestQuote:
         token_in_coin = amount_str + USDC
 
         # Run the quote test
-        quote = self.run_quote_test(environment_url, token_in_coin, denom_out, expected_latency_upper_bound_ms)
+        quote = self.run_quote_test(environment_url, token_in_coin, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
         self.validate_quote_test(quote, amount_str, USDC, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
 
@@ -98,9 +108,16 @@ class TestQuote:
         expected_token_out = int(amount_str) * expected_in_base_out_quote_price
 
         # Run the quote test
-        quote = self.run_quote_test(environment_url, token_in_coin, denom_out, expected_latency_upper_bound_ms)
+        quote = self.run_quote_test(environment_url, token_in_coin, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
-        assert quote.price_impact is not None and quote.price_impact * -1 < 0.5, f"Error: price impact is either None {quote.price_impact} or greater than 0.5"
+        token_in_amount_usdc_value = in_base_usd_quote_price * int(amount_str)
+
+        # Validate that price impact is present.
+        assert quote.price_impact is not None
+
+        # If the token in amount value is less than $HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD, we expect the price impact to not exceed threshold
+        if token_in_amount_usdc_value < HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD:
+             quote.price_impact * -1 < HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD, f"Error: price impact is either None or greater than {HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD} {quote.price_impact}"
 
         # Validate quote results
         self.validate_quote_test(quote, amount_str, token_in_denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
@@ -154,7 +171,7 @@ class TestQuote:
         expected_token_out = int(amount) * expected_in_base_out_quote_price
 
         # Run the quote test
-        quote = self.run_quote_test(environment_url, amount + denom_in, denom_out, expected_latency_upper_bound_ms)
+        quote = self.run_quote_test(environment_url, amount + denom_in, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
         # Validate transmuter was in route
         assert self.is_transmuter_in_single_route(quote.route) is True
