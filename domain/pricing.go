@@ -159,3 +159,19 @@ type PoolLiquidityComputeListener interface {
 // from the /tokens/prices endpoint. Be mindful of changing it without
 // separating the API response for backward compatibility.
 type PricesResult map[string]map[string]osmomath.BigDec
+
+// GetPriceForDenom returns the price for the given baseDenom and quote denom.
+// Returns zero if the price is not found.
+func (prices PricesResult) GetPriceForDenom(baseDenom string, quoteDenom string) osmomath.BigDec {
+	quotePrices, ok := prices[baseDenom]
+	if !ok {
+		return osmomath.ZeroBigDec()
+	}
+
+	price, ok := quotePrices[quoteDenom]
+	if !ok {
+		return osmomath.ZeroBigDec()
+	}
+
+	return price
+}
