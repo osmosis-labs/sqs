@@ -17,11 +17,11 @@ type TokensPoolLiquidityHandlerMock struct {
 
 var _ mvc.TokensPoolLiquidityHandler = &TokensPoolLiquidityHandlerMock{}
 
-type ScalingFactorNotFoundErr struct {
+type ScalingFactorNotFoundError struct {
 	Denom string
 }
 
-func (s ScalingFactorNotFoundErr) Error() string {
+func (s ScalingFactorNotFoundError) Error() string {
 	return fmt.Sprintf("scaling factor not found for denom %s", s.Denom)
 }
 
@@ -29,7 +29,7 @@ func (s ScalingFactorNotFoundErr) Error() string {
 func (t *TokensPoolLiquidityHandlerMock) GetChainScalingFactorByDenomMut(denom string) (osmomath.Dec, error) {
 	scalingFactor, ok := t.DenomScalingFactorMap[denom]
 	if !ok {
-		return osmomath.Dec{}, ScalingFactorNotFoundErr{Denom: denom}
+		return osmomath.Dec{}, ScalingFactorNotFoundError{Denom: denom}
 	}
 
 	return scalingFactor, nil

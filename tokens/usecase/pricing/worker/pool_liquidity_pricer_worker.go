@@ -56,7 +56,7 @@ func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, bl
 	// Iterate over the denoms updated within the block
 	for updatedBlockDenom, blockPoolDenomLiquidityData := range blockDenomLiquidityUpdatesMap {
 		// Skip if the denom has a later update than the current height.
-		if p.hasLaterUpdateThanHeight(updatedBlockDenom, uint64(updateHeight)) {
+		if p.hasLaterUpdateThanHeight(updatedBlockDenom, updateHeight) {
 			continue
 		}
 
