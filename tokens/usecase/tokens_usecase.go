@@ -167,7 +167,7 @@ func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) domain.PoolD
 
 		// Instead of failing the entire request, we just set the results to zero
 		if err != nil {
-			result.Set(chainDenom, osmomath.ZeroInt(), osmomath.ZeroInt())
+			result.Set(chainDenom, osmomath.ZeroInt(), osmomath.ZeroInt(), osmomath.ZeroBigDec())
 		} else {
 			// Otherwise, we set the correct value
 			result[chainDenom] = poolDenomMetadata

@@ -10,9 +10,10 @@ import "github.com/osmosis-labs/osmosis/osmomath"
 type PoolDenomMetaDataMap map[string]PoolDenomMetaData
 
 // Set sets the total liquidity and total liquidity in USDC for the given denom.
-func (p PoolDenomMetaDataMap) Set(denom string, totalLiquidity osmomath.Int, totalLiquidityCap osmomath.Int) {
+func (p PoolDenomMetaDataMap) Set(denom string, totalLiquidity osmomath.Int, totalLiquidityCap osmomath.Int, price osmomath.BigDec) {
 	p[denom] = PoolDenomMetaData{
 		TotalLiquidity:    totalLiquidity,
 		TotalLiquidityCap: totalLiquidityCap,
+		Price:             price,
 	}
 }

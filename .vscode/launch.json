@@ -88,7 +88,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestPoolLiquidityComputeWorkerSuite/TestComputeLiquidityCapitalization",
+                "TestPoolLiquidityComputeWorkerSuite/TestRepriceDenomMetadata",
                 "-test.v"
             ],
         },

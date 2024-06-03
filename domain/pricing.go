@@ -130,7 +130,7 @@ type PricingWorker interface {
 // PricingUpdateListener defines the interface for the pricing update listener.
 type PricingUpdateListener interface {
 	// OnPricingUpdate notifies the listener of the pricing update.
-	OnPricingUpdate(ctx context.Context, height int64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap PricesResult, quoteDenom string) error
+	OnPricingUpdate(ctx context.Context, height uint64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap PricesResult, quoteDenom string) error
 }
 
 // PoolLiquidityPricerWorker defines the interface for the pool liquidity pricer worker.
@@ -142,6 +142,20 @@ type PoolLiquidityPricerWorker interface {
 	// Returs zero if the price is zero or if there is any internal error.
 	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
 	ComputeLiquidityCapitalization(denom string, totalLiquidity osmomath.Int, price osmomath.BigDec) osmomath.Int
+
+	// RepriceDenomMetadata reprices the token liquidity metadata for the denoms updated within the block.
+	// Returns the updated token metadata.
+	// If there is an update for a denom with a later height than the current height, it is skipped, making this a no-op.
+	// Relies on the blockPriceUpdates to get the price for the denoms.
+	// If the price for denom cannot be fetched, the liquidity capitalization for this denom is set to zero.
+	// The latest update height for this denom is updated on completion.
+	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap DenomLiquidityMap) PoolDenomMetaDataMap
+
+	// GetHeightForDenom returns zero if the height is not found or fails to cast it to the return type.
+	GetHeightForDenom(denom string) uint64
+
+	// StoreHeightForDenom stores the latest height for the given denom.
+	StoreHeightForDenom(denom string, height uint64)
 }
 
 type DenomPriceInfo struct {

@@ -67,7 +67,7 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 	// Update listeners
 	for _, listener := range p.updateListeners {
 		// Ignore errors
-		_ = listener.OnPricingUpdate(ctx, int64(height), uniqueBlockPoolMetaData, prices, p.quoteDenom)
+		_ = listener.OnPricingUpdate(ctx, height, uniqueBlockPoolMetaData, prices, p.quoteDenom)
 	}
 
 	// Measure duration

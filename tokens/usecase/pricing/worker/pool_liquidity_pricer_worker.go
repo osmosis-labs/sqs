@@ -38,10 +38,10 @@ func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHa
 }
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
-func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height int64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) error {
+func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height uint64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) error {
 	// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
 	// for concurrency.
-	repricedTokenMetadata := p.repriceDenomMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata.DenomLiquidityMap)
+	repricedTokenMetadata := p.RepriceDenomMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata.DenomLiquidityMap)
 
 	// Update the pool denom metadata.
 	p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
@@ -49,21 +49,8 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	return nil
 }
 
-// hasLaterUpdateThanHeight checks if the given denom has a later update than the current height.
-// Returns true if the denom has a later update than the current height.
-// False otherwise.
-func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, height uint64) bool {
-	latestHeightForDenomObj, ok := p.latestHeightForDenom.Load(denom)
-
-	if ok {
-		latestHeightForDenom, ok := latestHeightForDenomObj.(uint64)
-		return ok && height < latestHeightForDenom
-	}
-
-	return false
-}
-
-func (p *poolLiquidityPricerWorker) repriceDenomMetadata(updateHeight int64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap domain.DenomLiquidityMap) domain.PoolDenomMetaDataMap {
+// RepriceDenomMetadata implements domain.PoolLiquidityPricerWorker
+func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap domain.DenomLiquidityMap) domain.PoolDenomMetaDataMap {
 	blockTokenMetadataUpdates := make(domain.PoolDenomMetaDataMap, len(blockDenomLiquidityUpdatesMap))
 
 	// Iterate over the denoms updated within the block
@@ -79,19 +66,14 @@ func (p *poolLiquidityPricerWorker) repriceDenomMetadata(updateHeight int64, blo
 
 		liquidityCapitalization := p.ComputeLiquidityCapitalization(updatedBlockDenom, totalLiquidityForDenom, price)
 
-		blockTokenMetadataUpdates.Set(updatedBlockDenom, totalLiquidityForDenom, liquidityCapitalization)
+		blockTokenMetadataUpdates.Set(updatedBlockDenom, totalLiquidityForDenom, liquidityCapitalization, price)
 
 		// Store the height for the denom.
-		p.storeHeightForDenom(updatedBlockDenom, uint64(updateHeight))
+		p.StoreHeightForDenom(updatedBlockDenom, updateHeight)
 	}
 
 	// Return the updated token metadata for testability
 	return blockTokenMetadataUpdates
-}
-
-// storeHeightForDenom stores the latest height for the given denom.
-func (p *poolLiquidityPricerWorker) storeHeightForDenom(denom string, height uint64) {
-	p.latestHeightForDenom.Store(denom, height)
 }
 
 // ComputeLiquidityCapitalization implements domain.PoolLiquidityPricerWorker.
@@ -120,4 +102,38 @@ func (p *poolLiquidityPricerWorker) ComputeLiquidityCapitalization(denom string,
 	}
 
 	return liquidityCapitalization.TruncateInt()
+}
+
+// GetHeightForDenom implements domain.PoolLiquidityPricerWorker.
+func (p *poolLiquidityPricerWorker) GetHeightForDenom(denom string) uint64 {
+	heightObj, ok := p.latestHeightForDenom.Load(denom)
+	if !ok {
+		return 0
+	}
+
+	height, ok := heightObj.(uint64)
+	if !ok {
+		return 0
+	}
+
+	return height
+}
+
+// StoreHeightForDenom implements domain.PoolLiquidityPricerWorker.
+func (p *poolLiquidityPricerWorker) StoreHeightForDenom(denom string, height uint64) {
+	p.latestHeightForDenom.Store(denom, height)
+}
+
+// hasLaterUpdateThanHeight checks if the given denom has a later update than the current height.
+// Returns true if the denom has a later update than the current height.
+// False otherwise.
+func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, height uint64) bool {
+	latestHeightForDenomObj, ok := p.latestHeightForDenom.Load(denom)
+
+	if ok {
+		latestHeightForDenom, ok := latestHeightForDenomObj.(uint64)
+		return ok && height < latestHeightForDenom
+	}
+
+	return false
 }
