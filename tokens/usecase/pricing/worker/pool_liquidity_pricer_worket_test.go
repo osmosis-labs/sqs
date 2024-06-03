@@ -1,6 +1,7 @@
 package worker_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -32,6 +33,32 @@ var (
 	zeroCapitalization = osmomath.ZeroInt()
 
 	zeroPrice = osmomath.ZeroBigDec()
+
+	defaultPrice     = osmomath.NewBigDec(2)
+	defaultLiquidity = osmomath.NewInt(1_000_000)
+
+	defaultLiquidityCap = defaultLiquidity.MulRaw(2)
+
+	// Note: we are not testing the error handling of underlying methods.
+	// Those are unit-tested in their respective tests.
+	// As a result, we only set up the valid cases here.
+	defaultScalingFactorMap = map[string]osmomath.Dec{
+		UOSMO: defaultScalingFactor,
+		USDC:  defaultScalingFactor,
+		ATOM:  defaultScalingFactor,
+	}
+
+	defaultBlockPriceUpdates = domain.PricesResult{
+		UOSMO: {
+			USDC: defaultPrice,
+		},
+	}
+
+	defaultBlockLiquidityUpdates = domain.DenomLiquidityMap{
+		UOSMO: {
+			TotalLiquidity: defaultLiquidity,
+		},
+	}
 )
 
 var (
@@ -42,18 +69,52 @@ func TestPoolLiquidityComputeWorkerSuite(t *testing.T) {
 	suite.Run(t, new(PoolLiquidityComputeWorkerSuite))
 }
 
+// This is a test validating that given valid price updates
+// and block liquidity data, the worker compuetes the pool liqudity capitalization
+// overwriting the data in the poolLiquidityHandlerMock.
+//
+// This is a functional test that tests given correct updates,
+// they are propagated in the pool liquidity handler as intended.
+// The edge cases of each underlying component are tested by their corresponding unit tests.
 func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 
-	tests := []struct {
-		name string
-	}{}
+	// Create liquidity pricer
+	liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
 
-	for _, tt := range tests {
-		tt := tt
-		s.T().Run(tt.name, func(t *testing.T) {
+	// Set up the tokens pool liquidity mock handler
+	poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
+		DenomScalingFactorMap: defaultScalingFactorMap,
 
-		})
+		// Note we pre-set zero liquidity cap with zero price
+		// to ensure that these are overwritten.
+		PoolDenomMetadataMap: domain.PoolDenomMetaDataMap{
+			UOSMO: domain.PoolDenomMetaData{
+				Price:             zeroPrice,
+				TotalLiquidity:    defaultLiquidity,
+				TotalLiquidityCap: zeroCapitalization,
+			},
+		},
 	}
+
+	// Create the worker
+	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
+
+	// System under test
+	err := poolLiquidityPricerWorker.OnPricingUpdate(context.TODO(), defaultHeight, domain.BlockPoolMetadata{
+		DenomLiquidityMap: defaultBlockLiquidityUpdates,
+	}, defaultBlockPriceUpdates, USDC)
+
+	s.Require().NoError(err)
+
+	// Validate one pool denom metadata entry is present for UOSMO.
+	s.Require().Len(poolLiquidityHandlerMock.PoolDenomMetadataMap, 1)
+	result, ok := poolLiquidityHandlerMock.PoolDenomMetadataMap[UOSMO]
+	s.Require().True(ok)
+
+	// Assert on specific values.
+	s.Require().Equal(result.Price, defaultPrice)
+	s.Require().Equal(result.TotalLiquidity, defaultLiquidity)
+	s.Require().Equal(result.TotalLiquidityCap, defaultLiquidityCap)
 }
 
 // TestHasLaterUpdateThanHeight tests the HasLaterUpdateThanHeight method by following the spec.
@@ -287,32 +348,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 	)
 
 	var (
-		// Note: we are not testing the error handling of underlying methods.
-		// Those are unit-tested in their respective tests.
-		// As a result, we only set up the valid cases here.
-		defaultScalingFactorMap = map[string]osmomath.Dec{
-			UOSMO: defaultScalingFactor,
-			USDC:  defaultScalingFactor,
-			ATOM:  defaultScalingFactor,
-		}
-
-		defaultPrice     = osmomath.NewBigDec(2)
-		defaultLiquidity = osmomath.NewInt(1_000_000)
-
-		defaultLiquidityCap = defaultLiquidity.MulRaw(2)
-
-		defaultBlockPriceUpdates = domain.PricesResult{
-			UOSMO: {
-				USDC: defaultPrice,
-			},
-		}
-
-		defaultBlockLiquidityUpdates = domain.DenomLiquidityMap{
-			UOSMO: {
-				TotalLiquidity: defaultLiquidity,
-			},
-		}
-
 		defaultUOSMOHeightResult = map[string]uint64{
 			UOSMO: defaultUpdateHeight,
 		}
