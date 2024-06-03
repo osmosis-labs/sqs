@@ -20,7 +20,7 @@
       "min-pool-liquidity-cap": 1000,
       "route-cache-enabled": true,
       "candidate-route-cache-expiry-seconds": 1200,
-      "ranked-route-cache-expiry-seconds": 600,
+      "ranked-route-cache-expiry-seconds": 45,
       "dynamic-min-liquidity-cap-filters-desc": [
         {
             "min-tokens-capitalization": 1000000,
