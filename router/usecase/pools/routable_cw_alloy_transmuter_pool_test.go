@@ -13,6 +13,13 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+const (
+	OVERLY_PRECISE_USD = "overlypreciseusd"
+	NO_PRECISION_USD   = "noprecisionusd"
+	INVALID_DENOM      = "invalid_denom"
+	MORE_INVALID_DENOM = "more_invalid_denom"
+)
+
 func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, tokenOutDenom string, balances sdk.Coins) sqsdomain.RoutablePool {
 	cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{tokenInDenom, tokenOutDenom})
 
@@ -30,8 +37,8 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 					AssetConfigs: []sqsdomain.TransmuterAssetConfig{
 						{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
 						{Denom: USDT, NormalizationFactor: osmomath.NewInt(1)},
-						{Denom: "overlypreciseusd", NormalizationFactor: veryBigNormalizationFactor},
-						{Denom: "noprecisionusd", NormalizationFactor: osmomath.ZeroInt()},
+						{Denom: OVERLY_PRECISE_USD, NormalizationFactor: veryBigNormalizationFactor},
+						{Denom: NO_PRECISION_USD, NormalizationFactor: osmomath.ZeroInt()},
 						{Denom: ALLUSD, NormalizationFactor: osmomath.NewInt(10)},
 					},
 				},
@@ -51,7 +58,8 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 
 // Tests no slippage quotes and validation edge cases aroun transmuter pools.
 func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter() {
-	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, osmomath.NewInt(1000000)), sdk.NewCoin(USDT, osmomath.NewInt(1000000)))
+	defaltBalanceAmt := osmomath.NewInt(1000000)
+	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, defaltBalanceAmt), sdk.NewCoin(USDT, defaltBalanceAmt))
 
 	tests := map[string]struct {
 		tokenIn     sdk.Coin
@@ -61,50 +69,50 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 	}{
 		"valid transmuter quote": {
 			tokenIn:  sdk.NewCoin(USDT, osmomath.NewInt(10000)),
-			tokenOut: sdk.NewCoin(USDC, osmomath.NewInt(1000000)),
+			tokenOut: sdk.NewCoin(USDC, defaltBalanceAmt),
 			balances: defaultBalances,
 		},
 		"trancate to 0": {
-			tokenIn:  sdk.NewCoin("overlypreciseusd", osmomath.NewInt(10)),
+			tokenIn:  sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(10)),
 			tokenOut: sdk.NewCoin(USDC, osmomath.NewInt(0)),
 			balances: defaultBalances,
 		},
 		"no error: token in is larger than balance of token in": {
-			tokenIn:  sdk.NewCoin(USDC, osmomath.NewInt(1000001)),
+			tokenIn:  sdk.NewCoin(USDC, defaltBalanceAmt.Add(osmomath.NewInt(1))),
 			tokenOut: sdk.NewCoin(USDT, osmomath.NewInt(10000)),
 			balances: defaultBalances,
 		},
-		"no error: token out is larger thgan balance of token out but token out is an alloyed": {
-			tokenIn:  sdk.NewCoin(USDT, osmomath.NewInt(1000001)),
-			tokenOut: sdk.NewCoin(ALLUSD, osmomath.NewInt(10000010)),
+		"no error: token out is larger than balance of token out but token out is an alloyed": {
+			tokenIn:  sdk.NewCoin(USDT, defaltBalanceAmt.Add(osmomath.NewInt(1))),
+			tokenOut: sdk.NewCoin(ALLUSD, defaltBalanceAmt.Add(osmomath.NewInt(1)).Mul(osmomath.NewInt(10))),
 			balances: defaultBalances,
 		},
 		"error: zero token in normalization factor": {
-			tokenIn:  sdk.NewCoin("noprecisionusd", osmomath.NewInt(10000)),
+			tokenIn:  sdk.NewCoin(NO_PRECISION_USD, osmomath.NewInt(10000)),
 			tokenOut: sdk.NewCoin(ALLUSD, osmomath.NewInt(0)),
 			balances: defaultBalances,
 			expectError: domain.ZeroNormalizationFactorError{
-				Denom:  "noprecisionusd",
-				PoolId: 1,
+				Denom:  NO_PRECISION_USD,
+				PoolId: defaultPoolID,
 			},
 		},
 		"error: zero token out normalization factor": {
 			tokenIn:  sdk.NewCoin(ALLUSD, osmomath.NewInt(10000)),
-			tokenOut: sdk.NewCoin("noprecisionusd", osmomath.NewInt(0)),
+			tokenOut: sdk.NewCoin(NO_PRECISION_USD, osmomath.NewInt(0)),
 			balances: defaultBalances,
 			expectError: domain.ZeroNormalizationFactorError{
-				Denom:  "noprecisionusd",
-				PoolId: 1,
+				Denom:  NO_PRECISION_USD,
+				PoolId: defaultPoolID,
 			},
 		},
 		"error: token out is larger than balance of token out": {
 			tokenIn:  sdk.NewCoin(USDT, osmomath.NewInt(10001)),
-			tokenOut: sdk.NewCoin(USDC, osmomath.NewInt(1000100)),
+			tokenOut: sdk.NewCoin(USDC, defaltBalanceAmt.Add(osmomath.NewInt(100))),
 			balances: defaultBalances,
 			expectError: domain.TransmuterInsufficientBalanceError{
 				Denom:         USDC,
-				BalanceAmount: osmomath.NewInt(1000000).String(),
-				Amount:        osmomath.NewInt(1000100).String(),
+				BalanceAmount: defaltBalanceAmt.String(),
+				Amount:        defaltBalanceAmt.Add(osmomath.NewInt(100)).String(),
 			},
 		},
 	}
@@ -143,25 +151,25 @@ func (s *RoutablePoolTestSuite) TestFindNormalizationFactors_AlloyTransmuter() {
 			expectError:           nil,
 		},
 		"missing normalization factor for token in": {
-			tokenInDenom:          "INVALID",
+			tokenInDenom:          INVALID_DENOM,
 			tokenOutDenom:         USDT,
 			expectedInNormFactor:  osmomath.Int{},
 			expectedOutNormFactor: osmomath.NewInt(1),
-			expectError:           domain.MissingNormalizationFactorError{Denom: "INVALID", PoolId: 1},
+			expectError:           domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factor for token out": {
 			tokenInDenom:          USDC,
-			tokenOutDenom:         "INVALID",
+			tokenOutDenom:         INVALID_DENOM,
 			expectedInNormFactor:  osmomath.NewInt(100),
 			expectedOutNormFactor: osmomath.Int{},
-			expectError:           domain.MissingNormalizationFactorError{Denom: "INVALID", PoolId: 1},
+			expectError:           domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factors for both token in and token out": {
-			tokenInDenom:          "INVALID1",
-			tokenOutDenom:         "INVALID2",
+			tokenInDenom:          INVALID_DENOM,
+			tokenOutDenom:         MORE_INVALID_DENOM,
 			expectedInNormFactor:  osmomath.Int{},
 			expectedOutNormFactor: osmomath.Int{},
-			expectError:           domain.MissingNormalizationFactorError{Denom: "INVALID1", PoolId: 1},
+			expectError:           domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 	}
 
@@ -206,28 +214,28 @@ func (s *RoutablePoolTestSuite) TestCalcTokenOutAmt_AlloyTransmuter() {
 			expectedError:    nil,
 		},
 		"valid calculation, truncated to zero": {
-			tokenIn:          sdk.NewCoin("overlypreciseusd", osmomath.NewInt(10)),
+			tokenIn:          sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(10)),
 			tokenOutDenom:    USDC,
 			expectedTokenOut: osmomath.MustNewBigDecFromStr("0"),
 			expectedError:    nil,
 		},
 		"missing normalization factor for token in": {
-			tokenIn:          sdk.NewCoin("INVALID", osmomath.NewInt(100)),
+			tokenIn:          sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
 			tokenOutDenom:    USDT,
 			expectedTokenOut: osmomath.ZeroBigDec(),
-			expectedError:    domain.MissingNormalizationFactorError{Denom: "INVALID", PoolId: 1},
+			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factor for token out": {
 			tokenIn:          sdk.NewCoin(USDC, osmomath.NewInt(100)),
-			tokenOutDenom:    "INVALID",
+			tokenOutDenom:    INVALID_DENOM,
 			expectedTokenOut: osmomath.ZeroBigDec(),
-			expectedError:    domain.MissingNormalizationFactorError{Denom: "INVALID", PoolId: 1},
+			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factors for both token in and token out": {
-			tokenIn:          sdk.NewCoin("INVALID", osmomath.NewInt(100)),
-			tokenOutDenom:    "INVALID",
+			tokenIn:          sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
+			tokenOutDenom:    INVALID_DENOM,
 			expectedTokenOut: osmomath.ZeroBigDec(),
-			expectedError:    domain.MissingNormalizationFactorError{Denom: "INVALID", PoolId: 1},
+			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 	}
 
