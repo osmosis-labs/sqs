@@ -103,3 +103,14 @@ dynamic_min_liq_cap = map_token_liq_to_liq_cap(min_token_liq)
 
 The reason for choosing the minimum of the total pool liquidities between token in and token out is
 so that we can still find routes between low liquidity tokens that likely have pools of even smaller liqudity.
+
+#### API
+
+The dynamic min liquidity capitalization feature is enabled by default.
+
+For eligible routing endpoints:
+- `/router/quote`
+- `/router/custom-direct-quote`
+
+The query parameter of `disableMinLiquidityFallback` disables the routing
+using the dynamic min liquidity capitalization to use the universal default instead.
