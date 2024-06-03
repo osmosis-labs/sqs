@@ -65,7 +65,7 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context
 		return sdk.Coin{}, err
 	}
 
-	tokenOutAmtInt := osmomath.NewIntFromBigInt(tokenOutAmt.TruncateInt().BigInt())
+	tokenOutAmtInt := tokenOutAmt.Dec().TruncateInt()
 
 	// Validate token out balance if not alloyed
 	if r.TokenOutDenom != r.AlloyTransmuterData.AlloyedDenom {
@@ -157,15 +157,15 @@ func (r *routableAlloyTransmuterPoolImpl) FindNormalizationFactors(tokenInDenom,
 func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, tokenOutDenom string) (osmomath.BigDec, error) {
 	tokenInNormFactor, tokenOutNormFactor, err := r.FindNormalizationFactors(tokenIn.Denom, tokenOutDenom)
 	if err != nil {
-		return osmomath.ZeroBigDec(), err
+		return osmomath.BigDec{}, err
 	}
 
 	if tokenInNormFactor.IsZero() {
-		return osmomath.ZeroBigDec(), domain.ZeroNormalizationFactorError{Denom: tokenIn.Denom, PoolId: r.GetId()}
+		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenIn.Denom, PoolId: r.GetId()}
 	}
 
 	if tokenOutNormFactor.IsZero() {
-		return osmomath.ZeroBigDec(), domain.ZeroNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
+		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
 	}
 
 	tokenInAmount := osmomath.NewBigDec(tokenIn.Amount.Int64())

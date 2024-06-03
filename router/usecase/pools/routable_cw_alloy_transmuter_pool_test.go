@@ -222,19 +222,19 @@ func (s *RoutablePoolTestSuite) TestCalcTokenOutAmt_AlloyTransmuter() {
 		"missing normalization factor for token in": {
 			tokenIn:          sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
 			tokenOutDenom:    USDT,
-			expectedTokenOut: osmomath.ZeroBigDec(),
+			expectedTokenOut: osmomath.BigDec{},
 			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factor for token out": {
 			tokenIn:          sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			tokenOutDenom:    INVALID_DENOM,
-			expectedTokenOut: osmomath.ZeroBigDec(),
+			expectedTokenOut: osmomath.BigDec{},
 			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factors for both token in and token out": {
 			tokenIn:          sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
 			tokenOutDenom:    INVALID_DENOM,
-			expectedTokenOut: osmomath.ZeroBigDec(),
+			expectedTokenOut: osmomath.BigDec{},
 			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 	}
