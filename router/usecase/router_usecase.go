@@ -699,6 +699,7 @@ func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.Ca
 }
 
 // ConvertMinTokensPoolLiquidityCapToFilter implements mvc.RouterUsecase.
+// CONTRACT: r.defaultConfig.DynamicMinLiquidityCapFiltersDesc are sorted in descending order by MinTokensCap.
 func (r *routerUseCaseImpl) ConvertMinTokensPoolLiquidityCapToFilter(minTokensPoolLiquidityCap uint64) uint64 {
 	for _, filter := range r.defaultConfig.DynamicMinLiquidityCapFiltersDesc {
 		if minTokensPoolLiquidityCap >= filter.MinTokensCap {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"testing"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -766,6 +767,110 @@ func (s *RouterTestSuite) TestSortPools() {
 
 	// Check that the top pool is the expected one.
 	s.Require().Equal(expectedTopPoolID, sortedPools[0].GetId())
+}
+
+// Validates ConvertMinTokensPoolLiquidityCapToFilter method per its spec.
+func (s *RouterTestSuite) TestConvertMinTokensPoolLiquidityCapToFilter() {
+	var (
+		defaultFilters = routertesting.DefaultRouterConfig.DynamicMinLiquidityCapFiltersDesc
+
+		defaultConfigFilter = routertesting.DefaultRouterConfig.MinPoolLiquidityCap
+
+		defaultThresholdMinPoolLiquidityCap = defaultFilters[0].MinTokensCap
+
+		defaultAboveThresholdFilterValue = defaultFilters[0].FilterValue
+	)
+
+	tests := []struct {
+		name string
+
+		minLiqCapFilterEntries []domain.DynamicMinLiquidityCapFilterEntry
+
+		minTokensPoolLiquidityCap uint64
+
+		expectedFilter uint64
+	}{
+		{
+			name: "min pool liquidity cap at threshold -> return dynamic filter value",
+
+			minLiqCapFilterEntries: defaultFilters,
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap,
+
+			expectedFilter: defaultAboveThresholdFilterValue,
+		},
+
+		{
+			name: "min pool liquidity cap above threshold -> return dynamic filter value",
+
+			minLiqCapFilterEntries: defaultFilters,
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap + 1,
+
+			expectedFilter: defaultAboveThresholdFilterValue,
+		},
+
+		{
+			name: "min pool liquidity cap below threshold -> return default filter value",
+
+			minLiqCapFilterEntries: defaultFilters,
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap - 1,
+
+			expectedFilter: defaultConfigFilter,
+		},
+
+		{
+			name: "empty filters -> return default filter value",
+
+			minLiqCapFilterEntries: []domain.DynamicMinLiquidityCapFilterEntry{},
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap - 1,
+
+			expectedFilter: defaultConfigFilter,
+		},
+		{
+			name: "multiple pre-configured filters -> choice falls in-between",
+
+			minLiqCapFilterEntries: []domain.DynamicMinLiquidityCapFilterEntry{
+				{
+					MinTokensCap: 300_000,
+					FilterValue:  30_000,
+				},
+				{
+					MinTokensCap: 20_000,
+					FilterValue:  2_000,
+				},
+				{
+					MinTokensCap: 1_000,
+					FilterValue:  100,
+				},
+			},
+
+			// Above 1_000 and below 20_000.
+			minTokensPoolLiquidityCap: 5000,
+
+			expectedFilter: 100,
+		},
+	}
+
+	for _, tt := range tests {
+		s.T().Run(tt.name, func(t *testing.T) {
+			// Set up mainnet mock state.
+			mainnetState := s.SetupMainnetState()
+
+			config := routertesting.DefaultRouterConfig
+			config.DynamicMinLiquidityCapFiltersDesc = tt.minLiqCapFilterEntries
+
+			mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(config))
+
+			// System under test
+			actualFilter := mainnetUsecase.Router.ConvertMinTokensPoolLiquidityCapToFilter(tt.minTokensPoolLiquidityCap)
+
+			// Validate result.
+			s.Require().Equal(tt.expectedFilter, actualFilter)
+		})
+	}
 }
 
 // validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.
