@@ -106,11 +106,14 @@ so that we can still find routes between low liquidity tokens that likely have p
 
 #### API
 
-The dynamic min liquidity capitalization feature is enabled by default.
+The dynamic min liquidity capitalization feature is enabled by default with the fallback to the unversal
+default quote.
 
 For eligible routing endpoints:
 - `/router/quote`
 - `/router/custom-direct-quote`
 
-The query parameter of `disableMinLiquidityFallback` disables the routing
-using the dynamic min liquidity capitalization to use the universal default instead.
+In some cases, clients may want to disable the fallback, preferring toerror rather than have a potential
+for bad route stemming from the low unoversal default.
+
+The query parameter of `disableMinLiquidityFallback` disables the fallback, returning an error instead.
