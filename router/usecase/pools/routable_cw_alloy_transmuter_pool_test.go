@@ -50,7 +50,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 
 	routablePool, err := pools.NewRoutablePool(mock, tokenOutDenom, noTakerFee, domain.CosmWasmPoolRouterConfig{
 		IsAlloyedTransmuterEnabled: true,
-	})
+	}, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)
 
 	return routablePool

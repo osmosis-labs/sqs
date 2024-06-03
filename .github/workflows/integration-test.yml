@@ -1,0 +1,69 @@
+name: SQS Integration Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select the environment to test'
+        required: true
+        type: choice
+        options:
+          - stage
+          - prod
+        default: 'stage'
+  schedule:
+    - cron: '0 * * * *'
+
+jobs:
+  manual_integration_test:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
+      
+      - name: Execute tests
+        run: pytest -s -n auto
+        env:
+          SQS_ENVIRONMENTS: ${{ github.event.inputs.environment }}
+          SQS_API_KEY: ${{ secrets.SQS_API_KEY }}
+          
+  scheduled_integration_test:
+    if: github.event_name == 'schedule'
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        # TODO: re-add prod environment ", prod"
+        # https://linear.app/osmosis/issue/DATA-198/production-deployment-june-11
+        environment: [stage]
+      # Do not cancel concurrent jobs in matrix.
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
+      
+      - name: Execute tests
+        run: pytest -s -n auto
+        env:
+          SQS_ENVIRONMENTS: ${{ matrix.environment }}
+          SQS_API_KEY: ${{ secrets.SQS_API_KEY }}

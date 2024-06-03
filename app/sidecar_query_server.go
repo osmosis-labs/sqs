@@ -95,16 +95,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	routerRepository := routerrepo.New()
 
-	// Initialize pools repository, usecase and HTTP handler
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository)
-
-	// Initialize router repository, usecase
-	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
-
-	// Initialize system handler
-	chainInfoRepository := chaininforepo.New()
-	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository)
-
 	// Compute token metadata from chain denom.
 	tokenMetadataByChainDenom, err := tokensUseCase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
 	if err != nil {
@@ -113,6 +103,16 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Initialized tokens usecase
 	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom)
+
+	// Initialize pools repository, usecase and HTTP handler
+	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
+
+	// Initialize router repository, usecase
+	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+
+	// Initialize system handler
+	chainInfoRepository := chaininforepo.New()
+	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository)
 
 	// Initialize chain pricing strategy
 	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, routerUsecase)

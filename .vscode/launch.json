@@ -32,7 +32,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestGetCandidateRoutes_Chain_FindUnsupportedRoutes",
+                "TestRouterTestSuite/TestGetSplitQuote",
                 "-test.v"
             ],
         },
@@ -61,6 +61,20 @@
                 "30m",
                 "-test.run",
                 "TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens",
+                "-test.v"
+            ],
+        },
+        {
+            "name": "router/usecase/pools",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/router/usecase/pools",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestRoutablePoolTestSuite/TestSpotPriceQuoteCalculator_Calculate",
                 "-test.v"
             ],
         },

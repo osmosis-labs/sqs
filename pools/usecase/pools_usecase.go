@@ -22,12 +22,14 @@ type poolsUseCase struct {
 	pools            sync.Map
 	routerRepository routerrepo.RouterRepository
 	cosmWasmConfig   domain.CosmWasmPoolRouterConfig
+
+	scalingFactorGetterCb domain.ScalingFactorGetterCb
 }
 
 var _ mvc.PoolsUsecase = &poolsUseCase{}
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepository routerrepo.RouterRepository) mvc.PoolsUsecase {
+func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb) mvc.PoolsUsecase {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
 	for _, codeId := range poolsConfig.TransmuterCodeIDs {
 		transmuterCodeIDsMap[codeId] = struct{}{}
@@ -46,8 +48,9 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepo
 			NodeURI:                    nodeURI,
 		},
 
-		pools:            sync.Map{},
-		routerRepository: routerRepository,
+		pools:                 sync.Map{},
+		routerRepository:      routerRepository,
+		scalingFactorGetterCb: scalingFactorGetterCb,
 	}
 }
 
@@ -92,7 +95,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 				takerFee = sqsdomain.DefaultTakerFee
 			}
 
-			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmConfig)
+			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmConfig, p.scalingFactorGetterCb)
 			if err != nil {
 				return nil, err
 			}
@@ -170,7 +173,7 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 
 	// N.B.: Empty string for token out denom because it is irrelevant for calculating spot price.
 	// It is only relevant in the context of routing
-	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmConfig)
+	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmConfig, p.scalingFactorGetterCb)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}

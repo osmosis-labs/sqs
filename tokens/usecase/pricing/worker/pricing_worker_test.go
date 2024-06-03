@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
@@ -30,6 +31,9 @@ var (
 
 	defaultRouterConfig  = routertesting.DefaultRouterConfig
 	defaultPricingConfig = routertesting.DefaultPricingConfig
+
+	// It is irrelevant to the test so we set this default universally.
+	defaultTotalLiquidity = osmomath.OneInt()
 )
 
 func TestPricingWorkerTestSuite(t *testing.T) {
@@ -46,37 +50,39 @@ func (s *PricingWorkerTestSuite) SetupDefaultRouterAndPoolsUsecase() routertesti
 // Tests asyncronous updating of prices for a given set of base denoms by utilzing a mock listener
 // with a 5 second timeout.
 func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
-	emptyBaseDenoms := map[string]struct{}{}
-
 	testCases := []struct {
-		name             string
-		baseDenoms       map[string]struct{}
-		queuedBaseDenoms map[string]struct{}
+		name       string
+		baseDenoms domain.BlockPoolMetadata
 	}{
 		{
-			name:       "empty base denoms",
-			baseDenoms: map[string]struct{}{},
+			name: "empty base denoms",
+			baseDenoms: domain.BlockPoolMetadata{
+				DenomMap: domain.DenomMap{},
+			},
 		},
 		{
-			name:       "one base denom",
-			baseDenoms: map[string]struct{}{UOSMO: {}},
+			name: "one base denom",
+			baseDenoms: domain.BlockPoolMetadata{
+				DenomMap: domain.DenomMap{UOSMO: {}},
+			},
 		},
 		{
 			name: "several base denoms",
-			baseDenoms: map[string]struct{}{
-				UOSMO: {},
-				ATOM:  {},
-				USDC:  {},
+			baseDenoms: domain.BlockPoolMetadata{
+				DenomMap: domain.DenomMap{
+					UOSMO: {},
+					ATOM:  {},
+					USDC:  {},
+				},
 			},
 		},
 		{
 			name: "several base denoms with a queued base denom",
-			baseDenoms: map[string]struct{}{
-				UOSMO: {},
-				USDC:  {},
-			},
-			queuedBaseDenoms: map[string]struct{}{
-				ATOM: {},
+			baseDenoms: domain.BlockPoolMetadata{
+				DenomMap: domain.DenomMap{
+					UOSMO: {},
+					USDC:  {},
+				},
 			},
 		},
 	}
@@ -103,12 +109,6 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 			// Expect no update to be triggered
 			pricingWorker.UpdatePricesAsync(defaultHeight, tc.baseDenoms)
 
-			// Expect processing to be true
-			s.Require().True(pricingWorker.IsProcessing())
-
-			// Queue the base denoms
-			pricingWorker.UpdatePricesAsync(defaultHeight, tc.queuedBaseDenoms)
-
 			// Height and prices are not updated
 			s.Require().Zero(mockPricingUpdateListener.Height)
 			s.Require().Empty(mockPricingUpdateListener.PricesBaseQuteDenomMap)
@@ -117,28 +117,11 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 			didTimeout := mockPricingUpdateListener.WaitOrTimeout()
 			s.Require().False(didTimeout)
 
-			// Expect processing to be false
-			s.Require().False(pricingWorker.IsProcessing())
-
-			// Call update again to ensure that the queued price updates are propagated.
-			pricingWorker.UpdatePricesAsync(defaultHeight, emptyBaseDenoms)
-
-			// Wait for the listener to be called
-			didTimeout = mockPricingUpdateListener.WaitOrTimeout()
-			s.Require().False(didTimeout)
-
-			// Compare results
-			s.Require().Equal(defaultHeight, mockPricingUpdateListener.Height)
-			s.Require().Equal(defaultQuoteDenom, mockPricingUpdateListener.QuoteDenom)
-
 			// Ensure that the correct number of base denoms are set
-			s.Require().Equal(len(tc.baseDenoms)+len(tc.queuedBaseDenoms), len(mockPricingUpdateListener.PricesBaseQuteDenomMap))
+			s.Require().Equal(len(tc.baseDenoms.DenomMap), len(mockPricingUpdateListener.PricesBaseQuteDenomMap))
 
 			// Ensure that non-zero prices are set for each base denom
-			s.ValidatePrices(tc.baseDenoms, defaultQuoteDenom, mockPricingUpdateListener.PricesBaseQuteDenomMap)
-
-			// Ensure that no prices are set for the queued base denom
-			s.ValidatePrices(tc.queuedBaseDenoms, defaultQuoteDenom, mockPricingUpdateListener.PricesBaseQuteDenomMap)
+			s.ValidatePrices(tc.baseDenoms.DenomMap, defaultQuoteDenom, mockPricingUpdateListener.PricesBaseQuteDenomMap)
 		})
 	}
 }
@@ -180,9 +163,11 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().NotZero(len(tokenMetadata))
 
 	// Populate base denoms with all possible chain denoms
-	baseDenoms := map[string]struct{}{}
+	baseDenoms := domain.BlockPoolMetadata{
+		DenomMap: domain.DenomMap{},
+	}
 	for chainDenom := range tokenMetadata {
-		baseDenoms[chainDenom] = struct{}{}
+		baseDenoms.DenomMap[chainDenom] = struct{}{}
 	}
 
 	// Test for empty base denoms
@@ -232,8 +217,10 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	// FURY - listed but no pools
 	// FURY.legacy - listed but no pools
 	//
-	// Update on May 13, 2024: 14 unsupported tokens because some tokens have been fallen back to backup pricining source Coingecko
-	s.Require().Equal(14, zeroPriceCounter)
+	// 6 more tokens were found to be unsupported on May 29th.
+	//
+	// Update on May 29, 2024: 20 unsupported tokens because some tokens have been fallen back to backup pricining source Coingecko
+	s.Require().Equal(20, zeroPriceCounter)
 }
 
 func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]any) {

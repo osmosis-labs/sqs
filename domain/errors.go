@@ -201,3 +201,21 @@ type SameDenomError struct {
 func (e SameDenomError) Error() string {
 	return fmt.Sprintf("two input denoms are equal (%s), must not be the same", e.DenomA)
 }
+
+type SpotPriceQuoteCalculatorOutAmountZeroError struct {
+	QuoteCoinStr string
+	BaseDenom    string
+}
+
+func (e SpotPriceQuoteCalculatorOutAmountZeroError) Error() string {
+	return fmt.Sprintf("out amount is zero when attempting to compute spot price via quote, quote coin (%s), base denom (%s)", e.QuoteCoinStr, e.BaseDenom)
+}
+
+type SpotPriceQuoteCalculatorTruncatedError struct {
+	QuoteCoinStr string
+	BaseDenom    string
+}
+
+func (e SpotPriceQuoteCalculatorTruncatedError) Error() string {
+	return fmt.Sprintf("spot price truncated when using quote method, quote coin (%s), base denom (%s)", e.QuoteCoinStr, e.BaseDenom)
+}
