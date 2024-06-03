@@ -40,7 +40,7 @@ func (p *pricingWorker) UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData
 }
 
 func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
-	baseDenoms := keysFromMap(uniqueBlockPoolMetaData.DenomMap)
+	baseDenoms := keysFromMap(uniqueBlockPoolMetaData.DenomPoolLiquidityMap)
 
 	ctx, cancel := context.WithTimeout(context.Background(), priceUpdateTimeout)
 	start := time.Now()
@@ -67,7 +67,7 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 	// Update listeners
 	for _, listener := range p.updateListeners {
 		// Ignore errors
-		_ = listener.OnPricingUpdate(ctx, int64(height), prices, p.quoteDenom)
+		_ = listener.OnPricingUpdate(ctx, height, uniqueBlockPoolMetaData, prices, p.quoteDenom)
 	}
 
 	// Measure duration

@@ -55,7 +55,7 @@ type priceResult struct {
 // Define a result struct to hold the base denom and prices for each possible quote denom or error
 type priceResults struct {
 	baseDenom string
-	prices    map[string]any
+	prices    map[string]osmomath.BigDec
 	err       error
 }
 
@@ -167,8 +167,8 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 }
 
 // GetPrices implements pricing.PricingStrategy.
-func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (map[string]map[string]any, error) {
-	byBaseDenomResult := make(map[string]map[string]any, len(baseDenoms))
+func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+	byBaseDenomResult := make(map[string]map[string]osmomath.BigDec, len(baseDenoms))
 
 	// Create a channel to communicate the results
 	resultsChan := make(chan priceResults, len(quoteDenoms))
@@ -215,8 +215,8 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 // Returns a map with keys as quotes and values as prices or error, if any.
 // Returns error if base denom is not found in the token metadata.
 // Sets the price to zero in case of failing to compute the price between base and quote but these being valid tokens.
-func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, pricingOptions ...domain.PricingOption) (map[string]any, error) {
-	byQuoteDenomForGivenBaseResult := make(map[string]any, len(quoteDenoms))
+func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, pricingOptions ...domain.PricingOption) (map[string]osmomath.BigDec, error) {
+	byQuoteDenomForGivenBaseResult := make(map[string]osmomath.BigDec, len(quoteDenoms))
 	// Validate base denom is a valid denom
 	// Return zeroes for all quotes if base denom is not found
 	_, err := t.GetMetadataByChainDenom(baseDenom)

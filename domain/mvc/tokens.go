@@ -34,7 +34,7 @@ type TokensUsecase interface {
 	// The outer map consists of base denoms as keys.
 	// The inner map consists of quote denoms as keys.
 	// The result of the inner map is prices of the outer base and inner quote.
-	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (map[string]map[string]any, error)
+	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
 
 	// RegisterPricingStrategy registers a pricing strategy for a given pricing source.
 	RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource)

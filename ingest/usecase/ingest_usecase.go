@@ -7,6 +7,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"go.uber.org/zap"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -25,6 +28,8 @@ type ingestUseCase struct {
 	routerUsecase    mvc.RouterUsecase
 	chainInfoUseCase mvc.ChainInfoUsecase
 
+	denomLiquidityMap domain.DenomPoolLiquidityMap
+
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
 
@@ -34,13 +39,6 @@ type ingestUseCase struct {
 type poolResult struct {
 	pool sqsdomain.PoolI
 	err  error
-}
-
-// UniqueBlockPoolMetaData contains the metadta about unique pools
-// and denoms modified in a block.
-type UniqueBlockPoolMetaData struct {
-	Denoms  map[string]struct{}
-	PoolIDs map[uint64]struct{}
 }
 
 var (
@@ -55,6 +53,8 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 		chainInfoUseCase: chainInfoUseCase,
 		routerUsecase:    routerUseCase,
 		poolsUseCase:     poolsUseCase,
+
+		denomLiquidityMap: make(domain.DenomPoolLiquidityMap),
 
 		logger: logger,
 
@@ -92,12 +92,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	// Note: we must queue the update before we start updating prices as pool liquidity
 	// worker listens for the pricing updates at the same height.
-	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, domain.BlockPoolMetadata{
-		DenomMap: uniqueBlockPoolMetadata.Denoms,
-		// TODO: add in the future PR.
-		// Ref: https://github.com/osmosis-labs/sqs/pull/224
-		// PoolIDs: ,
-	})
+	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
 
 	// Store the latest ingested height.
 	p.chainInfoUseCase.StoreLatestHeight(height)
@@ -123,7 +118,7 @@ func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
 }
 
 // parsePoolData parses the pool data and returns the pool objects.
-func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsdomain.PoolI, UniqueBlockPoolMetaData, error) {
+func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsdomain.PoolI, domain.BlockPoolMetadata, error) {
 	poolResultChan := make(chan poolResult, len(poolData))
 
 	// Parse the pools concurrently
@@ -140,10 +135,11 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 
 	parsedPools := make([]sqsdomain.PoolI, 0, len(poolData))
 
-	uniqueData := UniqueBlockPoolMetaData{
-		Denoms:  make(map[string]struct{}),
+	uniqueData := domain.BlockPoolMetadata{
 		PoolIDs: make(map[uint64]struct{}, len(poolData)),
 	}
+
+	currentBlockLiquidityMap := domain.DenomPoolLiquidityMap{}
 
 	// Collect the parsed pools
 	for i := 0; i < len(poolData); i++ {
@@ -156,21 +152,110 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				continue
 			}
 
-			// Update unique denoms
-			for _, balance := range poolResult.pool.GetSQSPoolModel().Balances {
-				uniqueData.Denoms[balance.Denom] = struct{}{}
-			}
+			// Get balances and pool ID.
+			currentPoolBalances := poolResult.pool.GetSQSPoolModel().Balances
+			poolID := poolResult.pool.GetId()
+
+			// Update block liquidity map.
+			currentBlockLiquidityMap = updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap, currentPoolBalances, poolID)
 
 			// Update unique pools.
-			uniqueData.PoolIDs[poolResult.pool.GetId()] = struct{}{}
+			uniqueData.PoolIDs[poolID] = struct{}{}
 
 			parsedPools = append(parsedPools, poolResult.pool)
 		case <-ctx.Done():
-			return nil, UniqueBlockPoolMetaData{}, ctx.Err()
+			return nil, domain.BlockPoolMetadata{}, ctx.Err()
 		}
 	}
 
+	// Transfer the updated block denom liquidity data to the global map.
+	// Note, the updated liquidity data contains updates only for the pools updated
+	// in the current block. We need to merge this data with the holistic existing data.
+	p.denomLiquidityMap = transferDenomLiquidityMap(p.denomLiquidityMap, currentBlockLiquidityMap)
+
+	// Update unique denoms.
+	uniqueData.DenomPoolLiquidityMap = p.denomLiquidityMap
+
 	return parsedPools, uniqueData, nil
+}
+
+// updateCurrentBlockLiquidityMapFromBalances updates the current block liquidity map with the balance from the pool of the supplied ID.
+// For each denom, if there is pre-existent denom data, it is updated, if there is no denom dat, it is initialized to the given balances.
+// CONTRACT: if thehere is a liqudiity entry for a denom, it must have been previously initialized by calling this function.
+// Returns the updated map.
+func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
+	// For evey coin in balance
+	for _, coin := range currentPoolBalances {
+		// Get denom data for this denom
+		denomData, ok := currentBlockLiquidityMap[coin.Denom]
+		if !ok {
+			// Initialize if does not exist
+			denomData = domain.DenomPoolLiquidityData{
+				TotalLiquidity: osmomath.ZeroInt(),
+				Pools:          map[uint64]osmomath.Int{},
+			}
+		}
+
+		// Set the denom liquidity contribution from the given pool
+		denomData.Pools[poolID] = coin.Amount
+
+		// Update total liquidity
+		denomData.TotalLiquidity = denomData.TotalLiquidity.Add(coin.Amount)
+
+		// Update the block liquidity map
+		currentBlockLiquidityMap[coin.Denom] = denomData
+	}
+
+	// Return for idiomacy despite param mutation.
+	return currentBlockLiquidityMap
+}
+
+// transferDenomLiquidityMap transfer the updated block denom liquidity data from transferFrom to
+// transferTo map.
+//
+// Note, the updated liquidity data contains updates only for the pools updated
+// in the current block. We need to merge this data with the holistic existing data.
+//
+// Returns the updated map.
+//
+// Transfer process:
+// If there is an entry in transferFrom map that does not exist in transferTo, it is copied to the transferTo map.
+// If there is an entry for the same denom in both maps, it is merged from one map to the other.
+//
+// Merge process:
+// For all pools in the transfer from map, if there is an entry for that pool in the transferTo map, we subtract
+// that pools liquidity contribution from total in the transferTo map.
+//
+// We then simply add the transferFrom liquidity map to the total to reflect the new total.
+// the updated denom liquidity data is then set for that denom.
+func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidityMap) domain.DenomPoolLiquidityMap {
+	for denom, transferFromDenomLiquidityData := range transferFrom {
+		transferToLiquidityDataForDenom, ok := transferTo[denom]
+		if !ok {
+			transferTo[denom] = transferFromDenomLiquidityData
+			continue
+		}
+
+		// Transfer pools
+		for transferFromPoolID, transferFromLiquidity := range transferFromDenomLiquidityData.Pools {
+			// Current pool data
+			transferToPoolLiquidity, ok := transferToLiquidityDataForDenom.Pools[transferFromPoolID]
+			if ok {
+				// Subtract the existing liquidity from the total liquidity.
+				transferToLiquidityDataForDenom.TotalLiquidity = transferToLiquidityDataForDenom.TotalLiquidity.Sub(transferToPoolLiquidity)
+			}
+
+			// Add the new liquidity to the total liquidity.
+			transferToLiquidityDataForDenom.TotalLiquidity = transferToLiquidityDataForDenom.TotalLiquidity.Add(transferFromLiquidity)
+			// Overwrite liquidity for the pool or set it if it doesn't exist.
+			transferToLiquidityDataForDenom.Pools[transferFromPoolID] = transferFromLiquidity
+		}
+
+		// Update the global map with the updated data.
+		transferTo[denom] = transferToLiquidityDataForDenom
+	}
+
+	return transferTo
 }
 
 // parsePool parses the pool data and returns the pool object

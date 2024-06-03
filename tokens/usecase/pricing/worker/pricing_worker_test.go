@@ -57,19 +57,21 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 		{
 			name: "empty base denoms",
 			baseDenoms: domain.BlockPoolMetadata{
-				DenomMap: domain.DenomMap{},
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{},
 			},
 		},
 		{
 			name: "one base denom",
 			baseDenoms: domain.BlockPoolMetadata{
-				DenomMap: domain.DenomMap{UOSMO: {}},
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{UOSMO: {
+					TotalLiquidity: osmomath.OneInt(),
+				}},
 			},
 		},
 		{
 			name: "several base denoms",
 			baseDenoms: domain.BlockPoolMetadata{
-				DenomMap: domain.DenomMap{
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{
 					UOSMO: {},
 					ATOM:  {},
 					USDC:  {},
@@ -79,7 +81,7 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 		{
 			name: "several base denoms with a queued base denom",
 			baseDenoms: domain.BlockPoolMetadata{
-				DenomMap: domain.DenomMap{
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{
 					UOSMO: {},
 					USDC:  {},
 				},
@@ -118,10 +120,10 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 			s.Require().False(didTimeout)
 
 			// Ensure that the correct number of base denoms are set
-			s.Require().Equal(len(tc.baseDenoms.DenomMap), len(mockPricingUpdateListener.PricesBaseQuteDenomMap))
+			s.Require().Equal(len(tc.baseDenoms.DenomPoolLiquidityMap), len(mockPricingUpdateListener.PricesBaseQuteDenomMap))
 
 			// Ensure that non-zero prices are set for each base denom
-			s.ValidatePrices(tc.baseDenoms.DenomMap, defaultQuoteDenom, mockPricingUpdateListener.PricesBaseQuteDenomMap)
+			s.ValidatePrices(tc.baseDenoms.DenomPoolLiquidityMap, defaultQuoteDenom, mockPricingUpdateListener.PricesBaseQuteDenomMap)
 		})
 	}
 }
@@ -164,10 +166,10 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 
 	// Populate base denoms with all possible chain denoms
 	baseDenoms := domain.BlockPoolMetadata{
-		DenomMap: domain.DenomMap{},
+		DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{},
 	}
 	for chainDenom := range tokenMetadata {
-		baseDenoms.DenomMap[chainDenom] = struct{}{}
+		baseDenoms.DenomPoolLiquidityMap[chainDenom] = domain.DenomPoolLiquidityData{}
 	}
 
 	// Test for empty base denoms
@@ -223,7 +225,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().Equal(20, zeroPriceCounter)
 }
 
-func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]any) {
+func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms domain.DenomPoolLiquidityMap, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {
 	for baseDenom := range initialDenoms {
 		quoteMap, ok := prices[baseDenom]
 		s.Require().True(ok)
