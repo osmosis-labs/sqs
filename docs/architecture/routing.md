@@ -68,6 +68,38 @@ Consider the following configuration of pool liquidity capitalization to filter 
 50_000 -> 10_000
 ```
 
-This implies that tokens from total liquidity across all pools of over or equal to $1M require the min
+And a default parameter for min liquidity capitalization of $1K.
+
+This implies that tokens with total liquidity across all pools of over or equal to $1M require the min
 liquidity capitalization filter of $100K. Similarly, tokens with liquidities over $100K and below $1M
-are required to 
+are required to route over pools with min liquidity capitalization of $10K.
+
+Assume we have the following liquidity capitalizations across all pools for the tokens:
+```
+- ATOM -> $2M
+- JUNO -> $300K
+- BONK -> $1K
+```
+
+Consider the following examples:
+
+1. Swap ATOM for JUNO
+```
+# min(2_000_000, 300_000) = 300_000
+min_token_liq = min(total_liq[ATOM], total_liq[JUNO])
+
+# Translate $300K to $10K since $300K > $50K per configuration.
+dynamic_min_liq_cap = map_token_liq_to_liq_cap(min_token_liq)
+```
+
+2. Swap ATOM for BONK
+```
+# min(2_000_000, 1_000) = 1_000
+min_token_liq = min(total_liq[ATOM], total_liq[BONK])
+
+# Translate $1K to $1K (default) since $1K under $50K (lowest threshold value per configuration).
+dynamic_min_liq_cap = map_token_liq_to_liq_cap(min_token_liq)
+```
+
+The reason for choosing the minimum of the total pool liquidities between token in and token out is
+so that we can still find routes between low liquidity tokens that likely have pools of even smaller liqudity.
