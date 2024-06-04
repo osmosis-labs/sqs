@@ -98,4 +98,5 @@ func init() {
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
 	prometheus.MustRegister(SQSPricingWorkerComputeDurationGauge)
 	prometheus.MustRegister(SQSPricingWorkerComputeErrorCounter)
+	prometheus.MustRegister(SQSPoolLiquidityPricingWorkerComputeDurationGauge)
 }
