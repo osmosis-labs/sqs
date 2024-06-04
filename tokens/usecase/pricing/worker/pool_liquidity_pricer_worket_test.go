@@ -99,6 +99,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	// Create the worker
 	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
 
+	// Create & register mock listener
+	mockListener := &mocks.PoolLiquidityPricingMock{}
+	poolLiquidityPricerWorker.RegisterListener(mockListener)
+
 	// System under test
 	err := poolLiquidityPricerWorker.OnPricingUpdate(context.TODO(), defaultHeight, domain.BlockPoolMetadata{
 		DenomLiquidityMap: defaultBlockLiquidityUpdates,
@@ -115,6 +119,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	s.Require().Equal(result.Price, defaultPrice)
 	s.Require().Equal(result.TotalLiquidity, defaultLiquidity)
 	s.Require().Equal(result.TotalLiquidityCap, defaultLiquidityCap)
+
+	// Validate that the listener mock was called with the relevant height.
+	lastHeightCalled := mockListener.GetLastHeightCalled()
+	s.Require().Equal(int64(defaultHeight), lastHeightCalled)
 }
 
 // TestHasLaterUpdateThanHeight tests the HasLaterUpdateThanHeight method by following the spec.

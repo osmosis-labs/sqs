@@ -19,6 +19,8 @@ var (
 type poolLiquidityPricerWorker struct {
 	tokenPoolLiquidityHandler mvc.TokensPoolLiquidityHandler
 
+	updateListeners []domain.PoolLiquidityComputeListener
+
 	liquidityPricer domain.LiquidityPricer
 
 	// Denom -> Last height of the pricing update.
@@ -31,6 +33,8 @@ type poolLiquidityPricerWorker struct {
 func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler, liquidityPricer domain.LiquidityPricer) domain.PoolLiquidityPricerWorker {
 	return &poolLiquidityPricerWorker{
 		tokenPoolLiquidityHandler: tokensPoolLiquidityHandler,
+
+		updateListeners: []domain.PoolLiquidityComputeListener{},
 
 		liquidityPricer: liquidityPricer,
 
@@ -48,6 +52,11 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 
 	// Update the pool denom metadata.
 	p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
+
+	// Notify listeners.
+	for _, listener := range p.updateListeners {
+		_ = listener.OnPoolLiquidityCompute(int64(height))
+	}
 
 	// Measure duration
 	domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
@@ -142,4 +151,9 @@ func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, heigh
 	}
 
 	return false
+}
+
+// RegisterListener implements PoolLiquidityPricerWorker.
+func (p *poolLiquidityPricerWorker) RegisterListener(listener domain.PoolLiquidityComputeListener) {
+	p.updateListeners = append(p.updateListeners, listener)
 }

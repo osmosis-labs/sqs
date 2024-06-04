@@ -156,6 +156,10 @@ type PoolLiquidityPricerWorker interface {
 
 	// StoreHeightForDenom stores the latest height for the given denom.
 	StoreHeightForDenom(denom string, height uint64)
+
+	// RegisterListener register pool liquidity compute lister that receives hook updates
+	// on completion of the worker workload.
+	RegisterListener(listener PoolLiquidityComputeListener)
 }
 
 type DenomPriceInfo struct {
@@ -177,7 +181,7 @@ type LiquidityPricer interface {
 // It is used to notify the listeners of the pool liquidity compute worker that the computation
 // for a given height is completed.
 type PoolLiquidityComputeListener interface {
-	OnPoolLiquidityCompute(height int64, updatedPoolIDs []uint64) error
+	OnPoolLiquidityCompute(height int64) error
 }
 
 // PricesResult defines the result of the prices.

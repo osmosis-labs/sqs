@@ -105,7 +105,7 @@ func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height uint64, b
 }
 
 // OnPoolLiquidityCompute implements domain.PoolLiquidityComputeListener.
-func (p *chainInfoUseCase) OnPoolLiquidityCompute(height int64, updatedPoolIDs []uint64) error {
+func (p *chainInfoUseCase) OnPoolLiquidityCompute(height int64) error {
 	p.poolLiquidityUpdateHeightMx.Lock()
 	defer p.poolLiquidityUpdateHeightMx.Unlock()
 	p.latestPoolLiquidityUpdateHeight = uint64(height)
