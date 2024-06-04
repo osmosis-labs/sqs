@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -27,6 +28,13 @@ const routerResource = "/router"
 
 var (
 	oneDec = osmomath.OneDec()
+)
+
+// Handler Errors
+var (
+	ErrTokenNotValid                   = errors.New("tokenIn is invalid - must be in the format amountDenom")
+	ErrTokenNotSpecified               = errors.New("tokenIn is required")
+	ErrNumOfTokenOutDenomPoolsMismatch = errors.New("number of tokenOutDenom must be equal to number of pool IDs")
 )
 
 func formatRouterResource(resource string) string {
@@ -120,19 +128,22 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, quote)
 }
 
-// GetDirectCustomQuote returns a direct custom quote. It does not search for the route.
-// It directly computes the quote for the given poolID.
+// @Summary Compute the quote for the given poolID
+// @Description Call does not search for the route rather directly computes the quote for the given poolID.
+// @ID get-direct-quote
+// @Produce  json
+// @Param  tokenIn         query  string  true  "String representation of the sdk.Coin for the token in."                   example(5OSMO)
+// @Param  tokenOutDenom   query  string  true  "String representing the list of the token denom out separated by comma."   example(ATOM,USDC)
+// @Param  poolID          query  string  true  "String representing list of the pool ID."                                  example(1,2,3)
+// @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
+// @Success 200  {object}  domain.Quote  "The computed best route quote"
+// @Router /router/custom-direct-quote [get]
 func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
+	poolIDs, tokenOutDenom, tokenIn, err := getDirectCustomQuoteParameters(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-	}
-
-	poolIDStr := c.QueryParam("poolID")
-	if len(poolIDStr) == 0 {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "poolID is required"})
 	}
 
 	shouldApplyExponentsStr := c.QueryParam("applyExponents")
@@ -144,20 +155,16 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 		}
 	}
 
-	poolID, err := strconv.ParseUint(poolIDStr, 10, 64)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-	}
-
 	// Quote
-	quote, err := a.RUsecase.GetCustomDirectQuote(ctx, tokenIn, tokenOutDenom, poolID)
+	quote, err := a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, tokenIn, tokenOutDenom, poolIDs)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
+		// TODO: is this right approach to take last token out?
+		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom[len(tokenOutDenom)-1])
 	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
@@ -340,10 +347,25 @@ func getValidRoutingParameters(c echo.Context) (string, sdk.Coin, error) {
 
 	tokenIn, err := sdk.ParseCoinNormalized(tokenInStr)
 	if err != nil {
-		return "", sdk.Coin{}, errors.New("tokenIn is invalid - must be in the format amountDenom")
+		return "", sdk.Coin{}, ErrTokenNotValid
 	}
 
 	return tokenOutStr, tokenIn, nil
+}
+
+// getDirectCustomQuoteParameters returns the pool IDs, tokenIn and tokenOutDenom from server context if they are valid.
+func getDirectCustomQuoteParameters(c echo.Context) ([]uint64, []string, sdk.Coin, error) {
+	poolID, tokenOut, tokenInStr, err := getPoolsValidTokenInTokensOut(c)
+	if err != nil {
+		return nil, nil, sdk.Coin{}, err
+	}
+
+	tokenIn, err := sdk.ParseCoinNormalized(tokenInStr)
+	if err != nil {
+		return nil, nil, sdk.Coin{}, ErrTokenNotValid
+	}
+
+	return poolID, tokenOut, tokenIn, nil
 }
 
 // getSpotPriceScalingFactor returns the spot price scaling factor for a given tokenIn and tokenOutDenom.
@@ -362,7 +384,7 @@ func getValidTokenInStr(c echo.Context) (string, error) {
 	tokenInStr := c.QueryParam("tokenIn")
 
 	if len(tokenInStr) == 0 {
-		return "", errors.New("tokenIn is required")
+		return "", ErrTokenNotSpecified
 	}
 
 	return tokenInStr, nil
@@ -380,10 +402,60 @@ func getValidTokenInTokenOutStr(c echo.Context) (tokenOutStr, tokenInStr string,
 		return "", "", errors.New("tokenOutDenom is required")
 	}
 
-	// Validate inpit denoms
+	// Validate input denoms
 	if err := domain.ValidateInputDenoms(tokenInStr, tokenOutStr); err != nil {
 		return "", "", err
 	}
 
 	return tokenOutStr, tokenInStr, nil
+}
+
+func getValidPoolID(c echo.Context) ([]uint64, error) {
+	// We accept two poolIDs and poolID parameters, and require at least one of them to be filled
+	poolIDStr := strings.Split(c.QueryParam("poolID"), ",")
+	if len(poolIDStr) == 0 {
+		return nil, errors.New("poolID is required")
+	}
+
+	var poolIDs []uint64
+	for _, v := range poolIDStr {
+		i, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		poolIDs = append(poolIDs, i)
+	}
+
+	return poolIDs, nil
+}
+
+func getPoolsValidTokenInTokensOut(c echo.Context) (poolIDs []uint64, tokenOut []string, tokenIn string, err error) {
+	poolIDs, err = getValidPoolID(c)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	tokenIn, err = getValidTokenInStr(c)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	tokenOut = strings.Split(c.QueryParam("tokenOutDenom"), ",")
+	if len(tokenOut) == 0 {
+		return nil, nil, "", errors.New("tokenOutDenom is required")
+	}
+
+	// one output per each pool
+	if len(tokenOut) != len(poolIDs) {
+		return nil, nil, "", ErrNumOfTokenOutDenomPoolsMismatch
+	}
+
+	// Validate denoms
+	for _, v := range tokenOut {
+		if err := domain.ValidateInputDenoms(tokenIn, v); err != nil {
+			return nil, nil, "", err
+		}
+	}
+
+	return poolIDs, tokenOut, tokenIn, nil
 }
