@@ -16,7 +16,7 @@ type IngestUseCaseTestSuite struct {
 }
 
 const (
-	defaltPoolID uint64 = 1
+	defaultPoolID uint64 = 1
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 		UOSMO: domain.DenomPoolLiquidityData{
 			TotalLiquidity: defaultAmount,
 			Pools: map[uint64]osmomath.Int{
-				defaltPoolID: defaultAmount,
+				defaultPoolID: defaultAmount,
 			},
 		},
 	}
@@ -46,7 +46,7 @@ var (
 		USDC: domain.DenomPoolLiquidityData{
 			TotalLiquidity: defaultAmount.Add(defaultAmount),
 			Pools: map[uint64]osmomath.Int{
-				defaltPoolID + 1: defaultAmount.Add(defaultAmount),
+				defaultPoolID + 1: defaultAmount.Add(defaultAmount),
 			},
 		},
 	}
@@ -55,14 +55,14 @@ var (
 		UOSMO: domain.DenomPoolLiquidityData{
 			TotalLiquidity: defaultAmount,
 			Pools: map[uint64]osmomath.Int{
-				defaltPoolID: defaultAmount,
+				defaultPoolID: defaultAmount,
 			},
 		},
 
 		USDC: domain.DenomPoolLiquidityData{
 			TotalLiquidity: defaultUSDCBalance.Amount,
 			Pools: map[uint64]osmomath.Int{
-				defaltPoolID + 1: defaultUSDCBalance.Amount,
+				defaultPoolID + 1: defaultUSDCBalance.Amount,
 			},
 		},
 	}
@@ -90,7 +90,7 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 
 			blockLiqMap: emptyBlockLiqMap,
 
-			poolID: defaltPoolID,
+			poolID: defaultPoolID,
 
 			expectedBlockLiqMap: emptyBlockLiqMap,
 		},
@@ -106,7 +106,7 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 
 			balances: sdk.NewCoins(defaultUOSMOBalance),
 
-			poolID: defaltPoolID,
+			poolID: defaultPoolID,
 
 			expectedBlockLiqMap: domain.DenomPoolLiquidityMap{
 				UOSMO: domain.DenomPoolLiquidityData{
@@ -114,7 +114,7 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 					TotalLiquidity: defaultAmount.Add(defaultAmount),
 					Pools: map[uint64]osmomath.Int{
 						// Pool entry added
-						defaltPoolID: defaultAmount,
+						defaultPoolID: defaultAmount,
 					},
 				},
 			},
@@ -126,7 +126,7 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 
 			balances: sdk.NewCoins(defaultUSDCBalance),
 
-			poolID: defaltPoolID + 1,
+			poolID: defaultPoolID + 1,
 
 			expectedBlockLiqMap: mergedUOSMOandUSDCMap,
 		},
@@ -136,7 +136,7 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 			blockLiqMap: defaultMapUOSMOEntry,
 
 			balances: sdk.NewCoins(),
-			poolID:   defaltPoolID,
+			poolID:   defaultPoolID,
 
 			expectedBlockLiqMap: defaultMapUOSMOEntry,
 		},
@@ -147,7 +147,7 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 			blockLiqMap: emptyDenomLiquidityMap,
 
 			balances: sdk.NewCoins(),
-			poolID:   defaltPoolID,
+			poolID:   defaultPoolID,
 
 			expectedBlockLiqMap: emptyDenomLiquidityMap,
 		},
@@ -158,13 +158,13 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 				UOSMO: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultAmount,
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID: defaultAmount,
+						defaultPoolID: defaultAmount,
 					},
 				},
 				USDC: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultAmount,
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID: defaultAmount,
+						defaultPoolID: defaultAmount,
 					},
 				},
 			},
@@ -174,25 +174,25 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 				defaultUSDCBalance,
 				defaultATOMBalance,
 			),
-			poolID: defaltPoolID + 1,
+			poolID: defaultPoolID + 1,
 
 			expectedBlockLiqMap: domain.DenomPoolLiquidityMap{
 				UOSMO: domain.DenomPoolLiquidityData{
 					// Doubled
 					TotalLiquidity: defaultAmount.Add(defaultAmount),
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID: defaultAmount,
+						defaultPoolID: defaultAmount,
 						// Another pool entry created.
-						defaltPoolID + 1: defaultAmount,
+						defaultPoolID + 1: defaultAmount,
 					},
 				},
 				USDC: domain.DenomPoolLiquidityData{
 					// Doubled
 					TotalLiquidity: defaultAmount.Add(defaultUSDCBalance.Amount),
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID: defaultAmount,
+						defaultPoolID: defaultAmount,
 						// Another pool entry created.
-						defaltPoolID + 1: defaultUSDCBalance.Amount,
+						defaultPoolID + 1: defaultUSDCBalance.Amount,
 					},
 				},
 
@@ -200,7 +200,7 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 				ATOM: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultATOMBalance.Amount,
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID + 1: defaultATOMBalance.Amount,
+						defaultPoolID + 1: defaultATOMBalance.Amount,
 					},
 				},
 			},
@@ -277,8 +277,8 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 				UOSMO: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultAmount.Add(defaultAmount),
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID:     defaultAmount,
-						defaltPoolID + 1: defaultAmount,
+						defaultPoolID:     defaultAmount,
+						defaultPoolID + 1: defaultAmount,
 					},
 				},
 			},
@@ -287,8 +287,8 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 				UOSMO: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultAmount.Add(defaultAmount),
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID:     defaultAmount,
-						defaltPoolID + 1: defaultAmount,
+						defaultPoolID:     defaultAmount,
+						defaultPoolID + 1: defaultAmount,
 					},
 				},
 			},
@@ -304,7 +304,7 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 				ATOM: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultAmount,
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID: defaultAmount,
+						defaultPoolID: defaultAmount,
 					},
 				},
 			},
@@ -314,14 +314,14 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 				UOSMO: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultUOSMOBalance.Amount,
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID: defaultUOSMOBalance.Amount,
+						defaultPoolID: defaultUOSMOBalance.Amount,
 					},
 				},
 				// Double USDC
 				USDC: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultUSDCBalance.Amount,
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID + 1: defaultUSDCBalance.Amount,
+						defaultPoolID + 1: defaultUSDCBalance.Amount,
 					},
 				},
 
@@ -329,7 +329,7 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 				ATOM: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultAmount,
 					Pools: map[uint64]osmomath.Int{
-						defaltPoolID: defaultAmount,
+						defaultPoolID: defaultAmount,
 					},
 				},
 			},
