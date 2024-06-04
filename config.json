@@ -27,13 +27,13 @@
             148,
             254
         ],
+        "alloyed-transmuter-code-ids": [],
         "general-cosmwasm-code-ids": [
             503,
             572,
             773,
             641
-        ],
-        "is-alloyed-transmuter-enabled": true
+        ]
     },
     "pricing": {
         "cache-expiry-ms": 2000,
