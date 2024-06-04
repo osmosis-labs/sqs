@@ -25,6 +25,7 @@ require (
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/CosmWasm/wasmvm v1.5.2 // indirect
 	github.com/DataDog/zstd v1.4.5 // indirect
+	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect

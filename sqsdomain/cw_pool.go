@@ -1,6 +1,9 @@
 package sqsdomain
 
-import "github.com/osmosis-labs/osmosis/osmomath"
+import (
+	"github.com/Masterminds/semver"
+	"github.com/osmosis-labs/osmosis/osmomath"
+)
 
 // CosmWasm contract info from [cw2 spec](https://github.com/CosmWasm/cw-minus/blob/main/packages/cw2/README.md)
 type ContractInfo struct {
@@ -8,10 +11,16 @@ type ContractInfo struct {
 	Version  string `json:"version"`
 }
 
-// Check if the contract info matches the given contract and version
-// The version can be a semver range
-func (ci *ContractInfo) Matches(contract, version string) bool {
-	return ci.Contract == contract && ci.Version == version
+// Check if the contract info matches the given contract and version constrains
+func (ci *ContractInfo) Matches(contract string, versionConstrains *semver.Constraints) bool {
+	version, err := semver.NewVersion(ci.Version)
+	validSemver := err == nil
+
+	// matches only if:
+	// - semver is valid
+	// - contract matches
+	// - version constrains matches
+	return validSemver && (ci.Contract == contract && versionConstrains.Check(version))
 }
 
 // CosmWasmPoolModel is a model for the pool data of a CosmWasm pool
@@ -42,7 +51,15 @@ func NewCWPoolModel(contract string, version string, data CWPoolData) *CosmWasmP
 }
 
 func (model *CosmWasmPoolModel) IsAlloyTransmuter() bool {
-	return model.ContractInfo.Matches("crates.io:transmuter", "3.0.0")
+	name := "crates.io:transmuter"
+	version := ">= 3.0.0"
+
+	constraints, err := semver.NewConstraint(version)
+	// this must never panic
+	if err != nil {
+		panic(err)
+	}
+	return model.ContractInfo.Matches(name, constraints)
 }
 
 // === custom cw pool data ===
