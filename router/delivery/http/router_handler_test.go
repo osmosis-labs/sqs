@@ -53,6 +53,7 @@ func (s *RouterHandlerSuite) TestGetMinPoolLiquidityCapFilter() {
 		tokenInDenom                string
 		tokenOutDenom               string
 		disableMinLiquidityFallback bool
+		forceDefaultMinLiquidityCap bool
 
 		expectedFilter uint64
 		expectErr      bool
@@ -86,6 +87,16 @@ func (s *RouterHandlerSuite) TestGetMinPoolLiquidityCapFilter() {
 
 			expectErr: true,
 		},
+
+		{
+			name: "forcing default min liqudity cap prevents error",
+			// UATOM does not have the pool liquidity metadata pre-configured.
+			tokenInDenom:                UATOM,
+			tokenOutDenom:               UOSMO,
+			forceDefaultMinLiquidityCap: true,
+
+			expectedFilter: defaultFilterValue,
+		},
 	}
 
 	for _, tc := range tests {
@@ -111,7 +122,7 @@ func (s *RouterHandlerSuite) TestGetMinPoolLiquidityCapFilter() {
 				},
 			})
 
-			actualFilter, err := routerHandler.GetMinPoolLiquidityCapFilter(tc.tokenInDenom, tc.tokenOutDenom, tc.disableMinLiquidityFallback)
+			actualFilter, err := routerHandler.GetMinPoolLiquidityCapFilter(tc.tokenInDenom, tc.tokenOutDenom, tc.disableMinLiquidityFallback, tc.forceDefaultMinLiquidityCap)
 
 			if tc.expectErr {
 				s.Require().Error(err)

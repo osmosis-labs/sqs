@@ -32,7 +32,21 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestGetSplitQuote",
+                "TestRouterTestSuite/TestConvertMinTokensPoolLiquidityCapToFilter",
+                "-test.v"
+            ],
+        },
+        {
+            "name": "router/delivery/http",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/router/delivery/http",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestRouterHandlerSuite/TestGetMinPoolLiquidityCapFilter",
                 "-test.v"
             ],
         },
