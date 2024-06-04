@@ -35,7 +35,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v0.19.0
 
 - Optimize dynamic splits by caching repeated calls within callback.
 - Remove queue from pricing worker
