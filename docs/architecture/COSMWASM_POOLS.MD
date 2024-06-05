@@ -44,3 +44,13 @@ type CWPoolData struct {
 With those information, we can construct `RoutablePool` to facilitate the calculation of token out given in & spot price specific to those pool type.
 
 One caveat on utilizing cw2 information is that there is no uniqueness check for these contract info. But this should be managable since not excessive amount of pool type is expected and cosmwasm pool are permissioned.
+
+
+## Transmuter
+
+`crates.io:transmuter` `<3.0.0`: requires no additional information.
+`crates.io:transmuter` `>=3.0.0`: requires alloyed asset denom and normalization factors for each asset.
+
+From there onwards, there might be requirement to update `RouteablePool` to have updated information and logic.
+We do not put the constraint on the maximum version supported here since it will require code changes even though
+there is no change in logic. And it's already have whitelist for supported pool type by the code ids for the moment.
