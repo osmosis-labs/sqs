@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"go.uber.org/zap"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -132,6 +133,16 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	span.SetAttributes(attribute.Stringer("token_out", quote.GetAmountOut()))
 	span.SetAttributes(attribute.Stringer("price_impact", quote.GetPriceImpact()))
+
+	c.SetRequest(c.Request().WithContext(ctx))
+
+	// Inject the span context into the outgoing request headers
+	req := c.Request().Clone(ctx)
+	//otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+	c.SetRequest(req)
+
+	a.logger.Info("TRACE ID 2", zap.String("trace_id", span.SpanContext().TraceID().String()))
+	c.Response().Header().Set("X-Trace-ID", span.SpanContext().TraceID().String())
 
 	return c.JSON(http.StatusOK, quote)
 }

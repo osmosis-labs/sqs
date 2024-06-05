@@ -143,13 +143,17 @@ func initOTELTracer(ctx context.Context, res *resource.Resource) (*sdktrace.Trac
 		return nil, err
 	}
 
+	bsp := sdktrace.NewBatchSpanProcessor(exporter)
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
+		sdktrace.WithSpanProcessor(bsp),
 	)
 
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	//otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	return tp, nil
 }

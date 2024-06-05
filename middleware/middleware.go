@@ -168,6 +168,10 @@ func (m *GoMiddleware) TraceWithParamsMiddleware(tracerName string) echo.Middlew
 			// Inject the span context back into the Echo context and request context
 			c.SetRequest(c.Request().WithContext(ctx))
 
+				// Inject the span context into the outgoing request headers
+			req := c.Request().Clone(ctx)
+			otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+			c.SetRequest(req)
 			// Iterate through query parameters and add them as attributes to the span
 			// Ensure to filter out any sensitive parameters here
 			for key, values := range c.QueryParams() {
@@ -176,6 +180,8 @@ func (m *GoMiddleware) TraceWithParamsMiddleware(tracerName string) echo.Middlew
 				span.SetAttributes(attribute.String(key, values[0]))
 			}
 
+			m.logger.Info("TRACE ID", zap.String("trace_id", span.SpanContext().TraceID().String()))
+			c.Response().Header().Set("X-Trace-ID", span.SpanContext().TraceID().String())
 			// Proceed with the request handling
 			err := next(c)
 

@@ -41,6 +41,7 @@ func NewClient(chainID string, nodeURI string) (Client, error) {
 
 // IsConnected returns error if fails to connect to client. Nil otherwise
 func (c chainClient) GetLatestHeight(ctx context.Context) (uint64, error) {
+	
 	statusResult, err := c.rpcClient.Status(ctx)
 	if err != nil {
 		return 0, err
