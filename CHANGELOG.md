@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v0.19.1
+
+- Record errors with OpenTelemetry.
+
 ## v0.19.0
 
 - Optimize dynamic splits by caching repeated calls within callback.
