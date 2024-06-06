@@ -68,11 +68,11 @@ func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmoma
 			})
 		}
 
-		// Check if pools is balancer
+		// Check if pools is stableswap
 		stableswapPool, ok := chainPool.(*stableswap.Pool)
 		if !ok {
 			panic(domain.FailedToCastPoolModelError{
-				ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Balancer)],
+				ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Stableswap)],
 				ActualModel:   poolmanagertypes.PoolType_name[int32(poolType)],
 			})
 		}
@@ -96,12 +96,36 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 	cosmwasmPool, ok := chainPool.(*cwpoolmodel.CosmWasmPool)
 	if !ok {
 		return nil, domain.FailedToCastPoolModelError{
-			ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Balancer)],
+			ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.CosmWasm)],
 			ActualModel:   poolmanagertypes.PoolType_name[int32(poolType)],
 		}
 	}
 
+	// Check if the pool is a transmuter pool with alloyed assets
+	model := pool.GetSQSPoolModel().CosmWasmPoolModel
 	balances := pool.GetSQSPoolModel().Balances
+	if model != nil {
+		// since v2, we introduce concept of alloyed assets but not yet actively used
+		// since v3, we introduce concept of normalization factor
+		// `routableAlloyTransmuterPoolImpl` is v3 compatible
+		_, isAlloyedTransmuterCodeId := cosmWasmConfig.AlloyedTransmuterCodeIDs[cosmwasmPool.CodeId]
+		if isAlloyedTransmuterCodeId && model.IsAlloyTransmuter() {
+			spreadFactor := pool.GetSQSPoolModel().SpreadFactor
+
+			if model.Data.AlloyTransmuter == nil {
+				return nil, domain.AlloyTransmuterDataMissingError{PoolId: pool.GetId()}
+			}
+
+			return &routableAlloyTransmuterPoolImpl{
+				ChainPool:           cosmwasmPool,
+				AlloyTransmuterData: model.Data.AlloyTransmuter,
+				Balances:            balances,
+				TokenOutDenom:       tokenOutDenom,
+				TakerFee:            takerFee,
+				SpreadFactor:        spreadFactor,
+			}, nil
+		}
+	}
 
 	// Check if the pool is a transmuter pool
 	_, isTransmuter := cosmWasmConfig.TransmuterCodeIDs[cosmwasmPool.CodeId]
