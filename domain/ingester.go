@@ -20,6 +20,8 @@ type BlockPoolMetadata struct {
 	// DenomPoolLiquidityMap is a map of denoms to their liquidities across pools.
 	// These are constructed from the pool IDs updated within a block.
 	DenomPoolLiquidityMap DenomPoolLiquidityMap
+	// UpdatedDenoms are the denoms updated within a block.
+	UpdatedDenoms map[string]struct{}
 	// PoolIDs are the IDs of all pools updated within a block.
 	PoolIDs map[uint64]struct{}
 }

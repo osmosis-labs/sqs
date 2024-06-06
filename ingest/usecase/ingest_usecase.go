@@ -136,7 +136,8 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 	parsedPools := make([]sqsdomain.PoolI, 0, len(poolData))
 
 	uniqueData := domain.BlockPoolMetadata{
-		PoolIDs: make(map[uint64]struct{}, len(poolData)),
+		PoolIDs:       make(map[uint64]struct{}, len(poolData)),
+		UpdatedDenoms: make(map[string]struct{}),
 	}
 
 	currentBlockLiquidityMap := domain.DenomPoolLiquidityMap{}
@@ -158,6 +159,11 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 
 			// Update block liquidity map.
 			currentBlockLiquidityMap = updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap, currentPoolBalances, poolID)
+
+			// Separately update unique denoms.
+			for _, balance := range currentPoolBalances {
+				uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
+			}
 
 			// Update unique pools.
 			uniqueData.PoolIDs[poolID] = struct{}{}

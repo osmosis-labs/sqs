@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- [Dynamic Min Liquidity] new ingester methods for acquiring necessary metadata.
+
 ## v0.19.1
 
 - Record errors with OpenTelemetry.
