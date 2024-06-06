@@ -50,6 +50,8 @@ func NewChainInfoUsecase(chainInfoRepository chaininforepo.ChainInfoRepository) 
 
 		lastSeenMx: sync.Mutex{},
 
+		priceUpdateHeightMx: sync.RWMutex{},
+
 		lastSeenUpdatedHeight: 0,
 	}
 }

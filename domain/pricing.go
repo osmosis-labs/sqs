@@ -54,6 +54,8 @@ type PricingOptions struct {
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
 	MinPoolLiquidityCap int
+	// DisableFallback defines whether to disable the fallback strategy for pricing.
+	DisableFallback bool
 }
 
 // DefaultPricingOptions defines the default options for retrieving the prices.
@@ -61,6 +63,7 @@ var DefaultPricingOptions = PricingOptions{
 	RecomputePrices:                         false,
 	MinPoolLiquidityCap:                     DefaultMinPoolLiquidityOption,
 	RecomputePricesIsSpotPriceComputeMethod: true,
+	DisableFallback:                         false,
 }
 
 // PricingOption configures the pricing options.
@@ -93,6 +96,15 @@ func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap int) PricingOption {
 		}
 
 		o.MinPoolLiquidityCap = minPoolLiquidityCap
+	}
+}
+
+// WithDisableFallback configures the pricing options to disable the fallback strategy.
+// By default, we query chain prices first and fallback to Coingecko if the chain prices are not available.
+// This option disables the fallback strategy.
+func WithDisableFallback() PricingOption {
+	return func(o *PricingOptions) {
+		o.DisableFallback = true
 	}
 }
 

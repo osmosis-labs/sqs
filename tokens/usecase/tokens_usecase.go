@@ -248,8 +248,13 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 			var err error
 			price, err = pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 			if err != nil { // Check if we should fallback to another pricing source
+
+				// Check if fallback is disabled
+				// This is relevant for pre-computing chain prices.
+				isFallBackDisabled := isFallbackDisabled(pricingOptions)
+
 				fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
-				if fallbackSourceType != domain.NoneSourceType {
+				if fallbackSourceType != domain.NoneSourceType && !isFallBackDisabled {
 					fallbackCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 					fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
 					if ok {
@@ -364,4 +369,14 @@ func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, e
 	} else {
 		return "", fmt.Errorf("chain denom not found in chain registry")
 	}
+}
+
+func isFallbackDisabled(opts []domain.PricingOption) bool {
+	optsObj := domain.PricingOptions{}
+
+	for _, opt := range opts {
+		opt(&optsObj)
+	}
+
+	return optsObj.DisableFallback
 }

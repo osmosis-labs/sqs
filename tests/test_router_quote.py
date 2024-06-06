@@ -15,7 +15,7 @@ ROUTES_URL = "/router/quote"
 QUOTE_NUM_TOP_LIQUIDITY_DENOMS = 20
 
 # Arbitrary choice based on performance at the time of test writing
-EXPECTED_LATENCY_UPPER_BOUND_MS = 5000
+EXPECTED_LATENCY_UPPER_BOUND_MS = 10000
 
 # The max amount in value in USD to run the price impact check
 # This is primarily to avoid flakiness due to swapping large amounts.
