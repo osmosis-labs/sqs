@@ -166,10 +166,10 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 
 	// Populate base denoms with all possible chain denoms
 	baseDenoms := domain.BlockPoolMetadata{
-		DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{},
+		UpdatedDenoms: map[string]struct{}{},
 	}
 	for chainDenom := range tokenMetadata {
-		baseDenoms.DenomPoolLiquidityMap[chainDenom] = domain.DenomPoolLiquidityData{}
+		baseDenoms.UpdatedDenoms[chainDenom] = struct{}{}
 	}
 
 	// Test for empty base denoms
