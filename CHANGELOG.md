@@ -41,6 +41,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## v0.19.0
 
+- Ingester data transformations for dynamic min liquidity.
 - Optimize dynamic splits by caching repeated calls within callback.
 - Remove queue from pricing worker
 - Return single route quote if split quote fails

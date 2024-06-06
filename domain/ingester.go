@@ -17,9 +17,9 @@ type GRPCIngesterConfig struct {
 // BlockPoolMetadata contains the metadata about unique pools
 // and denoms modified in a block.
 type BlockPoolMetadata struct {
-	// DenomMap is a map of denoms.
+	// DenomPoolLiquidityMap is a map of denoms to their liquidities across pools.
 	// These are constructed from the pool IDs updated within a block.
-	DenomMap DenomMap
+	DenomPoolLiquidityMap DenomPoolLiquidityMap
 	// PoolIDs are the IDs of all pools updated within a block.
 	PoolIDs map[uint64]struct{}
 }
