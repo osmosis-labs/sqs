@@ -64,11 +64,6 @@ type Quote interface {
 	String() string
 }
 
-type DynamicMinLiquidityCapFilterEntry struct {
-	MinTokensCap uint64 `mapstructure:"min-tokens-capitalization"`
-	FilterValue  uint64 `mapstructure:"filter-value"`
-}
-
 // Router-specific configuration
 type RouterConfig struct {
 	// Pool IDs that are prioritized in the router.
@@ -95,9 +90,6 @@ type RouterConfig struct {
 
 	// How long the route is cached for before expiry in seconds.
 	RankedRouteCacheExpirySeconds int `mapstructure:"ranked-route-cache-expiry-seconds"`
-
-	// DynamicMinLiquidityCapFiltersAsc is a list of dynamic min liquidity cap filters in descending order.
-	DynamicMinLiquidityCapFiltersDesc []DynamicMinLiquidityCapFilterEntry `mapstructure:"dynamic-min-liquidity-cap-filters-desc"`
 }
 
 type PoolsConfig struct {
