@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
@@ -139,3 +140,9 @@ func (pm *PoolsUsecaseMock) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	}
 	panic("unimplemented")
 }
+// CalcExitCFMMPool implements mvc.PoolsUsecase.
+func (*PoolsUsecaseMock) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+	panic("unimplemented")
+}
+
+var _ mvc.PoolsUsecase = &PoolsUsecaseMock{}

@@ -8,5 +8,5 @@ import (
 
 // PassthroughUsecase represents the passthrough module's use cases
 type PassthroughUsecase interface {
-	GetAccountAssetsTotal(ctx context.Context, address string) (sdk.Coins, error)
+	GetAccountCoinsTotal(ctx context.Context, address string) (sdk.Coins, error)
 }

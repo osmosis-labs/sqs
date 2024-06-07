@@ -101,11 +101,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
-	passthroughUseCase, err := passthroughUseCase.NewPassThroughUsecase(config.ChainGRPCGatewayEndpoint)
-	if err != nil {
-		return nil, err
-	}
-
 	// Initialized tokens usecase
 	// TODO: Make the max number of tokens configurable
 	tokensUseCase := tokensusecase.NewTokensUsecase(
@@ -146,6 +141,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Initialize chain pricing strategy
 	pricingSimpleRouterUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, cosmWasmPoolConfig, logger, cache.New(), cache.New())
 	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, pricingSimpleRouterUsecase)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize passthrough query use case
+	passthroughUseCase, err := passthroughUseCase.NewPassThroughUsecase(config.ChainGRPCGatewayEndpoint, poolsUseCase)
 	if err != nil {
 		return nil, err
 	}
