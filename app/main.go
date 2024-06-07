@@ -116,7 +116,11 @@ func main() {
 		initOTELTracer(*hostName)
 	}
 
-	chainClient, err := client.NewClient(config.ChainID, config.ChainGRPCGatewayEndpoint)
+	chainClient, err := client.NewClient(
+		config.ChainID,
+		config.ChainRPCGatewayEndpoint,
+		config.ChainGRPCGatewayEndpoint,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -127,6 +131,17 @@ func main() {
 	// If fails, it means that the node is not reachable
 	if _, err := chainClient.GetLatestHeight(ctx); err != nil {
 		panic(err)
+	}
+
+	address := "osmo15ecz7frn0gphyv6fl566dywfz5tdkv93enppev"
+	balances, err := chainClient.GetBalance(ctx, address)
+	if err != nil {
+		log.Fatalf("Failed to get balances: %v", err)
+	}
+
+	fmt.Println("Balances for address", address, ":")
+	for _, balance := range balances {
+		fmt.Println("Denom: ", balance.Denom, "Amount: ", balance.Amount)
 	}
 
 	encCfg := app.MakeEncodingConfig()

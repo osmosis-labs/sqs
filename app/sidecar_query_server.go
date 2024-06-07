@@ -14,6 +14,8 @@ import (
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
+	passthroughhttpdelivery "github.com/osmosis-labs/sqs/passthrough/delivery/http"
+	passthroughUsecase "github.com/osmosis-labs/sqs/passthrough/usecase"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -21,6 +23,8 @@ import (
 	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
+
+	"github.com/osmosis-labs/sqs/passthrough/clients"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -110,6 +114,15 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Initialize router repository, usecase
 	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
+	grpcConnection, err := clients.NewGrpcConnection(config.ChainGRPCGatewayEndpoint)
+	if err != nil {
+		panic("Failed to connect to gRPC server: " + err.Error())
+	}
+
+	bankClient := clients.NewBankClient(grpcConnection)
+
+	passthroughUsecase := passthroughUsecase.NewPassthroughUsecase(bankClient)
+
 	// Initialize system handler
 	chainInfoRepository := chaininforepo.New()
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository)
@@ -138,6 +151,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
+	passthroughhttpdelivery.NewPassthroughHandler(e, passthroughUsecase)
 
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester
