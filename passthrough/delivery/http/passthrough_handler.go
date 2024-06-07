@@ -37,6 +37,10 @@ func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase) {
 func (a *PassthroughHandler) GetAccountCoinsTotal(c echo.Context) error {
 	address := c.Param("address")
 
+	if (address == "") {
+		return c.JSON(http.StatusInternalServerError, ResponseError{Message: "invalid address: cannot be empty"})
+	}
+
 	assets, err := a.PUsecase.GetAccountCoinsTotal(c.Request().Context(), address)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ResponseError{Message: err.Error()})
