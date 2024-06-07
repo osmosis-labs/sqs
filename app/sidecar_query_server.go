@@ -104,11 +104,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
-	passthroughUseCase, err := passthroughUseCase.NewPassThroughUsecase(config.ChainGRPCGatewayEndpoint)
-	if err != nil {
-		return nil, err
-	}
-
 	// Initialized tokens usecase
 	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom)
 
@@ -124,6 +119,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Initialize chain pricing strategy
 	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, routerUsecase)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize passthrough query use case
+	passthroughUseCase, err := passthroughUseCase.NewPassThroughUsecase(config.ChainGRPCGatewayEndpoint, poolsUseCase)
 	if err != nil {
 		return nil, err
 	}

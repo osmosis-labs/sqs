@@ -2,11 +2,14 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	"cosmossdk.io/math"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -15,6 +18,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
@@ -254,4 +258,25 @@ func (p *poolsUseCase) StorePools(pools []sqsdomain.PoolI) error {
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return p.cosmWasmConfig
+}
+
+func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+	sqsPool, err := p.GetPool(poolID)
+	if err != nil {
+		return nil, err
+	}
+	
+	if (sqsPool.GetType() != poolmanagertypes.Balancer && sqsPool.GetType() != poolmanagertypes.Stableswap) {
+		return nil, errors.New("invalid pool type, expected CFMM pool")
+	}
+
+	pool, ok := sqsPool.GetUnderlyingPool().(types.CFMMPoolI)
+	if !ok {
+		return nil, errors.New("failed to cast underlying pool to CFMMPoolI")
+	}
+
+	
+	// fine to pass empty context as no data is mutated
+	exitFee := pool.GetExitFee(sdk.Context{})
+	return pool.CalcExitPoolCoinsFromShares(sdk.Context{}, exitingShares, exitFee)
 }

@@ -7,6 +7,8 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 )
 
@@ -31,4 +33,7 @@ type PoolsUsecase interface {
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 
 	GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig
+
+	// CalcExitCFMMPool estimates the coins returned from redeeming CFMM pool shares given a pool ID and the GAMM shares to convert
+	CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)
 }

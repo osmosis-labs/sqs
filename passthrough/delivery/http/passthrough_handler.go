@@ -30,14 +30,14 @@ func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase) {
 		PUsecase: ptu,
 	}
 
-	e.GET(formatPoolsResource("/account_assets_total/:address"), handler.GetAccountAssetsTotal)
+	e.GET(formatPoolsResource("/account_coins_total/:address"), handler.GetAccountCoinsTotal)
 }
 
-// GetAccountAssetsTotal adds an API handler to get total assets data
-func (a *PassthroughHandler) GetAccountAssetsTotal(c echo.Context) error {
+// GetAccountCoinsTotal adds an API handler to get total assets data
+func (a *PassthroughHandler) GetAccountCoinsTotal(c echo.Context) error {
 	address := c.Param("address")
 
-	assets, err := a.PUsecase.GetAccountAssetsTotal(c.Request().Context(), address)
+	assets, err := a.PUsecase.GetAccountCoinsTotal(c.Request().Context(), address)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ResponseError{Message: err.Error()})
 	}
