@@ -4,7 +4,8 @@
     "logger-filename": "sqs.log",
     "logger-is-production": true,
     "logger-level": "info",
-    "grpc-gateway-endpoint": "http://localhost:26657",
+    "rpc-gateway-endpoint": "http://localhost:26657",
+    "grpc-gateway-endpoint": "localhost:9090",
     "chain-id": "osmosis-1",
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
     "flight-record": {

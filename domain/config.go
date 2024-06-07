@@ -10,8 +10,9 @@ type Config struct {
 	LoggerIsProduction bool   `mapstructure:"logger-is-production"`
 	LoggerLevel        string `mapstructure:"logger-level"`
 
-	ChainGRPCGatewayEndpoint string `mapstructure:"grpc-gateway-endpoint"`
-	ChainID                  string `mapstructure:"chain-id"`
+	ChainRPCGatewayEndpoint   string `mapstructure:"rpc-gateway-endpoint"`
+	ChainGRPCGatewayEndpoint  string `mapstructure:"grpc-gateway-endpoint"`
+	ChainID                   string `mapstructure:"chain-id"`
 
 	// Chain registry assets URL.
 	ChainRegistryAssetsFileURL string `mapstructure:"chain-registry-assets-url"`

@@ -14,11 +14,14 @@ import (
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
+	passthroughHttpDelivery "github.com/osmosis-labs/sqs/passthrough/delivery/http"
+	passthroughUseCase "github.com/osmosis-labs/sqs/passthrough/usecase"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
 	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
+
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 
@@ -101,6 +104,11 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
+	passthroughUseCase, err := passthroughUseCase.NewPassThroughUsecase(config.ChainGRPCGatewayEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
 	// Initialized tokens usecase
 	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom)
 
@@ -133,6 +141,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
+	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, routerUsecase, logger); err != nil {
 		return nil, err
