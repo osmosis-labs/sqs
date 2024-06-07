@@ -64,6 +64,11 @@ type Quote interface {
 	String() string
 }
 
+type DynamicMinLiquidityCapFilterEntry struct {
+	MinTokensCap uint64 `mapstructure:"min-tokens-capitalization"`
+	FilterValue  uint64 `mapstructure:"filter-value"`
+}
+
 // Router-specific configuration
 type RouterConfig struct {
 	// Pool IDs that are prioritized in the router.
@@ -80,7 +85,7 @@ type RouterConfig struct {
 
 	// Minimum liquidity capitalization for a pool to be considered in the router.
 	// The denomination assumed is pricing.default-quote-human-denom.
-	MinPoolLiquidityCap int `mapstructure:"min-pool-liquidity-cap"`
+	MinPoolLiquidityCap uint64 `mapstructure:"min-pool-liquidity-cap"`
 
 	// Whether to enable route caching
 	RouteCacheEnabled bool `mapstructure:"route-cache-enabled"`
@@ -90,6 +95,9 @@ type RouterConfig struct {
 
 	// How long the route is cached for before expiry in seconds.
 	RankedRouteCacheExpirySeconds int `mapstructure:"ranked-route-cache-expiry-seconds"`
+
+	// DynamicMinLiquidityCapFiltersAsc is a list of dynamic min liquidity cap filters in descending order.
+	DynamicMinLiquidityCapFiltersDesc []DynamicMinLiquidityCapFilterEntry `mapstructure:"dynamic-min-liquidity-cap-filters-desc"`
 }
 
 type PoolsConfig struct {
@@ -123,7 +131,7 @@ type RouterOptions struct {
 	MaxRoutes        int
 	MaxSplitRoutes   int
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the route.
-	MinPoolLiquidityCap int
+	MinPoolLiquidityCap uint64
 	// The number of milliseconds to cache candidate routes for before expiry.
 	CandidateRouteCacheExpirySeconds int
 	RankedRouteCacheExpirySeconds    int
@@ -137,7 +145,7 @@ type RouterOption func(*RouterOptions)
 
 // WithMinPoolLiquidityCap configures the router options with the min pool liquidity
 // capitalization.
-func WithMinPoolLiquidityCap(minPoolLiquidityCap int) RouterOption {
+func WithMinPoolLiquidityCap(minPoolLiquidityCap uint64) RouterOption {
 	return func(o *RouterOptions) {
 		o.MinPoolLiquidityCap = minPoolLiquidityCap
 	}

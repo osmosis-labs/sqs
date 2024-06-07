@@ -391,7 +391,7 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 }
 
 // PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
-func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap int) []sqsdomain.PoolI {
+func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap uint64) []sqsdomain.PoolI {
 	sortedPools := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
 
 	// Sort pools

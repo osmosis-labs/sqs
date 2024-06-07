@@ -57,7 +57,6 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 		{
 			name: "empty base denoms",
 			baseDenoms: domain.BlockPoolMetadata{
-				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{},
 			},
 		},
 		{

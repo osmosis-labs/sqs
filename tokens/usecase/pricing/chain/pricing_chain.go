@@ -25,7 +25,7 @@ type chainPricing struct {
 
 	maxPoolsPerRoute    int
 	maxRoutes           int
-	minPoolLiquidityCap int
+	minPoolLiquidityCap uint64
 }
 
 var _ domain.PricingSource = &chainPricing{}
@@ -150,7 +150,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 }
 
 // computePrice computes the price for a given base and quote denom
-func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap int, isSpotPriceComputeMethod bool) (osmomath.BigDec, error) {
+func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (osmomath.BigDec, error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 
 	if baseDenom == quoteDenom {
