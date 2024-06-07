@@ -146,10 +146,11 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	// As a result, they are incorrectly excluded despite having appropriate liquidity.
 	// So we want to calculate price, but we never cache routes for pricing the are below the minPoolLiquidityCap value, as these are returned to users.
 	if options.MinPoolLiquidityCap == 0 {
-		pools := r.getSortedPoolsShallowCopy()
+		// pools := r.getSortedPoolsShallowCopy()
 
 		// Compute candidate routes.
-		candidateRoutes, err := GetCandidateRoutes(pools, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
+		// TODO: fix nil
+		candidateRoutes, err := GetCandidateRoutes(nil, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
 		if err != nil {
 			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return nil, err
@@ -577,7 +578,8 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, pools []s
 	if !isFoundCached {
 		r.logger.Debug("calculating routes")
 
-		candidateRoutes, err = GetCandidateRoutes(pools, tokenIn, tokenOutDenom, maxRoutes, maxPoolsPerRoutes, r.logger)
+		// TODO: fix nil
+		candidateRoutes, err = GetCandidateRoutes(nil, tokenIn, tokenOutDenom, maxRoutes, maxPoolsPerRoutes, r.logger)
 		if err != nil {
 			return sqsdomain.CandidateRoutes{}, err
 		}

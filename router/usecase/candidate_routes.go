@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -23,7 +25,7 @@ type candidatePoolWrapper struct {
 // * sortedPoolsByDenom map[string][]sqsdomain.PoolI. Where the return value is all pools that contain the denom, sorted.
 //   - Right now we have linear time iteration per route rather than N^2 by making every route get created in sorted order.
 //   - We can do similar here by actually making the value of the hashmap be a []struct{global sort index, sqsdomain pool}
-func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+func GetCandidateRoutes(pools map[string][]sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
 	routes := make([][]candidatePoolWrapper, 0, maxRoutes)
 	// Preallocate third to avoid dynamic reallocations.
 	visited := make([]bool, len(pools))
@@ -45,10 +47,15 @@ func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom
 			currenTokenInDenom = lastPool.TokenOutDenom
 		}
 
-		for i := 0; i < len(pools) && len(routes) < maxRoutes; i++ {
+		tokenInPools, ok := pools[currenTokenInDenom]
+		if !ok {
+			return sqsdomain.CandidateRoutes{}, fmt.Errorf("no pools found for tokenInDenom: %s", currenTokenInDenom)
+		}
+
+		for i := 0; i < len(tokenInPools) && len(routes) < maxRoutes; i++ {
 			// Unsafe cast for performance reasons.
 			// nolint: forcetypeassert
-			pool := (pools[i]).(*sqsdomain.PoolWrapper)
+			pool := (tokenInPools[i]).(*sqsdomain.PoolWrapper)
 			poolID := pool.ChainModel.GetId()
 
 			if visited[i] {

@@ -646,7 +646,8 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
+		// TODO: fix nil
+		routes, err := usecase.GetCandidateRoutes(nil, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
 		if err != nil {
 			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
 			errorCounter++
@@ -676,7 +677,8 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
+		// TODO: fix nil
+		routes, err := usecase.GetCandidateRoutes(nil, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
 		if err != nil {
 			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
 			errorCounter++

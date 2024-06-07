@@ -97,7 +97,8 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	}
 
 	// Create the worker
-	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
+	// TODO: check nil
+	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer)
 
 	// Create & register mock listener
 	mockListener := &mocks.PoolLiquidityPricingMock{}
@@ -338,7 +339,8 @@ func (s *PoolLiquidityComputeWorkerSuite) TestComputeLiquidityCapitalization() {
 			}
 
 			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
+			// TODO: check nil
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer)
 
 			// System under test
 			liquidityCapitalization := poolLiquidityPricerWorker.ComputeLiquidityCapitalization(tt.denom, tt.totalLiquidity, tt.price)
@@ -538,7 +540,8 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			}
 
 			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
+			// TODO: check nil
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer)
 
 			// Pre-set the height for each denom.
 			for denom, height := range tt.preSetUpdateHeightForDenom {

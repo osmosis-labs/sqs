@@ -10,6 +10,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 var (
@@ -18,6 +19,7 @@ var (
 
 type poolLiquidityPricerWorker struct {
 	tokenPoolLiquidityHandler mvc.TokensPoolLiquidityHandler
+	poolHandler               PoolHandler
 
 	updateListeners []domain.PoolLiquidityComputeListener
 
@@ -30,9 +32,15 @@ type poolLiquidityPricerWorker struct {
 	latestHeightForDenom sync.Map
 }
 
-func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler, liquidityPricer domain.LiquidityPricer) domain.PoolLiquidityPricerWorker {
+type PoolHandler interface {
+	// GetPools returns the pools corresponding to the given IDs.
+	GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error)
+}
+
+func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler, poolHandler PoolHandler, liquidityPricer domain.LiquidityPricer) domain.PoolLiquidityPricerWorker {
 	return &poolLiquidityPricerWorker{
 		tokenPoolLiquidityHandler: tokensPoolLiquidityHandler,
+		poolHandler: poolHandler,
 
 		updateListeners: []domain.PoolLiquidityComputeListener{},
 
@@ -91,6 +99,8 @@ func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, bl
 	// Return the updated token metadata for testability
 	return blockTokenMetadataUpdates
 }
+
+func (p *poolLiquidityPricerWorker) RepricePoolLiquidityCapitalization()
 
 // ComputeLiquidityCapitalization implements domain.PoolLiquidityPricerWorker.
 func (p *poolLiquidityPricerWorker) ComputeLiquidityCapitalization(denom string, totalLiquidity osmomath.Int, price osmomath.BigDec) osmomath.Int {
