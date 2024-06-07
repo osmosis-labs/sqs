@@ -162,8 +162,11 @@ type PoolLiquidityPricerWorker interface {
 	RegisterListener(listener PoolLiquidityComputeListener)
 }
 
+// DenomPriceInfo defines the price information for the base denom.
 type DenomPriceInfo struct {
-	Price         osmomath.BigDec
+	// Price is the price of the base denom.
+	Price osmomath.BigDec
+	// ScalingFactor is the scaling factor for the base denom.
 	ScalingFactor osmomath.Dec
 }
 
