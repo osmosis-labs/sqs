@@ -9,10 +9,10 @@ type (
 	IngestUseCaseImpl = ingestUseCase
 )
 
-func UpdateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomLiquidityMap {
+func UpdateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	return updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap, currentPoolBalances, poolID)
 }
 
-func TransferDenomLiquidityMap(transferTo, transferFrom domain.DenomLiquidityMap) domain.DenomLiquidityMap {
+func TransferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidityMap) domain.DenomPoolLiquidityMap {
 	return transferDenomLiquidityMap(transferTo, transferFrom)
 }

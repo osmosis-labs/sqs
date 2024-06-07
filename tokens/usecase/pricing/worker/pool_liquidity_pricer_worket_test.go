@@ -54,7 +54,7 @@ var (
 		},
 	}
 
-	defaultBlockLiquidityUpdates = domain.DenomLiquidityMap{
+	defaultBlockLiquidityUpdates = domain.DenomPoolLiquidityMap{
 		UOSMO: {
 			TotalLiquidity: defaultLiquidity,
 		},
@@ -105,7 +105,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 
 	// System under test
 	err := poolLiquidityPricerWorker.OnPricingUpdate(context.TODO(), defaultHeight, domain.BlockPoolMetadata{
-		DenomLiquidityMap: defaultBlockLiquidityUpdates,
+		DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
 	}, defaultBlockPriceUpdates, USDC)
 
 	s.Require().NoError(err)
@@ -389,7 +389,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 		updateHeight                  uint64
 		blockPriceUpdates             domain.PricesResult
 		quoteDenom                    string
-		blockDenomLiquidityUpdatesMap domain.DenomLiquidityMap
+		blockDenomLiquidityUpdatesMap domain.DenomPoolLiquidityMap
 
 		expectedUpdatedDenomMetadata domain.PoolDenomMetaDataMap
 
@@ -421,7 +421,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			blockPriceUpdates: defaultBlockPriceUpdates,
 			quoteDenom:        USDC,
 
-			blockDenomLiquidityUpdatesMap: domain.DenomLiquidityMap{},
+			blockDenomLiquidityUpdatesMap: domain.DenomPoolLiquidityMap{},
 			expectedUpdatedDenomMetadata:  domain.PoolDenomMetaDataMap{},
 
 			expectedDenomHeights: zeroUOSMOHeightResult,
@@ -493,7 +493,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			},
 			quoteDenom: USDC,
 
-			blockDenomLiquidityUpdatesMap: domain.DenomLiquidityMap{
+			blockDenomLiquidityUpdatesMap: domain.DenomPoolLiquidityMap{
 				UOSMO: {
 					TotalLiquidity: defaultLiquidity,
 				},

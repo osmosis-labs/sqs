@@ -27,13 +27,13 @@ type PoolDenomMetaData struct {
 	Price osmomath.BigDec `json:"price"`
 }
 
-// DenomLiquidityMap is a map from denom to liquidity data
-type DenomLiquidityMap map[string]DenomLiquidityData
+// DenomPoolLiquidityMap is a map of denoms to their pool liquidity data.
+type DenomPoolLiquidityMap map[string]DenomPoolLiquidityData
 
-// DenomLiquidityData contains the liquidity data for a denom
+// DenomPoolLiquidityData contains the pool liquidity data for a denom
 // It has the total liquidity for the denom as well as all the
 // pools with their individual contributions to the total.
-type DenomLiquidityData struct {
+type DenomPoolLiquidityData struct {
 	// Total liquidity for this denom
 	TotalLiquidity osmomath.Int
 	// Mapping from pool ID to denom liquidity

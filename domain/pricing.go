@@ -149,7 +149,7 @@ type PoolLiquidityPricerWorker interface {
 	// Relies on the blockPriceUpdates to get the price for the denoms.
 	// If the price for denom cannot be fetched, the liquidity capitalization for this denom is set to zero.
 	// The latest update height for this denom is updated on completion.
-	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap DenomLiquidityMap) PoolDenomMetaDataMap
+	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap DenomPoolLiquidityMap) PoolDenomMetaDataMap
 
 	// GetHeightForDenom returns zero if the height is not found or fails to cast it to the return type.
 	GetHeightForDenom(denom string) uint64

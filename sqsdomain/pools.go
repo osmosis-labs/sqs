@@ -28,7 +28,7 @@ type PoolI interface {
 	GetSQSPoolModel() SQSPool
 
 	// GetTickModel returns the tick model for the pool
-	// If this is a concentrated pool. Errors otherwise
+	// if this is a concentrated pool. Errors otherwise
 	// Also errors if this is a concentrated pool but
 	// the tick model is not set
 	GetTickModel() (*TickModel, error)
@@ -58,6 +58,9 @@ type SQSPool struct {
 	Balances     sdk.Coins    `json:"balances"`
 	PoolDenoms   []string     `json:"pool_denoms"`
 	SpreadFactor osmomath.Dec `json:"spread_factor"`
+
+	// Only CosmWasm pools need CosmWasmPoolModel appended
+	CosmWasmPoolModel *CosmWasmPoolModel `json:"cosmwasm_pool_model,omitempty"`
 }
 
 type PoolWrapper struct {
