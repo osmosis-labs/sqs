@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -35,13 +34,13 @@ var _ mvc.PoolsUsecase = &poolsUseCase{}
 // NewPoolsUsecase will create a new pools use case object
 func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb) mvc.PoolsUsecase {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
-	for _, codeId := range poolsConfig.TransmuterCodeIDs {
-		transmuterCodeIDsMap[codeId] = struct{}{}
+	for _, codeID := range poolsConfig.TransmuterCodeIDs {
+		transmuterCodeIDsMap[codeID] = struct{}{}
 	}
 
 	generalizedCosmWasmCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.GeneralCosmWasmCodeIDs))
-	for _, codeId := range poolsConfig.GeneralCosmWasmCodeIDs {
-		generalizedCosmWasmCodeIDsMap[codeId] = struct{}{}
+	for _, codeID := range poolsConfig.GeneralCosmWasmCodeIDs {
+		generalizedCosmWasmCodeIDsMap[codeID] = struct{}{}
 	}
 
 	return &poolsUseCase{
@@ -185,8 +184,8 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 }
 
 // IsGeneralCosmWasmCodeID implements mvc.PoolsUsecase.
-func (p *poolsUseCase) IsGeneralCosmWasmCodeID(codeId uint64) bool {
-	_, isGenneralCosmWasmCodeID := p.cosmWasmConfig.GeneralCosmWasmCodeIDs[codeId]
+func (p *poolsUseCase) IsGeneralCosmWasmCodeID(codeID uint64) bool {
+	_, isGenneralCosmWasmCodeID := p.cosmWasmConfig.GeneralCosmWasmCodeIDs[codeID]
 	return isGenneralCosmWasmCodeID
 }
 
@@ -267,12 +266,12 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.In
 	}
 	
 	if (sqsPool.GetType() != poolmanagertypes.Balancer && sqsPool.GetType() != poolmanagertypes.Stableswap) {
-		return nil, errors.New("invalid pool type, expected CFMM pool")
+		return nil, fmt.Errorf("invalid pool type for pool ID %d, expected CFMM pool", poolID)
 	}
 
 	pool, ok := sqsPool.GetUnderlyingPool().(types.CFMMPoolI)
 	if !ok {
-		return nil, errors.New("failed to cast underlying pool to CFMMPoolI")
+		return nil, fmt.Errorf("failed to cast underlying pool to CFMMPoolI for ID: %d", poolID)
 	}
 
 	
