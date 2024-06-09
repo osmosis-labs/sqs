@@ -8,22 +8,26 @@ import (
 	"github.com/osmosis-labs/sqs/passthrough/clients"
 )
 
+type PassthroughClients struct {
+	BankClient clients.BankClientI
+}
+
 type passthroughUsecase struct {
-	bankClient clients.BankClientI
+	clients PassthroughClients
 }
 
 var _ mvc.PassthroughUsecase = &passthroughUsecase{}
 
 // NewPassthroughUsecase will create a new passthrough use case object
-func NewPassthroughUsecase(bankClient clients.BankClientI) mvc.PassthroughUsecase {
+func NewPassthroughUsecase(clients PassthroughClients) mvc.PassthroughUsecase {
 	return &passthroughUsecase{
-		bankClient: bankClient,
+		clients: clients,
 	}
 }
 
 // GetBalances returns all balances for a given address.
 func (p *passthroughUsecase) GetBalances(ctx context.Context, address string) (sdk.Coins, error) {
-	balances, err := p.bankClient.GetBalance(ctx, address)
+	balances, err := p.clients.BankClient.GetBalance(ctx, address)
 	if err != nil {
 		return nil, err
 	}

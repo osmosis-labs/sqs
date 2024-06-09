@@ -10,17 +10,14 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
 
-// ResponseError represent the response error struct
 type ResponseError struct {
 	Message string `json:"message"`
 }
 
-// PoolsHandler  represent the httphandler for pools
 type PassthroughHandler struct {
 	PUsecase mvc.PassthroughUsecase
 }
 
-// PoolsResponse is a structure for serializing pool result returned to clients.
 type UserBalanceResponse struct {
 	Balances sdk.Coins `json:"balances"`
 }
@@ -47,8 +44,11 @@ func NewPassthroughHandler(e *echo.Echo, us mvc.PassthroughUsecase) {
 // @Success 200  {array}  sdk.Coins  "List of coins"
 // @Router /balances/address [get]
 func (a *PassthroughHandler) GetAccountBalances(c echo.Context) error {
-	// Get user address as string.
 	address := c.Param("address")
+
+	if address == "" {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "Address parameter is required"})
+	}
 
 	ctx := c.Request().Context()
 
@@ -57,5 +57,5 @@ func (a *PassthroughHandler) GetAccountBalances(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, balances)
+	return c.JSON(http.StatusOK, UserBalanceResponse{Balances: balances})
 }

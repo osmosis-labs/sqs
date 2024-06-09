@@ -121,7 +121,11 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	bankClient := clients.NewBankClient(grpcConnection)
 
-	passthroughUsecase := passthroughUsecase.NewPassthroughUsecase(bankClient)
+	passthroughClients := passthroughUsecase.PassthroughClients{
+		BankClient: bankClient,
+	}
+
+	passthroughUsecase := passthroughUsecase.NewPassthroughUsecase(passthroughClients)
 
 	// Initialize system handler
 	chainInfoRepository := chaininforepo.New()

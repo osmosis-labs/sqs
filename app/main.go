@@ -133,17 +133,6 @@ func main() {
 		panic(err)
 	}
 
-	address := "osmo15ecz7frn0gphyv6fl566dywfz5tdkv93enppev"
-	balances, err := chainClient.GetBalance(ctx, address)
-	if err != nil {
-		log.Fatalf("Failed to get balances: %v", err)
-	}
-
-	fmt.Println("Balances for address", address, ":")
-	for _, balance := range balances {
-		fmt.Println("Denom: ", balance.Denom, "Amount: ", balance.Amount)
-	}
-
 	encCfg := app.MakeEncodingConfig()
 
 	// logger

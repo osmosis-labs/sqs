@@ -42,3 +42,6 @@ func (bc *BankClient) GetBalance(ctx context.Context, address string) (sdk.Coins
 
 	return res.Balances, nil
 }
+
+// Ensure BankClient implements BankClientI
+var _ BankClientI = &BankClient{}
