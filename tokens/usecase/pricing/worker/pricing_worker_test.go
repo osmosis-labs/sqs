@@ -220,9 +220,10 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	// FURY.legacy - listed but no pools
 	//
 	// 6 more tokens were found to be unsupported on May 29th.
+	// 1 more was found on June 10 when adding alloyed code id to config.
 	//
 	// Update on May 29, 2024: 20 unsupported tokens because some tokens have been fallen back to backup pricining source Coingecko
-	s.Require().Equal(20, zeroPriceCounter)
+	s.Require().Equal(21, zeroPriceCounter)
 }
 
 func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {
