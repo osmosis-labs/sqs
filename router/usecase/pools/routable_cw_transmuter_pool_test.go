@@ -64,7 +64,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
 				TransmuterCodeIDs: map[uint64]struct{}{
 					cosmwasmPool.GetCodeId(): {},
 				},
-			})
+			}, domain.UnsetScalingFactorGetterCb)
 			s.Require().NoError(err)
 
 			// Overwrite pool type for edge case testing

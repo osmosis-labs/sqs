@@ -10,12 +10,13 @@ import (
 // and the router config for the router testing
 // and the pricing config for the router testing.
 type MainnetTestOptions struct {
-	CandidateRoutes *cache.Cache
-	RankedRoutes    *cache.Cache
-	Pricing         *cache.Cache
-	RouterConfig    domain.RouterConfig
-	PricingConfig   domain.PricingConfig
-	PoolsConfig     domain.PoolsConfig
+	CandidateRoutes  *cache.Cache
+	RankedRoutes     *cache.Cache
+	Pricing          *cache.Cache
+	RouterConfig     domain.RouterConfig
+	PricingConfig    domain.PricingConfig
+	PoolsConfig      domain.PoolsConfig
+	IsLoggerDisabled bool
 }
 
 // MainnetTestOption is a function that sets the cache options for the router testing.
@@ -25,6 +26,13 @@ type MainnetTestOption func(*MainnetTestOptions)
 func WithCandidateRoutesCache(cache *cache.Cache) MainnetTestOption {
 	return func(options *MainnetTestOptions) {
 		options.CandidateRoutes = cache
+	}
+}
+
+// WithLoggerDisabled disables the test logger.
+func WithLoggerDisabled() MainnetTestOption {
+	return func(options *MainnetTestOptions) {
+		options.IsLoggerDisabled = true
 	}
 }
 

@@ -63,3 +63,7 @@ func SortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, error) {
 	return getSplitQuote(ctx, routes, tokenIn)
 }
+
+func EstimateDirectQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, maxRoutes int, logger log.Logger) (domain.Quote, []route.RouteImpl, error) {
+	return estimateDirectQuote(ctx, routes, tokenIn, maxRoutes, logger)
+}

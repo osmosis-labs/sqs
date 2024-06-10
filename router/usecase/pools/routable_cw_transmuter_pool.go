@@ -64,14 +64,13 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 	balances := r.Balances
 
 	// Validate token out balance
-	if err := validateBalance(tokenIn.Amount, balances, r.TokenOutDenom); err != nil {
+	if err := validateTransmuterBalance(tokenIn.Amount, balances, r.TokenOutDenom); err != nil {
 		return sdk.Coin{}, err
 	}
 
 	// No slippage swaps - just return the same amount of token out as token in
 	// as long as there is enough liquidity in the pool.
-	//nolint:all
-	return sdk.Coin{r.TokenOutDenom, tokenIn.Amount}, nil
+	return sdk.Coin{Denom: r.TokenOutDenom, Amount: tokenIn.Amount}, nil
 }
 
 // GetTokenOutDenom implements RoutablePool.
@@ -90,9 +89,9 @@ func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (in
 	return tokenInAfterTakerFee
 }
 
-// validateBalance validates that the balance of the denom to validate is greater than the token in amount.
+// validateTransmuterBalance validates that the balance of the denom to validate is greater than the token in amount.
 // Returns nil on success, error otherwise.
-func validateBalance(tokenInAmount osmomath.Int, balances sdk.Coins, denomToValidate string) error {
+func validateTransmuterBalance(tokenInAmount osmomath.Int, balances sdk.Coins, denomToValidate string) error {
 	balanceToValidate := balances.AmountOf(denomToValidate)
 	if tokenInAmount.GT(balanceToValidate) {
 		return domain.TransmuterInsufficientBalanceError{

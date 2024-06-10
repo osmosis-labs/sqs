@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 )
 
 type PricingUpdateListenerMock struct {
 	Height                 int
-	PricesBaseQuteDenomMap map[string]map[string]any
+	PricesBaseQuteDenomMap map[string]map[string]osmomath.BigDec
 	QuoteDenom             string
 
 	Done chan struct{}
@@ -22,7 +23,7 @@ type PricingUpdateListenerMock struct {
 func NewPricingListenerMock(timeout time.Duration) *PricingUpdateListenerMock {
 	return &PricingUpdateListenerMock{
 		Done:                   make(chan struct{}),
-		PricesBaseQuteDenomMap: make(map[string]map[string]any),
+		PricesBaseQuteDenomMap: make(map[string]map[string]osmomath.BigDec),
 		timeout:                timeout,
 	}
 }
@@ -30,7 +31,7 @@ func NewPricingListenerMock(timeout time.Duration) *PricingUpdateListenerMock {
 var _ domain.PricingUpdateListener = &PricingUpdateListenerMock{}
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
-func (p *PricingUpdateListenerMock) OnPricingUpdate(ctx context.Context, height int64, pricesBaseQuoteDenomMap map[string]map[string]any, quoteDenom string) error {
+func (p *PricingUpdateListenerMock) OnPricingUpdate(ctx context.Context, height uint64, blockMetadata domain.BlockPoolMetadata, pricesBaseQuoteDenomMap domain.PricesResult, quoteDenom string) error {
 	p.Height = int(height)
 	p.QuoteDenom = quoteDenom
 

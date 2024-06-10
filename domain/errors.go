@@ -147,6 +147,32 @@ func (e ConcentratedTickModelNotSetError) Error() string {
 	return fmt.Sprintf("tick model is not set on pool (%d)", e.PoolId)
 }
 
+type AlloyTransmuterDataMissingError struct {
+	PoolId uint64
+}
+
+func (e AlloyTransmuterDataMissingError) Error() string {
+	return fmt.Sprintf("Alloy Transmuter data is missing for pool (%d)", e.PoolId)
+}
+
+type MissingNormalizationFactorError struct {
+	PoolId uint64
+	Denom  string
+}
+
+func (e MissingNormalizationFactorError) Error() string {
+	return fmt.Sprintf("Missing normalization factor for denom (%s) in pool (%d)", e.Denom, e.PoolId)
+}
+
+type ZeroNormalizationFactorError struct {
+	PoolId uint64
+	Denom  string
+}
+
+func (e ZeroNormalizationFactorError) Error() string {
+	return fmt.Sprintf("Normalization factor is zero for denom (%s) in pool (%d)", e.Denom, e.PoolId)
+}
+
 type TransmuterInsufficientBalanceError struct {
 	Denom         string
 	BalanceAmount string
@@ -174,4 +200,22 @@ type SameDenomError struct {
 
 func (e SameDenomError) Error() string {
 	return fmt.Sprintf("two input denoms are equal (%s), must not be the same", e.DenomA)
+}
+
+type SpotPriceQuoteCalculatorOutAmountZeroError struct {
+	QuoteCoinStr string
+	BaseDenom    string
+}
+
+func (e SpotPriceQuoteCalculatorOutAmountZeroError) Error() string {
+	return fmt.Sprintf("out amount is zero when attempting to compute spot price via quote, quote coin (%s), base denom (%s)", e.QuoteCoinStr, e.BaseDenom)
+}
+
+type SpotPriceQuoteCalculatorTruncatedError struct {
+	QuoteCoinStr string
+	BaseDenom    string
+}
+
+func (e SpotPriceQuoteCalculatorTruncatedError) Error() string {
+	return fmt.Sprintf("spot price truncated when using quote method, quote coin (%s), base denom (%s)", e.QuoteCoinStr, e.BaseDenom)
 }

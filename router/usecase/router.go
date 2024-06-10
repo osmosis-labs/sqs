@@ -65,10 +65,13 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 				continue
 			}
 
-			_, isGeneralCosmWasmCodeID := cosmWasmPoolsConfig.GeneralCosmWasmCodeIDs[cosmWasmPool.GetCodeId()]
 			_, isTransmuterCodeID := cosmWasmPoolsConfig.TransmuterCodeIDs[cosmWasmPool.GetCodeId()]
-			if !(isGeneralCosmWasmCodeID || isTransmuterCodeID) {
-				logger.Debug("cw pool code id is enot added to config, skip silently", zap.Uint64("pool_id", pool.GetId()))
+			_, isAlloyedTransmuterCodeID := cosmWasmPoolsConfig.AlloyedTransmuterCodeIDs[cosmWasmPool.GetCodeId()]
+			_, isGeneralCosmWasmCodeID := cosmWasmPoolsConfig.GeneralCosmWasmCodeIDs[cosmWasmPool.GetCodeId()]
+
+			if !(isTransmuterCodeID || isAlloyedTransmuterCodeID || isGeneralCosmWasmCodeID) {
+				logger.Debug("cw pool code id is not added to config, skip silently", zap.Uint64("pool_id", pool.GetId()))
+
 				continue
 			}
 		}

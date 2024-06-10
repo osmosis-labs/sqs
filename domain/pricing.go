@@ -133,18 +133,24 @@ func FormatPricingCacheKey(a, b string) string {
 }
 
 type PricingWorker interface {
-	// UpdatePrices updates prices for the given base denoms asyncronously.
-	// Returns a channel that will be closed when the update is completed.
+	// UpdatePrices updates prices for the tokens from the unique block pool metadata
+	// that contains information about changed denoms and pools within a block.
 	// Propagates the results to the listeners.
-	UpdatePricesAsync(height uint64, baseDenoms map[string]struct{})
+	UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 
 	// RegisterListener registers a listener for pricing updates.
 	RegisterListener(listener PricingUpdateListener)
-
-	// IsProcessing returns true if the worker is processing a pricing update.
-	IsProcessing() bool
 }
 
+// PricingUpdateListener defines the interface for the pricing update listener.
 type PricingUpdateListener interface {
-	OnPricingUpdate(ctx context.Context, height int64, pricesBaseQuoteDenomMap map[string]map[string]any, quoteDenom string) error
+	// OnPricingUpdate notifies the listener of the pricing update.
+	OnPricingUpdate(ctx context.Context, height uint64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap PricesResult, quoteDenom string) error
 }
+
+// PricesResult defines the result of the prices.
+// [base denom][quote denom] => price
+// Note: BREAKING API - this type is API breaking as it is serialized to JSON.
+// from the /tokens/prices endpoint. Be mindful of changing it without
+// separating the API response for backward compatibility.
+type PricesResult map[string]map[string]osmomath.BigDec

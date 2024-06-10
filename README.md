@@ -18,6 +18,8 @@ all pool data for performing the complex routing algorithm.
 Follow [this link](https://hackmd.io/@osmosis/HkyIHvCH6) to find a guide on how to
 integrate with the sidecar query server.
 
+(Note: `apt install nano make build-essential gcc git jq chrony tar curl lz4 wget`)
+
 ## Custom CosmWasm Pools
 
 The sidecar query server supports custom CosmWasm pools.

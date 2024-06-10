@@ -504,14 +504,14 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 //
 // As of today there are 3 major ATOM / OSMO pools:
 // Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 11M of liquidity to date
-// Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 6.34M of liquidity to date
-// Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 435K of liquidity to date
-// Pool ID 1399: https://app.osmosis.zone/pool/1399 (concentrated) 0.01% spread factor and 78.5K of liquidity to date
-// Pool ID 1400: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 384K of liquidity to date
+// Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 6.17M of liquidity to date
+// Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 415K of liquidity to date
+// Pool ID 1399: https://app.osmosis.zone/pool/1399 (concentrated) 0.01% spread factor and 117K of liquidity to date
+// Pool ID 1400: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 232K of liquidity to date
 //
 // Based on this state, the small amounts of token in should go through pool 1265
 // Medium amounts of token in should go through pool 1135
-// and large amounts of token in should go through pool 1.
+// and large amounts of token in should go through pool 1135.
 //
 // For the purposes of testing cache, we focus on a small amount of token in (1_000_000 uosmo), expecting pool 1265 to be returned.
 // We will, however, tweak the cache by test case to force other pools to be returned and ensure that the cache is used.
@@ -535,7 +535,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolID: poolID1135Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -557,7 +557,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolID: poolID1135Concentrated,
 		},
 	}
 
@@ -617,7 +617,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 20
+		expectedZeroPoolCount = 36
 	)
 
 	viper.SetConfigFile("../../config.json")

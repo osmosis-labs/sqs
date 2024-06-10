@@ -14,18 +14,18 @@ import (
 )
 
 type MockRoutablePool struct {
-	ChainPoolModel   poolmanagertypes.PoolI
-	TickModel        *sqsdomain.TickModel
-	ID               uint64
-	Balances         sdk.Coins
-	Denoms           []string
-	PoolLiquidityCap osmomath.Int
-	PoolType         poolmanagertypes.PoolType
-	TokenOutDenom    string
-	TakerFee         osmomath.Dec
-	SpreadFactor     osmomath.Dec
-
-	mockedTokenOut sdk.Coin
+	ChainPoolModel    poolmanagertypes.PoolI
+	TickModel         *sqsdomain.TickModel
+	CosmWasmPoolModel *sqsdomain.CosmWasmPoolModel
+	ID                uint64
+	Balances          sdk.Coins
+	Denoms            []string
+	PoolLiquidityCap  osmomath.Int
+	PoolType          poolmanagertypes.PoolType
+	TokenOutDenom     string
+	TakerFee          osmomath.Dec
+	SpreadFactor      osmomath.Dec
+	mockedTokenOut    sdk.Coin
 }
 
 // CalcSpotPrice implements sqsdomain.RoutablePool.
@@ -66,10 +66,11 @@ func (mp *MockRoutablePool) GetUnderlyingPool() poolmanagertypes.PoolI {
 // GetSQSPoolModel implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) GetSQSPoolModel() sqsdomain.SQSPool {
 	return sqsdomain.SQSPool{
-		Balances:         mp.Balances,
-		PoolLiquidityCap: mp.PoolLiquidityCap,
-		SpreadFactor:     DefaultSpreadFactor,
-		PoolDenoms:       mp.Denoms,
+		Balances:          mp.Balances,
+		PoolLiquidityCap:  mp.PoolLiquidityCap,
+		SpreadFactor:      DefaultSpreadFactor,
+		PoolDenoms:        mp.Denoms,
+		CosmWasmPoolModel: mp.CosmWasmPoolModel,
 	}
 }
 

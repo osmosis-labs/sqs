@@ -1,4 +1,3 @@
-import setup
 import pytest
 import timeit
 import time
@@ -7,8 +6,7 @@ import os
 from datetime import datetime
 from sqs_service import *
 from coingecko_service import *
-from conftest import SERVICE_MAP
-from conftest import SERVICE_COINGECKO
+import conftest 
 from constants import *
 from filelock import FileLock
 
@@ -51,31 +49,31 @@ class TestTokensPrices:
             self.write_counter(counter)
 
     # NUM_TOKENS_DEFAULT low liquidity tokens
-    @pytest.mark.parametrize("token",setup.choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT))
+    @pytest.mark.parametrize("token",conftest.choose_tokens_liq_range(NUM_TOKENS_DEFAULT, MIN_LIQ_FILTER_DEFAULT, MAX_VAL_LOW_LIQ_FILTER_DEFAULT))
     def test_low_liq_token_prices(self, environment_url, token):
         self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF, allow_blank_coingecko_id=True)
 
     # NUM_TOKENS_DEFAULT low volume tokens
-    @pytest.mark.parametrize("token",setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_LOW_VOL_FILTER_DEFAULT))
+    @pytest.mark.parametrize("token",conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_LOW_VOL_FILTER_DEFAULT))
     def test_low_volume_token_prices(self, environment_url, token):
         self.run_coingecko_comparison_test(environment_url, token, HIGH_PRICE_DIFF, allow_blank_coingecko_id=True)
 
     # NUM_TOKENS_DEFAULT mid volume tokens
-    @pytest.mark.parametrize("token",setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_MID_VOL_FILTER_DEFAULT))
+    @pytest.mark.parametrize("token",conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT, MIN_VOL_FILTER_DEFAULT, MAX_VAL_MID_VOL_FILTER_DEFAULT))
     def test_mid_volume_token_prices(self, environment_url, token):
         self.run_coingecko_comparison_test(environment_url, token, MID_PRICE_DIFF, allow_blank_coingecko_id=True)
 
     # NUM_TOKENS_DEFAULT top by-volume tokens
-    @pytest.mark.parametrize("token", setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT))
+    @pytest.mark.parametrize("token", conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT))
     def test_top_volume_token_prices(self, environment_url, token):
         self.run_coingecko_comparison_test(environment_url, token, LOW_PRICE_DIFF, allow_blank_coingecko_id=False)
 
     # Test every valid listed token if it is supported by the /tokens/prices endpoint
     # Tests are run by separate processes in parallel, thus using the filelock
     # to ensure that the counter is updated safely 
-    @pytest.mark.parametrize("token", setup.choose_valid_listed_tokens())
+    @pytest.mark.parametrize("token", conftest.shared_test_state.valid_listed_tokens)
     def test_unsupported_token_count(self, environment_url, token):
-        sqs_service = SERVICE_MAP[environment_url]
+        sqs_service = conftest.SERVICE_MAP[environment_url]
         try:
             sqs_price_json = sqs_service.get_tokens_prices([token])
             sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
@@ -100,8 +98,8 @@ class TestTokensPrices:
     # NUM_TOKENS_DEFAULT top by-volume tokens in a batch request, in which multiple tokens
     # are requested in a single request to /tokens/prices
     def test_top_volume_token_prices_in_batch(self, environment_url):
-        tokens = setup.choose_tokens_volume_range(NUM_TOKENS_DEFAULT)
-        sqs_service = SERVICE_MAP[environment_url]
+        tokens = conftest.choose_tokens_volume_range(NUM_TOKENS_DEFAULT)
+        sqs_service = conftest.SERVICE_MAP[environment_url]
         # Assert the latency of the sqs pricing request is within the threshold
         measure_latency = lambda: sqs_service.get_tokens_prices(tokens)
         latency = timeit.timeit(measure_latency, number=1)
@@ -123,7 +121,7 @@ class TestTokensPrices:
     # 4. Test if the price difference between coingecko and sqs is within the threshold
     def run_coingecko_comparison_test(self, environment_url, token, price_diff_threshold, allow_blank_coingecko_id=False):
         date_format = '%Y-%m-%d %H:%M:%S'
-        sqs_service = SERVICE_MAP[environment_url]
+        sqs_service = conftest.SERVICE_MAP[environment_url]
 
         # Assert the latency of the sqs pricing request is within the threshold
         measure_latency = lambda: sqs_service.get_tokens_prices([token])
@@ -145,7 +143,7 @@ class TestTokensPrices:
 
         # If coingecko id is available, perform the price comparison against its price
         if coingecko_id is not None and not allow_blank_coingecko_id:
-            coingecko_service = SERVICE_COINGECKO
+            coingecko_service = conftest.SERVICE_COINGECKO
             # Assert coingecko price is available for the token
             coingecko_price = coingecko_service.get_token_price(coingecko_id)
             assert coingecko_price is not None, f"{token},{coingecko_id} coingecko price is none"

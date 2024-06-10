@@ -20,13 +20,14 @@
       "min-pool-liquidity-cap": 1000,
       "route-cache-enabled": true,
       "candidate-route-cache-expiry-seconds": 1200,
-      "ranked-route-cache-expiry-seconds": 600
+      "ranked-route-cache-expiry-seconds": 45
     },
     "pools": {
         "transmuter-code-ids": [
             148,
             254
         ],
+        "alloyed-transmuter-code-ids": [],
         "general-cosmwasm-code-ids": [
             503,
             572,

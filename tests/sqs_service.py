@@ -4,6 +4,7 @@ SQS_STAGE = "https://sqs.stage.osmosis.zone"
 SQS_PROD = "https://sqs.osmosis.zone"
 
 ROUTER_ROUTES_URL = "/router/routes"
+ROUTER_QUOTE_URL = "/router/quote"
 
 TOKENS_METADATA_URL = "/tokens/metadata"
 
@@ -30,7 +31,7 @@ class SQSService:
         """
         Fetches the config from the specified endpoint and returns it.
         Caches it internally to avoid fetching it multiple times.
-        
+
         Raises error if non-200 is returned from the endpoint.
         """
         if self.config:
@@ -40,7 +41,7 @@ class SQSService:
 
         if response.status_code != 200:
             raise Exception(f"Error fetching config: {response.text}")
-        
+
         self.config = response.json()
 
         return self.config
@@ -56,11 +57,31 @@ class SQSService:
         # Send the GET request
         return requests.get(self.url + ROUTER_ROUTES_URL, params=params, headers=self.headers)
 
+    def get_quote(self, denom_in, denom_out, human_denoms="false", singleRoute="false"):
+        """
+        Fetches quote from the specified endpoint and returns it.
+
+        Raises error if non-200 is returned from the endpoint.
+        """
+
+        # Set the query parameters
+        params = {
+            "tokenIn": denom_in,
+            "tokenOutDenom": denom_out,
+            "humanDenoms": human_denoms,
+            "singleRoute": singleRoute,
+        }
+
+        print(params)
+
+        # Send the GET request
+        return requests.get(self.url + ROUTER_QUOTE_URL, params=params, headers=self.headers)
+
     def get_tokens_metadata(self):
         """
         Fetches tokens metadata from the specified endpoint and returns them.
         Caches them internally to avoid fetching them multiple times.
-        
+
         Raises error if non-200 is returned from the endpoint.
         """
         if self.tokens_metadata:
@@ -70,7 +91,7 @@ class SQSService:
 
         if response.status_code != 200:
             raise Exception(f"Error fetching tokens metadata: {response.text}")
-        
+
         self.tokens_metadata = response.json()
 
         return self.tokens_metadata
@@ -87,7 +108,7 @@ class SQSService:
         response = requests.get(self.url + TOKENS_PRICES_URL, params=params, headers=self.headers)
         if response.status_code != 200:
             raise Exception(f"Error fetching token price: {response.text}")
-        
+
         return response.json()
 
     # Given the chain denom, fetch the asset list, parse it and return its coingecko id
@@ -103,5 +124,5 @@ class SQSService:
             asset_list_json = response.json()
             for asset in asset_list_json.get("assets"):
                 self.asset_list[asset[coin_minimal_denom_key]] = asset.get(coingecko_id_key, None)
-            
-        return self.asset_list.get(denom, None) 
+
+        return self.asset_list.get(denom, None)

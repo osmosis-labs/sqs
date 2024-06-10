@@ -29,23 +29,39 @@ var _ sqsdomain.RoutablePool = &routableCosmWasmPoolImpl{}
 // routableCosmWasmPool is an implemenation of the cosm wasm pool
 // that interacts with the chain for quotes and spot price.
 type routableCosmWasmPoolImpl struct {
-	ChainPool     *cwpoolmodel.CosmWasmPool "json:\"pool\""
-	Balances      sdk.Coins                 "json:\"balances\""
-	TokenOutDenom string                    "json:\"token_out_denom\""
-	TakerFee      osmomath.Dec              "json:\"taker_fee\""
-	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
-	wasmClient    wasmtypes.QueryClient     "json:\"-\""
+	ChainPool                *cwpoolmodel.CosmWasmPool       "json:\"pool\""
+	Balances                 sdk.Coins                       "json:\"balances\""
+	TokenOutDenom            string                          "json:\"token_out_denom\""
+	TakerFee                 osmomath.Dec                    "json:\"taker_fee\""
+	SpreadFactor             osmomath.Dec                    "json:\"spread_factor\""
+	wasmClient               wasmtypes.QueryClient           "json:\"-\""
+	spotPriceQuoteCalculator domain.SpotPriceQuoteCalculator "json:\"-\""
 }
 
-var (
-	// Assumming precision of 6, this is 10 units.
-	// This is naive since precision can be greater but should work for most cases.
-	tenE7 = sdk.NewInt(10_000_000)
+// NewRoutableCosmWasmPool returns a new routable cosmwasm pool with the given parameters.
+func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, wasmClient wasmtypes.QueryClient, scalingFactorGetterCb domain.ScalingFactorGetterCb) sqsdomain.RoutablePool {
+	// Initializa routable cosmwasm pool
+	routableCosmWasmPool := &routableCosmWasmPoolImpl{
+		ChainPool:     pool,
+		Balances:      balances,
+		TokenOutDenom: tokenOutDenom,
+		TakerFee:      takerFee,
+		SpreadFactor:  spreadFactor,
+		wasmClient:    wasmClient,
 
-	// We observed price impact breaking in-production with 18 decimal tokens.
-	// This is a workaround to fallback to precision of 18 if 10^7 fails.
-	tenE18 = sdk.NewInt(1_000_000_000_000_000_000)
-)
+		// Note, that there is no calculator set
+		// since we need to wire quote calculation callback to it.
+		spotPriceQuoteCalculator: nil,
+	}
+
+	// Initialize spot price calculator.
+	spotPriceCalculator := NewSpotPriceQuoteComputer(scalingFactorGetterCb, routableCosmWasmPool.calculateTokenOutByTokenIn)
+
+	// Set it on the routable cosmwasm pool.
+	routableCosmWasmPool.spotPriceQuoteCalculator = spotPriceCalculator
+
+	return routableCosmWasmPool
+}
 
 // GetId implements sqsdomain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetId() uint64 {
@@ -133,30 +149,19 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 	// If the pool is an Astroport pool, use an alternative method for
 	// calculating the spot price.
 	// Astroport spot price is an SMA (moving average) of all past trades.
+	// Astroport also auto-applies denom scaling factors contrary to any other pool
+	// on-chain.
+	// Note: we can attempt removing this once Astroport migrates their pool to stop
+	// applying scaling factors.
 	codeID := r.ChainPool.CodeId
 	if codeID == astroportCodeID {
-		// Calculate the spot price using the pool's balances
-
-		out, err := r.calculateTokenOutByTokenIn(ctx, sdk.NewCoin(quoteDenom, tenE7), baseDenom)
-
-		// HACK: If the estimated quote is zero and there is no error, this is likely due to insufficient amount
-		// of token in to calculate the spot price. This is a workaround to fallback to higher precision which is in
-		// most cases 18.
-		if err == nil && out.IsZero() {
-			out, err = r.calculateTokenOutByTokenIn(ctx, sdk.NewCoin(quoteDenom, tenE18), baseDenom)
+		// Attempt to Calculate the spot price using quote
+		spotPriceFromQuote, err := r.spotPriceQuoteCalculator.Calculate(ctx, baseDenom, quoteDenom)
+		// If no error return immediately
+		if err == nil {
+			return spotPriceFromQuote, nil
 		}
-
-		// If error, proceed to querying cosmwasm
-		if err == nil && !out.Amount.IsZero() {
-			spotPrice := osmomath.NewBigDecFromBigInt(tenE18.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigIntMut(out.Amount.BigIntMut()))
-
-			// If spot price is not zero, return it
-			if !spotPrice.IsZero() {
-				return spotPrice, nil
-			}
-
-			// If spot price was truncated, proceed to querying cosmwasm via the general method
-		}
+		// if error proceed to querying cosmwasm via the general method
 	}
 
 	response := &msg.SpotPriceQueryMsgResponse{}

@@ -4,7 +4,7 @@ package sqs.ingest.v1beta1;
 option go_package = "sqsdomain/proto/types";
 
 // SQSIngester is a a data ingester from an Osmosis node to
-// the sidecar query server. 
+// the sidecar query server.
 service SQSIngester {
   // ProcessBlock processes a block from the Osmosis node.
   rpc ProcessBlock(ProcessBlockRequest) returns (ProcessBlockReply) {}
