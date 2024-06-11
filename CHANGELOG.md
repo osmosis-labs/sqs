@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Unreleased
 
 - [Dynamic Min Liquidity] new ingester methods for acquiring necessary metadata.
+- bugfix: PoolWrapper Validate panic
 
 ## v0.19.1
 
