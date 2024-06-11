@@ -28,7 +28,6 @@ Once complete, it calls a hook to notify the subscribed listeners that the price
 #### Pricing Listeners
 
 - Healthcheck: The healthcheck listener is responsible for updating the healthcheck status based on the last time the prices were updated. If the prices are not updated within a certain time period, the healthcheck status will be updated to unhealthy.
-An example of a listener is the healtcheck component. Once it is notified of the price update, it
 - Pool Liquidity Pricing Worker: This worker is responsible for updating the pool liquidity capitalization
 based on the prices that are computed by the pricing worker.
 
