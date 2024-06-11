@@ -84,3 +84,5 @@ We [store this map in-memory of the ingester module](https://github.com/osmosis-
 This map containing pool liquidity data for all pools is then [propagated to the pricing worker](https://github.com/osmosis-labs/sqs/blob/81452a23b12fe9744e30ee04f5c13c790e404e51/ingest/usecase/ingest_usecase.go#L95). Once prices are computed, they are pushed into the pool liquidity pricer together with the liquidity data for all pools.
 
 By having the information about all pools updated within a block, their latest liquidity and prices of each token in the pool, we are able to recompute the liquidity capitalization for all updated pools and denom liquidities.
+
+For example, assume that there is an ATOM/OSMO pool that is modified within a block. First, we recompute the default quote denom (USDC) denominated prices for ATOM and OSMO using the "pricing worker". Then, the "pool liquidity pricing worker" uses the updated prices from the pricing worker to recompute the capitalization (USDC-denominated value of total liquidity in the pool).
