@@ -9,7 +9,7 @@ Having these pools be included in the router system imposes performance overhead
 without clear benefit.
 
 Additionally, if 2 concurrent user swaps go over the same pool with low liquidity, one
-of them is likely to exhaust liquidity, either causing a mistestimate to the other user
+of them is likely to exhaust liquidity, either causing a misestimate to the other user
 (that frequently goes unnoticed in-practice) or simply fails the swap.
 
 To work around this constraint, we introduce a min liquidity capitalization filter.
