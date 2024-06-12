@@ -321,7 +321,6 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 			var err error
 			price, err = pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 			if err != nil { // Check if we should fallback to another pricing source
-
 				options := domain.PricingOptions{}
 				for _, opt := range pricingOptions {
 					opt(&options)

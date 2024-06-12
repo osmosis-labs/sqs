@@ -12,9 +12,8 @@ import (
 )
 
 type pricingWorker struct {
-	updateListeners     []domain.PricingUpdateListener
-	quoteDenom          string
-	poolMinLiquidityCap uint64
+	updateListeners []domain.PricingUpdateListener
+	quoteDenom      string
 
 	tokensUseCase   mvc.TokensUsecase
 	minLiquidityCap uint64

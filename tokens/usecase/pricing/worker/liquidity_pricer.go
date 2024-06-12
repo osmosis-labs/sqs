@@ -28,14 +28,14 @@ func NewLiquidityPricer(defaultQuoteDenom string, chainScalingFactorGetterCb dom
 }
 
 // PriceCoin implements domain.PoolLiquidityPricerWorker.
-func (l *liquidityPricer) PriceCoin(coin sdk.Coin, price osmomath.BigDec) osmomath.Int {
+func (p *liquidityPricer) PriceCoin(coin sdk.Coin, price osmomath.BigDec) osmomath.Int {
 	if price.IsZero() {
 		// If the price is zero, set the capitalization to zero.
 		return osmomath.ZeroInt()
 	}
 
 	// Get the scaling factor for the base denom.
-	baseScalingFactor, err := l.scalingFactorGetterCb(coin.Denom)
+	baseScalingFactor, err := p.scalingFactorGetterCb(coin.Denom)
 	if err != nil {
 		// If there is an error, keep the total liquidity but set the capitalization to zero.
 		return osmomath.ZeroInt()

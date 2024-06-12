@@ -83,7 +83,11 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	// 	p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates, quoteDenom)
 	// }()
 
-	p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates, quoteDenom)
+	if err := p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates); err != nil {
+		// Note: the error is propagated to the caller because
+		// the callee only errors on fatal issues that should invalidate health check.
+		return err
+	}
 
 	// Wait for goroutines to finish processing.
 	// wg.Wait()
@@ -106,7 +110,6 @@ func (p *poolLiquidityPricerWorker) RepriceDenomsMetadata(updateHeight uint64, b
 
 	// Iterate over the denoms updated within the block
 	for updatedBlockDenom := range blockPoolMetadata.UpdatedDenoms {
-
 		poolDenomMetaData, err := p.CreatePoolDenomMetaData(updatedBlockDenom, updateHeight, blockPriceUpdates, quoteDenom, blockPoolMetadata)
 		if err != nil {
 			// TODO: debug log??
@@ -191,7 +194,7 @@ func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, heigh
 
 // repricePoolLiquidityCap reprices pool liquidity capitalization for the given poolIDs, block price updates and quote denom.
 // If fails to retrieve price for one of the denoms in balances, the liquidity capitalization for that denom would be zero.
-func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]struct{}, blockPriceUpdates domain.PricesResult, quoteDenom string) error {
+func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]struct{}, blockPriceUpdates domain.PricesResult) error {
 	blockPoolIDs := domain.KeysFromMap(poolIDs)
 
 	pools, err := p.poolHandler.GetPools(blockPoolIDs)
