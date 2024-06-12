@@ -37,6 +37,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+- Create a config for pricing worker min liquidity capitalization and set it to 5 USD by default.
 - [Dynamic Min Liquidity] new ingester methods for acquiring necessary metadata.
 - bugfix: PoolWrapper Validate panic
 - SQS: Fix /version endpoint and let it work in containers

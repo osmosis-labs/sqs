@@ -127,6 +127,8 @@ type RouterOptions struct {
 	// The number of milliseconds to cache candidate routes for before expiry.
 	CandidateRouteCacheExpirySeconds int
 	RankedRouteCacheExpirySeconds    int
+	// IsPricingWorkerPrecompute is true if the router is used by the pricing worker.
+	IsPricingWorkerPrecompute bool
 }
 
 // DefaultRouterOptions defines the default options for the router
@@ -166,5 +168,12 @@ func WithDisableSplitRoutes() RouterOption {
 func WithMaxSplitRoutes(maxSplitRoutes int) RouterOption {
 	return func(o *RouterOptions) {
 		o.MaxSplitRoutes = maxSplitRoutes
+	}
+}
+
+// WithIsPricingWorkerPrecompute configures the router options with the pricing worker precompute flag.
+func WithIsPricingWorkerPrecompute(isPricingWorkerPrecompute bool) RouterOption {
+	return func(o *RouterOptions) {
+		o.IsPricingWorkerPrecompute = isPricingWorkerPrecompute
 	}
 }

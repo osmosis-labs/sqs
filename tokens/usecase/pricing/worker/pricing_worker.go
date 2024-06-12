@@ -15,7 +15,8 @@ type pricingWorker struct {
 	updateListeners []domain.PricingUpdateListener
 	quoteDenom      string
 
-	tokensUseCase mvc.TokensUsecase
+	tokensUseCase   mvc.TokensUsecase
+	minLiquidityCap uint64
 
 	logger log.Logger
 }
@@ -24,11 +25,12 @@ const (
 	priceUpdateTimeout = time.Minute * 2
 )
 
-func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, logger log.Logger) domain.PricingWorker {
+func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, minLiquidityCap uint64, logger log.Logger) domain.PricingWorker {
 	return &pricingWorker{
 		updateListeners: []domain.PricingUpdateListener{},
 		quoteDenom:      quoteDenom,
 		tokensUseCase:   tokensUseCase,
+		minLiquidityCap: minLiquidityCap,
 
 		logger: logger,
 	}
@@ -56,7 +58,7 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 	// Note that we recompute prices entirely.
 	// Min osmo liquidity must be zero. The reason is that some pools have TVL incorrectly calculated as zero.
 	// For example, BRNCH / STRDST (1288). As a result, they are incorrectly excluded despite having appropriate liquidity.
-	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(0))
+	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.minLiquidityCap), domain.WithIsWorkerPrecompute())
 	if err != nil {
 		p.logger.Error("failed to pre-compute prices", zap.Error(err))
 
