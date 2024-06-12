@@ -52,7 +52,7 @@ type PricingOptions struct {
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
 	MinPoolLiquidityCap uint64
 	// DisableFallback defines whether to disable the fallback strategy.
-	DisableFallback    bool
+	DisableFallback bool
 	// IsWorkerPrecompute defines whether the pricing is precomputed by the worker.
 	IsWorkerPrecompute bool
 }
@@ -120,7 +120,7 @@ type PricingConfig struct {
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
 	MaxRoutes        int `mapstructure:"max-routes"`
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.
-	MinPoolLiquidityCap       uint64 `mapstructure:"min-pool-liquidity-cap"`
+	MinPoolLiquidityCap uint64 `mapstructure:"min-pool-liquidity-cap"`
 	// WorkerMinPoolLiquiidtyCap is the minimum liquidity capitalization required for a pool to be considered in the pricing worker.
 	WorkerMinPoolLiquidityCap uint64 `mapstructure:"worker-min-pool-liquidity-cap"`
 }
@@ -164,7 +164,16 @@ type PoolLiquidityPricerWorker interface {
 	// Relies on the blockPriceUpdates to get the price for the denoms.
 	// If the price for denom cannot be fetched, the liquidity capitalization for this denom is set to zero.
 	// The latest update height for this denom is updated on completion.
-	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap BlockPoolMetadata) PoolDenomMetaDataMap
+	RepriceDenomsMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap BlockPoolMetadata) PoolDenomMetaDataMap
+	// CreatePoolDenomMetaData creates a pool denom metatata by finding the total liquidity across all pools in block pool metadata,
+	// retrieving the price from blockPriceUpdates and recomputing the liquidity capitalization for the given denom, update height, block price updates and quote denom.
+	// Returns the pool denom metadata and error if any.
+	// Returns error if:
+	// - the updatedBlockDenom is a gamm share
+	// - the updatedBlockDenom has a later update than the current height
+	// - the denom pool liquidity data is not found for the updatedBlockDenom.
+	// - the price is not found for the given denom.
+	CreatePoolDenomMetaData(updatedBlockDenom string, updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockPoolMetadata BlockPoolMetadata) (PoolDenomMetaData, error)
 
 	// GetHeightForDenom returns zero if the height is not found or fails to cast it to the return type.
 	GetHeightForDenom(denom string) uint64

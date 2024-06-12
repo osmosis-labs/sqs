@@ -441,7 +441,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			}
 
 			// System under test
-			poolDenomMetadata := poolLiquidityPricerWorker.RepriceDenomMetadata(tt.updateHeight, tt.blockPriceUpdates, tt.quoteDenom, domain.BlockPoolMetadata{
+			poolDenomMetadata := poolLiquidityPricerWorker.RepriceDenomsMetadata(tt.updateHeight, tt.blockPriceUpdates, tt.quoteDenom, domain.BlockPoolMetadata{
 				DenomPoolLiquidityMap: tt.blockDenomLiquidityUpdatesMap,
 				// TODO: reconfigure.
 				UpdatedDenoms: map[string]struct{}{},

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -70,7 +71,7 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	// }()
 	// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
 	// for concurrency.
-	repricedTokenMetadata := p.RepriceDenomMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
+	repricedTokenMetadata := p.RepriceDenomsMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
 
 	// Update the pool denom metadata.
 	p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
@@ -99,38 +100,20 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	return nil
 }
 
-// RepriceDenomMetadata implements domain.PoolLiquidityPricerWorker
-func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockPoolMetadata domain.BlockPoolMetadata) domain.PoolDenomMetaDataMap {
+// RepriceDenomsMetadata implements domain.PoolLiquidityPricerWorker
+func (p *poolLiquidityPricerWorker) RepriceDenomsMetadata(updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockPoolMetadata domain.BlockPoolMetadata) domain.PoolDenomMetaDataMap {
 	blockTokenMetadataUpdates := make(domain.PoolDenomMetaDataMap, len(blockPoolMetadata.UpdatedDenoms))
 
 	// Iterate over the denoms updated within the block
 	for updatedBlockDenom := range blockPoolMetadata.UpdatedDenoms {
-		if strings.Contains(updatedBlockDenom, "gamm/pool") {
+
+		poolDenomMetaData, err := p.CreatePoolDenomMetaData(updatedBlockDenom, updateHeight, blockPriceUpdates, quoteDenom, blockPoolMetadata)
+		if err != nil {
+			// TODO: debug log??
 			continue
 		}
 
-		blockPoolDenomLiquidityData, ok := blockPoolMetadata.DenomPoolLiquidityMap[updatedBlockDenom]
-		if !ok {
-			// TODO: error
-			continue
-		}
-
-		// Skip if the denom has a later update than the current height.
-		if p.hasLaterUpdateThanHeight(updatedBlockDenom, updateHeight) {
-			continue
-		}
-
-		totalLiquidityForDenom := blockPoolDenomLiquidityData.TotalLiquidity
-
-		price := blockPriceUpdates.GetPriceForDenom(updatedBlockDenom, quoteDenom)
-
-		if price.IsZero() {
-			continue
-		}
-
-		liquidityCapitalization := p.liquidityPricer.PriceCoin(sdk.NewCoin(updatedBlockDenom, totalLiquidityForDenom), price)
-
-		blockTokenMetadataUpdates.Set(updatedBlockDenom, totalLiquidityForDenom, liquidityCapitalization, price)
+		blockTokenMetadataUpdates.Set(updatedBlockDenom, poolDenomMetaData)
 
 		// Store the height for the denom.
 		p.StoreHeightForDenom(updatedBlockDenom, updateHeight)
@@ -138,6 +121,38 @@ func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, bl
 
 	// Return the updated token metadata for testability
 	return blockTokenMetadataUpdates
+}
+
+// CreatePoolDenomMetaData implements domain.PoolLiquidityPricerWorker
+func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom string, updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockPoolMetadata domain.BlockPoolMetadata) (domain.PoolDenomMetaData, error) {
+	if strings.Contains(updatedBlockDenom, "gamm/pool") {
+		return domain.PoolDenomMetaData{}, fmt.Errorf("gamm share pricing is not supported (%s)", updatedBlockDenom)
+	}
+
+	if p.hasLaterUpdateThanHeight(updatedBlockDenom, updateHeight) {
+		return domain.PoolDenomMetaData{}, fmt.Errorf("denom (%s) has a later update than the current height (%d)", updatedBlockDenom, updateHeight)
+	}
+
+	blockPoolDenomLiquidityData, ok := blockPoolMetadata.DenomPoolLiquidityMap[updatedBlockDenom]
+	if !ok {
+		return domain.PoolDenomMetaData{}, fmt.Errorf("denom pool liquidity data not found for denom %s", updatedBlockDenom)
+	}
+
+	totalLiquidityForDenom := blockPoolDenomLiquidityData.TotalLiquidity
+
+	price := blockPriceUpdates.GetPriceForDenom(updatedBlockDenom, quoteDenom)
+
+	if price.IsZero() {
+		return domain.PoolDenomMetaData{}, fmt.Errorf("price not found (zero) for denom %s", updatedBlockDenom)
+	}
+
+	liquidityCapitalization := p.liquidityPricer.PriceCoin(sdk.NewCoin(updatedBlockDenom, totalLiquidityForDenom), price)
+
+	return domain.PoolDenomMetaData{
+		TotalLiquidity:    totalLiquidityForDenom,
+		TotalLiquidityCap: liquidityCapitalization,
+		Price:             price,
+	}, nil
 }
 
 // GetHeightForDenom implements domain.PoolLiquidityPricerWorker.
