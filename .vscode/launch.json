@@ -130,9 +130,6 @@
                 // "tests/test_pools.py::TestPools::test_pools[http://localhost:9092-1278]"
                 "tests/test_pools.py"
             ],
-            "env": {
-                "SQS_API_KEY": "SQS-OSMO-WFOhifOP5RkqMdi8"
-            },
             "console": "integratedTerminal",
             "justMyCode": true,
             "python": "${workspaceFolder}/tests/venv/bin/python3"
