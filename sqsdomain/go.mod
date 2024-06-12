@@ -3,6 +3,7 @@ module github.com/osmosis-labs/sqs/sqsdomain
 go 1.21.8
 
 require (
+	github.com/Masterminds/semver v1.5.0
 	github.com/cosmos/cosmos-sdk v0.47.8
 	github.com/json-iterator/go v1.1.12
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
@@ -25,7 +26,6 @@ require (
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/CosmWasm/wasmvm v1.5.2 // indirect
 	github.com/DataDog/zstd v1.4.5 // indirect
-	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect

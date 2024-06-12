@@ -94,7 +94,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.sortAndStorePools(allPools)
 
 	// Update pool denom metadata
-	p.logger.Info("updating pool denom metadata", zap.Uint64("height", height), zap.Int("denom_count", len(uniqueBlockPoolMetadata.DenomPoolLiquidityMap)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
+	p.logger.Info("updating pool denom metadata", zap.Uint64("height", height), zap.Int("block_denoms_count", len(uniqueBlockPoolMetadata.UpdatedDenoms)), zap.Int("denom_liq_map_count", len(uniqueBlockPoolMetadata.DenomPoolLiquidityMap)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
 	// Note: we must queue the update before we start updating prices as pool liquidity
 	// worker listens for the pricing updates at the same height.
@@ -198,6 +198,13 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	// For evey coin in balance
 	for _, coin := range currentPoolBalances {
+		if err := coin.Validate(); err != nil {
+			// Skip invalid coins.
+			// Example: pool 1176 (transmuter v1 pool) has invalid coins.
+			// https://celatone.osmosis.zone/osmosis-1/contracts/osmo136f4pv283yywv3t56d5zdkhq43uucw462rt3qfpm2s84vvr7rrasn3kllg
+			continue
+		}
+
 		// Get denom data for this denom
 		denomData, ok := currentBlockLiquidityMap[coin.Denom]
 		if !ok {

@@ -12,8 +12,9 @@ import (
 )
 
 type pricingWorker struct {
-	updateListeners []domain.PricingUpdateListener
-	quoteDenom      string
+	updateListeners     []domain.PricingUpdateListener
+	quoteDenom          string
+	poolMinLiquidityCap uint64
 
 	tokensUseCase mvc.TokensUsecase
 
@@ -24,11 +25,12 @@ const (
 	priceUpdateTimeout = time.Minute * 2
 )
 
-func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, logger log.Logger) domain.PricingWorker {
+func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, poolMinLiquidityCap uint64, logger log.Logger) domain.PricingWorker {
 	return &pricingWorker{
-		updateListeners: []domain.PricingUpdateListener{},
-		quoteDenom:      quoteDenom,
-		tokensUseCase:   tokensUseCase,
+		updateListeners:     []domain.PricingUpdateListener{},
+		quoteDenom:          quoteDenom,
+		tokensUseCase:       tokensUseCase,
+		poolMinLiquidityCap: poolMinLiquidityCap,
 
 		logger: logger,
 	}
@@ -40,7 +42,7 @@ func (p *pricingWorker) UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData
 }
 
 func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
-	baseDenoms := keysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
+	baseDenoms := domain.KeysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
 
 	ctx, cancel := context.WithTimeout(context.Background(), priceUpdateTimeout)
 	start := time.Now()
@@ -56,7 +58,7 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 	// Note that we recompute prices entirely.
 	// Min osmo liquidity must be zero. The reason is that some pools have TVL incorrectly calculated as zero.
 	// For example, BRNCH / STRDST (1288). As a result, they are incorrectly excluded despite having appropriate liquidity.
-	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(0))
+	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.poolMinLiquidityCap), domain.WithIsWorkerPrecompute())
 	if err != nil {
 		p.logger.Error("failed to pre-compute prices", zap.Error(err))
 
@@ -77,13 +79,4 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 // RegisterListener implements PricingWorker.
 func (p *pricingWorker) RegisterListener(listener domain.PricingUpdateListener) {
 	p.updateListeners = append(p.updateListeners, listener)
-}
-
-// Generic function to extract keys from any map.
-func keysFromMap[K comparable, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m)) // Pre-allocate slice with capacity equal to map size
-	for key := range m {
-		keys = append(keys, key)
-	}
-	return keys
 }

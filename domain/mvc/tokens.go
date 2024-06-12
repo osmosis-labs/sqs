@@ -11,12 +11,6 @@ import (
 )
 
 type TokensPoolLiquidityHandler interface {
-	// GetChainScalingFactorByDenomMut returns a chain scaling factor for a given denom
-	// and a boolean flag indicating whether the scaling factor was found or not.
-	// Note that the returned decimal is a shared resource and must not be mutated.
-	// A clone should be made for any mutative operation.
-	GetChainScalingFactorByDenomMut(denom string) (osmomath.Dec, error)
-
 	// UpdatePoolDenomMetadata updates the pool denom metadata, completely overwriting any previous
 	// denom results stored internally, if any. The denoms metadata that is present internally
 	// but not in the provided map will be left unchanged.
@@ -35,6 +29,12 @@ type TokensUsecase interface {
 
 	// GetChainDenom returns chain denom by human denom
 	GetChainDenom(humanDenom string) (string, error)
+
+	// GetChainScalingFactorByDenomMut returns a chain scaling factor for a given denom
+	// and a boolean flag indicating whether the scaling factor was found or not.
+	// Note that the returned decimal is a shared resource and must not be mutated.
+	// A clone should be made for any mutative operation.
+	GetChainScalingFactorByDenomMut(denom string) (osmomath.Dec, error)
 
 	// GetSpotPriceScalingFactorByDenomMut returns the scaling factor for spot price.
 	GetSpotPriceScalingFactorByDenom(baseDenom, quoteDenom string) (osmomath.Dec, error)

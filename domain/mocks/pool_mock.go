@@ -164,6 +164,26 @@ func (mp *MockRoutablePool) GetCodeID() uint64 {
 	return 0
 }
 
+// GetLiquidityCap implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) GetLiquidityCap() math.Int {
+	panic("unimplemented")
+}
+
+// GetLiquidityCapError implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) GetLiquidityCapError() string {
+	panic("unimplemented")
+}
+
+// SetLiquidityCap implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) SetLiquidityCap(liquidityCap math.Int) {
+	panic("unimplemented")
+}
+
+// SetLiquidityCapError implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) SetLiquidityCapError(liquidityCapError string) {
+	panic("unimplemented")
+}
+
 func deepCopyPool(mp *MockRoutablePool) *MockRoutablePool {
 	newDenoms := make([]string, len(mp.Denoms))
 	copy(newDenoms, mp.Denoms)

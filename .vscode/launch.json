@@ -74,7 +74,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestTokensUseCaseTestSuite/TestPoolDenomMetadata",
+                "TestTokensUseCaseTestSuite/TestGetPrices_Chain_Specific",
                 "-test.v"
             ],
         },
@@ -102,7 +102,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestPoolLiquidityComputeWorkerSuite/TestRepriceDenomMetadata",
+                "TestPoolLiquidityComputeWorkerSuite/TestPriceBalances",
                 "-test.v"
             ],
         },
@@ -127,8 +127,12 @@
             "module": "pytest",
             "args": [
                 "-v",
-                "tests"
+                // "tests/test_pools.py::TestPools::test_pools[http://localhost:9092-1278]"
+                "tests/test_pools.py"
             ],
+            "env": {
+                "SQS_API_KEY": "SQS-OSMO-WFOhifOP5RkqMdi8"
+            },
             "console": "integratedTerminal",
             "justMyCode": true,
             "python": "${workspaceFolder}/tests/venv/bin/python3"

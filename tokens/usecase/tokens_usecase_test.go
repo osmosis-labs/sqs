@@ -42,6 +42,7 @@ var (
 	UMEE    = routertesting.UMEE
 	UION    = routertesting.UION
 	CRE     = routertesting.CRE
+	STEVMOS = routertesting.STEVMOS
 	// As of 2024-05, this token is unlisted but this might change.
 	AAVE_UNLISTED = "ibc/384E5DD50BDE042E1AAF51F312B55F08F95BC985C503880189258B4D9374CBBE"
 
@@ -227,7 +228,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
 	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
 
 	// System under test.
-	price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{CRE}, []string{USDC}, domain.ChainPricingSourceType)
+	price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{STEVMOS}, []string{USDC}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(1))
 	s.Require().NoError(err)
 
 	fmt.Println(price)

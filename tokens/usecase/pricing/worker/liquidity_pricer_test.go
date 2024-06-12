@@ -8,12 +8,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 )
 
 var (
 	// 10^6
-	defaultQuoteDenomScalingFactor = osmomath.MustNewDecFromStr("1000000")
+	defaultQuoteDenomScalingFactor       = osmomath.MustNewDecFromStr("1000000")
+	defaultQuoteDenomScalingFactorBigDec = osmomath.BigDecFromDec(defaultQuoteDenomScalingFactor)
 
 	// eth scaling factor 10^18
 	ethScalingFactor = osmomath.MustNewDecFromStr("1000000000000000000")
@@ -146,11 +148,8 @@ func (s *PoolLiquidityComputeWorkerSuite) TestComputeCoinCap() {
 		s.T().Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Liquidity pricer
-			liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
-
 			// System under test
-			usdcLiquidity, err := liquidityPricer.ComputeCoinCap(sdk.NewCoin(UOSMO, tt.coinAmount), tt.baseDenomPriceInfo)
+			usdcLiquidity, err := worker.ComputeCoinCap(sdk.NewCoin(UOSMO, tt.coinAmount), tt.baseDenomPriceInfo, defaultQuoteDenomScalingFactorBigDec)
 			if tt.expectedError {
 				s.Require().Error(err)
 				return
@@ -168,7 +167,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestComputeCoinCap() {
 // This test is skipped by default but is kept for ease of debugging in case we start
 // having edge cases failures for some denom pairs. In that case, we can quickly
 // run this test and debug.
-func (s *PoolLiquidityComputeWorkerSuite) TestComputeCoinCap_AllCoin() {
+func (s *PoolLiquidityComputeWorkerSuite) TestPriceCoin_AllCoin() {
 	s.T().Parallel()
 	s.T().Skip("skipping long-running test by default. To be used in cases where we need to identify breakages across all coins")
 
@@ -197,7 +196,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestComputeCoinCap_AllCoin() {
 
 	errors := make([]errorData, 0)
 
-	liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
+	quoteScalingFactor, err := mainnetUsecase.Tokens.GetChainScalingFactorByDenomMut(quoteChainDenom)
+	s.Require().NoError(err)
+
+	quoteScalingFactorBigDec := osmomath.BigDecFromDec(quoteScalingFactor)
 
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, token := range tokenMetadata {
@@ -218,7 +220,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestComputeCoinCap_AllCoin() {
 		}
 
 		// System under test
-		usdcLiquidity, err := liquidityPricer.ComputeCoinCap(sdk.NewCoin(chainDenom, chainAmount), baseDenomPriceInfo)
+		usdcLiquidity, err := worker.ComputeCoinCap(sdk.NewCoin(chainDenom, chainAmount), baseDenomPriceInfo, quoteScalingFactorBigDec)
 
 		if err != nil {
 			errors = append(errors, errorData{
@@ -235,5 +237,183 @@ func (s *PoolLiquidityComputeWorkerSuite) TestComputeCoinCap_AllCoin() {
 	fmt.Printf("\n\nErrors:\n")
 	for _, err := range errors {
 		fmt.Printf("denom: %s, error: %s\n", err.humanDenom, err.err.Error())
+	}
+}
+
+// TestStoreHeightForDenom tests the StoreHeightForDenom method by following the spec.
+func (s *PoolLiquidityComputeWorkerSuite) TestPriceCoin() {
+	var (
+		ethScaledLiquidity = ethScalingFactor.MulInt(defaultLiquidity).TruncateInt()
+
+		defaultPriceOne = osmomath.OneBigDec()
+	)
+
+	tests := []struct {
+		name string
+
+		preSetScalingFactorDenom string
+		preSetScalingFactorValue osmomath.Dec
+
+		denom          string
+		totalLiquidity osmomath.Int
+		price          osmomath.BigDec
+
+		expectedCapitalization osmomath.Int
+	}{
+		{
+			name: "scaling factor unset",
+
+			denom:          UOSMO,
+			totalLiquidity: defaultLiquidity,
+			price:          defaultPriceOne,
+
+			expectedCapitalization: zeroCapitalization,
+		},
+		{
+			name: "zero price -> produces zero capitalization",
+
+			preSetScalingFactorDenom: UOSMO,
+			preSetScalingFactorValue: defaultScalingFactor,
+
+			denom:          UOSMO,
+			totalLiquidity: defaultLiquidity,
+			price:          osmomath.ZeroBigDec(),
+
+			expectedCapitalization: zeroCapitalization,
+		},
+		{
+			name: "truncate -> produces zero capitalization",
+
+			// totalLiquidity * price / (quoteScalingFactor / baseScalingFactor)
+			// 1 * 10^-36 / 10^12 => below the precision of 36
+			preSetScalingFactorDenom: UOSMO,
+			preSetScalingFactorValue: ethScalingFactor,
+
+			denom:          UOSMO,
+			totalLiquidity: osmomath.OneInt(),
+			price:          osmomath.SmallestBigDec(),
+
+			expectedCapitalization: zeroCapitalization,
+		},
+		{
+			name: "happy path",
+
+			preSetScalingFactorDenom: UOSMO,
+			preSetScalingFactorValue: defaultScalingFactor,
+
+			denom:          UOSMO,
+			totalLiquidity: defaultLiquidity,
+			price:          defaultPriceOne,
+
+			expectedCapitalization: defaultLiquidity,
+		},
+		{
+			name: "happy path with different inputs",
+
+			preSetScalingFactorDenom: ATOM,
+			preSetScalingFactorValue: ethScalingFactor,
+
+			denom:          ATOM,
+			totalLiquidity: ethScaledLiquidity.MulRaw(2),
+			price:          osmomath.NewBigDec(2),
+
+			expectedCapitalization: ethScaledLiquidity.ToLegacyDec().MulMut(defaultScalingFactor).QuoMut(ethScalingFactor).TruncateInt().MulRaw(4),
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		s.T().Run(tt.name, func(t *testing.T) {
+
+			scalingFactorGetterCbMock := mocks.SetupMockScalingFactorCb(tt.denom, tt.preSetScalingFactorValue, nil)
+
+			// Create liquidity pricer
+			liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor, scalingFactorGetterCbMock)
+
+			// System under test
+			liquidityCapitalization := liquidityPricer.PriceCoin(sdk.NewCoin(tt.denom, tt.totalLiquidity), tt.price)
+
+			// Check the result
+			s.Require().Equal(tt.expectedCapitalization.String(), liquidityCapitalization.String())
+		})
+	}
+}
+
+func (s *PoolLiquidityComputeWorkerSuite) TestPriceBalances() {
+	const (
+		noErrorStr = ""
+	)
+
+	var (
+		defaultCoin = sdk.NewCoin(UOSMO, defaultLiquidity)
+		secondCoin  = sdk.NewCoin(ATOM, defaultLiquidity)
+	)
+
+	tests := []struct {
+		name string
+
+		preSetScalingFactorMap map[string]osmomath.Dec
+
+		balances sdk.Coins
+		prices   domain.PricesResult
+
+		expectedLiquidityCap osmomath.Int
+		errorStr             string
+	}{
+		{
+			name: "single coin happy path",
+
+			preSetScalingFactorMap: defaultScalingFactorMap,
+			balances:               sdk.NewCoins(defaultCoin),
+
+			prices: defaultBlockPriceUpdates,
+
+			expectedLiquidityCap: defaultLiquidityCap,
+			errorStr:             noErrorStr,
+		},
+		{
+			name: "single coin no price -> error set",
+
+			preSetScalingFactorMap: defaultScalingFactorMap,
+			balances:               sdk.NewCoins(defaultCoin),
+
+			prices: domain.PricesResult{},
+
+			expectedLiquidityCap: osmomath.ZeroInt(),
+			errorStr:             worker.FormatLiquidityCapErrorStr(UOSMO),
+		},
+		{
+			name: "two coin happy path",
+
+			preSetScalingFactorMap: defaultScalingFactorMap,
+			balances:               sdk.NewCoins(defaultCoin, secondCoin),
+
+			prices: defaultBlockPriceUpdates,
+
+			expectedLiquidityCap: defaultLiquidityCap.Add(defaultLiquidityCap),
+			errorStr:             noErrorStr,
+		},
+
+		//
+		// two coin happy path
+		// one of the coins no price -> another coin still contributes, error set
+		// two coin both error.
+	}
+
+	for _, tc := range tests {
+		tc := tc
+
+		s.T().Run("", func(t *testing.T) {
+
+			scalingFactorGetterMock := mocks.SetupMockScalingFactorCbFromMap(tc.preSetScalingFactorMap)
+
+			// Create liquidity pricer
+			liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor, scalingFactorGetterMock)
+
+			liquidityCap, errStr := liquidityPricer.PriceBalances(tc.balances, tc.prices)
+
+			s.Require().Equal(tc.expectedLiquidityCap.String(), liquidityCap.String())
+			s.Require().Equal(tc.errorStr, errStr)
+		})
 	}
 }

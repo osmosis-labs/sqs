@@ -121,6 +121,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		CandidateRouteCacheExpirySeconds: r.defaultConfig.CandidateRouteCacheExpirySeconds,
 		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
 		MaxSplitRoutes:                   r.defaultConfig.MaxSplitRoutes,
+		IsPricingWorkerPrecompute:        false,
 	}
 	// Apply options
 	for _, opt := range opts {
@@ -141,15 +142,20 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		rankedRoutes        []route.RouteImpl
 	)
 
-	// If we call this function with MinPoolLiquidityCap == 0, it's for pricing, we need to be able to call this as
+	poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
+
+	// Zero implies no filtering, so we skip the iterations.
+	if options.MinPoolLiquidityCap > 0 {
+		poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinPoolLiquidityCap)
+	}
+
+	// If this is pricing worker precomputation, we need to be able to call this as
 	// some pools have TVL incorrectly calculated as zero. For example, BRNCH / STRDST (1288).
 	// As a result, they are incorrectly excluded despite having appropriate liquidity.
 	// So we want to calculate price, but we never cache routes for pricing the are below the minPoolLiquidityCap value, as these are returned to users.
-	if options.MinPoolLiquidityCap == 0 {
-		pools := r.getSortedPoolsShallowCopy()
-
+	if options.IsPricingWorkerPrecompute {
 		// Compute candidate routes.
-		candidateRoutes, err := GetCandidateRoutes(pools, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
+		candidateRoutes, err := GetCandidateRoutes(poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
 		if err != nil {
 			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return nil, err
@@ -162,13 +168,6 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 			return nil, err
 		}
 	} else if len(candidateRankedRoutes.Routes) == 0 {
-		poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
-
-		// Zero implies no filtering, so we skip the iterations.
-		if options.MinPoolLiquidityCap > 0 {
-			poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinPoolLiquidityCap)
-		}
-
 		r.logger.Info("filtered pools", zap.Int("num_pools", len(poolsAboveMinLiquidity)))
 
 		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options)

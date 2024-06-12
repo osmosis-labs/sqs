@@ -51,6 +51,9 @@ type PricingOptions struct {
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
 	MinPoolLiquidityCap uint64
+	// DisableFallback defines whether to disable the fallback strategy.
+	DisableFallback    bool
+	IsWorkerPrecompute bool
 }
 
 // PricingOption configures the pricing options.
@@ -60,6 +63,13 @@ type PricingOption func(*PricingOptions)
 func WithRecomputePrices() PricingOption {
 	return func(o *PricingOptions) {
 		o.RecomputePrices = true
+	}
+}
+
+// WithDisableFallback configures the pricing options to disable fallback.
+func WithDisableFallback() PricingOption {
+	return func(o *PricingOptions) {
+		o.DisableFallback = true
 	}
 }
 
@@ -78,6 +88,13 @@ func WithRecomputePricesQuoteBasedMethod() PricingOption {
 func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap uint64) PricingOption {
 	return func(o *PricingOptions) {
 		o.MinPoolLiquidityCap = minPoolLiquidityCap
+	}
+}
+
+// WithIsWorkerPrecompute configures the pricing options to be used for worker precompute.
+func WithIsWorkerPrecompute() PricingOption {
+	return func(o *PricingOptions) {
+		o.IsWorkerPrecompute = true
 	}
 }
 
@@ -102,7 +119,8 @@ type PricingConfig struct {
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
 	MaxRoutes        int `mapstructure:"max-routes"`
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.
-	MinPoolLiquidityCap uint64 `mapstructure:"min-pool-liquidity-cap"`
+	MinPoolLiquidityCap       uint64 `mapstructure:"min-pool-liquidity-cap"`
+	WorkerMinPoolLiquidityCap uint64 `mapstructure:"worker-min-pool-liquidity-cap"`
 }
 
 // FormatCacheKey formats the cache key for the given denoms.
@@ -137,11 +155,6 @@ type PricingUpdateListener interface {
 type PoolLiquidityPricerWorker interface {
 	// Implements PricingUpdateListener
 	PricingUpdateListener
-	// ComputeLiquidityCapitalization computes the capitalization of the liquidity for the given denom
-	// using the total liquidity and the price.
-	// Returs zero if the price is zero or if there is any internal error.
-	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
-	ComputeLiquidityCapitalization(denom string, totalLiquidity osmomath.Int, price osmomath.BigDec) osmomath.Int
 
 	// RepriceDenomMetadata reprices the token liquidity metadata for the denoms updated within the block.
 	// Returns the updated token metadata.
@@ -149,7 +162,7 @@ type PoolLiquidityPricerWorker interface {
 	// Relies on the blockPriceUpdates to get the price for the denoms.
 	// If the price for denom cannot be fetched, the liquidity capitalization for this denom is set to zero.
 	// The latest update height for this denom is updated on completion.
-	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap DenomPoolLiquidityMap) PoolDenomMetaDataMap
+	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap BlockPoolMetadata) PoolDenomMetaDataMap
 
 	// GetHeightForDenom returns zero if the height is not found or fails to cast it to the return type.
 	GetHeightForDenom(denom string) uint64
@@ -168,13 +181,21 @@ type DenomPriceInfo struct {
 }
 
 type LiquidityPricer interface {
-	// ComputeCoinCap computes the equivalent of the given coin in the desired quote denom that is set on ingester.
-	// Returns error if:
-	// * Price is zero
-	// * Scaling factor is zero
-	// * Truncation occurs in intermediary operations. Truncation is defined as the original amount
-	// being non-zero and the computed amount being zero.
-	ComputeCoinCap(coin sdk.Coin, baseDenomPriceData DenomPriceInfo) (osmomath.Dec, error)
+	// PriceBalances computes capitalization from the given balanes, block price updates and quote denom.
+	// If fails to retrieve price for one of the denoms in balances, the liquidity capitalization contribution for that denom would be zero
+	// and a relevant error appended to the returned error string.
+	//
+	// If no error occurs, the error string is empty.
+	//
+	// The purpose of such handling is to ensure that we silently skip any errors but apply partial liquidity capitalization
+	// updates. The best-effort liquidity capitalization ranking improves the quality of by-liquidity ranking in the router.
+	PriceBalances(balances sdk.Coins, blockPriceUpdates PricesResult) (osmomath.Int, string)
+
+	// PriceCoin computes the capitalization of the liquidity for the given denom
+	// using the total liquidity and the price.
+	// Returs zero if the price is zero or if there is any internal error.
+	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
+	PriceCoin(liquidity sdk.Coin, price osmomath.BigDec) osmomath.Int
 }
 
 // PoolLiquidityComputeListener defines the interface for the pool liquidity compute listener.
@@ -204,5 +225,5 @@ func (prices PricesResult) GetPriceForDenom(baseDenom string, quoteDenom string)
 		return osmomath.ZeroBigDec()
 	}
 
-	return price
+	return price.Clone()
 }

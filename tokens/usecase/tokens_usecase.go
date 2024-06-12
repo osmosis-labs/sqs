@@ -317,6 +317,18 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 			var err error
 			price, err = pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 			if err != nil { // Check if we should fallback to another pricing source
+
+				options := domain.PricingOptions{}
+				for _, opt := range pricingOptions {
+					opt(&options)
+				}
+
+				// If fallback is disabled, we don't attempt to fallback
+				if options.DisableFallback {
+					resultsChan <- priceResult{quoteDenom, osmomath.ZeroBigDec(), err}
+					return
+				}
+
 				fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
 				if fallbackSourceType != domain.NoneSourceType {
 					fallbackCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
