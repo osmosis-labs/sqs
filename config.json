@@ -33,7 +33,7 @@
             148,
             254
         ],
-        "alloyed-transmuter-code-ids": [],
+        "alloyed-transmuter-code-ids": [814],
         "general-cosmwasm-code-ids": [
             503,
             572,
@@ -48,6 +48,7 @@
         "max-pools-per-route": 4,
         "max-routes": 5,
         "min-pool-liquidity-cap": 50,
+        "worker-min-pool-liquidity-cap": 1,
         "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
         "coingecko-quote-currency": "usd"
     },

@@ -184,14 +184,15 @@ var (
 	}
 
 	DefaultPricingConfig = domain.PricingConfig{
-		DefaultSource:          domain.ChainPricingSourceType,
-		CacheExpiryMs:          2000,
-		DefaultQuoteHumanDenom: "usdc",
-		MaxPoolsPerRoute:       4,
-		MaxRoutes:              5,
-		MinPoolLiquidityCap:    50,
-		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
-		CoingeckoQuoteCurrency: "usd",
+		DefaultSource:             domain.ChainPricingSourceType,
+		CacheExpiryMs:             2000,
+		DefaultQuoteHumanDenom:    "usdc",
+		MaxPoolsPerRoute:          4,
+		MaxRoutes:                 5,
+		MinPoolLiquidityCap:       50,
+		CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency:    "usd",
+		WorkerMinPoolLiquidityCap: 5,
 	}
 
 	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}

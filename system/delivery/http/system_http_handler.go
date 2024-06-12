@@ -131,11 +131,9 @@ func extractVersion(ldGlagsValueStr string) (string, error) {
 	// Extract the substring after github.com/osmosis-labs/sqs/version=
 	substring := ldGlagsValueStr[index+len(versionPlaceholder):]
 
-	strings.Index(ldGlagsValueStr, " ")
-
 	index = strings.Index(substring, whiteSpacePlaceholder)
 	if index == -1 {
-		return "", fmt.Errorf("Failed to find end of version string")
+		return substring, nil
 	}
 
 	return substring[:index], nil

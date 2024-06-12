@@ -153,7 +153,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 			return nil, err
 		}
 
-		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, logger)
+		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, logger)
 
 		liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, defaultQuoteDenomScalingFactor)
 
