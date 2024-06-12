@@ -71,7 +71,7 @@ Consider the following configuration of pool liquidity capitalization to filter 
 And a default parameter for min liquidity capitalization of $1K.
 
 This implies that tokens with total liquidity across all pools of over or equal to $1M require the min
-liquidity capitalization filter of $100K. Similarly, tokens with liquidities over $100K and below $1M
+liquidity capitalization filter of $100K. Similarly, tokens with liquidities over $50K and below $1M
 are required to route over pools with min liquidity capitalization of $10K.
 
 Assume we have the following liquidity capitalizations across all pools for the tokens:
