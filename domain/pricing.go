@@ -54,6 +54,8 @@ type PricingOptions struct {
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
 	MinPoolLiquidityCap int
+	// IsWorkerPrecompute defines whether the pricing is precomputed by the worker.
+	IsWorkerPrecompute bool
 }
 
 // DefaultPricingOptions defines the default options for retrieving the prices.
@@ -85,14 +87,16 @@ func WithRecomputePricesQuoteBasedMethod() PricingOption {
 // WithMinPricingPoolLiquidityCap configures the min liquidity capitalization option
 // for pricing. Note, that non-pricing routing has its own RouterOption to configure
 // the min liquidity capitalization.
-func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap int) PricingOption {
+func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap uint64) PricingOption {
 	return func(o *PricingOptions) {
-		// If the min liquidity is the default value, we don't need to set it.
-		if minPoolLiquidityCap == DefaultMinPoolLiquidityOption {
-			return
-		}
+		o.MinPoolLiquidityCap = int(minPoolLiquidityCap)
+	}
+}
 
-		o.MinPoolLiquidityCap = minPoolLiquidityCap
+// WithIsWorkerPrecompute configures the pricing options to be used for worker precompute.
+func WithIsWorkerPrecompute() PricingOption {
+	return func(o *PricingOptions) {
+		o.IsWorkerPrecompute = true
 	}
 }
 
@@ -118,6 +122,9 @@ type PricingConfig struct {
 	MaxRoutes        int `mapstructure:"max-routes"`
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.
 	MinPoolLiquidityCap int `mapstructure:"min-pool-liquidity-cap"`
+
+	// WorkerMinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the pricing worker.
+	WorkerMinPoolLiquidityCap uint64 `mapstructure:"worker-min-pool-liquidity-cap"`
 }
 
 // FormatCacheKey formats the cache key for the given denoms.

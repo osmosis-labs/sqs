@@ -98,7 +98,7 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 			s.Require().NoError(err)
 
 			// Create a pricing worker
-			pricingWorker := worker.New(mainnetUsecase.Tokens, defaultQuoteDenom, &log.NoOpLogger{})
+			pricingWorker := worker.New(mainnetUsecase.Tokens, defaultQuoteDenom, defaultPricingConfig.WorkerMinPoolLiquidityCap, &log.NoOpLogger{})
 
 			// Create a mock listener
 			mockPricingUpdateListener := mocks.NewPricingListenerMock(time.Second * 5)
@@ -151,7 +151,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().NoError(err)
 
 	// Create a pricing worker
-	pricingWorker := worker.New(mainnetUsecase.Tokens, defaultQuoteDenom, &log.NoOpLogger{})
+	pricingWorker := worker.New(mainnetUsecase.Tokens, defaultQuoteDenom, defaultPricingConfig.WorkerMinPoolLiquidityCap, &log.NoOpLogger{})
 
 	// Create a mock listener
 	mockPricingUpdateListener := mocks.NewPricingListenerMock(time.Minute * 5)
