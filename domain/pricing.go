@@ -53,6 +53,7 @@ type PricingOptions struct {
 	MinPoolLiquidityCap uint64
 	// DisableFallback defines whether to disable the fallback strategy.
 	DisableFallback    bool
+	// IsWorkerPrecompute defines whether the pricing is precomputed by the worker.
 	IsWorkerPrecompute bool
 }
 
@@ -120,6 +121,7 @@ type PricingConfig struct {
 	MaxRoutes        int `mapstructure:"max-routes"`
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.
 	MinPoolLiquidityCap       uint64 `mapstructure:"min-pool-liquidity-cap"`
+	// WorkerMinPoolLiquiidtyCap is the minimum liquidity capitalization required for a pool to be considered in the pricing worker.
 	WorkerMinPoolLiquidityCap uint64 `mapstructure:"worker-min-pool-liquidity-cap"`
 }
 
