@@ -37,7 +37,7 @@ var (
 	defaultPrice     = osmomath.NewBigDec(2)
 	defaultLiquidity = osmomath.NewInt(1_000_000)
 
-	defaultLiquidityCap = defaultLiquidity.MulRaw(2)
+	defaultLiquidityCap = defaultLiquidity.ToLegacyDec().Quo(defaultScalingFactor).MulMut(defaultPrice.Dec()).TruncateInt()
 
 	// Note: we are not testing the error handling of underlying methods.
 	// Those are unit-tested in their respective tests.
@@ -50,6 +50,9 @@ var (
 
 	defaultBlockPriceUpdates = domain.PricesResult{
 		UOSMO: {
+			USDC: defaultPrice,
+		},
+		ATOM: {
 			USDC: defaultPrice,
 		},
 	}
@@ -78,7 +81,7 @@ func TestPoolLiquidityComputeWorkerSuite(t *testing.T) {
 // The edge cases of each underlying component are tested by their corresponding unit tests.
 func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	// Create liquidity pricer
-	liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
+	liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
 
 	// Set up the tokens pool liquidity mock handler
 	poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
@@ -421,7 +424,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			scalingFactorGetterCb := mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap)
 
 			// Create liquidity pricer
-			liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor, scalingFactorGetterCb)
+			liquidityPricer := worker.NewLiquidityPricer(USDC, scalingFactorGetterCb)
 
 			// Set up the tokens pool liquidity mock handler
 			poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{

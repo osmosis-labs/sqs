@@ -10,18 +10,18 @@ import (
 )
 
 type liquidityPricer struct {
-	defaultQuoteDenom       string
-	quoteDenomScalingFactor osmomath.BigDec
+	defaultQuoteDenom string
 
 	scalingFactorGetterCb domain.ScalingFactorGetterCb
 }
 
+const liquidityCapErrorSeparator = "; "
+
 var _ domain.LiquidityPricer = &liquidityPricer{}
 
-func NewLiquidityPricer(defaultQuoteDenom string, quoteDenomScalingFactor osmomath.Dec, chainScalingFactorGetterCb domain.ScalingFactorGetterCb) domain.LiquidityPricer {
+func NewLiquidityPricer(defaultQuoteDenom string, chainScalingFactorGetterCb domain.ScalingFactorGetterCb) domain.LiquidityPricer {
 	return &liquidityPricer{
-		defaultQuoteDenom:       defaultQuoteDenom,
-		quoteDenomScalingFactor: osmomath.BigDecFromDec(quoteDenomScalingFactor),
+		defaultQuoteDenom: defaultQuoteDenom,
 
 		scalingFactorGetterCb: chainScalingFactorGetterCb,
 	}
@@ -46,7 +46,7 @@ func (l *liquidityPricer) PriceCoin(coin sdk.Coin, price osmomath.BigDec) osmoma
 		ScalingFactor: baseScalingFactor,
 	}
 
-	liquidityCapitalization, err := ComputeCoinCap(coin, priceInfo, l.quoteDenomScalingFactor)
+	liquidityCapitalization, err := ComputeCoinCap(coin, priceInfo)
 	if err != nil {
 		// If there is an error, keep the total liquidity but set the capitalization to zero.
 		return osmomath.ZeroInt()
@@ -73,7 +73,7 @@ func (p *liquidityPricer) PriceBalances(balances sdk.Coins, prices domain.Prices
 
 		if currentCapitalization.IsZero() {
 			if len(liquidityCapErrorStr) != 0 {
-				liquidityCapErrorStr += ";"
+				liquidityCapErrorStr += liquidityCapErrorSeparator
 			}
 
 			liquidityCapErrorStr += formatLiquidityCapErrorStr(denom)
@@ -97,7 +97,7 @@ func formatLiquidityCapErrorStr(denom string) string {
 // * Scaling factor is zero
 // * Truncation occurs in intermediary operations. Truncation is defined as the original amount
 // being non-zero and the computed amount being zero.
-func ComputeCoinCap(coin sdk.Coin, baseDenomPriceData domain.DenomPriceInfo, quoteDenomScalingFactor osmomath.BigDec) (math.LegacyDec, error) {
+func ComputeCoinCap(coin sdk.Coin, baseDenomPriceData domain.DenomPriceInfo) (math.LegacyDec, error) {
 	if baseDenomPriceData.Price.IsZero() {
 		return osmomath.Dec{}, fmt.Errorf("price for %s is zero", coin.Denom)
 	}

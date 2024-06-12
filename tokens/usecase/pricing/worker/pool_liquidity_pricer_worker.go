@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -186,10 +185,6 @@ func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]s
 	}
 
 	for i, pool := range pools {
-		if pool.GetId() == 1278 {
-			fmt.Println("here")
-		}
-
 		balances := pool.GetSQSPoolModel().Balances
 
 		poolLiquidityCapitalization, poolLiquidityCapError := p.liquidityPricer.PriceBalances(balances, blockPriceUpdates)
