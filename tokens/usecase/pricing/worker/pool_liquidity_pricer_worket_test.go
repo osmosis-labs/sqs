@@ -554,7 +554,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 
 			// Check the height is stored correctly
 			for denom, expectedHeight := range tt.expectedDenomHeights {
-				actualHeight := poolLiquidityPricerWorker.GetHeightForDenom(denom)
+				actualHeight := poolLiquidityPricerWorker.GetLatestUpdateHeightForDenom(denom)
 
 				s.Require().Equal(expectedHeight, actualHeight)
 			}
