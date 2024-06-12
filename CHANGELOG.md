@@ -37,6 +37,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+- [SQS-Routing] API to force quote over a given route
 - [Dynamic Min Liquidity] new ingester methods for acquiring necessary metadata.
 
 ## v0.19.1
