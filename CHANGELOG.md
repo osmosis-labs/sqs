@@ -39,6 +39,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 - [Dynamic Min Liquidity] new ingester methods for acquiring necessary metadata.
 - bugfix: PoolWrapper Validate panic
+- SQS: Fix /version endpoint and let it work in containers
 
 ## v0.19.1
 
