@@ -35,6 +35,11 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepo
 		transmuterCodeIDsMap[codeId] = struct{}{}
 	}
 
+	alloyedTransmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.AlloyedTransmuterCodeIDs))
+	for _, codeId := range poolsConfig.AlloyedTransmuterCodeIDs {
+		alloyedTransmuterCodeIDsMap[codeId] = struct{}{}
+	}
+
 	generalizedCosmWasmCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.GeneralCosmWasmCodeIDs))
 	for _, codeId := range poolsConfig.GeneralCosmWasmCodeIDs {
 		generalizedCosmWasmCodeIDsMap[codeId] = struct{}{}
@@ -42,9 +47,10 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepo
 
 	return &poolsUseCase{
 		cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
-			TransmuterCodeIDs:      transmuterCodeIDsMap,
-			GeneralCosmWasmCodeIDs: generalizedCosmWasmCodeIDsMap,
-			NodeURI:                nodeURI,
+			TransmuterCodeIDs:        transmuterCodeIDsMap,
+			AlloyedTransmuterCodeIDs: alloyedTransmuterCodeIDsMap,
+			GeneralCosmWasmCodeIDs:   generalizedCosmWasmCodeIDsMap,
+			NodeURI:                  nodeURI,
 		},
 
 		pools:                 sync.Map{},

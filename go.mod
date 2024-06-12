@@ -12,8 +12,8 @@ require (
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.13
-	github.com/osmosis-labs/osmosis/v25 v25.0.0-rc0
-	github.com/osmosis-labs/sqs/sqsdomain v0.18.4-0.20240526193356-a305cad91d73
+	github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240524131320-44f70454a543
+	github.com/osmosis-labs/sqs/sqsdomain v0.18.4-0.20240606030809-d510b7a85616
 	github.com/prometheus/client_golang v1.19.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.18.2
@@ -28,6 +28,7 @@ require (
 )
 
 require (
+	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/bits-and-blooms/bitset v1.8.0 // indirect
 	github.com/skip-mev/block-sdk v1.4.2 // indirect
 )

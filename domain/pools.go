@@ -11,8 +11,11 @@ import (
 type CosmWasmPoolRouterConfig struct {
 	// code IDs for the transmuter pool type
 	TransmuterCodeIDs map[uint64]struct{}
+	// code IDs for the alloyed transmuter pool type
+	AlloyedTransmuterCodeIDs map[uint64]struct{}
 	// code IDs for the generalized cosmwasm pool type
 	GeneralCosmWasmCodeIDs map[uint64]struct{}
+
 	// node URI
 	NodeURI string
 }

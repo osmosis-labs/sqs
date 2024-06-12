@@ -89,10 +89,10 @@ func (p *chainInfoUseCase) StoreLatestHeight(height uint64) {
 }
 
 // OnPricingUpdate implements domain.PricingUpdateListener.
-func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height int64, pricesBaseQuoteDenomMap map[string]map[string]any, quoteDenom string) error {
+func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height uint64, blockMetadata domain.BlockPoolMetadata, pricesBaseQuoteDenomMap domain.PricesResult, quoteDenom string) error {
 	p.priceUpdateHeightMx.Lock()
 	defer p.priceUpdateHeightMx.Unlock()
-	p.latestPricesUpdateHeight = uint64(height)
+	p.latestPricesUpdateHeight = height
 
 	return nil
 }
