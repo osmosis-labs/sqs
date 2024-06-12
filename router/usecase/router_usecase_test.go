@@ -535,7 +535,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1135Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -557,7 +557,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1135Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 	}
 
