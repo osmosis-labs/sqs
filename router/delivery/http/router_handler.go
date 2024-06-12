@@ -179,7 +179,6 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		// TODO: is this right approach to take last token out?
 		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom[len(tokenOutDenom)-1])
 	}
 
