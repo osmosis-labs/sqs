@@ -193,6 +193,14 @@ func (e StaleHeightError) Error() string {
 	return fmt.Sprintf("stored height (%d) is stale, time since last update (%d), max allowed seconds (%d)", e.StoredHeight, e.TimeSinceLastUpdate, e.MaxAllowedTimeDeltaSecs)
 }
 
+type PoolDenomMetaDataNotPresentError struct {
+	ChainDenom string
+}
+
+func (e PoolDenomMetaDataNotPresentError) Error() string {
+	return fmt.Sprintf("pool denom metadata for denom (%s) is not found", e.ChainDenom)
+}
+
 type SameDenomError struct {
 	DenomA string
 	DenomB string

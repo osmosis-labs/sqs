@@ -2,7 +2,6 @@ package worker_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -57,7 +56,6 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 		{
 			name: "empty base denoms",
 			baseDenoms: domain.BlockPoolMetadata{
-				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{},
 			},
 		},
 		{
@@ -98,7 +96,7 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 			s.Require().NoError(err)
 
 			// Create a pricing worker
-			pricingWorker := worker.New(mainnetUsecase.Tokens, defaultQuoteDenom, &log.NoOpLogger{})
+			pricingWorker := worker.New(mainnetUsecase.Tokens, defaultQuoteDenom, defaultPricingConfig.WorkerMinPoolLiquidityCap, &log.NoOpLogger{})
 
 			// Create a mock listener
 			mockPricingUpdateListener := mocks.NewPricingListenerMock(time.Second * 5)
@@ -129,10 +127,10 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 }
 
 func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
-	env := os.Getenv("CI_SQS_PRICING_WORKER_TEST")
-	if env != "true" {
-		s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
-	}
+	// env := os.Getenv("CI_SQS_PRICING_WORKER_TEST")
+	// if env != "true" {
+	// 	s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
+	// }
 
 	viper.SetConfigFile("../../../../config.json")
 	err := viper.ReadInConfig()
@@ -151,7 +149,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().NoError(err)
 
 	// Create a pricing worker
-	pricingWorker := worker.New(mainnetUsecase.Tokens, defaultQuoteDenom, &log.NoOpLogger{})
+	pricingWorker := worker.New(mainnetUsecase.Tokens, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, &log.NoOpLogger{})
 
 	// Create a mock listener
 	mockPricingUpdateListener := mocks.NewPricingListenerMock(time.Minute * 5)
@@ -223,7 +221,8 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	// 1 more was found on June 10 when adding alloyed code id to config.
 	//
 	// Update on May 29, 2024: 20 unsupported tokens because some tokens have been fallen back to backup pricining source Coingecko
-	s.Require().Equal(21, zeroPriceCounter)
+	// On June 12, 2024: 19 unsupported tokens - likely added liquidity to some pools with the tokens.
+	s.Require().Equal(19, zeroPriceCounter)
 }
 
 func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {

@@ -175,14 +175,15 @@ var (
 	}
 
 	DefaultPricingConfig = domain.PricingConfig{
-		DefaultSource:          domain.ChainPricingSourceType,
-		CacheExpiryMs:          2000,
-		DefaultQuoteHumanDenom: "usdc",
-		MaxPoolsPerRoute:       4,
-		MaxRoutes:              5,
-		MinPoolLiquidityCap:    50,
-		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
-		CoingeckoQuoteCurrency: "usd",
+		DefaultSource:             domain.ChainPricingSourceType,
+		CacheExpiryMs:             2000,
+		DefaultQuoteHumanDenom:    "usdc",
+		MaxPoolsPerRoute:          4,
+		MaxRoutes:                 5,
+		MinPoolLiquidityCap:       50,
+		CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency:    "usd",
+		WorkerMinPoolLiquidityCap: 5,
 	}
 
 	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}
@@ -391,7 +392,7 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 }
 
 // PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
-func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap int) []sqsdomain.PoolI {
+func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap uint64) []sqsdomain.PoolI {
 	sortedPools := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
 
 	// Sort pools

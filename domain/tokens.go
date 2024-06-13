@@ -13,6 +13,20 @@ type Token struct {
 	CoingeckoID string `json:"coingeckoId"`
 }
 
+// PoolDenomMetaData contains the metadata about the denoms collected from the pools.
+type PoolDenomMetaData struct {
+	// TotalLiquidity represents the total liquidity across all pools.
+	// @Type string
+	TotalLiquidity osmomath.Int `json:"total_liquidity"`
+	// TotalLiquidityCap represents the total liquidity capitalization across all pools.
+	// If it is set to zero, that there was a failure in fetching the price.
+	// @Type string
+	TotalLiquidityCap osmomath.Int `json:"total_liquidity_cap"`
+	// Price represents the price of the token.
+	// @Type string
+	Price osmomath.BigDec `json:"price"`
+}
+
 // DenomPoolLiquidityMap is a map of denoms to their pool liquidity data.
 type DenomPoolLiquidityMap map[string]DenomPoolLiquidityData
 
