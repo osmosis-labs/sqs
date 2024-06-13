@@ -120,8 +120,8 @@ func (p *poolLiquidityPricerWorker) ComputeLiquidityCapitalization(denom string,
 	return liquidityCapitalization.TruncateInt()
 }
 
-// GetHeightForDenom implements domain.PoolLiquidityPricerWorker.
-func (p *poolLiquidityPricerWorker) GetHeightForDenom(denom string) uint64 {
+// GetLatestUpdateHeightForDenom implements domain.PoolLiquidityPricerWorker.
+func (p *poolLiquidityPricerWorker) GetLatestUpdateHeightForDenom(denom string) uint64 {
 	heightObj, ok := p.latestHeightForDenom.Load(denom)
 	if !ok {
 		return 0

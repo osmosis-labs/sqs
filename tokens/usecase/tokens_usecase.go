@@ -151,7 +151,6 @@ func (t *tokensUseCase) GetPoolDenomMetadata(chainDenom string) (domain.PoolDeno
 
 	poolDenomMetadata, ok := poolDenomMetadataObj.(domain.PoolDenomMetaData)
 	if !ok {
-		// TODO: add alert
 		return domain.PoolDenomMetaData{}, fmt.Errorf("pool denom metadata for denom (%s) is not of type domain.PoolDenomMetaData", chainDenom)
 	}
 

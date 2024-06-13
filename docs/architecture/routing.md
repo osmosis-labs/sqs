@@ -9,7 +9,7 @@ Having these pools be included in the router system imposes performance overhead
 without clear benefit.
 
 Additionally, if 2 concurrent user swaps go over the same pool with low liquidity, one
-of them is likely to exhaust liquidity, either causing a mistestimate to the other user
+of them is likely to exhaust liquidity, either causing a misestimate to the other user
 (that frequently goes unnoticed in-practice) or simply fails the swap.
 
 To work around this constraint, we introduce a min liquidity capitalization filter.
@@ -71,7 +71,7 @@ Consider the following configuration of pool liquidity capitalization to filter 
 And a default parameter for min liquidity capitalization of $1K.
 
 This implies that tokens with total liquidity across all pools of over or equal to $1M require the min
-liquidity capitalization filter of $100K. Similarly, tokens with liquidities over $100K and below $1M
+liquidity capitalization filter of $100K. Similarly, tokens with liquidities over $50K and below $1M
 are required to route over pools with min liquidity capitalization of $10K.
 
 Assume we have the following liquidity capitalizations across all pools for the tokens:

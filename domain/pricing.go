@@ -163,8 +163,9 @@ type PoolLiquidityPricerWorker interface {
 	// The latest update height for this denom is updated on completion.
 	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap DenomPoolLiquidityMap) PoolDenomMetaDataMap
 
-	// GetHeightForDenom returns zero if the height is not found or fails to cast it to the return type.
-	GetHeightForDenom(denom string) uint64
+	// GetLatestUpdateHeightForDenom returns the latest height for when the liquidity for a given denom was updated
+	// zero if the height is not found or fails to cast it to the return type.
+	GetLatestUpdateHeightForDenom(denom string) uint64
 
 	// StoreHeightForDenom stores the latest height for the given denom.
 	StoreHeightForDenom(denom string, height uint64)
@@ -174,8 +175,11 @@ type PoolLiquidityPricerWorker interface {
 	RegisterListener(listener PoolLiquidityComputeListener)
 }
 
+// DenomPriceInfo defines the price information for the base denom.
 type DenomPriceInfo struct {
-	Price         osmomath.BigDec
+	// Price is the price of the base denom.
+	Price osmomath.BigDec
+	// ScalingFactor is the scaling factor for the base denom.
 	ScalingFactor osmomath.Dec
 }
 
