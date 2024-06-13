@@ -872,21 +872,21 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 			tokenOutDenom: []string{AKT, USDC},
 			poolID: []uint64{
 				1093, // OSMO - AKT
-				1480, // AKT - USDC
+				1301, // AKT - USDC
 			},
 			expectedNumOfRoutes: 2,
-			expectedPoolID:      []uint64{1093, 1480},
+			expectedPoolID:      []uint64{1093, 1301},
 		},
 		{
-			name:          "Multipoo: OSMO-USDC - fail case",
+			name:          "Multi pool: OSMO-USDC - fail case",
 			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
 			tokenOutDenom: []string{ATOM, USDT},
 			poolID: []uint64{
 				1,    // OSMO - ATOM
-				1480, // AKT - USDC
+				1301, // AKT - USDC
 			},
 			expectedNumOfRoutes: 2,
-			expectedPoolID:      []uint64{1093, 1480},
+			expectedPoolID:      []uint64{1093, 1301},
 			err:                 usecase.ErrTokenInDenomPoolNotFound,
 		},
 	}
