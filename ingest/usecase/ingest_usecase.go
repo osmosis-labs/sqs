@@ -93,9 +93,6 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	p.sortAndStorePools(allPools)
 
-	// Update pool denom metadata
-	p.logger.Info("updating pool denom metadata", zap.Uint64("height", height), zap.Int("denom_count", len(uniqueBlockPoolMetadata.DenomPoolLiquidityMap)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
-
 	// Note: we must queue the update before we start updating prices as pool liquidity
 	// worker listens for the pricing updates at the same height.
 	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
