@@ -149,9 +149,9 @@ func (p *PoolWrapper) Validate(minPoolLiquidityCapitalization osmomath.Int) erro
 
 	// Validate pool liquidity capitalization.
 	// If there is no pool liquidity capitalization error set and the pool liquidity capitalization is nil or zero, return an error. This implies
-	// That pool has no liqudiity.
+	// That pool has no liquidity.
 	poolLiquidityCapError := strings.TrimSpace(p.SQSModel.PoolLiquidityCapError)
-	if poolLiquidityCapError == "" && sqsModel.PoolLiquidityCap.IsZero() {
+	if poolLiquidityCapError == "" && (sqsModel.PoolLiquidityCap.IsNil() || sqsModel.PoolLiquidityCap.IsZero()) {
 		return fmt.Errorf("pool (%d) has no liquidity, minimum pool liquidity capitalization (%s)", p.GetId(), minPoolLiquidityCapitalization)
 	}
 
