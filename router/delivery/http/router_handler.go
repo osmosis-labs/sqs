@@ -148,8 +148,8 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 }
 
 // getMinPoolLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
-// if forceDefaultMinLiquidityCap is true, it returns the universal default min pool liquidity capitaliation
-// , ignoring disableMinLiquidityCapFallback.
+// if forceDefaultMinLiquidityCap is true, it returns the universal default min pool liquidity capitalization,
+// ignoring disableMinLiquidityCapFallback.
 // Otherwise, it considers the following options:
 // If disableMinLiquidityCapFallback is true, it returns an error if the min liquidity cap cannot be computed.
 // If disableMinLiquidityCapFallback is false, it returns the default config value as fallback.
