@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain/cache"
 )
@@ -38,10 +39,6 @@ type PricingSource interface {
 	GetFallbackStrategy(quoteDenom string) PricingSourceType
 }
 
-// DefaultMinPoolLiquidityOption defines the default min liquidity capitalization option.
-// Per the config file set at start-up
-const DefaultMinPoolLiquidityOption = -1
-
 // PricingOptions defines the options for retrieving the prices.
 type PricingOptions struct {
 	// RecomputePrices defines whether to recompute the prices or attempt to retrieve
@@ -53,16 +50,9 @@ type PricingOptions struct {
 	// For more context, see tokens/usecase/pricing/chain defaultIsSpotPriceComputeMethod.
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
-	MinPoolLiquidityCap int
+	MinPoolLiquidityCap uint64
 	// IsWorkerPrecompute defines whether the pricing is precomputed by the worker.
 	IsWorkerPrecompute bool
-}
-
-// DefaultPricingOptions defines the default options for retrieving the prices.
-var DefaultPricingOptions = PricingOptions{
-	RecomputePrices:                         false,
-	MinPoolLiquidityCap:                     DefaultMinPoolLiquidityOption,
-	RecomputePricesIsSpotPriceComputeMethod: true,
 }
 
 // PricingOption configures the pricing options.
@@ -89,7 +79,7 @@ func WithRecomputePricesQuoteBasedMethod() PricingOption {
 // the min liquidity capitalization.
 func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap uint64) PricingOption {
 	return func(o *PricingOptions) {
-		o.MinPoolLiquidityCap = int(minPoolLiquidityCap)
+		o.MinPoolLiquidityCap = minPoolLiquidityCap
 	}
 }
 
@@ -121,7 +111,7 @@ type PricingConfig struct {
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
 	MaxRoutes        int `mapstructure:"max-routes"`
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.
-	MinPoolLiquidityCap int `mapstructure:"min-pool-liquidity-cap"`
+	MinPoolLiquidityCap uint64 `mapstructure:"min-pool-liquidity-cap"`
 
 	// WorkerMinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the pricing worker.
 	WorkerMinPoolLiquidityCap uint64 `mapstructure:"worker-min-pool-liquidity-cap"`
@@ -155,9 +145,80 @@ type PricingUpdateListener interface {
 	OnPricingUpdate(ctx context.Context, height uint64, blockMetaData BlockPoolMetadata, pricesBaseQuoteDenomMap PricesResult, quoteDenom string) error
 }
 
+// PoolLiquidityPricerWorker defines the interface for the pool liquidity pricer worker.
+type PoolLiquidityPricerWorker interface {
+	// Implements PricingUpdateListener
+	PricingUpdateListener
+	// ComputeLiquidityCapitalization computes the capitalization of the liquidity for the given denom
+	// using the total liquidity and the price.
+	// Returs zero if the price is zero or if there is any internal error.
+	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
+	ComputeLiquidityCapitalization(denom string, totalLiquidity osmomath.Int, price osmomath.BigDec) osmomath.Int
+
+	// RepriceDenomMetadata reprices the token liquidity metadata for the denoms updated within the block.
+	// Returns the updated token metadata.
+	// If there is an update for a denom with a later height than the current height, it is skipped, making this a no-op.
+	// Relies on the blockPriceUpdates to get the price for the denoms.
+	// If the price for denom cannot be fetched, the liquidity capitalization for this denom is set to zero.
+	// The latest update height for this denom is updated on completion.
+	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap DenomPoolLiquidityMap) PoolDenomMetaDataMap
+
+	// GetLatestUpdateHeightForDenom returns the latest height for when the liquidity for a given denom was updated
+	// zero if the height is not found or fails to cast it to the return type.
+	GetLatestUpdateHeightForDenom(denom string) uint64
+
+	// StoreHeightForDenom stores the latest height for the given denom.
+	StoreHeightForDenom(denom string, height uint64)
+
+	// RegisterListener register pool liquidity compute lister that receives hook updates
+	// on completion of the worker workload.
+	RegisterListener(listener PoolLiquidityComputeListener)
+}
+
+// DenomPriceInfo defines the price information for the base denom.
+type DenomPriceInfo struct {
+	// Price is the price of the base denom.
+	Price osmomath.BigDec
+	// ScalingFactor is the scaling factor for the base denom.
+	ScalingFactor osmomath.Dec
+}
+
+type LiquidityPricer interface {
+	// ComputeCoinCap computes the equivalent of the given coin in the desired quote denom that is set on ingester.
+	// Returns error if:
+	// * Price is zero
+	// * Scaling factor is zero
+	// * Truncation occurs in intermediary operations. Truncation is defined as the original amount
+	// being non-zero and the computed amount being zero.
+	ComputeCoinCap(coin sdk.Coin, baseDenomPriceData DenomPriceInfo) (osmomath.Dec, error)
+}
+
+// PoolLiquidityComputeListener defines the interface for the pool liquidity compute listener.
+// It is used to notify the listeners of the pool liquidity compute worker that the computation
+// for a given height is completed.
+type PoolLiquidityComputeListener interface {
+	OnPoolLiquidityCompute(height int64) error
+}
+
 // PricesResult defines the result of the prices.
 // [base denom][quote denom] => price
 // Note: BREAKING API - this type is API breaking as it is serialized to JSON.
 // from the /tokens/prices endpoint. Be mindful of changing it without
 // separating the API response for backward compatibility.
 type PricesResult map[string]map[string]osmomath.BigDec
+
+// GetPriceForDenom returns the price for the given baseDenom and quote denom.
+// Returns zero if the price is not found.
+func (prices PricesResult) GetPriceForDenom(baseDenom string, quoteDenom string) osmomath.BigDec {
+	quotePrices, ok := prices[baseDenom]
+	if !ok {
+		return osmomath.ZeroBigDec()
+	}
+
+	price, ok := quotePrices[quoteDenom]
+	if !ok {
+		return osmomath.ZeroBigDec()
+	}
+
+	return price
+}
