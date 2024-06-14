@@ -400,7 +400,7 @@ func ExecuteOnTickInterval(tick uint64, interval int, callback func()) {
 func UpdateAssetsAtHeightInterval(height uint64, n int, fn LoadTokensFromChainRegistryFunc, us mvc.TokensUsecase, chainRegistryAssetsFileURL string) {
 	ExecuteOnTickInterval(height, n, func() {
 		StartAsRoutineIfNotRunning(func() {
-			fn(us, chainRegistryAssetsFileURL)
+			fn(us, chainRegistryAssetsFileURL) // nolint
 		})
 	})
 }

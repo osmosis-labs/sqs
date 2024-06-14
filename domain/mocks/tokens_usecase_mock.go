@@ -39,7 +39,7 @@ func (m *TokensUsecaseMock) GetFullTokenMetadata() (map[string]domain.Token, err
 	if m.GetFullTokenMetadataFunc != nil {
 		return m.GetFullTokenMetadataFunc()
 	}
-	return nil, nil
+	panic("unimplemented")
 }
 
 func (m *TokensUsecaseMock) GetChainDenom(humanDenom string) (string, error) {
