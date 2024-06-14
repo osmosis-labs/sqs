@@ -86,6 +86,18 @@ var (
 
 // NewTokensUsecase will create a new tokens use case object
 func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.TokensUsecase {
+	us := tokensUseCase{
+		pricingStrategyMap: map[domain.PricingSourceType]domain.PricingSource{},
+		poolDenomMetaData:  sync.Map{},
+	}
+
+	us.LoadTokens(tokenMetadataByChainDenom)
+
+	return &us
+}
+
+// LoadTokens implements mvc.TokensUsecase.
+func (t *tokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.Token) {
 	// Create human denom to chain denom map
 	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
 	uniquePrecisionMap := make(map[int]struct{}, 0)
@@ -110,18 +122,12 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 		precisionScalingFactors[precision] = tenDec.Power(uint64(precision))
 	}
 
-	return &tokensUseCase{
-		tokenMetadataByChainDenom: tokenMetadataByChainDenom,
-		humanToChainDenomMap:      humanToChainDenomMap,
-		precisionScalingFactorMap: precisionScalingFactors,
+	t.tokenMetadataByChainDenom = tokenMetadataByChainDenom
+	t.humanToChainDenomMap = humanToChainDenomMap
+	t.precisionScalingFactorMap = precisionScalingFactors
 
-		pricingStrategyMap: map[domain.PricingSourceType]domain.PricingSource{},
-
-		poolDenomMetaData: sync.Map{},
-
-		chainDenoms:  chainDenoms,
-		coingeckoIds: coingeckoIds,
-	}
+	t.chainDenoms = chainDenoms
+	t.coingeckoIds = coingeckoIds
 }
 
 // UpdatePoolDenomMetadata implements mvc.TokensUsecase.
@@ -355,6 +361,64 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
 	result, ok := t.precisionScalingFactorMap[precision]
 	return result, ok
+}
+
+var (
+	jobIsRunning   bool
+	jobIsrunningMu sync.Mutex
+)
+
+// StartAsRoutineIfNotRunning starts the job in a new goroutine if it is not already running.
+func StartAsRoutineIfNotRunning(job func()) bool {
+	jobIsrunningMu.Lock()
+	if jobIsRunning {
+		jobIsrunningMu.Unlock()
+		return false
+	}
+	jobIsRunning = true
+	jobIsrunningMu.Unlock()
+
+	go func() {
+		jobIsrunningMu.Lock()
+		job()
+		jobIsRunning = false
+		jobIsrunningMu.Unlock()
+	}()
+
+	return true
+}
+
+// ExecuteOnTickInterval executes a callback at specified intervals.
+func ExecuteOnTickInterval(tick uint64, interval int, callback func()) {
+	if tick%uint64(interval) == 0 {
+		callback()
+	}
+}
+
+// UpdateAssetsAtHeightInterval updates assets at specified height intervals by running fn.
+// Function fn will be launched as separate goroutine.
+func UpdateAssetsAtHeightInterval(height uint64, n int, fn LoadTokensFromChainRegistryFunc, us mvc.TokensUsecase, chainRegistryAssetsFileURL string) {
+	ExecuteOnTickInterval(height, n, func() {
+		StartAsRoutineIfNotRunning(func() {
+			fn(us, chainRegistryAssetsFileURL)
+		})
+	})
+}
+
+// LoadTokensFromChainRegistryFunc is LoadTokensFromChainRegistry signature.
+type LoadTokensFromChainRegistryFunc func(us mvc.TokensUsecase, chainRegistryAssetsFileURL string) error
+
+// LoadTokensFromChainRegistry loads tokens from the chain registry into TokensUsecase.
+func LoadTokensFromChainRegistry(us mvc.TokensUsecase, chainRegistryAssetsFileURL string) error {
+	tokens, err := GetTokensFromChainRegistry(chainRegistryAssetsFileURL)
+	if err != nil {
+		return err
+	}
+
+	// TODO: map move map to sync.Map
+	us.LoadTokens(tokens)
+
+	return nil
 }
 
 // GetTokensFromChainRegistry fetches the tokens from the chain registry.

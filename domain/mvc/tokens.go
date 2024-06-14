@@ -24,6 +24,9 @@ type TokensPoolLiquidityHandler interface {
 type TokensUsecase interface {
 	TokensPoolLiquidityHandler
 
+	// LoadTokens loads token meta data by chain denom into tokensUseCase.
+	LoadTokens(tokenMetadataByChainDenom map[string]domain.Token)
+
 	// GetMetadataByChainDenom returns token metadata for a given chain denom.
 	GetMetadataByChainDenom(denom string) (domain.Token, error)
 

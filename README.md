@@ -331,7 +331,7 @@ curl "https://sqs.osmosis.zone/router/custom-direct-quote?tokenIn=1000000uosmo&t
 
 1. GET `/tokens/metadata`
 
-Description: returns oken metadata with chain denom, human denom and precision.
+Description: returns token metadata with chain denom, human denom and precision.
 For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
 See `config.json` and `config-testnet.json` in root for details.
 

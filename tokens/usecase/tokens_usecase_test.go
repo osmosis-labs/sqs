@@ -3,7 +3,9 @@ package usecase_test
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -340,6 +342,72 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 
 			// Check if the price is as expected.
 			s.Require().Equal(tt.expectedPrice.String(), actualPrice.String())
+		})
+	}
+}
+
+func TestDoEveryTick(t *testing.T) {
+	every, gen, iterations := rand.Intn(1000), rand.Intn(8932122), rand.Intn(1000)
+
+	var got int
+	for i := gen; i < gen+iterations+1; i++ {
+		tokensusecase.ExecuteOnTickInterval(uint64(i), every, func() {
+			got += 1
+		})
+	}
+
+	// count how many multiples of every exist
+	// within the range from gen to gen + iterations.
+	want := 0
+	for i := gen; i < gen+iterations+1; i++ {
+		if i%every == 0 {
+			want++
+		}
+	}
+
+	if want != got {
+		t.Fatalf("got %v, want %v", want, got)
+	}
+}
+
+func TestStartAsRoutineIfNotRunning(t *testing.T) {
+	tests := []struct {
+		name            string
+		jobDuration     time.Duration
+		concurrentCalls int
+		expectedRuns    int
+	}{
+		{"Single call, short job", 50 * time.Millisecond, 1, 1},
+		{"Multiple calls, short job", 50 * time.Millisecond, 3, 1},
+		{"Single call, long job", 200 * time.Millisecond, 1, 1},
+		{"Multiple calls, long job", 200 * time.Millisecond, 3, 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var wg sync.WaitGroup
+			var mu sync.Mutex
+			var runCount int
+			job := func() {
+				defer wg.Done()
+				time.Sleep(tt.jobDuration)
+				mu.Lock()
+				runCount++
+				mu.Unlock()
+			}
+
+			for i := 0; i < tt.concurrentCalls; i++ {
+				if tokensusecase.StartAsRoutineIfNotRunning(job) {
+					wg.Add(1)
+				}
+			}
+
+			// wait until all go routines are finished their execution
+			wg.Wait()
+
+			if runCount != tt.expectedRuns {
+				t.Errorf("expected job to run %d times, but it ran %d times", tt.expectedRuns, runCount)
+			}
 		})
 	}
 }

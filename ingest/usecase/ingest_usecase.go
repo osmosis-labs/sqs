@@ -27,11 +27,15 @@ type ingestUseCase struct {
 	poolsUseCase     mvc.PoolsUsecase
 	routerUsecase    mvc.RouterUsecase
 	chainInfoUseCase mvc.ChainInfoUsecase
+	tokensUseCase    mvc.TokensUsecase
 
 	denomLiquidityMap domain.DenomPoolLiquidityMap
 
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
+
+	// a callback function called after processing each block
+	callbackAfterProcessBlockData []func(height uint64)
 
 	logger log.Logger
 }
@@ -46,7 +50,7 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, callbackAfterProcessBlockData []func(height uint64), logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
@@ -55,6 +59,8 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 		poolsUseCase:     poolsUseCase,
 
 		denomLiquidityMap: make(domain.DenomPoolLiquidityMap),
+
+		callbackAfterProcessBlockData: callbackAfterProcessBlockData,
 
 		logger: logger,
 
@@ -98,6 +104,11 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.chainInfoUseCase.StoreLatestHeight(height)
 
 	p.logger.Info("completed block processing", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
+
+	// after processing the block run configured callbacks 
+	for _, callback := range p.callbackAfterProcessBlockData {
+		callback(height)
+	}
 
 	// Observe the processing duration with height
 	domain.SQSIngestHandlerProcessBlockDurationGauge.Add(float64(time.Since(startProcessingTime).Milliseconds()))
