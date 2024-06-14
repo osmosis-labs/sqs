@@ -159,7 +159,7 @@ func (a *TokensHandler) GetPoolDenomMetadata(c echo.Context) (err error) {
 // @Produce  json
 // @Param   base          query     string  true  "Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)"
 // @Param   humanDenoms   query     bool    false "Specify true if input denominations are in human-readable format; defaults to false"
-// @Param	pricingSource query		int     false "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)
+// @Param	pricingSource query     int     false "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)"
 // @Success 200 {object} map[string]map[string]string "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price."
 // @Router /tokens/prices [get]
 func (a *TokensHandler) GetPrices(c echo.Context) (err error) {

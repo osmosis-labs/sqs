@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- [SQS-Routing] API to force quote over a given route
+
 ## v25.0.0
 
 - Create a config for pricing worker min liquidity capitalization and set it to 5 USD by default.

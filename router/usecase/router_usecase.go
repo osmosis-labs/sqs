@@ -395,6 +395,11 @@ func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn
 	return getBestSingleRouteQuote(ctx, tokenIn, routes, r.logger)
 }
 
+var (
+	ErrTokenInDenomPoolNotFound  = fmt.Errorf("token in denom not found in pool")
+	ErrTokenOutDenomPoolNotFound = fmt.Errorf("token out denom not found in pool")
+)
+
 // GetCustomDirectQuote implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
 	pool, err := r.poolsUsecase.GetPool(poolID)
@@ -405,10 +410,10 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	poolDenoms := pool.GetPoolDenoms()
 
 	if !osmoutils.Contains(poolDenoms, tokenIn.Denom) {
-		return nil, fmt.Errorf("token in denom %s not found in pool %d", tokenIn.Denom, poolID)
+		return nil, fmt.Errorf("denom %s in pool %d: %w", tokenIn.Denom, poolID, ErrTokenInDenomPoolNotFound)
 	}
 	if !osmoutils.Contains(poolDenoms, tokenOutDenom) {
-		return nil, fmt.Errorf("token out denom %s not found in pool %d", tokenOutDenom, poolID)
+		return nil, fmt.Errorf("denom %s in pool %d: %w", tokenOutDenom, poolID, ErrTokenOutDenomPoolNotFound)
 	}
 
 	// Retrieve taker fee for the pool
@@ -421,22 +426,8 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	takerFeeMap := sqsdomain.TakerFeeMap{}
 	takerFeeMap.SetTakerFee(tokenIn.Denom, tokenOutDenom, takerFee)
 
-	// Create a candidate route with the desired pool
-	candidateRoutes := sqsdomain.CandidateRoutes{
-		Routes: []sqsdomain.CandidateRoute{
-			{
-				Pools: []sqsdomain.CandidatePool{
-					{
-						ID:            poolID,
-						TokenOutDenom: tokenOutDenom,
-					},
-				},
-			},
-		},
-		UniquePoolIDs: map[uint64]struct{}{
-			poolID: {},
-		},
-	}
+	// create candidate routes with given token out denom and pool ID.
+	candidateRoutes := r.createCandidateRouteByPoolID(tokenOutDenom, poolID)
 
 	// Convert candidate route into a route with all the pool data
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
@@ -446,6 +437,44 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 
 	// Compute direct quote
 	return getBestSingleRouteQuote(ctx, tokenIn, routes, r.logger)
+}
+
+var ErrValidationFailed = fmt.Errorf("validation failed")
+
+// GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
+	if len(poolIDs) == 0 {
+		return nil, fmt.Errorf("%w: at least one pool ID should be specified", ErrValidationFailed)
+	}
+
+	if len(tokenOutDenom) == 0 {
+		return nil, fmt.Errorf("%w: at least one token out denom should be specified", ErrValidationFailed)
+	}
+
+	// for each given pool we expect to have provided token out denom
+	if len(poolIDs) != len(tokenOutDenom) {
+		return nil, fmt.Errorf("%w: number of pool ID should match number of out denom", ErrValidationFailed)
+	}
+
+	// AmountIn is the first token of the asset pair.
+	result := quoteImpl{AmountIn: tokenIn}
+	for i, v := range poolIDs {
+		tokenOutDenom := tokenOutDenom[i]
+
+		quote, err := r.GetCustomDirectQuote(ctx, tokenIn, tokenOutDenom, v)
+		if err != nil {
+			return nil, err
+		}
+
+		// the amountOut value is the amount out of last the tokenOutDenom
+		result.AmountOut = quote.GetAmountOut()
+
+		// append each pool to the route
+		result.Route = append(result.Route, quote.GetRoute()...)
+
+		tokenIn = sdk.NewCoin(tokenOutDenom, quote.GetAmountOut())
+	}
+	return &result, nil
 }
 
 // GetCandidateRoutes implements domain.RouterUsecase.
@@ -777,4 +806,24 @@ func filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes []route.RouteImpl) []ro
 	}
 
 	return result
+}
+
+// createCandidateRouteByPoolID constructs a candidate route with the desired pool.
+func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenOutDenom string, poolID uint64) sqsdomain.CandidateRoutes {
+	// Create a candidate route with the desired pool
+	return sqsdomain.CandidateRoutes{
+		Routes: []sqsdomain.CandidateRoute{
+			{
+				Pools: []sqsdomain.CandidatePool{
+					{
+						ID:            poolID,
+						TokenOutDenom: tokenOutDenom,
+					},
+				},
+			},
+		},
+		UniquePoolIDs: map[uint64]struct{}{
+			poolID: {},
+		},
+	}
 }
