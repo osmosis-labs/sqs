@@ -48,7 +48,7 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 
 	// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
 	// for concurrency.
-	repricedTokenMetadata := p.RepriceDenomMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata.DenomPoolLiquidityMap)
+	repricedTokenMetadata := p.RepriceDenomMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
 
 	// Update the pool denom metadata.
 	p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
@@ -66,13 +66,19 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 }
 
 // RepriceDenomMetadata implements domain.PoolLiquidityPricerWorker
-func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap domain.DenomPoolLiquidityMap) domain.PoolDenomMetaDataMap {
-	blockTokenMetadataUpdates := make(domain.PoolDenomMetaDataMap, len(blockDenomLiquidityUpdatesMap))
+func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockPoolMetaData domain.BlockPoolMetadata) domain.PoolDenomMetaDataMap {
+	blockTokenMetadataUpdates := make(domain.PoolDenomMetaDataMap)
 
 	// Iterate over the denoms updated within the block
-	for updatedBlockDenom, blockPoolDenomLiquidityData := range blockDenomLiquidityUpdatesMap {
+	for updatedBlockDenom := range blockPoolMetaData.UpdatedDenoms {
 		// Skip if the denom has a later update than the current height.
 		if p.hasLaterUpdateThanHeight(updatedBlockDenom, updateHeight) {
+			continue
+		}
+
+		blockPoolDenomLiquidityData, ok := blockPoolMetaData.DenomPoolLiquidityMap[updatedBlockDenom]
+		if !ok {
+			// Skip silently.
 			continue
 		}
 

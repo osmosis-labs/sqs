@@ -2,7 +2,6 @@ package http
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -86,22 +85,24 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		// Note: we do not end the span here as it is ended in the middleware.
 	}()
 
-	isSingleRouteStr := c.QueryParam("singleRoute")
-	isSingleRoute := false
-	if isSingleRouteStr != "" {
-		isSingleRoute, err = strconv.ParseBool(isSingleRouteStr)
-		if err != nil {
-			return err
-		}
+	isSingleRoute, err := domain.ParseBooleanQueryParam(c, "singleRoute")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	shouldApplyExponentsStr := c.QueryParam("applyExponents")
-	shouldApplyExponents := false
-	if shouldApplyExponentsStr != "" {
-		shouldApplyExponents, err = strconv.ParseBool(shouldApplyExponentsStr)
-		if err != nil {
-			return err
-		}
+	shouldApplyExponents, err := domain.ParseBooleanQueryParam(c, "applyExponents")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	disableMinLiquidityFallback, err := domain.ParseBooleanQueryParam(c, "disableMinLiquidityCapFallback")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	forceDefaultMinLiquidityCap, err := domain.ParseBooleanQueryParam(c, "forceDefaultMinLiquidityCap")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
@@ -109,28 +110,38 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		return err
 	}
 
-	// translate denoms from human to chain if needed
-	tokenOutDenom, tokenInDenom, err := a.getChainDenoms(c, tokenOutDenom, tokenIn.Denom)
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn.Denom, tokenOutDenom})
 	if err != nil {
 		return err
 	}
 
 	// Update coins token in denom it case it was translated from human to chain.
-	tokenIn.Denom = tokenInDenom
+	tokenIn.Denom = chainDenoms[0]
+	tokenOutDenom = chainDenoms[1]
 
-	var quote domain.Quote
-	if isSingleRoute {
-		quote, err = a.RUsecase.GetBestSingleRouteQuote(ctx, tokenIn, tokenOutDenom)
-	} else {
-		quote, err = a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom)
+	// Get the min liquidity cap filter for the given tokenIn and tokenOutDenom.
+	minLiquidityCapFilter, err := a.getMinPoolLiquidityCapFilter(tokenIn.Denom, tokenOutDenom, disableMinLiquidityFallback, forceDefaultMinLiquidityCap)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
+
+	routerOpts := []domain.RouterOption{
+		domain.WithMinPoolLiquidityCap(minLiquidityCapFilter),
+	}
+
+	// Disable split routes if singleRoute is true
+	if isSingleRoute {
+		routerOpts = append(routerOpts, domain.WithMaxSplitRoutes(domain.DisableSplitRoutes))
+	}
+
+	quote, err := a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, routerOpts...)
 	if err != nil {
 		return err
 	}
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom)
+		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
 	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
@@ -142,6 +153,37 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	span.SetAttributes(attribute.Stringer("price_impact", quote.GetPriceImpact()))
 
 	return c.JSON(http.StatusOK, quote)
+}
+
+// getMinPoolLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
+// if forceDefaultMinLiquidityCap is true, it returns the universal default min pool liquidity capitalization,
+// ignoring disableMinLiquidityCapFallback.
+// Otherwise, it considers the following options:
+// If disableMinLiquidityCapFallback is true, it returns an error if the min liquidity cap cannot be computed.
+// If disableMinLiquidityCapFallback is false, it returns the default config value as fallback.
+// Returns the min liquidity cap filter and an error if any.
+func (a *RouterHandler) getMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom string, disableMinLiquidityCapFallback bool, forceDefaultMinLiquidityCap bool) (uint64, error) {
+	defaultMinLiquidityCap := a.RUsecase.GetConfig().MinPoolLiquidityCap
+
+	// If force flag is true, apply the default.
+	if forceDefaultMinLiquidityCap {
+		return defaultMinLiquidityCap, nil
+	}
+
+	minPoolLiquidityCapBetweenTokens, err := a.TUsecase.GetMinPoolLiquidityCap(tokenInDenom, tokenOutDenom)
+	if err != nil && disableMinLiquidityCapFallback {
+		// If fallback is disabled, error
+		return 0, err
+	} else if err != nil {
+		// If fallback is enabled, get defaiult config value as fallback
+		return defaultMinLiquidityCap, nil
+	}
+
+	// Otherwise, use the mapping to convert from min pool liquidity cap between token in and out denoms
+	// to the proposed filter.
+	minPoolLiquidityCapFilter := a.RUsecase.ConvertMinTokensPoolLiquidityCapToFilter(minPoolLiquidityCapBetweenTokens)
+
+	return minPoolLiquidityCapFilter, nil
 }
 
 // @Summary Compute the quote for the given poolID
@@ -207,11 +249,14 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	// translate denoms from human to chain if needed
-	tokenOutDenom, tokenIn, err = a.getChainDenoms(c, tokenOutDenom, tokenIn)
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn, tokenOutDenom})
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
+
+	// Update the tokenIn and tokenOutDenom with the chain denoms if they were translated from human to chain.
+	tokenIn = chainDenoms[0]
+	tokenOutDenom = chainDenoms[1]
 
 	routes, err := a.RUsecase.GetCandidateRoutes(ctx, sdk.NewCoin(tokenIn, osmomath.OneInt()), tokenOutDenom)
 	if err != nil {
@@ -300,57 +345,6 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, spotPrice)
-}
-
-// returns chain denoms from echo parameters. If human denoms are given, they are converted to chain denoms.
-func (a *RouterHandler) getChainDenoms(c echo.Context, tokenOutDenom, tokenInDenom string) (string, string, error) {
-	isHumanDenomsStr := c.QueryParam("humanDenoms")
-	isHumanDenoms := false
-	var err error
-	if len(isHumanDenomsStr) > 0 {
-		isHumanDenoms, err = strconv.ParseBool(isHumanDenomsStr)
-		if err != nil {
-			return "", "", err
-		}
-	}
-
-	// Note that sdk.Coins initialization
-	// auto-converts base denom from human
-	// to IBC notation.
-	// As a result, we avoid attempting the
-	// to convert a denom that is already changed.
-	baseDenom, err := sdk.GetBaseDenom()
-	if err != nil {
-		return "", "", nil
-	}
-
-	if isHumanDenoms {
-		// See definition of baseDenom.
-		if tokenOutDenom != baseDenom {
-			tokenOutDenom, err = a.TUsecase.GetChainDenom(tokenOutDenom)
-			if err != nil {
-				return "", "", err
-			}
-		}
-
-		// See definition of baseDenom.
-		if tokenInDenom != baseDenom {
-			tokenInDenom, err = a.TUsecase.GetChainDenom(tokenInDenom)
-			if err != nil {
-				return "", "", err
-			}
-		}
-	} else {
-		if !a.TUsecase.IsValidChainDenom(tokenInDenom) {
-			return "", "", fmt.Errorf("tokenInDenom is not a valid chain denom (%s)", tokenInDenom)
-		}
-
-		if !a.TUsecase.IsValidChainDenom(tokenOutDenom) {
-			return "", "", fmt.Errorf("tokenOutDenom is not a valid chain denom (%s)", tokenOutDenom)
-		}
-	}
-
-	return tokenOutDenom, tokenInDenom, nil
 }
 
 // getValidRoutingParameters returns the tokenIn and tokenOutDenom from server context if they are valid.

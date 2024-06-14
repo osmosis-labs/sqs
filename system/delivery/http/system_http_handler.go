@@ -192,7 +192,13 @@ func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, fmt.Sprintf("Node is not synced, chain height (%d), store height (%d), tolerance (%d)", latestChainHeight, latestStoreHeight, heightTolerance))
 	}
 
+	// Validate price pre-compuation updates
 	if err := h.CIUsecase.ValidatePriceUpdates(); err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
+	}
+
+	// Validate pool liquidity updates
+	if err := h.CIUsecase.ValidatePoolLiquidityUpdates(); err != nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
 	}
 

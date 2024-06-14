@@ -26,6 +26,7 @@ type ingestUseCase struct {
 
 	poolsUseCase     mvc.PoolsUsecase
 	routerUsecase    mvc.RouterUsecase
+	tokensUsecase    mvc.TokensUsecase
 	chainInfoUseCase mvc.ChainInfoUsecase
 
 	denomLiquidityMap domain.DenomPoolLiquidityMap
@@ -46,12 +47,13 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
 		chainInfoUseCase: chainInfoUseCase,
 		routerUsecase:    routerUseCase,
+		tokensUsecase:    tokensUseCase,
 		poolsUseCase:     poolsUseCase,
 
 		denomLiquidityMap: make(domain.DenomPoolLiquidityMap),
@@ -88,6 +90,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	// Sort and store pools.
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
+
 	p.sortAndStorePools(allPools)
 
 	// Note: we must queue the update before we start updating prices as pool liquidity

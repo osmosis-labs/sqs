@@ -51,8 +51,8 @@ type PricingOptions struct {
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
 	MinPoolLiquidityCap uint64
-	// IsWorkerPrecompute defines whether the pricing is precomputed by the worker.
-	IsWorkerPrecompute bool
+	// IsWorkerPrecomputePricing defines whether the pricing is precomputed by the worker.
+	IsWorkerPrecomputePricing bool
 }
 
 // PricingOption configures the pricing options.
@@ -83,10 +83,10 @@ func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap uint64) PricingOption {
 	}
 }
 
-// WithIsWorkerPrecompute configures the pricing options to be used for worker precompute.
-func WithIsWorkerPrecompute() PricingOption {
+// WithIsWorkerPrecomputePricing configures the pricing options to be used for worker precompute.
+func WithIsWorkerPrecomputePricing() PricingOption {
 	return func(o *PricingOptions) {
-		o.IsWorkerPrecompute = true
+		o.IsWorkerPrecomputePricing = true
 	}
 }
 
@@ -161,7 +161,7 @@ type PoolLiquidityPricerWorker interface {
 	// Relies on the blockPriceUpdates to get the price for the denoms.
 	// If the price for denom cannot be fetched, the liquidity capitalization for this denom is set to zero.
 	// The latest update height for this denom is updated on completion.
-	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap DenomPoolLiquidityMap) PoolDenomMetaDataMap
+	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap BlockPoolMetadata) PoolDenomMetaDataMap
 
 	// GetLatestUpdateHeightForDenom returns the latest height for when the liquidity for a given denom was updated
 	// zero if the height is not found or fails to cast it to the return type.

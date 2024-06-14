@@ -3,6 +3,9 @@ definitions:
     properties:
       coingeckoId:
         type: string
+      is_unlisted:
+        description: IsUnlisted is true if the token is unlisted.
+        type: boolean
       decimals:
         description: Precision is the precision of the token.
         type: integer
@@ -194,6 +197,29 @@ paths:
               $ref: '#/definitions/domain.Token'
             type: object
       summary: Token Metadata
+  /tokens/pool-metadata:
+    get:
+      description: |-
+        returns pool denom metadata. As of today, this metadata is represented by the local market cap of the token computed over all Osmosis pools.
+        For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
+        See `config.json` and `config-testnet.json` in root for details.
+      operationId: get-pool-denom-metadata
+      parameters:
+      - description: List of denoms where each can either be a human denom or a chain
+          denom
+        in: query
+        name: denoms
+        type: string
+      - description: Boolean flag indicating whether the given denoms are human readable
+          or not. Human denoms get converted to chain internally
+        in: query
+        name: humanDenoms
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses: {}
+      summary: Pool Denom Metadata
   /tokens/prices:
     get:
       consumes:

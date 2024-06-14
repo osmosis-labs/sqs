@@ -156,6 +156,15 @@ var (
 		MaxSplitRoutes:      3,
 		MinPoolLiquidityCap: 20000,
 		RouteCacheEnabled:   true,
+
+		// Set proper dynamic min liquidity config here
+		DynamicMinLiquidityCapFiltersDesc: []domain.DynamicMinLiquidityCapFilterEntry{
+			{
+				// 1_000_000 min token liquidity capitalization translates to a 75_000 filter value
+				MinTokensCap: 100000,
+				FilterValue:  75000,
+			},
+		},
 	}
 
 	DefaultPoolsConfig = domain.PoolsConfig{
@@ -371,7 +380,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	encCfg := app.MakeEncodingConfig()
 
-	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, nil, encCfg.Marshaler, nil, logger)
+	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, tokensUsecase, nil, encCfg.Marshaler, nil, logger)
 	if err != nil {
 		panic(err)
 	}
