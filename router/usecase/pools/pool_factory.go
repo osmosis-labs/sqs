@@ -113,7 +113,10 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 			spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 
 			if model.Data.AlloyTransmuter == nil {
-				return nil, domain.AlloyTransmuterDataMissingError{PoolId: pool.GetId()}
+				return nil, domain.CwPoolDataMissingError{
+					CosmWasmPoolType: domain.CosmWasmPoolAlloyTransmuter,
+					PoolId:           pool.GetId(),
+				}
 			}
 
 			return &routableAlloyTransmuterPoolImpl{
@@ -124,6 +127,18 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 				TakerFee:            takerFee,
 				SpreadFactor:        spreadFactor,
 			}, nil
+		}
+
+		if model.IsOrderbook() {
+			if model.Data.Orderbook == nil {
+				return nil, domain.CwPoolDataMissingError{
+					CosmWasmPoolType: domain.CosmWasmPoolOrderbook,
+					PoolId:           pool.GetId(),
+				}
+			}
+
+			// TODO:
+			// return &routableOrderbookPoolImpl{}
 		}
 	}
 

@@ -147,12 +147,33 @@ func (e ConcentratedTickModelNotSetError) Error() string {
 	return fmt.Sprintf("tick model is not set on pool (%d)", e.PoolId)
 }
 
-type AlloyTransmuterDataMissingError struct {
-	PoolId uint64
+// CosmWasmPoolType represents the type of a CosmWasm pool.
+type CosmWasmPoolType int
+
+const (
+	CosmWasmPoolAlloyTransmuter CosmWasmPoolType = iota
+	CosmWasmPoolOrderbook
+)
+
+// String returns the string representation of the CwPoolType.
+func (c CosmWasmPoolType) String() string {
+	switch c {
+	case CosmWasmPoolAlloyTransmuter:
+		return "Alloy Transmuter"
+	case CosmWasmPoolOrderbook:
+		return "Orderbook"
+	default:
+		return "Unknown"
+	}
 }
 
-func (e AlloyTransmuterDataMissingError) Error() string {
-	return fmt.Sprintf("Alloy Transmuter data is missing for pool (%d)", e.PoolId)
+type CwPoolDataMissingError struct {
+	PoolId           uint64
+	CosmWasmPoolType CosmWasmPoolType
+}
+
+func (e CwPoolDataMissingError) Error() string {
+	return fmt.Sprintf("%s data is missing for pool (%d)", e.CosmWasmPoolType, e.PoolId)
 }
 
 type MissingNormalizationFactorError struct {

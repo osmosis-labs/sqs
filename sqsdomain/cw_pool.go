@@ -38,6 +38,9 @@ type CosmWasmPoolModel struct {
 type CWPoolData struct {
 	// Data for AlloyTransmuter contract, must be present if and only if `IsAlloyTransmuter()` is true
 	AlloyTransmuter *AlloyTransmuterData `json:"alloy_transmuter,omitempty"`
+
+	// Data for Orderbook contract, must be present if and only if `IsOrderbook()` is true
+	Orderbook *OrderbookData `json:"orderbook,omitempty"`
 }
 
 func NewCWPoolModel(contract string, version string, data CWPoolData) *CosmWasmPoolModel {
@@ -53,6 +56,18 @@ func NewCWPoolModel(contract string, version string, data CWPoolData) *CosmWasmP
 func (model *CosmWasmPoolModel) IsAlloyTransmuter() bool {
 	name := "crates.io:transmuter"
 	version := ">= 3.0.0"
+
+	constraints, err := semver.NewConstraint(version)
+	// this must never panic
+	if err != nil {
+		panic(err)
+	}
+	return model.ContractInfo.Matches(name, constraints)
+}
+
+func (model *CosmWasmPoolModel) IsOrderbook() bool {
+	name := "crates.io:orderbook"
+	version := ">= 1.0.0"
 
 	constraints, err := semver.NewConstraint(version)
 	// this must never panic
@@ -79,4 +94,52 @@ type TransmuterAssetConfig struct {
 	// Normalization factor for the asset.
 	// [more info](https://github.com/osmosis-labs/transmuter/tree/v3.0.0?tab=readme-ov-file#normalization-factors)
 	NormalizationFactor osmomath.Int `json:"normalization_factor"`
+}
+
+// OrderbookData, since v1.0.0
+type OrderbookData struct {
+	Ticks []TickIdAndState `json:"ticks"`
+}
+
+type TickValues struct {
+	// Total Amount of Liquidity at tick (TAL)
+	// - Every limit order placement increments this value.
+	// - Every swap at this tick decrements this value.
+	// - Every cancellation decrements this value.
+	TotalAmountOfLiquidity osmomath.BigDec `json:"total_amount_of_liquidity"`
+
+	// Cumulative Total Limits at tick (CTT)
+	// - Every limit order placement increments this value.
+	// - There might be an edge-case optimization to lower this value.
+	CumulativeTotalValue osmomath.BigDec `json:"cumulative_total_value"`
+
+	// Effective Total Amount Swapped at tick (ETAS)
+	// - Every swap increments ETAS by the swap amount.
+	// - There will be other ways to update ETAS as described below.
+	EffectiveTotalAmountSwapped osmomath.BigDec `json:"effective_total_amount_swapped"`
+
+	// Cumulative Realized Cancellations at tick
+	// - Increases as cancellations are checkpointed in batches on the sumtree
+	// - Equivalent to the prefix sum at the tick's current ETAS after being synced
+	CumulativeRealizedCancels osmomath.BigDec `json:"cumulative_realized_cancels"`
+
+	// last_tick_sync_etas is the ETAS value after the most recent tick sync.
+	// It is used to skip tick syncs if ETAS has not changed since the previous
+	// sync.
+	LastTickSyncEtas osmomath.BigDec `json:"last_tick_sync_etas"`
+}
+
+// Represents the state of a specific price tick in a liquidity pool.
+//
+// The state is split into two parts for the ask and bid directions.
+type TickState struct {
+	// Values for the ask direction of the tick
+	AskValues TickValues `json:"ask_values"`
+	// Values for the bid direction of the tick
+	BidValues TickValues `json:"bid_values"`
+}
+
+type TickIdAndState struct {
+	TickId    int64     `json:"tick_id"`
+	TickState TickState `json:"tick_state"`
 }
