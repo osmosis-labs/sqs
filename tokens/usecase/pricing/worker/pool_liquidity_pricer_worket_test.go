@@ -370,7 +370,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 
 		// When we fail to retrieve price and, as a result, compute the liquidity capitalization,
 		// this is what is returned instead of failing.
-		defaultZeroPricePoolDenomMetaDattaMapResult = domain.PoolDenomMetaDataMap{
+		defaultZeroPricePoolDenomMetaDataMapResult = domain.PoolDenomMetaDataMap{
 			UOSMO: {
 				// Note: set to zero
 				Price:          zeroPrice,
@@ -386,10 +386,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 
 		preSetUpdateHeightForDenom map[string]uint64
 
-		updateHeight                  uint64
-		blockPriceUpdates             domain.PricesResult
-		quoteDenom                    string
-		blockDenomLiquidityUpdatesMap domain.DenomPoolLiquidityMap
+		updateHeight      uint64
+		blockPriceUpdates domain.PricesResult
+		quoteDenom        string
+		blockPoolMetaData domain.BlockPoolMetadata
 
 		expectedUpdatedDenomMetadata domain.PoolDenomMetaDataMap
 
@@ -402,7 +402,12 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			blockPriceUpdates: defaultBlockPriceUpdates,
 			quoteDenom:        USDC,
 
-			blockDenomLiquidityUpdatesMap: defaultBlockLiquidityUpdates,
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms: map[string]struct{}{
+					UOSMO: {},
+				},
+				DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
+			},
 
 			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{
 				UOSMO: {
@@ -421,8 +426,11 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			blockPriceUpdates: defaultBlockPriceUpdates,
 			quoteDenom:        USDC,
 
-			blockDenomLiquidityUpdatesMap: domain.DenomPoolLiquidityMap{},
-			expectedUpdatedDenomMetadata:  domain.PoolDenomMetaDataMap{},
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms:         map[string]struct{}{},
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{},
+			},
+			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{},
 
 			expectedDenomHeights: zeroUOSMOHeightResult,
 		},
@@ -437,7 +445,12 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			// Note: pre-set to this.
 			preSetUpdateHeightForDenom: laterUOSMOHeightResult,
 
-			blockDenomLiquidityUpdatesMap: defaultBlockLiquidityUpdates,
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms: map[string]struct{}{
+					UOSMO: {},
+				},
+				DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
+			},
 
 			// Updates are not applied.
 			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{},
@@ -454,10 +467,15 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			blockPriceUpdates: domain.PricesResult{},
 			quoteDenom:        USDC,
 
-			blockDenomLiquidityUpdatesMap: defaultBlockLiquidityUpdates,
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms: map[string]struct{}{
+					UOSMO: {},
+				},
+				DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
+			},
 
 			// Note: zero price result.
-			expectedUpdatedDenomMetadata: defaultZeroPricePoolDenomMetaDattaMapResult,
+			expectedUpdatedDenomMetadata: defaultZeroPricePoolDenomMetaDataMapResult,
 
 			expectedDenomHeights: defaultUOSMOHeightResult,
 		},
@@ -471,9 +489,14 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			quoteDenom: ATOM,
 
 			// Note: zero price result.
-			blockDenomLiquidityUpdatesMap: defaultBlockLiquidityUpdates,
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms: map[string]struct{}{
+					UOSMO: {},
+				},
+				DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
+			},
 
-			expectedUpdatedDenomMetadata: defaultZeroPricePoolDenomMetaDattaMapResult,
+			expectedUpdatedDenomMetadata: defaultZeroPricePoolDenomMetaDataMapResult,
 
 			expectedDenomHeights: defaultUOSMOHeightResult,
 		},
@@ -493,13 +516,19 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			},
 			quoteDenom: USDC,
 
-			blockDenomLiquidityUpdatesMap: domain.DenomPoolLiquidityMap{
-				UOSMO: {
-					TotalLiquidity: defaultLiquidity,
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms: map[string]struct{}{
+					UOSMO: {},
+					ATOM:  {},
 				},
-				ATOM: {
-					// 2x the liquidity
-					TotalLiquidity: defaultLiquidity.Add(defaultLiquidity),
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{
+					UOSMO: {
+						TotalLiquidity: defaultLiquidity,
+					},
+					ATOM: {
+						// 2x the liquidity
+						TotalLiquidity: defaultLiquidity.Add(defaultLiquidity),
+					},
 				},
 			},
 
@@ -522,6 +551,43 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 				UOSMO: defaultUpdateHeight,
 				ATOM:  defaultUpdateHeight,
 			},
+		},
+		{
+			name: "one token, updated denom is not present -> skipped",
+
+			updateHeight:      defaultUpdateHeight,
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms:         map[string]struct{}{},
+				DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
+			},
+
+			// Note: empty result
+			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{},
+
+			expectedDenomHeights: zeroUOSMOHeightResult,
+		},
+		{
+			name: "one token, block pool metadata is not present -> skipped",
+
+			updateHeight:      defaultUpdateHeight,
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms: map[string]struct {
+				}{
+					UOSMO: {},
+				},
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{},
+			},
+
+			// Note: empty result
+			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{},
+
+			expectedDenomHeights: zeroUOSMOHeightResult,
 		},
 	}
 
@@ -546,10 +612,9 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			}
 
 			// System under test
-			poolDenomMetadata := poolLiquidityPricerWorker.RepriceDenomMetadata(tt.updateHeight, tt.blockPriceUpdates, tt.quoteDenom, tt.blockDenomLiquidityUpdatesMap)
+			poolDenomMetadata := poolLiquidityPricerWorker.RepriceDenomMetadata(tt.updateHeight, tt.blockPriceUpdates, tt.quoteDenom, tt.blockPoolMetaData)
 
 			// Check the result
-			// TODO: move into function
 			s.validatePoolDenomMetadata(tt.expectedUpdatedDenomMetadata, poolDenomMetadata)
 
 			// Check the height is stored correctly
