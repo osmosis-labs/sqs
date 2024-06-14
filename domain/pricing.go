@@ -51,8 +51,8 @@ type PricingOptions struct {
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
 	MinPoolLiquidityCap uint64
-	// IsWorkerPrecompute defines whether the pricing is precomputed by the worker.
-	IsWorkerPrecompute bool
+	// IsWorkerPrecomputePricing defines whether the pricing is precomputed by the worker.
+	IsWorkerPrecomputePricing bool
 }
 
 // PricingOption configures the pricing options.
@@ -83,10 +83,10 @@ func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap uint64) PricingOption {
 	}
 }
 
-// WithIsWorkerPrecompute configures the pricing options to be used for worker precompute.
-func WithIsWorkerPrecompute() PricingOption {
+// WithIsWorkerPrecomputePricing configures the pricing options to be used for worker precompute.
+func WithIsWorkerPrecomputePricing() PricingOption {
 	return func(o *PricingOptions) {
-		o.IsWorkerPrecompute = true
+		o.IsWorkerPrecomputePricing = true
 	}
 }
 
