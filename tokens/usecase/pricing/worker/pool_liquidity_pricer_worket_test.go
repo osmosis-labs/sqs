@@ -105,6 +105,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 
 	// System under test
 	err := poolLiquidityPricerWorker.OnPricingUpdate(context.TODO(), defaultHeight, domain.BlockPoolMetadata{
+		UpdatedDenoms:         map[string]struct{}{UOSMO: {}},
 		DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
 	}, defaultBlockPriceUpdates, USDC)
 
