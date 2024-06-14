@@ -38,8 +38,8 @@ const (
 
 	// Number of heights of buffer between the latest state height and the latest price/pool liquidity update height
 	// We fail the healtcheck if the difference between the current and last becomes greater than this constant.
-	updateHeightBuffer  = 50
-	initialUpdateHeight = 0
+	updateHeightThreshold = 50
+	initialUpdateHeight   = 0
 
 	poolLiquidityPricingUpdateName = "pool liquidity"
 	pricingUpdateName              = "pricing"
@@ -142,7 +142,7 @@ func validateUpdate(currentUpdateHeight uint64, latestIngestedHeight uint64, upd
 	}
 
 	// Check that the pool liquidity updates have been occurring
-	if currentUpdateHeight < latestIngestedHeight-updateHeightBuffer {
+	if currentUpdateHeight < latestIngestedHeight-updateHeightThreshold {
 		return fmt.Errorf("latest %s update height is less than the latest ingested height", updateName)
 	}
 
