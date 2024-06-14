@@ -1,13 +1,18 @@
 package usecase_test
 
 import (
+	"context"
+	"math/rand"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/ingest/usecase"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -350,6 +355,47 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 			// Validation
 			s.Require().Equal(tc.expectedResult, result)
 		})
+	}
+}
+
+func (s *IngestUseCaseTestSuite) TestProcessBlockDataCallback() {
+	logger, err := log.NewLogger(false, "", "")
+	s.Require().NoError(err)
+
+	var got int
+	callback := []func(height uint64){
+		func(height uint64) {
+			got++
+		},
+	}
+
+	ingester, err := usecase.NewIngestUsecase(
+		&mocks.PoolsUsecaseMock{
+			StorePoolsFunc: func(pools []sqsdomain.PoolI) error {
+				return nil
+			},
+		},
+		&mocks.RouterUsecaseMock{},
+		&mocks.ChainInfoUsecaseMock{},
+		nil,
+		&mocks.PricingWorkerMock{
+			UpdatePricesAsyncFunc: func(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+				// do nothing
+			},
+		},
+		callback,
+		logger,
+	)
+	s.Require().NoError(err)
+
+	want := rand.Intn(100)
+	for i := 0; i < want; i++ {
+		err = ingester.ProcessBlockData(context.TODO(), 1, nil, nil)
+		s.Require().NoError(err)
+	}
+
+	if want != got {
+		s.T().Fatalf("got %v, want %v", want, got)
 	}
 }
 

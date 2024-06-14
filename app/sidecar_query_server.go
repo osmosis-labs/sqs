@@ -18,7 +18,7 @@ import (
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
-	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
+	tokensUsecase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 
@@ -96,13 +96,13 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	routerRepository := routerrepo.New()
 
 	// Compute token metadata from chain denom.
-	tokenMetadataByChainDenom, err := tokensUseCase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
+	tokenMetadataByChainDenom, err := tokensUsecase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialized tokens usecase
-	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom)
+	tokensUseCase := tokensUsecase.NewTokensUsecase(tokenMetadataByChainDenom)
 
 	// Initialize pools repository, usecase and HTTP handler
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
@@ -155,7 +155,27 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		quotePriceUpdateWorker.RegisterListener(chainInfoUseCase)
 
 		// Initialize ingest handler and usecase
-		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)
+		ingestUseCase, err := ingestusecase.NewIngestUsecase(
+			poolsUseCase,
+			routerUsecase,
+			chainInfoUseCase,
+			appCodec,
+			quotePriceUpdateWorker,
+			[]func(height uint64){
+				func(height uint64) {
+					// do not block, run as a go routine
+					tokensUsecase.UpdateAssetsAtHeightInterval(
+						height,
+						200, // TODO config
+						tokensUsecase.LoadTokensFromChainRegistry,
+						tokensUseCase,
+						config.ChainRegistryAssetsFileURL,
+					)
+					logger.Info("callback block processing", zap.Uint64("height", height))
+				},
+			},
+			logger,
+		)
 		if err != nil {
 			return nil, err
 		}
