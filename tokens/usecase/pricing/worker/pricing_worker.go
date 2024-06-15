@@ -73,7 +73,7 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 	}
 
 	// Measure duration
-	domain.SQSPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
+	domain.SQSPricingWorkerComputeDurationGauge.Set(float64(time.Since(start).Milliseconds()))
 }
 
 // RegisterListener implements PricingWorker.

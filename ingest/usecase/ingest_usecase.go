@@ -103,7 +103,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.logger.Info("completed block processing", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
 	// Observe the processing duration with height
-	domain.SQSIngestHandlerProcessBlockDurationGauge.Add(float64(time.Since(startProcessingTime).Milliseconds()))
+	domain.SQSIngestHandlerProcessBlockDurationGauge.Set(float64(time.Since(startProcessingTime).Milliseconds()))
 
 	return nil
 }

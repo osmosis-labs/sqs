@@ -60,7 +60,7 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	}
 
 	// Measure duration
-	domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
+	domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Set(float64(time.Since(start).Milliseconds()))
 
 	return nil
 }
