@@ -13,6 +13,8 @@ type CosmWasmPoolRouterConfig struct {
 	TransmuterCodeIDs map[uint64]struct{}
 	// code IDs for the alloyed transmuter pool type
 	AlloyedTransmuterCodeIDs map[uint64]struct{}
+	// code IDs for the orderbook pool type
+	OrderbookCodeIDs map[uint64]struct{}
 	// code IDs for the generalized cosmwasm pool type
 	GeneralCosmWasmCodeIDs map[uint64]struct{}
 

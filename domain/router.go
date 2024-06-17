@@ -99,6 +99,9 @@ type PoolsConfig struct {
 	// Code IDs of Alloyed Transmuter CosmWasm pools that are supported.
 	AlloyedTransmuterCodeIDs []uint64 `mapstructure:"alloyed-transmuter-code-ids"`
 
+	// Code IDs of Orderbook pools that are supported.
+	OrderbookCodeIDs []uint64 `mapstructure:"orderbook-code-ids"`
+
 	// Code IDs of generalized CosmWasm pools that are supported.
 	// NOTE: that these pools make network requests to chain for quote estimation.
 	// As a result, they are excluded from split routes.

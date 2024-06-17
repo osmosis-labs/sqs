@@ -128,7 +128,8 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 			}, nil
 		}
 
-		if model.IsOrderbook() {
+		_, isOrderbookCodeId := cosmWasmConfig.OrderbookCodeIDs[cosmwasmPool.CodeId]
+		if isOrderbookCodeId && model.IsOrderbook() {
 			if model.Data.Orderbook == nil {
 				return nil, domain.CwPoolDataMissingError{
 					CosmWasmPoolType: domain.CosmWasmPoolOrderbook,
