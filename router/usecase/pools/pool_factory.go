@@ -104,14 +104,13 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 	// Check if the pool is a transmuter pool with alloyed assets
 	model := pool.GetSQSPoolModel().CosmWasmPoolModel
 	balances := pool.GetSQSPoolModel().Balances
+	spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 	if model != nil {
 		// since v2, we introduce concept of alloyed assets but not yet actively used
 		// since v3, we introduce concept of normalization factor
 		// `routableAlloyTransmuterPoolImpl` is v3 compatible
 		_, isAlloyedTransmuterCodeId := cosmWasmConfig.AlloyedTransmuterCodeIDs[cosmwasmPool.CodeId]
 		if isAlloyedTransmuterCodeId && model.IsAlloyTransmuter() {
-			spreadFactor := pool.GetSQSPoolModel().SpreadFactor
-
 			if model.Data.AlloyTransmuter == nil {
 				return nil, domain.CwPoolDataMissingError{
 					CosmWasmPoolType: domain.CosmWasmPoolAlloyTransmuter,
@@ -137,8 +136,14 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 				}
 			}
 
-			// TODO:
-			// return &routableOrderbookPoolImpl{}
+			return &routableOrderbookPoolImpl{
+				ChainPool:     cosmwasmPool,
+				Balances:      balances,
+				TokenOutDenom: tokenOutDenom,
+				TakerFee:      takerFee,
+				SpreadFactor:  spreadFactor,
+				OrderbookData: model.Data.Orderbook,
+			}, nil
 		}
 	}
 
