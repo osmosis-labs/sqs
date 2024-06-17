@@ -2,6 +2,7 @@ package sqsdomain
 
 import (
 	"github.com/Masterminds/semver"
+
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
@@ -66,8 +67,8 @@ func (model *CosmWasmPoolModel) IsAlloyTransmuter() bool {
 }
 
 func (model *CosmWasmPoolModel) IsOrderbook() bool {
-	name := "crates.io:orderbook"
-	version := ">= 1.0.0"
+	name := "crates.io:sumtree-orderbook"
+	version := ">= 0.1.0"
 
 	constraints, err := semver.NewConstraint(version)
 	// this must never panic
