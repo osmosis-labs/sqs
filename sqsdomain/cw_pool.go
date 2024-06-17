@@ -96,9 +96,52 @@ type TransmuterAssetConfig struct {
 	NormalizationFactor osmomath.Int `json:"normalization_factor"`
 }
 
+type OrderbookDirection int
+
+const (
+	BID OrderbookDirection = 1
+	ASK OrderbookDirection = -1
+)
+
+func (d *OrderbookDirection) String() string {
+	switch *d {
+	case BID:
+		return "BID"
+	case ASK:
+		return "ASK"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+func (d *OrderbookDirection) Opposite() OrderbookDirection {
+	switch *d {
+	case BID:
+		return ASK
+	case ASK:
+		return BID
+	default:
+		return 0
+	}
+}
+
 // OrderbookData, since v1.0.0
 type OrderbookData struct {
-	Ticks []TickIdAndState `json:"ticks"`
+	QuoteDenom  string           `json:"quote_denom"`
+	BaseDenom   string           `json:"base_denom"`
+	NextBidTick int64            `json:"next_bid_tick"`
+	NextAskTick int64            `json:"next_ask_tick"`
+	Ticks       []TickIdAndState `json:"ticks"`
+}
+
+// Returns tick state index for the given ID
+func (d *OrderbookData) GetTickIndexById(tickId int64) int {
+	for i, tick := range d.Ticks {
+		if tick.TickId == tickId {
+			return i
+		}
+	}
+	return -1
 }
 
 type TickValues struct {
@@ -129,6 +172,14 @@ type TickValues struct {
 	LastTickSyncEtas osmomath.BigDec `json:"last_tick_sync_etas"`
 }
 
+// Determines how much of a given amount can be filled by the current tick state (independent for each direction)
+func (t *TickValues) GetFillableAmount(input osmomath.BigDec) osmomath.BigDec {
+	if input.LT(t.TotalAmountOfLiquidity) {
+		return input
+	}
+	return t.TotalAmountOfLiquidity
+}
+
 // Represents the state of a specific price tick in a liquidity pool.
 //
 // The state is split into two parts for the ask and bid directions.
@@ -137,6 +188,19 @@ type TickState struct {
 	AskValues TickValues `json:"ask_values"`
 	// Values for the bid direction of the tick
 	BidValues TickValues `json:"bid_values"`
+}
+
+// TODO: do we need this function?
+// Returns the related values for a given direction on the current tick
+func (s *TickState) GetTickValues(direction OrderbookDirection) (TickValues, error) {
+	switch direction {
+	case ASK:
+		return s.AskValues, nil
+	case BID:
+		return s.BidValues, nil
+	default:
+		return TickValues{}, OrderbookPoolInvalidDirectionError{Direction: int64(direction)}
+	}
 }
 
 type TickIdAndState struct {

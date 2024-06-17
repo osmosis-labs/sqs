@@ -13,20 +13,19 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v25/x/poolmanager"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 var _ sqsdomain.RoutablePool = &routableOrderbookPoolImpl{}
 
 type routableOrderbookPoolImpl struct {
-	ChainPool     *cwpoolmodel.CosmWasmPool  "json:\"pool\""
-	Balances      sdk.Coins                  "json:\"balances\""
-	TokenOutDenom string                     "json:\"token_out_denom\""
-	TakerFee      osmomath.Dec               "json:\"taker_fee\""
-	SpreadFactor  osmomath.Dec               "json:\"spread_factor\""
-	TickModel     *domain.OrderbookTickModel "json:\"orderbook_tick_model\""
-	QuoteDenom    string                     "json:\"quote_denom\""
-	BaseDenom     string                     "json:\"base_denom\""
+	ChainPool     *cwpoolmodel.CosmWasmPool "json:\"pool\""
+	Balances      sdk.Coins                 "json:\"balances\""
+	TokenOutDenom string                    "json:\"token_out_denom\""
+	TakerFee      osmomath.Dec              "json:\"taker_fee\""
+	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
+	OrderbookData *sqsdomain.OrderbookData  "json:\"orderbook_data\""
 }
 
 // GetId implements domain.RoutablePool.
@@ -81,10 +80,10 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 	// ASSUMPTION: Ticks are ordered
 	for amountInRemaining.GT(zeroBigDec) {
 		// Order has run out of ticks to iterate
-		if tickIdx >= len(r.TickModel.TickStates) || tickIdx < 0 {
+		if tickIdx >= len(r.OrderbookData.Ticks) || tickIdx < 0 {
 			return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn}
 		}
-		tick := r.TickModel.TickStates[tickIdx]
+		tick := r.OrderbookData.Ticks[tickIdx]
 
 		// Increment or decrement the current tick index depending on order direction
 		if direction == domain.ASK {
@@ -105,7 +104,7 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		outputAmount := amountToValue(osmomath.BigDecFromSDKInt(tokenIn.Amount), tickPrice, direction)
 
 		// The current state for the tick given the current direction
-		tickValues, err := tick.GetTickValues(direction)
+		tickValues, err := tick.TickState.GetTickValues(direction)
 		if err != nil {
 			return sdk.Coin{}, err
 		}
@@ -114,7 +113,7 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		fillAmount := tickValues.GetFillableAmount(outputAmount)
 
 		// How much of the original denom has been filled
-		inputFilled := amountToValue(fillAmount, tickPrice, direction*-1)
+		inputFilled := amountToValue(fillAmount, tickPrice, direction.Opposite())
 
 		// Add the filled amount to the order total
 		amountOutTotal = amountOutTotal.AddMut(inputFilled)
@@ -137,10 +136,11 @@ func (r *routableOrderbookPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d) Orderbook, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
 }
 
-// ChargeTakerFeeExactIn implements domain.RoutablePool.
-// Returns tokenInAmount and does not charge any fee for transmuter pools.
-func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
-	return tokenIn
+// ChargeTakerFee implements sqsdomain.RoutablePool.
+// Charges the taker fee for the given token in and returns the token in after the fee has been charged.
+func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
+	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
+	return tokenInAfterTakerFee
 }
 
 // GetTakerFee implements domain.RoutablePool.
@@ -173,32 +173,36 @@ func (r *routableOrderbookPoolImpl) GetCodeID() uint64 {
 // - 1 if the order is a bid (buying token out)
 // - -1 if the order is an ask (selling token out)
 // - 0 if the order is not valid
-func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (int64, error) {
-	if tokenInDenom == r.BaseDenom && tokenOutDenom == r.QuoteDenom {
-		return domain.ASK, nil
-	} else if tokenInDenom == r.QuoteDenom && tokenOutDenom == r.BaseDenom {
-		return domain.BID, nil
+func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (sqsdomain.OrderbookDirection, error) {
+	if tokenInDenom == r.OrderbookData.BaseDenom && tokenOutDenom == r.OrderbookData.QuoteDenom {
+		return sqsdomain.ASK, nil
+	} else if tokenInDenom == r.OrderbookData.QuoteDenom && tokenOutDenom == r.OrderbookData.BaseDenom {
+		return sqsdomain.BID, nil
 	} else {
 		return 0, domain.OrderbookPoolMismatchError{PoolId: r.GetId(), TokenInDenom: tokenInDenom, TokenOutDenom: tokenOutDenom}
 	}
 }
 
 // Get the index for the tick state array for the starting index given direction
-func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction int64) (int, error) {
-	if direction == domain.ASK {
-		return r.TickModel.GetTickIndexById(r.TickModel.NextAskTickId), nil
-	} else if direction == domain.BID {
-		return r.TickModel.GetTickIndexById(r.TickModel.NextBidTickId), nil
-	} else {
+func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction sqsdomain.OrderbookDirection) (int, error) {
+	switch direction {
+	case domain.ASK:
+		return r.OrderbookData.GetTickIndexById(r.OrderbookData.NextAskTick), nil
+	case domain.BID:
+		return r.OrderbookData.GetTickIndexById(r.OrderbookData.NextBidTick), nil
+	default:
 		return -1, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
 	}
 }
 
 // Converts an amount of token in to the value of token out given a price and direction
-func amountToValue(amount osmomath.BigDec, price osmomath.BigDec, direction int64) osmomath.BigDec {
-	if direction == domain.ASK {
+func amountToValue(amount osmomath.BigDec, price osmomath.BigDec, direction sqsdomain.OrderbookDirection) osmomath.BigDec {
+	switch direction {
+	case domain.ASK:
 		return amount.MulMut(price)
-	} else {
+	case domain.BID:
 		return amount.QuoMut(price)
+	default:
+		return osmomath.ZeroBigDec()
 	}
 }
