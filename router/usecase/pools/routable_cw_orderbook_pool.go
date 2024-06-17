@@ -70,7 +70,7 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 	}
 
 	tickIdx, err := r.GetStartTickIndex(direction)
-	if err != nil || tickIdx == -1 {
+	if err != nil {
 		return sdk.Coin{}, err
 	}
 
@@ -86,11 +86,12 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		tick := r.OrderbookData.Ticks[tickIdx]
 
 		// Increment or decrement the current tick index depending on order direction
-		if direction == domain.ASK {
+		switch direction {
+		case sqsdomain.ASK:
 			tickIdx++
-		} else if direction == domain.BID {
+		case sqsdomain.BID:
 			tickIdx--
-		} else {
+		default:
 			return sdk.Coin{}, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
 		}
 
@@ -155,7 +156,21 @@ func (r *routableOrderbookPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 
 // CalcSpotPrice implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	return osmomath.OneBigDec(), nil
+	// Get the expected order direction
+	direction, err := r.GetDirection(quoteDenom, baseDenom)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	tickIdx, err := r.GetStartTickIndex(direction)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	tick := r.OrderbookData.Ticks[tickIdx]
+
+	// Calculate the price for the current tick
+	return clmath.TickToPrice(tick.TickId)
 }
 
 // IsGeneralizedCosmWasmPool implements domain.RoutablePool.
@@ -186,9 +201,9 @@ func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom str
 // Get the index for the tick state array for the starting index given direction
 func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction sqsdomain.OrderbookDirection) (int, error) {
 	switch direction {
-	case domain.ASK:
+	case sqsdomain.ASK:
 		return r.OrderbookData.GetTickIndexById(r.OrderbookData.NextAskTick), nil
-	case domain.BID:
+	case sqsdomain.BID:
 		return r.OrderbookData.GetTickIndexById(r.OrderbookData.NextBidTick), nil
 	default:
 		return -1, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
@@ -198,9 +213,9 @@ func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction sqsdomain.Orderb
 // Converts an amount of token in to the value of token out given a price and direction
 func amountToValue(amount osmomath.BigDec, price osmomath.BigDec, direction sqsdomain.OrderbookDirection) osmomath.BigDec {
 	switch direction {
-	case domain.ASK:
+	case sqsdomain.ASK:
 		return amount.MulMut(price)
-	case domain.BID:
+	case sqsdomain.BID:
 		return amount.QuoMut(price)
 	default:
 		return osmomath.ZeroBigDec()
