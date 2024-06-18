@@ -9,6 +9,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
@@ -20,12 +21,12 @@ import (
 var _ sqsdomain.RoutablePool = &routableOrderbookPoolImpl{}
 
 type routableOrderbookPoolImpl struct {
-	ChainPool     *cwpoolmodel.CosmWasmPool "json:\"pool\""
-	Balances      sdk.Coins                 "json:\"balances\""
-	TokenOutDenom string                    "json:\"token_out_denom\""
-	TakerFee      osmomath.Dec              "json:\"taker_fee\""
-	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
-	OrderbookData *sqsdomain.OrderbookData  "json:\"orderbook_data\""
+	ChainPool     *cwpoolmodel.CosmWasmPool   "json:\"pool\""
+	Balances      sdk.Coins                   "json:\"balances\""
+	TokenOutDenom string                      "json:\"token_out_denom\""
+	TakerFee      osmomath.Dec                "json:\"taker_fee\""
+	SpreadFactor  osmomath.Dec                "json:\"spread_factor\""
+	OrderbookData *cosmwasmpool.OrderbookData "json:\"orderbook_data\""
 }
 
 // GetId implements domain.RoutablePool.
@@ -87,9 +88,9 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 
 		// Increment or decrement the current tick index depending on order direction
 		switch direction {
-		case sqsdomain.ASK:
+		case cosmwasmpool.ASK:
 			tickIdx++
-		case sqsdomain.BID:
+		case cosmwasmpool.BID:
 			tickIdx--
 		default:
 			return sdk.Coin{}, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
@@ -188,22 +189,22 @@ func (r *routableOrderbookPoolImpl) GetCodeID() uint64 {
 // - 1 if the order is a bid (buying token out)
 // - -1 if the order is an ask (selling token out)
 // - 0 if the order is not valid
-func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (sqsdomain.OrderbookDirection, error) {
+func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (cosmwasmpool.OrderbookDirection, error) {
 	if tokenInDenom == r.OrderbookData.BaseDenom && tokenOutDenom == r.OrderbookData.QuoteDenom {
-		return sqsdomain.ASK, nil
+		return cosmwasmpool.ASK, nil
 	} else if tokenInDenom == r.OrderbookData.QuoteDenom && tokenOutDenom == r.OrderbookData.BaseDenom {
-		return sqsdomain.BID, nil
+		return cosmwasmpool.BID, nil
 	} else {
 		return 0, domain.OrderbookPoolMismatchError{PoolId: r.GetId(), TokenInDenom: tokenInDenom, TokenOutDenom: tokenOutDenom}
 	}
 }
 
 // Get the index for the tick state array for the starting index given direction
-func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction sqsdomain.OrderbookDirection) (int, error) {
+func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction cosmwasmpool.OrderbookDirection) (int, error) {
 	switch direction {
-	case sqsdomain.ASK:
+	case cosmwasmpool.ASK:
 		return r.OrderbookData.GetTickIndexById(r.OrderbookData.NextAskTick), nil
-	case sqsdomain.BID:
+	case cosmwasmpool.BID:
 		return r.OrderbookData.GetTickIndexById(r.OrderbookData.NextBidTick), nil
 	default:
 		return -1, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
@@ -211,11 +212,11 @@ func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction sqsdomain.Orderb
 }
 
 // Converts an amount of token in to the value of token out given a price and direction
-func amountToValue(amount osmomath.BigDec, price osmomath.BigDec, direction sqsdomain.OrderbookDirection) osmomath.BigDec {
+func amountToValue(amount osmomath.BigDec, price osmomath.BigDec, direction cosmwasmpool.OrderbookDirection) osmomath.BigDec {
 	switch direction {
-	case sqsdomain.ASK:
+	case cosmwasmpool.ASK:
 		return amount.MulMut(price)
-	case sqsdomain.BID:
+	case cosmwasmpool.BID:
 		return amount.QuoMut(price)
 	default:
 		return osmomath.ZeroBigDec()

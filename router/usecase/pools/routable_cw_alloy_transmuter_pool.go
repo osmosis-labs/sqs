@@ -9,6 +9,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
@@ -19,12 +20,12 @@ import (
 var _ sqsdomain.RoutablePool = &routableAlloyTransmuterPoolImpl{}
 
 type routableAlloyTransmuterPoolImpl struct {
-	ChainPool           *cwpoolmodel.CosmWasmPool      "json:\"pool\""
-	AlloyTransmuterData *sqsdomain.AlloyTransmuterData "json:\"alloy_transmuter_data\""
-	Balances            sdk.Coins                      "json:\"balances\""
-	TokenOutDenom       string                         "json:\"token_out_denom\""
-	TakerFee            osmomath.Dec                   "json:\"taker_fee\""
-	SpreadFactor        osmomath.Dec                   "json:\"spread_factor\""
+	ChainPool           *cwpoolmodel.CosmWasmPool         "json:\"pool\""
+	AlloyTransmuterData *cosmwasmpool.AlloyTransmuterData "json:\"alloy_transmuter_data\""
+	Balances            sdk.Coins                         "json:\"balances\""
+	TokenOutDenom       string                            "json:\"token_out_denom\""
+	TakerFee            osmomath.Dec                      "json:\"taker_fee\""
+	SpreadFactor        osmomath.Dec                      "json:\"spread_factor\""
 }
 
 // GetId implements sqsdomain.RoutablePool.

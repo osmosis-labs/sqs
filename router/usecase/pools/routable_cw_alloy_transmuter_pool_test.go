@@ -9,6 +9,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -29,12 +30,12 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 
 	mock := &mocks.MockRoutablePool{
 		ChainPoolModel: cosmwasmPool.AsSerializablePool(),
-		CosmWasmPoolModel: sqsdomain.NewCWPoolModel(
+		CosmWasmPoolModel: cosmwasmpool.NewCWPoolModel(
 			"crates.io:transmuter", "3.0.0",
-			sqsdomain.CWPoolData{
-				AlloyTransmuter: &sqsdomain.AlloyTransmuterData{
+			cosmwasmpool.CosmWasmPoolData{
+				AlloyTransmuter: &cosmwasmpool.AlloyTransmuterData{
 					AlloyedDenom: ALLUSD,
-					AssetConfigs: []sqsdomain.TransmuterAssetConfig{
+					AssetConfigs: []cosmwasmpool.TransmuterAssetConfig{
 						{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
 						{Denom: USDT, NormalizationFactor: osmomath.NewInt(1)},
 						{Denom: OVERLY_PRECISE_USD, NormalizationFactor: veryBigNormalizationFactor},

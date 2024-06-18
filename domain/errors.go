@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
 var (
@@ -253,7 +253,7 @@ func (e SpotPriceQuoteCalculatorTruncatedError) Error() string {
 }
 
 type OrderbookPoolInvalidDirectionError struct {
-	Direction sqsdomain.OrderbookDirection
+	Direction cosmwasmpool.OrderbookDirection
 }
 
 func (e OrderbookPoolInvalidDirectionError) Error() string {
