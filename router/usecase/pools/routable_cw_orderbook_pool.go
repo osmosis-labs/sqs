@@ -57,7 +57,6 @@ func (r *routableOrderbookPoolImpl) GetSpreadFactor() math.LegacyDec {
 // - the provided denom pair is not supported by the orderbook
 // - runs out of ticks during swap (token in is too high for liquidity in the pool)
 func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-	fmt.Println("-----------------------")
 	poolType := r.GetType()
 
 	// Esnure that the pool is a cosmwasm pool
