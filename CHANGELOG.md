@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Unreleased
 
 - [SQS-Routing] API to force quote over a given route
+- Add fault tolerance in candidate route conversion when pools are breaking.
 
 ## v25.0.0
 
