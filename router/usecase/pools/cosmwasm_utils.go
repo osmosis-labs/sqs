@@ -16,7 +16,7 @@ import (
 // Returns error if fails to initialize the client
 func initializeWasmClient(nodeURI string) (wasmtypes.QueryClient, error) {
 	clientContext := client.Context{}
-	grpcClient, err := grpc.NewClient("localhost:9090",
+	grpcClient, err := grpc.NewClient("osmosis:9090",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
