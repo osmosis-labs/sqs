@@ -19,6 +19,10 @@ const (
 	BASE_DENOM  = "base"
 	MIN_TICK    = -108000000
 	MAX_TICK    = 182402823
+	// Tick Price = 2
+	LARGE_POSITIVE_TICK int64 = 1000000
+	// Tick Price = 0.5
+	LARGE_NEGATIVE_TICK int64 = -5000000
 )
 
 func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
@@ -86,6 +90,57 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 				}},
 			},
 		},
+		"BID: invalid partial fill": {
+			tokenIn:     sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)),
+			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(0)),
+			nextBidTick: MIN_TICK,
+			nextAskTick: 0,
+			ticks: []cosmwasmpool.OrderbookTickIdAndState{
+				{TickId: 0, TickState: cosmwasmpool.OrderbookTickState{
+					BidValues: cosmwasmpool.OrderbookTickValues{
+						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
+					},
+					AskValues: cosmwasmpool.OrderbookTickValues{
+						TotalAmountOfLiquidity: osmomath.NewBigDec(25),
+					},
+				}},
+			},
+			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
+				PoolId:   defaultPoolID,
+				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)),
+			},
+		},
+		"BID: multi-tick/direction swap": {
+			tokenIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)),
+			// 100*1 (tick: 0) + 50*2 (tick: LARGE_POSITIVE_TICK) = 200
+			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(200)),
+			nextBidTick: LARGE_POSITIVE_TICK,
+			nextAskTick: 0,
+			ticks: []cosmwasmpool.OrderbookTickIdAndState{
+				{
+					TickId: 0,
+					TickState: cosmwasmpool.OrderbookTickState{
+						BidValues: cosmwasmpool.OrderbookTickValues{
+							TotalAmountOfLiquidity: osmomath.NewBigDec(10),
+						},
+						AskValues: cosmwasmpool.OrderbookTickValues{
+							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
+						},
+					},
+				},
+				{
+					TickId: LARGE_POSITIVE_TICK,
+					TickState: cosmwasmpool.OrderbookTickState{
+						BidValues: cosmwasmpool.OrderbookTickValues{
+							TotalAmountOfLiquidity: osmomath.NewBigDec(10),
+						},
+						AskValues: cosmwasmpool.OrderbookTickValues{
+							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for name, tc := range tests {
@@ -96,7 +151,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
-				s.Require().ErrorIs(err, tc.expectError)
+				s.Require().Equal(err, tc.expectError)
 				return
 			}
 			s.Require().NoError(err)

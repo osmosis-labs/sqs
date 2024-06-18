@@ -57,6 +57,7 @@ func (r *routableOrderbookPoolImpl) GetSpreadFactor() math.LegacyDec {
 // - the provided denom pair is not supported by the orderbook
 // - runs out of ticks during swap (token in is too high for liquidity in the pool)
 func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
+	fmt.Println("-----------------------")
 	poolType := r.GetType()
 
 	// Esnure that the pool is a cosmwasm pool
@@ -106,7 +107,7 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		}
 
 		// Output amount that should be filled given the current tick price
-		outputAmount := convertValue(osmomath.BigDecFromSDKInt(tokenIn.Amount), tickPrice, directionOut)
+		outputAmount := convertValue(amountInRemaining, tickPrice, directionOut)
 
 		// Tick value for output side
 		outputTickValues, err := tick.TickState.GetTickValues(directionOut)
@@ -121,10 +122,10 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		inputFilled := convertValue(outputFilled, tickPrice, directionIn)
 
 		// Add the filled amount to the order total
-		amountOutTotal = amountOutTotal.AddMut(outputFilled)
+		amountOutTotal.AddMut(outputFilled)
 
 		// Subtract the filled amount from the remaining amount of tokens in
-		amountInRemaining = amountInRemaining.SubMut(inputFilled)
+		amountInRemaining.SubMut(inputFilled)
 	}
 
 	// Return total amount out
@@ -218,9 +219,9 @@ func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction cosmwasmpool.Ord
 func convertValue(amount osmomath.BigDec, price osmomath.BigDec, direction cosmwasmpool.OrderbookDirection) osmomath.BigDec {
 	switch direction {
 	case cosmwasmpool.ASK:
-		return amount.MulMut(price)
+		return amount.Mul(price)
 	case cosmwasmpool.BID:
-		return amount.QuoMut(price)
+		return amount.Quo(price)
 	default:
 		return osmomath.ZeroBigDec()
 	}
