@@ -11,6 +11,7 @@ type Config struct {
 	LoggerLevel        string `mapstructure:"logger-level"`
 
 	ChainGRPCGatewayEndpoint string `mapstructure:"grpc-gateway-endpoint"`
+	ChainGRPCEndpoint string `mapstructure:"grpc-endpoint"`
 	ChainID                  string `mapstructure:"chain-id"`
 
 	// Chain registry assets URL.
