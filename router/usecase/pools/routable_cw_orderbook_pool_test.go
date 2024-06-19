@@ -29,7 +29,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 	tokenInDenom,
 	tokenOutDenom string,
 	nextBidTick, nextAskTick int64,
-	ticks []cosmwasmpool.OrderbookTickIdAndState,
+	ticks []cosmwasmpool.OrderbookTick,
 	takerFee osmomath.Dec,
 ) sqsdomain.RoutablePool {
 	// TODO: replace this with orderbook, but this should work as mock for now
@@ -71,7 +71,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 		tokenOut    sdk.Coin
 		nextBidTick int64
 		nextAskTick int64
-		ticks       []cosmwasmpool.OrderbookTickIdAndState
+		ticks       []cosmwasmpool.OrderbookTick
 		expectError error
 	}{
 		"BID: simple swap": {
@@ -79,14 +79,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
 			nextBidTick: MIN_TICK,
 			nextAskTick: 0,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
-				{TickId: 0, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-					},
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.ZeroBigDec(),
+					AskLiquidity: osmomath.NewBigDec(100),
 				}},
 			},
 		},
@@ -95,14 +91,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(0)),
 			nextBidTick: MIN_TICK,
 			nextAskTick: 0,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
-				{TickId: 0, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(25),
-					},
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.ZeroBigDec(),
+					AskLiquidity: osmomath.NewBigDec(25),
 				}},
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
@@ -116,27 +108,19 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(200)),
 			nextBidTick: LARGE_POSITIVE_TICK,
 			nextAskTick: 0,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
+			ticks: []cosmwasmpool.OrderbookTick{
 				{
 					TickId: 0,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(10),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
 					},
 				},
 				{
 					TickId: LARGE_POSITIVE_TICK,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(10),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
 					},
 				},
 			},
@@ -146,14 +130,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			tokenOut:    sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
 			nextBidTick: 0,
 			nextAskTick: MAX_TICK,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
-				{TickId: 0, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-					},
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.NewBigDec(100),
+					AskLiquidity: osmomath.ZeroBigDec(),
 				}},
 			},
 		},
@@ -162,14 +142,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			tokenOut:    sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(0)),
 			nextBidTick: 0,
 			nextAskTick: MAX_TICK,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
-				{TickId: 0, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(25),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-					},
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.NewBigDec(25),
+					AskLiquidity: osmomath.ZeroBigDec(),
 				}},
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
@@ -183,27 +159,19 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			tokenOut:    sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(125)),
 			nextBidTick: LARGE_POSITIVE_TICK,
 			nextAskTick: 0,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
+			ticks: []cosmwasmpool.OrderbookTick{
 				{
 					TickId: 0,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(100),
+						AskLiquidity: osmomath.NewBigDec(100),
 					},
 				},
 				{
 					TickId: LARGE_POSITIVE_TICK,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(25),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(25),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(25),
+						AskLiquidity: osmomath.NewBigDec(25),
 					},
 				},
 			},
@@ -213,7 +181,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(125)),
 			nextBidTick: 0,
 			nextAskTick: 0,
-			ticks:       []cosmwasmpool.OrderbookTickIdAndState{},
+			ticks:       []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  BASE_DENOM,
@@ -225,7 +193,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(125)),
 			nextBidTick: 0,
 			nextAskTick: 0,
-			ticks:       []cosmwasmpool.OrderbookTickIdAndState{},
+			ticks:       []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  INVALID_DENOM,
@@ -237,7 +205,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			tokenOut:    sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(125)),
 			nextBidTick: 0,
 			nextAskTick: 0,
-			ticks:       []cosmwasmpool.OrderbookTickIdAndState{},
+			ticks:       []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  BASE_DENOM,
@@ -271,7 +239,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 		spotPrice   osmomath.BigDec
 		nextBidTick int64
 		nextAskTick int64
-		ticks       []cosmwasmpool.OrderbookTickIdAndState
+		ticks       []cosmwasmpool.OrderbookTick
 		expectError error
 	}{
 		"BID: basic price 1 query": {
@@ -280,14 +248,10 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDec(1),
 			nextBidTick: MIN_TICK,
 			nextAskTick: 0,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
-				{TickId: 0, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-					},
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.ZeroBigDec(),
+					AskLiquidity: osmomath.NewBigDec(100),
 				}},
 			},
 		},
@@ -297,38 +261,26 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDec(1),
 			nextBidTick: MIN_TICK,
 			nextAskTick: 0,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
+			ticks: []cosmwasmpool.OrderbookTick{
 				{
 					TickId: 0,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
 					},
 				},
 				{
 					TickId: 1,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
 					},
 				},
 				{
 					TickId: 2,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
 					},
 				},
 			},
@@ -339,27 +291,19 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDec(2),
 			nextBidTick: MIN_TICK,
 			nextAskTick: LARGE_POSITIVE_TICK,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
+			ticks: []cosmwasmpool.OrderbookTick{
 				{
 					TickId: 0,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
 					},
 				},
 				{
 					TickId: LARGE_POSITIVE_TICK,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
 					},
 				},
 			},
@@ -370,14 +314,10 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDec(1),
 			nextBidTick: 0,
 			nextAskTick: MAX_TICK,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
-				{TickId: 0, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-					},
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.NewBigDec(100),
+					AskLiquidity: osmomath.ZeroBigDec(),
 				}},
 			},
 		},
@@ -387,30 +327,18 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDec(1),
 			nextBidTick: 0,
 			nextAskTick: MAX_TICK,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
-				{TickId: -2, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-					},
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: -2, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.NewBigDec(100),
+					AskLiquidity: osmomath.ZeroBigDec(),
 				}},
-				{TickId: -1, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-					},
+				{TickId: -1, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.NewBigDec(100),
+					AskLiquidity: osmomath.ZeroBigDec(),
 				}},
-				{TickId: 0, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-					},
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.NewBigDec(100),
+					AskLiquidity: osmomath.ZeroBigDec(),
 				}},
 			},
 		},
@@ -420,14 +348,10 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDec(1),
 			nextBidTick: 0,
 			nextAskTick: MAX_TICK,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
-				{TickId: 0, TickState: cosmwasmpool.OrderbookTickState{
-					BidValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-					},
-					AskValues: cosmwasmpool.OrderbookTickValues{
-						TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-					},
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.NewBigDec(100),
+					AskLiquidity: osmomath.NewBigDec(100),
 				}},
 			},
 		},
@@ -437,27 +361,19 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDecWithPrec(5, 1),
 			nextBidTick: LARGE_NEGATIVE_TICK,
 			nextAskTick: MAX_TICK,
-			ticks: []cosmwasmpool.OrderbookTickIdAndState{
+			ticks: []cosmwasmpool.OrderbookTick{
 				{
 					TickId: LARGE_NEGATIVE_TICK,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(100),
+						AskLiquidity: osmomath.ZeroBigDec(),
 					},
 				},
 				{
 					TickId: 0,
-					TickState: cosmwasmpool.OrderbookTickState{
-						BidValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.NewBigDec(100),
-						},
-						AskValues: cosmwasmpool.OrderbookTickValues{
-							TotalAmountOfLiquidity: osmomath.ZeroBigDec(),
-						},
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(100),
+						AskLiquidity: osmomath.ZeroBigDec(),
 					},
 				},
 			},
@@ -468,7 +384,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDec(0),
 			nextBidTick: 0,
 			nextAskTick: 0,
-			ticks:       []cosmwasmpool.OrderbookTickIdAndState{},
+			ticks:       []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  BASE_DENOM,
@@ -481,7 +397,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDec(0),
 			nextBidTick: 0,
 			nextAskTick: 0,
-			ticks:       []cosmwasmpool.OrderbookTickIdAndState{},
+			ticks:       []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  QUOTE_DENOM,
@@ -494,7 +410,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			spotPrice:   osmomath.NewBigDec(0),
 			nextBidTick: 0,
 			nextAskTick: 0,
-			ticks:       []cosmwasmpool.OrderbookTickIdAndState{},
+			ticks:       []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  INVALID_DENOM,

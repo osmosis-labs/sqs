@@ -108,14 +108,14 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		// Output amount that should be filled given the current tick price
 		outputAmount := convertValue(amountInRemaining, tickPrice, directionOut)
 
-		// Tick value for output side
-		outputTickValues, err := getTickValues(&tick.TickState, directionOut)
+		// Tick liquidity for output side
+		outputTickLiquidity, err := getTickLiquidity(&tick.TickLiquidity, directionOut)
 		if err != nil {
 			return sdk.Coin{}, err
 		}
 
 		// How much of the order this tick can fill
-		outputFilled := getFillableAmount(&outputTickValues, outputAmount)
+		outputFilled := getFillableAmount(outputTickLiquidity, outputAmount)
 
 		// How much of the input denom has been filled
 		inputFilled := convertValue(outputFilled, tickPrice, directionIn)
@@ -226,15 +226,15 @@ func convertValue(amount osmomath.BigDec, price osmomath.BigDec, direction domai
 	}
 }
 
-// Returns the related values for a given direction on the current tick
-func getTickValues(s *cosmwasmpool.OrderbookTickState, direction domain.OrderbookDirection) (cosmwasmpool.OrderbookTickValues, error) {
+// Returns the related liquidity for a given direction on the current tick
+func getTickLiquidity(s *cosmwasmpool.OrderbookTickLiquidity, direction domain.OrderbookDirection) (osmomath.BigDec, error) {
 	switch direction {
 	case domain.ASK:
-		return s.AskValues, nil
+		return s.AskLiquidity, nil
 	case domain.BID:
-		return s.BidValues, nil
+		return s.BidLiquidity, nil
 	default:
-		return cosmwasmpool.OrderbookTickValues{}, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
+		return osmomath.BigDec{}, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
 	}
 }
 
@@ -249,9 +249,9 @@ func getTickIndexById(d *cosmwasmpool.OrderbookData, tickId int64) int {
 }
 
 // Determines how much of a given amount can be filled by the current tick state (independent for each direction)
-func getFillableAmount(t *cosmwasmpool.OrderbookTickValues, input osmomath.BigDec) osmomath.BigDec {
-	if input.LT(t.TotalAmountOfLiquidity) {
+func getFillableAmount(tickLiquidity osmomath.BigDec, input osmomath.BigDec) osmomath.BigDec {
+	if input.LT(tickLiquidity) {
 		return input
 	}
-	return t.TotalAmountOfLiquidity
+	return tickLiquidity
 }

@@ -18,32 +18,27 @@ func (model *CosmWasmPoolModel) IsOrderbook() bool {
 
 // OrderbookData, since v1.0.0
 type OrderbookData struct {
-	QuoteDenom  string                    `json:"quote_denom"`
-	BaseDenom   string                    `json:"base_denom"`
-	NextBidTick int64                     `json:"next_bid_tick"`
-	NextAskTick int64                     `json:"next_ask_tick"`
-	Ticks       []OrderbookTickIdAndState `json:"ticks"`
+	QuoteDenom  string          `json:"quote_denom"`
+	BaseDenom   string          `json:"base_denom"`
+	NextBidTick int64           `json:"next_bid_tick"`
+	NextAskTick int64           `json:"next_ask_tick"`
+	Ticks       []OrderbookTick `json:"ticks"`
 }
 
-type OrderbookTickValues struct {
-	// Total Amount of Liquidity at tick (TAL)
-	// - Every limit order placement increments this value.
-	// - Every swap at this tick decrements this value.
-	// - Every cancellation decrements this value.
-	TotalAmountOfLiquidity osmomath.BigDec `json:"total_amount_of_liquidity"`
-}
-
-// Represents the state of a specific price tick in a liquidity pool.
+// Represents Total Amount of Liquidity at tick (TAL) of a specific price tick in a liquidity pool.
+// - Every limit order placement increments this value.
+// - Every swap at this tick decrements this value.
+// - Every cancellation decrements this value.
 //
-// The state is split into two parts for the ask and bid directions.
-type OrderbookTickState struct {
-	// Values for the ask direction of the tick
-	AskValues OrderbookTickValues `json:"ask_values"`
-	// Values for the bid direction of the tick
-	BidValues OrderbookTickValues `json:"bid_values"`
+// It is split into two parts for the ask and bid directions.
+type OrderbookTickLiquidity struct {
+	// Total Amount of Liquidity at tick (TAL) for the bid direction of the tick
+	BidLiquidity osmomath.BigDec `json:"bid_liquidity"`
+	// Total Amount of Liquidity at tick (TAL) for the ask direction of the tick
+	AskLiquidity osmomath.BigDec `json:"ask_liquidity"`
 }
 
-type OrderbookTickIdAndState struct {
-	TickId    int64              `json:"tick_id"`
-	TickState OrderbookTickState `json:"tick_state"`
+type OrderbookTick struct {
+	TickId        int64                  `json:"tick_id"`
+	TickLiquidity OrderbookTickLiquidity `json:"tick_liquidity"`
 }
