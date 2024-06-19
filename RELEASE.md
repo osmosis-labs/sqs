@@ -11,7 +11,7 @@ This is a summary of the steps to get a change into production.
    - `sqs.yaml` (optional, as needed)
    - `versions.yaml` (required) IMPORTANT: Remember to omit the `v` from the tag name, e.g. tag name `v25.1.0`, use `25.1.0` in `versions.yaml`
 4. Get infrastrucuture PR approved and merged into `main`
-6. Deploy to stage enviornment (automated and triggered by step 5 once merged into `main`)
+6. Deploy to stage environment (automated and triggered by step 5 once merged into `main`)
 7. Test & request QA
 8. Tag the non-RC release e.g. `v0.20.0` and push it to the repo.
 9. (production deployment only) Run e2e test by `make e2e-run-dev` to do a final check. API key must be specified thru environment variable `SQS_API_KEY` before running the test.
