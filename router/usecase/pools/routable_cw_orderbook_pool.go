@@ -189,8 +189,8 @@ func (r *routableOrderbookPoolImpl) GetCodeID() uint64 {
 
 // Determines order direction for the current orderbook given token in and out denoms
 // Returns:
-// - 1 if the order is a bid (buying token out)
-// - -1 if the order is an ask (selling token out)
+// - cosmwasmpool.BID (1) if the order is a bid (buying token out)
+// - cosmwasmpool.ASK (-1) if the order is an ask (selling token out)
 // - 0 if the order is not valid
 func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (cosmwasmpool.OrderbookDirection, error) {
 	if tokenInDenom == r.OrderbookData.BaseDenom && tokenOutDenom == r.OrderbookData.QuoteDenom {
