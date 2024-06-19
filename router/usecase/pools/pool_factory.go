@@ -101,10 +101,68 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		}
 	}
 
-	// Check if the pool is a transmuter pool with alloyed assets
-	model := pool.GetSQSPoolModel().CosmWasmPoolModel
+	routablePool, err := newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmConfig, tokenOutDenom, takerFee)
+	if err != nil {
+		return nil, err
+	}
+	if routablePool != nil {
+		return routablePool, nil
+	}
+
 	balances := pool.GetSQSPoolModel().Balances
-	spreadFactor := pool.GetSQSPoolModel().SpreadFactor
+
+	// Check if the pool is a transmuter pool
+	_, isTransmuter := cosmWasmConfig.TransmuterCodeIDs[cosmwasmPool.CodeId]
+	if isTransmuter {
+		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
+
+		// Transmuter has a custom implementation since it does not need to interact with the chain.
+		return &routableTransmuterPoolImpl{
+			ChainPool:     cosmwasmPool,
+			Balances:      balances,
+			TokenOutDenom: tokenOutDenom,
+			TakerFee:      takerFee,
+			SpreadFactor:  spreadFactor,
+		}, nil
+	}
+
+	_, isGeneralizedCosmWasmPool := cosmWasmConfig.GeneralCosmWasmCodeIDs[cosmwasmPool.CodeId]
+	if isGeneralizedCosmWasmPool {
+		wasmClient, err := initializeWasmClient(cosmWasmConfig.NodeURI)
+		if err != nil {
+			return nil, err
+		}
+
+		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
+
+		// for most other cosm wasm pools, interaction with the chain will
+		// be required. As a result, we have a custom implementation.
+		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, wasmClient, scalingFactorGetterCb), nil
+	}
+
+	return nil, domain.UnsupportedCosmWasmPoolTypeError{
+		PoolType: poolmanagertypes.PoolType_name[int32(poolType)],
+		PoolId:   cosmwasmPool.PoolId,
+	}
+}
+
+// newRoutableCosmWasmPoolWithCustomModel creates a new RoutablePool for CosmWasm pools that require a custom CosmWasmPoolModel.
+// errors if the pool matched criteria for a custom model, but the model does not have the required data.
+// returns a routable pool with a custom model if the pool matched criteria for a custom model and the model has the required data.
+// returns nil if the pool did not match criteria for a custom model.
+func newRoutableCosmWasmPoolWithCustomModel(
+	pool sqsdomain.PoolI,
+	cosmwasmPool *cwpoolmodel.CosmWasmPool,
+	cosmWasmConfig domain.CosmWasmPoolRouterConfig,
+	tokenOutDenom string,
+	takerFee osmomath.Dec,
+) (sqsdomain.RoutablePool, error) {
+	sqsPoolModel := pool.GetSQSPoolModel()
+
+	// Check if the pool is a transmuter pool with alloyed assets
+	model := sqsPoolModel.CosmWasmPoolModel
+	balances := sqsPoolModel.Balances
+	spreadFactor := sqsPoolModel.SpreadFactor
 	if model != nil {
 		// since v2, we introduce concept of alloyed assets but not yet actively used
 		// since v3, we introduce concept of normalization factor
@@ -148,37 +206,5 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		}
 	}
 
-	// Check if the pool is a transmuter pool
-	_, isTransmuter := cosmWasmConfig.TransmuterCodeIDs[cosmwasmPool.CodeId]
-	if isTransmuter {
-		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
-
-		// Transmuter has a custom implementation since it does not need to interact with the chain.
-		return &routableTransmuterPoolImpl{
-			ChainPool:     cosmwasmPool,
-			Balances:      balances,
-			TokenOutDenom: tokenOutDenom,
-			TakerFee:      takerFee,
-			SpreadFactor:  spreadFactor,
-		}, nil
-	}
-
-	_, isGeneralizedCosmWasmPool := cosmWasmConfig.GeneralCosmWasmCodeIDs[cosmwasmPool.CodeId]
-	if isGeneralizedCosmWasmPool {
-		wasmClient, err := initializeWasmClient(cosmWasmConfig.NodeURI)
-		if err != nil {
-			return nil, err
-		}
-
-		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
-
-		// for most other cosm wasm pools, interaction with the chain will
-		// be required. As a result, we have a custom implementation.
-		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, wasmClient, scalingFactorGetterCb), nil
-	}
-
-	return nil, domain.UnsupportedCosmWasmPoolTypeError{
-		PoolType: poolmanagertypes.PoolType_name[int32(poolType)],
-		PoolId:   cosmwasmPool.PoolId,
-	}
+	return nil, nil
 }
