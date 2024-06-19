@@ -4,20 +4,23 @@
 
 This is a summary of the steps to get a change into production.
 
-1. Merge sqs PR into main (v25.x) once approved
-2. Create an RC tag e.g. `v0.20.0-rc0` and push it to the repo.
-3. Create [infrastructure](https://github.com/osmosis-labs/infrastructure) PR for updating stage configs config.json.j2, sqs.yaml, if needed, as well as versions.yaml
-4. Get infrastrucuture PR approved and merged into main
-5. Deploy to stage (automated and triggered by step 4)
-6. Test & request QA
-7. Tag the non-RC release e.g. `v0.20.0` and push it to the repo
-8. Repeat step 3 and 4 for prod
-  * Reference the configuration from step 4.
-9.  Manually perform prod deployment via Rundeck
-  * Post updates in #eng-team-data-services.
-     * Deployment start
-     * Issues/blockers, if any
-     * Deployment end
+1. Merge sqs PR into main (currently `v25.x`) once approved
+2. Create an RC tag e.g. `v0.20.0-rc0` and push it to the repo. See below for version number semantics. 
+3. Create [infrastructure](https://github.com/osmosis-labs/infrastructure) PR for updating sqs configuration files and deployment version specifications.
+   - `config.json.j2` (optional, as needed)
+   - `sqs.yaml` (optional, as needed)
+   - `versions.yaml` (required) IMPORTANT: Remember to omit the `v` from the tag name, e.g. tag name `v25.1.0`, use `25.1.0` in `versions.yaml`
+4. Get infrastrucuture PR approved and merged into `main`
+6. Deploy to stage enviornment (automated and triggered by step 5 once merged into `main`)
+7. Test & request QA
+8. Tag the non-RC release e.g. `v0.20.0` and push it to the repo.
+9. (production deployment only) Run e2e test by `make e2e-run-dev` to do a final check. API key must be specified thru environment variable `SQS_API_KEY` before running the test.
+10. (production deployment only) Repeat step 3 and 4. 
+11.  Manually perform prod deployment via Rundeck
+- Post updates in #eng-team-data-services.
+- Deployment start
+- Issues/blockers, if any
+- Deployment end
 
 ### Tagging RC
 
