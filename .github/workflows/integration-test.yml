@@ -11,6 +11,10 @@ on:
           - stage
           - prod
         default: 'stage'
+      commit_sha:
+        description: 'Commit SHA (optional)'
+        required: false
+        default: ''
   schedule:
     - cron: '0 * * * *'
 
