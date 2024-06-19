@@ -154,17 +154,23 @@ func (e ConcentratedTickModelNotSetError) Error() string {
 type CosmWasmPoolType int
 
 const (
-	CosmWasmPoolAlloyTransmuter CosmWasmPoolType = iota
+	CosmWasmPoolTransmuter CosmWasmPoolType = iota
+	CosmWasmPoolAlloyTransmuter
 	CosmWasmPoolOrderbook
+	CosmWasmPoolGeneralized
 )
 
 // String returns the string representation of the CwPoolType.
 func (c CosmWasmPoolType) String() string {
 	switch c {
+	case CosmWasmPoolTransmuter:
+		return "Transmuter"
 	case CosmWasmPoolAlloyTransmuter:
 		return "Alloy Transmuter"
 	case CosmWasmPoolOrderbook:
 		return "Orderbook"
+	case CosmWasmPoolGeneralized:
+		return "Generalized"
 	default:
 		return "Unknown"
 	}
