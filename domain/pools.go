@@ -58,3 +58,32 @@ var UnsetScalingFactorGetterCb ScalingFactorGetterCb = func(denom string) (osmom
 	// getter callback (defined on the tokens use case)
 	panic("scaling factor getter cb is unset")
 }
+
+type OrderbookDirection int
+
+const (
+	BID OrderbookDirection = 1
+	ASK OrderbookDirection = -1
+)
+
+func (d *OrderbookDirection) String() string {
+	switch *d {
+	case BID:
+		return "BID"
+	case ASK:
+		return "ASK"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+func (d *OrderbookDirection) Opposite() OrderbookDirection {
+	switch *d {
+	case BID:
+		return ASK
+	case ASK:
+		return BID
+	default:
+		return 0
+	}
+}

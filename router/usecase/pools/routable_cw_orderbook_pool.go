@@ -91,9 +91,9 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 
 		// Increment or decrement the current tick index depending on out order direction
 		switch directionOut {
-		case cosmwasmpool.BID:
+		case domain.BID:
 			tickIdx--
-		case cosmwasmpool.ASK:
+		case domain.ASK:
 			tickIdx++
 		default:
 			return sdk.Coin{}, domain.OrderbookPoolInvalidDirectionError{Direction: directionIn}
@@ -109,13 +109,13 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		outputAmount := convertValue(amountInRemaining, tickPrice, directionOut)
 
 		// Tick value for output side
-		outputTickValues, err := tick.TickState.GetTickValues(directionOut)
+		outputTickValues, err := getTickValues(&tick.TickState, directionOut)
 		if err != nil {
 			return sdk.Coin{}, err
 		}
 
 		// How much of the order this tick can fill
-		outputFilled := outputTickValues.GetFillableAmount(outputAmount)
+		outputFilled := getFillableAmount(&outputTickValues, outputAmount)
 
 		// How much of the input denom has been filled
 		inputFilled := convertValue(outputFilled, tickPrice, directionIn)
@@ -192,36 +192,66 @@ func (r *routableOrderbookPoolImpl) GetCodeID() uint64 {
 // - cosmwasmpool.BID (1) if the order is a bid (buying token out)
 // - cosmwasmpool.ASK (-1) if the order is an ask (selling token out)
 // - 0 if the order is not valid
-func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (cosmwasmpool.OrderbookDirection, error) {
+func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (domain.OrderbookDirection, error) {
 	if tokenInDenom == r.OrderbookData.BaseDenom && tokenOutDenom == r.OrderbookData.QuoteDenom {
-		return cosmwasmpool.ASK, nil
+		return domain.ASK, nil
 	} else if tokenInDenom == r.OrderbookData.QuoteDenom && tokenOutDenom == r.OrderbookData.BaseDenom {
-		return cosmwasmpool.BID, nil
+		return domain.BID, nil
 	} else {
 		return 0, domain.OrderbookPoolMismatchError{PoolId: r.GetId(), TokenInDenom: tokenInDenom, TokenOutDenom: tokenOutDenom}
 	}
 }
 
 // Get the index for the tick state array for the starting index given direction
-func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction cosmwasmpool.OrderbookDirection) (int, error) {
+func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction domain.OrderbookDirection) (int, error) {
 	switch direction {
-	case cosmwasmpool.ASK:
-		return r.OrderbookData.GetTickIndexById(r.OrderbookData.NextAskTick), nil
-	case cosmwasmpool.BID:
-		return r.OrderbookData.GetTickIndexById(r.OrderbookData.NextBidTick), nil
+	case domain.ASK:
+		return getTickIndexById(r.OrderbookData, r.OrderbookData.NextAskTick), nil
+	case domain.BID:
+		return getTickIndexById(r.OrderbookData, r.OrderbookData.NextBidTick), nil
 	default:
 		return -1, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
 	}
 }
 
 // Converts an amount of token in to the value of token out given a price and direction
-func convertValue(amount osmomath.BigDec, price osmomath.BigDec, direction cosmwasmpool.OrderbookDirection) osmomath.BigDec {
+func convertValue(amount osmomath.BigDec, price osmomath.BigDec, direction domain.OrderbookDirection) osmomath.BigDec {
 	switch direction {
-	case cosmwasmpool.ASK:
+	case domain.ASK:
 		return amount.Mul(price)
-	case cosmwasmpool.BID:
+	case domain.BID:
 		return amount.Quo(price)
 	default:
 		return osmomath.ZeroBigDec()
 	}
+}
+
+// Returns the related values for a given direction on the current tick
+func getTickValues(s *cosmwasmpool.OrderbookTickState, direction domain.OrderbookDirection) (cosmwasmpool.OrderbookTickValues, error) {
+	switch direction {
+	case domain.ASK:
+		return s.AskValues, nil
+	case domain.BID:
+		return s.BidValues, nil
+	default:
+		return cosmwasmpool.OrderbookTickValues{}, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
+	}
+}
+
+// Returns tick state index for the given ID
+func getTickIndexById(d *cosmwasmpool.OrderbookData, tickId int64) int {
+	for i, tick := range d.Ticks {
+		if tick.TickId == tickId {
+			return i
+		}
+	}
+	return -1
+}
+
+// Determines how much of a given amount can be filled by the current tick state (independent for each direction)
+func getFillableAmount(t *cosmwasmpool.OrderbookTickValues, input osmomath.BigDec) osmomath.BigDec {
+	if input.LT(t.TotalAmountOfLiquidity) {
+		return input
+	}
+	return t.TotalAmountOfLiquidity
 }
