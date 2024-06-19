@@ -1,20 +1,19 @@
 package cosmwasmpool
 
 import (
-	"github.com/Masterminds/semver"
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
-func (model *CosmWasmPoolModel) IsAlloyTransmuter() bool {
-	name := "crates.io:transmuter"
-	version := ">= 3.0.0"
+const (
+	ALLOY_TRANSMUTER_CONTRACT_NAME               = "crates.io:transmuter"
+	ALLOY_TRANSMUTER_CONTRACT_VERSION_CONSTRAINT = ">= 3.0.0"
+)
 
-	constraints, err := semver.NewConstraint(version)
-	// this must never panic
-	if err != nil {
-		panic(err)
-	}
-	return model.ContractInfo.Matches(name, constraints)
+func (model *CosmWasmPoolModel) IsAlloyTransmuter() bool {
+	return model.ContractInfo.Matches(
+		ALLOY_TRANSMUTER_CONTRACT_NAME,
+		mustParseSemverConstraint(ALLOY_TRANSMUTER_CONTRACT_VERSION_CONSTRAINT),
+	)
 }
 
 // Tranmuter Alloyed Data, since v3.0.0

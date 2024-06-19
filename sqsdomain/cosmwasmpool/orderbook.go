@@ -1,20 +1,19 @@
 package cosmwasmpool
 
 import (
-	"github.com/Masterminds/semver"
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
-func (model *CosmWasmPoolModel) IsOrderbook() bool {
-	name := "crates.io:sumtree-orderbook"
-	version := ">= 0.1.0"
+const (
+	ORDERBOOK_CONTRACT_NAME               = "crates.io:sumtree-orderbook"
+	ORDERBOOK_CONTRACT_VERSION_CONSTRAINT = ">= 0.1.0"
+)
 
-	constraints, err := semver.NewConstraint(version)
-	// this must never panic
-	if err != nil {
-		panic(err)
-	}
-	return model.ContractInfo.Matches(name, constraints)
+func (model *CosmWasmPoolModel) IsOrderbook() bool {
+	return model.ContractInfo.Matches(
+		ORDERBOOK_CONTRACT_NAME,
+		mustParseSemverConstraint(ORDERBOOK_CONTRACT_VERSION_CONSTRAINT),
+	)
 }
 
 type OrderbookDirection int

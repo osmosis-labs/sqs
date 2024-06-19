@@ -22,6 +22,14 @@ func (ci *ContractInfo) Matches(contract string, versionConstrains *semver.Const
 	return validSemver && (ci.Contract == contract && versionConstrains.Check(version))
 }
 
+func mustParseSemverConstraint(constraint string) *semver.Constraints {
+	c, err := semver.NewConstraint(constraint)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
 // CosmWasmPoolModel is a model for the pool data of a CosmWasm pool
 // It includes the contract info and the pool data
 // The CWPoolData works like a tagged union to hold different types of data
