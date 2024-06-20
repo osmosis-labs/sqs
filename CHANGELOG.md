@@ -35,11 +35,14 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v25.1.1
 
-- [SQS-Routing] API to force quote over a given route
 - Add fault tolerance in candidate route conversion when pools are breaking.
 - Hotfix for Alloyed pool swaps failing due to not having LP share in balances. 
+
+## v25.1.0
+
+- [SQS-Routing] API to force quote over a given route
 
 ## v25.0.0
 
