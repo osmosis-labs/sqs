@@ -82,22 +82,6 @@ func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom
 				continue
 			}
 
-			// Microptimization for the first pool in the route.
-			if len(currentRoute) == 0 {
-				currentTokenInAmount := pool.SQSModel.Balances.AmountOf(currenTokenInDenom)
-
-				// HACK: alloyed LP share is not contained in balances.
-				// TODO: remove the hack and ingest the LP share balance on the Osmosis side.
-				// https://linear.app/osmosis/issue/DATA-236/bug-alloyed-lp-share-is-not-present-in-balances
-				isAlloyed := pool.SQSModel.CosmWasmPoolModel != nil && pool.SQSModel.CosmWasmPoolModel.IsAlloyTransmuter()
-
-				if currentTokenInAmount.LT(tokenIn.Amount) && !isAlloyed {
-					visited[i] = true
-					// Not enough tokenIn to swap.
-					continue
-				}
-			}
-
 			currentPoolID := poolID
 			for _, denom := range poolDenoms {
 				if denom == currenTokenInDenom {
