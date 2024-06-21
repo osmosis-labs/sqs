@@ -148,17 +148,32 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 			return nil, err
 		}
 
-		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, logger)
+		defaultQuoteDenomScalingFactor, err := tokensUseCase.GetChainScalingFactorByDenomMut(defaultQuoteDenom)
+		if err != nil {
+			return nil, err
+		}
+
+		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, logger)
+
+		liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, defaultQuoteDenomScalingFactor)
+
+		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, liquidityPricer)
 
 		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
 		// It then passes the healthcheck as long as updates are received at the appropriate intervals.
 		quotePriceUpdateWorker.RegisterListener(chainInfoUseCase)
 
+		// pool liquidity compute worker listens to the quote price update worker.
+		quotePriceUpdateWorker.RegisterListener(poolLiquidityComputeWorker)
+
 		// Initialize ingest handler and usecase
-		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)
+		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, tokensUseCase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)
 		if err != nil {
 			return nil, err
 		}
+
+		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
+		poolLiquidityComputeWorker.RegisterListener(chainInfoUseCase)
 
 		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig)
 		if err != nil {

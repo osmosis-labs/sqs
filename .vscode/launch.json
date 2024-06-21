@@ -32,7 +32,35 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestGetSplitQuote",
+                "TestRouterTestSuite/TestConvertMinTokensPoolLiquidityCapToFilter",
+                "-test.v"
+            ],
+        },
+        {
+            "name": "router/delivery/http",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/router/delivery/http",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestRouterHandlerSuite/TestGetMinPoolLiquidityCapFilter",
+                "-test.v"
+            ],
+        },
+        {
+            "name": "ingest/usecase",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/ingest/usecase",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestIngestUseCaseTestSuite/TestTransferDenomLiquidityMap",
                 "-test.v"
             ],
         },
@@ -46,12 +74,12 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestTokensUseCaseTestSuite/TestGetPrices_Chain_PricingOptions",
+                "TestTokensUseCaseTestSuite/TestPoolDenomMetadata",
                 "-test.v"
             ],
         },
         {
-            "name": "tokens/usecase/pricing/worker",
+            "name": "tokens/usecase/pricing/worker Pricing",
             "type": "go",
             "request": "launch",
             "mode": "test",
@@ -61,6 +89,20 @@
                 "30m",
                 "-test.run",
                 "TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens",
+                "-test.v"
+            ],
+        },
+        {
+            "name": "tokens/usecase/pricing/worker Liquidity",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/tokens/usecase/pricing/worker",
+            "args": [
+                "-test.timeout",
+                "30m",
+                "-test.run",
+                "TestPoolLiquidityComputeWorkerSuite/TestRepriceDenomMetadata",
                 "-test.v"
             ],
         },

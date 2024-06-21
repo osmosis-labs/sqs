@@ -42,6 +42,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/router/custom-direct-quote": {
+            "get": {
+                "description": "Call does not search for the route rather directly computes the quote for the given poolID.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Compute the quote for the given poolID",
+                "operationId": "get-direct-quote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "5OSMO",
+                        "description": "String representation of the sdk.Coin for the token in.",
+                        "name": "tokenIn",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "ATOM,USDC",
+                        "description": "String representing the list of the token denom out separated by comma.",
+                        "name": "tokenOutDenom",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "1,2,3",
+                        "description": "String representing list of the pool ID.",
+                        "name": "poolID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether to apply exponents to the spot price. False by default.",
+                        "name": "applyExponents",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The computed best route quote",
+                        "schema": {}
+                    }
+                }
+            }
+        },
         "/router/quote": {
             "get": {
                 "description": "returns the best quote it can compute for the given tokenIn and tokenOutDenom.",
@@ -166,9 +214,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/tokens/pool-metadata": {
+            "get": {
+                "description": "returns pool denom metadata. As of today, this metadata is represented by the local market cap of the token computed over all Osmosis pools.\nFor testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.\nSee ` + "`" + `config.json` + "`" + ` and ` + "`" + `config-testnet.json` + "`" + ` in root for details.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Pool Denom Metadata",
+                "operationId": "get-pool-denom-metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "List of denoms where each can either be a human denom or a chain denom",
+                        "name": "denoms",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "name": "humanDenoms",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/tokens/prices": {
             "get": {
-                "description": "Given a list of base denominations, returns the spot price with a system-configured quote denomination.",
+                "description": "Given a list of base denominations, this endpoint returns the spot price with a system-configured quote denomination.",
                 "consumes": [
                     "application/json"
                 ],
@@ -188,6 +262,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "Specify true if input denominations are in human-readable format; defaults to false",
                         "name": "humanDenoms",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)",
+                        "name": "pricingSource",
                         "in": "query"
                     }
                 ],
@@ -212,13 +292,24 @@ const docTemplate = `{
         "domain.Token": {
             "type": "object",
             "properties": {
-                "human_denom": {
-                    "description": "HumanDenom is the human readable denom.",
+                "coingeckoId": {
                     "type": "string"
                 },
-                "precision": {
+                "is_unlisted": {
+                    "description": "IsUnlisted is true if the token is unlisted.",
+                    "type": "boolean"
+                },
+                "decimals": {
                     "description": "Precision is the precision of the token.",
                     "type": "integer"
+                },
+                "preview": {
+                    "description": "IsUnlisted is true if the token is unlisted.",
+                    "type": "boolean"
+                },
+                "symbol": {
+                    "description": "HumanDenom is the human readable denom.",
+                    "type": "string"
                 }
             }
         },

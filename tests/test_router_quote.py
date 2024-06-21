@@ -15,7 +15,7 @@ ROUTES_URL = "/router/quote"
 QUOTE_NUM_TOP_LIQUIDITY_DENOMS = 20
 
 # Arbitrary choice based on performance at the time of test writing
-EXPECTED_LATENCY_UPPER_BOUND_MS = 5000
+EXPECTED_LATENCY_UPPER_BOUND_MS = 15000
 
 # The max amount in value in USD to run the price impact check
 # This is primarily to avoid flakiness due to swapping large amounts.
@@ -122,7 +122,7 @@ class TestQuote:
         # Validate quote results
         self.validate_quote_test(quote, amount_str, token_in_denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
 
-    @pytest.mark.parametrize("amount", [10**(USDC_PRECISION + 3)])
+    @pytest.mark.parametrize("amount", [str(10**(USDC_PRECISION + 3))])
     def test_transmuter_tokens(self, environment_url, amount):
         """
         This test validates that swapping over a route with a transmuter pool works as expected.

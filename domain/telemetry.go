@@ -41,6 +41,11 @@ var (
 	// gauge that tracks duration of pricing worker computation
 	SQSPricingWorkerComputeDurationMetricName = "sqs_pricing_worker_compute_duration"
 
+	// sqs_pool_liq_pricing_worker_compute_duration
+	//
+	// gauge that tracks duration of pricing worker computation
+	SQSPoolLiquidityPricingWorkerComputeDurationMetricName = "sqs_pool_liq_pricing_worker_compute_duration"
+
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -78,6 +83,13 @@ var (
 			Help: "gauge that tracks duration of pricing worker computation",
 		},
 	)
+
+	SQSPoolLiquidityPricingWorkerComputeDurationGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: SQSPoolLiquidityPricingWorkerComputeDurationMetricName,
+			Help: "gauge that tracks duration of pool liquidity pricing worker computation",
+		},
+	)
 )
 
 func init() {
@@ -86,4 +98,5 @@ func init() {
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
 	prometheus.MustRegister(SQSPricingWorkerComputeDurationGauge)
 	prometheus.MustRegister(SQSPricingWorkerComputeErrorCounter)
+	prometheus.MustRegister(SQSPoolLiquidityPricingWorkerComputeDurationGauge)
 }

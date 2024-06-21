@@ -35,9 +35,24 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v25.1.1
 
+- Add fault tolerance in candidate route conversion when pools are breaking.
+- Hotfix for Alloyed pool swaps failing due to not having LP share in balances. 
+
+## v25.1.0
+
+- [SQS-Routing] API to force quote over a given route
+
+## v25.0.0
+
+- Create a config for pricing worker min liquidity capitalization and set it to 5 USD by default.
 - [Dynamic Min Liquidity] new ingester methods for acquiring necessary metadata.
+- bugfix: PoolWrapper Validate panic
+- SQS: Fix /version endpoint and let it work in containers
+- Alloyed pool support
+
+**Note**: we jumped major versions from v19 to v26 to be compatible with the chain.
 
 ## v0.19.1
 

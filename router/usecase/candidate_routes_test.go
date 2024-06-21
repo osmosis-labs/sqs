@@ -49,9 +49,9 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOATOM() {
 // Inverting the swap direction should return the same routes.
 func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOstOSMO() {
 	var (
-		maxPoolsPerRoute    = 5
-		maxRoutes           = 10
-		minPoolLiquidityCap = 1000
+		maxPoolsPerRoute           = 5
+		maxRoutes                  = 10
+		minPoolLiquidityCap uint64 = 1000
 	)
 
 	mainnetState := s.SetupMainnetState()
@@ -76,9 +76,9 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_OSMOstOSMO() {
 
 func (s *RouterTestSuite) TestGetCandidateRoutesBFS_ATOMUSDT() {
 	var (
-		maxRoutes           = 5
-		maxPoolsPerRoute    = 4
-		minPoolLiquidityCap = 10000
+		maxRoutes                  = 5
+		maxPoolsPerRoute           = 4
+		minPoolLiquidityCap uint64 = 10000
 	)
 
 	mainnetState := s.SetupMainnetState()

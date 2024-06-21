@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"testing"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -14,6 +15,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -535,7 +537,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1135Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -557,7 +559,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1135Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 	}
 
@@ -617,7 +619,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 36
+		expectedZeroPoolCount = 38
 	)
 
 	viper.SetConfigFile("../../config.json")
@@ -766,6 +768,248 @@ func (s *RouterTestSuite) TestSortPools() {
 
 	// Check that the top pool is the expected one.
 	s.Require().Equal(expectedTopPoolID, sortedPools[0].GetId())
+}
+
+// Validates ConvertMinTokensPoolLiquidityCapToFilter method per its spec.
+func (s *RouterTestSuite) TestConvertMinTokensPoolLiquidityCapToFilter() {
+	var (
+		defaultFilters = routertesting.DefaultRouterConfig.DynamicMinLiquidityCapFiltersDesc
+
+		defaultConfigFilter = routertesting.DefaultRouterConfig.MinPoolLiquidityCap
+
+		defaultThresholdMinPoolLiquidityCap = defaultFilters[0].MinTokensCap
+
+		defaultAboveThresholdFilterValue = defaultFilters[0].FilterValue
+	)
+
+	tests := []struct {
+		name string
+
+		minLiqCapFilterEntries []domain.DynamicMinLiquidityCapFilterEntry
+
+		minTokensPoolLiquidityCap uint64
+
+		expectedFilter uint64
+	}{
+		{
+			name: "min pool liquidity cap at threshold -> return dynamic filter value",
+
+			minLiqCapFilterEntries: defaultFilters,
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap,
+
+			expectedFilter: defaultAboveThresholdFilterValue,
+		},
+
+		{
+			name: "min pool liquidity cap above threshold -> return dynamic filter value",
+
+			minLiqCapFilterEntries: defaultFilters,
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap + 1,
+
+			expectedFilter: defaultAboveThresholdFilterValue,
+		},
+
+		{
+			name: "min pool liquidity cap below threshold -> return default filter value",
+
+			minLiqCapFilterEntries: defaultFilters,
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap - 1,
+
+			expectedFilter: defaultConfigFilter,
+		},
+
+		{
+			name: "empty filters -> return default filter value",
+
+			minLiqCapFilterEntries: []domain.DynamicMinLiquidityCapFilterEntry{},
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap - 1,
+
+			expectedFilter: defaultConfigFilter,
+		},
+		{
+			name: "multiple pre-configured filters -> choice falls in-between",
+
+			minLiqCapFilterEntries: []domain.DynamicMinLiquidityCapFilterEntry{
+				{
+					MinTokensCap: 300_000,
+					FilterValue:  30_000,
+				},
+				{
+					MinTokensCap: 20_000,
+					FilterValue:  2_000,
+				},
+				{
+					MinTokensCap: 1_000,
+					FilterValue:  100,
+				},
+			},
+
+			// Above 1_000 and below 20_000.
+			minTokensPoolLiquidityCap: 5000,
+
+			expectedFilter: 100,
+		},
+	}
+
+	for _, tt := range tests {
+		s.T().Run(tt.name, func(t *testing.T) {
+			// Set up mainnet mock state.
+			mainnetState := s.SetupMainnetState()
+
+			config := routertesting.DefaultRouterConfig
+			config.DynamicMinLiquidityCapFiltersDesc = tt.minLiqCapFilterEntries
+
+			mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(config))
+
+			// System under test
+			actualFilter := mainnetUsecase.Router.ConvertMinTokensPoolLiquidityCapToFilter(tt.minTokensPoolLiquidityCap)
+
+			// Validate result.
+			s.Require().Equal(tt.expectedFilter, actualFilter)
+		})
+	}
+}
+
+// This test runs tests against GetCustomDirectQuotes to ensure that the method correctly calculates
+// quote across multi pool route.
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMOUSDC() {
+	config := routertesting.DefaultRouterConfig
+	config.MaxPoolsPerRoute = 5
+	config.MaxRoutes = 10
+
+	var (
+		amountIn = osmomath.NewInt(5000000)
+	)
+
+	mainnetState := s.SetupMainnetState()
+
+	// Setup router repository mock
+	routerRepositoryMock := routerrepo.New()
+	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+
+	// Setup pools usecase mock.
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb)
+	poolsUsecase.StorePools(mainnetState.Pools)
+
+	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+
+	// Test cases
+	testCases := []struct {
+		// test name
+		name string
+
+		// token being swapped
+		tokenIn sdk.Coin
+
+		// token to be received
+		tokenOutDenom []string
+
+		// pools route path for swap
+		poolID []uint64
+
+		// usually it's the number of pools given,
+		// unless any of those pools does not have given asset pair.
+		expectedNumOfRoutes int
+
+		// for single-hop it matches poolID slice
+		expectedPoolID []uint64
+
+		err error
+	}{
+		{
+			name:          "Fail: empty tokenOutDenom",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{},
+			poolID: []uint64{
+				1, // OSMO - ATOM
+			},
+			err: usecase.ErrValidationFailed,
+		},
+		{
+			name:          "Fail: empty poolID",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM},
+			poolID:        []uint64{},
+			err:           usecase.ErrValidationFailed,
+		},
+		{
+			name:          "Fail: mismatch poolID and tokenOutDenom",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM},
+			poolID:        []uint64{1, 2},
+			err:           usecase.ErrValidationFailed,
+		},
+		{
+			name:          "Single pool: OSMO-ATOM - happy case",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM},
+			poolID: []uint64{
+				1, // OSMO - ATOM
+			},
+			expectedNumOfRoutes: 1,
+			expectedPoolID:      []uint64{1},
+		},
+		{
+			name:          "Single pool: OSMO-ATOM - fail case: out denom not found",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM},
+			poolID: []uint64{
+				1093, // OSMO - AKT
+			},
+			err: usecase.ErrTokenOutDenomPoolNotFound,
+		},
+		{
+			name:          "Single pool: ATOM-OSMO - fail case: in denom not found",
+			tokenIn:       sdk.NewCoin(ATOM, amountIn),
+			tokenOutDenom: []string{UOSMO},
+			poolID: []uint64{
+				1480, // AKT - USDC
+			},
+			err: usecase.ErrTokenInDenomPoolNotFound,
+		},
+		{
+			name:          "Multi pool: OSMO-USDC - happy case",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{AKT, USDC},
+			poolID: []uint64{
+				1093, // OSMO - AKT
+				1301, // AKT - USDC
+			},
+			expectedNumOfRoutes: 2,
+			expectedPoolID:      []uint64{1093, 1301},
+		},
+		{
+			name:          "Multi pool: OSMO-USDC - fail case",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM, USDT},
+			poolID: []uint64{
+				1,    // OSMO - ATOM
+				1301, // AKT - USDC
+			},
+			expectedNumOfRoutes: 2,
+			expectedPoolID:      []uint64{1093, 1301},
+			err:                 usecase.ErrTokenInDenomPoolNotFound,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			quotes, err := routerUsecase.GetCustomDirectQuoteMultiPool(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
+			s.Require().ErrorIs(err, tc.err)
+			if err != nil {
+				return // nothing else to do
+			}
+
+			// token in must match
+			s.Require().Equal(quotes.GetAmountIn().Denom, tc.tokenIn.Denom)
+			s.Require().Equal(tc.expectedNumOfRoutes, len(quotes.GetRoute()))
+			s.validateExpectedPoolIDMultiRouteOneHopQuote(quotes, tc.expectedPoolID)
+		})
+	}
 }
 
 // validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.

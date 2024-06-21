@@ -20,7 +20,7 @@ const (
 	MORE_INVALID_DENOM = "more_invalid_denom"
 )
 
-func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, tokenOutDenom string, balances sdk.Coins) sqsdomain.RoutablePool {
+func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, tokenOutDenom string, balances sdk.Coins, takerFee osmomath.Dec) sqsdomain.RoutablePool {
 	cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{tokenInDenom, tokenOutDenom})
 
 	poolType := cosmwasmPool.GetType()
@@ -46,9 +46,10 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 		),
 		Balances: balances,
 		PoolType: poolType,
+		TakerFee: takerFee,
 	}
 
-	routablePool, err := pools.NewRoutablePool(mock, tokenOutDenom, noTakerFee, domain.CosmWasmPoolRouterConfig{
+	routablePool, err := pools.NewRoutablePool(mock, tokenOutDenom, takerFee, domain.CosmWasmPoolRouterConfig{
 		AlloyedTransmuterCodeIDs: map[uint64]struct{}{
 			defaultPoolID: {},
 		},
@@ -122,7 +123,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 	for name, tc := range tests {
 		s.Run(name, func() {
 			s.Setup()
-			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenOut.Denom, tc.balances)
+			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenOut.Denom, tc.balances, osmomath.ZeroDec())
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
 
 			if tc.expectError != nil {
@@ -178,7 +179,7 @@ func (s *RoutablePoolTestSuite) TestFindNormalizationFactors_AlloyTransmuter() {
 	for name, tc := range tests {
 		s.Run(name, func() {
 			s.Setup()
-			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenInDenom, tc.tokenOutDenom, sdk.Coins{})
+			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenInDenom, tc.tokenOutDenom, sdk.Coins{}, osmomath.ZeroDec())
 
 			r := routablePool.(*pools.RouteableAlloyTransmuterPoolImpl)
 
@@ -245,7 +246,7 @@ func (s *RoutablePoolTestSuite) TestCalcTokenOutAmt_AlloyTransmuter() {
 		s.Run(name, func() {
 			s.Setup()
 
-			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenOutDenom, sdk.Coins{})
+			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenOutDenom, sdk.Coins{}, osmomath.ZeroDec())
 
 			r := routablePool.(*pools.RouteableAlloyTransmuterPoolImpl)
 
@@ -258,6 +259,43 @@ func (s *RoutablePoolTestSuite) TestCalcTokenOutAmt_AlloyTransmuter() {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expectedTokenOut, tokenOut)
 			}
+		})
+	}
+}
+
+func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_AlloyTransmuter() {
+	tests := map[string]struct {
+		tokenIn       sdk.Coin
+		takerFee      osmomath.Dec
+		expectedToken sdk.Coin
+	}{
+		"no taker fee": {
+			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			takerFee:      osmomath.NewDec(0),
+			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(100)),
+		},
+		"small taker fee": {
+			tokenIn:       sdk.NewCoin(USDT, osmomath.NewInt(100)),
+			takerFee:      osmomath.NewDecWithPrec(1, 2),          // 1%
+			expectedToken: sdk.NewCoin(USDT, osmomath.NewInt(99)), // 100 - 1 = 99
+		},
+		"large taker fee": {
+			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			takerFee:      osmomath.NewDecWithPrec(5, 1),          // 50%
+			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(50)), // 100 - 50 = 50
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenIn.Denom, sdk.Coins{}, tc.takerFee)
+
+			r := routablePool.(*pools.RouteableAlloyTransmuterPoolImpl)
+
+			tokenAfterFee := r.ChargeTakerFeeExactIn(tc.tokenIn)
+
+			s.Require().Equal(tc.expectedToken, tokenAfterFee)
 		})
 	}
 }

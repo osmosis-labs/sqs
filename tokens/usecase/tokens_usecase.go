@@ -25,6 +25,10 @@ type tokensUseCase struct {
 	// No mutex since we only expect reads to this shared resource and no writes.
 	precisionScalingFactorMap map[int]osmomath.Dec
 
+	// Metadata about denoms that is collected from the pools.
+	// E.g. total denom liquidity across all pools.
+	poolDenomMetaData sync.Map
+
 	// We persist pricing strategies across endpoint calls as they
 	// may cache responses internally.
 	pricingStrategyMap map[domain.PricingSourceType]domain.PricingSource
@@ -113,9 +117,73 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 
 		pricingStrategyMap: map[domain.PricingSourceType]domain.PricingSource{},
 
+		poolDenomMetaData: sync.Map{},
+
 		chainDenoms:  chainDenoms,
 		coingeckoIds: coingeckoIds,
 	}
+}
+
+// UpdatePoolDenomMetadata implements mvc.TokensUsecase.
+func (t *tokensUseCase) UpdatePoolDenomMetadata(poolDenomMetadata domain.PoolDenomMetaDataMap) {
+	for chainDenom, tokenMetadata := range poolDenomMetadata {
+		t.poolDenomMetaData.Store(chainDenom, tokenMetadata)
+	}
+}
+
+// GetPoolLiquidityCap implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetPoolLiquidityCap(chainDenom string) (osmomath.Int, error) {
+	poolDenomMetadata, err := t.GetPoolDenomMetadata(chainDenom)
+	if err != nil {
+		return osmomath.Int{}, err
+	}
+	return poolDenomMetadata.TotalLiquidity, nil
+}
+
+// GetPoolDenomMetadata implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetPoolDenomMetadata(chainDenom string) (domain.PoolDenomMetaData, error) {
+	poolDenomMetadataObj, ok := t.poolDenomMetaData.Load(chainDenom)
+	if !ok {
+		return domain.PoolDenomMetaData{}, domain.PoolDenomMetaDataNotPresentError{
+			ChainDenom: chainDenom,
+		}
+	}
+
+	poolDenomMetadata, ok := poolDenomMetadataObj.(domain.PoolDenomMetaData)
+	if !ok {
+		return domain.PoolDenomMetaData{}, fmt.Errorf("pool denom metadata for denom (%s) is not of type domain.PoolDenomMetaData", chainDenom)
+	}
+
+	return poolDenomMetadata, nil
+}
+
+// GetPoolDenomsMetadata implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) domain.PoolDenomMetaDataMap {
+	result := make(domain.PoolDenomMetaDataMap, len(chainDenoms))
+
+	for _, chainDenom := range chainDenoms {
+		poolDenomMetadata, err := t.GetPoolDenomMetadata(chainDenom)
+
+		// Instead of failing the entire request, we just set the results to zero
+		if err != nil {
+			result.Set(chainDenom, osmomath.ZeroInt(), osmomath.ZeroInt(), osmomath.ZeroBigDec())
+		} else {
+			// Otherwise, we set the correct value
+			result[chainDenom] = poolDenomMetadata
+		}
+	}
+
+	return result
+}
+
+// GetFullPoolDenomMetadata implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap {
+	chainDenoms := make([]string, 0, len(t.chainDenoms))
+	for chainDenom := range t.chainDenoms {
+		chainDenoms = append(chainDenoms, chainDenom)
+	}
+
+	return t.GetPoolDenomsMetadata(chainDenoms)
 }
 
 // GetChainDenom implements mvc.TokensUsecase.
@@ -349,6 +417,29 @@ func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType,
 func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
 	metaData, ok := t.tokenMetadataByChainDenom[chainDenom]
 	return ok && !metaData.IsUnlisted
+}
+
+// GetMinPoolLiquidityCap implements mvc.TokensUsecase.
+func (t *tokensUseCase) GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error) {
+	// Get the pool denoms metadata
+	poolDenomMetadataA, err := t.GetPoolDenomMetadata(denomA)
+	if err != nil {
+		return 0, err
+	}
+
+	poolDenomMetadataB, err := t.GetPoolDenomMetadata(denomB)
+	if err != nil {
+		return 0, err
+	}
+
+	// Get min liquidity
+	minLiquidityCapBetweenTokens := osmomath.MinInt(poolDenomMetadataA.TotalLiquidityCap, poolDenomMetadataB.TotalLiquidityCap)
+
+	if !minLiquidityCapBetweenTokens.IsUint64() {
+		return 0, fmt.Errorf("min liquidity cap is greater than uint64, denomA: %s (%s), denomB: %s (%s)", denomA, poolDenomMetadataA.TotalLiquidity, denomB, poolDenomMetadataB.TotalLiquidity)
+	}
+
+	return minLiquidityCapBetweenTokens.Uint64(), nil
 }
 
 // IsValidPricingSource implements mvc.TokensUsecase.

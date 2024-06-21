@@ -156,6 +156,15 @@ var (
 		MaxSplitRoutes:      3,
 		MinPoolLiquidityCap: 20000,
 		RouteCacheEnabled:   true,
+
+		// Set proper dynamic min liquidity config here
+		DynamicMinLiquidityCapFiltersDesc: []domain.DynamicMinLiquidityCapFilterEntry{
+			{
+				// 1_000_000 min token liquidity capitalization translates to a 75_000 filter value
+				MinTokensCap: 100000,
+				FilterValue:  75000,
+			},
+		},
 	}
 
 	DefaultPoolsConfig = domain.PoolsConfig{
@@ -175,14 +184,15 @@ var (
 	}
 
 	DefaultPricingConfig = domain.PricingConfig{
-		DefaultSource:          domain.ChainPricingSourceType,
-		CacheExpiryMs:          2000,
-		DefaultQuoteHumanDenom: "usdc",
-		MaxPoolsPerRoute:       4,
-		MaxRoutes:              5,
-		MinPoolLiquidityCap:    50,
-		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
-		CoingeckoQuoteCurrency: "usd",
+		DefaultSource:             domain.ChainPricingSourceType,
+		CacheExpiryMs:             2000,
+		DefaultQuoteHumanDenom:    "usdc",
+		MaxPoolsPerRoute:          4,
+		MaxRoutes:                 5,
+		MinPoolLiquidityCap:       50,
+		CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency:    "usd",
+		WorkerMinPoolLiquidityCap: 5,
 	}
 
 	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}
@@ -370,7 +380,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	encCfg := app.MakeEncodingConfig()
 
-	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, nil, encCfg.Marshaler, nil, logger)
+	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, tokensUsecase, nil, encCfg.Marshaler, nil, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -391,7 +401,7 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 }
 
 // PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
-func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap int) []sqsdomain.PoolI {
+func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap uint64) []sqsdomain.PoolI {
 	sortedPools := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
 
 	// Sort pools

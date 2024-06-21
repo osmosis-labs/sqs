@@ -87,7 +87,13 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 	routes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
 		previousTokenOutDenom := tokenInDenom
+
 		routablePools := make([]sqsdomain.RoutablePool, 0, len(candidateRoute.Pools))
+
+		// For fault tolerance, instead of bubbling up the error and skipping an entire
+		// request, we should detect the error and skip the route.
+		skipErrorRoute := false
+
 		for _, candidatePool := range candidateRoute.Pools {
 			pool, err := p.GetPool(candidatePool.ID)
 			if err != nil {
@@ -102,7 +108,8 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 
 			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmConfig, p.scalingFactorGetterCb)
 			if err != nil {
-				return nil, err
+				skipErrorRoute = true
+				break
 			}
 
 			isGeneralizedCosmWasmPool := routablePool.IsGeneralizedCosmWasmPool()
@@ -112,6 +119,11 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 
 			// Create routable pool
 			routablePools = append(routablePools, routablePool)
+		}
+
+		// Skip the route if there was an error
+		if skipErrorRoute {
+			continue
 		}
 
 		routes = append(routes, route.RouteImpl{

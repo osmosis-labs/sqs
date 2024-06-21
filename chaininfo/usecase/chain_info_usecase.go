@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -20,12 +20,15 @@ type chainInfoUseCase struct {
 	// This has caused the healthcheck to pass with false positives in production.
 	// As a result, we need to keep track of the last seen height and time to ensure that the height is
 	// updated within a reasonable time frame.
-	lastSeenMx            sync.Mutex
-	lastSeenUpdatedHeight uint64
-	lastSeenUpdatedTime   time.Time
+	lastSeenMx          sync.Mutex
+	lastIngestedHeight  uint64
+	lastSeenUpdatedTime time.Time
 
 	priceUpdateHeightMx      sync.RWMutex
 	latestPricesUpdateHeight uint64
+
+	poolLiquidityUpdateHeightMx     sync.RWMutex
+	latestPoolLiquidityUpdateHeight uint64
 }
 
 // The max number of seconds allowed for there to be no updates
@@ -33,15 +36,19 @@ type chainInfoUseCase struct {
 const (
 	MaxAllowedHeightUpdateTimeDeltaSecs = 30
 
-	// Number of heights of buffer between the latest state height and the latest price update height
-	// We fail the healtcheck if the difference between the two becomes greater than this constant.
-	priceUpdateHeightBuffer  = 50
-	initialPriceUpdateHeight = 0
+	// Number of heights of buffer between the latest state height and the latest price/pool liquidity update height
+	// We fail the healtcheck if the difference between the current and last becomes greater than this constant.
+	updateHeightThreshold = 50
+	initialUpdateHeight   = 0
+
+	poolLiquidityPricingUpdateName = "pool liquidity"
+	pricingUpdateName              = "pricing"
 )
 
 var (
-	_ mvc.ChainInfoUsecase         = &chainInfoUseCase{}
-	_ domain.PricingUpdateListener = &chainInfoUseCase{}
+	_ mvc.ChainInfoUsecase                = &chainInfoUseCase{}
+	_ domain.PricingUpdateListener        = &chainInfoUseCase{}
+	_ domain.PoolLiquidityComputeListener = &chainInfoUseCase{}
 )
 
 func NewChainInfoUsecase(chainInfoRepository chaininforepo.ChainInfoRepository) *chainInfoUseCase {
@@ -50,7 +57,7 @@ func NewChainInfoUsecase(chainInfoRepository chaininforepo.ChainInfoRepository) 
 
 		lastSeenMx: sync.Mutex{},
 
-		lastSeenUpdatedHeight: 0,
+		lastIngestedHeight: 0,
 	}
 }
 
@@ -65,7 +72,7 @@ func (p *chainInfoUseCase) GetLatestHeight() (uint64, error) {
 	// Time since last height retrieval
 	timeDeltaSecs := int(currentTimeUTC.Sub(p.lastSeenUpdatedTime).Seconds())
 
-	isHeightUpdated := latestHeight > p.lastSeenUpdatedHeight
+	isHeightUpdated := latestHeight > p.lastIngestedHeight
 
 	// Validate that it does not exceed the max allowed time delta
 	if !isHeightUpdated && timeDeltaSecs > MaxAllowedHeightUpdateTimeDeltaSecs {
@@ -77,7 +84,7 @@ func (p *chainInfoUseCase) GetLatestHeight() (uint64, error) {
 	}
 
 	// Update the last seen height and time
-	p.lastSeenUpdatedHeight = latestHeight
+	p.lastIngestedHeight = latestHeight
 	p.lastSeenUpdatedTime = currentTimeUTC
 
 	return latestHeight, nil
@@ -97,20 +104,46 @@ func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height uint64, b
 	return nil
 }
 
+// OnPoolLiquidityCompute implements domain.PoolLiquidityComputeListener.
+func (p *chainInfoUseCase) OnPoolLiquidityCompute(height int64) error {
+	p.poolLiquidityUpdateHeightMx.Lock()
+	defer p.poolLiquidityUpdateHeightMx.Unlock()
+	p.latestPoolLiquidityUpdateHeight = uint64(height)
+
+	return nil
+}
+
 // ValidatePriceUpdates implements mvc.ChainInfoUsecase.
 func (p *chainInfoUseCase) ValidatePriceUpdates() error {
 	p.priceUpdateHeightMx.RLock()
 	latestPriceUpdateHeight := p.latestPricesUpdateHeight
 	p.priceUpdateHeightMx.RUnlock()
 
-	// Check that the initial prices have been computed and received.
-	if latestPriceUpdateHeight == initialPriceUpdateHeight {
-		return errors.New("healthcheck has not received initial price updates")
+	return validateUpdate(latestPriceUpdateHeight, p.lastIngestedHeight, pricingUpdateName)
+}
+
+// ValidatePriceUpdates implements mvc.ChainInfoUsecase.
+func (p *chainInfoUseCase) ValidatePoolLiquidityUpdates() error {
+	p.priceUpdateHeightMx.RLock()
+	latestPoolLiquidityUpdateHeight := p.latestPoolLiquidityUpdateHeight
+	p.priceUpdateHeightMx.RUnlock()
+
+	return validateUpdate(latestPoolLiquidityUpdateHeight, p.lastIngestedHeight, poolLiquidityPricingUpdateName)
+}
+
+// validateUpdate validates the update for the given update name, current update height, and latest ingested height.
+// It returns an error if the update is invalid.
+// The update is invalid if the current update height is less than the latest ingested height minus the update height buffer.
+// The update is also invalid if the current update height is equal to the initial update height.
+func validateUpdate(currentUpdateHeight uint64, latestIngestedHeight uint64, updateName string) error {
+	// Check that the initial pool liquidities have been computed and received.
+	if currentUpdateHeight == initialUpdateHeight {
+		return fmt.Errorf("healthcheck has not received initial %s updates", updateName)
 	}
 
-	// Check that the price updates have been occurring
-	if latestPriceUpdateHeight < p.lastSeenUpdatedHeight-priceUpdateHeightBuffer {
-		return errors.New("latest price update height is less than the last seen updated height")
+	// Check that the pool liquidity updates have been occurring
+	if currentUpdateHeight < latestIngestedHeight-updateHeightThreshold {
+		return fmt.Errorf("latest %s update height is less than the latest ingested height", updateName)
 	}
 
 	return nil

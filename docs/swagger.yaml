@@ -1,12 +1,20 @@
 definitions:
   domain.Token:
     properties:
-      human_denom:
-        description: HumanDenom is the human readable denom.
+      coingeckoId:
         type: string
-      precision:
+      is_unlisted:
+        description: IsUnlisted is true if the token is unlisted.
+        type: boolean
+      decimals:
         description: Precision is the precision of the token.
         type: integer
+      preview:
+        description: IsUnlisted is true if the token is unlisted.
+        type: boolean
+      symbol:
+        description: HumanDenom is the human readable denom.
+        type: string
     type: object
   sqsdomain.CandidatePool:
     properties:
@@ -58,6 +66,43 @@ paths:
             items: {}
             type: array
       summary: Get pool(s) information
+  /router/custom-direct-quote:
+    get:
+      description: Call does not search for the route rather directly computes the
+        quote for the given poolID.
+      operationId: get-direct-quote
+      parameters:
+      - description: String representation of the sdk.Coin for the token in.
+        example: 5OSMO
+        in: query
+        name: tokenIn
+        required: true
+        type: string
+      - description: String representing the list of the token denom out separated
+          by comma.
+        example: ATOM,USDC
+        in: query
+        name: tokenOutDenom
+        required: true
+        type: string
+      - description: String representing list of the pool ID.
+        example: 1,2,3
+        in: query
+        name: poolID
+        required: true
+        type: string
+      - description: Boolean flag indicating whether to apply exponents to the spot
+          price. False by default.
+        in: query
+        name: applyExponents
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The computed best route quote
+          schema: {}
+      summary: Compute the quote for the given poolID
   /router/quote:
     get:
       description: returns the best quote it can compute for the given tokenIn and
@@ -152,12 +197,35 @@ paths:
               $ref: '#/definitions/domain.Token'
             type: object
       summary: Token Metadata
+  /tokens/pool-metadata:
+    get:
+      description: |-
+        returns pool denom metadata. As of today, this metadata is represented by the local market cap of the token computed over all Osmosis pools.
+        For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
+        See `config.json` and `config-testnet.json` in root for details.
+      operationId: get-pool-denom-metadata
+      parameters:
+      - description: List of denoms where each can either be a human denom or a chain
+          denom
+        in: query
+        name: denoms
+        type: string
+      - description: Boolean flag indicating whether the given denoms are human readable
+          or not. Human denoms get converted to chain internally
+        in: query
+        name: humanDenoms
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses: {}
+      summary: Pool Denom Metadata
   /tokens/prices:
     get:
       consumes:
       - application/json
-      description: Given a list of base denominations, returns the spot price with
-        a system-configured quote denomination.
+      description: Given a list of base denominations, this endpoint returns the spot
+        price with a system-configured quote denomination.
       parameters:
       - description: Comma-separated list of base denominations (human-readable or
           chain format based on humanDenoms parameter)
@@ -170,6 +238,11 @@ paths:
         in: query
         name: humanDenoms
         type: boolean
+      - description: Specify the pricing source. Values can be 0 (chain) or 1 (coingecko);
+          default to 0 (chain)
+        in: query
+        name: pricingSource
+        type: integer
       produces:
       - application/json
       responses:

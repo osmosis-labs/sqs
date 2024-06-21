@@ -21,19 +21,26 @@
       "min-pool-liquidity-cap": 1000,
       "route-cache-enabled": true,
       "candidate-route-cache-expiry-seconds": 1200,
-      "ranked-route-cache-expiry-seconds": 45
+      "ranked-route-cache-expiry-seconds": 45,
+      "dynamic-min-liquidity-cap-filters-desc": [
+        {
+            "min-tokens-capitalization": 1000000,
+            "filter-value": 75000
+        }
+      ]
     },
     "pools": {
         "transmuter-code-ids": [
             148,
             254
         ],
-        "alloyed-transmuter-code-ids": [],
+        "alloyed-transmuter-code-ids": [814],
         "general-cosmwasm-code-ids": [
             503,
             572,
             773,
-            641
+            641,
+            842
         ]
     },
     "pricing": {
@@ -43,6 +50,7 @@
         "max-pools-per-route": 4,
         "max-routes": 5,
         "min-pool-liquidity-cap": 50,
+        "worker-min-pool-liquidity-cap": 1,
         "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
         "coingecko-quote-currency": "usd"
     },
