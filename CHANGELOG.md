@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Fix bug of overapplying quote denom scaling factor in pool liquidity pricer.
+
 ## v25.1.1
 
 - Add fault tolerance in candidate route conversion when pools are breaking.
