@@ -385,7 +385,14 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceBalances() {
 			preSetScalingFactorMap: defaultScalingFactorMap,
 			balances:               sdk.NewCoins(defaultCoin, secondCoin),
 
-			prices: defaultBlockPriceUpdates,
+			prices: domain.PricesResult{
+				UOSMO: {
+					USDC: defaultPrice,
+				},
+				ATOM: {
+					USDC: defaultPrice,
+				},
+			},
 
 			expectedLiquidityCap: defaultLiquidityCap.Add(defaultLiquidityCap),
 			errorStr:             noErrorStr,
