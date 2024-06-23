@@ -37,7 +37,7 @@ var (
 	defaultPrice     = osmomath.NewBigDec(2)
 	defaultLiquidity = osmomath.NewInt(1_000_000)
 
-	defaultLiquidityCap = defaultLiquidity.MulRaw(2)
+	defaultLiquidityCap = defaultLiquidity.ToLegacyDec().Quo(defaultScalingFactor).MulMut(defaultPrice.Dec()).TruncateInt()
 
 	// Note: we are not testing the error handling of underlying methods.
 	// Those are unit-tested in their respective tests.
