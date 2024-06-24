@@ -72,6 +72,10 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		return sdk.Coin{}, err
 	}
 	directionOut := directionIn.Opposite()
+	iterationStep, err := directionOut.IterationStep()
+	if err != nil {
+		return sdk.Coin{}, err
+	}
 
 	// Get starting tick index for the "out" side of the orderbook
 	// Since the order will get the liquidity out from that side
@@ -92,13 +96,7 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		tick := r.OrderbookData.Ticks[tickIdx]
 
 		// Increment or decrement the current tick index depending on out order direction
-		if directionOut == domain.BID {
-			tickIdx--
-		} else if directionOut == domain.ASK {
-			tickIdx++
-		} else {
-			return sdk.Coin{}, domain.OrderbookPoolInvalidDirectionError{Direction: directionIn}
-		}
+		tickIdx += iterationStep
 
 		// Calculate the price for the current tick
 		tickPrice, err := clmath.TickToPrice(tick.TickId)

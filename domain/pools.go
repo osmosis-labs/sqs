@@ -87,3 +87,19 @@ func (d *OrderbookDirection) Opposite() OrderbookDirection {
 		return 0
 	}
 }
+
+// IterationStep returns the step to be used for iterating the orderbook.
+// The orderbook ticks are ordered by tick id in ascending order.
+// BID piles up on the top of the orderbook, while ASK piles up on the bottom.
+// So if we want to iterate the BID orderbook, we should iterate in descending order.
+// If we want to iterate the ASK orderbook, we should iterate in ascending order.
+func (d *OrderbookDirection) IterationStep() (int, error) {
+	switch *d {
+	case BID:
+		return -1, nil
+	case ASK:
+		return 1, nil
+	default:
+		return 0, OrderbookPoolInvalidDirectionError{Direction: *d}
+	}
+}
