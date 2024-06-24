@@ -31,7 +31,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 	mock := &mocks.MockRoutablePool{
 		ChainPoolModel: cosmwasmPool.AsSerializablePool(),
 		CosmWasmPoolModel: cosmwasmpool.NewCWPoolModel(
-			"crates.io:transmuter", "3.0.0",
+			cosmwasmpool.ALLOY_TRANSMUTER_CONTRACT_NAME, cosmwasmpool.ALLOY_TRANSMUTER_MIN_CONTRACT_VERSION,
 			cosmwasmpool.CosmWasmPoolData{
 				AlloyTransmuter: &cosmwasmpool.AlloyTransmuterData{
 					AlloyedDenom: ALLUSD,

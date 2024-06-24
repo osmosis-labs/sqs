@@ -40,7 +40,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 	mock := &mocks.MockRoutablePool{
 		ChainPoolModel: cosmwasmPool.AsSerializablePool(),
 		CosmWasmPoolModel: cosmwasmpool.NewCWPoolModel(
-			"crates.io:sumtree-orderbook", "0.1.0",
+			cosmwasmpool.ORDERBOOK_CONTRACT_NAME, cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
 			cosmwasmpool.CosmWasmPoolData{
 				Orderbook: &cosmwasmpool.OrderbookData{
 					QuoteDenom:  QUOTE_DENOM,
