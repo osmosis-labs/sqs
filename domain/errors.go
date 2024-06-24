@@ -175,12 +175,12 @@ func (c CosmWasmPoolType) String() string {
 	}
 }
 
-type CwPoolDataMissingError struct {
+type CosmWasmPoolDataMissingError struct {
 	PoolId           uint64
 	CosmWasmPoolType CosmWasmPoolType
 }
 
-func (e CwPoolDataMissingError) Error() string {
+func (e CosmWasmPoolDataMissingError) Error() string {
 	return fmt.Sprintf("%s data is missing for pool (%d)", e.CosmWasmPoolType, e.PoolId)
 }
 

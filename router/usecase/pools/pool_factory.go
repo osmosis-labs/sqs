@@ -101,14 +101,6 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		}
 	}
 
-	routablePool, err := newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmConfig, tokenOutDenom, takerFee)
-	if err != nil {
-		return nil, err
-	}
-	if routablePool != nil {
-		return routablePool, nil
-	}
-
 	balances := pool.GetSQSPoolModel().Balances
 
 	// Check if the pool is a transmuter pool
@@ -140,10 +132,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, wasmClient, scalingFactorGetterCb), nil
 	}
 
-	return nil, domain.UnsupportedCosmWasmPoolTypeError{
-		PoolType: poolmanagertypes.PoolType_name[int32(poolType)],
-		PoolId:   cosmwasmPool.PoolId,
-	}
+	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmConfig, tokenOutDenom, takerFee)
 }
 
 // newRoutableCosmWasmPoolWithCustomModel creates a new RoutablePool for CosmWasm pools that require a custom CosmWasmPoolModel.
@@ -170,7 +159,7 @@ func newRoutableCosmWasmPoolWithCustomModel(
 		_, isAlloyedTransmuterCodeId := cosmWasmConfig.AlloyedTransmuterCodeIDs[cosmwasmPool.CodeId]
 		if isAlloyedTransmuterCodeId && model.IsAlloyTransmuter() {
 			if model.Data.AlloyTransmuter == nil {
-				return nil, domain.CwPoolDataMissingError{
+				return nil, domain.CosmWasmPoolDataMissingError{
 					CosmWasmPoolType: domain.CosmWasmPoolAlloyTransmuter,
 					PoolId:           pool.GetId(),
 				}
@@ -189,7 +178,7 @@ func newRoutableCosmWasmPoolWithCustomModel(
 		_, isOrderbookCodeId := cosmWasmConfig.OrderbookCodeIDs[cosmwasmPool.CodeId]
 		if isOrderbookCodeId && model.IsOrderbook() {
 			if model.Data.Orderbook == nil {
-				return nil, domain.CwPoolDataMissingError{
+				return nil, domain.CosmWasmPoolDataMissingError{
 					CosmWasmPoolType: domain.CosmWasmPoolOrderbook,
 					PoolId:           pool.GetId(),
 				}
@@ -206,5 +195,8 @@ func newRoutableCosmWasmPoolWithCustomModel(
 		}
 	}
 
-	return nil, nil
+	return nil, domain.UnsupportedCosmWasmPoolTypeError{
+		PoolType: poolmanagertypes.PoolType_name[int32(pool.GetType())],
+		PoolId:   cosmwasmPool.PoolId,
+	}
 }
