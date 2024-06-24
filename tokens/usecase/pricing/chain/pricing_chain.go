@@ -110,6 +110,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		MinPoolLiquidityCap:                     c.minPoolLiquidityCap,
 		RecomputePricesIsSpotPriceComputeMethod: defaultIsSpotPriceComputeMethod,
 		RecomputePrices:                         false,
+		IsWorkerPrecomputePricing:               false,
 	}
 
 	for _, opt := range opts {

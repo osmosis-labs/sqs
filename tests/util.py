@@ -25,6 +25,16 @@ def id_from_swap_pair(swap_pair):
 
     return f"{token_in_str + '-' + swap_pair['out_denom']}"
 
+def id_from_pool(pool):
+    """
+    Returns a string id from a pool object. This is useful for generating meaningful test
+    IDs for parametrized tests.
+    """
+    if pool is None:
+        return "None"
+
+    return pool.get("pool_id")
+
 
 def skip_imbalanced_pool_test_if_imbalanced(token_data):
     """

@@ -227,3 +227,19 @@ type SpotPriceQuoteCalculatorTruncatedError struct {
 func (e SpotPriceQuoteCalculatorTruncatedError) Error() string {
 	return fmt.Sprintf("spot price truncated when using quote method, quote coin (%s), base denom (%s)", e.QuoteCoinStr, e.BaseDenom)
 }
+
+type DenomPoolLiquidityDataNotFoundError struct {
+	Denom string
+}
+
+func (e DenomPoolLiquidityDataNotFoundError) Error() string {
+	return fmt.Sprintf("denom pool liquidity data not found for denom %s", e.Denom)
+}
+
+type PriceNotFoundForPoolLiquidityCapError struct {
+	Denom string
+}
+
+func (e PriceNotFoundForPoolLiquidityCapError) Error() string {
+	return fmt.Sprintf("price not found (zero) for denom %s", e.Denom)
+}

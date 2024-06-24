@@ -74,7 +74,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestTokensUseCaseTestSuite/TestPoolDenomMetadata",
+                "TestTokensUseCaseTestSuite/TestGetPrices_Chain_Specific",
                 "-test.v"
             ],
         },
@@ -102,7 +102,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestPoolLiquidityComputeWorkerSuite/TestRepriceDenomMetadata",
+                "TestPoolLiquidityComputeWorkerSuite/TestRepricePoolLiquidityCap/two",
                 "-test.v"
             ],
         },
@@ -127,7 +127,8 @@
             "module": "pytest",
             "args": [
                 "-v",
-                "tests"
+                // "tests/test_pools.py::TestPools::test_pools[http://localhost:9092-1278]"
+                "tests/test_pools.py"
             ],
             "console": "integratedTerminal",
             "justMyCode": true,
