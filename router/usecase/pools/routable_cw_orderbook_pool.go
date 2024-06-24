@@ -53,9 +53,11 @@ func (r *routableOrderbookPoolImpl) GetSpreadFactor() math.LegacyDec {
 // It calculates the amount of token out given the amount of token in for a concentrated liquidity pool.
 // Fails if:
 // - the underlying chain pool set on the routable pool is not of cosmwasm type
-// - fails to retrieve the tick model for the pool
+// - token in and token out denoms are the same
 // - the provided denom pair is not supported by the orderbook
+// - fails to retrieve the tick model for the pool
 // - runs out of ticks during swap (token in is too high for liquidity in the pool)
+// - `TickToPrice` calculation fails
 func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	poolType := r.GetType()
 
