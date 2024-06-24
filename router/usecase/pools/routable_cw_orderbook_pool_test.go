@@ -125,6 +125,22 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 				},
 			},
 		},
+		"BID: error not enough liquidity": {
+			tokenIn:          sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
+			expectedTokenOut: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
+			nextBidTick:      MIN_TICK,
+			nextAskTick:      0,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.ZeroBigDec(),
+					AskLiquidity: osmomath.NewBigDec(99),
+				}},
+			},
+			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
+				PoolId:   defaultPoolID,
+				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
+			},
+		},
 		"ASK: simple swap": {
 			tokenIn:          sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
 			expectedTokenOut: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
@@ -174,6 +190,22 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 						AskLiquidity: osmomath.NewBigDec(25),
 					},
 				},
+			},
+		},
+		"ASK: error not enough liquidity": {
+			tokenIn:          sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
+			expectedTokenOut: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
+			nextBidTick:      0,
+			nextAskTick:      MAX_TICK,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.NewBigDec(99),
+					AskLiquidity: osmomath.ZeroBigDec(),
+				}},
+			},
+			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
+				PoolId:   defaultPoolID,
+				AmountIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
 			},
 		},
 		"invalid: duplicate denom": {
