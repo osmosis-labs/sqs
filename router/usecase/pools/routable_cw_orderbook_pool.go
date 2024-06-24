@@ -92,12 +92,11 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		tick := r.OrderbookData.Ticks[tickIdx]
 
 		// Increment or decrement the current tick index depending on out order direction
-		switch directionOut {
-		case domain.BID:
+		if directionOut == domain.BID {
 			tickIdx--
-		case domain.ASK:
+		} else if directionOut == domain.ASK {
 			tickIdx++
-		default:
+		} else {
 			return sdk.Coin{}, domain.OrderbookPoolInvalidDirectionError{Direction: directionIn}
 		}
 
