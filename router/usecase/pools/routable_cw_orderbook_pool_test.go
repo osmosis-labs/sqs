@@ -57,7 +57,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 
 	routablePool, err := pools.NewRoutablePool(mock, tokenOutDenom, takerFee, domain.CosmWasmPoolRouterConfig{
 		OrderbookCodeIDs: map[uint64]struct{}{
-			defaultPoolID: {},
+			cosmwasmPool.GetId(): {},
 		},
 	}, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)
