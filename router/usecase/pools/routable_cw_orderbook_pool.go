@@ -50,7 +50,7 @@ func (r *routableOrderbookPoolImpl) GetSpreadFactor() math.LegacyDec {
 }
 
 // CalculateTokenOutByTokenIn implements sqsdomain.RoutablePool.
-// It calculates the amount of token out given the amount of token in for a concentrated liquidity pool.
+// It calculates the amount of token out given the amount of token in for a orderbook pool.
 // Fails if:
 // - the underlying chain pool set on the routable pool is not of cosmwasm type
 // - token in and token out denoms are the same
