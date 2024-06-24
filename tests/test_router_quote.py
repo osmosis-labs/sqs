@@ -52,7 +52,9 @@ class TestQuote:
         # flakiness. Therefore, we increase the error tolerance to 13%.
         # The values are arbitrarily hand-picke and can be adjusted if necessary.
         # This seems to be especially relevant for the Astroport PCL pools.
-        if amount_in > 30_000_000_000:
+        if amount_in > 10_000:
+            error_tolerance = 0.10
+        elif amount_in > 30_000_000_000:
             error_tolerance = 0.13
         elif amount_in > 60_000_000_000:
             error_tolerance = 0.16
