@@ -109,7 +109,6 @@ func ComputeCoinCap(coin sdk.Coin, baseDenomPriceData domain.DenomPriceInfo) (ma
 	isOriginalAmountZero := coin.Amount.IsZero()
 
 	// Truncation in intermediary operation - return error.
-	// currentCoinCap = currentCoinCap.MulMut(quoteDenomScalingFactor).QuoMut(osmomath.BigDecFromDec(baseDenomPriceData.ScalingFactor))
 	if currentCoinCap.IsZero() && !isOriginalAmountZero {
 		return osmomath.Dec{}, fmt.Errorf("truncation occurred when multiplying (%s) of denom (%s) by the scaling factor (%s)", currentCoinCap, coin.Denom, baseDenomPriceData.ScalingFactor)
 	}

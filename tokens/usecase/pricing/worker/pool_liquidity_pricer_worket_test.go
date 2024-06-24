@@ -159,7 +159,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	// Assert on specific values.
 	s.Require().Equal(result.Price, defaultPrice)
 	s.Require().Equal(result.TotalLiquidity, defaultLiquidity)
-	s.Require().Equal(result.TotalLiquidityCap, defaultLiquidityCap)
+	s.Require().Equal(result.TotalLiquidityCap.String(), defaultLiquidityCap.String())
 
 	// Validate that the listener mock was called with the relevant height.
 	lastHeightCalled := mockListener.GetLastHeightCalled()

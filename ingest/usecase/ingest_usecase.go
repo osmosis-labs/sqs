@@ -168,6 +168,11 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 
 			// Separately update unique denoms.
 			for _, balance := range currentPoolBalances {
+				if balance.Validate() != nil {
+					p.logger.Debug("invalid pool balance", zap.Uint64("pool_id", poolID), zap.String("denom", balance.Denom), zap.String("amount", balance.Amount.String()))
+					continue
+				}
+
 				uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
 			}
 
@@ -198,7 +203,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	// For evey coin in balance
 	for _, coin := range currentPoolBalances {
-		if err := coin.Validate(); err != nil {
+		if coin.Validate() != nil {
 			// Skip invalid coins.
 			// Example: pool 1176 (transmuter v1 pool) has invalid coins.
 			// https://celatone.osmosis.zone/osmosis-1/contracts/osmo136f4pv283yywv3t56d5zdkhq43uucw462rt3qfpm2s84vvr7rrasn3kllg
