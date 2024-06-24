@@ -125,7 +125,6 @@ func (p *poolLiquidityPricerWorker) RepriceDenomsMetadata(updateHeight uint64, b
 
 // CreatePoolDenomMetaData implements domain.PoolLiquidityPricerWorker
 func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom string, updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockPoolMetadata domain.BlockPoolMetadata) (domain.PoolDenomMetaData, error) {
-
 	price := blockPriceUpdates.GetPriceForDenom(updatedBlockDenom, quoteDenom)
 
 	// Retrieve liquidity from block pool metadata.

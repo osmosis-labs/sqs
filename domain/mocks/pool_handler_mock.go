@@ -39,7 +39,6 @@ func (p *PoolHandlerMock) StorePools(pools []sqsdomain.PoolI) error {
 	}
 
 	for _, updatedPool := range pools {
-
 		// By default, if the updated pool did not exist already in the mock
 		// we append it.
 		shouldAppend := true
