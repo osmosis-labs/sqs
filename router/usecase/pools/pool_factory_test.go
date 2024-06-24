@@ -43,10 +43,10 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 		},
 		Data: cosmwasmpool.CosmWasmPoolData{
 			Orderbook: &cosmwasmpool.OrderbookData{
-				QuoteDenom:  "quote",
-				BaseDenom:   "base",
-				NextBidTick: 1,
-				NextAskTick: 2,
+				QuoteDenom:       "quote",
+				BaseDenom:        "base",
+				NextBidTickIndex: 1,
+				NextAskTickIndex: 2,
 				Ticks: []cosmwasmpool.OrderbookTick{
 					{TickId: 1, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{BidLiquidity: osmomath.NewBigDec(1000), AskLiquidity: osmomath.NewBigDec(500)}},
 					{TickId: 2, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{BidLiquidity: osmomath.NewBigDec(1500), AskLiquidity: osmomath.NewBigDec(700)}},

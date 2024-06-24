@@ -205,9 +205,9 @@ func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom str
 func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction domain.OrderbookDirection) (int, error) {
 	switch direction {
 	case domain.ASK:
-		return getTickIndexById(r.OrderbookData, r.OrderbookData.NextAskTick), nil
+		return r.OrderbookData.NextAskTickIndex, nil
 	case domain.BID:
-		return getTickIndexById(r.OrderbookData, r.OrderbookData.NextBidTick), nil
+		return r.OrderbookData.NextBidTickIndex, nil
 	default:
 		return -1, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
 	}
@@ -235,16 +235,6 @@ func getTickLiquidity(s *cosmwasmpool.OrderbookTickLiquidity, direction domain.O
 	default:
 		return osmomath.BigDec{}, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
 	}
-}
-
-// Returns tick state index for the given ID
-func getTickIndexById(d *cosmwasmpool.OrderbookData, tickId int64) int {
-	for i, tick := range d.Ticks {
-		if tick.TickId == tickId {
-			return i
-		}
-	}
-	return -1
 }
 
 // Determines how much of a given amount can be filled by the current tick state (independent for each direction)

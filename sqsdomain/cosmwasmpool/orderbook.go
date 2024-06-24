@@ -19,11 +19,11 @@ func (model *CosmWasmPoolModel) IsOrderbook() bool {
 
 // OrderbookData, since v1.0.0
 type OrderbookData struct {
-	QuoteDenom  string          `json:"quote_denom"`
-	BaseDenom   string          `json:"base_denom"`
-	NextBidTick int64           `json:"next_bid_tick"`
-	NextAskTick int64           `json:"next_ask_tick"`
-	Ticks       []OrderbookTick `json:"ticks"`
+	QuoteDenom       string          `json:"quote_denom"`
+	BaseDenom        string          `json:"base_denom"`
+	NextBidTickIndex int             `json:"next_bid_tick_index"` // tick index of the next bid tick, -1 if no bid tick
+	NextAskTickIndex int             `json:"next_ask_tick_index"` // tick index of the next ask tick, -1 if no ask tick
+	Ticks            []OrderbookTick `json:"ticks"`
 }
 
 // Represents Total Amount of Liquidity at tick (TAL) of a specific price tick in a liquidity pool.
