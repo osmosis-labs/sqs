@@ -7,7 +7,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
@@ -86,7 +85,7 @@ func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, bl
 
 		price := blockPriceUpdates.GetPriceForDenom(updatedBlockDenom, quoteDenom)
 
-		liquidityCapitalization := p.ComputeLiquidityCapitalization(updatedBlockDenom, totalLiquidityForDenom, price)
+		liquidityCapitalization := p.liquidityPricer.PriceCoin(sdk.NewCoin(updatedBlockDenom, totalLiquidityForDenom), price)
 
 		blockTokenMetadataUpdates.Set(updatedBlockDenom, totalLiquidityForDenom, liquidityCapitalization, price)
 
@@ -96,34 +95,6 @@ func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, bl
 
 	// Return the updated token metadata for testability
 	return blockTokenMetadataUpdates
-}
-
-// ComputeLiquidityCapitalization implements domain.PoolLiquidityPricerWorker.
-func (p *poolLiquidityPricerWorker) ComputeLiquidityCapitalization(denom string, totalLiquidity osmomath.Int, price osmomath.BigDec) osmomath.Int {
-	if price.IsZero() {
-		// If the price is zero, set the capitalization to zero.
-		return osmomath.ZeroInt()
-	}
-
-	// Get the scaling factor for the base denom.
-	baseScalingFactor, err := p.tokenPoolLiquidityHandler.GetChainScalingFactorByDenomMut(denom)
-	if err != nil {
-		// If there is an error, keep the total liquidity but set the capitalization to zero.
-		return osmomath.ZeroInt()
-	}
-
-	priceInfo := domain.DenomPriceInfo{
-		Price:         price,
-		ScalingFactor: baseScalingFactor,
-	}
-
-	liquidityCapitalization, err := p.liquidityPricer.ComputeCoinCap(sdk.NewCoin(denom, totalLiquidity), priceInfo)
-	if err != nil {
-		// If there is an error, keep the total liquidity but set the capitalization to zero.
-		return osmomath.ZeroInt()
-	}
-
-	return liquidityCapitalization.TruncateInt()
 }
 
 // GetLatestUpdateHeightForDenom implements domain.PoolLiquidityPricerWorker.

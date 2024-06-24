@@ -149,11 +149,6 @@ type PricingUpdateListener interface {
 type PoolLiquidityPricerWorker interface {
 	// Implements PricingUpdateListener
 	PricingUpdateListener
-	// ComputeLiquidityCapitalization computes the capitalization of the liquidity for the given denom
-	// using the total liquidity and the price.
-	// Returs zero if the price is zero or if there is any internal error.
-	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
-	ComputeLiquidityCapitalization(denom string, totalLiquidity osmomath.Int, price osmomath.BigDec) osmomath.Int
 
 	// RepriceDenomMetadata reprices the token liquidity metadata for the denoms updated within the block.
 	// Returns the updated token metadata.
@@ -175,22 +170,27 @@ type PoolLiquidityPricerWorker interface {
 	RegisterListener(listener PoolLiquidityComputeListener)
 }
 
-// DenomPriceInfo defines the price information for the base denom.
 type DenomPriceInfo struct {
-	// Price is the price of the base denom.
-	Price osmomath.BigDec
-	// ScalingFactor is the scaling factor for the base denom.
+	Price         osmomath.BigDec
 	ScalingFactor osmomath.Dec
 }
 
 type LiquidityPricer interface {
-	// ComputeCoinCap computes the equivalent of the given coin in the desired quote denom that is set on ingester.
-	// Returns error if:
-	// * Price is zero
-	// * Scaling factor is zero
-	// * Truncation occurs in intermediary operations. Truncation is defined as the original amount
-	// being non-zero and the computed amount being zero.
-	ComputeCoinCap(coin sdk.Coin, baseDenomPriceData DenomPriceInfo) (osmomath.Dec, error)
+	// PriceBalances computes capitalization from the given balanes, block price updates and quote denom.
+	// If fails to retrieve price for one of the denoms in balances, the liquidity capitalization contribution for that denom would be zero
+	// and a relevant error appended to the returned error string.
+	//
+	// If no error occurs, the error string is empty.
+	//
+	// The purpose of such handling is to ensure that we silently skip any errors but apply partial liquidity capitalization
+	// updates. The best-effort liquidity capitalization ranking improves the quality of by-liquidity ranking in the router.
+	PriceBalances(balances sdk.Coins, blockPriceUpdates PricesResult) (osmomath.Int, string)
+
+	// PriceCoin computes the capitalization of the liquidity for the given denom
+	// using the total liquidity and the price.
+	// Returs zero if the price is zero or if there is any internal error.
+	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
+	PriceCoin(liquidity sdk.Coin, price osmomath.BigDec) osmomath.Int
 }
 
 // PoolLiquidityComputeListener defines the interface for the pool liquidity compute listener.

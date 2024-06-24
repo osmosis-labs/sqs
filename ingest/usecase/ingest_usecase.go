@@ -165,6 +165,11 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 
 			// Separately update unique denoms.
 			for _, balance := range currentPoolBalances {
+				if balance.Validate() != nil {
+					p.logger.Debug("invalid pool balance", zap.Uint64("pool_id", poolID), zap.String("denom", balance.Denom), zap.String("amount", balance.Amount.String()))
+					continue
+				}
+
 				uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
 			}
 
@@ -195,6 +200,11 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	// For evey coin in balance
 	for _, coin := range currentPoolBalances {
+		// Skip invalid coins
+		if coin.Validate() != nil {
+			continue
+		}
+
 		// Get denom data for this denom
 		denomData, ok := currentBlockLiquidityMap[coin.Denom]
 		if !ok {

@@ -37,7 +37,7 @@ var (
 	defaultPrice     = osmomath.NewBigDec(2)
 	defaultLiquidity = osmomath.NewInt(1_000_000)
 
-	defaultLiquidityCap = defaultLiquidity.MulRaw(2)
+	defaultLiquidityCap = defaultLiquidity.ToLegacyDec().Quo(defaultScalingFactor).MulMut(defaultPrice.Dec()).TruncateInt()
 
 	// Note: we are not testing the error handling of underlying methods.
 	// Those are unit-tested in their respective tests.
@@ -79,7 +79,7 @@ func TestPoolLiquidityComputeWorkerSuite(t *testing.T) {
 func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 
 	// Create liquidity pricer
-	liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
+	liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
 
 	// Set up the tokens pool liquidity mock handler
 	poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
@@ -119,7 +119,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	// Assert on specific values.
 	s.Require().Equal(result.Price, defaultPrice)
 	s.Require().Equal(result.TotalLiquidity, defaultLiquidity)
-	s.Require().Equal(result.TotalLiquidityCap, defaultLiquidityCap)
+	s.Require().Equal(result.TotalLiquidityCap.String(), defaultLiquidityCap.String())
 
 	// Validate that the listener mock was called with the relevant height.
 	lastHeightCalled := mockListener.GetLastHeightCalled()
@@ -235,117 +235,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestHasLaterUpdateThanHeight() {
 
 			// Check the result.
 			s.Require().Equal(tt.expected, actual)
-		})
-	}
-}
-
-// TestStoreHeightForDenom tests the StoreHeightForDenom method by following the spec.
-func (s *PoolLiquidityComputeWorkerSuite) TestComputeLiquidityCapitalization() {
-	var (
-		defaultScalingFactorMap = map[string]osmomath.Dec{
-			UOSMO: defaultScalingFactor,
-		}
-
-		defaultLiqidity = osmomath.NewInt(1_000_000)
-
-		ethScaledLiquidity = ethScalingFactor.MulInt(defaultLiqidity).TruncateInt()
-
-		defaultPriceOne = osmomath.OneBigDec()
-	)
-
-	tests := []struct {
-		name string
-
-		preSetScalingFactorMap map[string]osmomath.Dec
-
-		denom          string
-		totalLiquidity osmomath.Int
-		price          osmomath.BigDec
-
-		expectedCapitalization osmomath.Int
-	}{
-		{
-			name: "scaling factor unset",
-
-			preSetScalingFactorMap: map[string]osmomath.Dec{},
-
-			denom:          UOSMO,
-			totalLiquidity: defaultLiqidity,
-			price:          defaultPriceOne,
-
-			expectedCapitalization: zeroCapitalization,
-		},
-		{
-			name: "zero price -> produces zero capitalization",
-
-			preSetScalingFactorMap: defaultScalingFactorMap,
-
-			denom:          UOSMO,
-			totalLiquidity: defaultLiqidity,
-			price:          osmomath.ZeroBigDec(),
-
-			expectedCapitalization: zeroCapitalization,
-		},
-		{
-			name: "truncate -> produces zero capitalization",
-
-			// totalLiquidity * price / (quoteScalingFactor / baseScalingFactor)
-			// 1 * 10^-36 / 10^12 => below the precision of 36
-			preSetScalingFactorMap: map[string]osmomath.Dec{
-				UOSMO: ethScalingFactor,
-			},
-
-			denom:          UOSMO,
-			totalLiquidity: osmomath.OneInt(),
-			price:          osmomath.SmallestBigDec(),
-
-			expectedCapitalization: zeroCapitalization,
-		},
-		{
-			name: "happy path",
-
-			preSetScalingFactorMap: defaultScalingFactorMap,
-
-			denom:          UOSMO,
-			totalLiquidity: defaultLiqidity,
-			price:          defaultPriceOne,
-
-			expectedCapitalization: defaultLiqidity,
-		},
-		{
-			name: "happy path with different inputs",
-
-			preSetScalingFactorMap: map[string]osmomath.Dec{
-				ATOM: ethScalingFactor,
-			},
-
-			denom:          ATOM,
-			totalLiquidity: ethScaledLiquidity.MulRaw(2),
-			price:          osmomath.NewBigDec(2),
-
-			expectedCapitalization: ethScaledLiquidity.ToLegacyDec().MulMut(defaultScalingFactor).QuoMut(ethScalingFactor).TruncateInt().MulRaw(4),
-		},
-	}
-
-	for _, tt := range tests {
-		tt := tt
-		s.T().Run(tt.name, func(t *testing.T) {
-			// Create liquidity pricer
-			liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
-
-			// Set up the tokens pool liquidity mock handler
-			poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
-				DenomScalingFactorMap: tt.preSetScalingFactorMap,
-			}
-
-			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
-
-			// System under test
-			liquidityCapitalization := poolLiquidityPricerWorker.ComputeLiquidityCapitalization(tt.denom, tt.totalLiquidity, tt.price)
-
-			// Check the result
-			s.Require().Equal(tt.expectedCapitalization.String(), liquidityCapitalization.String())
 		})
 	}
 }
@@ -597,7 +486,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 		s.T().Run(tt.name, func(t *testing.T) {
 
 			// Create liquidity pricer
-			liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
+			liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
 
 			// Set up the tokens pool liquidity mock handler
 			poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
