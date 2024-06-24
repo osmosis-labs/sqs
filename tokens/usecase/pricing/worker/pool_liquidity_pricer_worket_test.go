@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
@@ -131,7 +132,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	}
 
 	// Create the worker
-	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, &poolHandlerMock, liquidityPricer)
+	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, &poolHandlerMock, liquidityPricer, &log.NoOpLogger{})
 
 	// Create & register mock listener
 	mockListener := &mocks.PoolLiquidityPricingMock{}
@@ -521,7 +522,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 			}
 
 			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer)
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer, &log.NoOpLogger{})
 
 			// Pre-set the height for each denom.
 			for denom, height := range tt.preSetUpdateHeightForDenom {
@@ -617,7 +618,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestCreatePoolDenomMetaData() {
 			}
 
 			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer)
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer, &log.NoOpLogger{})
 
 			// Pre-set the height for the denom.
 			poolLiquidityPricerWorker.StoreHeightForDenom(tt.updatedBlockDenom, tt.preSetUpdateHeight)
@@ -684,7 +685,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestShouldSkipDenomRepricing() {
 		s.T().Run(tt.name, func(t *testing.T) {
 			// Create the worker
 			// Note: all inputs are irrelevant for this test.
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, nil, nil)
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, nil, nil, &log.NoOpLogger{})
 
 			// Pre-set the height for the denom.
 			poolLiquidityPricerWorker.StoreHeightForDenom(tt.updatedBlockDenom, tt.preSetUpdateHeight)
@@ -852,7 +853,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 			}
 
 			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, poolHandlerMock, liquidityPricer)
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, poolHandlerMock, liquidityPricer, &log.NoOpLogger{})
 
 			// System under test
 			err := poolLiquidityPricerWorker.RepricePoolLiquidityCap(tt.poolIDs, tt.blockPriceUpdates)

@@ -10,6 +10,8 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/log"
+	"go.uber.org/zap"
 )
 
 const (
@@ -29,6 +31,8 @@ type poolLiquidityPricerWorker struct {
 
 	liquidityPricer domain.LiquidityPricer
 
+	logger log.Logger
+
 	// Denom -> Last height of the pricing update.
 	// This exists because pricing computations are asynchronous. As a result, a pricing update for a later
 	// height might arrive before a pricing update for an earlier height. This map is used to ensure that
@@ -36,7 +40,7 @@ type poolLiquidityPricerWorker struct {
 	latestHeightForDenom sync.Map
 }
 
-func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler, poolHandler mvc.PoolHandler, liquidityPricer domain.LiquidityPricer) *poolLiquidityPricerWorker {
+func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler, poolHandler mvc.PoolHandler, liquidityPricer domain.LiquidityPricer, logger log.Logger) *poolLiquidityPricerWorker {
 	return &poolLiquidityPricerWorker{
 		tokenPoolLiquidityHandler: tokensPoolLiquidityHandler,
 		poolHandler:               poolHandler,
@@ -44,6 +48,8 @@ func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHa
 		updateListeners: []domain.PoolLiquidityComputeListener{},
 
 		liquidityPricer: liquidityPricer,
+
+		logger: logger,
 
 		latestHeightForDenom: sync.Map{},
 	}
@@ -104,7 +110,7 @@ func (p *poolLiquidityPricerWorker) RepriceDenomsMetadata(updateHeight uint64, b
 
 		poolDenomMetaData, err := p.CreatePoolDenomMetaData(updatedBlockDenom, updateHeight, blockPriceUpdates, quoteDenom, blockPoolMetadata)
 		if err != nil {
-			// TODO: debug log
+			p.logger.Debug("error creating denom meta data", zap.Error(err))
 		}
 
 		blockTokenMetadataUpdates.Set(updatedBlockDenom, poolDenomMetaData)
