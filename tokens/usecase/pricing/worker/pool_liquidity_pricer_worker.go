@@ -50,52 +50,44 @@ func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHa
 }
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
-func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height uint64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) error {
+func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height uint64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) (err error) {
 	start := time.Now()
 
-	// wg := sync.WaitGroup{}
+	defer func() {
+		// Measure duration
+		domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
+	}()
 
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	// 	// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
-	// 	// for concurrency.
-	// 	repricedTokenMetadata := p.RepriceDenomMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata.DenomPoolLiquidityMap)
+	wg := sync.WaitGroup{}
 
-	// 	// Update the pool denom metadata.
-	// 	p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
-	// }()
-	// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
-	// for concurrency.
-	repricedTokenMetadata := p.RepriceDenomsMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
+		// for concurrency.
+		repricedTokenMetadata := p.RepriceDenomsMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
 
-	// Update the pool denom metadata.
-	p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
+		// Update the pool denom metadata.
+		p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
+	}()
 
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	// 	p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates, quoteDenom)
-	// }()
-
-	if err := p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates); err != nil {
 		// Note: the error is propagated to the caller because
 		// the callee only errors on fatal issues that should invalidate health check.
-		return err
-	}
+		err = p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates)
+	}()
 
 	// Wait for goroutines to finish processing.
-	// wg.Wait()
+	wg.Wait()
 
 	// Notify listeners.
 	for _, listener := range p.updateListeners {
 		// Avoid checking error since we want to execute all listeners.
 		_ = listener.OnPoolLiquidityCompute(int64(height))
 	}
-
-	// Measure duration
-	domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
 
 	return nil
 }

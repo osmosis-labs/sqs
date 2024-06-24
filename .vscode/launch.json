@@ -102,7 +102,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestPoolLiquidityComputeWorkerSuite/TestRepricePoolLiquidityCap/two",
+                "TestPoolLiquidityComputeWorkerSuite/TestOnPricingUpdate",
                 "-test.v"
             ],
         },
