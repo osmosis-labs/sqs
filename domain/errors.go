@@ -51,14 +51,13 @@ func (e InvalidPoolTypeError) Error() string {
 	return "invalid pool type: " + string(e.PoolType)
 }
 
-// UnsupportedCosmWasmPoolTypeError is an error type for invalid cosmwasm pool type.
-type UnsupportedCosmWasmPoolTypeError struct {
-	PoolType string
-	PoolId   uint64
+// UnsupportedCosmWasmPoolError is an error type for unsupported CosmWasm pool.
+type UnsupportedCosmWasmPoolError struct {
+	PoolId uint64
 }
 
-func (e UnsupportedCosmWasmPoolTypeError) Error() string {
-	return "unsupported pool type: " + e.PoolType
+func (e UnsupportedCosmWasmPoolError) Error() string {
+	return fmt.Sprintf("Pool %d is a CosmWasm pool but is not supported", e.PoolId)
 }
 
 type PoolNotFoundError struct {

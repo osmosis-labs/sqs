@@ -127,7 +127,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 
 		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 
-		// for most other cosm wasm pools, interaction with the chain will
+		// for most other CosmWasm pools, interaction with the chain will
 		// be required. As a result, we have a custom implementation.
 		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, wasmClient, scalingFactorGetterCb), nil
 	}
@@ -196,8 +196,7 @@ func newRoutableCosmWasmPoolWithCustomModel(
 		}
 	}
 
-	return nil, domain.UnsupportedCosmWasmPoolTypeError{
-		PoolType: poolmanagertypes.PoolType_name[int32(pool.GetType())],
-		PoolId:   cosmwasmPool.PoolId,
+	return nil, domain.UnsupportedCosmWasmPoolError{
+		PoolId: cosmwasmPool.PoolId,
 	}
 }

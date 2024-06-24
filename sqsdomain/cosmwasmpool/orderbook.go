@@ -6,7 +6,8 @@ import (
 
 const (
 	ORDERBOOK_CONTRACT_NAME               = "crates.io:sumtree-orderbook"
-	ORDERBOOK_CONTRACT_VERSION_CONSTRAINT = ">= 0.1.0"
+	ORDERBOOK_MIN_CONTRACT_VERSION        = "0.1.0"
+	ORDERBOOK_CONTRACT_VERSION_CONSTRAINT = ">= " + ORDERBOOK_MIN_CONTRACT_VERSION
 )
 
 func (model *CosmWasmPoolModel) IsOrderbook() bool {
