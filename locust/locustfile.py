@@ -1,4 +1,5 @@
 from locust import HttpUser, task
+import random
 
 # Top 10 by volume pairs
 # Some are currently unused but left here for reference.
@@ -22,7 +23,6 @@ ASTRO         = "ibc/C25A2303FE24B922DAFFDCE377AC5A42E5EF746806D32E2ED4B610DE85C
 
 INVALID_DENOM = "invalid_denom"
 
-
 top10ByVolumePairs = [
     UOSMO,
     ATOM,
@@ -36,7 +36,16 @@ top10ByVolumePairs = [
     AKT,
     UMEE,
     ASTRO
-];
+]
+
+
+# random addresses with balances
+addr1 = "osmo1044qatzg4a0wm63jchrfdnn2u8nwdgxxt6e524"
+addr2 = "osmo1aaa9rpq2m6tu6t0dvknqq2ps7zudxv7th209q4"
+addr3 = "osmo18sd2ujv24ual9c9pshtxys6j8knh6xaek9z83t"
+addr4 = "osmo140p7pef5hlkewuuramngaf5j6s8dlynth5zm06"
+
+addresses = [addr1, addr2, addr3, addr4]
 
 
 class SQS(HttpUser):
@@ -97,3 +106,9 @@ class SQS(HttpUser):
                 bases += ","
 
         self.client.get(f"/tokens/prices?base={bases}")
+
+    @task
+    def passthroughTotalCoins(self):
+        random_address = random.choice(addresses)
+        self.client.get(f"/passthrough/account_coins_total/{random_address}")
+
