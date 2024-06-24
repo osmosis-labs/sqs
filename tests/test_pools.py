@@ -12,13 +12,16 @@ from e2e_math import *
 # locally.
 # @pytest.mark.skip(reason="This test is currently disabled")
 class TestPools:
-    # Test all valid pools as given by Numia
+    # Test test runs for all pools that have liquidity over min_pool_liquidity_cap_usdc as given by external
+    # data service to avoid flakiness.
+    # The test checks if the pool liquidity cap is within 5% of the expected value.
+    # The expected value is given by the external data service.
     @pytest.mark.parametrize("pool_data", conftest.shared_test_state.all_pools_data, ids=util.id_from_pool)
     def test_pools_pool_liquidity_cap(self, environment_url, pool_data):
         # Relative errorr tolerance for pool liquidity cap
         error_tolerance = 0.05
         # Min liquidity capitalization in USDC for a pool to be considered
-        # in tests.
+        # in tests. Arbitrarily chosen as to avoid flakiness.
         min_pool_liquidity_cap_usdc = 50_000
         # WhiteWhale pools are not supported by Numia, leading to breakages.
         # See: https://linear.app/osmosis/issue/NUMIA-35/missing-data-for-white-whale-pool
@@ -42,7 +45,7 @@ class TestPools:
 
             actual_error = relative_error(sqs_liquidity_cap, pool_liquidity)
 
-            assert actual_error < error_tolerance, f"Pool liquidity cap was {sqs_liquidity_cap} - expected {pool_liquidity}, actual error {actual_error} error tolerance {error_tolerance}" 
+            assert actual_error < error_tolerance, f"ID ({pool_id}) Pool liquidity cap was {sqs_liquidity_cap} - expected {pool_liquidity}, actual error {actual_error} error tolerance {error_tolerance}" 
         else:
             pytest.skip("Pool liquidity is too low - skipping to reduce flakiness")
 
