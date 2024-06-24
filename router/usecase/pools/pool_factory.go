@@ -136,9 +136,10 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 }
 
 // newRoutableCosmWasmPoolWithCustomModel creates a new RoutablePool for CosmWasm pools that require a custom CosmWasmPoolModel.
-// errors if the pool matched criteria for a custom model, but the model does not have the required data.
-// returns a routable pool with a custom model if the pool matched criteria for a custom model and the model has the required data.
-// returns nil if the pool did not match criteria for a custom model.
+// errors if:
+// - the pool matched criteria for a custom model, but the model does not have the required data.
+// - the pool's `CosmWasmPoolModel` is nil
+// returns a routable pool constructed with custom model otherwise
 func newRoutableCosmWasmPoolWithCustomModel(
 	pool sqsdomain.PoolI,
 	cosmwasmPool *cwpoolmodel.CosmWasmPool,
