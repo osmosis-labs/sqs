@@ -67,18 +67,18 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 
 func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 	tests := map[string]struct {
-		tokenIn     sdk.Coin
-		tokenOut    sdk.Coin
-		nextBidTick int64
-		nextAskTick int64
-		ticks       []cosmwasmpool.OrderbookTick
-		expectError error
+		tokenIn          sdk.Coin
+		expectedTokenOut sdk.Coin
+		nextBidTick      int64
+		nextAskTick      int64
+		ticks            []cosmwasmpool.OrderbookTick
+		expectError      error
 	}{
 		"BID: simple swap": {
-			tokenIn:     sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
-			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
-			nextBidTick: MIN_TICK,
-			nextAskTick: 0,
+			tokenIn:          sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
+			expectedTokenOut: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
+			nextBidTick:      MIN_TICK,
+			nextAskTick:      0,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 					BidLiquidity: osmomath.ZeroBigDec(),
@@ -87,10 +87,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 		},
 		"BID: invalid partial fill": {
-			tokenIn:     sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)),
-			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(0)),
-			nextBidTick: MIN_TICK,
-			nextAskTick: 0,
+			tokenIn:          sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)),
+			expectedTokenOut: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(0)),
+			nextBidTick:      MIN_TICK,
+			nextAskTick:      0,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 					BidLiquidity: osmomath.ZeroBigDec(),
@@ -105,9 +105,9 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 		"BID: multi-tick/direction swap": {
 			tokenIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)),
 			// 100*1 (tick: 0) + 50*2 (tick: LARGE_POSITIVE_TICK) = 200
-			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(200)),
-			nextBidTick: LARGE_POSITIVE_TICK,
-			nextAskTick: 0,
+			expectedTokenOut: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(200)),
+			nextBidTick:      LARGE_POSITIVE_TICK,
+			nextAskTick:      0,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{
 					TickId: 0,
@@ -126,10 +126,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 		},
 		"ASK: simple swap": {
-			tokenIn:     sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
-			tokenOut:    sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
-			nextBidTick: 0,
-			nextAskTick: MAX_TICK,
+			tokenIn:          sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
+			expectedTokenOut: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
+			nextBidTick:      0,
+			nextAskTick:      MAX_TICK,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 					BidLiquidity: osmomath.NewBigDec(100),
@@ -138,10 +138,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 		},
 		"ASK: invalid partial fill": {
-			tokenIn:     sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
-			tokenOut:    sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(0)),
-			nextBidTick: 0,
-			nextAskTick: MAX_TICK,
+			tokenIn:          sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
+			expectedTokenOut: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(0)),
+			nextBidTick:      0,
+			nextAskTick:      MAX_TICK,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 					BidLiquidity: osmomath.NewBigDec(25),
@@ -156,9 +156,9 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 		"ASK: multi-tick/direction swap": {
 			tokenIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
 			// 25 at 0.5 tick price + 100 at 1 tick price = 125
-			tokenOut:    sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(125)),
-			nextBidTick: LARGE_POSITIVE_TICK,
-			nextAskTick: 0,
+			expectedTokenOut: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(125)),
+			nextBidTick:      LARGE_POSITIVE_TICK,
+			nextAskTick:      0,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{
 					TickId: 0,
@@ -177,11 +177,11 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 		},
 		"invalid: duplicate denom": {
-			tokenIn:     sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
-			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(125)),
-			nextBidTick: 0,
-			nextAskTick: 0,
-			ticks:       []cosmwasmpool.OrderbookTick{},
+			tokenIn:          sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
+			expectedTokenOut: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(125)),
+			nextBidTick:      0,
+			nextAskTick:      0,
+			ticks:            []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  BASE_DENOM,
@@ -189,11 +189,11 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 		},
 		"invalid: incorrect token in denom": {
-			tokenIn:     sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(150)),
-			tokenOut:    sdk.NewCoin(BASE_DENOM, osmomath.NewInt(125)),
-			nextBidTick: 0,
-			nextAskTick: 0,
-			ticks:       []cosmwasmpool.OrderbookTick{},
+			tokenIn:          sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(150)),
+			expectedTokenOut: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(125)),
+			nextBidTick:      0,
+			nextAskTick:      0,
+			ticks:            []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  INVALID_DENOM,
@@ -201,11 +201,11 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 		},
 		"invalid: incorrect token out denom": {
-			tokenIn:     sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
-			tokenOut:    sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(125)),
-			nextBidTick: 0,
-			nextAskTick: 0,
-			ticks:       []cosmwasmpool.OrderbookTick{},
+			tokenIn:          sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
+			expectedTokenOut: sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(125)),
+			nextBidTick:      0,
+			nextAskTick:      0,
+			ticks:            []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  BASE_DENOM,
@@ -217,7 +217,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 	for name, tc := range tests {
 		s.Run(name, func() {
 			s.Setup()
-			routablePool := s.SetupRoutableOrderbookPool(tc.tokenIn.Denom, tc.tokenOut.Denom, tc.nextBidTick, tc.nextAskTick, tc.ticks, osmomath.ZeroDec())
+			routablePool := s.SetupRoutableOrderbookPool(tc.tokenIn.Denom, tc.expectedTokenOut.Denom, tc.nextBidTick, tc.nextAskTick, tc.ticks, osmomath.ZeroDec())
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
 
 			if tc.expectError != nil {
@@ -227,7 +227,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			}
 			s.Require().NoError(err)
 
-			s.Require().Equal(tc.tokenOut, tokenOut)
+			s.Require().Equal(tc.expectedTokenOut, tokenOut)
 		})
 	}
 }
