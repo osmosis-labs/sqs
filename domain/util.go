@@ -64,3 +64,12 @@ func splitAndTrim(s, sep string) []string {
 	}
 	return result
 }
+
+// Generic function to extract keys from any map.
+func KeysFromMap[K comparable, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m)) // Pre-allocate slice with capacity equal to map size
+	for key := range m {
+		keys = append(keys, key)
+	}
+	return keys
+}

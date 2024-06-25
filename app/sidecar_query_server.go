@@ -152,7 +152,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
 
-		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, liquidityPricer)
+		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase, liquidityPricer, logger)
 
 		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
 		// It then passes the healthcheck as long as updates are received at the appropriate intervals.

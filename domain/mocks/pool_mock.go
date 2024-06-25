@@ -21,13 +21,15 @@ type MockRoutablePool struct {
 	ID                uint64
 	Balances          sdk.Coins
 	Denoms            []string
-	PoolLiquidityCap  osmomath.Int
 	PoolType          poolmanagertypes.PoolType
 	SQSPoolType       domain.SQSPoolType
 	TokenOutDenom     string
 	TakerFee          osmomath.Dec
 	SpreadFactor      osmomath.Dec
 	mockedTokenOut    sdk.Coin
+
+	PoolLiquidityCap      osmomath.Int
+	PoolLiquidityCapError string
 }
 
 // CalcSpotPrice implements domain.RoutablePool.
@@ -164,6 +166,26 @@ func (mp *MockRoutablePool) GetSQSType() domain.SQSPoolType {
 // GetCodeID implements domain.RoutablePool.
 func (mp *MockRoutablePool) GetCodeID() uint64 {
 	return 0
+}
+
+// GetLiquidityCap implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) GetLiquidityCap() math.Int {
+	return mp.PoolLiquidityCap
+}
+
+// GetLiquidityCapError implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) GetLiquidityCapError() string {
+	return mp.PoolLiquidityCapError
+}
+
+// SetLiquidityCap implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) SetLiquidityCap(liquidityCap math.Int) {
+	mp.PoolLiquidityCap = liquidityCap
+}
+
+// SetLiquidityCapError implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) SetLiquidityCapError(liquidityCapError string) {
+	mp.PoolLiquidityCapError = liquidityCapError
 }
 
 func deepCopyPool(mp *MockRoutablePool) *MockRoutablePool {

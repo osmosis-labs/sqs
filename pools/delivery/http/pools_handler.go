@@ -34,7 +34,9 @@ type PoolResponse struct {
 	// In some cases, spread factor might be duplicated in the chain model.
 	// However, we duplicate it here for client convinience to be able to always
 	// rely on it being present.
-	SpreadFactor osmomath.Dec `json:"spread_factor"`
+	SpreadFactor      osmomath.Dec `json:"spread_factor"`
+	LiquidityCap      osmomath.Int `json:"liquidity_cap"`
+	LiquidityCapError string       `json:"liquidity_cap_error"`
 }
 
 const resourcePrefix = "/pools"
@@ -137,10 +139,12 @@ func getStatusCode(err error) int {
 // convertPoolToResponse convertes a given pool to the appropriate response type.
 func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
 	return PoolResponse{
-		ChainModel:   pool.GetUnderlyingPool(),
-		Balances:     pool.GetSQSPoolModel().Balances,
-		Type:         pool.GetType(),
-		SpreadFactor: pool.GetSQSPoolModel().SpreadFactor,
+		ChainModel:        pool.GetUnderlyingPool(),
+		Balances:          pool.GetSQSPoolModel().Balances,
+		Type:              pool.GetType(),
+		SpreadFactor:      pool.GetSQSPoolModel().SpreadFactor,
+		LiquidityCap:      pool.GetLiquidityCap(),
+		LiquidityCapError: pool.GetLiquidityCapError(),
 	}
 }
 

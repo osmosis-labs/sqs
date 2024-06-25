@@ -42,7 +42,7 @@ func (p *pricingWorker) UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData
 }
 
 func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
-	baseDenoms := keysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
+	baseDenoms := domain.KeysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
 
 	ctx, cancel := context.WithTimeout(context.Background(), priceUpdateTimeout)
 	start := time.Now()
@@ -79,13 +79,4 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 // RegisterListener implements PricingWorker.
 func (p *pricingWorker) RegisterListener(listener domain.PricingUpdateListener) {
 	p.updateListeners = append(p.updateListeners, listener)
-}
-
-// Generic function to extract keys from any map.
-func keysFromMap[K comparable, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m)) // Pre-allocate slice with capacity equal to map size
-	for key := range m {
-		keys = append(keys, key)
-	}
-	return keys
 }

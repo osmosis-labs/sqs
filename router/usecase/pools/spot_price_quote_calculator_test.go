@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 )
@@ -43,21 +44,6 @@ func (s *RoutablePoolTestSuite) TestSpotPriceQuoteCalculator_Calculate() {
 
 			// If validation passes, return the desired outputs.s
 			return mockCoinOutput, mockError
-		}
-	}
-
-	// setupMockScalingFactorCb configures a mock scaling factor callback to return the given
-	// scaling factor and error.
-	// It also validates that mock receives valid parameters as given by validDenom.
-	// If validation does not pass, an error is returned rather than the mocked values.
-	setupMockScalingFactorCb := func(validDenom string, mockScalingFactor osmomath.Dec, mockError error) domain.ScalingFactorGetterCb {
-		return func(denom string) (osmomath.Dec, error) {
-			// Validate denom s equl to the one set on mock.
-			if validDenom != denom {
-				return osmomath.Dec{}, fmt.Errorf("actual  denom (%s) is not equal to the one configured by mock (%s)", denom, validDenom)
-			}
-
-			return mockScalingFactor, mockError
 		}
 	}
 
@@ -209,7 +195,7 @@ func (s *RoutablePoolTestSuite) TestSpotPriceQuoteCalculator_Calculate() {
 
 			// Setup the mocks.
 			mockQuoteEstimator := setupMockQuoteEstimator(validQuoteInputCoin, validQuoteInputTokenOutDenom, tc.mockCoinOutEstimate, tc.mockCoinOutError)
-			mockScalingFactorGetter := setupMockScalingFactorCb(validScalingFactorDenom, tc.mockScalingFactor, tc.mockScalingFactorError)
+			mockScalingFactorGetter := mocks.SetupMockScalingFactorCb(validScalingFactorDenom, tc.mockScalingFactor, tc.mockScalingFactorError)
 
 			// Initialize spot price quote calculator.
 			spotPriceQuoteCalculator := pools.NewSpotPriceQuoteComputer(mockScalingFactorGetter, mockQuoteEstimator)

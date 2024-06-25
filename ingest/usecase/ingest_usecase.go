@@ -200,8 +200,10 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	// For evey coin in balance
 	for _, coin := range currentPoolBalances {
-		// Skip invalid coins
 		if coin.Validate() != nil {
+			// Skip invalid coins.
+			// Example: pool 1176 (transmuter v1 pool) has invalid coins.
+			// https://celatone.osmosis.zone/osmosis-1/contracts/osmo136f4pv283yywv3t56d5zdkhq43uucw462rt3qfpm2s84vvr7rrasn3kllg
 			continue
 		}
 
