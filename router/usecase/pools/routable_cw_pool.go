@@ -8,7 +8,6 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/cosmwasm/msg"
@@ -24,7 +23,7 @@ const (
 	astroportCodeID = 773
 )
 
-var _ sqsdomain.RoutablePool = &routableCosmWasmPoolImpl{}
+var _ domain.RoutablePool = &routableCosmWasmPoolImpl{}
 
 // routableCosmWasmPool is an implemenation of the cosm wasm pool
 // that interacts with the chain for quotes and spot price.
@@ -39,7 +38,7 @@ type routableCosmWasmPoolImpl struct {
 }
 
 // NewRoutableCosmWasmPool returns a new routable cosmwasm pool with the given parameters.
-func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, wasmClient wasmtypes.QueryClient, scalingFactorGetterCb domain.ScalingFactorGetterCb) sqsdomain.RoutablePool {
+func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, wasmClient wasmtypes.QueryClient, scalingFactorGetterCb domain.ScalingFactorGetterCb) domain.RoutablePool {
 	// Initializa routable cosmwasm pool
 	routableCosmWasmPool := &routableCosmWasmPoolImpl{
 		ChainPool:     pool,
@@ -63,27 +62,27 @@ func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins,
 	return routableCosmWasmPool
 }
 
-// GetId implements sqsdomain.RoutablePool.
+// GetId implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetId() uint64 {
 	return r.ChainPool.PoolId
 }
 
-// GetPoolDenoms implements sqsdomain.RoutablePool.
+// GetPoolDenoms implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetPoolDenoms() []string {
 	return r.Balances.Denoms()
 }
 
-// GetType implements sqsdomain.RoutablePool.
+// GetType implements domain.RoutablePool.
 func (*routableCosmWasmPoolImpl) GetType() poolmanagertypes.PoolType {
 	return poolmanagertypes.CosmWasm
 }
 
-// GetSpreadFactor implements sqsdomain.RoutablePool.
+// GetSpreadFactor implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
 }
 
-// CalculateTokenOutByTokenIn implements sqsdomain.RoutablePool.
+// CalculateTokenOutByTokenIn implements domain.RoutablePool.
 // It calculates the amount of token out given the amount of token in for a transmuter pool.
 // Transmuter pool allows no slippage swaps. It just returns the same amount of token out as token in
 // Returns error if:
@@ -120,24 +119,24 @@ func (r *routableCosmWasmPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
-// String implements sqsdomain.RoutablePool.
+// String implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d) Generalized CosmWasm, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
 }
 
-// ChargeTakerFeeExactIn implements sqsdomain.RoutablePool.
+// ChargeTakerFeeExactIn implements domain.RoutablePool.
 // Returns tokenInAmount and does not charge any fee for transmuter pools.
 func (r *routableCosmWasmPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
 }
 
-// GetTakerFee implements sqsdomain.RoutablePool.
+// GetTakerFee implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
 }
 
-// CalcSpotPrice implements sqsdomain.RoutablePool.
+// CalcSpotPrice implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	request := msg.SpotPriceQueryMsg{
 		SpotPrice: msg.SpotPrice{
@@ -172,12 +171,12 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 	return osmomath.MustNewBigDecFromStr(response.SpotPrice), nil
 }
 
-// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
-func (*routableCosmWasmPoolImpl) IsGeneralizedCosmWasmPool() bool {
-	return true
+// GetSQSType implements domain.RoutablePool.
+func (*routableCosmWasmPoolImpl) GetSQSType() domain.SQSPoolType {
+	return domain.GeneralizedCosmWasm
 }
 
-// GetCodeID implements sqsdomain.RoutablePool.
+// GetCodeID implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetCodeID() uint64 {
 	return r.ChainPool.CodeId
 }

@@ -32,7 +32,7 @@
                 "-test.timeout",
                 "30m",
                 "-test.run",
-                "TestRouterTestSuite/TestConvertMinTokensPoolLiquidityCapToFilter",
+                "TestRouterTestSuite/TestGetOptimalQuote_Mainnet/allUSDT",
                 "-test.v"
             ],
         },

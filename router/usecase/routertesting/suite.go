@@ -128,7 +128,9 @@ var (
 	CRE     = "ibc/5A7C219BA5F7582B99629BA3B2A01A61BFDA0F6FD1FE95B5366F7334C4BC0580"
 	STEVMOS = "ibc/C5579A9595790017C600DD726276D978B9BF314CF82406CE342720A9C7911A01"
 	// DYDX is 18 decimals
-	DYDX = "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C"
+	DYDX     = "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C"
+	ALLUSDT  = "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT"
+	KAVAUSDT = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
 
 	MainnetDenoms = []string{
 		UOSMO,
@@ -152,7 +154,7 @@ var (
 
 	DefaultRouterConfig = domain.RouterConfig{
 		PreferredPoolIDs:    []uint64{},
-		MaxRoutes:           4,
+		MaxRoutes:           20,
 		MaxPoolsPerRoute:    4,
 		MaxSplitRoutes:      3,
 		MinPoolLiquidityCap: 20000,
@@ -171,7 +173,7 @@ var (
 	DefaultPoolsConfig = domain.PoolsConfig{
 		// Transmuter V1 and V2
 		TransmuterCodeIDs:        []uint64{148, 254},
-		AlloyedTransmuterCodeIDs: []uint64{},
+		AlloyedTransmuterCodeIDs: []uint64{814},
 		GeneralCosmWasmCodeIDs:   []uint64{},
 	}
 
@@ -251,9 +253,9 @@ func denomNum(i int) string {
 }
 
 // Note that it does not deep copy pools
-func WithRoutePools(r route.RouteImpl, pools []sqsdomain.RoutablePool) route.RouteImpl {
+func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
 	newRoute := route.RouteImpl{
-		Pools: make([]sqsdomain.RoutablePool, 0, len(pools)),
+		Pools: make([]domain.RoutablePool, 0, len(pools)),
 	}
 
 	newRoute.Pools = append(newRoute.Pools, pools...)
@@ -279,7 +281,7 @@ func WithCandidateRoutePools(r sqsdomain.CandidateRoute, pools []sqsdomain.Candi
 // - Spread Factor
 // - Token Out Denom
 // - Taker Fee
-func (s *RouterTestHelper) ValidateRoutePools(expectedPools []sqsdomain.RoutablePool, actualPools []sqsdomain.RoutablePool) {
+func (s *RouterTestHelper) ValidateRoutePools(expectedPools []domain.RoutablePool, actualPools []domain.RoutablePool) {
 	s.Require().Equal(len(expectedPools), len(actualPools))
 
 	for i, expectedPool := range expectedPools {

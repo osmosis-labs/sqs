@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -54,9 +55,8 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 		baseDenoms domain.BlockPoolMetadata
 	}{
 		{
-			name: "empty base denoms",
-			baseDenoms: domain.BlockPoolMetadata{
-			},
+			name:       "empty base denoms",
+			baseDenoms: domain.BlockPoolMetadata{},
 		},
 		{
 			name: "one base denom",
@@ -127,10 +127,10 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 }
 
 func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
-	// env := os.Getenv("CI_SQS_PRICING_WORKER_TEST")
-	// if env != "true" {
-	// 	s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
-	// }
+	env := os.Getenv("CI_SQS_PRICING_WORKER_TEST")
+	if env != "true" {
+		s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
+	}
 
 	viper.SetConfigFile("../../../../config.json")
 	err := viper.ReadInConfig()

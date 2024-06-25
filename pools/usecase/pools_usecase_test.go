@@ -121,7 +121,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 
 			expectedRoutes: []route.RouteImpl{
 				{
-					Pools: []sqsdomain.RoutablePool{
+					Pools: []domain.RoutablePool{
 						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
 					},
 				},
@@ -141,7 +141,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 
 			expectedRoutes: []route.RouteImpl{
 				{
-					Pools: []sqsdomain.RoutablePool{
+					Pools: []domain.RoutablePool{
 						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
 					},
 				},
@@ -175,7 +175,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 
 			expectedRoutes: []route.RouteImpl{
 				{
-					Pools: []sqsdomain.RoutablePool{
+					Pools: []domain.RoutablePool{
 						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
 					},
 				},
@@ -235,7 +235,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	}
 }
 
-func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) sqsdomain.RoutablePool {
+func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)
 	return routablePool
