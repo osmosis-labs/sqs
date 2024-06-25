@@ -185,6 +185,14 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		return topSingleRouteQuote, nil
 	}
 
+	// Filter out generalized cosmWasm pool routes
+	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
+
+	// If filtering leads to a single route left, return it.
+	if len(rankedRoutes) == 1 {
+		return topSingleRouteQuote, nil
+	}
+
 	// Compute split route quote
 	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenIn)
 	if err != nil {

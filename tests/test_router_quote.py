@@ -253,7 +253,7 @@ class TestQuote:
         amount_out_scaled = quote.amount_out * spot_price_scaling_factor
         assert relative_error(amount_out_scaled, expected_token_out) < error_tolerance, f"Error: amount out scaled {amount_out_scaled} is not within {error_tolerance} of expected {expected_token_out}"
 
-    def validate_fee(quote):
+    def validate_fee(self, quote):
         """
         Validates fee returned in the quote response.
         If the returned fee is zero, it iterates over every pool in every route and ensures that their fee
@@ -261,7 +261,7 @@ class TestQuote:
 
         In other cases, asserts that the fee is non-zero.
         """
-                # Validate that the fee is charged
+        # Validate that the fee is charged
         if quote.effective_fee == 0:
             for route in quote.route:
                 for pool in route.pools:

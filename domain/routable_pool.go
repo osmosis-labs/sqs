@@ -15,8 +15,6 @@ import (
 type SQSPoolType int
 
 const (
-	// Mock is a mock pool type for testing purposes.
-	Mock = -2
 	// Result is a result pool type for returning to clients.
 	Result = -1
 	// Balancer is a Balancer pool type.
