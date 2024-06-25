@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -18,7 +17,7 @@ import (
 var _ domain.Route = &RouteImpl{}
 
 type RouteImpl struct {
-	Pools []sqsdomain.RoutablePool "json:\"pools\""
+	Pools []domain.RoutablePool "json:\"pools\""
 	// HasGeneralizedCosmWasmPool is true if the route contains a generalized cosmwasm pool.
 	// We track whether a route contains a generalized cosmwasm pool
 	// so that we can exclude it from split quote logic.
@@ -50,13 +49,13 @@ var (
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
 // with token in as base and token out as quote.
-func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]sqsdomain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
 		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()
 	)
 
-	newPools := make([]sqsdomain.RoutablePool, 0, len(r.Pools))
+	newPools := make([]domain.RoutablePool, 0, len(r.Pools))
 
 	for _, pool := range r.Pools {
 		// Compute spot price before swap.
@@ -102,7 +101,7 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]
 }
 
 // GetPools implements Route.
-func (r *RouteImpl) GetPools() []sqsdomain.RoutablePool {
+func (r *RouteImpl) GetPools() []domain.RoutablePool {
 	return r.Pools
 }
 

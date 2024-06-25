@@ -20,7 +20,7 @@ const (
 	MORE_INVALID_DENOM = "more_invalid_denom"
 )
 
-func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, tokenOutDenom string, balances sdk.Coins, takerFee osmomath.Dec) sqsdomain.RoutablePool {
+func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, tokenOutDenom string, balances sdk.Coins, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{tokenInDenom, tokenOutDenom})
 
 	poolType := cosmwasmPool.GetType()

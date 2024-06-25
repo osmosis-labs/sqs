@@ -163,7 +163,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 			}
 
 			// Get the route with out caching.
-			topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, options.MaxRoutes)
+			topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
 			if err != nil {
 				r.logger.Error("error ranking routes for pricing", zap.Error(err))
 				return nil, err
@@ -175,21 +175,13 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		}
 	} else {
 		// Otherwise, simply compute quotes over cached ranked routes
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxRoutes)
+		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes {
-		return topSingleRouteQuote, nil
-	}
-
-	// Filter out generalized cosmWasm pool routes
-	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
-
-	// If filtering leads to a single route left, return it.
-	if len(rankedRoutes) == 1 {
 		return topSingleRouteQuote, nil
 	}
 
@@ -221,10 +213,12 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	return finalQuote, nil
 }
 
-// filterDuplicatePoolIDRoutes filters routes that contain duplicate pool IDs.
+// filterAndConvertDuplicatePoolIDRankedRoutes filters ranked routes that contain duplicate pool IDs.
+// Routes with overlapping Alloyed and transmuter pools are not filtered out.
+// Additionally, the routes are converted into route.Route.Impl type.
 // CONTRACT: rankedRoutes are sorted in decreasing order by amount out
 // from first to last.
-func filterDuplicatePoolIDRoutes(rankedRoutes []route.RouteImpl) []route.RouteImpl {
+func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []RouteWithOutAmount) []route.RouteImpl {
 	// We use two maps for all routes and for the current route.
 	// This is so that if a route ends up getting filtered, its pool IDs are not added to the combined map.
 	combinedPoolIDsMap := make(map[uint64]struct{})
@@ -238,6 +232,11 @@ func filterDuplicatePoolIDRoutes(rankedRoutes []route.RouteImpl) []route.RouteIm
 		existsPoolID := false
 
 		for _, pool := range pools {
+			// Skip transmuter pools since they offer no slippage benefits.
+			if pool.GetSQSType() == domain.AlloyedTransmuter || pool.GetSQSType() == domain.TransmuterV1 {
+				continue
+			}
+
 			poolID := pool.GetId()
 
 			_, existsPoolID = combinedPoolIDsMap[poolID]
@@ -262,18 +261,20 @@ func filterDuplicatePoolIDRoutes(rankedRoutes []route.RouteImpl) []route.RouteIm
 		}
 
 		// Add route to filtered ranked routes
-		filteredRankedRoutes = append(filteredRankedRoutes, route)
+		filteredRankedRoutes = append(filteredRankedRoutes, route.RouteImpl)
 	}
 	return filteredRankedRoutes
 }
 
 // rankRoutesByDirectQuote ranks the given candidate routes by estimating direct quotes over each route.
+// Additionally, it fileters out routes with duplicate pool IDs and cuts them for splits
+// based on the value of maxSplitRoutes.
 // Returns the top quote as well as the ranked routes in decrease order of amount out.
 // Returns error if:
 // - fails to read taker fees
 // - fails to convert candidate routes to routes
 // - fails to estimate direct quotes
-func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
@@ -281,10 +282,16 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 		return nil, nil, err
 	}
 
-	topQuote, routes, err := estimateDirectQuote(ctx, routes, tokenIn, maxRoutes, r.logger)
+	topQuote, routesWithAmtOut, err := estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
+
+	// Update ranked routes with filtered ranked routes
+	routes = filterAndConvertDuplicatePoolIDRankedRoutes(routesWithAmtOut)
+
+	// Cut routes for splits
+	routes = cutRoutesForSplits(maxSplitRoutes, routes)
 
 	return topQuote, routes, nil
 }
@@ -320,7 +327,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	}
 
 	// Rank candidate routes by estimating direct quotes
-	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxRoutes)
+	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes)
 	if err != nil {
 		r.logger.Error("error getting ranked routes", zap.Error(err))
 		return nil, nil, err
@@ -329,9 +336,6 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	if len(rankedRoutes) == 0 {
 		return nil, nil, fmt.Errorf("no ranked routes found")
 	}
-
-	// Update ranked routes with filtered ranked routes
-	rankedRoutes = filterDuplicatePoolIDRoutes(rankedRoutes)
 
 	// Convert ranked routes back to candidate for caching
 	candidateRoutes = convertRankedToCandidateRoutes(rankedRoutes)
@@ -343,37 +347,6 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	}
 
 	return topSingleRouteQuote, rankedRoutes, nil
-}
-
-// estimateDirectQuote estimates and returns the direct quote for the given routes, token in and token out denom.
-// Also, returns the routes ranked by amount out in decreasing order.
-// Returns error if:
-// - fails to estimate direct quotes
-func estimateDirectQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, maxRoutes int, logger log.Logger) (domain.Quote, []route.RouteImpl, error) {
-	topQuote, routesSortedByAmtOut, err := estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, logger)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	numRoutes := len(routesSortedByAmtOut)
-
-	// If split routes are disabled, return a single the top route
-	if maxRoutes == 0 && numRoutes > 0 {
-		numRoutes = 1
-		// If there are more routes than the max split routes, keep only the top routes
-	} else if len(routesSortedByAmtOut) > maxRoutes {
-		// Keep only top routes for splits
-		routes = routes[:maxRoutes]
-		numRoutes = maxRoutes
-	}
-
-	// Convert routes sorted by amount out to routes
-	for i := 0; i < numRoutes; i++ {
-		// Update routes with the top routes
-		routes[i] = routesSortedByAmtOut[i].RouteImpl
-	}
-
-	return topQuote, routes, nil
 }
 
 // GetBestSingleRouteQuote returns the best single route quote to be done directly without a split.
@@ -726,6 +699,23 @@ func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.Ca
 		candidateRoutes.Routes = append(candidateRoutes.Routes, candidateRoute)
 	}
 	return candidateRoutes
+}
+
+// cutRoutesForSplits cuts the routes for splits based on the max split routes.
+// If max split routes is set to DisableSplitRoutes, it will return the top route.
+// If the number of routes is greater than the max split routes, it will keep only the top routes.
+// If the number of routes is less than or equal to the max split routes, it will return all the routes.
+func cutRoutesForSplits(maxSplitRoutes int, routes []route.RouteImpl) []route.RouteImpl {
+	// If split routes are disabled, return a single the top route
+	if maxSplitRoutes == domain.DisableSplitRoutes && len(routes) > 0 {
+		// If there are more routes than the max split routes, keep only the top routes
+		routes = routes[:1]
+	} else if len(routes) > maxSplitRoutes {
+		// Keep only top routes for splits
+		routes = routes[:maxSplitRoutes]
+	}
+
+	return routes
 }
 
 // ConvertMinTokensPoolLiquidityCapToFilter implements mvc.RouterUsecase.

@@ -37,6 +37,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+- Fix bug with allUSDT swaps resulting in extreme price impact due to config and filtering issues.
 - Fix bug of overapplying quote denom scaling factor in pool liquidity pricer.
 
 ## v25.1.1
