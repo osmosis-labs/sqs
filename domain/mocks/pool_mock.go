@@ -69,7 +69,7 @@ func (mp *MockRoutablePool) GetSQSPoolModel() sqsdomain.SQSPool {
 	return sqsdomain.SQSPool{
 		Balances:          mp.Balances,
 		PoolLiquidityCap:  mp.PoolLiquidityCap,
-		SpreadFactor:      DefaultSpreadFactor,
+		SpreadFactor:      mp.SpreadFactor,
 		PoolDenoms:        mp.Denoms,
 		CosmWasmPoolModel: mp.CosmWasmPoolModel,
 	}

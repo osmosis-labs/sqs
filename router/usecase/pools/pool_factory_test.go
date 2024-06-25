@@ -6,8 +6,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
@@ -70,11 +70,12 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 	}{
 		{
 			name: "AlloyTransmuter with correct data",
-			pool: mockPoolWithModel(alloyTransmuterCosmWasmPool.PoolId, &sqsdomain.SQSPool{
+			pool: &mocks.MockRoutablePool{
+				ID:                alloyTransmuterCosmWasmPool.PoolId,
 				SpreadFactor:      alloyTransmuterSpreadFactor,
 				Balances:          alloyTransmuterBalances,
 				CosmWasmPoolModel: &alloyTransmuterModel,
-			}),
+			},
 			cosmwasmPool: &alloyTransmuterCosmWasmPool,
 			cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
 				AlloyedTransmuterCodeIDs: map[uint64]struct{}{
@@ -94,7 +95,8 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 		},
 		{
 			name: "AlloyTransmuter with missing data",
-			pool: mockPoolWithModel(alloyTransmuterCosmWasmPool.PoolId, &sqsdomain.SQSPool{
+			pool: &mocks.MockRoutablePool{
+				ID: alloyTransmuterCosmWasmPool.PoolId,
 				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
 					ContractInfo: cosmwasmpool.ContractInfo{
 						Contract: cosmwasmpool.ALLOY_TRANSMUTER_CONTRACT_NAME,
@@ -104,7 +106,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 						AlloyTransmuter: nil,
 					},
 				},
-			}),
+			},
 			cosmwasmPool: &alloyTransmuterCosmWasmPool,
 			cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
 				AlloyedTransmuterCodeIDs: map[uint64]struct{}{
@@ -120,11 +122,12 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 		},
 		{
 			name: "Orderbook with correct data",
-			pool: mockPoolWithModel(orderbookCosmWasmPool.PoolId, &sqsdomain.SQSPool{
+			pool: &mocks.MockRoutablePool{
+				ID:                orderbookCosmWasmPool.PoolId,
 				SpreadFactor:      orderbookSpreadFactor,
 				Balances:          orderbookBalances,
 				CosmWasmPoolModel: &orderbookModel,
-			}),
+			},
 			cosmwasmPool: &orderbookCosmWasmPool,
 			cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
 				OrderbookCodeIDs: map[uint64]struct{}{
@@ -144,7 +147,8 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 		},
 		{
 			name: "Orderbook with missing data",
-			pool: mockPoolWithModel(orderbookCosmWasmPool.PoolId, &sqsdomain.SQSPool{
+			pool: &mocks.MockRoutablePool{
+				ID: orderbookCosmWasmPool.PoolId,
 				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
 					ContractInfo: cosmwasmpool.ContractInfo{
 						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
@@ -154,7 +158,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 						Orderbook: nil,
 					},
 				},
-			}),
+			},
 			cosmwasmPool: &orderbookCosmWasmPool,
 			cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
 				OrderbookCodeIDs: map[uint64]struct{}{
@@ -170,7 +174,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 		},
 		{
 			name: "Unsupported pool type",
-			pool: mockPoolWithModel(1, &sqsdomain.SQSPool{}),
+			pool: &mocks.MockRoutablePool{ID: 1},
 			cosmwasmPool: &cwpoolmodel.CosmWasmPool{
 				CodeId: 3,
 				PoolId: 124,
@@ -195,54 +199,4 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 			}
 		})
 	}
-}
-
-// mockPoolWithModel is a helper function to create a mock pool with a given model
-func mockPoolWithModel(poolId uint64, sqsPool *sqsdomain.SQSPool) sqsdomain.PoolI {
-	return mockPool{
-		poolId:  poolId,
-		sqsPool: sqsPool,
-	}
-}
-
-// mockPool is a mock implementation of sqsdomain.PoolI
-type mockPool struct {
-	poolId  uint64
-	sqsPool *sqsdomain.SQSPool
-}
-
-func (m mockPool) GetId() uint64 {
-	return m.poolId
-}
-
-func (m mockPool) GetType() poolmanagertypes.PoolType {
-	return poolmanagertypes.PoolType(poolmanagertypes.PoolType_value["CosmWasm"])
-}
-
-func (m mockPool) GetPoolLiquidityCap() osmomath.Int {
-	return m.sqsPool.PoolLiquidityCap
-}
-
-func (m mockPool) GetPoolDenoms() []string {
-	return m.sqsPool.PoolDenoms
-}
-
-func (m mockPool) GetUnderlyingPool() poolmanagertypes.PoolI {
-	panic("unimplemented")
-}
-
-func (m mockPool) GetSQSPoolModel() sqsdomain.SQSPool {
-	return *m.sqsPool
-}
-
-func (m mockPool) GetTickModel() (*sqsdomain.TickModel, error) {
-	panic("unimplemented")
-}
-
-func (m mockPool) SetTickModel(tickModel *sqsdomain.TickModel) error {
-	return nil
-}
-
-func (m mockPool) Validate(minUOSMOTVL osmomath.Int) error {
-	panic("unimplemented")
 }
