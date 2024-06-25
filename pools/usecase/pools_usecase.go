@@ -88,7 +88,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 	for _, candidateRoute := range candidateRoutes.Routes {
 		previousTokenOutDenom := tokenInDenom
 
-		routablePools := make([]sqsdomain.RoutablePool, 0, len(candidateRoute.Pools))
+		routablePools := make([]domain.RoutablePool, 0, len(candidateRoute.Pools))
 
 		// For fault tolerance, instead of bubbling up the error and skipping an entire
 		// request, we should detect the error and skip the route.
@@ -112,7 +112,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 				break
 			}
 
-			isGeneralizedCosmWasmPool := routablePool.IsGeneralizedCosmWasmPool()
+			isGeneralizedCosmWasmPool := routablePool.GetSQSType() == domain.GeneralizedCosmWasm
 			if isGeneralizedCosmWasmPool {
 				containsGeneralizedCosmWasmPool = true
 			}

@@ -1,7 +1,7 @@
 import requests
 
 # Endpoint URLs
-NUMIA_API_URL = 'https://data.numia-stage.osmosis.zone'
+NUMIA_API_URL = 'https://stage-proxy-data-api.osmosis-labs.workers.dev'
 TOKENS_ENDPOINT = '/tokens/v2/all'
 POOLS_ENDPOINT = '/stream/pool/v1/all'
 

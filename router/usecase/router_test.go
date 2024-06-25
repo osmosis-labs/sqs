@@ -234,7 +234,7 @@ func (s *RouterTestSuite) getTakerFeeMapForAllPoolTokenPairs(pools []sqsdomain.P
 	return pairs
 }
 
-func WithRoutePools(r route.RouteImpl, pools []sqsdomain.RoutablePool) route.RouteImpl {
+func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
 	return routertesting.WithRoutePools(r, pools)
 }
 

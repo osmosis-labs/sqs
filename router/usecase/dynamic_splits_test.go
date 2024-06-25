@@ -5,7 +5,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -51,17 +50,15 @@ func (s *RouterTestSuite) setupSplitsMainnetTestCase(displayDenomIn string, amou
 	candidateRoutes, err := useCases.Router.GetCandidateRoutes(ctx, tokenIn, chainDenomOut)
 	s.Require().NoError(err)
 
-	// Calculate routes from candidate routes
-	routes, err := useCases.Pools.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, chainDenomOut)
-	s.Require().NoError(err)
-
 	config := useCases.Router.GetConfig()
 
-	// Estimate direct quote
-	_, rankedRoutes, err := usecase.EstimateDirectQuote(ctx, routes, tokenIn, config.MaxRoutes, &log.NoOpLogger{})
-	s.Require().NoError(err)
+	// TODO: consider moving to interface.
+	routerUseCase, ok := useCases.Router.(*usecase.RouterUseCaseImpl)
+	s.Require().True(ok)
 
-	rankedRoutes = rankedRoutes[:config.MaxSplitRoutes]
+	// Estimate direct quote
+	_, rankedRoutes, err := routerUseCase.RankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, chainDenomOut, config.MaxRoutes)
+	s.Require().NoError(err)
 
 	return tokenIn, rankedRoutes
 }

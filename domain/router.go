@@ -10,7 +10,7 @@ import (
 )
 
 type RoutableResultPool interface {
-	sqsdomain.RoutablePool
+	RoutablePool
 	GetBalances() sdk.Coins
 }
 
@@ -21,7 +21,7 @@ type Route interface {
 	// The reason for this is that making network requests to chain is expensive.
 	// As a result, we want to minimize the number of requests we make.
 	ContainsGeneralizedCosmWasmPool() bool
-	GetPools() []sqsdomain.RoutablePool
+	GetPools() []RoutablePool
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.
 	// Returns error if the calculation fails.
 	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
@@ -36,7 +36,7 @@ type Route interface {
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
 	// The token in is the base token and the token out is the quote token.
-	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]sqsdomain.RoutablePool, osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
@@ -116,9 +116,10 @@ type PoolsConfig struct {
 const DisableSplitRoutes = 0
 
 type RouterState struct {
-	Pools     []sqsdomain.PoolI
-	TakerFees sqsdomain.TakerFeeMap
-	TickMap   map[uint64]*sqsdomain.TickModel
+	Pools          []sqsdomain.PoolI
+	TakerFees      sqsdomain.TakerFeeMap
+	TickMap        map[uint64]*sqsdomain.TickModel
+	AlloyedDataMap map[uint64]*sqsdomain.AlloyTransmuterData
 }
 
 // RouterOptions defines the options for the router

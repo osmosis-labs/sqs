@@ -28,18 +28,20 @@ const (
 )
 
 var (
-	UOSMO   = routertesting.UOSMO
-	ATOM    = routertesting.ATOM
-	stOSMO  = routertesting.STOSMO
-	stATOM  = routertesting.STATOM
-	USDC    = routertesting.USDC
-	USDCaxl = routertesting.USDCaxl
-	USDT    = routertesting.USDT
-	WBTC    = routertesting.WBTC
-	ETH     = routertesting.ETH
-	AKT     = routertesting.AKT
-	UMEE    = routertesting.UMEE
-	UION    = routertesting.UION
+	UOSMO    = routertesting.UOSMO
+	ATOM     = routertesting.ATOM
+	stOSMO   = routertesting.STOSMO
+	stATOM   = routertesting.STATOM
+	USDC     = routertesting.USDC
+	USDCaxl  = routertesting.USDCaxl
+	USDT     = routertesting.USDT
+	WBTC     = routertesting.WBTC
+	ETH      = routertesting.ETH
+	AKT      = routertesting.AKT
+	UMEE     = routertesting.UMEE
+	UION     = routertesting.UION
+	ALLUSDT  = routertesting.ALLUSDT
+	KAVAUSDT = routertesting.KAVAUSDT
 )
 
 // TODO: copy exists in candidate_routes_test.go - share & reuse
@@ -129,7 +131,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 	}{
 		"valid single route": {
 			routes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				})},
 			tokenIn: sdk.NewCoin(DenomTwo, sdk.NewInt(100)),
@@ -141,12 +143,12 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 		"valid two route single hop": {
 			routes: []route.RouteImpl{
 				// Route 1
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				}),
 
 				// Route 2
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), secondBalancerPoolSameDenoms), 2),
 				}),
 			},
@@ -163,17 +165,17 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 		"valid three route single hop": {
 			routes: []route.RouteImpl{
 				// Route 1
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				}),
 
 				// Route 2
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), thirdBalancerPoolSameDenoms), 3),
 				}),
 
 				// Route 3
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), secondBalancerPoolSameDenoms), 2),
 				}),
 			},
@@ -551,6 +553,15 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 // Validates that quotes constructed from mainnet state can be computed with no error
 // for selected pairs.
 func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
+
+	// At the time of test creation, we aim to have the same number of routes
+	// between allUSDT and uosmo and kava.USDT and uosmo.
+	// The reason is that there is an alloyed transmuter for routes between allUSDT and kava.USDT
+	// that provides no slippage swaps. Given that 100K is under the liqudiity of kava.USDT in the
+	// transmuter pool, the split routes should be essentially the same.
+	const usdtOsmoExpectedRoutesHighLiq = 3
+	var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
+
 	tests := map[string]struct {
 		tokenInDenom  string
 		tokenOutDenom string
@@ -591,7 +602,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(100_000_000),
 
-			expectedRoutesCount: 2,
+			expectedRoutesCount: 1,
 		},
 		// This test validates that with a greater max routes value, SQS is able to find
 		// the path from umee to stOsmo
@@ -611,6 +622,23 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			amountIn: osmomath.NewInt(1_000_000),
 
 			expectedRoutesCount: 1,
+		},
+
+		"allUSDT for uosmo": {
+			tokenInDenom:  ALLUSDT,
+			tokenOutDenom: UOSMO,
+
+			amountIn: oneHundredThousandUSDValue,
+
+			expectedRoutesCount: usdtOsmoExpectedRoutesHighLiq,
+		},
+		"kava.USDT for uosmo - should have the same routes as allUSDT for uosmo": {
+			tokenInDenom:  ALLUSDT,
+			tokenOutDenom: UOSMO,
+
+			amountIn: oneHundredThousandUSDValue,
+
+			expectedRoutesCount: usdtOsmoExpectedRoutesHighLiq,
 		},
 	}
 
