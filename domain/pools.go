@@ -59,32 +59,26 @@ var UnsetScalingFactorGetterCb ScalingFactorGetterCb = func(denom string) (osmom
 	panic("scaling factor getter cb is unset")
 }
 
-type OrderbookDirection int
+type OrderbookDirection bool
 
 const (
-	BID OrderbookDirection = 1
-	ASK OrderbookDirection = -1
+	BID OrderbookDirection = true
+	ASK OrderbookDirection = false
 )
 
 func (d *OrderbookDirection) String() string {
-	switch *d {
-	case BID:
+	if *d { // BID
 		return "BID"
-	case ASK:
+	} else { // ASK
 		return "ASK"
-	default:
-		return "UNKNOWN"
 	}
 }
 
 func (d *OrderbookDirection) Opposite() OrderbookDirection {
-	switch *d {
-	case BID:
+	if *d { // BID
 		return ASK
-	case ASK:
+	} else { // ASK
 		return BID
-	default:
-		return 0
 	}
 }
 
@@ -94,12 +88,9 @@ func (d *OrderbookDirection) Opposite() OrderbookDirection {
 // So if we want to iterate the BID orderbook, we should iterate in descending order.
 // If we want to iterate the ASK orderbook, we should iterate in ascending order.
 func (d *OrderbookDirection) IterationStep() (int, error) {
-	switch *d {
-	case BID:
+	if *d { // BID
 		return -1, nil
-	case ASK:
+	} else { // ASK
 		return 1, nil
-	default:
-		return 0, OrderbookPoolInvalidDirectionError{Direction: *d}
 	}
 }

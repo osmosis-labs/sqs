@@ -256,14 +256,6 @@ func (e SpotPriceQuoteCalculatorTruncatedError) Error() string {
 	return fmt.Sprintf("spot price truncated when using quote method, quote coin (%s), base denom (%s)", e.QuoteCoinStr, e.BaseDenom)
 }
 
-type OrderbookPoolInvalidDirectionError struct {
-	Direction OrderbookDirection
-}
-
-func (e OrderbookPoolInvalidDirectionError) Error() string {
-	return fmt.Sprintf("orderbook pool direction (%d) is invalid; must be either -1 or 1", e.Direction)
-}
-
 type OrderbookNotEnoughLiquidityToCompleteSwapError struct {
 	PoolId   uint64
 	AmountIn sdk.Coin

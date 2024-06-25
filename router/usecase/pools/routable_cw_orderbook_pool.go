@@ -108,16 +108,13 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		outputAmount := convertValue(amountInRemaining, tickPrice, directionOut)
 
 		// Tick liquidity for output side
-		outputTickLiquidity, err := getTickLiquidity(&tick.TickLiquidity, directionOut)
-		if err != nil {
-			return sdk.Coin{}, err
-		}
+		outputTickLiquidity := getTickLiquidity(&tick.TickLiquidity, directionOut)
 
 		// How much of the order this tick can fill
 		outputFilled := getFillableAmount(outputTickLiquidity, outputAmount)
 
 		// How much of the input denom has been filled
-		inputFilled := convertValue(outputFilled, tickPrice, directionIn)
+		inputFilled := convertValue(outputFilled, tickPrice, *directionIn)
 
 		// Add the filled amount to the order total
 		amountOutTotal.AddMut(outputFilled)
@@ -191,25 +188,24 @@ func (r *routableOrderbookPoolImpl) GetCodeID() uint64 {
 // - cosmwasmpool.BID (1) if the order is a bid (buying token out)
 // - cosmwasmpool.ASK (-1) if the order is an ask (selling token out)
 // - 0 if the order is not valid
-func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (domain.OrderbookDirection, error) {
+func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (*domain.OrderbookDirection, error) {
 	if tokenInDenom == r.OrderbookData.BaseDenom && tokenOutDenom == r.OrderbookData.QuoteDenom {
-		return domain.ASK, nil
+		dir := domain.ASK
+		return &dir, nil
 	} else if tokenInDenom == r.OrderbookData.QuoteDenom && tokenOutDenom == r.OrderbookData.BaseDenom {
-		return domain.BID, nil
+		dir := domain.BID
+		return &dir, nil
 	} else {
-		return 0, domain.OrderbookPoolMismatchError{PoolId: r.GetId(), TokenInDenom: tokenInDenom, TokenOutDenom: tokenOutDenom}
+		return nil, domain.OrderbookPoolMismatchError{PoolId: r.GetId(), TokenInDenom: tokenInDenom, TokenOutDenom: tokenOutDenom}
 	}
 }
 
 // Get the index for the tick state array for the starting index given direction
 func (r *routableOrderbookPoolImpl) GetStartTickIndex(direction domain.OrderbookDirection) (int, error) {
-	switch direction {
-	case domain.ASK:
+	if direction == domain.ASK {
 		return r.OrderbookData.NextAskTickIndex, nil
-	case domain.BID:
+	} else { // BID
 		return r.OrderbookData.NextBidTickIndex, nil
-	default:
-		return -1, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
 	}
 }
 
@@ -226,14 +222,11 @@ func convertValue(amount osmomath.BigDec, price osmomath.BigDec, direction domai
 }
 
 // Returns the related liquidity for a given direction on the current tick
-func getTickLiquidity(s *cosmwasmpool.OrderbookTickLiquidity, direction domain.OrderbookDirection) (osmomath.BigDec, error) {
-	switch direction {
-	case domain.ASK:
-		return s.AskLiquidity, nil
-	case domain.BID:
-		return s.BidLiquidity, nil
-	default:
-		return osmomath.BigDec{}, domain.OrderbookPoolInvalidDirectionError{Direction: direction}
+func getTickLiquidity(s *cosmwasmpool.OrderbookTickLiquidity, direction domain.OrderbookDirection) osmomath.BigDec {
+	if direction == domain.ASK {
+		return s.AskLiquidity
+	} else { // BID
+		return s.BidLiquidity
 	}
 }
 

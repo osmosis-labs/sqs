@@ -489,7 +489,6 @@ func (s *RoutablePoolTestSuite) TestGetDirection() {
 		"invalid direction": {
 			tokenInDenom:  "invalid",
 			tokenOutDenom: BASE_DENOM,
-			expected:      0,
 			expectError:   domain.OrderbookPoolMismatchError{PoolId: defaultPoolID, TokenInDenom: "invalid", TokenOutDenom: BASE_DENOM},
 		},
 	}
@@ -513,7 +512,7 @@ func (s *RoutablePoolTestSuite) TestGetDirection() {
 				return
 			}
 			s.Require().NoError(err)
-			s.Require().Equal(tc.expected, direction)
+			s.Require().Equal(tc.expected, *direction)
 		})
 	}
 }
