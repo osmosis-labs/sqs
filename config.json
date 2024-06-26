@@ -5,6 +5,7 @@
     "logger-is-production": true,
     "logger-level": "info",
     "grpc-gateway-endpoint": "http://localhost:26657",
+    "grpc-endpoint": "http://localhost:9090",
     "chain-id": "osmosis-1",
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
     "flight-record": {
@@ -60,7 +61,7 @@
         "server-connection-timeout-seconds": 10
     },
     "otel": {
-        "dsn": "",
+        "dsn": "enabled",
         "sample-rate": 1,
         "enable-tracing": true,
         "profiles-sample-rate": 1,

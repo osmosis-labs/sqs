@@ -6,17 +6,27 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
+	"github.com/osmosis-labs/sqs/domain"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
+var config domain.Config
 // initializeWasmClient initializes the wasm client given the node URI
 // Returns error if fails to initialize the client
 func initializeWasmClient(nodeURI string) (wasmtypes.QueryClient, error) {
 	clientContext := client.Context{}
-	httpClient, err := client.NewClientFromNode(nodeURI)
+	grpcClient, err := grpc.NewClient(config.ChainGRPCEndpoint,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
 	if err != nil {
 		return nil, err
 	}
-	clientContext = clientContext.WithClient(httpClient)
+
+	clientContext = clientContext.WithGRPCClient(grpcClient)
 	wasmClient := wasmtypes.NewQueryClient(clientContext)
 
 	return wasmClient, nil
@@ -35,7 +45,7 @@ func queryCosmwasmContract[T any, K any](ctx context.Context, wasmClient wasmtyp
 	queryResponse, err := wasmClient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
 		Address:   contractAddress,
 		QueryData: bz,
-	})
+	}, grpc.Header(&metadata.MD{}))
 	if err != nil {
 		return err
 	}
