@@ -149,9 +149,9 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 				rating += totalTVLFloat * 1.5
 			}
 
-			// Grant additional rating to alloyed transmuter.
+			// Grant additional rating to alloyed transmuter & orderbook.
 			cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
-			if cosmWasmPoolModel != nil && cosmWasmPoolModel.IsAlloyTransmuter() {
+			if cosmWasmPoolModel != nil && (cosmWasmPoolModel.IsAlloyTransmuter() || cosmWasmPoolModel.IsOrderbook()) {
 				rating += totalTVLFloat * 1.5
 			}
 		}
