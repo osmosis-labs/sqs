@@ -15,7 +15,7 @@ import (
 
 // NewRoutablePool creates a new RoutablePool.
 // Panics if pool is of invalid type or if does not contain tick data when a concentrated pool.
-func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig, scalingFactorGetterCb domain.ScalingFactorGetterCb) (sqsdomain.RoutablePool, error) {
+func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig, scalingFactorGetterCb domain.ScalingFactorGetterCb) (domain.RoutablePool, error) {
 	poolType := pool.GetType()
 	chainPool := pool.GetUnderlyingPool()
 	if poolType == poolmanagertypes.Concentrated {
@@ -89,7 +89,7 @@ func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmoma
 
 // newRoutableCosmWasmPool creates a new RoutablePool for CosmWasm pools.
 // Panics if the given pool is not a cosmwasm pool or if the
-func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWasmPoolRouterConfig, tokenOutDenom string, takerFee osmomath.Dec, scalingFactorGetterCb domain.ScalingFactorGetterCb) (sqsdomain.RoutablePool, error) {
+func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWasmPoolRouterConfig, tokenOutDenom string, takerFee osmomath.Dec, scalingFactorGetterCb domain.ScalingFactorGetterCb) (domain.RoutablePool, error) {
 	chainPool := pool.GetUnderlyingPool()
 	poolType := pool.GetType()
 
@@ -146,7 +146,7 @@ func newRoutableCosmWasmPoolWithCustomModel(
 	cosmWasmConfig domain.CosmWasmPoolRouterConfig,
 	tokenOutDenom string,
 	takerFee osmomath.Dec,
-) (sqsdomain.RoutablePool, error) {
+) (domain.RoutablePool, error) {
 	sqsPoolModel := pool.GetSQSPoolModel()
 
 	// Check if the pool is a transmuter pool with alloyed assets

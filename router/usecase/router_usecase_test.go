@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"testing"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -14,6 +15,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -293,24 +295,56 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 
 		otherPool = &mocks.MockRoutablePool{ID: defaultPoolID + 1}
 
-		defaultSingleRoute = WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+		defaultSingleRoute = WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 			deafaultPool,
+		})
+
+		alloyRouteOne = WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+			&mocks.MockRoutablePool{ID: defaultPoolID, SQSPoolType: domain.AlloyedTransmuter},
+			&mocks.MockRoutablePool{ID: defaultPoolID + 1, SQSPoolType: domain.Balancer},
+		})
+
+		alloyRouteTwo = WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+			&mocks.MockRoutablePool{ID: defaultPoolID, SQSPoolType: domain.AlloyedTransmuter},
+			&mocks.MockRoutablePool{ID: defaultPoolID + 2, SQSPoolType: domain.StableSwap},
+		})
+
+		transmuterRouteOne = WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+			&mocks.MockRoutablePool{ID: defaultPoolID + 1, SQSPoolType: domain.Balancer},
+			&mocks.MockRoutablePool{ID: defaultPoolID, SQSPoolType: domain.TransmuterV1},
+		})
+
+		transmuterRouteTwo = WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+			&mocks.MockRoutablePool{ID: defaultPoolID + 2, SQSPoolType: domain.StableSwap},
+			&mocks.MockRoutablePool{ID: defaultPoolID, SQSPoolType: domain.TransmuterV1},
+		})
+
+		alloyTransmuterV1Route = WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+			&mocks.MockRoutablePool{ID: defaultPoolID, SQSPoolType: domain.AlloyedTransmuter},
+			&mocks.MockRoutablePool{ID: defaultPoolID + 1, SQSPoolType: domain.TransmuterV1},
 		})
 	)
 
+	wrapRoute := func(r route.RouteImpl) usecase.RouteWithOutAmount {
+		return usecase.RouteWithOutAmount{
+			RouteImpl: r,
+			// Note: amount is not relevant for this test
+		}
+	}
+
 	tests := map[string]struct {
-		routes []route.RouteImpl
+		routes []usecase.RouteWithOutAmount
 
 		expectedRoutes []route.RouteImpl
 	}{
 		"empty routes": {
-			routes:         []route.RouteImpl{},
+			routes:         []usecase.RouteWithOutAmount{},
 			expectedRoutes: []route.RouteImpl{},
 		},
 
 		"single route single pool": {
-			routes: []route.RouteImpl{
-				defaultSingleRoute,
+			routes: []usecase.RouteWithOutAmount{
+				wrapRoute(defaultSingleRoute),
 			},
 
 			expectedRoutes: []route.RouteImpl{
@@ -319,15 +353,15 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"single route two different pools": {
-			routes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+			routes: []usecase.RouteWithOutAmount{
+				wrapRoute(WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					deafaultPool,
 					otherPool,
-				}),
+				})),
 			},
 
 			expectedRoutes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					deafaultPool,
 					otherPool,
 				}),
@@ -338,15 +372,15 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		// Duplicate pool IDs within the same route are filtered out at a different step
 		// in the router logic.
 		"single route two same pools (have no effect on filtering)": {
-			routes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+			routes: []usecase.RouteWithOutAmount{
+				wrapRoute(WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					deafaultPool,
 					deafaultPool,
-				}),
+				})),
 			},
 
 			expectedRoutes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					deafaultPool,
 					deafaultPool,
 				}),
@@ -354,28 +388,28 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"two single hop routes and no duplicates": {
-			routes: []route.RouteImpl{
-				defaultSingleRoute,
+			routes: []usecase.RouteWithOutAmount{
+				wrapRoute(defaultSingleRoute),
 
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				wrapRoute(WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					otherPool,
-				}),
+				})),
 			},
 
 			expectedRoutes: []route.RouteImpl{
 				defaultSingleRoute,
 
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					otherPool,
 				}),
 			},
 		},
 
 		"two single hop routes with duplicates (second filtered)": {
-			routes: []route.RouteImpl{
-				defaultSingleRoute,
+			routes: []usecase.RouteWithOutAmount{
+				wrapRoute(defaultSingleRoute),
 
-				defaultSingleRoute,
+				wrapRoute(defaultSingleRoute),
 			},
 
 			expectedRoutes: []route.RouteImpl{
@@ -384,25 +418,65 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"three route. first and second overlap. second and third overlap. second is filtered out but not third": {
-			routes: []route.RouteImpl{
-				defaultSingleRoute,
+			routes: []usecase.RouteWithOutAmount{
+				wrapRoute(defaultSingleRoute),
 
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				wrapRoute(WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					deafaultPool, // first and second overlap
 					otherPool,    // second and third overlap
-				}),
+				})),
 
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				wrapRoute(WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					otherPool,
-				}),
+				})),
 			},
 
 			expectedRoutes: []route.RouteImpl{
 				defaultSingleRoute,
 
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					otherPool,
 				}),
+			},
+		},
+
+		"two routes with duplicate alloy -> not filtered": {
+			routes: []usecase.RouteWithOutAmount{
+				wrapRoute(alloyRouteOne),
+
+				wrapRoute(alloyRouteTwo),
+			},
+
+			expectedRoutes: []route.RouteImpl{
+				alloyRouteOne,
+
+				alloyRouteTwo,
+			},
+		},
+
+		"two routes with duplicate transmuter -> not filtered": {
+			routes: []usecase.RouteWithOutAmount{
+				wrapRoute(transmuterRouteOne),
+
+				wrapRoute(transmuterRouteTwo),
+			},
+
+			expectedRoutes: []route.RouteImpl{
+				transmuterRouteOne,
+
+				transmuterRouteTwo,
+			},
+		},
+
+		"two exact routes with alloy and transmuter -> filtered": {
+			routes: []usecase.RouteWithOutAmount{
+				wrapRoute(alloyTransmuterV1Route),
+				wrapRoute(alloyTransmuterV1Route),
+			},
+
+			expectedRoutes: []route.RouteImpl{
+				alloyTransmuterV1Route,
+				alloyTransmuterV1Route,
 			},
 		},
 	}
@@ -435,7 +509,7 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 		},
 		"single route": {
 			rankedRoutes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID),
 				}),
 			},
@@ -456,10 +530,10 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 		},
 		"two routes": {
 			rankedRoutes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID),
 				}),
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID+1),
 				}),
 			},
@@ -503,11 +577,11 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 // We restrict the number of routes via config.
 //
 // As of today there are 3 major ATOM / OSMO pools:
-// Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 11M of liquidity to date
-// Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 6.17M of liquidity to date
-// Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 415K of liquidity to date
-// Pool ID 1399: https://app.osmosis.zone/pool/1399 (concentrated) 0.01% spread factor and 117K of liquidity to date
-// Pool ID 1400: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 232K of liquidity to date
+// Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 8M of liquidity to date
+// Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 4M of liquidity to date
+// Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 268K of liquidity to date
+// Pool ID 1399: https://app.osmosis.zone/pool/1399 (concentrated) 0.01% spread factor and 75K of liquidity to date
+// Pool ID 1400: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 149K of liquidity to date
 //
 // Based on this state, the small amounts of token in should go through pool 1265
 // Medium amounts of token in should go through pool 1135
@@ -535,7 +609,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1265Concentrated,
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -557,7 +631,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1265Concentrated,
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 	}
 
@@ -617,7 +691,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 38
+		expectedZeroPoolCount = 37
 	)
 
 	viper.SetConfigFile("../../config.json")
@@ -741,9 +815,9 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 // in the router usecase state.
 func (s *RouterTestSuite) TestSortPools() {
 	const (
-		// the minimum number of pools should never change since we never delete pools. As a result
+		// the minimum number of pools should  only change if liqudiity falls below MinPoolLiquidityCap. As a result
 		// this is a good high-level check to ensure that the pools are being loaded correctly.
-		expectedMinNumPools = 241
+		expectedMinNumPools = 239
 
 		// If mainnet state is updated
 		expectedTopPoolID = uint64(1283)
@@ -766,6 +840,343 @@ func (s *RouterTestSuite) TestSortPools() {
 
 	// Check that the top pool is the expected one.
 	s.Require().Equal(expectedTopPoolID, sortedPools[0].GetId())
+}
+
+// Validates ConvertMinTokensPoolLiquidityCapToFilter method per its spec.
+func (s *RouterTestSuite) TestConvertMinTokensPoolLiquidityCapToFilter() {
+	var (
+		defaultFilters = routertesting.DefaultRouterConfig.DynamicMinLiquidityCapFiltersDesc
+
+		defaultConfigFilter = routertesting.DefaultRouterConfig.MinPoolLiquidityCap
+
+		defaultThresholdMinPoolLiquidityCap = defaultFilters[0].MinTokensCap
+
+		defaultAboveThresholdFilterValue = defaultFilters[0].FilterValue
+	)
+
+	tests := []struct {
+		name string
+
+		minLiqCapFilterEntries []domain.DynamicMinLiquidityCapFilterEntry
+
+		minTokensPoolLiquidityCap uint64
+
+		expectedFilter uint64
+	}{
+		{
+			name: "min pool liquidity cap at threshold -> return dynamic filter value",
+
+			minLiqCapFilterEntries: defaultFilters,
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap,
+
+			expectedFilter: defaultAboveThresholdFilterValue,
+		},
+
+		{
+			name: "min pool liquidity cap above threshold -> return dynamic filter value",
+
+			minLiqCapFilterEntries: defaultFilters,
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap + 1,
+
+			expectedFilter: defaultAboveThresholdFilterValue,
+		},
+
+		{
+			name: "min pool liquidity cap below threshold -> return default filter value",
+
+			minLiqCapFilterEntries: defaultFilters,
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap - 1,
+
+			expectedFilter: defaultConfigFilter,
+		},
+
+		{
+			name: "empty filters -> return default filter value",
+
+			minLiqCapFilterEntries: []domain.DynamicMinLiquidityCapFilterEntry{},
+
+			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap - 1,
+
+			expectedFilter: defaultConfigFilter,
+		},
+		{
+			name: "multiple pre-configured filters -> choice falls in-between",
+
+			minLiqCapFilterEntries: []domain.DynamicMinLiquidityCapFilterEntry{
+				{
+					MinTokensCap: 300_000,
+					FilterValue:  30_000,
+				},
+				{
+					MinTokensCap: 20_000,
+					FilterValue:  2_000,
+				},
+				{
+					MinTokensCap: 1_000,
+					FilterValue:  100,
+				},
+			},
+
+			// Above 1_000 and below 20_000.
+			minTokensPoolLiquidityCap: 5000,
+
+			expectedFilter: 100,
+		},
+	}
+
+	for _, tt := range tests {
+		s.T().Run(tt.name, func(t *testing.T) {
+			// Set up mainnet mock state.
+			mainnetState := s.SetupMainnetState()
+
+			config := routertesting.DefaultRouterConfig
+			config.DynamicMinLiquidityCapFiltersDesc = tt.minLiqCapFilterEntries
+
+			mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(config))
+
+			// System under test
+			actualFilter := mainnetUsecase.Router.ConvertMinTokensPoolLiquidityCapToFilter(tt.minTokensPoolLiquidityCap)
+
+			// Validate result.
+			s.Require().Equal(tt.expectedFilter, actualFilter)
+		})
+	}
+}
+
+// This test runs tests against GetCustomDirectQuotes to ensure that the method correctly calculates
+// quote across multi pool route.
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMOUSDC() {
+	config := routertesting.DefaultRouterConfig
+	config.MaxPoolsPerRoute = 5
+	config.MaxRoutes = 10
+
+	var (
+		amountIn = osmomath.NewInt(5000000)
+	)
+
+	mainnetState := s.SetupMainnetState()
+
+	// Setup router repository mock
+	routerRepositoryMock := routerrepo.New()
+	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+
+	// Setup pools usecase mock.
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb)
+	poolsUsecase.StorePools(mainnetState.Pools)
+
+	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+
+	// Test cases
+	testCases := []struct {
+		// test name
+		name string
+
+		// token being swapped
+		tokenIn sdk.Coin
+
+		// token to be received
+		tokenOutDenom []string
+
+		// pools route path for swap
+		poolID []uint64
+
+		// usually it's the number of pools given,
+		// unless any of those pools does not have given asset pair.
+		expectedNumOfRoutes int
+
+		// for single-hop it matches poolID slice
+		expectedPoolID []uint64
+
+		err error
+	}{
+		{
+			name:          "Fail: empty tokenOutDenom",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{},
+			poolID: []uint64{
+				1, // OSMO - ATOM
+			},
+			err: usecase.ErrValidationFailed,
+		},
+		{
+			name:          "Fail: empty poolID",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM},
+			poolID:        []uint64{},
+			err:           usecase.ErrValidationFailed,
+		},
+		{
+			name:          "Fail: mismatch poolID and tokenOutDenom",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM},
+			poolID:        []uint64{1, 2},
+			err:           usecase.ErrValidationFailed,
+		},
+		{
+			name:          "Single pool: OSMO-ATOM - happy case",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM},
+			poolID: []uint64{
+				1, // OSMO - ATOM
+			},
+			expectedNumOfRoutes: 1,
+			expectedPoolID:      []uint64{1},
+		},
+		{
+			name:          "Single pool: OSMO-ATOM - fail case: out denom not found",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM},
+			poolID: []uint64{
+				1093, // OSMO - AKT
+			},
+			err: usecase.ErrTokenOutDenomPoolNotFound,
+		},
+		{
+			name:          "Single pool: ATOM-OSMO - fail case: in denom not found",
+			tokenIn:       sdk.NewCoin(ATOM, amountIn),
+			tokenOutDenom: []string{UOSMO},
+			poolID: []uint64{
+				1480, // AKT - USDC
+			},
+			err: usecase.ErrTokenInDenomPoolNotFound,
+		},
+		{
+			name:          "Multi pool: OSMO-USDC - happy case",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{AKT, USDC},
+			poolID: []uint64{
+				1093, // OSMO - AKT
+				1301, // AKT - USDC
+			},
+			expectedNumOfRoutes: 2,
+			expectedPoolID:      []uint64{1093, 1301},
+		},
+		{
+			name:          "Multi pool: OSMO-USDC - fail case",
+			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
+			tokenOutDenom: []string{ATOM, USDT},
+			poolID: []uint64{
+				1,    // OSMO - ATOM
+				1301, // AKT - USDC
+			},
+			expectedNumOfRoutes: 2,
+			expectedPoolID:      []uint64{1093, 1301},
+			err:                 usecase.ErrTokenInDenomPoolNotFound,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			quotes, err := routerUsecase.GetCustomDirectQuoteMultiPool(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
+			s.Require().ErrorIs(err, tc.err)
+			if err != nil {
+				return // nothing else to do
+			}
+
+			// token in must match
+			s.Require().Equal(quotes.GetAmountIn().Denom, tc.tokenIn.Denom)
+			s.Require().Equal(tc.expectedNumOfRoutes, len(quotes.GetRoute()))
+			s.validateExpectedPoolIDMultiRouteOneHopQuote(quotes, tc.expectedPoolID)
+		})
+	}
+}
+
+func (s *RouterTestSuite) TestCutRoutesForSplits() {
+
+	// Note: contents are irrelevant. Only count of routes matters for this test.
+	var (
+		defaultRoute = route.RouteImpl{}
+
+		oneRoute    = []route.RouteImpl{defaultRoute}
+		threeRoutes = []route.RouteImpl{defaultRoute, defaultRoute, defaultRoute}
+	)
+
+	testcases := []struct {
+		name string
+
+		maxSplitRoutes int
+		routes         []route.RouteImpl
+
+		expectedRoutesLen int
+	}{
+		{
+			name: "empty routes & disable split routes for max split",
+
+			routes:         []route.RouteImpl{},
+			maxSplitRoutes: domain.DisableSplitRoutes,
+
+			expectedRoutesLen: 0,
+		},
+		{
+			name:           "empty routes & 1 max split",
+			routes:         []route.RouteImpl{},
+			maxSplitRoutes: 1,
+
+			expectedRoutesLen: 0,
+		},
+		{
+			name: "1 route & disable split routes for max split",
+
+			routes:         oneRoute,
+			maxSplitRoutes: domain.DisableSplitRoutes,
+
+			expectedRoutesLen: 1,
+		},
+		{
+			name:           "1 route & 1 max split",
+			routes:         oneRoute,
+			maxSplitRoutes: 1,
+
+			expectedRoutesLen: 1,
+		},
+		{
+			name:           "1 route & 2 max split",
+			routes:         oneRoute,
+			maxSplitRoutes: 2,
+
+			expectedRoutesLen: 1,
+		},
+		{
+			name:           "3 routes & disable split routes for max split",
+			routes:         threeRoutes,
+			maxSplitRoutes: domain.DisableSplitRoutes,
+
+			expectedRoutesLen: 1,
+		},
+		{
+			name:           "3 routes & 2 routes for max split",
+			routes:         threeRoutes,
+			maxSplitRoutes: 2,
+
+			expectedRoutesLen: 2,
+		},
+		{
+			name:           "3 routes & 3 routes for max split",
+			routes:         threeRoutes,
+			maxSplitRoutes: 3,
+
+			expectedRoutesLen: 3,
+		},
+		{
+			name:           "3 routes & 4 routes for max split",
+			routes:         threeRoutes,
+			maxSplitRoutes: 4,
+
+			expectedRoutesLen: 3,
+		},
+	}
+
+	for _, tc := range testcases {
+		s.Run(tc.name, func() {
+
+			routes := usecase.CutRoutesForSplits(tc.maxSplitRoutes, tc.routes)
+
+			s.Require().Len(routes, tc.expectedRoutesLen)
+		})
+	}
 }
 
 // validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.

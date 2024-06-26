@@ -57,6 +57,7 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 	}
 
 	e.GET(formatTokensResource("/metadata"), handler.GetMetadata)
+	e.GET(formatTokensResource("/pool-metadata"), handler.GetPoolDenomMetadata)
 	e.GET(formatTokensResource("/prices"), handler.GetPrices)
 	e.GET(formatTokensResource("/usd-price-test"), handler.GetUSDPriceTest)
 	e.POST(formatTokensResource("/store-state"), handler.StoreTokensStateInFiles)
@@ -120,6 +121,34 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, tokenMetadataResult)
 }
 
+// @Summary Pool Denom Metadata
+// @Description returns pool denom metadata. As of today, this metadata is represented by the local market cap of the token computed over all Osmosis pools.
+// @Description For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
+// @Description See `config.json` and `config-testnet.json` in root for details.
+// @ID get-pool-denom-metadata
+// @Produce  json
+// @Param  denoms  query  string  false  "List of denoms where each can either be a human denom or a chain denom"
+// @Param humanDenoms query bool true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
+// @Router /tokens/pool-metadata [get]
+func (a *TokensHandler) GetPoolDenomMetadata(c echo.Context) (err error) {
+	denomsStr := c.QueryParam("denoms")
+	if len(denomsStr) == 0 {
+		// Return all pool denom metadata
+		result := a.TUsecase.GetFullPoolDenomMetadata()
+		return c.JSON(http.StatusOK, result)
+	}
+
+	denoms := strings.Split(denomsStr, ",")
+	// Validate denom parameters and convert to chain denoms if necessary.
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, denoms)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
+
+	result := a.TUsecase.GetPoolDenomsMetadata(chainDenoms)
+	return c.JSON(http.StatusOK, result)
+}
+
 // @Summary Get prices
 // @Description Given a list of base denominations, this endpoint returns the spot price with a system-configured quote denomination.
 // If the pricing source is set to "chain" (0), it will first check the **chain** pricing cache for the price quote. If it exists, it will return it. Otherwise, it will compute the pricing on-demand if the quote is non-usdc.
@@ -130,7 +159,7 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 // @Produce  json
 // @Param   base          query     string  true  "Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)"
 // @Param   humanDenoms   query     bool    false "Specify true if input denominations are in human-readable format; defaults to false"
-// @Param	pricingSource query		int     false "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)
+// @Param	pricingSource query     int     false "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)"
 // @Success 200 {object} map[string]map[string]string "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price."
 // @Router /tokens/prices [get]
 func (a *TokensHandler) GetPrices(c echo.Context) (err error) {

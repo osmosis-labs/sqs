@@ -8,7 +8,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -31,7 +30,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 	nextBidTickIndex, nextAskTickIndex int,
 	ticks []cosmwasmpool.OrderbookTick,
 	takerFee osmomath.Dec,
-) sqsdomain.RoutablePool {
+) domain.RoutablePool {
 	// TODO: replace this with orderbook, but this should work as mock for now
 	cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{tokenInDenom, tokenOutDenom})
 
@@ -498,7 +497,7 @@ func (s *RoutablePoolTestSuite) TestGetDirection() {
 			s.Setup()
 			routablePool := s.SetupRoutableOrderbookPool(tc.tokenInDenom, tc.tokenOutDenom, MIN_TICK, MAX_TICK, nil, osmomath.ZeroDec())
 
-			routableOrderbookPool, ok := routablePool.(*pools.RouteableOrderbookPoolImpl)
+			routableOrderbookPool, ok := routablePool.(*pools.RoutableOrderbookPoolImpl)
 
 			if !ok {
 				s.FailNow("failed to cast to RouteableOrderbookPoolImpl")

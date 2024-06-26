@@ -7,8 +7,9 @@ ROUTER_ROUTES_URL = "/router/routes"
 ROUTER_QUOTE_URL = "/router/quote"
 
 TOKENS_METADATA_URL = "/tokens/metadata"
-
 TOKENS_PRICES_URL = "/tokens/prices"
+
+POOLS_URL = "/pools"
 
 CONFIG_URL = "/config"
 
@@ -45,6 +46,18 @@ class SQSService:
         self.config = response.json()
 
         return self.config
+    
+    def get_pool(self, pool_id):
+        """
+        Fetches the pool from the specified endpoint and returns it.
+        Raises error if non-200 is returned from the endpoint.
+        """
+        response = requests.get(self.url + f"{POOLS_URL}?IDs={pool_id}", headers=self.headers)
+
+        if response.status_code != 200:
+            raise Exception(f"Error fetching pool: {response.text}")
+
+        return response.json()
 
     def get_candidate_routes(self, denom_in, denom_out, human_denoms="false"):
         # Set the query parameters

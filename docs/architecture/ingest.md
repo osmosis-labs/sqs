@@ -86,3 +86,6 @@ This map containing pool liquidity data for all pools is then [propagated to the
 By having the information about all pools updated within a block, their latest liquidity and prices of each token in the pool, we are able to recompute the liquidity capitalization for all updated pools and denom liquidities.
 
 For example, assume that there is an ATOM/OSMO pool that is modified within a block. First, we recompute the default quote denom (USDC) denominated prices for ATOM and OSMO using the "pricing worker". Then, the "pool liquidity pricing worker" uses the updated prices from the pricing worker to recompute the capitalization (USDC-denominated value of total liquidity in the pool).
+
+The denom liquidity capitalization and pool liquidity capitalizaion for each pool are computed concurrently by the
+pool liquidity pricer worker after every block.

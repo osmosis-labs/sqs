@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	_ sqsdomain.RoutablePool    = &routableResultPoolImpl{}
+	_ domain.RoutablePool       = &routableResultPoolImpl{}
 	_ domain.RoutableResultPool = &routableResultPoolImpl{}
 )
 
@@ -34,13 +34,13 @@ type routableResultPoolImpl struct {
 	CodeID        uint64                    "json:\"code_id,omitempty\""
 }
 
-// GetCodeID implements sqsdomain.RoutablePool.
+// GetCodeID implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetCodeID() uint64 {
 	panic("unimplemented")
 }
 
 // NewRoutableResultPool returns the new routable result pool with the given parameters.
-func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenOutDenom string, takerFee osmomath.Dec, codeID uint64) sqsdomain.RoutablePool {
+func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenOutDenom string, takerFee osmomath.Dec, codeID uint64) domain.RoutablePool {
 	return &routableResultPoolImpl{
 		ID:            ID,
 		Type:          poolType,
@@ -51,12 +51,12 @@ func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spread
 	}
 }
 
-// GetId implements sqsdomain.RoutablePool.
+// GetId implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetId() uint64 {
 	return r.ID
 }
 
-// GetPoolDenoms implements sqsdomain.RoutablePool.
+// GetPoolDenoms implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetPoolDenoms() []string {
 	denoms := make([]string, len(r.Balances))
 	for i, balance := range r.Balances {
@@ -66,7 +66,7 @@ func (r *routableResultPoolImpl) GetPoolDenoms() []string {
 	return denoms
 }
 
-// GetSQSPoolModel implements sqsdomain.RoutablePool.
+// GetSQSPoolModel implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetSQSPoolModel() sqsdomain.SQSPool {
 	return sqsdomain.SQSPool{
 		Balances:     r.Balances,
@@ -75,27 +75,27 @@ func (r *routableResultPoolImpl) GetSQSPoolModel() sqsdomain.SQSPool {
 	}
 }
 
-// GetTickModel implements sqsdomain.RoutablePool.
+// GetTickModel implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetTickModel() (*sqsdomain.TickModel, error) {
 	return nil, errors.New("not implemented")
 }
 
-// GetPoolLiquidityCap implements sqsdomain.RoutablePool.
+// GetPoolLiquidityCap implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetPoolLiquidityCap() math.Int {
 	return osmomath.Int{}
 }
 
-// GetType implements sqsdomain.RoutablePool.
+// GetType implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetType() poolmanagertypes.PoolType {
 	return r.Type
 }
 
-// GetUnderlyingPool implements sqsdomain.RoutablePool.
+// GetUnderlyingPool implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetUnderlyingPool() poolmanagertypes.PoolI {
 	return nil
 }
 
-// Validate implements sqsdomain.RoutablePool.
+// Validate implements domain.RoutablePool.
 func (*routableResultPoolImpl) Validate(minUOSMOTVL math.Int) error {
 	return nil
 }
@@ -110,19 +110,19 @@ func (r *routableResultPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
-// String implements sqsdomain.RoutablePool.
+// String implements domain.RoutablePool.
 func (r *routableResultPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v)", r.GetId(), r.GetType(), r.GetPoolDenoms())
 }
 
-// ChargeTakerFee implements sqsdomain.RoutablePool.
+// ChargeTakerFee implements domain.RoutablePool.
 // Charges the taker fee for the given token in and returns the token in after the fee has been charged.
 func (r *routableResultPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.TakerFee)
 	return tokenInAfterTakerFee
 }
 
-// GetTakerFee implements sqsdomain.RoutablePool.
+// GetTakerFee implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
 }
@@ -132,22 +132,22 @@ func (r *routableResultPoolImpl) GetBalances() sdk.Coins {
 	return r.Balances
 }
 
-// SetTokenOutDenom implements sqsdomain.RoutablePool.
+// SetTokenOutDenom implements domain.RoutablePool.
 func (r *routableResultPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 	r.TokenOutDenom = tokenOutDenom
 }
 
-// GetSpreadFactor implements sqsdomain.RoutablePool.
+// GetSpreadFactor implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
 }
 
-// CalcSpotPrice implements sqsdomain.RoutablePool.
+// CalcSpotPrice implements domain.RoutablePool.
 func (r *routableResultPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	panic("not implemented")
 }
 
-// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
-func (*routableResultPoolImpl) IsGeneralizedCosmWasmPool() bool {
-	return false
+// GetSQSType implements domain.RoutablePool.
+func (r *routableResultPoolImpl) GetSQSType() domain.SQSPoolType {
+	return domain.Result
 }

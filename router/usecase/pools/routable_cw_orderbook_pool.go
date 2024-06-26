@@ -8,7 +8,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -18,7 +17,7 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
-var _ sqsdomain.RoutablePool = &routableOrderbookPoolImpl{}
+var _ domain.RoutablePool = &routableOrderbookPoolImpl{}
 
 type routableOrderbookPoolImpl struct {
 	ChainPool     *cwpoolmodel.CosmWasmPool   "json:\"pool\""
@@ -181,6 +180,11 @@ func (*routableOrderbookPoolImpl) IsGeneralizedCosmWasmPool() bool {
 // GetCodeID implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) GetCodeID() uint64 {
 	return r.ChainPool.CodeId
+}
+
+// GetSQSType implements domain.RoutablePool.
+func (*routableOrderbookPoolImpl) GetSQSType() domain.SQSPoolType {
+	return domain.Orderbook
 }
 
 // Determines order direction for the current orderbook given token in and out denoms

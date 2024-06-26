@@ -12,13 +12,9 @@ import (
 
 // PoolsUsecase represent the pool's usecases
 type PoolsUsecase interface {
+	PoolHandler
+
 	GetAllPools() ([]sqsdomain.PoolI, error)
-
-	// GetPools returns the pools corresponding to the given IDs.
-	GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error)
-
-	// StorePools stores the given pools in the usecase
-	StorePools(pools []sqsdomain.PoolI) error
 
 	// GetRoutesFromCandidates converts candidate routes to routes intrusmented with all the data necessary for estimating
 	// a swap. This data entails the pool data, the taker fee.
@@ -31,4 +27,12 @@ type PoolsUsecase interface {
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 
 	GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig
+}
+
+type PoolHandler interface {
+	// GetPools returns the pools corresponding to the given IDs.
+	GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error)
+
+	// StorePools stores the given pools in the usecase
+	StorePools(pools []sqsdomain.PoolI) error
 }

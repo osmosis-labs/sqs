@@ -274,3 +274,19 @@ type OrderbookPoolMismatchError struct {
 func (e OrderbookPoolMismatchError) Error() string {
 	return fmt.Sprintf("orderbook pool (%d) does not support swaps from (%s) to (%s)", e.PoolId, e.TokenInDenom, e.TokenOutDenom)
 }
+
+type DenomPoolLiquidityDataNotFoundError struct {
+	Denom string
+}
+
+func (e DenomPoolLiquidityDataNotFoundError) Error() string {
+	return fmt.Sprintf("denom pool liquidity data not found for denom %s", e.Denom)
+}
+
+type PriceNotFoundForPoolLiquidityCapError struct {
+	Denom string
+}
+
+func (e PriceNotFoundForPoolLiquidityCapError) Error() string {
+	return fmt.Sprintf("price not found (zero) for denom %s", e.Denom)
+}

@@ -8,7 +8,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -17,7 +16,7 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
-var _ sqsdomain.RoutablePool = &routableAlloyTransmuterPoolImpl{}
+var _ domain.RoutablePool = &routableAlloyTransmuterPoolImpl{}
 
 type routableAlloyTransmuterPoolImpl struct {
 	ChainPool           *cwpoolmodel.CosmWasmPool         "json:\"pool\""
@@ -28,12 +27,12 @@ type routableAlloyTransmuterPoolImpl struct {
 	SpreadFactor        osmomath.Dec                      "json:\"spread_factor\""
 }
 
-// GetId implements sqsdomain.RoutablePool.
+// GetId implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetId() uint64 {
 	return r.ChainPool.PoolId
 }
 
-// GetPoolDenoms implements sqsdomain.RoutablePool.
+// GetPoolDenoms implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetPoolDenoms() []string {
 	denoms := make([]string, len(r.AlloyTransmuterData.AssetConfigs))
 	for i, config := range r.AlloyTransmuterData.AssetConfigs {
@@ -42,17 +41,17 @@ func (r *routableAlloyTransmuterPoolImpl) GetPoolDenoms() []string {
 	return denoms
 }
 
-// GetType implements sqsdomain.RoutablePool.
+// GetType implements domain.RoutablePool.
 func (*routableAlloyTransmuterPoolImpl) GetType() poolmanagertypes.PoolType {
 	return poolmanagertypes.CosmWasm
 }
 
-// GetSpreadFactor implements sqsdomain.RoutablePool.
+// GetSpreadFactor implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
 }
 
-// CalculateTokenOutByTokenIn implements sqsdomain.RoutablePool.
+// CalculateTokenOutByTokenIn implements domain.RoutablePool.
 // It calculates the amount of token out given the amount of token in for a transmuter pool.
 // Transmuter pool allows no slippage swaps. For v3, the ratio of token in to token out is dependent on the normalization factor.
 // Returns error if:
@@ -84,39 +83,39 @@ func (r *routableAlloyTransmuterPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
-// String implements sqsdomain.RoutablePool.
+// String implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d) Transmuter with alloyed denom, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
 }
 
-// ChargeTakerFeeExactIn implements sqsdomain.RoutablePool.
+// ChargeTakerFeeExactIn implements domain.RoutablePool.
 // Returns tokenInAmount and does not charge any fee for transmuter pools.
 func (r *routableAlloyTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
 }
 
-// GetTakerFee implements sqsdomain.RoutablePool.
+// GetTakerFee implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
 }
 
-// SetTokenOutDenom implements sqsdomain.RoutablePool.
+// SetTokenOutDenom implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 	r.TokenOutDenom = tokenOutDenom
 }
 
-// CalcSpotPrice implements sqsdomain.RoutablePool.
+// CalcSpotPrice implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	return r.CalcTokenOutAmt(sdk.Coin{Denom: baseDenom, Amount: osmomath.OneInt()}, quoteDenom)
 }
 
-// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
-func (*routableAlloyTransmuterPoolImpl) IsGeneralizedCosmWasmPool() bool {
-	return false
+// GetSQSType implements domain.RoutablePool.
+func (*routableAlloyTransmuterPoolImpl) GetSQSType() domain.SQSPoolType {
+	return domain.AlloyedTransmuter
 }
 
-// GetCodeID implements sqsdomain.RoutablePool.
+// GetCodeID implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetCodeID() uint64 {
 	return r.ChainPool.CodeId
 }

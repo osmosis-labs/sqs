@@ -2,26 +2,38 @@ package worker
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/log"
+	"go.uber.org/zap"
+)
+
+const (
+	gammSharePrefix = "gamm/pool"
 )
 
 var (
-	_ domain.PricingUpdateListener = &poolLiquidityPricerWorker{}
+	_ domain.PricingUpdateListener     = &poolLiquidityPricerWorker{}
+	_ domain.PoolLiquidityPricerWorker = &poolLiquidityPricerWorker{}
 )
 
 type poolLiquidityPricerWorker struct {
 	tokenPoolLiquidityHandler mvc.TokensPoolLiquidityHandler
+	poolHandler               mvc.PoolHandler
 
 	updateListeners []domain.PoolLiquidityComputeListener
 
 	liquidityPricer domain.LiquidityPricer
+
+	logger log.Logger
 
 	// Denom -> Last height of the pricing update.
 	// This exists because pricing computations are asynchronous. As a result, a pricing update for a later
@@ -30,28 +42,54 @@ type poolLiquidityPricerWorker struct {
 	latestHeightForDenom sync.Map
 }
 
-func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler, liquidityPricer domain.LiquidityPricer) domain.PoolLiquidityPricerWorker {
+func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler, poolHandler mvc.PoolHandler, liquidityPricer domain.LiquidityPricer, logger log.Logger) *poolLiquidityPricerWorker {
 	return &poolLiquidityPricerWorker{
 		tokenPoolLiquidityHandler: tokensPoolLiquidityHandler,
+		poolHandler:               poolHandler,
 
 		updateListeners: []domain.PoolLiquidityComputeListener{},
 
 		liquidityPricer: liquidityPricer,
+
+		logger: logger,
 
 		latestHeightForDenom: sync.Map{},
 	}
 }
 
 // OnPricingUpdate implements worker.PricingUpdateListener.
-func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height uint64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) error {
+func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height uint64, blockPoolMetadata domain.BlockPoolMetadata, baseDenomPriceUpdates domain.PricesResult, quoteDenom string) (err error) {
 	start := time.Now()
 
-	// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
-	// for concurrency.
-	repricedTokenMetadata := p.RepriceDenomMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata.DenomPoolLiquidityMap)
+	defer func() {
+		// Measure duration
+		domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
+	}()
 
-	// Update the pool denom metadata.
-	p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
+		// for concurrency.
+		repricedTokenMetadata := p.RepriceDenomsMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
+
+		// Update the pool denom metadata.
+		p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		// Note: the error is propagated to the caller because
+		// the callee only errors on fatal issues that should invalidate health check.
+		err = p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates)
+	}()
+
+	// Wait for goroutines to finish processing.
+	wg.Wait()
 
 	// Notify listeners.
 	for _, listener := range p.updateListeners {
@@ -59,30 +97,25 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 		_ = listener.OnPoolLiquidityCompute(int64(height))
 	}
 
-	// Measure duration
-	domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
-
 	return nil
 }
 
-// RepriceDenomMetadata implements domain.PoolLiquidityPricerWorker
-func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap domain.DenomPoolLiquidityMap) domain.PoolDenomMetaDataMap {
-	blockTokenMetadataUpdates := make(domain.PoolDenomMetaDataMap, len(blockDenomLiquidityUpdatesMap))
+// RepriceDenomsMetadata implements domain.PoolLiquidityPricerWorker
+func (p *poolLiquidityPricerWorker) RepriceDenomsMetadata(updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockPoolMetadata domain.BlockPoolMetadata) domain.PoolDenomMetaDataMap {
+	blockTokenMetadataUpdates := make(domain.PoolDenomMetaDataMap, len(blockPoolMetadata.UpdatedDenoms))
 
 	// Iterate over the denoms updated within the block
-	for updatedBlockDenom, blockPoolDenomLiquidityData := range blockDenomLiquidityUpdatesMap {
-		// Skip if the denom has a later update than the current height.
-		if p.hasLaterUpdateThanHeight(updatedBlockDenom, updateHeight) {
+	for updatedBlockDenom := range blockPoolMetadata.UpdatedDenoms {
+		if shouldSkipDenom := p.shouldSkipDenomRepricing(updatedBlockDenom, updateHeight); shouldSkipDenom {
 			continue
 		}
 
-		totalLiquidityForDenom := blockPoolDenomLiquidityData.TotalLiquidity
+		poolDenomMetaData, err := p.CreatePoolDenomMetaData(updatedBlockDenom, updateHeight, blockPriceUpdates, quoteDenom, blockPoolMetadata)
+		if err != nil {
+			p.logger.Debug("error creating denom meta data", zap.Error(err))
+		}
 
-		price := blockPriceUpdates.GetPriceForDenom(updatedBlockDenom, quoteDenom)
-
-		liquidityCapitalization := p.ComputeLiquidityCapitalization(updatedBlockDenom, totalLiquidityForDenom, price)
-
-		blockTokenMetadataUpdates.Set(updatedBlockDenom, totalLiquidityForDenom, liquidityCapitalization, price)
+		blockTokenMetadataUpdates.Set(updatedBlockDenom, poolDenomMetaData)
 
 		// Store the height for the denom.
 		p.StoreHeightForDenom(updatedBlockDenom, updateHeight)
@@ -92,36 +125,51 @@ func (p *poolLiquidityPricerWorker) RepriceDenomMetadata(updateHeight uint64, bl
 	return blockTokenMetadataUpdates
 }
 
-// ComputeLiquidityCapitalization implements domain.PoolLiquidityPricerWorker.
-func (p *poolLiquidityPricerWorker) ComputeLiquidityCapitalization(denom string, totalLiquidity osmomath.Int, price osmomath.BigDec) osmomath.Int {
+// CreatePoolDenomMetaData implements domain.PoolLiquidityPricerWorker
+func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom string, updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockPoolMetadata domain.BlockPoolMetadata) (domain.PoolDenomMetaData, error) {
+	price := blockPriceUpdates.GetPriceForDenom(updatedBlockDenom, quoteDenom)
+
+	// Retrieve liquidity from block pool metadata.
+	// Assummed zero if does not exist.
+	totalLiquidityForDenom := osmomath.ZeroInt()
+	blockPoolDenomLiquidityData, ok := blockPoolMetadata.DenomPoolLiquidityMap[updatedBlockDenom]
+	if ok {
+		totalLiquidityForDenom = blockPoolDenomLiquidityData.TotalLiquidity
+	}
+
+	liquidityCapitalization := p.liquidityPricer.PriceCoin(sdk.NewCoin(updatedBlockDenom, totalLiquidityForDenom), price)
+
+	result := domain.PoolDenomMetaData{
+		TotalLiquidity:    totalLiquidityForDenom,
+		TotalLiquidityCap: liquidityCapitalization,
+		Price:             price,
+	}
+
+	if !ok {
+		return result, domain.DenomPoolLiquidityDataNotFoundError{
+			Denom: updatedBlockDenom,
+		}
+	}
+
 	if price.IsZero() {
-		// If the price is zero, set the capitalization to zero.
-		return osmomath.ZeroInt()
+		return result, domain.PriceNotFoundForPoolLiquidityCapError{
+			Denom: updatedBlockDenom,
+		}
 	}
 
-	// Get the scaling factor for the base denom.
-	baseScalingFactor, err := p.tokenPoolLiquidityHandler.GetChainScalingFactorByDenomMut(denom)
-	if err != nil {
-		// If there is an error, keep the total liquidity but set the capitalization to zero.
-		return osmomath.ZeroInt()
-	}
-
-	priceInfo := domain.DenomPriceInfo{
-		Price:         price,
-		ScalingFactor: baseScalingFactor,
-	}
-
-	liquidityCapitalization, err := p.liquidityPricer.ComputeCoinCap(sdk.NewCoin(denom, totalLiquidity), priceInfo)
-	if err != nil {
-		// If there is an error, keep the total liquidity but set the capitalization to zero.
-		return osmomath.ZeroInt()
-	}
-
-	return liquidityCapitalization.TruncateInt()
+	return result, nil
 }
 
-// GetLatestUpdateHeightForDenom implements domain.PoolLiquidityPricerWorker.
-func (p *poolLiquidityPricerWorker) GetLatestUpdateHeightForDenom(denom string) uint64 {
+// shouldSkipDenomRepricing returns true if the denom repricing should be skipped.
+// Specifically, if the denom is a gamm share denom or
+// if the pool liquidity pricing worker already observed a later update
+// than the given updateHeight.
+func (p *poolLiquidityPricerWorker) shouldSkipDenomRepricing(denom string, updateHeight uint64) bool {
+	return strings.Contains(denom, gammSharePrefix) || p.hasLaterUpdateThanHeight(denom, updateHeight)
+}
+
+// GetHeightForDenom implements domain.PoolLiquidityPricerWorker.
+func (p *poolLiquidityPricerWorker) GetHeightForDenom(denom string) uint64 {
 	heightObj, ok := p.latestHeightForDenom.Load(denom)
 	if !ok {
 		return 0
@@ -152,6 +200,33 @@ func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, heigh
 	}
 
 	return false
+}
+
+// repricePoolLiquidityCap reprices pool liquidity capitalization for the given poolIDs, block price updates and quote denom.
+// If fails to retrieve price for one of the denoms in balances, the liquidity capitalization for that denom would be zero.
+func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]struct{}, blockPriceUpdates domain.PricesResult) error {
+	blockPoolIDs := domain.KeysFromMap(poolIDs)
+
+	pools, err := p.poolHandler.GetPools(blockPoolIDs)
+	if err != nil {
+		return err
+	}
+
+	for i, pool := range pools {
+		balances := pool.GetSQSPoolModel().Balances
+
+		poolLiquidityCapitalization, poolLiquidityCapError := p.liquidityPricer.PriceBalances(balances, blockPriceUpdates)
+
+		// Update the liquidity capitalization and error (if any)
+		pools[i].SetLiquidityCap(poolLiquidityCapitalization)
+		pools[i].SetLiquidityCapError(poolLiquidityCapError)
+	}
+
+	if err := p.poolHandler.StorePools(pools); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // RegisterListener implements PoolLiquidityPricerWorker.

@@ -5,12 +5,13 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
 type RoutableResultPool interface {
-	sqsdomain.RoutablePool
+	RoutablePool
 	GetBalances() sdk.Coins
 }
 
@@ -21,7 +22,7 @@ type Route interface {
 	// The reason for this is that making network requests to chain is expensive.
 	// As a result, we want to minimize the number of requests we make.
 	ContainsGeneralizedCosmWasmPool() bool
-	GetPools() []sqsdomain.RoutablePool
+	GetPools() []RoutablePool
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.
 	// Returns error if the calculation fails.
 	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
@@ -36,7 +37,7 @@ type Route interface {
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
 	// The token in is the base token and the token out is the quote token.
-	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]sqsdomain.RoutablePool, osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
@@ -62,6 +63,11 @@ type Quote interface {
 	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]SplitRoute, osmomath.Dec, error)
 
 	String() string
+}
+
+type DynamicMinLiquidityCapFilterEntry struct {
+	MinTokensCap uint64 `mapstructure:"min-tokens-capitalization"`
+	FilterValue  uint64 `mapstructure:"filter-value"`
 }
 
 // Router-specific configuration
@@ -90,6 +96,9 @@ type RouterConfig struct {
 
 	// How long the route is cached for before expiry in seconds.
 	RankedRouteCacheExpirySeconds int `mapstructure:"ranked-route-cache-expiry-seconds"`
+
+	// DynamicMinLiquidityCapFiltersAsc is a list of dynamic min liquidity cap filters in descending order.
+	DynamicMinLiquidityCapFiltersDesc []DynamicMinLiquidityCapFilterEntry `mapstructure:"dynamic-min-liquidity-cap-filters-desc"`
 }
 
 type PoolsConfig struct {
@@ -111,9 +120,10 @@ type PoolsConfig struct {
 const DisableSplitRoutes = 0
 
 type RouterState struct {
-	Pools     []sqsdomain.PoolI
-	TakerFees sqsdomain.TakerFeeMap
-	TickMap   map[uint64]*sqsdomain.TickModel
+	Pools          []sqsdomain.PoolI
+	TakerFees      sqsdomain.TakerFeeMap
+	TickMap        map[uint64]*sqsdomain.TickModel
+	AlloyedDataMap map[uint64]*cosmwasmpool.AlloyTransmuterData
 }
 
 // RouterOptions defines the options for the router

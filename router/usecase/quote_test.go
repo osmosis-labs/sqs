@@ -133,7 +133,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			// Route 1
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
-					Pools: []sqsdomain.RoutablePool{
+					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
 							USDT,
@@ -156,7 +156,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			// Route 2
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
-					Pools: []sqsdomain.RoutablePool{
+					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
 							USDC,
@@ -178,7 +178,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 		// Route 1
 		&usecase.RouteWithOutAmount{
 			RouteImpl: route.RouteImpl{
-				Pools: []sqsdomain.RoutablePool{
+				Pools: []domain.RoutablePool{
 					pools.NewRoutableResultPool(
 						poolIDOne,
 						poolmanagertypes.Balancer,
@@ -205,7 +205,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 		// Route 2
 		&usecase.RouteWithOutAmount{
 			RouteImpl: route.RouteImpl{
-				Pools: []sqsdomain.RoutablePool{
+				Pools: []domain.RoutablePool{
 					pools.NewRoutableResultPool(
 						poolIDThree,
 						poolmanagertypes.Balancer,
@@ -292,7 +292,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 			// Route 1
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
-					Pools: []sqsdomain.RoutablePool{
+					Pools: []domain.RoutablePool{
 						mocks.WithMockedTokenOut(
 							mocks.WithTokenOutDenom(
 								mocks.WithChainPoolModel(DefaultMockPool, poolOne), USDC),
@@ -336,7 +336,7 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 	}
 }
 
-func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) sqsdomain.RoutablePool {
+func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmConfig, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)
 	return routablePool

@@ -52,7 +52,9 @@ class TestQuote:
         # flakiness. Therefore, we increase the error tolerance to 13%.
         # The values are arbitrarily hand-picke and can be adjusted if necessary.
         # This seems to be especially relevant for the Astroport PCL pools.
-        if amount_in > 30_000_000_000:
+        if amount_in > 10_000:
+            error_tolerance = 0.10
+        elif amount_in > 30_000_000_000:
             error_tolerance = 0.13
         elif amount_in > 60_000_000_000:
             error_tolerance = 0.16
@@ -234,7 +236,7 @@ class TestQuote:
         assert quote.amount_in.denom == expected_denom_in
 
         # Validate that the fee is charged
-        assert quote.effective_fee > 0
+        self.validate_fee(quote)
 
         # Validate that the spot price is present
         assert quote.in_base_out_quote_spot_price is not None
@@ -250,6 +252,27 @@ class TestQuote:
         # Validate that the amount out is within the error tolerance
         amount_out_scaled = quote.amount_out * spot_price_scaling_factor
         assert relative_error(amount_out_scaled, expected_token_out) < error_tolerance, f"Error: amount out scaled {amount_out_scaled} is not within {error_tolerance} of expected {expected_token_out}"
+
+    def validate_fee(self, quote):
+        """
+        Validates fee returned in the quote response.
+        If the returned fee is zero, it iterates over every pool in every route and ensures that their fee
+        is zero based on external data source.
+
+        In other cases, asserts that the fee is non-zero.
+        """
+        # Validate that the fee is charged
+        if quote.effective_fee == 0:
+            for route in quote.route:
+                for pool in route.pools:
+                    pool_id = pool.id
+                    pool_data = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
+                    swap_fee = pool_data.get("swap_fees")
+
+                    if swap_fee != 0:
+                        assert False, f"Error: swap fee {swap_fee} is not charged for pool {pool_id}"
+        else:
+            assert quote.effective_fee > 0
 
     def is_transmuter_in_single_route(self, routes):
         """

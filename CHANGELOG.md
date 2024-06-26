@@ -35,6 +35,22 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Fix bug with allUSDT swaps resulting in extreme price impact due to config and filtering issues.
+- Fix bug of overapplying quote denom scaling factor in pool liquidity pricer.
+- Pool liquidity capitalization
+- Make alloyed transmuter pools receive more rank in routing
+
+## v25.1.1
+
+- Add fault tolerance in candidate route conversion when pools are breaking.
+- Hotfix for Alloyed pool swaps failing due to not having LP share in balances. 
+
+## v25.1.0
+
+- [SQS-Routing] API to force quote over a given route
+
 ## v25.0.0
 
 - Create a config for pricing worker min liquidity capitalization and set it to 5 USD by default.

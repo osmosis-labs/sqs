@@ -205,6 +205,17 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 				},
 			},
 		},
+		{
+			name: "Invalid token in balance -> skipped",
+
+			blockLiqMap: domain.DenomPoolLiquidityMap{},
+
+			balances: sdk.Coins{sdk.Coin{Denom: "[[]invalid[]]", Amount: osmomath.OneInt()}},
+
+			poolID: defaultPoolID + 1,
+
+			expectedBlockLiqMap: domain.DenomPoolLiquidityMap{},
+		},
 	}
 
 	for _, tc := range tests {

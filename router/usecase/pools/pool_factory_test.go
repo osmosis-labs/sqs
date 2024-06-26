@@ -65,7 +65,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 		cosmWasmConfig       domain.CosmWasmPoolRouterConfig
 		tokenOutDenom        string
 		takerFee             osmomath.Dec
-		expectedRoutablePool sqsdomain.RoutablePool
+		expectedRoutablePool domain.RoutablePool
 		expectedError        error
 	}{
 		{
@@ -84,7 +84,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 			},
 			tokenOutDenom: "allBTC",
 			takerFee:      alloyTransmuterTakerFee,
-			expectedRoutablePool: &pools.RouteableAlloyTransmuterPoolImpl{
+			expectedRoutablePool: &pools.RoutableAlloyTransmuterPoolImpl{
 				ChainPool:           &alloyTransmuterCosmWasmPool,
 				AlloyTransmuterData: alloyTransmuterModel.Data.AlloyTransmuter,
 				Balances:            alloyTransmuterBalances,
@@ -136,7 +136,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 			},
 			tokenOutDenom: "quote",
 			takerFee:      orderbookTakerFee,
-			expectedRoutablePool: &pools.RouteableOrderbookPoolImpl{
+			expectedRoutablePool: &pools.RoutableOrderbookPoolImpl{
 				ChainPool:     &orderbookCosmWasmPool,
 				OrderbookData: orderbookModel.Data.Orderbook,
 				Balances:      orderbookBalances,

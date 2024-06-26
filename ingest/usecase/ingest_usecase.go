@@ -26,6 +26,7 @@ type ingestUseCase struct {
 
 	poolsUseCase     mvc.PoolsUsecase
 	routerUsecase    mvc.RouterUsecase
+	tokensUsecase    mvc.TokensUsecase
 	chainInfoUseCase mvc.ChainInfoUsecase
 
 	denomLiquidityMap domain.DenomPoolLiquidityMap
@@ -46,12 +47,13 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
 		chainInfoUseCase: chainInfoUseCase,
 		routerUsecase:    routerUseCase,
+		tokensUsecase:    tokensUseCase,
 		poolsUseCase:     poolsUseCase,
 
 		denomLiquidityMap: make(domain.DenomPoolLiquidityMap),
@@ -88,6 +90,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	// Sort and store pools.
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
+
 	p.sortAndStorePools(allPools)
 
 	// Note: we must queue the update before we start updating prices as pool liquidity
@@ -100,7 +103,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.logger.Info("completed block processing", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
 	// Observe the processing duration with height
-	domain.SQSIngestHandlerProcessBlockDurationGauge.Add(float64(time.Since(startProcessingTime).Milliseconds()))
+	domain.SQSIngestHandlerProcessBlockDurationGauge.Set(float64(time.Since(startProcessingTime).Milliseconds()))
 
 	return nil
 }
@@ -162,6 +165,11 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 
 			// Separately update unique denoms.
 			for _, balance := range currentPoolBalances {
+				if balance.Validate() != nil {
+					p.logger.Debug("invalid pool balance", zap.Uint64("pool_id", poolID), zap.String("denom", balance.Denom), zap.String("amount", balance.Amount.String()))
+					continue
+				}
+
 				uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
 			}
 
@@ -192,6 +200,13 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	// For evey coin in balance
 	for _, coin := range currentPoolBalances {
+		if coin.Validate() != nil {
+			// Skip invalid coins.
+			// Example: pool 1176 (transmuter v1 pool) has invalid coins.
+			// https://celatone.osmosis.zone/osmosis-1/contracts/osmo136f4pv283yywv3t56d5zdkhq43uucw462rt3qfpm2s84vvr7rrasn3kllg
+			continue
+		}
+
 		// Get denom data for this denom
 		denomData, ok := currentBlockLiquidityMap[coin.Denom]
 		if !ok {

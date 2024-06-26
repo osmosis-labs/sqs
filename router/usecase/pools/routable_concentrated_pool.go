@@ -20,7 +20,7 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
-var _ sqsdomain.RoutablePool = &routableConcentratedPoolImpl{}
+var _ domain.RoutablePool = &routableConcentratedPoolImpl{}
 var zeroBigDec = osmomath.ZeroBigDec()
 
 type routableConcentratedPoolImpl struct {
@@ -47,32 +47,32 @@ func getTickToSqrtPrice(tick int64) (osmomath.BigDec, error) {
 	return sqrtPrice, err
 }
 
-// GetPoolDenoms implements sqsdomain.RoutablePool.
+// GetPoolDenoms implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) GetPoolDenoms() []string {
 	return r.ChainPool.GetPoolDenoms(sdk.Context{})
 }
 
-// GetType implements sqsdomain.RoutablePool.
+// GetType implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) GetType() poolmanagertypes.PoolType {
 	return poolmanagertypes.Concentrated
 }
 
-// GetId implements sqsdomain.RoutablePool.
+// GetId implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) GetId() uint64 {
 	return r.ChainPool.Id
 }
 
-// GetSpreadFactor implements sqsdomain.RoutablePool.
+// GetSpreadFactor implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.ChainPool.SpreadFactor
 }
 
-// GetTakerFee implements sqsdomain.RoutablePool.
+// GetTakerFee implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
 }
 
-// CalculateTokenOutByTokenIn implements sqsdomain.RoutablePool.
+// CalculateTokenOutByTokenIn implements domain.RoutablePool.
 // It calculates the amount of token out given the amount of token in for a concentrated liquidity pool.
 // Fails if:
 // - the underlying chain pool set on the routable pool is not of concentrated type
@@ -197,25 +197,25 @@ func (r *routableConcentratedPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
-// String implements sqsdomain.RoutablePool.
+// String implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) String() string {
 	concentratedPool := r.ChainPool
 	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v), token out (%s)", concentratedPool.Id, poolmanagertypes.Concentrated, concentratedPool.GetPoolDenoms(sdk.Context{}), r.TokenOutDenom)
 }
 
-// ChargeTakerFee implements sqsdomain.RoutablePool.
+// ChargeTakerFee implements domain.RoutablePool.
 // Charges the taker fee for the given token in and returns the token in after the fee has been charged.
 func (r *routableConcentratedPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
 }
 
-// SetTokenOutDenom implements sqsdomain.RoutablePool.
+// SetTokenOutDenom implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 	r.TokenOutDenom = tokenOutDenom
 }
 
-// CalcSpotPrice implements sqsdomain.RoutablePool.
+// CalcSpotPrice implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
 	if err != nil {
@@ -224,12 +224,12 @@ func (r *routableConcentratedPoolImpl) CalcSpotPrice(ctx context.Context, baseDe
 	return spotPrice, nil
 }
 
-// IsGeneralizedCosmWasmPool implements sqsdomain.RoutablePool.
-func (*routableConcentratedPoolImpl) IsGeneralizedCosmWasmPool() bool {
-	return false
+// GetSQSType implements domain.RoutablePool.
+func (*routableConcentratedPoolImpl) GetSQSType() domain.SQSPoolType {
+	return domain.Concentrated
 }
 
-// GetCodeID implements sqsdomain.RoutablePool.
+// GetCodeID implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) GetCodeID() uint64 {
 	return notCosmWasmPoolCodeID
 }

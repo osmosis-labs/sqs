@@ -8,12 +8,12 @@ import (
 )
 
 type (
-	RoutableCFMMPoolImpl             = routableBalancerPoolImpl
-	RoutableConcentratedPoolImpl     = routableConcentratedPoolImpl
-	RoutableTransmuterPoolImpl       = routableTransmuterPoolImpl
-	RoutableResultPoolImpl           = routableResultPoolImpl
-	RouteableAlloyTransmuterPoolImpl = routableAlloyTransmuterPoolImpl
-	RouteableOrderbookPoolImpl       = routableOrderbookPoolImpl
+	RoutableCFMMPoolImpl            = routableBalancerPoolImpl
+	RoutableConcentratedPoolImpl    = routableConcentratedPoolImpl
+	RoutableTransmuterPoolImpl      = routableTransmuterPoolImpl
+	RoutableResultPoolImpl          = routableResultPoolImpl
+	RoutableAlloyTransmuterPoolImpl = routableAlloyTransmuterPoolImpl
+	RoutableOrderbookPoolImpl       = routableOrderbookPoolImpl
 )
 
 func NewRoutableCosmWasmPoolWithCustomModel(
@@ -22,6 +22,6 @@ func NewRoutableCosmWasmPoolWithCustomModel(
 	cosmWasmConfig domain.CosmWasmPoolRouterConfig,
 	tokenOutDenom string,
 	takerFee osmomath.Dec,
-) (sqsdomain.RoutablePool, error) {
+) (domain.RoutablePool, error) {
 	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmConfig, tokenOutDenom, takerFee)
 }

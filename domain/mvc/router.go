@@ -14,12 +14,13 @@ import (
 type RouterUsecase interface {
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.
 	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
-	// GetBestSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.
-	GetBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error)
 	// GetCustomDirectQuote returns the custom direct quote for the given tokenIn, tokenOutDenom and poolID.
 	// It does not search for the route. It directly computes the quote for the given poolID.
 	// This allows to bypass a min liquidity requirement in the router when attempting to swap over a specific pool.
 	GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error)
+	// GetCustomDirectQuoteMultiPool calculates direct custom quote for given tokenIn and tokenOutDenom over given poolID route.
+	// Otherwise it implements same rules as GetCustomDirectQuote.
+	GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error)
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
 	GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// GetTakerFee returns the taker fee for all token pairs in a pool.
@@ -42,6 +43,14 @@ type RouterUsecase interface {
 	GetSortedPools() []sqsdomain.PoolI
 
 	GetConfig() domain.RouterConfig
+
+	// ConvertMinTokensPoolLiquidityCapToFilter converts the minTokensPoolLiquidityCap to a filter.
+	// It is used to filter out pools with liquidity less than the output of this function.
+	// We use min(tokenInPoolLiquidityCap, tokenOutPoolLiquidityCap) as a proxy for finding the appropriate
+	// filter if configured.
+	// If there is no entry in the config that has min tokens capitalization smaller than the given value,
+	// the default router min pool liquidity capitalization is returned.
+	ConvertMinTokensPoolLiquidityCapToFilter(minTokensPoolLiquidityCap uint64) uint64
 
 	// SetSortedPools stores the pools in the router.
 	// CONTRACT: the pools are already sorted according to the desired parameters.

@@ -4,10 +4,13 @@ import (
 	"context"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 	"github.com/stretchr/testify/suite"
 )
@@ -15,6 +18,19 @@ import (
 type PoolLiquidityComputeWorkerSuite struct {
 	routertesting.RouterTestHelper
 }
+
+type liquidityResult struct {
+	LiquidityCap      osmomath.Int
+	LiquidityCapError string
+}
+
+const (
+	pricingCacheExpiry = 2000
+
+	defaultUpdateHeight uint64 = 2
+
+	defaultPoolID uint64 = 1
+)
 
 var (
 	defaultPricingRouterConfig = domain.RouterConfig{
@@ -26,8 +42,6 @@ var (
 		RouteCacheEnabled:   true,
 	}
 
-	pricingCacheExpiry = 2000
-
 	defaultScalingFactor = osmomath.NewDec(1_000_000)
 
 	zeroCapitalization = osmomath.ZeroInt()
@@ -37,7 +51,7 @@ var (
 	defaultPrice     = osmomath.NewBigDec(2)
 	defaultLiquidity = osmomath.NewInt(1_000_000)
 
-	defaultLiquidityCap = defaultLiquidity.MulRaw(2)
+	defaultLiquidityCap = defaultLiquidity.ToLegacyDec().Quo(defaultScalingFactor).MulMut(defaultPrice.Dec()).TruncateInt()
 
 	// Note: we are not testing the error handling of underlying methods.
 	// Those are unit-tested in their respective tests.
@@ -52,6 +66,9 @@ var (
 		UOSMO: {
 			USDC: defaultPrice,
 		},
+		ATOM: {
+			USDC: defaultPrice,
+		},
 	}
 
 	defaultBlockLiquidityUpdates = domain.DenomPoolLiquidityMap{
@@ -59,6 +76,21 @@ var (
 			TotalLiquidity: defaultLiquidity,
 		},
 	}
+
+	defaultBlockPoolMetaData = domain.BlockPoolMetadata{
+		UpdatedDenoms: map[string]struct{}{
+			UOSMO: {},
+		},
+		DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
+
+		PoolIDs: map[uint64]struct{}{
+			defaultPoolID: {},
+		},
+	}
+
+	defaultUOSMOBalance = sdk.NewCoin(UOSMO, defaultLiquidity)
+
+	defaultATOMBalance = sdk.NewCoin(ATOM, defaultLiquidity)
 )
 
 var (
@@ -77,9 +109,8 @@ func TestPoolLiquidityComputeWorkerSuite(t *testing.T) {
 // they are propagated in the pool liquidity handler as intended.
 // The edge cases of each underlying component are tested by their corresponding unit tests.
 func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
-
 	// Create liquidity pricer
-	liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
+	liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
 
 	// Set up the tokens pool liquidity mock handler
 	poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
@@ -96,8 +127,12 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 		},
 	}
 
+	poolHandlerMock := mocks.PoolHandlerMock{
+		Pools: []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
+	}
+
 	// Create the worker
-	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
+	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, &poolHandlerMock, liquidityPricer, &log.NoOpLogger{})
 
 	// Create & register mock listener
 	mockListener := &mocks.PoolLiquidityPricingMock{}
@@ -105,7 +140,13 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 
 	// System under test
 	err := poolLiquidityPricerWorker.OnPricingUpdate(context.TODO(), defaultHeight, domain.BlockPoolMetadata{
+		UpdatedDenoms: map[string]struct{}{
+			UOSMO: {},
+		},
 		DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
+		PoolIDs: map[uint64]struct{}{
+			defaultPoolID: {},
+		},
 	}, defaultBlockPriceUpdates, USDC)
 
 	s.Require().NoError(err)
@@ -118,11 +159,18 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	// Assert on specific values.
 	s.Require().Equal(result.Price, defaultPrice)
 	s.Require().Equal(result.TotalLiquidity, defaultLiquidity)
-	s.Require().Equal(result.TotalLiquidityCap, defaultLiquidityCap)
+	s.Require().Equal(result.TotalLiquidityCap.String(), defaultLiquidityCap.String())
 
 	// Validate that the listener mock was called with the relevant height.
 	lastHeightCalled := mockListener.GetLastHeightCalled()
 	s.Require().Equal(int64(defaultHeight), lastHeightCalled)
+
+	// Validate that the pool liquidity handler mock was called with the relevant pool IDs.
+	s.validateLiquidityCapPools(map[uint64]liquidityResult{
+		defaultPoolID: {
+			LiquidityCap: defaultLiquidityCap,
+		},
+	}, poolHandlerMock.Pools)
 }
 
 // TestHasLaterUpdateThanHeight tests the HasLaterUpdateThanHeight method by following the spec.
@@ -238,123 +286,8 @@ func (s *PoolLiquidityComputeWorkerSuite) TestHasLaterUpdateThanHeight() {
 	}
 }
 
-// TestStoreHeightForDenom tests the StoreHeightForDenom method by following the spec.
-func (s *PoolLiquidityComputeWorkerSuite) TestComputeLiquidityCapitalization() {
-	var (
-		defaultScalingFactorMap = map[string]osmomath.Dec{
-			UOSMO: defaultScalingFactor,
-		}
-
-		defaultLiqidity = osmomath.NewInt(1_000_000)
-
-		ethScaledLiquidity = ethScalingFactor.MulInt(defaultLiqidity).TruncateInt()
-
-		defaultPriceOne = osmomath.OneBigDec()
-	)
-
-	tests := []struct {
-		name string
-
-		preSetScalingFactorMap map[string]osmomath.Dec
-
-		denom          string
-		totalLiquidity osmomath.Int
-		price          osmomath.BigDec
-
-		expectedCapitalization osmomath.Int
-	}{
-		{
-			name: "scaling factor unset",
-
-			preSetScalingFactorMap: map[string]osmomath.Dec{},
-
-			denom:          UOSMO,
-			totalLiquidity: defaultLiqidity,
-			price:          defaultPriceOne,
-
-			expectedCapitalization: zeroCapitalization,
-		},
-		{
-			name: "zero price -> produces zero capitalization",
-
-			preSetScalingFactorMap: defaultScalingFactorMap,
-
-			denom:          UOSMO,
-			totalLiquidity: defaultLiqidity,
-			price:          osmomath.ZeroBigDec(),
-
-			expectedCapitalization: zeroCapitalization,
-		},
-		{
-			name: "truncate -> produces zero capitalization",
-
-			// totalLiquidity * price / (quoteScalingFactor / baseScalingFactor)
-			// 1 * 10^-36 / 10^12 => below the precision of 36
-			preSetScalingFactorMap: map[string]osmomath.Dec{
-				UOSMO: ethScalingFactor,
-			},
-
-			denom:          UOSMO,
-			totalLiquidity: osmomath.OneInt(),
-			price:          osmomath.SmallestBigDec(),
-
-			expectedCapitalization: zeroCapitalization,
-		},
-		{
-			name: "happy path",
-
-			preSetScalingFactorMap: defaultScalingFactorMap,
-
-			denom:          UOSMO,
-			totalLiquidity: defaultLiqidity,
-			price:          defaultPriceOne,
-
-			expectedCapitalization: defaultLiqidity,
-		},
-		{
-			name: "happy path with different inputs",
-
-			preSetScalingFactorMap: map[string]osmomath.Dec{
-				ATOM: ethScalingFactor,
-			},
-
-			denom:          ATOM,
-			totalLiquidity: ethScaledLiquidity.MulRaw(2),
-			price:          osmomath.NewBigDec(2),
-
-			expectedCapitalization: ethScaledLiquidity.ToLegacyDec().MulMut(defaultScalingFactor).QuoMut(ethScalingFactor).TruncateInt().MulRaw(4),
-		},
-	}
-
-	for _, tt := range tests {
-		tt := tt
-		s.T().Run(tt.name, func(t *testing.T) {
-			// Create liquidity pricer
-			liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
-
-			// Set up the tokens pool liquidity mock handler
-			poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
-				DenomScalingFactorMap: tt.preSetScalingFactorMap,
-			}
-
-			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
-
-			// System under test
-			liquidityCapitalization := poolLiquidityPricerWorker.ComputeLiquidityCapitalization(tt.denom, tt.totalLiquidity, tt.price)
-
-			// Check the result
-			s.Require().Equal(tt.expectedCapitalization.String(), liquidityCapitalization.String())
-		})
-	}
-}
-
-// TestStoreHeightForDenom tests the StoreHeightForDenom method by following the spec.
-func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
-	const (
-		defaultUpdateHeight uint64 = 2
-	)
-
+// TestRepriceDenomsMetadata tests the StoreHeightForDenom method by following the spec.
+func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 	var (
 		defaultUOSMOHeightResult = map[string]uint64{
 			UOSMO: defaultUpdateHeight,
@@ -370,7 +303,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 
 		// When we fail to retrieve price and, as a result, compute the liquidity capitalization,
 		// this is what is returned instead of failing.
-		defaultZeroPricePoolDenomMetaDattaMapResult = domain.PoolDenomMetaDataMap{
+		defaultZeroPricePoolDenomMetaDataMapResult = domain.PoolDenomMetaDataMap{
 			UOSMO: {
 				// Note: set to zero
 				Price:          zeroPrice,
@@ -386,10 +319,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 
 		preSetUpdateHeightForDenom map[string]uint64
 
-		updateHeight                  uint64
-		blockPriceUpdates             domain.PricesResult
-		quoteDenom                    string
-		blockDenomLiquidityUpdatesMap domain.DenomPoolLiquidityMap
+		updateHeight      uint64
+		blockPriceUpdates domain.PricesResult
+		quoteDenom        string
+		blockPoolMetaData domain.BlockPoolMetadata
 
 		expectedUpdatedDenomMetadata domain.PoolDenomMetaDataMap
 
@@ -402,7 +335,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			blockPriceUpdates: defaultBlockPriceUpdates,
 			quoteDenom:        USDC,
 
-			blockDenomLiquidityUpdatesMap: defaultBlockLiquidityUpdates,
+			blockPoolMetaData: defaultBlockPoolMetaData,
 
 			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{
 				UOSMO: {
@@ -421,8 +354,11 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			blockPriceUpdates: defaultBlockPriceUpdates,
 			quoteDenom:        USDC,
 
-			blockDenomLiquidityUpdatesMap: domain.DenomPoolLiquidityMap{},
-			expectedUpdatedDenomMetadata:  domain.PoolDenomMetaDataMap{},
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms:         map[string]struct{}{},
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{},
+			},
+			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{},
 
 			expectedDenomHeights: zeroUOSMOHeightResult,
 		},
@@ -437,7 +373,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			// Note: pre-set to this.
 			preSetUpdateHeightForDenom: laterUOSMOHeightResult,
 
-			blockDenomLiquidityUpdatesMap: defaultBlockLiquidityUpdates,
+			blockPoolMetaData: defaultBlockPoolMetaData,
 
 			// Updates are not applied.
 			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{},
@@ -454,10 +390,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			blockPriceUpdates: domain.PricesResult{},
 			quoteDenom:        USDC,
 
-			blockDenomLiquidityUpdatesMap: defaultBlockLiquidityUpdates,
+			blockPoolMetaData: defaultBlockPoolMetaData,
 
 			// Note: zero price result.
-			expectedUpdatedDenomMetadata: defaultZeroPricePoolDenomMetaDattaMapResult,
+			expectedUpdatedDenomMetadata: defaultZeroPricePoolDenomMetaDataMapResult,
 
 			expectedDenomHeights: defaultUOSMOHeightResult,
 		},
@@ -471,9 +407,9 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			quoteDenom: ATOM,
 
 			// Note: zero price result.
-			blockDenomLiquidityUpdatesMap: defaultBlockLiquidityUpdates,
+			blockPoolMetaData: defaultBlockPoolMetaData,
 
-			expectedUpdatedDenomMetadata: defaultZeroPricePoolDenomMetaDattaMapResult,
+			expectedUpdatedDenomMetadata: defaultZeroPricePoolDenomMetaDataMapResult,
 
 			expectedDenomHeights: defaultUOSMOHeightResult,
 		},
@@ -493,13 +429,19 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			},
 			quoteDenom: USDC,
 
-			blockDenomLiquidityUpdatesMap: domain.DenomPoolLiquidityMap{
-				UOSMO: {
-					TotalLiquidity: defaultLiquidity,
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms: map[string]struct{}{
+					UOSMO: {},
+					ATOM:  {},
 				},
-				ATOM: {
-					// 2x the liquidity
-					TotalLiquidity: defaultLiquidity.Add(defaultLiquidity),
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{
+					UOSMO: {
+						TotalLiquidity: defaultLiquidity,
+					},
+					ATOM: {
+						// 2x the liquidity
+						TotalLiquidity: defaultLiquidity.Add(defaultLiquidity),
+					},
 				},
 			},
 
@@ -523,6 +465,48 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 				ATOM:  defaultUpdateHeight,
 			},
 		},
+		{
+			name: "one token, denom liquidity map is no present -> liquidity cap is zero",
+
+			updateHeight:      defaultUpdateHeight,
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				UpdatedDenoms: map[string]struct{}{
+					UOSMO: {},
+				},
+				// Note: no denom liquidity map set
+			},
+
+			// Note: empty result
+			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{
+				UOSMO: {
+					Price:             defaultPrice,
+					TotalLiquidity:    osmomath.ZeroInt(),
+					TotalLiquidityCap: zeroCapitalization,
+				},
+			},
+
+			expectedDenomHeights: defaultUOSMOHeightResult,
+		},
+		{
+			name: "one token, updated denom is not set -> skipped",
+
+			updateHeight:      defaultUpdateHeight,
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+
+			blockPoolMetaData: domain.BlockPoolMetadata{
+				// Note: no updated denoms set
+				DenomPoolLiquidityMap: defaultBlockLiquidityUpdates,
+			},
+
+			// Note: empty result
+			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{},
+
+			expectedDenomHeights: zeroUOSMOHeightResult,
+		},
 	}
 
 	for _, tt := range tests {
@@ -530,7 +514,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 		s.T().Run(tt.name, func(t *testing.T) {
 
 			// Create liquidity pricer
-			liquidityPricer := worker.NewLiquidityPricer(USDC, defaultQuoteDenomScalingFactor)
+			liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
 
 			// Set up the tokens pool liquidity mock handler
 			poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
@@ -538,7 +522,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			}
 
 			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, liquidityPricer)
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer, &log.NoOpLogger{})
 
 			// Pre-set the height for each denom.
 			for denom, height := range tt.preSetUpdateHeightForDenom {
@@ -546,18 +530,354 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomMetadata() {
 			}
 
 			// System under test
-			poolDenomMetadata := poolLiquidityPricerWorker.RepriceDenomMetadata(tt.updateHeight, tt.blockPriceUpdates, tt.quoteDenom, tt.blockDenomLiquidityUpdatesMap)
+			poolDenomMetadata := poolLiquidityPricerWorker.RepriceDenomsMetadata(tt.updateHeight, tt.blockPriceUpdates, tt.quoteDenom, tt.blockPoolMetaData)
 
 			// Check the result
-			// TODO: move into function
 			s.validatePoolDenomMetadata(tt.expectedUpdatedDenomMetadata, poolDenomMetadata)
 
 			// Check the height is stored correctly
 			for denom, expectedHeight := range tt.expectedDenomHeights {
-				actualHeight := poolLiquidityPricerWorker.GetLatestUpdateHeightForDenom(denom)
+				actualHeight := poolLiquidityPricerWorker.GetHeightForDenom(denom)
 
 				s.Require().Equal(expectedHeight, actualHeight)
 			}
+		})
+	}
+}
+
+func (s *PoolLiquidityComputeWorkerSuite) TestCreatePoolDenomMetaData() {
+	tests := []struct {
+		name string
+
+		updatedBlockDenom  string
+		preSetUpdateHeight uint64
+		updateHeight       uint64
+		blockPriceUpdates  domain.PricesResult
+		quoteDenom         string
+		blockPoolMetadata  domain.BlockPoolMetadata
+
+		expectedPoolDenomMetadData domain.PoolDenomMetaData
+		expectedErr                error
+	}{
+		{
+			name: "happy path",
+
+			updatedBlockDenom: UOSMO,
+			updateHeight:      defaultHeight,
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+			blockPoolMetadata: defaultBlockPoolMetaData,
+
+			expectedPoolDenomMetadData: domain.PoolDenomMetaData{
+				Price:             defaultPrice,
+				TotalLiquidity:    defaultLiquidity,
+				TotalLiquidityCap: defaultLiquidityCap,
+			},
+		},
+		{
+			name: "error: denom pool liquidity data not found",
+
+			updatedBlockDenom: UOSMO,
+			updateHeight:      defaultHeight,
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+			blockPoolMetadata: domain.BlockPoolMetadata{
+				// Empty map
+				DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{},
+			},
+
+			expectedErr: domain.DenomPoolLiquidityDataNotFoundError{
+				Denom: UOSMO,
+			},
+		},
+		{
+			name: "error: no price for denom",
+
+			updatedBlockDenom: UOSMO,
+			updateHeight:      defaultHeight,
+			blockPriceUpdates: domain.PricesResult{},
+			quoteDenom:        USDC,
+			blockPoolMetadata: defaultBlockPoolMetaData,
+
+			expectedErr: domain.PriceNotFoundForPoolLiquidityCapError{
+				Denom: UOSMO,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		s.T().Run(tt.name, func(t *testing.T) {
+
+			// Create liquidity pricer
+			liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
+
+			// Set up the tokens pool liquidity mock handler
+			poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
+				DenomScalingFactorMap: defaultScalingFactorMap,
+			}
+
+			// Create the worker
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer, &log.NoOpLogger{})
+
+			// Pre-set the height for the denom.
+			poolLiquidityPricerWorker.StoreHeightForDenom(tt.updatedBlockDenom, tt.preSetUpdateHeight)
+
+			// System under test
+			poolDenomMetadata, err := poolLiquidityPricerWorker.CreatePoolDenomMetaData(tt.updatedBlockDenom, tt.updateHeight, tt.blockPriceUpdates, tt.quoteDenom, tt.blockPoolMetadata)
+
+			if tt.expectedErr != nil {
+				s.Require().Error(err)
+				s.Require().ErrorIs(tt.expectedErr, err)
+				return
+			}
+
+			s.Require().NoError(err)
+			s.Require().Equal(tt.expectedPoolDenomMetadData, poolDenomMetadata)
+		})
+
+	}
+}
+
+// Tests the helper for determining if denom repricing should be skipped.
+func (s *PoolLiquidityComputeWorkerSuite) TestShouldSkipDenomRepricing() {
+	tests := []struct {
+		name string
+
+		updatedBlockDenom  string
+		preSetUpdateHeight uint64
+		updateHeight       uint64
+
+		expected bool
+	}{
+		{
+			name: "do not skip",
+
+			updatedBlockDenom: UOSMO,
+			updateHeight:      defaultHeight,
+
+			expected: false,
+		},
+		{
+			name: "skip: later update height present",
+
+			updatedBlockDenom: UOSMO,
+			// pre-set later update height.
+			preSetUpdateHeight: defaultHeight + 1,
+			updateHeight:       defaultHeight,
+
+			expected: true,
+		},
+		{
+			name: "skip: denom is gamm share",
+
+			updatedBlockDenom: worker.GammSharePrefix,
+			// pre-set later update height.
+			preSetUpdateHeight: defaultHeight + 1,
+			updateHeight:       defaultHeight,
+
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		s.T().Run(tt.name, func(t *testing.T) {
+			// Create the worker
+			// Note: all inputs are irrelevant for this test.
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, nil, nil, &log.NoOpLogger{})
+
+			// Pre-set the height for the denom.
+			poolLiquidityPricerWorker.StoreHeightForDenom(tt.updatedBlockDenom, tt.preSetUpdateHeight)
+
+			// System under test
+			actual := poolLiquidityPricerWorker.ShouldSkipDenomRepricing(tt.updatedBlockDenom, tt.updateHeight)
+
+			s.Require().Equal(tt.expected, actual)
+		})
+
+	}
+}
+
+func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
+	tests := []struct {
+		name string
+
+		existingPools []sqsdomain.PoolI
+		poolIDs       map[uint64]struct{}
+
+		// updateHeight      uint64
+		blockPriceUpdates domain.PricesResult
+		quoteDenom        string
+
+		expectedLiquidityResultByID map[uint64]liquidityResult
+
+		expectError error
+	}{
+		{
+			name: "one pool, one coin in balance",
+
+			poolIDs: map[uint64]struct{}{
+				defaultPoolID: {},
+			},
+
+			existingPools:     []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+
+			expectedLiquidityResultByID: map[uint64]liquidityResult{
+				defaultPoolID: {
+					LiquidityCap: defaultLiquidityCap,
+				},
+			},
+		},
+		{
+			name: "two pools, one with two coins in balance",
+
+			poolIDs: map[uint64]struct{}{
+				defaultPoolID:     {},
+				defaultPoolID + 1: {},
+			},
+
+			existingPools: []sqsdomain.PoolI{
+				// UOSMO: 1x default balance, ATOM: 1x default balance
+				&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance, defaultATOMBalance)},
+
+				// UOSMO: 3x default balance
+				&mocks.MockRoutablePool{ID: defaultPoolID + 1, Balances: sdk.NewCoins(defaultUOSMOBalance.Add(defaultUOSMOBalance).Add(defaultUOSMOBalance))},
+			},
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+
+			expectedLiquidityResultByID: map[uint64]liquidityResult{
+				defaultPoolID: {
+					LiquidityCap: defaultLiquidityCap.Add(defaultLiquidityCap),
+				},
+
+				defaultPoolID + 1: {
+					LiquidityCap: defaultLiquidityCap.Add(defaultLiquidityCap).Add(defaultLiquidityCap),
+				},
+			},
+		},
+		{
+			name: "two pools in state but only one is refreshed, one with two coins in balance",
+
+			poolIDs: map[uint64]struct{}{
+				// Only default + 1 is refreshed
+				defaultPoolID + 1: {},
+			},
+
+			existingPools: []sqsdomain.PoolI{
+				// UOSMO: 1x default balance, ATOM: 1x default balance, zero capitalization set
+				&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance, defaultATOMBalance), PoolLiquidityCap: zeroCapitalization},
+
+				// UOSMO: 3x default balance
+				&mocks.MockRoutablePool{ID: defaultPoolID + 1, Balances: sdk.NewCoins(defaultUOSMOBalance.Add(defaultUOSMOBalance).Add(defaultUOSMOBalance))},
+			},
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+
+			expectedLiquidityResultByID: map[uint64]liquidityResult{
+				defaultPoolID: {
+					LiquidityCap: zeroCapitalization,
+				},
+
+				defaultPoolID + 1: {
+					LiquidityCap: defaultLiquidityCap.Add(defaultLiquidityCap).Add(defaultLiquidityCap),
+				},
+			},
+		},
+		{
+			name: "invalid quote denom -> zero capitalization & error set",
+
+			poolIDs: map[uint64]struct{}{
+				defaultPoolID: {},
+			},
+
+			existingPools:     []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        ATOM,
+
+			expectedLiquidityResultByID: map[uint64]liquidityResult{
+				defaultPoolID: {
+					LiquidityCap:      zeroCapitalization,
+					LiquidityCapError: worker.FormatLiquidityCapErrorStr(UOSMO),
+				},
+			},
+		},
+		{
+			name: "empty price -> zero capitalization & error set",
+
+			poolIDs: map[uint64]struct{}{
+				defaultPoolID: {},
+			},
+
+			existingPools:     []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
+			blockPriceUpdates: domain.PricesResult{},
+			quoteDenom:        USDC,
+
+			expectedLiquidityResultByID: map[uint64]liquidityResult{
+				defaultPoolID: {
+					LiquidityCap:      zeroCapitalization,
+					LiquidityCapError: worker.FormatLiquidityCapErrorStr(UOSMO),
+				},
+			},
+		},
+		{
+			name: "empty pool IDs -> zero capitalization",
+
+			poolIDs: map[uint64]struct{}{},
+
+			existingPools:     []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance), PoolLiquidityCap: zeroCapitalization}},
+			blockPriceUpdates: defaultBlockPriceUpdates,
+			quoteDenom:        USDC,
+
+			expectedLiquidityResultByID: map[uint64]liquidityResult{
+				defaultPoolID: {
+					LiquidityCap: zeroCapitalization,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		s.T().Run(tt.name, func(t *testing.T) {
+
+			// Create liquidity pricer
+			liquidityPricer := worker.NewLiquidityPricer(tt.quoteDenom, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
+
+			// Create pool handler mock
+			poolHandlerMock := &mocks.PoolHandlerMock{
+				Pools: tt.existingPools,
+			}
+
+			// Create the worker
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, poolHandlerMock, liquidityPricer, &log.NoOpLogger{})
+
+			// System under test
+			err := poolLiquidityPricerWorker.RepricePoolLiquidityCap(tt.poolIDs, tt.blockPriceUpdates)
+
+			// Check the result
+			if tt.expectError != nil {
+				s.Require().Error(err)
+				s.Require().ErrorIs(err, tt.expectError)
+				return
+			}
+
+			// Convert all pools pre-set in state to the pool IDs
+			// used for assertions.
+			expectedPoolIDs := make([]uint64, 0, len(tt.existingPools))
+			for _, pool := range tt.existingPools {
+				expectedPoolIDs = append(expectedPoolIDs, pool.GetId())
+			}
+
+			// Get pools
+			actualPools, err := poolHandlerMock.GetPools(expectedPoolIDs)
+			s.Require().Equal(len(tt.expectedLiquidityResultByID), len(poolHandlerMock.Pools))
+
+			// Validate that liquidity cap is set correctly on each pool
+			s.validateLiquidityCapPools(tt.expectedLiquidityResultByID, actualPools)
 		})
 	}
 }
@@ -570,5 +890,17 @@ func (s *PoolLiquidityComputeWorkerSuite) validatePoolDenomMetadata(expected dom
 		s.Require().True(ok)
 
 		s.Require().Equal(expectedDenomMetadata, actualDenomMetadata)
+	}
+}
+
+// validateLiquidityCapPools validate that liquidity cap is set correctly on each pool.
+func (s *PoolLiquidityComputeWorkerSuite) validateLiquidityCapPools(expectedLiquidityResultMap map[uint64]liquidityResult, actualPools []sqsdomain.PoolI) {
+	for _, pool := range actualPools {
+
+		expectedLiquidityResult, ok := expectedLiquidityResultMap[pool.GetId()]
+		s.Require().True(ok)
+
+		s.Require().Equal(expectedLiquidityResult.LiquidityCap, pool.GetLiquidityCap())
+		s.Require().Equal(expectedLiquidityResult.LiquidityCapError, pool.GetLiquidityCapError())
 	}
 }
