@@ -149,10 +149,17 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 				rating += totalTVLFloat * 1.5
 			}
 
-			// Grant additional rating to alloyed transmuter & orderbook.
 			cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
-			if cosmWasmPoolModel != nil && (cosmWasmPoolModel.IsAlloyTransmuter() || cosmWasmPoolModel.IsOrderbook()) {
-				rating += totalTVLFloat * 1.5
+			if cosmWasmPoolModel != nil {
+				// Grant additional rating to alloyed transmuter
+				if cosmWasmPoolModel.IsAlloyTransmuter() {
+					rating += totalTVLFloat * 1.5
+				}
+
+				// Orderbook is ranked a bit lower than Concentrated pools
+				if cosmWasmPoolModel.IsOrderbook() {
+					rating += (totalTVLFloat / 2) * 0.9
+				}
 			}
 		}
 
