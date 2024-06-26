@@ -104,6 +104,7 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 // - The TVL is the main metric to sort pools by.
 // - Preferred pools are prioritized by getting a boost.
 // - Transmuter pools are the most efficient due to no slippage swaps so they get a boost.
+// - Simillarly, alloyed transmuter pools are comparable due to no slippage swaps so they get a boost.
 // - Concentrated pools follow so they get a smaller boost.
 // - Pools with no error in TVL are prioritized by getting an even smaller boost.
 //
@@ -144,6 +145,12 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 			}
 			_, isTransmuter := transmuterCodeIDs[cosmWasmPool.GetCodeId()]
 			if isTransmuter {
+				rating += totalTVLFloat * 1.5
+			}
+
+			// Grant additional rating to alloyed transmuter.
+			cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
+			if cosmWasmPoolModel != nil && cosmWasmPoolModel.IsAlloyTransmuter() {
 				rating += totalTVLFloat * 1.5
 			}
 		}
