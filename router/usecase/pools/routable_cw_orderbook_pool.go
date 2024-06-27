@@ -17,6 +17,8 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
+var oneBigDec = osmomath.OneBigDec()
+
 var _ domain.RoutablePool = &routableOrderbookPoolImpl{}
 
 type routableOrderbookPoolImpl struct {
@@ -155,13 +157,15 @@ func (r *routableOrderbookPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 
 // CalcSpotPrice implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	// Get the expected order direction
-	direction, err := r.GetDirection(quoteDenom, baseDenom)
+	// Get the expected order directionIn
+	directionIn, err := r.GetDirection(quoteDenom, baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 
-	tickIdx, err := r.GetStartTickIndex(direction.Opposite())
+	directionOut := directionIn.Opposite()
+
+	tickIdx, err := r.GetStartTickIndex(directionOut)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -169,7 +173,12 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 	tick := r.OrderbookData.Ticks[tickIdx]
 
 	// Calculate the price for the current tick
-	return clmath.TickToPrice(tick.TickId)
+	tickPrice, err := clmath.TickToPrice(tick.TickId)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	return convertValue(oneBigDec, tickPrice, directionOut), nil
 }
 
 // IsGeneralizedCosmWasmPool implements domain.RoutablePool.
@@ -189,8 +198,8 @@ func (*routableOrderbookPoolImpl) GetSQSType() domain.SQSPoolType {
 
 // Determines order direction for the current orderbook given token in and out denoms
 // Returns:
-// - cosmwasmpool.BID (1) if the order is a bid (buying token out)
-// - cosmwasmpool.ASK (-1) if the order is an ask (selling token out)
+// - domain.BID (true) if the order is a bid (buying token out)
+// - domain.ASK (false) if the order is an ask (selling token out)
 // - 0 if the order is not valid
 func (r *routableOrderbookPoolImpl) GetDirection(tokenInDenom, tokenOutDenom string) (*domain.OrderbookDirection, error) {
 	if tokenInDenom == r.OrderbookData.BaseDenom && tokenOutDenom == r.OrderbookData.QuoteDenom {

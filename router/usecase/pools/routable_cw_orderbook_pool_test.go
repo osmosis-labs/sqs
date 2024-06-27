@@ -265,20 +265,20 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 
 func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 	tests := map[string]struct {
-		quoteDenom       string
-		baseDenom        string
-		spotPrice        osmomath.BigDec
-		nextBidTickIndex int
-		nextAskTickIndex int
-		ticks            []cosmwasmpool.OrderbookTick
-		expectError      error
+		quoteDenom        string
+		baseDenom         string
+		expectedSpotPrice osmomath.BigDec
+		nextBidTickIndex  int
+		nextAskTickIndex  int
+		ticks             []cosmwasmpool.OrderbookTick
+		expectError       error
 	}{
 		"BID: basic price 1 query": {
-			baseDenom:        BASE_DENOM,
-			quoteDenom:       QUOTE_DENOM,
-			spotPrice:        osmomath.NewBigDec(1),
-			nextBidTickIndex: -1, // no next bid tick
-			nextAskTickIndex: 0,
+			baseDenom:         BASE_DENOM,
+			quoteDenom:        QUOTE_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(1),
+			nextBidTickIndex:  -1, // no next bid tick
+			nextAskTickIndex:  0,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 					BidLiquidity: osmomath.ZeroBigDec(),
@@ -287,11 +287,11 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"BID: multi tick lowest price": {
-			baseDenom:        BASE_DENOM,
-			quoteDenom:       QUOTE_DENOM,
-			spotPrice:        osmomath.NewBigDec(1),
-			nextBidTickIndex: -1, // no next bid tick
-			nextAskTickIndex: 0,
+			baseDenom:         BASE_DENOM,
+			quoteDenom:        QUOTE_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(1),
+			nextBidTickIndex:  -1, // no next bid tick
+			nextAskTickIndex:  0,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{
 					TickId: 0,
@@ -317,11 +317,11 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"BID: change in spot price": {
-			baseDenom:        BASE_DENOM,
-			quoteDenom:       QUOTE_DENOM,
-			spotPrice:        osmomath.NewBigDec(2),
-			nextBidTickIndex: -1, // no next bid tick
-			nextAskTickIndex: 1,
+			baseDenom:         BASE_DENOM,
+			quoteDenom:        QUOTE_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(2),
+			nextBidTickIndex:  -1, // no next bid tick
+			nextAskTickIndex:  1,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{
 					TickId: 0,
@@ -340,11 +340,11 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"ASK: basic price 1 query": {
-			baseDenom:        QUOTE_DENOM,
-			quoteDenom:       BASE_DENOM,
-			spotPrice:        osmomath.NewBigDec(1),
-			nextBidTickIndex: 0,
-			nextAskTickIndex: -1, // no next ask tick
+			baseDenom:         QUOTE_DENOM,
+			quoteDenom:        BASE_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(1),
+			nextBidTickIndex:  0,
+			nextAskTickIndex:  -1, // no next ask tick
 			ticks: []cosmwasmpool.OrderbookTick{
 				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 					BidLiquidity: osmomath.NewBigDec(100),
@@ -353,11 +353,11 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"ASK: multi tick lowest price": {
-			baseDenom:        QUOTE_DENOM,
-			quoteDenom:       BASE_DENOM,
-			spotPrice:        osmomath.NewBigDec(1),
-			nextBidTickIndex: 2,
-			nextAskTickIndex: -1, // no next ask tick
+			baseDenom:         QUOTE_DENOM,
+			quoteDenom:        BASE_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(1),
+			nextBidTickIndex:  2,
+			nextAskTickIndex:  -1, // no next ask tick
 			ticks: []cosmwasmpool.OrderbookTick{
 				{TickId: -2, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 					BidLiquidity: osmomath.NewBigDec(100),
@@ -374,11 +374,11 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"ASK: multi direction lowest tick": {
-			baseDenom:        QUOTE_DENOM,
-			quoteDenom:       BASE_DENOM,
-			spotPrice:        osmomath.NewBigDec(1),
-			nextBidTickIndex: 0,
-			nextAskTickIndex: 0,
+			baseDenom:         QUOTE_DENOM,
+			quoteDenom:        BASE_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(1),
+			nextBidTickIndex:  0,
+			nextAskTickIndex:  0,
 			ticks: []cosmwasmpool.OrderbookTick{
 				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 					BidLiquidity: osmomath.NewBigDec(100),
@@ -387,21 +387,21 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"ASK: change in spot price": {
-			baseDenom:        QUOTE_DENOM,
-			quoteDenom:       BASE_DENOM,
-			spotPrice:        osmomath.NewBigDecWithPrec(5, 1),
-			nextBidTickIndex: 0,
-			nextAskTickIndex: -1, // no next ask tick
+			baseDenom:         QUOTE_DENOM,
+			quoteDenom:        BASE_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(2),
+			nextBidTickIndex:  1,
+			nextAskTickIndex:  -1, // no next ask tick
 			ticks: []cosmwasmpool.OrderbookTick{
 				{
-					TickId: LARGE_NEGATIVE_TICK,
+					TickId: LARGE_NEGATIVE_TICK - 1,
 					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 						BidLiquidity: osmomath.NewBigDec(100),
 						AskLiquidity: osmomath.ZeroBigDec(),
 					},
 				},
 				{
-					TickId: 0,
+					TickId: LARGE_NEGATIVE_TICK,
 					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
 						BidLiquidity: osmomath.NewBigDec(100),
 						AskLiquidity: osmomath.ZeroBigDec(),
@@ -410,12 +410,12 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"invalid: duplicate denom": {
-			quoteDenom:       BASE_DENOM,
-			baseDenom:        BASE_DENOM,
-			spotPrice:        osmomath.NewBigDec(0),
-			nextBidTickIndex: -1, // no next bid tick
-			nextAskTickIndex: -1, // no next ask tick
-			ticks:            []cosmwasmpool.OrderbookTick{},
+			quoteDenom:        BASE_DENOM,
+			baseDenom:         BASE_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(0),
+			nextBidTickIndex:  -1, // no next bid tick
+			nextAskTickIndex:  -1, // no next ask tick
+			ticks:             []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  BASE_DENOM,
@@ -423,12 +423,12 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"invalid: incorrect base denom": {
-			baseDenom:        INVALID_DENOM,
-			quoteDenom:       QUOTE_DENOM,
-			spotPrice:        osmomath.NewBigDec(0),
-			nextBidTickIndex: -1, // no next bid tick
-			nextAskTickIndex: -1, // no next ask tick
-			ticks:            []cosmwasmpool.OrderbookTick{},
+			baseDenom:         INVALID_DENOM,
+			quoteDenom:        QUOTE_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(0),
+			nextBidTickIndex:  -1, // no next bid tick
+			nextAskTickIndex:  -1, // no next ask tick
+			ticks:             []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  QUOTE_DENOM,
@@ -436,12 +436,12 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"invalid: incorrect quote denom": {
-			baseDenom:        BASE_DENOM,
-			quoteDenom:       INVALID_DENOM,
-			spotPrice:        osmomath.NewBigDec(0),
-			nextBidTickIndex: -1, // no next bid tick
-			nextAskTickIndex: -1, // no next ask tick
-			ticks:            []cosmwasmpool.OrderbookTick{},
+			baseDenom:         BASE_DENOM,
+			quoteDenom:        INVALID_DENOM,
+			expectedSpotPrice: osmomath.NewBigDec(0),
+			nextBidTickIndex:  -1, // no next bid tick
+			nextAskTickIndex:  -1, // no next ask tick
+			ticks:             []cosmwasmpool.OrderbookTick{},
 			expectError: domain.OrderbookPoolMismatchError{
 				PoolId:        defaultPoolID,
 				TokenInDenom:  INVALID_DENOM,
@@ -463,7 +463,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			}
 			s.Require().NoError(err)
 
-			s.Require().Equal(tc.spotPrice, spotPrice)
+			s.Require().Equal(tc.expectedSpotPrice, spotPrice)
 		})
 	}
 }
