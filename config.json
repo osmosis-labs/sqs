@@ -7,11 +7,6 @@
     "grpc-gateway-endpoint": "http://localhost:26657",
     "chain-id": "osmosis-1",
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
-    "flight-record": {
-        "enabled": false,
-        "trace-threshold-ms": 1000,
-        "trace-file-name": "/tmp/sqs-flight-record.trace"
-    },
     "router": {
       "preferred-pool-ids": [],
       "max-pools-per-route": 4,
@@ -28,12 +23,18 @@
         }
       ]
     },
+    "flight-record": {
+          "enabled": false,
+          "trace-threshold-ms": 1000,
+          "trace-file-name": "/tmp/sqs-flight-record.trace"
+    },
     "pools": {
         "transmuter-code-ids": [
             148,
             254
         ],
         "alloyed-transmuter-code-ids": [814],
+        "orderbook-code-ids": [],
         "general-cosmwasm-code-ids": [
             503,
             572,
@@ -42,37 +43,37 @@
             842
         ]
     },
-    "pricing": {
+    "pricing":{
         "cache-expiry-ms": 2000,
         "default-source": 0,
         "default-quote-human-denom": "usdc",
         "max-pools-per-route": 4,
         "max-routes": 5,
-        "min-pool-liquidity-cap": 50,
-        "worker-min-pool-liquidity-cap": 1,
+        "min-pool-liquidity-cap": 1000,
         "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
-        "coingecko-quote-currency": "usd"
+        "coingecko-quote-currency": "usd",
+        "worker-min-pool-liquidity-cap": 1
     },
-    "grpc-ingester": {
+    "grpc-ingester":{
         "enabled": true,
-        "max-receive-msg-size-bytes": 26214400,
+        "max-receive-msg-size-bytes": 16777216,
         "server-address": ":50051",
         "server-connection-timeout-seconds": 10
     },
     "otel": {
         "dsn": "",
-        "sample-rate": 1,
-        "enable-tracing": true,
-        "profiles-sample-rate": 1,
+        "sample-rate": 0,
+        "enable-tracing": false,
+        "profiles-sample-rate": 0,
         "environment": "sqs-dev",
         "custom-sample-rate": {
-            "/router/quote": 1,
+            "/router/quote": 0,
             "other": 0
         }
     },
     "cors": {
-        "allowed-headers": "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
+        "allowed-origin": "*",
         "allowed-methods": "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
-        "allowed-origin": "*"
+        "allowed-headers": "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage"
     }
 }

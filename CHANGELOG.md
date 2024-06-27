@@ -35,12 +35,14 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v25.2.0
 
 - Fix bug with allUSDT swaps resulting in extreme price impact due to config and filtering issues.
 - Fix bug of overapplying quote denom scaling factor in pool liquidity pricer.
 - Pool liquidity capitalization
 - Make alloyed transmuter pools receive more rank in routing
+
+Chain compatibility: `osmolabs/osmosis-dev:v25.x-a1bf5551-1718937537`
 
 ## v25.1.1
 

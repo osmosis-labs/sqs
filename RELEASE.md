@@ -13,10 +13,11 @@ This is a summary of the steps to get a change into production.
 4. Get infrastrucuture PR approved and merged into `main`
 6. Deploy to stage environment (automated and triggered by step 5 once merged into `main`)
 7. Test & request QA
-8. Tag the non-RC release e.g. `v0.20.0` and push it to the repo.
-9. (production deployment only) Run e2e test by `make e2e-run-dev` to do a final check. API key must be specified thru environment variable `SQS_API_KEY` before running the test.
-10. (production deployment only) Repeat step 3 and 4. 
-11.  Manually perform prod deployment via Rundeck
+8. Update changelog and reference the Docker tag for the chain that is compatible with the release.
+9. Tag the non-RC release e.g. `v0.20.0` and push it to the repo.
+10. (production deployment only) Run e2e test by `make e2e-run-dev` to do a final check. API key must be specified thru environment variable `SQS_API_KEY` before running the test.
+11. (production deployment only) Repeat step 3 and 4. 
+12.  Manually perform prod deployment via Rundeck
 - Post updates in #eng-team-data-services.
 - Deployment start
 - Issues/blockers, if any

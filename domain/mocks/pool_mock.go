@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
@@ -17,7 +18,7 @@ import (
 type MockRoutablePool struct {
 	ChainPoolModel    poolmanagertypes.PoolI
 	TickModel         *sqsdomain.TickModel
-	CosmWasmPoolModel *sqsdomain.CosmWasmPoolModel
+	CosmWasmPoolModel *cosmwasmpool.CosmWasmPoolModel
 	ID                uint64
 	Balances          sdk.Coins
 	Denoms            []string
@@ -72,7 +73,7 @@ func (mp *MockRoutablePool) GetSQSPoolModel() sqsdomain.SQSPool {
 	return sqsdomain.SQSPool{
 		Balances:          mp.Balances,
 		PoolLiquidityCap:  mp.PoolLiquidityCap,
-		SpreadFactor:      DefaultSpreadFactor,
+		SpreadFactor:      mp.SpreadFactor,
 		PoolDenoms:        mp.Denoms,
 		CosmWasmPoolModel: mp.CosmWasmPoolModel,
 	}

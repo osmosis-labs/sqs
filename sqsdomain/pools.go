@@ -11,6 +11,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	clqueryproto "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/client/queryproto"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
 // PoolI represents a generalized Pool interface.
@@ -74,7 +75,7 @@ type SQSPool struct {
 	SpreadFactor osmomath.Dec `json:"spread_factor"`
 
 	// Only CosmWasm pools need CosmWasmPoolModel appended
-	CosmWasmPoolModel *CosmWasmPoolModel `json:"cosmwasm_pool_model,omitempty"`
+	CosmWasmPoolModel *cosmwasmpool.CosmWasmPoolModel `json:"cosmwasm_pool_model,omitempty"`
 }
 
 type PoolWrapper struct {

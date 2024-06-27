@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var (
@@ -49,14 +51,13 @@ func (e InvalidPoolTypeError) Error() string {
 	return "invalid pool type: " + string(e.PoolType)
 }
 
-// UnsupportedCosmWasmPoolTypeError is an error type for invalid cosmwasm pool type.
-type UnsupportedCosmWasmPoolTypeError struct {
-	PoolType string
-	PoolId   uint64
+// UnsupportedCosmWasmPoolError is an error type for unsupported CosmWasm pool.
+type UnsupportedCosmWasmPoolError struct {
+	PoolId uint64
 }
 
-func (e UnsupportedCosmWasmPoolTypeError) Error() string {
-	return "unsupported pool type: " + e.PoolType
+func (e UnsupportedCosmWasmPoolError) Error() string {
+	return fmt.Sprintf("Pool %d is a CosmWasm pool but is not supported", e.PoolId)
 }
 
 type PoolNotFoundError struct {
@@ -147,12 +148,39 @@ func (e ConcentratedTickModelNotSetError) Error() string {
 	return fmt.Sprintf("tick model is not set on pool (%d)", e.PoolId)
 }
 
-type AlloyTransmuterDataMissingError struct {
-	PoolId uint64
+// CosmWasmPoolType represents the type of a CosmWasm pool.
+type CosmWasmPoolType int
+
+const (
+	CosmWasmPoolTransmuter CosmWasmPoolType = iota
+	CosmWasmPoolAlloyTransmuter
+	CosmWasmPoolOrderbook
+	CosmWasmPoolGeneralized
+)
+
+// String returns the string representation of the CwPoolType.
+func (c CosmWasmPoolType) String() string {
+	switch c {
+	case CosmWasmPoolTransmuter:
+		return "Transmuter"
+	case CosmWasmPoolAlloyTransmuter:
+		return "Alloy Transmuter"
+	case CosmWasmPoolOrderbook:
+		return "Orderbook"
+	case CosmWasmPoolGeneralized:
+		return "Generalized"
+	default:
+		return "Unknown"
+	}
 }
 
-func (e AlloyTransmuterDataMissingError) Error() string {
-	return fmt.Sprintf("Alloy Transmuter data is missing for pool (%d)", e.PoolId)
+type CosmWasmPoolDataMissingError struct {
+	PoolId           uint64
+	CosmWasmPoolType CosmWasmPoolType
+}
+
+func (e CosmWasmPoolDataMissingError) Error() string {
+	return fmt.Sprintf("%s data is missing for pool (%d)", e.CosmWasmPoolType, e.PoolId)
 }
 
 type MissingNormalizationFactorError struct {
@@ -226,6 +254,25 @@ type SpotPriceQuoteCalculatorTruncatedError struct {
 
 func (e SpotPriceQuoteCalculatorTruncatedError) Error() string {
 	return fmt.Sprintf("spot price truncated when using quote method, quote coin (%s), base denom (%s)", e.QuoteCoinStr, e.BaseDenom)
+}
+
+type OrderbookNotEnoughLiquidityToCompleteSwapError struct {
+	PoolId   uint64
+	AmountIn sdk.Coin
+}
+
+func (e OrderbookNotEnoughLiquidityToCompleteSwapError) Error() string {
+	return fmt.Sprintf("not enough liquidity to complete swap in pool (%d) with amount in (%s)", e.PoolId, e.AmountIn)
+}
+
+type OrderbookPoolMismatchError struct {
+	PoolId        uint64
+	TokenInDenom  string
+	TokenOutDenom string
+}
+
+func (e OrderbookPoolMismatchError) Error() string {
+	return fmt.Sprintf("orderbook pool (%d) does not support swaps from (%s) to (%s)", e.PoolId, e.TokenInDenom, e.TokenOutDenom)
 }
 
 type DenomPoolLiquidityDataNotFoundError struct {

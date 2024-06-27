@@ -11,6 +11,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	cosmwasmpool "github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
@@ -154,10 +155,10 @@ func (s *RouterTestSuite) TestRouterSorting() {
 				SQSModel: sqsdomain.SQSPool{
 					PoolLiquidityCap: osmomath.NewInt(3*OsmoPrecisionMultiplier - 1), // 3 * precision - 1
 					PoolDenoms:       defaultDenoms,
-					CosmWasmPoolModel: &sqsdomain.CosmWasmPoolModel{
-						ContractInfo: sqsdomain.ContractInfo{
-							Contract: sqsdomain.AlloyTranmuterName,
-							Version:  sqsdomain.AlloyTransmuterMinVersion,
+					CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+						ContractInfo: cosmwasmpool.ContractInfo{
+							Contract: cosmwasmpool.AlloyTranmuterName,
+							Version:  cosmwasmpool.AlloyTransmuterMinVersion,
 						},
 					},
 				},

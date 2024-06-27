@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -107,6 +108,9 @@ type PoolsConfig struct {
 	// Code IDs of Alloyed Transmuter CosmWasm pools that are supported.
 	AlloyedTransmuterCodeIDs []uint64 `mapstructure:"alloyed-transmuter-code-ids"`
 
+	// Code IDs of Orderbook pools that are supported.
+	OrderbookCodeIDs []uint64 `mapstructure:"orderbook-code-ids"`
+
 	// Code IDs of generalized CosmWasm pools that are supported.
 	// NOTE: that these pools make network requests to chain for quote estimation.
 	// As a result, they are excluded from split routes.
@@ -119,7 +123,7 @@ type RouterState struct {
 	Pools          []sqsdomain.PoolI
 	TakerFees      sqsdomain.TakerFeeMap
 	TickMap        map[uint64]*sqsdomain.TickModel
-	AlloyedDataMap map[uint64]*sqsdomain.AlloyTransmuterData
+	AlloyedDataMap map[uint64]*cosmwasmpool.AlloyTransmuterData
 }
 
 // RouterOptions defines the options for the router

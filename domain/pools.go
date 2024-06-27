@@ -13,6 +13,8 @@ type CosmWasmPoolRouterConfig struct {
 	TransmuterCodeIDs map[uint64]struct{}
 	// code IDs for the alloyed transmuter pool type
 	AlloyedTransmuterCodeIDs map[uint64]struct{}
+	// code IDs for the orderbook pool type
+	OrderbookCodeIDs map[uint64]struct{}
 	// code IDs for the generalized cosmwasm pool type
 	GeneralCosmWasmCodeIDs map[uint64]struct{}
 
@@ -55,4 +57,40 @@ var UnsetScalingFactorGetterCb ScalingFactorGetterCb = func(denom string) (osmom
 	// If you run into this panic, your test might benefit from properly wiring the scaling factor
 	// getter callback (defined on the tokens use case)
 	panic("scaling factor getter cb is unset")
+}
+
+type OrderbookDirection bool
+
+const (
+	BID OrderbookDirection = true
+	ASK OrderbookDirection = false
+)
+
+func (d *OrderbookDirection) String() string {
+	if *d { // BID
+		return "BID"
+	} else { // ASK
+		return "ASK"
+	}
+}
+
+func (d *OrderbookDirection) Opposite() OrderbookDirection {
+	if *d { // BID
+		return ASK
+	} else { // ASK
+		return BID
+	}
+}
+
+// IterationStep returns the step to be used for iterating the orderbook.
+// The orderbook ticks are ordered by tick id in ascending order.
+// BID piles up on the top of the orderbook, while ASK piles up on the bottom.
+// So if we want to iterate the BID orderbook, we should iterate in descending order.
+// If we want to iterate the ASK orderbook, we should iterate in ascending order.
+func (d *OrderbookDirection) IterationStep() (int, error) {
+	if *d { // BID
+		return -1, nil
+	} else { // ASK
+		return 1, nil
+	}
 }

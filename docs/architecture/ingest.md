@@ -12,6 +12,34 @@ As a result, it is possible to see the following sequence of events:
 - Height X: All Osmosis pools are pushed
 - Height X+1: Only the pools that have changed within that height are pushed
 
+## Parsing Block Pool Metadata
+
+Since we may push either all pools or only the ones updated within a block, we
+maintain a data structure that helps to identify the pools and denoms that have been updated within a block
+while retaining the context of all pools and denoms.
+
+```go
+// BlockPoolMetadata contains the metadata about unique pools
+// and denoms modified in a block.
+type BlockPoolMetadata struct {
+	// DenomPoolLiquidityMap is a map of denoms to their liquidities across pools.
+	// These contain all denoms and their liquidity data across all pools.
+	DenomPoolLiquidityMap DenomPoolLiquidityMap
+	// UpdatedDenoms are the denoms updated within a block.
+	UpdatedDenoms map[string]struct{}
+	// PoolIDs are the IDs of all pools updated within a block.
+	PoolIDs map[uint64]struct{}
+}
+```
+
+`UpdatedDenoms` and `PoolIDs` are used to identify the pools and denoms that have been updated within a block.
+
+Initial `DenomPoolLiquidityMap` is constructed from the pool data that is pushed at the start of the block.
+
+When the pool data is pushed, the `DenomPoolLiquidityMap` is updated with the new pool data.
+
+We maintain [DenomPoolLiquidityMap](https://github.com/osmosis-labs/sqs/blob/83fbe8e25f332e259b97bc0a4873c21664d8f9f9/ingest/usecase/ingest_usecase.go#L59) in-memory of ingest usecase and [update it](https://github.com/osmosis-labs/sqs/blob/83fbe8e25f332e259b97bc0a4873c21664d8f9f9/ingest/usecase/ingest_usecase.go#L188) while processing each block.
+
 ## Workers
 
 ### Pricing
@@ -89,3 +117,39 @@ For example, assume that there is an ATOM/OSMO pool that is modified within a bl
 
 The denom liquidity capitalization and pool liquidity capitalizaion for each pool are computed concurrently by the
 pool liquidity pricer worker after every block.
+
+### Candidate Route Search Data
+
+This worker is responsible for pre-computing the candidate route search pool data for each denom.
+
+It relies on the pool liquidity capitalization data being available. As a result, it is implemented as its listener that is triggered by the pool liquidity pricing worker.
+
+#### Pre-computing Method & Data Structures
+
+Review the ingest data structures that we have defined earliet in this file:
+- `DenomPoolLiquidityData`
+- `DenomPoolLiquidityMap`
+- `BlockPoolMetadata`
+
+
+Now, we introduce:
+
+```go
+type CandidateRoutePoolData map[string][]sqsdomain.PoolI
+```
+
+It will be stored as a `sync.Map` in the router handler.
+
+To achive its construction, we rely on 
+
+- `BlockPoolMetadata` and all pools with their liquidity capitalizations computed.
+
+Process:
+1. Using the `BlockPoolMetadata.UpdatedDenoms`, we know which denoms have been updated
+and need their candidate route pool data recomputed.
+2. For each denom:
+   a) Grab its pool IDs from `BlockPoolMetadata.DenomPoolLiquidityMap`.
+   b) Use [mvc.PoolsHandler.GetPools([]uint64)](https://github.com/osmosis-labs/sqs/blob/83fbe8e25f332e259b97bc0a4873c21664d8f9f9/pools/usecase/pools_usecase.go#L249) to retrieve the pools.
+      - Note: there is a minor risk of contention with client requests.
+   c) Sort the pools according to the pool filtering algorithm described above in this document.
+   d) Store in router handler with `mvc.RouterHandler.StoreCandidateRoutePoolData(string, []sqsdomain.PoolI)`.

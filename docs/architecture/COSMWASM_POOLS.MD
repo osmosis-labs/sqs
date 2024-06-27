@@ -30,12 +30,15 @@ Ingestor query the contract to determine which type of pool it is using [cw2 spe
 And then query and transform nessesary data to fit into `CWPoolData` struct which works like a tagged union to hold different types of data depending on the contract and its version. If there is a new pool type, we can add new type to `CWPoolData` and update the ingester to transform the data accordingly.
 
 ```go
-// CWPoolData is the custom data for each type of CosmWasm pool
+// CosmWasmPoolData is the custom data for each type of CosmWasm pool
 // This struct is intended to work like tagged union in other languages
 // so that it can hold different types of data depending on the contract
-type CWPoolData struct {
+type CosmWasmPoolData struct {
 	// Data for AlloyTransmuter contract, must be present if and only if `IsAlloyTransmuter()` is true
 	AlloyTransmuter *AlloyTransmuterData `json:"alloy_transmuter,omitempty"`
+
+	// Data for Orderbook contract, must be present if and only if `IsOrderbook()` is true
+	Orderbook *OrderbookData `json:"orderbook,omitempty"`
 
 	// More pool types here...
 }
@@ -50,6 +53,9 @@ One caveat on utilizing cw2 information is that there is no uniqueness check for
 
 `crates.io:transmuter` `<3.0.0`: requires no additional information.
 `crates.io:transmuter` `>=3.0.0`: requires alloyed asset denom and normalization factors for each asset.
+
+## Orderbook
+`crates.io:sumtree-orderbook` `>= 0.1.0`: requires base and quote denoms, ticks liquidity, next bid and ask tick.
 
 From there onwards, there might be requirement to update `RouteablePool` to have updated information and logic.
 We do not put the constraint on the maximum version supported here since it will require code changes even though
