@@ -42,11 +42,13 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 			cosmwasmpool.ORDERBOOK_CONTRACT_NAME, cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
 			cosmwasmpool.CosmWasmPoolData{
 				Orderbook: &cosmwasmpool.OrderbookData{
-					QuoteDenom:       QUOTE_DENOM,
-					BaseDenom:        BASE_DENOM,
-					NextBidTickIndex: nextBidTickIndex,
-					NextAskTickIndex: nextAskTickIndex,
-					Ticks:            ticks,
+					QuoteDenom:                     QUOTE_DENOM,
+					BaseDenom:                      BASE_DENOM,
+					NextBidTickIndex:               nextBidTickIndex,
+					NextAskTickIndex:               nextAskTickIndex,
+					BidAmountToExhaustAskLiquidity: osmomath.NewBigDec(100000000000000000), // TODO: properly set this
+					AskAmountToExhaustBidLiquidity: osmomath.NewBigDec(100000000000000000), // TODO: properly set this
+					Ticks:                          ticks,
 				},
 			},
 		),

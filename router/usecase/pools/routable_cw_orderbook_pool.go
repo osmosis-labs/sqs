@@ -88,6 +88,18 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 	amountOutTotal := osmomath.ZeroBigDec()
 	amountInRemaining := osmomath.BigDecFromSDKInt(tokenIn.Amount)
 
+	amountInToExhaustLiquidity := osmomath.BigDec{}
+	if *directionIn == cosmwasmpool.BID {
+		amountInToExhaustLiquidity = r.OrderbookData.BidAmountToExhaustAskLiquidity
+	} else {
+		amountInToExhaustLiquidity = r.OrderbookData.AskAmountToExhaustBidLiquidity
+	}
+
+	// check if amount in > amountInToExhaustLiquidity, if so this swap is not possible due to insufficient liquidity
+	if amountInRemaining.GT(amountInToExhaustLiquidity) {
+		return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn}
+	}
+
 	// ASSUMPTION: Ticks are ordered
 	for amountInRemaining.GT(zeroBigDec) {
 		// Order has run out of ticks to iterate
