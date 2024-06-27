@@ -25,7 +25,10 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
-var _ mvc.RouterUsecase = &routerUseCaseImpl{}
+var (
+	_ mvc.RouterUsecase                  = &routerUseCaseImpl{}
+	_ mvc.CandidateRouteSearchDataHolder = &routerUseCaseImpl{}
+)
 
 type routerUseCaseImpl struct {
 	routerRepository routerrepo.RouterRepository
@@ -39,6 +42,8 @@ type routerUseCaseImpl struct {
 
 	sortedPoolsMu sync.RWMutex
 	sortedPools   []sqsdomain.PoolI
+
+	candidateRouteSearchData sync.Map
 
 	candidateRouteCache *cache.Cache
 }
@@ -757,6 +762,39 @@ func (r *routerUseCaseImpl) SetSortedPools(pools []sqsdomain.PoolI) {
 	r.sortedPoolsMu.Lock()
 	r.sortedPools = pools
 	r.sortedPoolsMu.Unlock()
+}
+
+// GetCandidateRouteSearchData implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI {
+	candidateRouteSearchData := make(map[string][]sqsdomain.PoolI)
+
+	r.candidateRouteSearchData.Range(func(key, value interface{}) bool {
+		denom, ok := key.(string)
+		if !ok {
+			// Note: should never happen.
+			r.logger.Error("error casting key to string in GetCandidateRouteSearchData")
+			return false
+		}
+
+		pools, ok := value.([]sqsdomain.PoolI)
+		if !ok {
+			// Note: should never happen.
+			r.logger.Error("error casting value to []sqsdomain.PoolI in GetCandidateRouteSearchData")
+			return false
+		}
+
+		candidateRouteSearchData[denom] = pools
+		return true
+	})
+
+	return candidateRouteSearchData
+}
+
+// SetCandidateRouteSearchData implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) SetCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdomain.PoolI) {
+	for denom, pools := range candidateRouteSearchData {
+		r.candidateRouteSearchData.Store(denom, pools)
+	}
 }
 
 // SetTakerFees implements mvc.RouterUsecase.

@@ -10,8 +10,19 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
+// CandidateRouteSearchDataUpdateListener is the interface for the candidate route search data holder.
+type CandidateRouteSearchDataHolder interface {
+	// SetCandidateRouteSearchData sets the candidate route search data on the holder
+	SetCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdomain.PoolI)
+
+	// GetCandidateRouteSearchData gets the candidate route search data from the holder
+	GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI
+}
+
 // RouterUsecase represent the router's usecases
 type RouterUsecase interface {
+	CandidateRouteSearchDataHolder
+
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.
 	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 	// GetCustomDirectQuote returns the custom direct quote for the given tokenIn, tokenOutDenom and poolID.

@@ -21,7 +21,7 @@ type PricingWorkerTestSuite struct {
 }
 
 const (
-	defaultHeight = 1
+	defaultHeight uint64 = 1
 )
 
 var (

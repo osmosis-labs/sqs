@@ -163,7 +163,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 
 	// Validate that the listener mock was called with the relevant height.
 	lastHeightCalled := mockListener.GetLastHeightCalled()
-	s.Require().Equal(int64(defaultHeight), lastHeightCalled)
+	s.Require().Equal(defaultHeight, lastHeightCalled)
 
 	// Validate that the pool liquidity handler mock was called with the relevant pool IDs.
 	s.validateLiquidityCapPools(map[uint64]liquidityResult{
