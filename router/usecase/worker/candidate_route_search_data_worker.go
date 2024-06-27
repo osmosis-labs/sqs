@@ -32,7 +32,6 @@ func NewCandidateRouteSearchDataWorker(poolHandler mvc.PoolHandler, candidateRou
 
 // OnPoolLiquidityCompute implements domain.PoolLiquidityComputeListener.
 func (c *candidateRouteSearchDataWorker) OnPoolLiquidityCompute(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
-
 	// Compute search data and propagate error up the chain to fail the health check.
 	if err := c.ComputeSearchData(ctx, height, blockPoolMetaData); err != nil {
 		return err
@@ -48,7 +47,6 @@ func (c *candidateRouteSearchDataWorker) OnPoolLiquidityCompute(ctx context.Cont
 
 // ComputeSearchData implements domain.CandidateRouteSearchDataWorker.
 func (c *candidateRouteSearchDataWorker) ComputeSearchData(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
-
 	// TODO: implement
 	// https://linear.app/osmosis/issue/DATA-248/[candidaterouteopt]-implement-and-test-core-pre-computation-logic
 
