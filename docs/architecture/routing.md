@@ -28,7 +28,8 @@ It is split into 2 parts: a) pre-computed at ingest time b) computed at runtime 
         - Max Hops: The maximum number of hops allowed in a route.
         - Max Routes: The maximum number of routes to consider.
     - The algorithm that is currently used is breadth first search using pre-computed associations between tokens & pools.
-2. Compute the best quote when swapping amount in in-full directly over each route.
+2. Compute the best quote when swapping amount in in-full directly over each route. By in-full, we mean as if all amount in
+is consumed by a single route as opposed to performing partial split routing over many routes.
 3. Sort routes by best quote.
 4. Keep "Max Splittable Routes" and attempt to determine an optimal quote split across them
     - If the split quote is more optimal, return that. Otherwise, return the best single direct quote.
