@@ -2,6 +2,38 @@
 
 This document outlines the details about routing.
 
+## Algorithm
+
+In this section, we describe the general router algorithm.
+
+It is split into 2 parts: a) pre-computed at ingest time b) computed at runtime of client request
+
+### Pre-computed
+
+1. Retrieve pools from storage.
+2. Filter out no liquidity pools.
+3. For each denom, create linking to pools it routes to.
+   * Rank pools by several heuristics such as:
+    -   liquidity
+    -   pool type (priority: transmuter, alloyed, concentrated, stableswap, balancer)
+    -   presence of error in TVL computation.
+
+### Client Runtime
+
+1. Compute candidate routes
+    - For the given token in and token out denom, find all possible routes
+      between them using the pool ranking discussed above as well as by limiting
+      the algorithm per configuration.
+    - The configurations are:
+        - Max Hops: The maximum number of hops allowed in a route.
+        - Max Routes: The maximum number of routes to consider.
+    - The algorithm that is currently used is breadth first search using pre-computed associations between tokens & pools.
+2. Compute the best quote when swapping amount in in-full directly over each route. By in-full, we mean as if all amount in
+is consumed by a single route as opposed to performing partial split routing over many routes.
+3. Sort routes by best quote.
+4. Keep "Max Splittable Routes" and attempt to determine an optimal quote split across them
+    - If the split quote is more optimal, return that. Otherwise, return the best single direct quote.
+
 ## Pool Filtering - Min Liquidity Capitalization
 
 Osmosis chain consists of many pools where some of them are low liqudity.
