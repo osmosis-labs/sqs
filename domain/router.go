@@ -190,3 +190,21 @@ func WithIsPricingWorkerPrecompute(isPricingWorkerPrecompute bool) RouterOption 
 		o.IsPricingWorkerPrecompute = isPricingWorkerPrecompute
 	}
 }
+
+// CandidateRouteSearchDataWorker defines the interface for the candidate route search data worker.
+// It pre-computes data necessary for efficiently computing candidate routes.
+type CandidateRouteSearchDataWorker interface {
+	// UpdatePrices updates prices for the tokens from the unique block pool metadata
+	// that contains information about changed denoms and pools within a block.
+	// Propagates the results to the listeners.
+	ComputeSearchData(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata) error
+
+	// RegisterListener registers a listener for candidate route data updates.
+	RegisterListener(listener CandidateRouteSearchDataUpdateListener)
+}
+
+// PricingUpdateListener defines the interface for the candidate route search data listener.
+type CandidateRouteSearchDataUpdateListener interface {
+	// OnSearchDataUpdate notifies the listener of the candidate route data update.
+	OnSearchDataUpdate(ctx context.Context, height uint64) error
+}

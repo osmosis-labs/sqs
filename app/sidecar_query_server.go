@@ -17,6 +17,7 @@ import (
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
+	routerWorker "github.com/osmosis-labs/sqs/router/usecase/worker"
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
 	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
@@ -154,6 +155,8 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase, liquidityPricer, logger)
 
+		candidateRouteSearchDataWorker := routerWorker.NewCandidateRouteSearchDataWorker(poolsUseCase, routerUsecase, logger)
+
 		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
 		// It then passes the healthcheck as long as updates are received at the appropriate intervals.
 		quotePriceUpdateWorker.RegisterListener(chainInfoUseCase)
@@ -169,6 +172,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
 		poolLiquidityComputeWorker.RegisterListener(chainInfoUseCase)
+
+		// Register candidate route search data worker as a listener to the pool liquidity compute worker.
+		poolLiquidityComputeWorker.RegisterListener(candidateRouteSearchDataWorker)
+
+		// Register chain info use case as a listener to the candidate route search data worker (healthcheck).
+		candidateRouteSearchDataWorker.RegisterListener(chainInfoUseCase)
 
 		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig)
 		if err != nil {

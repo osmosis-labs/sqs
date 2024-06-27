@@ -205,7 +205,7 @@ type LiquidityPricer interface {
 // It is used to notify the listeners of the pool liquidity compute worker that the computation
 // for a given height is completed.
 type PoolLiquidityComputeListener interface {
-	OnPoolLiquidityCompute(height int64) error
+	OnPoolLiquidityCompute(ctx context.Context, height uint64, blockPoolMetaData BlockPoolMetadata) error
 }
 
 // PricesResult defines the result of the prices.

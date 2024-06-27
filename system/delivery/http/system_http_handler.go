@@ -202,6 +202,11 @@ func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
 	}
 
+	// Validate candidate route search data updates
+	if err := h.CIUsecase.ValidateCandidateRouteSearchDataUpdates(); err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
+	}
+
 	// Return combined status
 	return c.JSON(http.StatusOK, map[string]string{
 		"grpc_gateway_status": "running",
