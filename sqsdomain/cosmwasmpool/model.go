@@ -10,6 +10,13 @@ type ContractInfo struct {
 	Version  string `json:"version"`
 }
 
+const (
+	AlloyTranmuterName        = "crates.io:transmuter"
+	AlloyTransmuterMinVersion = "3.0.0"
+
+	alloyTransmuterMinVersionStr = ">= " + AlloyTransmuterMinVersion
+)
+
 // Check if the contract info matches the given contract and version constrains
 func (ci *ContractInfo) Matches(contract string, versionConstrains *semver.Constraints) bool {
 	version, err := semver.NewVersion(ci.Version)
