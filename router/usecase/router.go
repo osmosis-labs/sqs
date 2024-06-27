@@ -142,7 +142,6 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 			// Grant additional rating to alloyed transmuter.
 			cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
 			if cosmWasmPoolModel != nil {
-
 				if cosmWasmPoolModel.IsAlloyTransmuter() {
 					// Grant additional rating if alloyed transmuter.
 					rating += totalTVLFloat * 1.5
