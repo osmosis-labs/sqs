@@ -101,31 +101,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		}
 	}
 
-	// Check if the pool is a transmuter pool with alloyed assets
-	model := pool.GetSQSPoolModel().CosmWasmPoolModel
 	balances := pool.GetSQSPoolModel().Balances
-	if model != nil {
-		// since v2, we introduce concept of alloyed assets but not yet actively used
-		// since v3, we introduce concept of normalization factor
-		// `routableAlloyTransmuterPoolImpl` is v3 compatible
-		_, isAlloyedTransmuterCodeId := cosmWasmConfig.AlloyedTransmuterCodeIDs[cosmwasmPool.CodeId]
-		if isAlloyedTransmuterCodeId && model.IsAlloyTransmuter() {
-			spreadFactor := pool.GetSQSPoolModel().SpreadFactor
-
-			if model.Data.AlloyTransmuter == nil {
-				return nil, domain.AlloyTransmuterDataMissingError{PoolId: pool.GetId()}
-			}
-
-			return &routableAlloyTransmuterPoolImpl{
-				ChainPool:           cosmwasmPool,
-				AlloyTransmuterData: model.Data.AlloyTransmuter,
-				Balances:            balances,
-				TokenOutDenom:       tokenOutDenom,
-				TakerFee:            takerFee,
-				SpreadFactor:        spreadFactor,
-			}, nil
-		}
-	}
 
 	// Check if the pool is a transmuter pool
 	_, isTransmuter := cosmWasmConfig.TransmuterCodeIDs[cosmwasmPool.CodeId]
@@ -151,13 +127,76 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 
 		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 
-		// for most other cosm wasm pools, interaction with the chain will
+		// for most other CosmWasm pools, interaction with the chain will
 		// be required. As a result, we have a custom implementation.
 		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, wasmClient, scalingFactorGetterCb), nil
 	}
 
-	return nil, domain.UnsupportedCosmWasmPoolTypeError{
-		PoolType: poolmanagertypes.PoolType_name[int32(poolType)],
-		PoolId:   cosmwasmPool.PoolId,
+	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmConfig, tokenOutDenom, takerFee)
+}
+
+// newRoutableCosmWasmPoolWithCustomModel creates a new RoutablePool for CosmWasm pools that require a custom CosmWasmPoolModel.
+// errors if:
+// - the pool matched criteria for a custom model, but the model does not have the required data.
+// - the pool's `CosmWasmPoolModel` is nil
+// returns a routable pool constructed with custom model otherwise
+func newRoutableCosmWasmPoolWithCustomModel(
+	pool sqsdomain.PoolI,
+	cosmwasmPool *cwpoolmodel.CosmWasmPool,
+	cosmWasmConfig domain.CosmWasmPoolRouterConfig,
+	tokenOutDenom string,
+	takerFee osmomath.Dec,
+) (domain.RoutablePool, error) {
+	sqsPoolModel := pool.GetSQSPoolModel()
+
+	// Check if the pool is a transmuter pool with alloyed assets
+	model := sqsPoolModel.CosmWasmPoolModel
+	balances := sqsPoolModel.Balances
+	spreadFactor := sqsPoolModel.SpreadFactor
+	if model != nil {
+		// since v2, we introduce concept of alloyed assets but not yet actively used
+		// since v3, we introduce concept of normalization factor
+		// `routableAlloyTransmuterPoolImpl` is v3 compatible
+		_, isAlloyedTransmuterCodeId := cosmWasmConfig.AlloyedTransmuterCodeIDs[cosmwasmPool.CodeId]
+		if isAlloyedTransmuterCodeId && model.IsAlloyTransmuter() {
+			if model.Data.AlloyTransmuter == nil {
+				return nil, domain.CosmWasmPoolDataMissingError{
+					CosmWasmPoolType: domain.CosmWasmPoolAlloyTransmuter,
+					PoolId:           pool.GetId(),
+				}
+			}
+
+			return &routableAlloyTransmuterPoolImpl{
+				ChainPool:           cosmwasmPool,
+				AlloyTransmuterData: model.Data.AlloyTransmuter,
+				Balances:            balances,
+				TokenOutDenom:       tokenOutDenom,
+				TakerFee:            takerFee,
+				SpreadFactor:        spreadFactor,
+			}, nil
+		}
+
+		_, isOrderbookCodeId := cosmWasmConfig.OrderbookCodeIDs[cosmwasmPool.CodeId]
+		if isOrderbookCodeId && model.IsOrderbook() {
+			if model.Data.Orderbook == nil {
+				return nil, domain.CosmWasmPoolDataMissingError{
+					CosmWasmPoolType: domain.CosmWasmPoolOrderbook,
+					PoolId:           pool.GetId(),
+				}
+			}
+
+			return &routableOrderbookPoolImpl{
+				ChainPool:     cosmwasmPool,
+				Balances:      balances,
+				TokenOutDenom: tokenOutDenom,
+				TakerFee:      takerFee,
+				SpreadFactor:  spreadFactor,
+				OrderbookData: model.Data.Orderbook,
+			}, nil
+		}
+	}
+
+	return nil, domain.UnsupportedCosmWasmPoolError{
+		PoolId: cosmwasmPool.PoolId,
 	}
 }

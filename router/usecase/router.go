@@ -67,9 +67,10 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 
 			_, isTransmuterCodeID := cosmWasmPoolsConfig.TransmuterCodeIDs[cosmWasmPool.GetCodeId()]
 			_, isAlloyedTransmuterCodeID := cosmWasmPoolsConfig.AlloyedTransmuterCodeIDs[cosmWasmPool.GetCodeId()]
+			_, isOrderbookCodeID := cosmWasmPoolsConfig.OrderbookCodeIDs[cosmWasmPool.GetCodeId()]
 			_, isGeneralCosmWasmCodeID := cosmWasmPoolsConfig.GeneralCosmWasmCodeIDs[cosmWasmPool.GetCodeId()]
 
-			if !(isTransmuterCodeID || isAlloyedTransmuterCodeID || isGeneralCosmWasmCodeID) {
+			if !(isTransmuterCodeID || isAlloyedTransmuterCodeID || isOrderbookCodeID || isGeneralCosmWasmCodeID) {
 				logger.Debug("cw pool code id is not added to config, skip silently", zap.Uint64("pool_id", pool.GetId()))
 
 				continue
@@ -148,10 +149,17 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 				rating += totalTVLFloat * 1.5
 			}
 
-			// Grant additional rating to alloyed transmuter.
 			cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
-			if cosmWasmPoolModel != nil && cosmWasmPoolModel.IsAlloyTransmuter() {
-				rating += totalTVLFloat * 1.5
+			if cosmWasmPoolModel != nil {
+				// Grant additional rating to alloyed transmuter
+				if cosmWasmPoolModel.IsAlloyTransmuter() {
+					rating += totalTVLFloat * 1.5
+				}
+
+				// Orderbook is ranked a bit lower than Concentrated pools
+				if cosmWasmPoolModel.IsOrderbook() {
+					rating += (totalTVLFloat / 2) * 0.9
+				}
 			}
 		}
 

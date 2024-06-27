@@ -29,6 +29,8 @@ const (
 	GeneralizedCosmWasm
 	// AlloyedTransmuter is an AlloyedTransmuter pool type.
 	AlloyedTransmuter
+	// Orderbook is an Orderbook pool type.
+	Orderbook
 )
 
 // RoutablePool is an interface that represents a pool that can be routed over.

@@ -8,7 +8,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -29,12 +29,12 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 
 	mock := &mocks.MockRoutablePool{
 		ChainPoolModel: cosmwasmPool.AsSerializablePool(),
-		CosmWasmPoolModel: sqsdomain.NewCWPoolModel(
-			"crates.io:transmuter", "3.0.0",
-			sqsdomain.CWPoolData{
-				AlloyTransmuter: &sqsdomain.AlloyTransmuterData{
+		CosmWasmPoolModel: cosmwasmpool.NewCWPoolModel(
+			cosmwasmpool.ALLOY_TRANSMUTER_CONTRACT_NAME, cosmwasmpool.ALLOY_TRANSMUTER_MIN_CONTRACT_VERSION,
+			cosmwasmpool.CosmWasmPoolData{
+				AlloyTransmuter: &cosmwasmpool.AlloyTransmuterData{
 					AlloyedDenom: ALLUSD,
-					AssetConfigs: []sqsdomain.TransmuterAssetConfig{
+					AssetConfigs: []cosmwasmpool.TransmuterAssetConfig{
 						{Denom: USDC, NormalizationFactor: osmomath.NewInt(100)},
 						{Denom: USDT, NormalizationFactor: osmomath.NewInt(1)},
 						{Denom: OVERLY_PRECISE_USD, NormalizationFactor: veryBigNormalizationFactor},
@@ -181,7 +181,7 @@ func (s *RoutablePoolTestSuite) TestFindNormalizationFactors_AlloyTransmuter() {
 			s.Setup()
 			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenInDenom, tc.tokenOutDenom, sdk.Coins{}, osmomath.ZeroDec())
 
-			r := routablePool.(*pools.RouteableAlloyTransmuterPoolImpl)
+			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
 
 			inNormFactor, outNormFactor, err := r.FindNormalizationFactors(tc.tokenInDenom, tc.tokenOutDenom)
 
@@ -248,7 +248,7 @@ func (s *RoutablePoolTestSuite) TestCalcTokenOutAmt_AlloyTransmuter() {
 
 			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenOutDenom, sdk.Coins{}, osmomath.ZeroDec())
 
-			r := routablePool.(*pools.RouteableAlloyTransmuterPoolImpl)
+			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
 
 			tokenOut, err := r.CalcTokenOutAmt(tc.tokenIn, tc.tokenOutDenom)
 
@@ -291,7 +291,7 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_AlloyTransmuter() {
 			s.Setup()
 			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenIn.Denom, sdk.Coins{}, tc.takerFee)
 
-			r := routablePool.(*pools.RouteableAlloyTransmuterPoolImpl)
+			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
 
 			tokenAfterFee := r.ChargeTakerFeeExactIn(tc.tokenIn)
 
