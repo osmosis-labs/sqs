@@ -17,6 +17,8 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
+var oneBigDec = osmomath.OneBigDec()
+
 var _ domain.RoutablePool = &routableOrderbookPoolImpl{}
 
 type routableOrderbookPoolImpl struct {
@@ -176,7 +178,7 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 		return osmomath.BigDec{}, err
 	}
 
-	return convertValue(osmomath.OneBigDec(), tickPrice, directionOut), nil
+	return convertValue(oneBigDec, tickPrice, directionOut), nil
 }
 
 // IsGeneralizedCosmWasmPool implements domain.RoutablePool.
