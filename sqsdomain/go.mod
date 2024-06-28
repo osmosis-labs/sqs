@@ -6,9 +6,9 @@ require (
 	github.com/cosmos/cosmos-sdk v0.50.7
 	github.com/json-iterator/go v1.1.12
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
-	github.com/osmosis-labs/osmosis/v25 v25.0.0-20240517024958-262b593514ed
-	google.golang.org/grpc v1.63.2
-	google.golang.org/protobuf v1.33.0
+	github.com/osmosis-labs/osmosis/v25 v25.0.0-20240628175607-dd3132a7c29a
+	google.golang.org/grpc v1.64.0
+	google.golang.org/protobuf v1.34.2
 )
 
 require (
@@ -196,6 +196,8 @@ replace (
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
+
+	github.com/osmosis-labs/osmosis/v25 => github.com/osmosis-labs/osmosis/v25 v25.0.0-20240628175607-dd3132a7c29a
 
 // // Local replaces commented for development
 // github.com/osmosis-labs/osmosis/osmomath => ./osmomath
