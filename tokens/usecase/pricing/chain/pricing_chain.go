@@ -183,11 +183,10 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		// Since it can be overridden by options in GetPrice(...)
 		domain.WithMinPoolLiquidityCap(minPoolLiquidityCap),
 		domain.WithDisableSplitRoutes(),
-		domain.WithIsPricingWorkerPrecompute(isPricingWorkerPrecompute),
 	}
 
 	// Compute a quote for one quote coin.
-	quote, err := c.RUsecase.GetOptimalQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
+	quote, err := c.RUsecase.GetSimpleQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}

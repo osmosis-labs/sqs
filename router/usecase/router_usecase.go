@@ -126,7 +126,6 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		CandidateRouteCacheExpirySeconds: r.defaultConfig.CandidateRouteCacheExpirySeconds,
 		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
 		MaxSplitRoutes:                   r.defaultConfig.MaxSplitRoutes,
-		IsPricingWorkerPrecompute:        false,
 	}
 	// Apply options
 	for _, opt := range opts {
@@ -154,30 +153,9 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 			poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinPoolLiquidityCap)
 		}
 
-		if options.IsPricingWorkerPrecompute {
-			// If this is pricing worker precomputation, we need to be able to call this as
-			// some pools have TVL incorrectly calculated as zero. For example, BRNCH / STRDST (1288).
-			// As a result, they are incorrectly excluded despite having appropriate liquidity.
-			// So we want to calculate price, but we never cache routes for pricing the are below the minPoolLiquidityCap value, as these are returned to users.
+		r.logger.Info("filtered pools", zap.Int("num_pools", len(poolsAboveMinLiquidity)))
 
-			// Compute candidate routes.
-			candidateRoutes, err := GetCandidateRoutes(poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
-			if err != nil {
-				r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
-				return nil, err
-			}
-
-			// Get the route with out caching.
-			topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
-			if err != nil {
-				r.logger.Error("error ranking routes for pricing", zap.Error(err))
-				return nil, err
-			}
-		} else {
-			r.logger.Info("filtered pools", zap.Int("num_pools", len(poolsAboveMinLiquidity)))
-
-			topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options)
-		}
+		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options)
 	} else {
 		// Otherwise, simply compute quotes over cached ranked routes
 		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
@@ -224,6 +202,49 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	}
 
 	return finalQuote, nil
+}
+
+// GetSimpleQuote implements mvc.RouterUsecase.
+// TODO: cover with a simple test.
+func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+	options := domain.RouterOptions{
+		MaxPoolsPerRoute:    r.defaultConfig.MaxPoolsPerRoute,
+		MaxRoutes:           r.defaultConfig.MaxRoutes,
+		MinPoolLiquidityCap: r.defaultConfig.MinPoolLiquidityCap,
+		MaxSplitRoutes:      r.defaultConfig.MaxSplitRoutes,
+	}
+	// Apply options
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
+
+	// Zero implies no filtering, so we skip the iterations.
+	if options.MinPoolLiquidityCap > 0 {
+		poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinPoolLiquidityCap)
+	}
+
+	// If this is pricing worker precomputation, we need to be able to call this as
+	// some pools have TVL incorrectly calculated as zero. For example, BRNCH / STRDST (1288).
+	// As a result, they are incorrectly excluded despite having appropriate liquidity.
+	// So we want to calculate price, but we never cache routes for pricing the are below the minPoolLiquidityCap value, as these are returned to users.
+
+	// Compute candidate routes.
+	candidateRoutes, err := GetCandidateRoutes(poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
+	if err != nil {
+		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
+		return nil, err
+	}
+
+	// Get the route with out caching.
+	topSingleRouteQuote, _, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
+	if err != nil {
+		r.logger.Error("error ranking routes for pricing", zap.Error(err))
+		return nil, err
+	}
+
+	return topSingleRouteQuote, nil
 }
 
 // filterAndConvertDuplicatePoolIDRankedRoutes filters ranked routes that contain duplicate pool IDs.
