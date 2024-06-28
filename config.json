@@ -13,13 +13,17 @@
       "max-routes": 20,
       "max-split-routes": 3,
       "min-pool-liquidity-cap": 1000,
-      "route-cache-enabled": true,
+      "route-cache-enabled": false,
       "candidate-route-cache-expiry-seconds": 1200,
       "ranked-route-cache-expiry-seconds": 45,
       "dynamic-min-liquidity-cap-filters-desc": [
         {
             "min-tokens-capitalization": 1000000,
             "filter-value": 75000
+        },
+        {
+            "min-tokens-capitalization": 250000,
+            "filter-value": 15000
         }
       ]
     },

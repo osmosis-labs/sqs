@@ -83,9 +83,12 @@ func InitMiddleware(corsConfig *domain.CORSConfig, flightRecordConfig *domain.Fl
 func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	// Set up the flight recorder.
 	fr := gotrace.NewFlightRecorder()
-	err := fr.Start()
-	if err != nil {
-		m.logger.Error("failed to start flight recorder", zap.Error(err))
+
+	if m.flightRecordConfig.Enabled {
+		err := fr.Start()
+		if err != nil {
+			m.logger.Error("failed to start flight recorder", zap.Error(err))
+		}
 	}
 
 	return func(c echo.Context) error {

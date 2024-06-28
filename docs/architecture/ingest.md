@@ -153,3 +153,11 @@ and need their candidate route pool data recomputed.
       - Note: there is a minor risk of contention with client requests.
    c) Sort the pools according to the pool filtering algorithm described above in this document.
    d) Store in router handler with `mvc.RouterHandler.StoreCandidateRoutePoolData(string, []sqsdomain.PoolI)`.
+
+#### Dynamic Min Liquidity Pre-compute
+
+We precompute the liquidity rankings per dynamic min liquidity capitalization filter so that depending on the usecase
+(routing or pricing) we have the available data pre-computed.
+
+Currently, we pre-compute a filter for every dynamic min liquidity filter value. However, in the future, we may
+add an optimization to only pre-compute what's necessary based on dynamic min liquidity.

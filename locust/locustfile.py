@@ -43,41 +43,41 @@ class SQS(HttpUser):
 
     # all-pools endpoint
 
-    @task
-    def all_pools(self):
-        self.client.get("/pools")
+    # @task
+    # def all_pools(self):
+    #     self.client.get("/pools")
     
-    # Quote the same pair of UOSMO and USDC (UOSMO in) while progressively
-    # increasing the amount of the tokenIn per endpoint.
+    # # Quote the same pair of UOSMO and USDC (UOSMO in) while progressively
+    # # increasing the amount of the tokenIn per endpoint.
 
-    @task
-    def quoteUOSMOUSDC_1In(self):
-        self.client.get(f"/router/quote?tokenIn=1000000{UOSMO}&tokenOutDenom={USDC}")
+    # @task
+    # def quoteUOSMOUSDC_1In(self):
+    #     self.client.get(f"/router/quote?tokenIn=1000000{UOSMO}&tokenOutDenom={USDC}")
 
-    @task
-    def quoteUOSMOUSDC_1000In(self):
-        self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={USDC}")
+    # @task
+    # def quoteUOSMOUSDC_1000In(self):
+    #     self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={USDC}")
 
-    @task
-    def quoteUOSMOUSDC_1000000In(self):
-        self.client.get(f"/router/quote?tokenIn=1000000000000{UOSMO}&tokenOutDenom={USDC}")
+    # @task
+    # def quoteUOSMOUSDC_1000000In(self):
+    #     self.client.get(f"/router/quote?tokenIn=1000000000000{UOSMO}&tokenOutDenom={USDC}")
 
-    # Quote the same pair of UOSMO and USDC (USDC in).
-    @task
-    def quoteUSDCUOSMO_1000000In(self):
-        self.client.get(f"/router/quote?tokenIn=100000000000{USDC}&tokenOutDenom={UOSMO}")
+    # # Quote the same pair of UOSMO and USDC (USDC in).
+    # @task
+    # def quoteUSDCUOSMO_1000000In(self):
+    #     self.client.get(f"/router/quote?tokenIn=100000000000{USDC}&tokenOutDenom={UOSMO}")
 
-    @task
-    def quoteUSDCTUMEE_3000IN(self):
-        self.client.get(f"/router/quote?tokenIn=3000000000{USDT}&tokenOutDenom={UMEE}")
+    # @task
+    # def quoteUSDCTUMEE_3000IN(self):
+    #     self.client.get(f"/router/quote?tokenIn=3000000000{USDT}&tokenOutDenom={UMEE}")
 
-    @task
-    def quoteASTROCWPool(self):
-        self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={ASTRO}")
+    # @task
+    # def quoteASTROCWPool(self):
+    #     self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={ASTRO}")
 
-    @task
-    def quoteInvalidToken(self):
-        self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={INVALID_DENOM}")
+    # @task
+    # def quoteInvalidToken(self):
+    #     self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={INVALID_DENOM}")
 
     @task
     def routesUOSMOUSDC(self):
@@ -88,12 +88,12 @@ class SQS(HttpUser):
     def routesUSDCUOSMO(self):
         self.client.get(f"/router/routes?tokenIn={USDC}&tokenOutDenom={UOSMO}")
 
-    @task
-    def tokenPrices(self):
-        bases = ""
-        for i in range(len(top10ByVolumePairs)):
-            bases += top10ByVolumePairs[i]
-            if i < len(top10ByVolumePairs) - 1:
-                bases += ","
+    # @task
+    # def tokenPrices(self):
+    #     bases = ""
+    #     for i in range(len(top10ByVolumePairs)):
+    #         bases += top10ByVolumePairs[i]
+    #         if i < len(top10ByVolumePairs) - 1:
+    #             bases += ","
 
-        self.client.get(f"/tokens/prices?base={bases}")
+    #     self.client.get(f"/tokens/prices?base={bases}")

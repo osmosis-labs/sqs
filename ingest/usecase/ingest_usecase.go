@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -34,6 +35,9 @@ type ingestUseCase struct {
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
 
+	// Worker that computes candidate route search data.
+	candidateRouteSearchDataWorker domain.CandidateRouteSearchDataWorker
+
 	logger log.Logger
 }
 
@@ -47,7 +51,7 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchDataWorker domain.CandidateRouteSearchDataWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
@@ -61,6 +65,8 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 		logger: logger,
 
 		defaultQuotePriceUpdateWorker: quotePriceUpdateWorker,
+
+		candidateRouteSearchDataWorker: candidateRouteSearchDataWorker,
 	}, nil
 }
 
@@ -92,6 +98,9 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
 	p.sortAndStorePools(allPools)
+
+	// Compute search data synchronously for the first block. For subsequent blocks, we can do it asynchronously.
+	p.candidateRouteSearchDataWorker.ComputeSearchDataFirstBlockSync(ctx, height, uniqueBlockPoolMetadata)
 
 	// Note: we must queue the update before we start updating prices as pool liquidity
 	// worker listens for the pricing updates at the same height.
@@ -170,7 +179,24 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 					continue
 				}
 
-				uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
+				if !strings.HasPrefix(balance.Denom, "gamm/pool") {
+					uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
+				}
+			}
+
+			// Update alloyed denom since it is not in the balances.
+			cwPoolModel := poolResult.pool.GetSQSPoolModel().CosmWasmPoolModel
+			if cwPoolModel != nil && cwPoolModel.IsAlloyTransmuter() {
+				uniqueData.UpdatedDenoms[cwPoolModel.Data.AlloyTransmuter.AlloyedDenom] = struct{}{}
+
+				// Since alloyed denom is an LP share, we set the liquidity to 0. This is mainly done for pool linking
+				// in the pipeline.
+				currentBlockLiquidityMap[cwPoolModel.Data.AlloyTransmuter.AlloyedDenom] = domain.DenomPoolLiquidityData{
+					TotalLiquidity: osmomath.ZeroInt(),
+					Pools: map[uint64]osmomath.Int{
+						poolID: osmomath.ZeroInt(),
+					},
+				}
 			}
 
 			// Update unique pools.
