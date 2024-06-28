@@ -12,6 +12,12 @@ const (
 	QUOTE_DENOM   = "quote"
 	BASE_DENOM    = "base"
 	INVALID_DENOM = "invalid"
+	MIN_TICK      = -108000000
+	MAX_TICK      = 182402823
+	// Tick Price = 2
+	LARGE_POSITIVE_TICK int64 = 1000000
+	// Tick Price = 0.5
+	LARGE_NEGATIVE_TICK int64 = -5000000
 )
 
 func TestGetDirection(t *testing.T) {
@@ -111,6 +117,145 @@ func TestGetFillableAmount(t *testing.T) {
 			fillableAmount := orderbookTickLiquidity.GetFillableAmount(tc.input, tc.direction)
 
 			assert.Equal(tc.expected, fillableAmount)
+		})
+	}
+}
+
+func TestCalcAmountInToExhaustOrderbookLiquidity(t *testing.T) {
+	tests := map[string]struct {
+		orderDirection           cosmwasmpool.OrderbookDirection
+		startingIndex            int
+		ticks                    []cosmwasmpool.OrderbookTick
+		expectedRequiredAmountIn osmomath.BigDec
+		expectError              error
+	}{
+		"no liquidity to exhaust": {
+			orderDirection: cosmwasmpool.BID,
+			startingIndex:  0,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					TickId: 0,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.ZeroBigDec(),
+					},
+				},
+			},
+			expectedRequiredAmountIn: osmomath.ZeroBigDec(),
+		},
+		"exhausting all bid liquidity, single tick": {
+			orderDirection: cosmwasmpool.ASK,
+			startingIndex:  0,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					TickId: 0,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(150),
+						AskLiquidity: osmomath.ZeroBigDec(),
+					},
+				},
+			},
+			expectedRequiredAmountIn: osmomath.NewBigDec(150),
+		},
+		"exhausting all bid liquidity, single tick, non 0": {
+			orderDirection: cosmwasmpool.ASK,
+			startingIndex:  0,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					TickId: LARGE_POSITIVE_TICK,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(150),
+						AskLiquidity: osmomath.ZeroBigDec(),
+					},
+				},
+			},
+			expectedRequiredAmountIn: osmomath.NewBigDec(300),
+		},
+		"exhausting all bid liquidity, multiple ticks": {
+			orderDirection: cosmwasmpool.ASK,
+			startingIndex:  1,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					TickId: 0,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(50),
+						AskLiquidity: osmomath.ZeroBigDec(),
+					},
+				},
+				{
+					TickId: LARGE_POSITIVE_TICK,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(100),
+						AskLiquidity: osmomath.ZeroBigDec(),
+					},
+				},
+			},
+			expectedRequiredAmountIn: osmomath.NewBigDec(250),
+		},
+		"exhausting all ask liquidity, single tick": {
+			orderDirection: cosmwasmpool.BID,
+			startingIndex:  0,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					TickId: 0,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(150),
+					},
+				},
+			},
+			expectedRequiredAmountIn: osmomath.NewBigDec(150),
+		},
+		"exhausting all ask liquidity, single tick, non 0": {
+			orderDirection: cosmwasmpool.BID,
+			startingIndex:  0,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					TickId: LARGE_NEGATIVE_TICK,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(150),
+					},
+				},
+			},
+			expectedRequiredAmountIn: osmomath.NewBigDec(300),
+		},
+		"exhausting all ask liquidity, multiple ticks": {
+			orderDirection: cosmwasmpool.BID,
+			startingIndex:  0,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					TickId: LARGE_NEGATIVE_TICK,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
+					},
+				},
+				{
+					TickId: 0,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(50),
+					},
+				},
+			},
+			expectedRequiredAmountIn: osmomath.NewBigDec(250),
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert := assert.New(t)
+
+			amountIn, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(tc.orderDirection, tc.startingIndex, tc.ticks)
+
+			if tc.expectError != nil {
+				assert.Error(err)
+				assert.Equal(tc.expectError, err)
+				return
+			}
+			assert.NoError(err)
+			assert.Equal(tc.expectedRequiredAmountIn, amountIn)
 		})
 	}
 }

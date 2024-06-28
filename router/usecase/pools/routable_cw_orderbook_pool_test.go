@@ -36,6 +36,12 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 
 	poolType := cosmwasmPool.GetType()
 
+	bidAmountToExhaustAskLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.BID, nextAskTickIndex, ticks)
+	s.Require().NoError(err)
+
+	askAmountToExhaustBidLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.ASK, nextBidTickIndex, ticks)
+	s.Require().NoError(err)
+
 	mock := &mocks.MockRoutablePool{
 		ChainPoolModel: cosmwasmPool.AsSerializablePool(),
 		CosmWasmPoolModel: cosmwasmpool.NewCWPoolModel(
@@ -46,8 +52,8 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 					BaseDenom:                      BASE_DENOM,
 					NextBidTickIndex:               nextBidTickIndex,
 					NextAskTickIndex:               nextAskTickIndex,
-					BidAmountToExhaustAskLiquidity: osmomath.NewBigDec(100000000000000000), // TODO: properly set this
-					AskAmountToExhaustBidLiquidity: osmomath.NewBigDec(100000000000000000), // TODO: properly set this
+					BidAmountToExhaustAskLiquidity: bidAmountToExhaustAskLiquidity,
+					AskAmountToExhaustBidLiquidity: askAmountToExhaustBidLiquidity,
 					Ticks:                          ticks,
 				},
 			},

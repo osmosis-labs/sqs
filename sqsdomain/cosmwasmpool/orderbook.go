@@ -2,6 +2,7 @@ package cosmwasmpool
 
 import (
 	"github.com/osmosis-labs/osmosis/osmomath"
+	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
 )
 
 const (
@@ -142,4 +143,44 @@ func (tl *OrderbookTickLiquidity) GetFillableAmount(input osmomath.BigDec, direc
 type OrderbookTick struct {
 	TickId        int64                  `json:"tick_id"`
 	TickLiquidity OrderbookTickLiquidity `json:"tick_liquidity"`
+}
+
+// CalcAmountInToExhaustOrderbookLiquidity calculates the amount of token in needed to exhaust all liquidity in the orderbook.
+// - orderDirection is the direction of the order to be placed and liquidity to be exhausted will be in the opposite direction.
+// - startingIndex is the index of the tick to start the calculation from.
+// - ticks is the list of ticks in the orderbook, assumed to be ordered by tick id in ascending order.
+func CalcAmountInToExhaustOrderbookLiquidity(directionIn OrderbookDirection, startingIndex int, ticks []OrderbookTick) (osmomath.BigDec, error) {
+	directionOut := directionIn.Opposite()
+
+	directionOutIterationStep, err := directionOut.IterationStep()
+	if err != nil {
+		return osmomath.ZeroBigDec(), err
+	}
+
+	requiredAmountIn := osmomath.ZeroBigDec()
+
+	// Iterate over the ticks in the orderbook
+	// starting from the given starting index
+	// iterate in the orderbook side that liquidity will be drained
+	// which is the opposite of the order direction
+	i := startingIndex
+	for i >= 0 && i < len(ticks) {
+		tick := ticks[i]
+		tickLiquidity := tick.TickLiquidity.ByDirection(directionOut)
+		tickPrice, err := clmath.TickToPrice(tick.TickId)
+		if err != nil {
+			return osmomath.ZeroBigDec(), err
+		}
+
+		// convert current tick liquidity to value required in the order direction
+		tickRequiredAmountIn := OrderbookValueInOppositeDirection(tickLiquidity, tickPrice, directionIn)
+
+		// accumulate the required amount in
+		requiredAmountIn = requiredAmountIn.Add(tickRequiredAmountIn)
+
+		// move to the next tick based on orderbook direction
+		i += directionOutIterationStep
+	}
+
+	return requiredAmountIn, nil
 }
