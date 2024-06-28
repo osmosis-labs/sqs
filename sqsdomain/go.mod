@@ -3,9 +3,9 @@ module github.com/osmosis-labs/sqs/sqsdomain
 go 1.22.3
 
 require (
-	github.com/cosmos/cosmos-sdk v0.50.6
+	github.com/cosmos/cosmos-sdk v0.50.7
 	github.com/json-iterator/go v1.1.12
-	github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240517020531-6aa01b02a6f4
+	github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/v25 v25.0.0-20240517024958-262b593514ed
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.33.0
@@ -167,36 +167,46 @@ require (
 )
 
 replace (
-	cosmossdk.io/math => cosmossdk.io/math v1.3.0
-	// adds expedited proposal support and 1000MB cache default
-	// https://github.com/osmosis-labs/wasmd/releases/tag/v0.45.0-osmo
-	github.com/CosmWasm/wasmd => github.com/CosmWasm/wasmd v0.50.0
+	// TODO(https://github.com/cosmos/rosetta/issues/76): Rosetta requires cosmossdk.io/core v0.12.0 erroneously but
+	// should use v0.11.0. The Cosmos build fails with types/context.go:65:29: undefined: comet.BlockInfo otherwise.
+	cosmossdk.io/core => cosmossdk.io/core v0.11.0
 
-	// cometbft is replaced to print custom app hash logs
+	// Needs to be replaced due to iavlFastNodeModuleWhitelist feature
+	cosmossdk.io/store => github.com/osmosis-labs/cosmos-sdk/store v0.1.0-alpha.1.0.20240509221435-b8feb2ffb728
+
+	// UNFORKING v2 TODO: No longer use wasmd fork, added logic to app.toml override to use 1000 instead of default 100 cache size, which was the reason for having the fork in the first place.
+
+	// Using branch osmo/v0.38.x
+	// https://github.com/osmosis-labs/cometbft/releases/tag/v0.37.4-v25-osmo-2
 	github.com/cometbft/cometbft => github.com/osmosis-labs/cometbft v0.0.0-20240510005818-6ce422c6f3d3
 
-	// v1.0.0-beta.3 is incompatible, so we use v1.0.0-beta.2
-	// github.com/cosmos/cosmos-proto => github.com/cosmos/cosmos-proto v1.0.0-beta.2
-
-	// Our cosmos-sdk branch is: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo-v22/v0.47.5, current branch: osmo-v22/v0.47.5. Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/cf358f6fc20cabfb5cb8ce75fc10b2623150869e
-	// https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.47.5-v22-osmo-2
+	// Our cosmos-sdk branch is: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo/v0.50.x, current branch: osmo/v0.50.x. Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/1a5662f2a4586735a64388386eaf23a62dfddad9
+	// https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.47.5-v25-osmo-1
 	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.50.0-rc.0.0.20240510201416-1a5662f2a458
-	// github.com/cosmos/gogoproto => github.com/cosmos/gogoproto v1.4.10
-	github.com/cosmos/iavl => github.com/cosmos/iavl v1.1.2-0.20240405172238-7f92c6b356ac
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.1.1-0.20231213092650-57fcdb9a9a9d
-	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 
-	// we explicitly follow main branch tags
-	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240517020531-6aa01b02a6f4
-	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240517020531-6aa01b02a6f4
-	github.com/osmosis-labs/osmosis/v25 => github.com/osmosis-labs/osmosis/v25 v25.0.0-20240517024958-262b593514ed
+	github.com/cosmos/iavl => github.com/cosmos/iavl v1.1.2-0.20240405172238-7f92c6b356ac
+
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.1.1-0.20231213092650-57fcdb9a9a9d
+
+	// UNFORKING v2 TOOD: Need to manually define these until we tag, it keeps trying to "upgrade" which actually downgrades us to the old sdk submodules logic
+	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240517165907-1625703bc16d
+	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240624163106-4c70b0253af8
+	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.8-0.20240517165907-1625703bc16d
+	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.14-0.20240517165907-1625703bc16d
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 
-	// newer versions of exp treat sorting differently, which is incompatible with the current version of cosmos-sdk
-	golang.org/x/exp => golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
+// // Local replaces commented for development
+// github.com/osmosis-labs/osmosis/osmomath => ./osmomath
+// github.com/osmosis-labs/osmosis/osmoutils => ./osmoutils
+// github.com/osmosis-labs/osmosis/x/epochs => ./x/epochs
+// github.com/osmosis-labs/osmosis/x/ibc-hooks => ./x/ibc-hooks
 )
 
 // exclusion so we use v1.0.0
 exclude github.com/coinbase/rosetta-sdk-go v0.7.9
+
+exclude github.com/gogo/protobuf v1.3.3
+
+//exclude github.com/cometbft/cometbft v0.38.0
