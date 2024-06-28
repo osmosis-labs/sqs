@@ -194,10 +194,9 @@ func WithIsPricingWorkerPrecompute(isPricingWorkerPrecompute bool) RouterOption 
 // CandidateRouteSearchDataWorker defines the interface for the candidate route search data worker.
 // It pre-computes data necessary for efficiently computing candidate routes.
 type CandidateRouteSearchDataWorker interface {
-	// UpdatePrices updates prices for the tokens from the unique block pool metadata
-	// that contains information about changed denoms and pools within a block.
-	// Propagates the results to the listeners.
-	ComputeSearchData(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata) error
+	// ComputeSearchDataFirstBlockSync computes the candidate route search data for the first seen block syncronously.
+	// For any subsequent blocks, the data is computed asynchronously.
+	ComputeSearchDataFirstBlockSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata) error
 
 	// RegisterListener registers a listener for candidate route data updates.
 	RegisterListener(listener CandidateRouteSearchDataUpdateListener)
@@ -207,4 +206,45 @@ type CandidateRouteSearchDataWorker interface {
 type CandidateRouteSearchDataUpdateListener interface {
 	// OnSearchDataUpdate notifies the listener of the candidate route data update.
 	OnSearchDataUpdate(ctx context.Context, height uint64) error
+}
+
+// SortedPoolsByDenomGetter is a function that returns the pools sorted by the denomination.
+type SortedPoolsByDenomGetter func(denom string, minLiquidityCap uint64) ([]sqsdomain.PoolI, bool)
+
+// CandidateRouteSearcher defines the interface for the candidate route searcher.
+type CandidateRouteSearcher interface {
+	// GetCandidateRoutes returns the candidate routes for the given token in and token out denomination.
+	GetCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, minPoolLiquidityCap uint64) (sqsdomain.CandidateRoutes, error)
+}
+
+// MultiSlice is a data structure that combines multiple slices.
+type MultiSlice struct {
+	slices [][]sqsdomain.PoolI
+}
+
+// NewMultiSlice creates a new MultiSlice.
+func NewMultiSlice(slices ...[]sqsdomain.PoolI) MultiSlice {
+	return MultiSlice{
+		slices: slices,
+	}
+}
+
+// Len returns the total length of the combined slices.
+func (ms *MultiSlice) Len() int {
+	totalLength := 0
+	for _, slice := range ms.slices {
+		totalLength += len(slice)
+	}
+	return totalLength
+}
+
+// Get returns the element at the specified index.
+func (ms *MultiSlice) Get(index int) (sqsdomain.PoolI, bool) {
+	for _, slice := range ms.slices {
+		if index < len(slice) {
+			return slice[index], true
+		}
+		index -= len(slice)
+	}
+	return nil, false // Index out of bounds
 }

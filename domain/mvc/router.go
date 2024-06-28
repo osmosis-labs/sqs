@@ -17,12 +17,13 @@ type CandidateRouteSearchDataHolder interface {
 
 	// GetCandidateRouteSearchData gets the candidate route search data from the holder
 	GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI
+
+	// GetSortedPoolsByDenom returns the sorted pools based on the router configuration for the given denom.
+	GetSortedPoolsByDenom(denom string, minLiquidityCap uint64) ([]sqsdomain.PoolI, bool)
 }
 
 // RouterUsecase represent the router's usecases
 type RouterUsecase interface {
-	CandidateRouteSearchDataHolder
-
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.
 	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 	// GetCustomDirectQuote returns the custom direct quote for the given tokenIn, tokenOutDenom and poolID.

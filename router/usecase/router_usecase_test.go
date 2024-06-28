@@ -244,19 +244,13 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				RouteCacheEnabled: !tc.isCacheDisabled,
 			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
 
-			// Validate and sort pools
-			sortedPools := usecase.ValidateAndSortPools(tc.repositoryPools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
-
-			// Filter pools by min liquidity
-			sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)
-
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
 
 			// System under test
 			ctx := context.Background()
 			// TODO: filter pools per router config
-			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, sortedPools, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, defaultRouterConfig.MaxRoutes, defaultRouterConfig.MaxPoolsPerRoute)
+			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, minPoolLiquidityCap, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, defaultRouterConfig.MaxRoutes, defaultRouterConfig.MaxPoolsPerRoute)
 
 			if tc.expectedError != nil {
 				s.Require().EqualError(err, tc.expectedError.Error())

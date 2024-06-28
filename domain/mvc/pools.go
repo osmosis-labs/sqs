@@ -12,7 +12,7 @@ import (
 
 // PoolsUsecase represent the pool's usecases
 type PoolsUsecase interface {
-	PoolHandler
+	PoolHandlerWithCWConfig
 
 	GetAllPools() ([]sqsdomain.PoolI, error)
 
@@ -35,4 +35,9 @@ type PoolHandler interface {
 
 	// StorePools stores the given pools in the usecase
 	StorePools(pools []sqsdomain.PoolI) error
+}
+
+type PoolHandlerWithCWConfig interface {
+	PoolHandler
+	GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig
 }

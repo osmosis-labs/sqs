@@ -108,14 +108,32 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Initialize pools repository, usecase and HTTP handler
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
 
+	// Candidate route data holder
+	uniqueMinLiquidityCapValues := map[uint64]struct{}{
+		config.Router.MinPoolLiquidityCap: {},
+	}
+
+	// Set the min liquidity cap values for dynamic min liquidity cap filters
+	for _, minLiquidityCap := range config.Router.DynamicMinLiquidityCapFiltersDesc {
+		uniqueMinLiquidityCapValues[minLiquidityCap.FilterValue] = struct{}{}
+	}
+
+	routerCandidateRouteDataHolder := routerrepo.NewCandidateRouteDataHolder(uniqueMinLiquidityCapValues)
+
 	// Initialize router repository, usecase
-	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, routerCandidateRouteDataHolder, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Initialize system handler
 	chainInfoRepository := chaininforepo.New()
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository)
 
+	// pricingCandidateRouteDataHolder := routerrepo.NewCandidateRouteDataHolder(map[uint64]struct{}{
+	// 	config.Pricing.WorkerMinPoolLiquidityCap: {},
+	// 	config.Pricing.MinPoolLiquidityCap:       {},
+	// })
+
 	// Initialize chain pricing strategy
+	// pricingRouter := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, nil, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, routerUsecase)
 	if err != nil {
 		return nil, err
@@ -155,7 +173,9 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase, liquidityPricer, logger)
 
-		candidateRouteSearchDataWorker := routerWorker.NewCandidateRouteSearchDataWorker(poolsUseCase, routerUsecase, logger)
+		cosmWasmPoolConfig := poolsUseCase.GetCosmWasmPoolConfig()
+
+		candidateRouteSearchDataWorker := routerWorker.NewCandidateRouteSearchDataWorker(poolsUseCase, []mvc.CandidateRouteSearchDataHolder{routerCandidateRouteDataHolder}, config.Router.PreferredPoolIDs, cosmWasmPoolConfig, logger)
 
 		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
 		// It then passes the healthcheck as long as updates are received at the appropriate intervals.
@@ -165,16 +185,13 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		quotePriceUpdateWorker.RegisterListener(poolLiquidityComputeWorker)
 
 		// Initialize ingest handler and usecase
-		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, tokensUseCase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)
+		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, tokensUseCase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, candidateRouteSearchDataWorker, logger)
 		if err != nil {
 			return nil, err
 		}
 
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
 		poolLiquidityComputeWorker.RegisterListener(chainInfoUseCase)
-
-		// Register candidate route search data worker as a listener to the pool liquidity compute worker.
-		poolLiquidityComputeWorker.RegisterListener(candidateRouteSearchDataWorker)
 
 		// Register chain info use case as a listener to the candidate route search data worker (healthcheck).
 		candidateRouteSearchDataWorker.RegisterListener(chainInfoUseCase)

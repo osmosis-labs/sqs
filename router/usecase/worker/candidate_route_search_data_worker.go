@@ -2,39 +2,57 @@ package worker
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+
+	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 )
 
 type candidateRouteSearchDataWorker struct {
-	listeners                []domain.CandidateRouteSearchDataUpdateListener
-	poolsHandler             mvc.PoolHandler
-	candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder
-	logger                   log.Logger
+	listeners                 []domain.CandidateRouteSearchDataUpdateListener
+	poolsHandler              mvc.PoolHandler
+	candidateRouteDataHolders []mvc.CandidateRouteSearchDataHolder
+	preferredPoolIDs          []uint64
+	cosmWasmPoolConfig        domain.CosmWasmPoolRouterConfig
+	hasReceivedFirstBlock     bool
+	logger                    log.Logger
 }
 
 var (
 	_ domain.CandidateRouteSearchDataWorker = &candidateRouteSearchDataWorker{}
-	_ domain.PoolLiquidityComputeListener   = &candidateRouteSearchDataWorker{}
 )
 
-func NewCandidateRouteSearchDataWorker(poolHandler mvc.PoolHandler, candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder, logger log.Logger) *candidateRouteSearchDataWorker {
+func NewCandidateRouteSearchDataWorker(poolHandler mvc.PoolHandler, candidateRouteDataHolders []mvc.CandidateRouteSearchDataHolder, preferredPoolIDs []uint64, cosmWasmPoolConfig domain.CosmWasmPoolRouterConfig, logger log.Logger) *candidateRouteSearchDataWorker {
 	return &candidateRouteSearchDataWorker{
-		listeners:                []domain.CandidateRouteSearchDataUpdateListener{},
-		poolsHandler:             poolHandler,
-		candidateRouteDataHolder: candidateRouteDataHolder,
-		logger:                   logger,
+		listeners:                 []domain.CandidateRouteSearchDataUpdateListener{},
+		poolsHandler:              poolHandler,
+		candidateRouteDataHolders: candidateRouteDataHolders,
+		preferredPoolIDs:          preferredPoolIDs,
+		cosmWasmPoolConfig:        cosmWasmPoolConfig,
+		logger:                    logger,
 	}
 }
 
-// OnPoolLiquidityCompute implements domain.PoolLiquidityComputeListener.
-func (c *candidateRouteSearchDataWorker) OnPoolLiquidityCompute(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
-	// Compute search data and propagate error up the chain to fail the health check.
-	if err := c.ComputeSearchData(ctx, height, blockPoolMetaData); err != nil {
-		return err
+// ComputeSearchDataFirstBlockSync implements domain.CandidateRouteSearchDataWorker.
+func (c *candidateRouteSearchDataWorker) ComputeSearchDataFirstBlockSync(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
+	// If first block, we need to have the candidate route data to be able to compute prices.
+	// As a result, we syncronously block.
+	if !c.hasReceivedFirstBlock {
+		if err := c.compute(ctx, height, blockPoolMetaData); err != nil {
+			return err
+		}
+
+		c.hasReceivedFirstBlock = true
+	} else {
+		// Otherwise, we can process the candidate route data asynchronously.
+		go func() {
+			_ = c.compute(ctx, height, blockPoolMetaData)
+		}()
 	}
 
 	// Notify listeners
@@ -45,14 +63,59 @@ func (c *candidateRouteSearchDataWorker) OnPoolLiquidityCompute(ctx context.Cont
 	return nil
 }
 
-// ComputeSearchData implements domain.CandidateRouteSearchDataWorker.
-func (c *candidateRouteSearchDataWorker) ComputeSearchData(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
-	// TODO: implement
-	// https://linear.app/osmosis/issue/DATA-248/[candidaterouteopt]-implement-and-test-core-pre-computation-logic
+func (c *candidateRouteSearchDataWorker) compute(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
+	mu := sync.Mutex{}
+	candidateRouteData := make(map[string][]sqsdomain.PoolI, len(blockPoolMetaData.UpdatedDenoms))
 
-	candidateRouteData := map[string][]sqsdomain.PoolI{}
+	wg := sync.WaitGroup{}
 
-	c.candidateRouteDataHolder.SetCandidateRouteSearchData(candidateRouteData)
+	for denom := range blockPoolMetaData.UpdatedDenoms {
+		wg.Add(1)
+
+		go func(denom string) {
+			defer wg.Done()
+
+			denomLiquidityData, ok := blockPoolMetaData.DenomPoolLiquidityMap[denom]
+			if !ok {
+				// TODO: consider error
+				return
+			}
+
+			denomPoolsIDs := domain.KeysFromMap(denomLiquidityData.Pools)
+
+			unsortedDenomPools, err := c.poolsHandler.GetPools(denomPoolsIDs)
+			if err != nil {
+				// TODO: handle error
+				return
+			}
+
+			// Sort pools
+			sortedDenomPools := routerusecase.ValidateAndSortPools(unsortedDenomPools, c.cosmWasmPoolConfig, c.preferredPoolIDs, c.logger)
+
+			mu.Lock()
+			candidateRouteData[denom] = sortedDenomPools
+			mu.Unlock()
+		}(denom)
+	}
+
+	wg.Wait()
+
+	if len(candidateRouteData) > 100 {
+		fmt.Println("here")
+	}
+
+	// Update candidate route data holders
+	for _, candidateRouteDataHolder := range c.candidateRouteDataHolders {
+		wg.Add(1)
+
+		go func(candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder) {
+			defer wg.Done()
+
+			candidateRouteDataHolder.SetCandidateRouteSearchData(candidateRouteData)
+		}(candidateRouteDataHolder)
+	}
+
+	wg.Wait()
 
 	return nil
 }
