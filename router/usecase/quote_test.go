@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	defaultAmount                 = sdk.NewInt(100_000_00)
+	defaultAmount                 = osmomath.NewInt(100_000_00)
 	totalInAmount                 = defaultAmount
 	totalOutAmount                = defaultAmount.MulRaw(4)
 	defaultSpotPriceScalingFactor = osmomath.OneDec()
@@ -73,14 +73,14 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	poolIDOne := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
 			Token:  sdk.NewCoin(USDT, defaultAmount.MulRaw(5)),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 		{
 			Token:  sdk.NewCoin(ETH, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(1, 2),
+		SwapFee: osmomath.NewDecWithPrec(1, 2),
 		ExitFee: osmomath.ZeroDec(),
 	})
 
@@ -91,14 +91,14 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	poolIDTwo := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
 			Token:  sdk.NewCoin(USDC, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 		{
 			Token:  sdk.NewCoin(USDT, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(3, 2),
+		SwapFee: osmomath.NewDecWithPrec(3, 2),
 		ExitFee: osmomath.ZeroDec(),
 	})
 
@@ -109,14 +109,14 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	poolIDThree := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
 			Token:  sdk.NewCoin(ETH, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 		{
 			Token:  sdk.NewCoin(USDC, defaultAmount.MulRaw(4)),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(5, 3),
+		SwapFee: osmomath.NewDecWithPrec(5, 3),
 		ExitFee: osmomath.ZeroDec(),
 	})
 
@@ -254,14 +254,14 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	poolID := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
 			Token:  sdk.NewCoin(ETH, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 		{
 			Token:  sdk.NewCoin(USDC, defaultAmount.MulRaw(4)),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(5, 3),
+		SwapFee: osmomath.NewDecWithPrec(5, 3),
 		ExitFee: osmomath.ZeroDec(),
 	})
 

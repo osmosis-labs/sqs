@@ -4,7 +4,6 @@ import (
 	"sort"
 	"strings"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -46,7 +45,7 @@ func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minPoolLiquidityCap uint
 func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) []sqsdomain.PoolI {
 	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
 
-	totalTVL := sdk.ZeroInt()
+	totalTVL := osmomath.ZeroInt()
 
 	// Make a copy and filter pools
 	for _, pool := range pools {

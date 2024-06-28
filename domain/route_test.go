@@ -7,6 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -83,8 +84,8 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 	)
 
 	balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoins(
-		sdk.NewCoin(DenomOne, sdk.NewInt(1_000_000_000)),
-		sdk.NewCoin(DenomTwo, sdk.NewInt(1_000_000_000)),
+		sdk.NewCoin(DenomOne, osmomath.NewInt(1_000_000_000)),
+		sdk.NewCoin(DenomTwo, osmomath.NewInt(1_000_000_000)),
 	)...)
 
 	balancerPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)

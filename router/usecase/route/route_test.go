@@ -93,8 +93,8 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 	)
 
 	balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoins(
-		sdk.NewCoin(DenomOne, sdk.NewInt(2_000_000_000)),
-		sdk.NewCoin(DenomTwo, sdk.NewInt(1_000_000_000)),
+		sdk.NewCoin(DenomOne, osmomath.NewInt(2_000_000_000)),
+		sdk.NewCoin(DenomTwo, osmomath.NewInt(1_000_000_000)),
 	)...)
 
 	pool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)

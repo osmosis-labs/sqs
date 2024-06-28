@@ -89,8 +89,8 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 	s.Setup()
 
 	xLiquidity := sdk.NewCoins(
-		sdk.NewCoin(DenomOne, sdk.NewInt(1_000_000_000_000)),
-		sdk.NewCoin(DenomTwo, sdk.NewInt(2_000_000_000_000)),
+		sdk.NewCoin(DenomOne, osmomath.NewInt(1_000_000_000_000)),
+		sdk.NewCoin(DenomTwo, osmomath.NewInt(2_000_000_000_000)),
 	)
 
 	// X Liquidity
@@ -134,7 +134,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				})},
-			tokenIn: sdk.NewCoin(DenomTwo, sdk.NewInt(100)),
+			tokenIn: sdk.NewCoin(DenomTwo, osmomath.NewInt(100)),
 
 			expectedTokenOutDenom: DenomOne,
 
@@ -155,7 +155,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 			maxSplitIterations: 10,
 
-			tokenIn: sdk.NewCoin(DenomTwo, sdk.NewInt(5_000_000)),
+			tokenIn: sdk.NewCoin(DenomTwo, osmomath.NewInt(5_000_000)),
 
 			expectedTokenOutDenom: DenomOne,
 
@@ -182,7 +182,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 			maxSplitIterations: 10,
 
-			tokenIn: sdk.NewCoin(DenomTwo, sdk.NewInt(56_789_321)),
+			tokenIn: sdk.NewCoin(DenomTwo, osmomath.NewInt(56_789_321)),
 
 			expectedTokenOutDenom: DenomOne,
 
@@ -215,7 +215,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 			// Validate that amounts in in the quote split routes add up to the original amount in
 			routes := quote.GetRoute()
-			actualTotalFromSplits := sdk.ZeroInt()
+			actualTotalFromSplits := osmomath.ZeroInt()
 			for _, splitRoute := range routes {
 				actualTotalFromSplits = actualTotalFromSplits.Add(splitRoute.GetAmountIn())
 			}

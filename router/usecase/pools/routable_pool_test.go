@@ -74,12 +74,12 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 		expectError      error
 	}{
 		"balancer pool - valid calculation": {
-			tokenIn:       sdk.NewCoin("foo", sdk.NewInt(100)),
+			tokenIn:       sdk.NewCoin("foo", osmomath.NewInt(100)),
 			tokenOutDenom: "bar",
 			poolType:      poolmanagertypes.Balancer,
 		},
 		"stableswap pool - valid calculation": {
-			tokenIn:       sdk.NewCoin("foo", sdk.NewInt(100)),
+			tokenIn:       sdk.NewCoin("foo", osmomath.NewInt(100)),
 			tokenOutDenom: "bar",
 			poolType:      poolmanagertypes.Stableswap,
 		},

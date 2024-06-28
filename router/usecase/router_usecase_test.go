@@ -99,8 +99,8 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	// Create test balancer pool
 
 	balancerCoins := sdk.NewCoins(
-		sdk.NewCoin(tokenInDenom, sdk.NewInt(1000000000000000000)),
-		sdk.NewCoin(tokenOutDenom, sdk.NewInt(1000000000000000000)),
+		sdk.NewCoin(tokenInDenom, osmomath.NewInt(1000000000000000000)),
+		sdk.NewCoin(tokenOutDenom, osmomath.NewInt(1000000000000000000)),
 	)
 
 	balancerPoolID := s.PrepareBalancerPoolWithCoins(balancerCoins...)

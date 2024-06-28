@@ -81,7 +81,7 @@ var (
 		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
 	)
 
-	zero = sdk.ZeroInt()
+	zero = osmomath.ZeroInt()
 )
 
 func init() {
