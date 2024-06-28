@@ -72,8 +72,8 @@ type OrderbookData struct {
 	BaseDenom                      string          `json:"base_denom"`
 	NextBidTickIndex               int             `json:"next_bid_tick_index"`                 // tick index of the next bid tick, -1 if no bid tick
 	NextAskTickIndex               int             `json:"next_ask_tick_index"`                 // tick index of the next ask tick, -1 if no ask tick
-	BidAmountToExhaustAskLiquidity osmomath.BigDec `json:"bid_amount_to_exhaust_ask_liquidity"` // bid amount (in quote denom) to exhaust all ask liquidity
-	AskAmountToExhaustBidLiquidity osmomath.BigDec `json:"ask_amount_to_exhaust_bid_liquidity"` // ask amount (in base denom) to exhaust all bid liquidity
+	BidAmountToExhaustAskLiquidity osmomath.BigDec `json:"bid_amount_to_exhaust_ask_liquidity"` // bid amount (in quote denom) to exhaust all ask liquidity, updated on ingest
+	AskAmountToExhaustBidLiquidity osmomath.BigDec `json:"ask_amount_to_exhaust_bid_liquidity"` // ask amount (in base denom) to exhaust all bid liquidity, updated on ingest
 	Ticks                          []OrderbookTick `json:"ticks"`
 }
 
