@@ -81,7 +81,6 @@ func InitMiddleware(corsConfig *domain.CORSConfig, flightRecordConfig *domain.Fl
 
 // InstrumentMiddleware will handle the instrumentation middleware
 func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-
 	// Set up the flight recorder.
 	fr := gotrace.NewFlightRecorder()
 
