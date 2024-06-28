@@ -362,25 +362,6 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	return topSingleRouteQuote, rankedRoutes, nil
 }
 
-// GetBestSingleRouteQuote returns the best single route quote to be done directly without a split.
-func (r *routerUseCaseImpl) GetBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (domain.Quote, error) {
-	// Filter pools by minimum liquidity
-	poolsAboveMinLiquidityCap := FilterPoolsByMinLiquidity(r.getSortedPoolsShallowCopy(), r.defaultConfig.MinPoolLiquidityCap)
-
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, poolsAboveMinLiquidityCap, tokenIn, tokenOutDenom, r.defaultConfig.MaxRoutes, r.defaultConfig.MaxPoolsPerRoute)
-	if err != nil {
-		return nil, err
-	}
-	// TODO: abstract this
-
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
-	if err != nil {
-		return nil, err
-	}
-
-	return getBestSingleRouteQuote(ctx, tokenIn, routes, r.logger)
-}
-
 var (
 	ErrTokenInDenomPoolNotFound  = fmt.Errorf("token in denom not found in pool")
 	ErrTokenOutDenomPoolNotFound = fmt.Errorf("token out denom not found in pool")
