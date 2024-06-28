@@ -12,7 +12,7 @@ require (
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.13
-	github.com/osmosis-labs/osmosis/v25 v25.0.0-20240628175607-dd3132a7c29a
+	github.com/osmosis-labs/osmosis/v25 v25.0.0-20240628205610-ed96fa9066a8
 	github.com/osmosis-labs/sqs/sqsdomain v0.18.4-0.20240627025931-0926c532e04a
 	github.com/prometheus/client_golang v1.19.1
 	github.com/sirupsen/logrus v1.9.3

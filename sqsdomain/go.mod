@@ -8,7 +8,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.50.7
 	github.com/json-iterator/go v1.1.12
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
-	github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240524131320-44f70454a543
+	github.com/osmosis-labs/osmosis/v25 v25.0.0-20240628205610-ed96fa9066a8
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.2
 )
