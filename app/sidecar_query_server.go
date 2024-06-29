@@ -115,8 +115,11 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	chainInfoRepository := chaininforepo.New()
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository)
 
+	cosmWasmPoolConfig := poolsUseCase.GetCosmWasmPoolConfig()
+
 	// Initialize chain pricing strategy
-	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, routerUsecase)
+	pricingSimpleRouterUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, cosmWasmPoolConfig, logger, cache.New(), cache.New())
+	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, pricingSimpleRouterUsecase)
 	if err != nil {
 		return nil, err
 	}
@@ -172,9 +175,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
 		poolLiquidityComputeWorker.RegisterListener(chainInfoUseCase)
-
-		// Register candidate route search data worker as a listener to the pool liquidity compute worker.
-		poolLiquidityComputeWorker.RegisterListener(candidateRouteSearchDataWorker)
 
 		// Register chain info use case as a listener to the candidate route search data worker (healthcheck).
 		candidateRouteSearchDataWorker.RegisterListener(chainInfoUseCase)

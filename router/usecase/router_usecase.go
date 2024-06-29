@@ -237,14 +237,18 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		return nil, err
 	}
 
-	// Get the route with out caching.
-	topSingleRouteQuote, _, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
 		r.logger.Error("error ranking routes for pricing", zap.Error(err))
 		return nil, err
 	}
 
-	return topSingleRouteQuote, nil
+	topQuote, _, err := estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
+	if err != nil {
+		return nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
+	}
+
+	return topQuote, nil
 }
 
 // filterAndConvertDuplicatePoolIDRankedRoutes filters ranked routes that contain duplicate pool IDs.

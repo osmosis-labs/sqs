@@ -16,7 +16,7 @@ import (
 
 type chainPricing struct {
 	TUsecase mvc.TokensUsecase
-	RUsecase mvc.RouterUsecase
+	RUsecase mvc.SimpleRouterUsecase
 
 	cache         *cache.Cache
 	cacheExpiryNs time.Duration
@@ -85,7 +85,7 @@ func init() {
 	prometheus.MustRegister(cacheMissesCounter)
 }
 
-func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
+func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
 	chainDefaultHumanDenom, err := tokenUseCase.GetChainDenom(config.DefaultQuoteHumanDenom)
 	if err != nil {
 		panic(fmt.Sprintf("failed to get chain denom for default quote human denom (%s): %s", config.DefaultQuoteHumanDenom, err))
