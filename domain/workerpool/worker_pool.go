@@ -106,13 +106,10 @@ func (d *Dispatcher[T]) Stop() {
 }
 
 func (d *Dispatcher[T]) dispatch() {
-	for {
-		select {
-		case job := <-d.JobQueue:
-			go func(job Job[T]) {
-				jobChannel := <-d.WorkerPool
-				jobChannel <- job
-			}(job)
-		}
+	for job := range d.JobQueue {
+		go func(job Job[T]) {
+			jobChannel := <-d.WorkerPool
+			jobChannel <- job
+		}(job)
 	}
 }

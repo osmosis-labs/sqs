@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Unreleased
 
 - Worker pool abstraction implementation & tests
+- Switch prices to worker pool and remove concurrency for quotes since we support only one quote denom atm.
 
 ## v25.2.0
 
