@@ -12,6 +12,17 @@ As a result, it is possible to see the following sequence of events:
 - Height X: All Osmosis pools are pushed
 - Height X+1: Only the pools that have changed within that height are pushed
 
+## Worker Pool Architecture
+
+The ingest module is designed to be a worker pool that processes the data in parallel.
+We configure the number of workers to be equal to 2. The choice is arbitrary but allows for an efficient catch up
+post-initial cold start that takes roughly 30 seconds.
+
+Given the target chain block time of 1.5 seconds, we are 15 blocks behind after cold start, and 2 workers can process them all
+under a few seconds.
+
+Additionally, this mechanism helps to control resources and avoid overloading the system at cold start with many pre-computation requests.
+
 ## Parsing Block Pool Metadata
 
 Since we may push either all pools or only the ones updated within a block, we
