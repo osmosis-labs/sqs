@@ -40,3 +40,6 @@ type DenomPoolLiquidityData struct {
 	// in that pool
 	Pools map[uint64]osmomath.Int
 }
+
+// GAMMSharePrefix is the prefix for the GAMM share
+const GAMMSharePrefix = "gamm/pool"

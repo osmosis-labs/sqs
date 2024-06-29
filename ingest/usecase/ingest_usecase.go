@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -299,5 +301,57 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsdomain.PoolI, error)
 		}
 	}
 
+	// Process the SQS model
+	if err := processSQSModelMut(&poolWrapper.SQSModel); err != nil {
+		p.logger.Error("error processing SQS model", zap.Error(err))
+	}
+
 	return &poolWrapper, nil
+}
+
+// processSQSModelMut processes the SQS model and updates it.
+// Specifically, it removes the gamm shares from the balances and pool denoms.
+// Additionally it updates the alloyed denom if it is an alloy transmuter.
+func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
+	// Update alloyed denom since it is not in the balances.
+	cosmWasmModel := sqsModel.CosmWasmPoolModel
+	if cosmWasmModel != nil && cosmWasmModel.IsAlloyTransmuter() {
+		if cosmWasmModel.Data.AlloyTransmuter == nil {
+			return fmt.Errorf("alloy transmuter data is nil, skipping silently, contract %s, version %s", cosmWasmModel.ContractInfo.Contract, cosmWasmModel.ContractInfo.Version)
+		}
+
+		alloyedDenom := cosmWasmModel.Data.AlloyTransmuter.AlloyedDenom
+
+		sqsModel.PoolDenoms = append(sqsModel.PoolDenoms, alloyedDenom)
+	}
+
+	// Remove gamm shares from balances
+	newBalances := make([]sdk.Coin, 0, len(sqsModel.Balances))
+	for i, balance := range sqsModel.Balances {
+		if balance.Validate() != nil {
+			continue
+		}
+
+		if strings.HasPrefix(balance.Denom, domain.GAMMSharePrefix) {
+			continue
+		}
+
+		newBalances = append(newBalances, sqsModel.Balances[i])
+	}
+
+	sqsModel.Balances = newBalances
+
+	// Remove gamm shares from pool denoms
+	newPoolDenoms := make([]string, 0, len(sqsModel.PoolDenoms))
+	for _, denom := range sqsModel.PoolDenoms {
+		if strings.HasPrefix(denom, domain.GAMMSharePrefix) {
+			continue
+		}
+
+		newPoolDenoms = append(newPoolDenoms, denom)
+	}
+
+	sqsModel.PoolDenoms = newPoolDenoms
+
+	return nil
 }

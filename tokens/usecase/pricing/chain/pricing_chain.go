@@ -110,7 +110,6 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		MinPoolLiquidityCap:                     c.minPoolLiquidityCap,
 		RecomputePricesIsSpotPriceComputeMethod: defaultIsSpotPriceComputeMethod,
 		RecomputePrices:                         false,
-		IsWorkerPrecomputePricing:               false,
 	}
 
 	for _, opt := range opts {
@@ -120,7 +119,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	// Recompute prices if desired by configuration.
 	// Otherwise, look into cache first.
 	if options.RecomputePrices {
-		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod, options.IsWorkerPrecomputePricing)
+		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 	}
 
 	// equal base and quote yield the price of one
@@ -147,11 +146,11 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	}
 
 	// If cache miss occurs, we compute the price.
-	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod, options.IsWorkerPrecomputePricing)
+	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 }
 
 // computePrice computes the price for a given base and quote denom
-func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod, isPricingWorkerPrecompute bool) (osmomath.BigDec, error) {
+func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (osmomath.BigDec, error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 
 	if baseDenom == quoteDenom {
