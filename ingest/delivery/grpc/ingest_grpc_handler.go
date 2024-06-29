@@ -27,6 +27,7 @@ type IngestProcessBlockArgs struct {
 
 const (
 	// numBlockProcessWorkers is the number of workers to process blocks concurrently
+	// TODO: move to config
 	numBlockProcessWorkers = 2
 )
 
