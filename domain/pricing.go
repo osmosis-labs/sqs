@@ -131,6 +131,8 @@ type PricingWorker interface {
 	// Performs the update synchronously.
 	UpdatePricesSync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 
+	UpdatePrices(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
+
 	// RegisterListener registers a listener for pricing updates.
 	RegisterListener(listener PricingUpdateListener)
 }

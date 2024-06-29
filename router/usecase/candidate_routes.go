@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"go.uber.org/zap"
 )
 
 // candidatePoolWrapper is an intermediary internal data
@@ -151,12 +152,12 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 
 	// Preallocate constant visited map size to avoid reallocations.
 	// TODO: choose the best size for the visited map.
-	visited := make(map[uint64]struct{}, 100)
+	visited := make(map[uint64]struct{}, 0)
 	// visited := make([]bool, len(pools))
 
 	// Preallocate constant queue size to avoid dynamic reallocations.
 	// TODO: choose the best size for the queue.
-	queue := make([][]candidatePoolWrapper, 0, 100)
+	queue := make([][]candidatePoolWrapper, 0)
 	queue = append(queue, make([]candidatePoolWrapper, 0, maxPoolsPerRoute))
 
 	for len(queue) > 0 && len(routes) < maxRoutes {
@@ -174,7 +175,7 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 
 		rankedPools, ok := poolsByDenom[currenTokenInDenom]
 		if !ok {
-			return sqsdomain.CandidateRoutes{}, fmt.Errorf("no pools found for denom %s", currenTokenInDenom)
+			return sqsdomain.CandidateRoutes{}, fmt.Errorf("no pools found for denom (%s) in candidate route search", currenTokenInDenom)
 		}
 
 		for i := 0; i < len(rankedPools) && len(routes) < maxRoutes; i++ {
@@ -236,6 +237,12 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 					continue
 				}
 				if hasTokenOut && denom != tokenOutDenom {
+					continue
+				}
+
+				_, ok := poolsByDenom[denom]
+				if !ok {
+					logger.Error("no pools found for denom in candidate route search", zap.String("denom", denom))
 					continue
 				}
 

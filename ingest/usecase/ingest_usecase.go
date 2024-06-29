@@ -42,6 +42,8 @@ type ingestUseCase struct {
 	hasProcessedFirstBlock atomic.Bool
 	// Wait group to wait for the first block to be processed.
 	firstBlockWg sync.WaitGroup
+	// Worker that computes candidate routes for all tokens.
+	candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker
 
 	logger log.Logger
 }
@@ -56,7 +58,7 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
@@ -69,9 +71,11 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 
 		logger: logger,
 
+		hasProcessedFirstBlock: atomic.Bool{},
+
 		defaultQuotePriceUpdateWorker: quotePriceUpdateWorker,
 
-		hasProcessedFirstBlock: atomic.Bool{},
+		candidateRouteSearchWorker: candidateRouteSearchWorker,
 	}, nil
 }
 
@@ -111,6 +115,8 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		p.firstBlockWg.Add(1)
 		defer p.firstBlockWg.Done()
 
+		p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata)
+
 		// Pre-compute the prices for all
 		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
 
@@ -120,8 +126,14 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		// updating the prices for the next block.
 		p.firstBlockWg.Wait()
 
+		// We compute search data syncronously so that in case there are new tokens added in the block, we can update the search data
+		// and allow correct computation of theis prices below.
+		p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata)
+
 		// For any block after the first block, we can update the prices asynchronously.
-		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+		p.defaultQuotePriceUpdateWorker.UpdatePrices(height, uniqueBlockPoolMetadata)
+
+		p.hasProcessedFirstBlock.Store(true)
 	}
 
 	// Store the latest ingested height.
@@ -197,7 +209,24 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 					continue
 				}
 
-				uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
+				if !strings.HasPrefix(balance.Denom, "gamm/pool") {
+					uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
+				}
+			}
+
+			// Update alloyed denom since it is not in the balances.
+			cwPoolModel := poolResult.pool.GetSQSPoolModel().CosmWasmPoolModel
+			if cwPoolModel != nil && cwPoolModel.IsAlloyTransmuter() {
+				uniqueData.UpdatedDenoms[cwPoolModel.Data.AlloyTransmuter.AlloyedDenom] = struct{}{}
+
+				// Since alloyed denom is an LP share, we set the liquidity to 0. This is mainly done for pool linking
+				// in the pipeline.
+				currentBlockLiquidityMap[cwPoolModel.Data.AlloyTransmuter.AlloyedDenom] = domain.DenomPoolLiquidityData{
+					TotalLiquidity: osmomath.ZeroInt(),
+					Pools: map[uint64]osmomath.Int{
+						poolID: osmomath.ZeroInt(),
+					},
+				}
 			}
 
 			// Update unique pools.
@@ -318,6 +347,30 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsdomain.PoolI, error)
 	if err := json.Unmarshal(pool.SqsModel, &poolWrapper.SQSModel); err != nil {
 		return nil, err
 	}
+
+	// Remove gamm shares from balances
+	newBalances := make([]sdk.Coin, 0, len(poolWrapper.SQSModel.Balances))
+	for i, balance := range poolWrapper.SQSModel.Balances {
+		if strings.HasPrefix(balance.Denom, "gamm/pool") {
+			continue
+		}
+
+		newBalances = append(newBalances, poolWrapper.SQSModel.Balances[i])
+	}
+
+	poolWrapper.SQSModel.Balances = newBalances
+
+	// Remove gamm shares from pool denoms
+	newPoolDenoms := make([]string, 0, len(poolWrapper.SQSModel.PoolDenoms))
+	for _, denom := range poolWrapper.SQSModel.PoolDenoms {
+		if strings.HasPrefix(denom, "gamm/pool") {
+			continue
+		}
+
+		newPoolDenoms = append(newPoolDenoms, denom)
+	}
+
+	poolWrapper.SQSModel.PoolDenoms = newPoolDenoms
 
 	if poolWrapper.GetType() == poolmanagertypes.Concentrated {
 		poolWrapper.TickModel = &sqsdomain.TickModel{}

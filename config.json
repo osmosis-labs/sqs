@@ -20,6 +20,22 @@
         {
             "min-tokens-capitalization": 1000000,
             "filter-value": 75000
+        },
+        {
+            "min-tokens-capitalization": 250000,
+            "filter-value": 15000
+        },
+        {
+            "min-tokens-capitalization": 10000,
+            "filter-value": 1000
+        },
+        {
+            "min-tokens-capitalization": 1000,
+            "filter-value": 100
+        },
+        {
+            "min-tokens-capitalization": 1,
+            "filter-value": 1
         }
       ]
     },

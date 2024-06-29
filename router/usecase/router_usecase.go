@@ -218,20 +218,12 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		opt(&options)
 	}
 
-	poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
-
-	// Zero implies no filtering, so we skip the iterations.
-	if options.MinPoolLiquidityCap > 0 {
-		poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinPoolLiquidityCap)
-	}
-
 	// If this is pricing worker precomputation, we need to be able to call this as
 	// some pools have TVL incorrectly calculated as zero. For example, BRNCH / STRDST (1288).
 	// As a result, they are incorrectly excluded despite having appropriate liquidity.
 	// So we want to calculate price, but we never cache routes for pricing the are below the minPoolLiquidityCap value, as these are returned to users.
 
-	// Compute candidate routes.
-	candidateRoutes, err := GetCandidateRoutes(poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
+	candidateRoutes, err := GetCandidateRoutesNew(r.GetCandidateRouteSearchData(), tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
 	if err != nil {
 		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 		return nil, err
@@ -239,7 +231,6 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
-		r.logger.Error("error ranking routes for pricing", zap.Error(err))
 		return nil, err
 	}
 

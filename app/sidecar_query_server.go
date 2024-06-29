@@ -158,7 +158,8 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase, liquidityPricer, logger)
 
-		candidateRouteSearchDataWorker := routerWorker.NewCandidateRouteSearchDataWorker(poolsUseCase, routerUsecase, logger)
+		candidateRouteSearchDataHolders := []mvc.CandidateRouteSearchDataHolder{pricingSimpleRouterUsecase}
+		candidateRouteSearchDataWorker := routerWorker.NewCandidateRouteSearchDataWorker(poolsUseCase, candidateRouteSearchDataHolders, config.Router.PreferredPoolIDs, cosmWasmPoolConfig, logger)
 
 		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
 		// It then passes the healthcheck as long as updates are received at the appropriate intervals.
@@ -168,7 +169,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		quotePriceUpdateWorker.RegisterListener(poolLiquidityComputeWorker)
 
 		// Initialize ingest handler and usecase
-		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, tokensUseCase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)
+		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, tokensUseCase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, candidateRouteSearchDataWorker, logger)
 		if err != nil {
 			return nil, err
 		}
