@@ -166,7 +166,10 @@ def validate_candidate_routes(routes, token_in, token_out, expected_min_routes, 
 
             found_denom = cur_token_in in denoms
 
-            assert found_denom, f"Error: token in {cur_token_in} not found in pool denoms {denoms}"
+            # Numia pool results do not treat alloyed as a separate token
+            # As a result, we skip this check.
+            if "all" not in cur_token_in:
+                assert found_denom, f"Error: token in {cur_token_in} not found in pool denoms {denoms}"
 
             cur_token_out = pool['TokenOutDenom']
 

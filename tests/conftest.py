@@ -32,16 +32,19 @@ api_key = parse_api_key()
 
 SERVICE_SQS_STAGE = SQSService(SQS_STAGE, api_key)
 SERVICE_SQS_PROD = SQSService(SQS_PROD, api_key)
+SERVICE_SQS_LOCAL = SQSService(SQS_LOCAL, api_key)
 SERVICE_COINGECKO = CoingeckoService()
 
 STAGE_INPUT_NAME = "stage"
 PROD_INPUT_NAME = "prod"
+LOCAL_INPUT_NAME = "local"
 
 # Defines the mapping between the environment input name and the SQS URL.
 # E.g. stage -> SQS_STAGE
 INPUT_MAP = {
     STAGE_INPUT_NAME: SQS_STAGE,
-    PROD_INPUT_NAME: SQS_PROD
+    PROD_INPUT_NAME: SQS_PROD,
+    LOCAL_INPUT_NAME: SQS_LOCAL
 }
 
 def parse_environments():
