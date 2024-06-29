@@ -116,7 +116,6 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 		p.hasProcessedFirstBlock.Store(true)
 	} else {
-
 		// Wait for the first block to be processed before
 		// updating the prices for the next block.
 		p.firstBlockWg.Wait()
