@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -36,6 +38,11 @@ type ingestUseCase struct {
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
 
+	// Flag to check if the first block has been processed.
+	hasProcessedFirstBlock atomic.Bool
+	// Wait group to wait for the first block to be processed.
+	firstBlockWg sync.WaitGroup
+
 	logger log.Logger
 }
 
@@ -63,6 +70,8 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 		logger: logger,
 
 		defaultQuotePriceUpdateWorker: quotePriceUpdateWorker,
+
+		hasProcessedFirstBlock: atomic.Bool{},
 	}, nil
 }
 
@@ -95,9 +104,26 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	p.sortAndStorePools(allPools)
 
-	// Note: we must queue the update before we start updating prices as pool liquidity
-	// worker listens for the pricing updates at the same height.
-	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+	if !p.hasProcessedFirstBlock.Load() {
+		// For the first block, we need to update the prices synchronously.
+		// and let any subsequent block wait before starting its computation
+		// to avoid overloading the system.
+		p.firstBlockWg.Add(1)
+		defer p.firstBlockWg.Done()
+
+		// Pre-compute the prices for all
+		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
+
+		p.hasProcessedFirstBlock.Store(true)
+	} else {
+
+		// Wait for the first block to be processed before
+		// updating the prices for the next block.
+		p.firstBlockWg.Wait()
+
+		// For any block after the first block, we can update the prices asynchronously.
+		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+	}
 
 	// Store the latest ingested height.
 	p.chainInfoUseCase.StoreLatestHeight(height)

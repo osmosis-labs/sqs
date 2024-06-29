@@ -23,6 +23,11 @@ under a few seconds.
 
 Additionally, this mechanism helps to control resources and avoid overloading the system at cold start with many pre-computation requests.
 
+We keep a wait group in the `mvc.IngestUsecase` implementation to wat for the first block to finish processing before starting the next one.
+
+Given the above architecture with block process jobs being queued up during start-up, the workers must differentiate updates by height.
+That is, if a block process job for height X is being processed to compute a price for uosmo when uosmo already has a price for height X+1, the worker must discard the update for height X.
+
 ## Parsing Block Pool Metadata
 
 Since we may push either all pools or only the ones updated within a block, we
