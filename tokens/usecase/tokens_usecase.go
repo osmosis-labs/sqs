@@ -56,13 +56,6 @@ type AssetList struct {
 	} `json:"assets"`
 }
 
-// Define a result struct to hold the quoteDenom and the fetched price or error
-type priceResult struct {
-	quoteDenom string
-	price      osmomath.BigDec
-	err        error
-}
-
 // Define a result struct to hold the base denom and prices for each possible quote denom or error
 type priceResults struct {
 	baseDenom string
@@ -263,7 +256,6 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 
 		basePriceDispatcher.JobQueue <- workerpool.Job[priceResults]{
 			Task: func() (priceResults, error) {
-
 				var err error
 				defer func() {
 					// Recover from panic if one occurred
