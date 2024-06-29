@@ -3,6 +3,7 @@ package usecase
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 type (
@@ -15,4 +16,8 @@ func UpdateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.
 
 func TransferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidityMap) domain.DenomPoolLiquidityMap {
 	return transferDenomLiquidityMap(transferTo, transferFrom)
+}
+
+func ProcessSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
+	return processSQSModelMut(sqsModel)
 }
