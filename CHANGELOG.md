@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Worker pool abstraction implementation & tests
+
 ## v25.2.0
 
 - Fix bug with allUSDT swaps resulting in extreme price impact due to config and filtering issues.
