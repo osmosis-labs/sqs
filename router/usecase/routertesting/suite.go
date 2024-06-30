@@ -385,7 +385,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	encCfg := app.MakeEncodingConfig()
 
-	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, pricingRouterUsecase, tokensUsecase, nil, encCfg.Marshaler, nil, logger)
+	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, pricingRouterUsecase, tokensUsecase, nil, encCfg.Marshaler, nil, nil, logger)
 	if err != nil {
 		panic(err)
 	}

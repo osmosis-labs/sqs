@@ -2,38 +2,57 @@ package worker
 
 import (
 	"context"
+	"sync"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"go.uber.org/zap"
+
+	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 )
 
 type candidateRouteSearchDataWorker struct {
 	listeners                []domain.CandidateRouteSearchDataUpdateListener
 	poolsHandler             mvc.PoolHandler
 	candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder
+	preferredPoolIDs         []uint64
+	cosmWasmPoolConfig       domain.CosmWasmPoolRouterConfig
 	logger                   log.Logger
 }
 
 var (
 	_ domain.CandidateRouteSearchDataWorker = &candidateRouteSearchDataWorker{}
-	_ domain.PoolLiquidityComputeListener   = &candidateRouteSearchDataWorker{}
 )
 
-func NewCandidateRouteSearchDataWorker(poolHandler mvc.PoolHandler, candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder, logger log.Logger) *candidateRouteSearchDataWorker {
+func NewCandidateRouteSearchDataWorker(poolHandler mvc.PoolHandler, candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder, preferredPoolIDs []uint64, cosmWasmPoolConfig domain.CosmWasmPoolRouterConfig, logger log.Logger) *candidateRouteSearchDataWorker {
 	return &candidateRouteSearchDataWorker{
 		listeners:                []domain.CandidateRouteSearchDataUpdateListener{},
 		poolsHandler:             poolHandler,
 		candidateRouteDataHolder: candidateRouteDataHolder,
+		preferredPoolIDs:         preferredPoolIDs,
+		cosmWasmPoolConfig:       cosmWasmPoolConfig,
 		logger:                   logger,
 	}
 }
 
-// OnPoolLiquidityCompute implements domain.PoolLiquidityComputeListener.
-func (c *candidateRouteSearchDataWorker) OnPoolLiquidityCompute(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
-	// Compute search data and propagate error up the chain to fail the health check.
-	if err := c.ComputeSearchData(ctx, height, blockPoolMetaData); err != nil {
+// ComputeSearchDataSync implements domain.CandidateRouteSearchDataWorker.
+func (c *candidateRouteSearchDataWorker) ComputeSearchDataAsync(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
+	go func() {
+		if err := c.ComputeSearchDataSync(ctx, height, blockPoolMetaData); err != nil {
+			c.logger.Error("failed to compute search data", zap.Error(err))
+		}
+	}()
+
+	return nil
+}
+
+// ComputeSearchDataSync implements domain.CandidateRouteSearchDataWorker.
+func (c *candidateRouteSearchDataWorker) ComputeSearchDataSync(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
+	// TODO: measure processing time
+
+	if err := c.compute(blockPoolMetaData); err != nil {
 		return err
 	}
 
@@ -45,12 +64,44 @@ func (c *candidateRouteSearchDataWorker) OnPoolLiquidityCompute(ctx context.Cont
 	return nil
 }
 
-// ComputeSearchData implements domain.CandidateRouteSearchDataWorker.
-func (c *candidateRouteSearchDataWorker) ComputeSearchData(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
-	// TODO: implement
-	// https://linear.app/osmosis/issue/DATA-248/[candidaterouteopt]-implement-and-test-core-pre-computation-logic
+func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockPoolMetadata) error {
+	mu := sync.Mutex{}
+	candidateRouteData := make(map[string][]sqsdomain.PoolI, len(blockPoolMetaData.UpdatedDenoms))
 
-	candidateRouteData := map[string][]sqsdomain.PoolI{}
+	wg := sync.WaitGroup{}
+
+	for denom := range blockPoolMetaData.UpdatedDenoms {
+		wg.Add(1)
+
+		go func(denom string) {
+			defer wg.Done()
+
+			denomLiquidityData, ok := blockPoolMetaData.DenomPoolLiquidityMap[denom]
+			if !ok {
+				// TODO: add counter
+				c.logger.Error("denom liquidity data not found in candidate route worker", zap.String("denom", denom))
+				return
+			}
+
+			denomPoolsIDs := domain.KeysFromMap(denomLiquidityData.Pools)
+
+			unsortedDenomPools, err := c.poolsHandler.GetPools(denomPoolsIDs)
+			if err != nil {
+				// TODO: add counter
+				c.logger.Error("failed to get pools in candidate route worker", zap.Error(err))
+				return
+			}
+
+			// Sort pools
+			sortedDenomPools := routerusecase.ValidateAndSortPools(unsortedDenomPools, c.cosmWasmPoolConfig, c.preferredPoolIDs, c.logger)
+
+			mu.Lock()
+			candidateRouteData[denom] = sortedDenomPools
+			mu.Unlock()
+		}(denom)
+	}
+
+	wg.Wait()
 
 	c.candidateRouteDataHolder.SetCandidateRouteSearchData(candidateRouteData)
 

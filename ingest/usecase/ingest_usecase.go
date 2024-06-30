@@ -39,6 +39,9 @@ type ingestUseCase struct {
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
 
+	// Worker that computes candidate routes for all tokens.
+	candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker
+
 	// The first height observed after start-up
 	// See firstBlockPoolCountThreshold for details.
 	firstHeightAfterStartUp atomic.Uint64
@@ -72,7 +75,7 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
@@ -87,6 +90,8 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 		logger: logger,
 
 		defaultQuotePriceUpdateWorker: quotePriceUpdateWorker,
+
+		candidateRouteSearchWorker: candidateRouteSearchWorker,
 
 		firstHeightAfterStartUp: atomic.Uint64{},
 	}, nil
@@ -127,6 +132,15 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	p.sortAndStorePools(allPools)
 
+	// If an error occurs, we should return it and not proceed with the next steps.
+	// The pricing relies on the search data. As a result, by returnining an error we trigger a fallback mechanism
+	// Note that compute search data is always synchronous because it is needed for all subsequent pre-computations within a block.
+	// Its latency is estimated to be negligile. As a result, it is not a concern.
+	if err := p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata); err != nil {
+		p.logger.Error("failed to compute search data", zap.Error(err))
+		return err
+	}
+
 	if height == p.firstHeightAfterStartUp.Load() {
 		// For the first block, we need to update the prices synchronously.
 		// and let any subsequent block wait before starting its computation
@@ -140,7 +154,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		// updating the prices for the next block.
 		// TODO: enable this after the candidate route optimization is implemented
 		// Currently, takes around 7 minutes to pre-compute the prices for all tokens.
-		// p.firstBlockWg.Wait()
+		p.firstBlockWg.Wait()
 
 		// For any block after the first block, we can update the prices asynchronously.
 		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
