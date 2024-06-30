@@ -168,7 +168,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		quotePriceUpdateWorker.RegisterListener(poolLiquidityComputeWorker)
 
 		// Initialize ingest handler and usecase
-		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, tokensUseCase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)
+		ingestUseCase, err := ingestusecase.NewIngestUsecase(poolsUseCase, routerUsecase, pricingSimpleRouterUsecase, tokensUseCase, chainInfoUseCase, appCodec, quotePriceUpdateWorker, logger)
 		if err != nil {
 			return nil, err
 		}

@@ -28,19 +28,22 @@ import (
 type ingestUseCase struct {
 	codec codec.Codec
 
-	poolsUseCase     mvc.PoolsUsecase
-	routerUsecase    mvc.RouterUsecase
-	tokensUsecase    mvc.TokensUsecase
-	chainInfoUseCase mvc.ChainInfoUsecase
+	poolsUseCase         mvc.PoolsUsecase
+	routerUsecase        mvc.RouterUsecase
+	pricingRouterUsecase mvc.RouterUsecase
+	tokensUsecase        mvc.TokensUsecase
+	chainInfoUseCase     mvc.ChainInfoUsecase
 
 	denomLiquidityMap domain.DenomPoolLiquidityMap
 
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
 
-	// Flag to check if the first block has been processed.
-	hasProcessedFirstBlock atomic.Bool
+	// The first height observed after start-up
+	// See firstBlockPoolCountThreshold for details.
+	firstHeightAfterStartUp atomic.Uint64
 	// Wait group to wait for the first block to be processed.
+	//
 	firstBlockWg sync.WaitGroup
 
 	logger log.Logger
@@ -51,19 +54,33 @@ type poolResult struct {
 	err  error
 }
 
+const (
+	// The threshold for the number of pools in the first block
+	// where we ingest all pools to be ingested.
+	// The number is chosen to also be compatible with testnet where
+	// the number of pools is 500.
+	// In the future, it migth eb beneficial to remove this opinionated mechanism.
+	// Today, having a clear way to identify first block
+	//  is useful for debugging performance issues when processing it.
+	// Note that the first block might arrive later than subsequent due to network or
+	// data parsing delays.
+	firstBlockPoolCountThreshold = 499
+)
+
 var (
 	_ mvc.IngestUsecase = &ingestUseCase{}
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
-		chainInfoUseCase: chainInfoUseCase,
-		routerUsecase:    routerUseCase,
-		tokensUsecase:    tokensUseCase,
-		poolsUseCase:     poolsUseCase,
+		chainInfoUseCase:     chainInfoUseCase,
+		routerUsecase:        routerUseCase,
+		pricingRouterUsecase: pricingRouterUsecase,
+		tokensUsecase:        tokensUseCase,
+		poolsUseCase:         poolsUseCase,
 
 		denomLiquidityMap: make(domain.DenomPoolLiquidityMap),
 
@@ -71,11 +88,17 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 
 		defaultQuotePriceUpdateWorker: quotePriceUpdateWorker,
 
-		hasProcessedFirstBlock: atomic.Bool{},
+		firstHeightAfterStartUp: atomic.Uint64{},
 	}, nil
 }
 
 func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, takerFeesMap sqsdomain.TakerFeeMap, poolData []*types.PoolData) (err error) {
+	if p.firstHeightAfterStartUp.Load() == 0 && len(poolData) > 1000 {
+		p.logger.Info("setting first block height", zap.Uint64("height", height))
+		p.firstHeightAfterStartUp.Store(height)
+		p.firstBlockWg.Add(1)
+	}
+
 	p.logger.Info("starting block processing", zap.Uint64("height", height))
 
 	startProcessingTime := time.Now()
@@ -104,21 +127,20 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	p.sortAndStorePools(allPools)
 
-	if !p.hasProcessedFirstBlock.Load() {
+	if height == p.firstHeightAfterStartUp.Load() {
 		// For the first block, we need to update the prices synchronously.
 		// and let any subsequent block wait before starting its computation
 		// to avoid overloading the system.
-		p.firstBlockWg.Add(1)
 		defer p.firstBlockWg.Done()
 
 		// Pre-compute the prices for all
 		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
-
-		p.hasProcessedFirstBlock.Store(true)
 	} else {
 		// Wait for the first block to be processed before
 		// updating the prices for the next block.
-		p.firstBlockWg.Wait()
+		// TODO: enable this after the candidate route optimization is implemented
+		// Currently, takes around 7 minutes to pre-compute the prices for all tokens.
+		// p.firstBlockWg.Wait()
 
 		// For any block after the first block, we can update the prices asynchronously.
 		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
@@ -145,6 +167,7 @@ func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
 
 	// Sort the pools and store them in the router.
 	p.routerUsecase.SetSortedPools(sortedPools)
+	p.pricingRouterUsecase.SetSortedPools(sortedPools)
 }
 
 // parsePoolData parses the pool data and returns the pool objects.

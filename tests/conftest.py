@@ -75,7 +75,8 @@ def environment_url(request):
 
 SERVICE_MAP = {
     SQS_STAGE: SERVICE_SQS_STAGE,
-    SQS_PROD: SERVICE_SQS_PROD
+    SQS_PROD: SERVICE_SQS_PROD,
+    SQS_LOCAL: SERVICE_SQS_LOCAL
 }
 
 # Numia pool type constants using an Enum

@@ -50,7 +50,7 @@ func (p *pricingWorker) UpdatePricesSync(height uint64, uniqueBlockPoolMetaData 
 		// Cancel the context
 		cancel()
 
-		p.logger.Info("pricing pre-computation completed", zap.Uint64("height", height), zap.Duration("duration", time.Since(start)))
+		p.logger.Info("pricing pre-computation completed", zap.Uint64("height", height), zap.Int("num_base_denoms", len(baseDenoms)), zap.Duration("duration", time.Since(start)))
 	}()
 
 	p.logger.Info("starting pricing pre-computation", zap.Uint64("height", height), zap.Int("num_base_denoms", len(baseDenoms)))
