@@ -93,7 +93,7 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 }
 
 func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, takerFeesMap sqsdomain.TakerFeeMap, poolData []*types.PoolData) (err error) {
-	if p.firstHeightAfterStartUp.Load() == 0 && len(poolData) > 1000 {
+	if p.firstHeightAfterStartUp.Load() == 0 && len(poolData) > firstBlockPoolCountThreshold {
 		p.logger.Info("setting first block height", zap.Uint64("height", height))
 		p.firstHeightAfterStartUp.Store(height)
 		p.firstBlockWg.Add(1)
