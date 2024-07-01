@@ -517,5 +517,4 @@ func (s *RoutablePoolTestSuite) TestGetDirection() {
 			s.Require().Equal(tc.expectedDirection, *direction)
 		})
 	}
-
 }
