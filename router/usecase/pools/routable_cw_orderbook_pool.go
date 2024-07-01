@@ -88,7 +88,7 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 	amountOutTotal := osmomath.ZeroBigDec()
 	amountInRemaining := osmomath.BigDecFromSDKInt(tokenIn.Amount)
 
-	amountInToExhaustLiquidity := osmomath.BigDec{}
+	var amountInToExhaustLiquidity osmomath.BigDec
 	if *directionIn == cosmwasmpool.BID {
 		amountInToExhaustLiquidity = r.OrderbookData.BidAmountToExhaustAskLiquidity
 	} else {
