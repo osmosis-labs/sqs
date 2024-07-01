@@ -147,7 +147,7 @@ type OrderbookTick struct {
 
 // CalcAmountInToExhaustOrderbookLiquidity calculates the amount of token in needed to exhaust all liquidity in the orderbook.
 // - orderDirection is the direction of the order to be placed and liquidity to be exhausted will be in the opposite direction.
-// - startingIndex is the index of the tick to start the calculation from.
+// - startingIndex is the index of the tick to start the calculation from. This should be starting index form the opposite direction from the order direction.
 // - ticks is the list of ticks in the orderbook, assumed to be ordered by tick id in ascending order.
 func CalcAmountInToExhaustOrderbookLiquidity(directionIn OrderbookDirection, startingIndex int, ticks []OrderbookTick) (osmomath.BigDec, error) {
 	directionOut := directionIn.Opposite()
