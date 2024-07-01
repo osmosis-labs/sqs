@@ -120,10 +120,11 @@ type PoolsConfig struct {
 const DisableSplitRoutes = 0
 
 type RouterState struct {
-	Pools          []sqsdomain.PoolI
-	TakerFees      sqsdomain.TakerFeeMap
-	TickMap        map[uint64]*sqsdomain.TickModel
-	AlloyedDataMap map[uint64]*cosmwasmpool.AlloyTransmuterData
+	Pools                    []sqsdomain.PoolI
+	TakerFees                sqsdomain.TakerFeeMap
+	TickMap                  map[uint64]*sqsdomain.TickModel
+	AlloyedDataMap           map[uint64]*cosmwasmpool.AlloyTransmuterData
+	CandidateRouteSearchData map[string][]sqsdomain.PoolI
 }
 
 // RouterOptions defines the options for the router
@@ -185,10 +186,11 @@ func WithMaxSplitRoutes(maxSplitRoutes int) RouterOption {
 // CandidateRouteSearchDataWorker defines the interface for the candidate route search data worker.
 // It pre-computes data necessary for efficiently computing candidate routes.
 type CandidateRouteSearchDataWorker interface {
-	// UpdatePrices updates prices for the tokens from the unique block pool metadata
-	// that contains information about changed denoms and pools within a block.
-	// Propagates the results to the listeners.
-	ComputeSearchData(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata) error
+	// ComputeSearchDataSync computes the candidate route search data synchronously.
+	ComputeSearchDataSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata) error
+
+	// ComputeSearchDataAsync computes the candidate route search data asyncronously.
+	ComputeSearchDataAsync(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata) error
 
 	// RegisterListener registers a listener for candidate route data updates.
 	RegisterListener(listener CandidateRouteSearchDataUpdateListener)

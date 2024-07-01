@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"go.uber.org/zap"
 )
 
 // candidatePoolWrapper is an intermediary internal data
@@ -236,6 +237,12 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 					continue
 				}
 				if hasTokenOut && denom != tokenOutDenom {
+					continue
+				}
+
+				_, ok := poolsByDenom[denom]
+				if !ok {
+					logger.Debug("no pools found for denom in candidate route search", zap.String("denom", denom))
 					continue
 				}
 

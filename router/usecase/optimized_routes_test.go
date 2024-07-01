@@ -559,7 +559,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 	// The reason is that there is an alloyed transmuter for routes between allUSDT and kava.USDT
 	// that provides no slippage swaps. Given that 100K is under the liqudiity of kava.USDT in the
 	// transmuter pool, the split routes should be essentially the same.
-	const usdtOsmoExpectedRoutesHighLiq = 3
+	// Update: as of 30.06.24, the kava.usdt for osmo only has one optimal route.
+	const usdtOsmoExpectedRoutesHighLiq = 1
 	var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
 
 	tests := map[string]struct {
@@ -602,7 +603,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(100_000_000),
 
-			expectedRoutesCount: 1,
+			expectedRoutesCount: 2,
 		},
 		// This test validates that with a greater max routes value, SQS is able to find
 		// the path from umee to stOsmo
@@ -682,14 +683,14 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	mainnetState := s.SetupMainnetState()
 
 	// Setup router repository mock
-	routerRepositoryMock := routerrepo.New()
-	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+	tokensRepositoryMock := routerrepo.New(&log.NoOpLogger{})
+	tokensRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb)
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", tokensRepositoryMock, domain.UnsetScalingFactorGetterCb)
 	poolsUsecase.StorePools(mainnetState.Pools)
 
-	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 
 	// This pool ID is second best: https://app.osmosis.zone/pool/2
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected

@@ -1,6 +1,8 @@
 package domain
 
-import "github.com/osmosis-labs/osmosis/osmomath"
+import (
+	"github.com/osmosis-labs/osmosis/osmomath"
+)
 
 // Token represents the token's domain model
 type Token struct {

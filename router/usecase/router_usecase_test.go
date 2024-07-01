@@ -227,7 +227,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		tc := tc
 		s.Run(tc.name, func() {
 
-			routerRepositoryMock := routerrepo.New()
+			routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
 
 			candidateRouteCache := cache.New()
 
@@ -960,7 +960,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 	mainnetState := s.SetupMainnetState()
 
 	// Setup router repository mock
-	routerRepositoryMock := routerrepo.New()
+	routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.

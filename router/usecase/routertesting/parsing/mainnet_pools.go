@@ -120,6 +120,53 @@ func StoreTokensMetadata(tokensMetaData map[string]domain.Token, tokensFile stri
 	return nil
 }
 
+type candidateRouteSerializedData struct {
+	Denom string            `json:"denom"`
+	Pool  []json.RawMessage `json:"pool"`
+}
+
+// StoreCandidateRouteSearchData stores the candidate route search data to disk at the given path.
+func StoreCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdomain.PoolI, candidateRouteSearchDataFile string) error {
+	_, err := os.Stat(candidateRouteSearchDataFile)
+	if os.IsNotExist(err) {
+		file, err := os.Create(candidateRouteSearchDataFile)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		serializedResult := make([]candidateRouteSerializedData, 0, len(candidateRouteSearchData))
+
+		for denom, candidateRouteSearchData := range candidateRouteSearchData {
+			serializedPools := make([]json.RawMessage, 0)
+			for _, pool := range candidateRouteSearchData {
+				serializedPool, err := MarshalPool(pool)
+				if err != nil {
+					return err
+				}
+				serializedPools = append(serializedPools, serializedPool)
+			}
+
+			serializedResult = append(serializedResult, candidateRouteSerializedData{
+				Denom: denom,
+				Pool:  serializedPools,
+			})
+		}
+
+		candidateRouteSearchDataJSON, err := json.Marshal(serializedResult)
+		if err != nil {
+			return err
+		}
+
+		_, err = file.Write(candidateRouteSearchDataJSON)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // ReadPools reads the pools from a file and returns them
 func ReadPools(poolsFile string) ([]sqsdomain.PoolI, map[uint64]*sqsdomain.TickModel, error) {
 	poolBytes, err := os.ReadFile(poolsFile)
@@ -183,6 +230,44 @@ func ReadTokensMetadata(tokensMetadataFileName string) (map[string]domain.Token,
 	}
 
 	return tokensMetadata, nil
+}
+
+// ReadCandidateRouteSearchData reads the candidate route search data from disk at the
+func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string][]sqsdomain.PoolI, error) {
+	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	serialized := make([]candidateRouteSerializedData, 0)
+	err = json.Unmarshal(candidateRouteSearchDataBytes, &serialized)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	candidateRouteSearchData := make(map[string][]sqsdomain.PoolI, len(serialized))
+
+	for _, data := range serialized {
+		pools := make([]sqsdomain.PoolI, 0, len(data.Pool))
+		for _, poolData := range data.Pool {
+			var serializedPool SerializedPool
+
+			if err := json.Unmarshal(poolData, &serializedPool); err != nil {
+				return nil, err
+			}
+
+			pool, err := UnmarshalPool(serializedPool)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal pool: %w", err)
+			}
+
+			pools = append(pools, pool)
+		}
+
+		candidateRouteSearchData[data.Denom] = pools
+	}
+
+	return candidateRouteSearchData, nil
 }
 
 // MarshalPool marshals a pool to JSON.
