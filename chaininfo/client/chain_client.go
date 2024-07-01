@@ -22,7 +22,7 @@ type chainClient struct {
 	rpcClient *rpchttp.HTTP
 }
 
-func NewClient(chainID string, nodeURI string) (Client, error) {
+func NewClient(chainID string, nodeURI string, grpcURI string) (Client, error) {
 	rpcClient, err := client.NewClientFromNode(nodeURI)
 	if err != nil {
 		return nil, err

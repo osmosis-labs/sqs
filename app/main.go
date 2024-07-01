@@ -122,7 +122,11 @@ func main() {
 		initOTELTracer(*hostName)
 	}
 
-	chainClient, err := client.NewClient(config.ChainID, config.ChainGRPCGatewayEndpoint)
+	chainClient, err := client.NewClient(
+		config.ChainID,
+		config.ChainRPCGatewayEndpoint,
+		config.ChainGRPCGatewayEndpoint,
+	)
 	if err != nil {
 		panic(err)
 	}
