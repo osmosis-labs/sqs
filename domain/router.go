@@ -120,10 +120,11 @@ type PoolsConfig struct {
 const DisableSplitRoutes = 0
 
 type RouterState struct {
-	Pools          []sqsdomain.PoolI
-	TakerFees      sqsdomain.TakerFeeMap
-	TickMap        map[uint64]*sqsdomain.TickModel
-	AlloyedDataMap map[uint64]*cosmwasmpool.AlloyTransmuterData
+	Pools                    []sqsdomain.PoolI
+	TakerFees                sqsdomain.TakerFeeMap
+	TickMap                  map[uint64]*sqsdomain.TickModel
+	AlloyedDataMap           map[uint64]*cosmwasmpool.AlloyTransmuterData
+	CandidateRouteSearchData map[string][]sqsdomain.PoolI
 }
 
 // RouterOptions defines the options for the router

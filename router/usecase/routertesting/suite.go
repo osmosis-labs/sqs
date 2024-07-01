@@ -14,18 +14,19 @@ import (
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
-	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
-	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
+
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v25/app"
 	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	coingeckopricing "github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingecko"
 )
 
@@ -35,11 +36,12 @@ type RouterTestHelper struct {
 
 // Mock mainnet state
 type MockMainnetState struct {
-	Pools          []sqsdomain.PoolI
-	TickMap        map[uint64]*sqsdomain.TickModel
-	TakerFeeMap    sqsdomain.TakerFeeMap
-	TokensMetadata map[string]domain.Token
-	PricingConfig  domain.PricingConfig
+	Pools                    []sqsdomain.PoolI
+	TickMap                  map[uint64]*sqsdomain.TickModel
+	TakerFeeMap              sqsdomain.TakerFeeMap
+	TokensMetadata           map[string]domain.Token
+	PricingConfig            domain.PricingConfig
+	CandidateRouteSearchData map[string][]sqsdomain.PoolI
 }
 
 type MockMainnetUsecase struct {
@@ -56,6 +58,7 @@ const (
 	poolsFileName            = "pools.json"
 	takerFeesFileName        = "taker_fees.json"
 	tokensMetadataFileName   = "tokens.json"
+	candidateRouteFileName   = "candidate_route_search_data.json"
 )
 
 var (
@@ -313,11 +316,15 @@ func (s *RouterTestHelper) SetupMainnetState() MockMainnetState {
 	tokensMetadata, err := parsing.ReadTokensMetadata(absolutePathToStateFiles + tokensMetadataFileName)
 	s.Require().NoError(err)
 
+	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchData(absolutePathToStateFiles + candidateRouteFileName)
+	s.Require().NoError(err)
+
 	return MockMainnetState{
-		Pools:          pools,
-		TickMap:        tickMap,
-		TakerFeeMap:    takerFeeMap,
-		TokensMetadata: tokensMetadata,
+		Pools:                    pools,
+		TickMap:                  tickMap,
+		TakerFeeMap:              takerFeeMap,
+		TokensMetadata:           tokensMetadata,
+		CandidateRouteSearchData: candidateRouteSearchData,
 	}
 }
 
@@ -350,8 +357,9 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	}
 
 	// Setup router repository mock
-	routerRepositoryMock := routerrepo.New()
+	routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+	routerRepositoryMock.SetCandidateRouteSearchData(mainnetState.CandidateRouteSearchData)
 
 	// Setup pools usecase mock.
 	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb)

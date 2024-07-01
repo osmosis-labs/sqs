@@ -19,19 +19,17 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
-	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 var (
-	_ mvc.RouterUsecase                  = &routerUseCaseImpl{}
-	_ mvc.CandidateRouteSearchDataHolder = &routerUseCaseImpl{}
+	_ mvc.RouterUsecase = &routerUseCaseImpl{}
 )
 
 type routerUseCaseImpl struct {
-	routerRepository routerrepo.RouterRepository
+	routerRepository mvc.RouterRepository
 	poolsUsecase     mvc.PoolsUsecase
 	// This is the default config used when no routing options are provided.
 	defaultConfig       domain.RouterConfig
@@ -42,8 +40,6 @@ type routerUseCaseImpl struct {
 
 	sortedPoolsMu sync.RWMutex
 	sortedPools   []sqsdomain.PoolI
-
-	candidateRouteSearchData sync.Map
 
 	candidateRouteCache *cache.Cache
 }
@@ -90,9 +86,9 @@ func init() {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(routerRepository routerrepo.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
-		routerRepository:    routerRepository,
+		routerRepository:    tokensRepository,
 		poolsUsecase:        poolsUsecase,
 		defaultConfig:       config,
 		cosmWasmPoolsConfig: cosmWasmPoolsConfig,
@@ -224,7 +220,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 	// So we want to calculate price, but we never cache routes for pricing the are below the minPoolLiquidityCap value, as these are returned to users.
 
 	// Compute candidate routes.
-	candidateRoutes, err := GetCandidateRoutesNew(r.GetCandidateRouteSearchData(), tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
+	candidateRoutes, err := GetCandidateRoutesNew(r.routerRepository.GetCandidateRouteSearchData(), tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
 	if err != nil {
 		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 		return nil, err
@@ -632,6 +628,11 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles() error {
 		return err
 	}
 
+	// Store candidate route search data.
+	if err := parsing.StoreCandidateRouteSearchData(routerState.CandidateRouteSearchData, "candidate_route_search_data.json"); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -662,10 +663,13 @@ func (r *routerUseCaseImpl) GetRouterState() (domain.RouterState, error) {
 
 	takerFeesMap := r.routerRepository.GetAllTakerFees()
 
+	candidateRouteSearchData := r.routerRepository.GetCandidateRouteSearchData()
+
 	return domain.RouterState{
-		Pools:     pools,
-		TakerFees: takerFeesMap,
-		TickMap:   tickModelMap,
+		Pools:                    pools,
+		TakerFees:                takerFeesMap,
+		TickMap:                  tickModelMap,
+		CandidateRouteSearchData: candidateRouteSearchData,
 	}, nil
 }
 
@@ -761,39 +765,6 @@ func (r *routerUseCaseImpl) SetSortedPools(pools []sqsdomain.PoolI) {
 	r.sortedPoolsMu.Lock()
 	r.sortedPools = pools
 	r.sortedPoolsMu.Unlock()
-}
-
-// GetCandidateRouteSearchData implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI {
-	candidateRouteSearchData := make(map[string][]sqsdomain.PoolI)
-
-	r.candidateRouteSearchData.Range(func(key, value interface{}) bool {
-		denom, ok := key.(string)
-		if !ok {
-			// Note: should never happen.
-			r.logger.Error("error casting key to string in GetCandidateRouteSearchData")
-			return false
-		}
-
-		pools, ok := value.([]sqsdomain.PoolI)
-		if !ok {
-			// Note: should never happen.
-			r.logger.Error("error casting value to []sqsdomain.PoolI in GetCandidateRouteSearchData")
-			return false
-		}
-
-		candidateRouteSearchData[denom] = pools
-		return true
-	})
-
-	return candidateRouteSearchData
-}
-
-// SetCandidateRouteSearchData implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) SetCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdomain.PoolI) {
-	for denom, pools := range candidateRouteSearchData {
-		r.candidateRouteSearchData.Store(denom, pools)
-	}
 }
 
 // SetTakerFees implements mvc.RouterUsecase.

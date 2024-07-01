@@ -5,11 +5,15 @@ import (
 
 	"cosmossdk.io/math"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 // RouterRepository represents the contract for a repository handling router information
 type RouterRepository interface {
+	mvc.CandidateRouteSearchDataHolder
+
 	// GetTakerFee returns the taker fee for a given pair of denominations
 	// Sorts the denominations lexicographically before looking up the taker fee.
 	// Returns true if the taker fee for a given denomimnation is found. False otherwise.
@@ -22,16 +26,25 @@ type RouterRepository interface {
 	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
 }
 
-var _ RouterRepository = &routerRepo{}
+var (
+	_ RouterRepository                   = &routerRepo{}
+	_ mvc.CandidateRouteSearchDataHolder = &routerRepo{}
+)
 
 type routerRepo struct {
-	takerFeeMap sync.Map
+	takerFeeMap              sync.Map
+	candidateRouteSearchData sync.Map
+
+	logger log.Logger
 }
 
 // New creates a new repository for the router.
-func New() RouterRepository {
+func New(logger log.Logger) RouterRepository {
 	return &routerRepo{
-		takerFeeMap: sync.Map{},
+		takerFeeMap:              sync.Map{},
+		candidateRouteSearchData: sync.Map{},
+
+		logger: logger,
 	}
 }
 
@@ -93,5 +106,38 @@ func (r *routerRepo) SetTakerFee(denom0 string, denom1 string, takerFee math.Leg
 func (r *routerRepo) SetTakerFees(takerFees sqsdomain.TakerFeeMap) {
 	for denomPair, takerFee := range takerFees {
 		r.SetTakerFee(denomPair.Denom0, denomPair.Denom1, takerFee)
+	}
+}
+
+// GetCandidateRouteSearchData implements mvc.RouterUsecase.
+func (r *routerRepo) GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI {
+	candidateRouteSearchData := make(map[string][]sqsdomain.PoolI)
+
+	r.candidateRouteSearchData.Range(func(key, value interface{}) bool {
+		denom, ok := key.(string)
+		if !ok {
+			// Note: should never happen.
+			r.logger.Error("error casting key to string in GetCandidateRouteSearchData")
+			return false
+		}
+
+		pools, ok := value.([]sqsdomain.PoolI)
+		if !ok {
+			// Note: should never happen.
+			r.logger.Error("error casting value to []sqsdomain.PoolI in GetCandidateRouteSearchData")
+			return false
+		}
+
+		candidateRouteSearchData[denom] = pools
+		return true
+	})
+
+	return candidateRouteSearchData
+}
+
+// SetCandidateRouteSearchData implements mvc.RouterUsecase.
+func (r *routerRepo) SetCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdomain.PoolI) {
+	for denom, pools := range candidateRouteSearchData {
+		r.candidateRouteSearchData.Store(denom, pools)
 	}
 }

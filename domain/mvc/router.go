@@ -19,6 +19,22 @@ type CandidateRouteSearchDataHolder interface {
 	GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI
 }
 
+// RouterRepository represents the contract for a repository handling tokens information
+type RouterRepository interface {
+	CandidateRouteSearchDataHolder
+
+	// GetTakerFee returns the taker fee for a given pair of denominations
+	// Sorts the denominations lexicographically before looking up the taker fee.
+	// Returns true if the taker fee for a given denomimnation is found. False otherwise.
+	GetTakerFee(denom0, denom1 string) (osmomath.Dec, bool)
+	// GetAllTakerFees returns all taker fees
+	GetAllTakerFees() sqsdomain.TakerFeeMap
+	// SetTakerFee sets the taker fee for a given pair of denominations
+	// Sorts the denominations lexicographically before storing the taker fee.
+	SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec)
+	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
+}
+
 // SimpleRouterUsecase represent the simple router's usecases
 // if getting a simple quote and a pool spot price.
 type SimpleRouterUsecase interface {
@@ -32,7 +48,6 @@ type SimpleRouterUsecase interface {
 
 // RouterUsecase represent the router's usecases
 type RouterUsecase interface {
-	CandidateRouteSearchDataHolder
 	SimpleRouterUsecase
 
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.

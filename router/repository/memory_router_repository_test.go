@@ -5,6 +5,7 @@ import (
 
 	"github.com/alecthomas/assert/v2"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/log"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/suite"
@@ -29,7 +30,7 @@ func TestRouteRepositoryTestSuite(t *testing.T) {
 
 // SetupTest prepares the environment for each test
 func (suite *RouteRepositoryChatGPTTestSuite) SetupTest() {
-	suite.repository = routerrepo.New() // Implement this function to instantiate your repository
+	suite.repository = routerrepo.New(&log.NoOpLogger{}) // Implement this function to instantiate your repository
 }
 
 // TestGetTakerFee tests the GetTakerFee method
