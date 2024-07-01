@@ -265,16 +265,6 @@ func (e OrderbookNotEnoughLiquidityToCompleteSwapError) Error() string {
 	return fmt.Sprintf("not enough liquidity to complete swap in pool (%d) with amount in (%s)", e.PoolId, e.AmountIn)
 }
 
-type OrderbookPoolMismatchError struct {
-	PoolId        uint64
-	TokenInDenom  string
-	TokenOutDenom string
-}
-
-func (e OrderbookPoolMismatchError) Error() string {
-	return fmt.Sprintf("orderbook pool (%d) does not support swaps from (%s) to (%s)", e.PoolId, e.TokenInDenom, e.TokenOutDenom)
-}
-
 type DenomPoolLiquidityDataNotFoundError struct {
 	Denom string
 }
