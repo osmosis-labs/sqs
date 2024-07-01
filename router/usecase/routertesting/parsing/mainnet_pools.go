@@ -250,7 +250,6 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 	for _, data := range serialized {
 		pools := make([]sqsdomain.PoolI, 0, len(data.Pool))
 		for _, poolData := range data.Pool {
-
 			var serializedPool SerializedPool
 
 			if err := json.Unmarshal(poolData, &serializedPool); err != nil {
