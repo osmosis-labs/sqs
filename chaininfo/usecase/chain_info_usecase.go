@@ -29,6 +29,9 @@ type chainInfoUseCase struct {
 
 	poolLiquidityUpdateHeightMx     sync.RWMutex
 	latestPoolLiquidityUpdateHeight uint64
+
+	candidateRouteSearchDataUpdateHeightMx     sync.RWMutex
+	latestCandidateRouteSearchDataUpdateHeight uint64
 }
 
 // The max number of seconds allowed for there to be no updates
@@ -41,14 +44,16 @@ const (
 	updateHeightThreshold = 50
 	initialUpdateHeight   = 0
 
-	poolLiquidityPricingUpdateName = "pool liquidity"
-	pricingUpdateName              = "pricing"
+	poolLiquidityPricingUpdateName     = "pool liquidity"
+	pricingUpdateName                  = "pricing"
+	candidateRouteSearchDataUpdateName = "candidate route search data"
 )
 
 var (
-	_ mvc.ChainInfoUsecase                = &chainInfoUseCase{}
-	_ domain.PricingUpdateListener        = &chainInfoUseCase{}
-	_ domain.PoolLiquidityComputeListener = &chainInfoUseCase{}
+	_ mvc.ChainInfoUsecase                          = &chainInfoUseCase{}
+	_ domain.PricingUpdateListener                  = &chainInfoUseCase{}
+	_ domain.PoolLiquidityComputeListener           = &chainInfoUseCase{}
+	_ domain.CandidateRouteSearchDataUpdateListener = &chainInfoUseCase{}
 )
 
 func NewChainInfoUsecase(chainInfoRepository chaininforepo.ChainInfoRepository) *chainInfoUseCase {
@@ -105,10 +110,19 @@ func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height uint64, b
 }
 
 // OnPoolLiquidityCompute implements domain.PoolLiquidityComputeListener.
-func (p *chainInfoUseCase) OnPoolLiquidityCompute(height int64) error {
+func (p *chainInfoUseCase) OnPoolLiquidityCompute(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
 	p.poolLiquidityUpdateHeightMx.Lock()
 	defer p.poolLiquidityUpdateHeightMx.Unlock()
-	p.latestPoolLiquidityUpdateHeight = uint64(height)
+	p.latestPoolLiquidityUpdateHeight = height
+
+	return nil
+}
+
+// OnSearchDataUpdate implements domain.CandidateRouteSearchDataUpdateListener.
+func (p *chainInfoUseCase) OnSearchDataUpdate(ctx context.Context, height uint64) error {
+	p.candidateRouteSearchDataUpdateHeightMx.Lock()
+	defer p.candidateRouteSearchDataUpdateHeightMx.Unlock()
+	p.latestCandidateRouteSearchDataUpdateHeight = height
 
 	return nil
 }
@@ -122,13 +136,22 @@ func (p *chainInfoUseCase) ValidatePriceUpdates() error {
 	return validateUpdate(latestPriceUpdateHeight, p.lastIngestedHeight, pricingUpdateName)
 }
 
-// ValidatePriceUpdates implements mvc.ChainInfoUsecase.
+// ValidatePoolLiquidityUpdates implements mvc.ChainInfoUsecase.
 func (p *chainInfoUseCase) ValidatePoolLiquidityUpdates() error {
 	p.priceUpdateHeightMx.RLock()
 	latestPoolLiquidityUpdateHeight := p.latestPoolLiquidityUpdateHeight
 	p.priceUpdateHeightMx.RUnlock()
 
 	return validateUpdate(latestPoolLiquidityUpdateHeight, p.lastIngestedHeight, poolLiquidityPricingUpdateName)
+}
+
+// ValidateCandidateRouteSearchDataUpdates implements mvc.ChainInfoUsecase.
+func (p *chainInfoUseCase) ValidateCandidateRouteSearchDataUpdates() error {
+	p.candidateRouteSearchDataUpdateHeightMx.RLock()
+	latestCandidateRouteSearchDataUpdateHeight := p.latestCandidateRouteSearchDataUpdateHeight
+	p.candidateRouteSearchDataUpdateHeightMx.RUnlock()
+
+	return validateUpdate(latestCandidateRouteSearchDataUpdateHeight, p.lastIngestedHeight, candidateRouteSearchDataUpdateName)
 }
 
 // validateUpdate validates the update for the given update name, current update height, and latest ingested height.

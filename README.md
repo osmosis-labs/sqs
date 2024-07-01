@@ -520,31 +520,6 @@ Unless specified by using the parameter `pricingSource`, the [GET /tokens/prices
 
 Internally, the Coingecko pricing source looks for the price quote in the its pricing cache and return it if it exists. Otherwise, it fetches the price from the Coingecko API endpoint and store it in the cache with an expiration time specified in the config.json file.
 
-### Algorithm
-
-In this section, we describe the general router algorithm.
-
-1. Retrieve pools from storage.
-2. Filter out low liquidity pools.
-3. Rank pools by several heuristics such as:
-
--   liquidity
--   pool type (priority: transmuter, concentrated, stableswap, balancer)
--   presence of error in TVL computation.
-
-4. Compute candidate routes
-    - For the given token in and token out denom, find all possible routes
-      between them using the pool ranking discussed above as well as by limiting
-      the algorithm per configuration.
-    - The configurations are:
-        - Max Hops: The maximum number of hops allowed in a route.
-        - Max Routes: The maximum number of routes to consider.
-    - The algorithm that is currently used is breadth first search.
-5. Compute the best quote when swapping amount in in-full directly over each route.
-6. Sort routes by best quote.
-7. Keep "Max Splittable Routes" and attempt to determine an optimal quote split across them
-    - If the split quote is more optimal, return that. Otherwise, return the best single direct quote.
-
 ### Caching
 
 We perform caching of routes to avoid having to recompute them on every request.

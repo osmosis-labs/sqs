@@ -161,6 +161,7 @@ sqs-update-mainnet-state:
 	curl -X POST "http:/localhost:9092/router/store-state"
 	mv pools.json router/usecase/routertesting/parsing/pools.json
 	mv taker_fees.json router/usecase/routertesting/parsing/taker_fees.json
+	mv candidate_route_search_data.json router/usecase/routertesting/parsing/candidate_route_search_data.json
 
 	curl -X POST "http:/localhost:9092/tokens/store-state"
 	mv tokens.json router/usecase/routertesting/parsing/tokens.json
@@ -181,8 +182,11 @@ test-prices-mainnet:
 ### E2E Test
 
 # Run E2E tests in verbose mode (-s) -n 4 concurrent workers
-e2e-run-dev:
-	pytest -s -n 4
+e2e-run-stage:
+	SQS_ENVIRONMENTS=stage pytest -s -n 4
+
+e2e-run-local:
+	SQS_ENVIRONMENTS=local pytest -s -n 4 tests/e2e
 
 #### E2E Python Setup
 

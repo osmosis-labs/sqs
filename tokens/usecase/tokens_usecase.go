@@ -10,8 +10,15 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/domain/workerpool"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 	"github.com/prometheus/client_golang/prometheus"
+)
+
+const (
+	// Max number of workers to fetch prices concurrently
+	// TODO: move to config
+	maxNumWorkes = 10
 )
 
 type tokensUseCase struct {
@@ -47,13 +54,6 @@ type AssetList struct {
 		CoingeckoID      string `json:"coingeckoId"`
 		Preview          bool   `json:"preview"`
 	} `json:"assets"`
-}
-
-// Define a result struct to hold the quoteDenom and the fetched price or error
-type priceResult struct {
-	quoteDenom string
-	price      osmomath.BigDec
-	err        error
 }
 
 // Define a result struct to hold the base denom and prices for each possible quote denom or error
@@ -242,41 +242,51 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
 	byBaseDenomResult := make(map[string]map[string]osmomath.BigDec, len(baseDenoms))
 
-	// Create a channel to communicate the results
-	resultsChan := make(chan priceResults, len(quoteDenoms))
+	numWorkers := len(baseDenoms)
+	if numWorkers > maxNumWorkes {
+		numWorkers = maxNumWorkes
+	}
 
-	// Use a WaitGroup to wait for all goroutines to finish
-	var wg sync.WaitGroup
+	basePriceDispatcher := workerpool.NewDispatcher[priceResults](numWorkers)
+	go basePriceDispatcher.Run()
 
 	// For every base denom, create a map with quote denom prices.
 	for _, baseDenom := range baseDenoms {
-		wg.Add(1)
-		go func(baseDenom string) {
-			defer wg.Done()
+		baseDenom := baseDenom
 
-			prices, err := t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
-			if err != nil {
-				// This should not panic, so just logging the error here and continue
-				fmt.Println(err.Error())
-			}
-			resultsChan <- priceResults{baseDenom: baseDenom, prices: prices, err: err}
-		}(baseDenom)
+		basePriceDispatcher.JobQueue <- workerpool.Job[priceResults]{
+			Task: func() (priceResults, error) {
+				var err error
+				defer func() {
+					// Recover from panic if one occurred
+					if r := recover(); r != nil {
+						err = fmt.Errorf("panic in GetPrices: %v", r)
+					}
+				}()
+
+				prices, err := t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
+				if err != nil {
+					// This should not panic, so just logging the error here and continue
+					fmt.Println(err.Error())
+				}
+
+				return priceResults{
+					baseDenom: baseDenom,
+					prices:    prices,
+					err:       err,
+				}, nil
+			},
+		}
 	}
-
-	// Close the results channel once all goroutines have finished
-	go func() {
-		wg.Wait()          // Wait for all goroutines to finish
-		close(resultsChan) // Close the channel
-	}()
 
 	// Read from the results channel and update the map
 	for range baseDenoms {
-		result := <-resultsChan
+		result := <-basePriceDispatcher.ResultQueue
 
-		if result.err != nil {
-			return nil, result.err
+		if result.Result.err != nil {
+			return nil, result.Result.err
 		}
-		byBaseDenomResult[result.baseDenom] = result.prices
+		byBaseDenomResult[result.Result.baseDenom] = result.Result.prices
 	}
 
 	return byBaseDenomResult, nil
@@ -299,58 +309,40 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 		return byQuoteDenomForGivenBaseResult, nil
 	}
 
-	// Create a channel to communicate the results
-	resultsChan := make(chan priceResult, len(quoteDenoms))
-
 	// Get the pricing strategy
 	pricingStrategy, ok := t.pricingStrategyMap[pricingSourceType]
 	if !ok {
 		return nil, fmt.Errorf("pricing strategy (%s) not found in the tokens use case", pricingStrategy)
 	}
 
-	// Use a WaitGroup to wait for all goroutines to finish
-	var wg sync.WaitGroup
-
-	// Given the current base denom, compute all of its prices with the quotes
-	for _, quoteDenom := range quoteDenoms {
-		wg.Add(1)
-		go func(baseDenom, quoteDenom string) {
-			defer wg.Done()
-			var price osmomath.BigDec
-			var err error
-			price, err = pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
-			if err != nil { // Check if we should fallback to another pricing source
-				fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
-				if fallbackSourceType != domain.NoneSourceType {
-					fallbackCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
-					fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
-					if ok {
-						price, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
-					}
-				}
-			}
-			resultsChan <- priceResult{quoteDenom, price, err}
-		}(baseDenom, quoteDenom)
-	}
-
-	// Close the results channel once all goroutines have finished
-	go func() {
-		wg.Wait()          // Wait for all goroutines to finish
-		close(resultsChan) // Close the channel
+	defer func() {
+		// Recover from panic if one occurred
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in getPricesForBaseDenom: %v", r)
+		}
 	}()
 
-	// Read from the results channel and update the map
-	for range quoteDenoms {
-		result := <-resultsChan
-
-		if result.err != nil {
-			// Increase prometheus counter
-			pricingErrorCounter.WithLabelValues(baseDenom, result.quoteDenom, result.err.Error()).Inc()
-
-			// Set the price to zero in case of error
-			result.price = osmomath.ZeroBigDec()
+	for _, quoteDenom := range quoteDenoms {
+		price, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
+		if err != nil { // Check if we should fallback to another pricing source
+			fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
+			if fallbackSourceType != domain.NoneSourceType {
+				fallbackCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+				fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
+				if ok {
+					price, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
+				}
+			}
 		}
-		byQuoteDenomForGivenBaseResult[result.quoteDenom] = result.price
+
+		if err != nil {
+			price = osmomath.ZeroBigDec()
+
+			// Increase prometheus counter
+			pricingErrorCounter.WithLabelValues(baseDenom, quoteDenom, err.Error()).Inc()
+		}
+
+		byQuoteDenomForGivenBaseResult[quoteDenom] = price
 	}
 
 	return byQuoteDenomForGivenBaseResult, nil

@@ -94,7 +94,7 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	// Notify listeners.
 	for _, listener := range p.updateListeners {
 		// Avoid checking error since we want to execute all listeners.
-		_ = listener.OnPoolLiquidityCompute(int64(height))
+		_ = listener.OnPoolLiquidityCompute(ctx, height, blockPoolMetadata)
 	}
 
 	return nil

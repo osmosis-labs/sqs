@@ -134,9 +134,12 @@
       "module": "pytest",
       "args": [
         "-v",
-        // "tests/test_pools.py::TestPools::test_pools[http://localhost:9092-1278]"
-        "tests/test_pools.py"
+        "tests/test_tokens_prices.py"
+        // "tests/test_pools.py"
       ],
+      "env": {
+        "SQS_ENVIRONMENTS": "local",
+      },
       "console": "integratedTerminal",
       "justMyCode": true,
       "python": "${workspaceFolder}/tests/venv/bin/python3"

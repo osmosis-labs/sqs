@@ -466,8 +466,55 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 				return
 			}
 			s.Require().NoError(err)
-
 			s.Require().Equal(tc.expectedSpotPrice, spotPrice)
+		})
+	}
+}
+
+func (s *RoutablePoolTestSuite) TestGetDirection() {
+	tests := map[string]struct {
+		tokenInDenom      string
+		tokenOutDenom     string
+		expectedDirection cosmwasmpool.OrderbookDirection
+		expectError       error
+	}{
+		"BID direction": {
+			tokenInDenom:      QUOTE_DENOM,
+			tokenOutDenom:     BASE_DENOM,
+			expectedDirection: cosmwasmpool.BID,
+		},
+		"ASK direction": {
+			tokenInDenom:      BASE_DENOM,
+			tokenOutDenom:     QUOTE_DENOM,
+			expectedDirection: cosmwasmpool.ASK,
+		},
+		"invalid direction": {
+			tokenInDenom:  "invalid",
+			tokenOutDenom: BASE_DENOM,
+			expectError:   cosmwasmpool.OrderbookUnsupportedDenomError{Denom: "invalid", BaseDenom: BASE_DENOM, QuoteDenom: QUOTE_DENOM},
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+			routablePool := s.SetupRoutableOrderbookPool(tc.tokenInDenom, tc.tokenOutDenom, MIN_TICK, MAX_TICK, nil, osmomath.ZeroDec())
+
+			routableOrderbookPool, ok := routablePool.(*pools.RoutableOrderbookPoolImpl)
+
+			if !ok {
+				s.FailNow("failed to cast to RouteableOrderbookPoolImpl")
+			}
+
+			direction, err := routableOrderbookPool.OrderbookData.GetDirection(tc.tokenInDenom, tc.tokenOutDenom)
+
+			if tc.expectError != nil {
+				s.Require().Error(err)
+				s.Require().Equal(err, tc.expectError)
+				return
+			}
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expectedDirection, *direction)
 		})
 	}
 }

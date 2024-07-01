@@ -51,8 +51,6 @@ type PricingOptions struct {
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
 	MinPoolLiquidityCap uint64
-	// IsWorkerPrecomputePricing defines whether the pricing is precomputed by the worker.
-	IsWorkerPrecomputePricing bool
 }
 
 // PricingOption configures the pricing options.
@@ -80,13 +78,6 @@ func WithRecomputePricesQuoteBasedMethod() PricingOption {
 func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap uint64) PricingOption {
 	return func(o *PricingOptions) {
 		o.MinPoolLiquidityCap = minPoolLiquidityCap
-	}
-}
-
-// WithIsWorkerPrecomputePricing configures the pricing options to be used for worker precompute.
-func WithIsWorkerPrecomputePricing() PricingOption {
-	return func(o *PricingOptions) {
-		o.IsWorkerPrecomputePricing = true
 	}
 }
 
@@ -129,10 +120,16 @@ func FormatPricingCacheKey(a, b string) string {
 }
 
 type PricingWorker interface {
-	// UpdatePrices updates prices for the tokens from the unique block pool metadata
+	// UpdatePricesAsync updates prices for the tokens from the unique block pool metadata
 	// that contains information about changed denoms and pools within a block.
 	// Propagates the results to the listeners.
+	// Performs the update asynchronously.
 	UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
+	// UpdatePricesSync updates prices for the tokens from the unique block pool metadata
+	// that contains information about changed denoms and pools within a block.
+	// Propagates the results to the listeners.
+	// Performs the update synchronously.
+	UpdatePricesSync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 
 	// RegisterListener registers a listener for pricing updates.
 	RegisterListener(listener PricingUpdateListener)
@@ -205,7 +202,7 @@ type LiquidityPricer interface {
 // It is used to notify the listeners of the pool liquidity compute worker that the computation
 // for a given height is completed.
 type PoolLiquidityComputeListener interface {
-	OnPoolLiquidityCompute(height int64) error
+	OnPoolLiquidityCompute(ctx context.Context, height uint64, blockPoolMetaData BlockPoolMetadata) error
 }
 
 // PricesResult defines the result of the prices.

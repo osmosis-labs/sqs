@@ -2,6 +2,10 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -24,15 +28,26 @@ import (
 type ingestUseCase struct {
 	codec codec.Codec
 
-	poolsUseCase     mvc.PoolsUsecase
-	routerUsecase    mvc.RouterUsecase
-	tokensUsecase    mvc.TokensUsecase
-	chainInfoUseCase mvc.ChainInfoUsecase
+	poolsUseCase         mvc.PoolsUsecase
+	routerUsecase        mvc.RouterUsecase
+	pricingRouterUsecase mvc.RouterUsecase
+	tokensUsecase        mvc.TokensUsecase
+	chainInfoUseCase     mvc.ChainInfoUsecase
 
 	denomLiquidityMap domain.DenomPoolLiquidityMap
 
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
+
+	// Worker that computes candidate routes for all tokens.
+	candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker
+
+	// The first height observed after start-up
+	// See firstBlockPoolCountThreshold for details.
+	firstHeightAfterStartUp atomic.Uint64
+	// Wait group to wait for the first block to be processed.
+	//
+	firstBlockWg sync.WaitGroup
 
 	logger log.Logger
 }
@@ -42,29 +57,53 @@ type poolResult struct {
 	err  error
 }
 
+const (
+	// The threshold for the number of pools in the first block
+	// where we ingest all pools to be ingested.
+	// The number is chosen to also be compatible with testnet where
+	// the number of pools is 500.
+	// In the future, it migth eb beneficial to remove this opinionated mechanism.
+	// Today, having a clear way to identify first block
+	//  is useful for debugging performance issues when processing it.
+	// Note that the first block might arrive later than subsequent due to network or
+	// data parsing delays.
+	firstBlockPoolCountThreshold = 499
+)
+
 var (
 	_ mvc.IngestUsecase = &ingestUseCase{}
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
-		chainInfoUseCase: chainInfoUseCase,
-		routerUsecase:    routerUseCase,
-		tokensUsecase:    tokensUseCase,
-		poolsUseCase:     poolsUseCase,
+		chainInfoUseCase:     chainInfoUseCase,
+		routerUsecase:        routerUseCase,
+		pricingRouterUsecase: pricingRouterUsecase,
+		tokensUsecase:        tokensUseCase,
+		poolsUseCase:         poolsUseCase,
 
 		denomLiquidityMap: make(domain.DenomPoolLiquidityMap),
 
 		logger: logger,
 
 		defaultQuotePriceUpdateWorker: quotePriceUpdateWorker,
+
+		candidateRouteSearchWorker: candidateRouteSearchWorker,
+
+		firstHeightAfterStartUp: atomic.Uint64{},
 	}, nil
 }
 
 func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, takerFeesMap sqsdomain.TakerFeeMap, poolData []*types.PoolData) (err error) {
+	if p.firstHeightAfterStartUp.Load() == 0 && len(poolData) > firstBlockPoolCountThreshold {
+		p.logger.Info("setting first block height", zap.Uint64("height", height))
+		p.firstHeightAfterStartUp.Store(height)
+		p.firstBlockWg.Add(1)
+	}
+
 	p.logger.Info("starting block processing", zap.Uint64("height", height))
 
 	startProcessingTime := time.Now()
@@ -93,9 +132,31 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	p.sortAndStorePools(allPools)
 
-	// Note: we must queue the update before we start updating prices as pool liquidity
-	// worker listens for the pricing updates at the same height.
-	p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+	// If an error occurs, we should return it and not proceed with the next steps.
+	// The pricing relies on the search data. As a result, by returnining an error we trigger a fallback mechanism
+	// Note that compute search data is always synchronous because it is needed for all subsequent pre-computations within a block.
+	// Its latency is estimated to be negligile. As a result, it is not a concern.
+	if err := p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata); err != nil {
+		p.logger.Error("failed to compute search data", zap.Error(err))
+		return err
+	}
+
+	if height == p.firstHeightAfterStartUp.Load() {
+		// For the first block, we need to update the prices synchronously.
+		// and let any subsequent block wait before starting its computation
+		// to avoid overloading the system.
+		defer p.firstBlockWg.Done()
+
+		// Pre-compute the prices for all
+		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
+	} else {
+		// Wait for the first block to be processed before
+		// updating the prices for the next block.
+		p.firstBlockWg.Wait()
+
+		// For any block after the first block, we can update the prices asynchronously.
+		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+	}
 
 	// Store the latest ingested height.
 	p.chainInfoUseCase.StoreLatestHeight(height)
@@ -118,6 +179,7 @@ func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
 
 	// Sort the pools and store them in the router.
 	p.routerUsecase.SetSortedPools(sortedPools)
+	p.pricingRouterUsecase.SetSortedPools(sortedPools)
 }
 
 // parsePoolData parses the pool data and returns the pool objects.
@@ -299,5 +361,57 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsdomain.PoolI, error)
 		}
 	}
 
+	// Process the SQS model
+	if err := processSQSModelMut(&poolWrapper.SQSModel); err != nil {
+		p.logger.Error("error processing SQS model", zap.Error(err))
+	}
+
 	return &poolWrapper, nil
+}
+
+// processSQSModelMut processes the SQS model and updates it.
+// Specifically, it removes the gamm shares from the balances and pool denoms.
+// Additionally it updates the alloyed denom if it is an alloy transmuter.
+func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
+	// Update alloyed denom since it is not in the balances.
+	cosmWasmModel := sqsModel.CosmWasmPoolModel
+	if cosmWasmModel != nil && cosmWasmModel.IsAlloyTransmuter() {
+		if cosmWasmModel.Data.AlloyTransmuter == nil {
+			return fmt.Errorf("alloy transmuter data is nil, skipping silently, contract %s, version %s", cosmWasmModel.ContractInfo.Contract, cosmWasmModel.ContractInfo.Version)
+		}
+
+		alloyedDenom := cosmWasmModel.Data.AlloyTransmuter.AlloyedDenom
+
+		sqsModel.PoolDenoms = append(sqsModel.PoolDenoms, alloyedDenom)
+	}
+
+	// Remove gamm shares from balances
+	newBalances := make([]sdk.Coin, 0, len(sqsModel.Balances))
+	for i, balance := range sqsModel.Balances {
+		if balance.Validate() != nil {
+			continue
+		}
+
+		if strings.HasPrefix(balance.Denom, domain.GAMMSharePrefix) {
+			continue
+		}
+
+		newBalances = append(newBalances, sqsModel.Balances[i])
+	}
+
+	sqsModel.Balances = newBalances
+
+	// Remove gamm shares from pool denoms
+	newPoolDenoms := make([]string, 0, len(sqsModel.PoolDenoms))
+	for _, denom := range sqsModel.PoolDenoms {
+		if strings.HasPrefix(denom, domain.GAMMSharePrefix) {
+			continue
+		}
+
+		newPoolDenoms = append(newPoolDenoms, denom)
+	}
+
+	sqsModel.PoolDenoms = newPoolDenoms
+
+	return nil
 }

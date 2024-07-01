@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/suite"
 
@@ -192,7 +193,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		s.Run(tc.name, func() {
 
 			// Create router repository
-			routerRepo := routerrepo.New()
+			routerRepo := routerrepo.New(&log.NoOpLogger{})
 			routerRepo.SetTakerFees(tc.takerFeeMap)
 
 			// Create pools use case

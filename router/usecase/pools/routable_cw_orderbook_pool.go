@@ -177,8 +177,8 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 	}
 
 	directionOut := directionIn.Opposite()
-
 	tickIdx, err := r.OrderbookData.GetStartTickIndex(directionOut)
+
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
