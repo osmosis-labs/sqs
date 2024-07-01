@@ -32,6 +32,7 @@ type RouterRepository interface {
 	// SetTakerFee sets the taker fee for a given pair of denominations
 	// Sorts the denominations lexicographically before storing the taker fee.
 	SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec)
+        // SetTakerFees sets taker fees on router repository
 	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
 }
 
