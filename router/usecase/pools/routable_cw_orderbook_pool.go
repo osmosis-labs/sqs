@@ -102,6 +102,11 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 
 	// ASSUMPTION: Ticks are ordered
 	for amountInRemaining.GT(zeroBigDec) {
+		// Order has run out of ticks to iterate
+		if tickIdx >= len(r.OrderbookData.Ticks) || tickIdx < 0 {
+			return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn}
+		}
+
 		// According to the check on amountInToExhaustLiquidity above, we should never run out of ticks here
 		tick := r.OrderbookData.Ticks[tickIdx]
 
