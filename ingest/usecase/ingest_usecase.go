@@ -152,8 +152,6 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	} else {
 		// Wait for the first block to be processed before
 		// updating the prices for the next block.
-		// TODO: enable this after the candidate route optimization is implemented
-		// Currently, takes around 7 minutes to pre-compute the prices for all tokens.
 		p.firstBlockWg.Wait()
 
 		// For any block after the first block, we can update the prices asynchronously.
