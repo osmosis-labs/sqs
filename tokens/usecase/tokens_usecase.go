@@ -22,15 +22,13 @@ const (
 )
 
 type tokensUseCase struct {
-	// Currently, we only expect reads to this shared resource and no writes.
-	// If needed, change this to sync.Map in the future.
 	// Can be considered for merge with humanToChainDenomMap in the future.
-	tokenMetadataByChainDenom map[string]domain.Token
-	humanToChainDenomMap      map[string]string
-	chainDenoms               map[string]struct{}
+	tokenMetadataByChainDenom sync.Map // domain.Token
+	humanToChainDenomMap      sync.Map // string
+	chainDenoms               sync.Map // struct{}
 
 	// No mutex since we only expect reads to this shared resource and no writes.
-	precisionScalingFactorMap map[int]osmomath.Dec
+	precisionScalingFactorMap sync.Map // map[int]osmomath.Dec
 
 	// Metadata about denoms that is collected from the pools.
 	// E.g. total denom liquidity across all pools.
@@ -41,7 +39,7 @@ type tokensUseCase struct {
 	pricingStrategyMap map[domain.PricingSourceType]domain.PricingSource
 
 	// Map of chain denoms to coingecko IDs
-	coingeckoIds map[string]string
+	coingeckoIds sync.Map // map[string]string
 }
 
 // Struct to represent the JSON structure
@@ -99,35 +97,26 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.Tok
 // LoadTokens implements mvc.TokensUsecase.
 func (t *tokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.Token) {
 	// Create human denom to chain denom map
-	humanToChainDenomMap := make(map[string]string, len(tokenMetadataByChainDenom))
 	uniquePrecisionMap := make(map[int]struct{}, 0)
-	chainDenoms := map[string]struct{}{}
-	coingeckoIds := make(map[string]string, len(tokenMetadataByChainDenom))
 
 	for chainDenom, tokenMetadata := range tokenMetadataByChainDenom {
 		// lower case human denom
 		lowerCaseHumanDenom := strings.ToLower(tokenMetadata.HumanDenom)
 
-		humanToChainDenomMap[lowerCaseHumanDenom] = chainDenom
+		t.humanToChainDenomMap.Store(lowerCaseHumanDenom, chainDenom)
+		t.tokenMetadataByChainDenom.Store(chainDenom, tokenMetadata)
 
 		uniquePrecisionMap[tokenMetadata.Precision] = struct{}{}
 
-		chainDenoms[chainDenom] = struct{}{}
-		coingeckoIds[chainDenom] = tokenMetadata.CoingeckoID
+		t.chainDenoms.Store(chainDenom, struct{}{})
+
+		t.coingeckoIds.Store(chainDenom, tokenMetadata.CoingeckoID)
 	}
 
 	// Precompute precision scaling factors
-	precisionScalingFactors := make(map[int]osmomath.Dec, len(uniquePrecisionMap))
 	for precision := range uniquePrecisionMap {
-		precisionScalingFactors[precision] = tenDec.Power(uint64(precision))
+		t.precisionScalingFactorMap.Store(precision, tenDec.Power(uint64(precision)))
 	}
-
-	t.tokenMetadataByChainDenom = tokenMetadataByChainDenom
-	t.humanToChainDenomMap = humanToChainDenomMap
-	t.precisionScalingFactorMap = precisionScalingFactors
-
-	t.chainDenoms = chainDenoms
-	t.coingeckoIds = coingeckoIds
 }
 
 // UpdatePoolDenomMetadata implements mvc.TokensUsecase.
@@ -188,11 +177,11 @@ func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) domain.PoolD
 
 // GetFullPoolDenomMetadata implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap {
-	chainDenoms := make([]string, 0, len(t.chainDenoms))
-	for chainDenom := range t.chainDenoms {
-		chainDenoms = append(chainDenoms, chainDenom)
-	}
-
+	var chainDenoms []string
+	t.chainDenoms.Range(func(chainDenom, _ any) bool {
+		chainDenoms = append(chainDenoms, chainDenom.(string))
+		return true
+	})
 	return t.GetPoolDenomsMetadata(chainDenoms)
 }
 
@@ -200,32 +189,32 @@ func (t *tokensUseCase) GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap {
 func (t *tokensUseCase) GetChainDenom(humanDenom string) (string, error) {
 	humanDenomLowerCase := strings.ToLower(humanDenom)
 
-	chainDenom, ok := t.humanToChainDenomMap[humanDenomLowerCase]
+	chainDenom, ok := t.humanToChainDenomMap.Load(humanDenomLowerCase)
 	if !ok {
 		return "", fmt.Errorf("chain denom for human denom (%s) is not found", humanDenomLowerCase)
 	}
 
-	return chainDenom, nil
+	return chainDenom.(string), nil
 }
 
 // GetMetadataByChainDenom implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetMetadataByChainDenom(denom string) (domain.Token, error) {
-	token, ok := t.tokenMetadataByChainDenom[denom]
+	token, ok := t.tokenMetadataByChainDenom.Load(denom)
 	if !ok {
 		return domain.Token{}, fmt.Errorf("metadata for denom (%s) is not found", denom)
 	}
 
-	return token, nil
+	return token.(domain.Token), nil
 }
 
 // GetFullTokenMetadata implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetFullTokenMetadata() (map[string]domain.Token, error) {
 	// Do a copy of the cached metadata
-	result := make(map[string]domain.Token, len(t.tokenMetadataByChainDenom))
-	for denom, tokenMetadata := range t.tokenMetadataByChainDenom {
-		result[denom] = tokenMetadata
-	}
-
+	result := make(map[string]domain.Token)
+	t.tokenMetadataByChainDenom.Range(func(denom, token any) bool {
+		result[denom.(string)] = token.(domain.Token)
+		return true
+	})
 	return result, nil
 }
 
@@ -355,8 +344,8 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 }
 
 func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
-	result, ok := t.precisionScalingFactorMap[precision]
-	return result, ok
+	result, ok := t.precisionScalingFactorMap.Load(precision)
+	return result.(osmomath.Dec), ok
 }
 
 var (
@@ -475,8 +464,8 @@ func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType,
 
 // IsValidChainDenom implements mvc.TokensUsecase.
 func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
-	metaData, ok := t.tokenMetadataByChainDenom[chainDenom]
-	return ok && !metaData.IsUnlisted
+	metaData, ok := t.tokenMetadataByChainDenom.Load(chainDenom)
+	return ok && !metaData.(domain.Token).IsUnlisted
 }
 
 // GetMinPoolLiquidityCap implements mvc.TokensUsecase.
@@ -510,8 +499,8 @@ func (t *tokensUseCase) IsValidPricingSource(pricingSource int) bool {
 
 // GetCoingeckoIdByChainDenom implements mvc.TokensUsecase
 func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, error) {
-	if coingeckoId, found := t.coingeckoIds[chainDenom]; found {
-		return coingeckoId, nil
+	if coingeckoId, found := t.coingeckoIds.Load(chainDenom); found {
+		return coingeckoId.(string), nil
 	} else {
 		return "", fmt.Errorf("chain denom not found in chain registry")
 	}
