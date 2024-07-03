@@ -13,6 +13,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -210,6 +211,17 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 				},
 			},
 		},
+		{
+			name: "Invalid token in balance -> skipped",
+
+			blockLiqMap: domain.DenomPoolLiquidityMap{},
+
+			balances: sdk.Coins{sdk.Coin{Denom: "[[]invalid[]]", Amount: osmomath.OneInt()}},
+
+			poolID: defaultPoolID + 1,
+
+			expectedBlockLiqMap: domain.DenomPoolLiquidityMap{},
+		},
 	}
 
 	for _, tc := range tests {
@@ -376,6 +388,8 @@ func (s *IngestUseCaseTestSuite) TestProcessBlockDataCallback() {
 			},
 		},
 		&mocks.RouterUsecaseMock{},
+		&mocks.RouterUsecaseMock{},
+		nil,
 		&mocks.ChainInfoUsecaseMock{},
 		nil,
 		&mocks.PricingWorkerMock{
@@ -383,6 +397,7 @@ func (s *IngestUseCaseTestSuite) TestProcessBlockDataCallback() {
 				// do nothing
 			},
 		},
+		&mocks.CandidateRouteSearchDataWorkerMock{},
 		callback,
 		logger,
 	)
@@ -396,6 +411,138 @@ func (s *IngestUseCaseTestSuite) TestProcessBlockDataCallback() {
 
 	if want != got {
 		s.T().Fatalf("got %v, want %v", want, got)
+	}
+}
+
+func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
+
+	var (
+		defaultModel = &sqsdomain.SQSPool{
+			PoolLiquidityCap:      osmomath.NewInt(1_000),
+			PoolLiquidityCapError: "",
+			Balances:              sdk.NewCoins(defaultUOSMOBalance, defaultUSDCBalance),
+			PoolDenoms:            []string{UOSMO, USDC},
+			SpreadFactor:          osmomath.NewDec(1),
+			CosmWasmPoolModel:     nil,
+		}
+
+		deepCopy = func(sqsPool *sqsdomain.SQSPool) *sqsdomain.SQSPool {
+			copy := *sqsPool
+
+			copy.PoolLiquidityCap = sqsPool.PoolLiquidityCap.ToLegacyDec().TruncateInt()
+			copy.PoolLiquidityCapError = sqsPool.PoolLiquidityCapError
+			copy.Balances = sdk.NewCoins(sqsPool.Balances...)
+			copy.PoolDenoms = append([]string(nil), sqsPool.PoolDenoms...)
+			copy.SpreadFactor = sqsPool.SpreadFactor.Clone()
+
+			// Not a deep copy because it is irrelevant for this test.
+			copy.CosmWasmPoolModel = sqsPool.CosmWasmPoolModel
+
+			return &copy
+		}
+
+		defaultCosmWasmModel = &cosmwasmpool.CosmWasmPoolModel{
+			ContractInfo: cosmwasmpool.ContractInfo{
+				Contract: cosmwasmpool.ALLOY_TRANSMUTER_CONTRACT_NAME,
+				Version:  cosmwasmpool.ALLOY_TRANSMUTER_MIN_CONTRACT_VERSION,
+			},
+			Data: cosmwasmpool.CosmWasmPoolData{
+				AlloyTransmuter: &cosmwasmpool.AlloyTransmuterData{
+					AlloyedDenom: routertesting.ALLUSDT,
+				},
+			},
+		}
+
+		invalidCosmWasmModel = &cosmwasmpool.CosmWasmPoolModel{
+			ContractInfo: cosmwasmpool.ContractInfo{
+				Contract: cosmwasmpool.ALLOY_TRANSMUTER_CONTRACT_NAME,
+				Version:  cosmwasmpool.ALLOY_TRANSMUTER_MIN_CONTRACT_VERSION,
+			},
+
+			// Note: data is missing
+		}
+
+		withCosmWasmModel = func(sqsPool *sqsdomain.SQSPool, cosmWasmModel *cosmwasmpool.CosmWasmPoolModel) *sqsdomain.SQSPool {
+			sqsPool = deepCopy(sqsPool)
+			sqsPool.CosmWasmPoolModel = cosmWasmModel
+			return sqsPool
+		}
+
+		withPoolDenoms = func(sqsPool *sqsdomain.SQSPool, denoms ...string) *sqsdomain.SQSPool {
+			sqsPool = deepCopy(sqsPool)
+			sqsPool.PoolDenoms = denoms
+			return sqsPool
+		}
+
+		withBalances = func(sqsPool *sqsdomain.SQSPool, balances sdk.Coins) *sqsdomain.SQSPool {
+			sqsPool = deepCopy(sqsPool)
+			sqsPool.Balances = balances
+			return sqsPool
+		}
+
+		modelWithCWModelSet = withCosmWasmModel(defaultModel, defaultCosmWasmModel)
+	)
+
+	tests := []struct {
+		name string
+
+		sqsModel *sqsdomain.SQSPool
+
+		expectedSQSModel *sqsdomain.SQSPool
+		expectedErr      bool
+	}{
+		{
+			name: "non-cosmwaspool model -> unchanged",
+
+			sqsModel: defaultModel,
+
+			expectedSQSModel: defaultModel,
+		},
+		{
+			name: "with gamm share in balance -> filtered",
+
+			sqsModel: withBalances(defaultModel, sdk.NewCoins(sdk.NewCoin(domain.GAMMSharePrefix, osmomath.OneInt())).Add(defaultModel.Balances...)),
+
+			expectedSQSModel: defaultModel,
+		},
+		{
+			name: "with gamm share in pool denoms -> filtered",
+
+			// Note: append wrangling is done to avoid mutation of defaultModel.
+			sqsModel: withPoolDenoms(defaultModel, append([]string{domain.GAMMSharePrefix}, defaultModel.PoolDenoms...)...),
+
+			expectedSQSModel: defaultModel,
+		},
+		{
+			name: "alloyed cosmwasm model -> added to pool denoms",
+
+			sqsModel: modelWithCWModelSet,
+
+			// Note: append wrangling is done to avoid mutation of defaultModel.
+			expectedSQSModel: withPoolDenoms(modelWithCWModelSet, append(append([]string{}, defaultModel.PoolDenoms...), routertesting.ALLUSDT)...),
+		},
+		{
+			name: "cosmwasm model not correctly set -> error",
+
+			sqsModel: withCosmWasmModel(defaultModel, invalidCosmWasmModel),
+
+			expectedErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		s.T().Run(tc.name, func(t *testing.T) {
+			// System under test
+			err := usecase.ProcessSQSModelMut(tc.sqsModel)
+
+			if tc.expectedErr {
+				s.Require().Error(err)
+			} else {
+				s.Require().NoError(err)
+				s.Require().Equal(tc.expectedSQSModel, tc.sqsModel)
+			}
+		})
 	}
 }
 

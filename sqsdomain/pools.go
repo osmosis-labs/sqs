@@ -5,11 +5,13 @@ import (
 	"sort"
 	"strings"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	clqueryproto "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/client/queryproto"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
 // PoolI represents a generalized Pool interface.
@@ -33,9 +35,22 @@ type PoolI interface {
 	// the tick model is not set
 	GetTickModel() (*TickModel, error)
 
+	// GetLiquidityCap returns the pool liquidity capitalization
+	GetLiquidityCap() osmomath.Int
+
+	// GetLiquidityCapError returns the pool liquidity capitalization error.
+	GetLiquidityCapError() string
+
 	// SetTickModel sets the tick model for the pool
 	// If this is not a concentrated pool, errors
 	SetTickModel(*TickModel) error
+
+	// SetLiquidityCap sets the liquidity capitalization to the given
+	// value.
+	SetLiquidityCap(liquidityCap osmomath.Int)
+
+	// SetLiquidityCapError sets the liquidity capitalization error
+	SetLiquidityCapError(liquidityCapError string)
 
 	// Validate validates the pool
 	// Returns nil if the pool is valid
@@ -60,7 +75,7 @@ type SQSPool struct {
 	SpreadFactor osmomath.Dec `json:"spread_factor"`
 
 	// Only CosmWasm pools need CosmWasmPoolModel appended
-	CosmWasmPoolModel *CosmWasmPoolModel `json:"cosmwasm_pool_model,omitempty"`
+	CosmWasmPoolModel *cosmwasmpool.CosmWasmPoolModel `json:"cosmwasm_pool_model,omitempty"`
 }
 
 type PoolWrapper struct {
@@ -156,4 +171,24 @@ func (p *PoolWrapper) Validate(minPoolLiquidityCapitalization osmomath.Int) erro
 	}
 
 	return nil
+}
+
+// GetLiquidityCap implements PoolI.
+func (p *PoolWrapper) GetLiquidityCap() osmomath.Int {
+	return p.SQSModel.PoolLiquidityCap
+}
+
+// SetLiquidityCap implements PoolI.
+func (p *PoolWrapper) SetLiquidityCap(liquidityCap math.Int) {
+	p.SQSModel.PoolLiquidityCap = liquidityCap
+}
+
+// GetLiquidityCapError implements PoolI.
+func (p *PoolWrapper) GetLiquidityCapError() string {
+	return p.SQSModel.PoolLiquidityCapError
+}
+
+// SetLiquidityCapError implements PoolI.
+func (p *PoolWrapper) SetLiquidityCapError(liquidityCapError string) {
+	p.SQSModel.PoolLiquidityCapError = liquidityCapError
 }

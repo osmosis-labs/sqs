@@ -11,8 +11,11 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	cosmwasmpool "github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 )
 
 type RouterTestSuite struct {
@@ -71,6 +74,8 @@ func (s *RouterTestSuite) TestRouterSorting() {
 	var (
 		secondBalancerPoolPoolID = s.PrepareBalancerPool()
 		thirdBalancerPoolID      = s.PrepareBalancerPool()
+
+		alloyedPoolID = thirdBalancerPoolID + 1
 
 		// Note that these default denoms might not actually match the pool denoms for simplicity.
 		defaultDenoms = []string{"foo", "bar"}
@@ -145,6 +150,19 @@ func (s *RouterTestSuite) TestRouterSorting() {
 					PoolDenoms:       defaultDenoms,
 				},
 			},
+			&sqsdomain.PoolWrapper{
+				ChainModel: &mocks.ChainPoolMock{ID: alloyedPoolID, Type: poolmanagertypes.CosmWasm},
+				SQSModel: sqsdomain.SQSPool{
+					PoolLiquidityCap: osmomath.NewInt(3*OsmoPrecisionMultiplier - 1), // 3 * precision - 1
+					PoolDenoms:       defaultDenoms,
+					CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+						ContractInfo: cosmwasmpool.ContractInfo{
+							Contract: cosmwasmpool.AlloyTranmuterName,
+							Version:  cosmwasmpool.AlloyTransmuterMinVersion,
+						},
+					},
+				},
+			},
 
 			// Note that the pools below have higher TVL.
 			// However, since they have TVL error flag set, they
@@ -172,6 +190,10 @@ func (s *RouterTestSuite) TestRouterSorting() {
 		expectedSortedPoolIDs = []uint64{
 			// Transmuter pool is first due to no slippage swaps
 			allPool.CosmWasmPoolID,
+
+			// Alloyed is second since it has the same bonus as transmuter but lower
+			// liquidity cap.
+			alloyedPoolID,
 
 			// Balancer is above concentrated pool due to being preferred
 			allPool.BalancerPoolID,
@@ -234,7 +256,7 @@ func (s *RouterTestSuite) getTakerFeeMapForAllPoolTokenPairs(pools []sqsdomain.P
 	return pairs
 }
 
-func WithRoutePools(r route.RouteImpl, pools []sqsdomain.RoutablePool) route.RouteImpl {
+func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
 	return routertesting.WithRoutePools(r, pools)
 }
 

@@ -16,7 +16,7 @@ import (
 
 type chainPricing struct {
 	TUsecase mvc.TokensUsecase
-	RUsecase mvc.RouterUsecase
+	RUsecase mvc.SimpleRouterUsecase
 
 	cache         *cache.Cache
 	cacheExpiryNs time.Duration
@@ -85,7 +85,7 @@ func init() {
 	prometheus.MustRegister(cacheMissesCounter)
 }
 
-func New(routerUseCase mvc.RouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
+func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
 	chainDefaultHumanDenom, err := tokenUseCase.GetChainDenom(config.DefaultQuoteHumanDenom)
 	if err != nil {
 		panic(fmt.Sprintf("failed to get chain denom for default quote human denom (%s): %s", config.DefaultQuoteHumanDenom, err))
@@ -119,7 +119,7 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	// Recompute prices if desired by configuration.
 	// Otherwise, look into cache first.
 	if options.RecomputePrices {
-		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod, options.IsWorkerPrecompute)
+		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 	}
 
 	// equal base and quote yield the price of one
@@ -146,11 +146,11 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	}
 
 	// If cache miss occurs, we compute the price.
-	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod, options.IsWorkerPrecompute)
+	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 }
 
 // computePrice computes the price for a given base and quote denom
-func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod, isPricingWorkerPrecompute bool) (osmomath.BigDec, error) {
+func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (osmomath.BigDec, error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 
 	if baseDenom == quoteDenom {
@@ -182,11 +182,10 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		// Since it can be overridden by options in GetPrice(...)
 		domain.WithMinPoolLiquidityCap(minPoolLiquidityCap),
 		domain.WithDisableSplitRoutes(),
-		domain.WithIsPricingWorkerPrecompute(isPricingWorkerPrecompute),
 	}
 
 	// Compute a quote for one quote coin.
-	quote, err := c.RUsecase.GetOptimalQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
+	quote, err := c.RUsecase.GetSimpleQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}

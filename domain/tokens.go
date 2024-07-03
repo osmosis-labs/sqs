@@ -1,6 +1,8 @@
 package domain
 
-import "github.com/osmosis-labs/osmosis/osmomath"
+import (
+	"github.com/osmosis-labs/osmosis/osmomath"
+)
 
 // Token represents the token's domain model
 type Token struct {
@@ -40,3 +42,6 @@ type DenomPoolLiquidityData struct {
 	// in that pool
 	Pools map[uint64]osmomath.Int
 }
+
+// GAMMSharePrefix is the prefix for the GAMM share
+const GAMMSharePrefix = "gamm/pool"

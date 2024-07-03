@@ -28,18 +28,20 @@ const (
 )
 
 var (
-	UOSMO   = routertesting.UOSMO
-	ATOM    = routertesting.ATOM
-	stOSMO  = routertesting.STOSMO
-	stATOM  = routertesting.STATOM
-	USDC    = routertesting.USDC
-	USDCaxl = routertesting.USDCaxl
-	USDT    = routertesting.USDT
-	WBTC    = routertesting.WBTC
-	ETH     = routertesting.ETH
-	AKT     = routertesting.AKT
-	UMEE    = routertesting.UMEE
-	UION    = routertesting.UION
+	UOSMO    = routertesting.UOSMO
+	ATOM     = routertesting.ATOM
+	stOSMO   = routertesting.STOSMO
+	stATOM   = routertesting.STATOM
+	USDC     = routertesting.USDC
+	USDCaxl  = routertesting.USDCaxl
+	USDT     = routertesting.USDT
+	WBTC     = routertesting.WBTC
+	ETH      = routertesting.ETH
+	AKT      = routertesting.AKT
+	UMEE     = routertesting.UMEE
+	UION     = routertesting.UION
+	ALLUSDT  = routertesting.ALLUSDT
+	KAVAUSDT = routertesting.KAVAUSDT
 )
 
 // TODO: copy exists in candidate_routes_test.go - share & reuse
@@ -129,7 +131,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 	}{
 		"valid single route": {
 			routes: []route.RouteImpl{
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				})},
 			tokenIn: sdk.NewCoin(DenomTwo, sdk.NewInt(100)),
@@ -141,12 +143,12 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 		"valid two route single hop": {
 			routes: []route.RouteImpl{
 				// Route 1
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				}),
 
 				// Route 2
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), secondBalancerPoolSameDenoms), 2),
 				}),
 			},
@@ -163,17 +165,17 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 		"valid three route single hop": {
 			routes: []route.RouteImpl{
 				// Route 1
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
 				}),
 
 				// Route 2
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), thirdBalancerPoolSameDenoms), 3),
 				}),
 
 				// Route 3
-				WithRoutePools(route.RouteImpl{}, []sqsdomain.RoutablePool{
+				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), secondBalancerPoolSameDenoms), 2),
 				}),
 			},
@@ -551,6 +553,16 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 // Validates that quotes constructed from mainnet state can be computed with no error
 // for selected pairs.
 func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
+
+	// At the time of test creation, we aim to have the same number of routes
+	// between allUSDT and uosmo and kava.USDT and uosmo.
+	// The reason is that there is an alloyed transmuter for routes between allUSDT and kava.USDT
+	// that provides no slippage swaps. Given that 100K is under the liqudiity of kava.USDT in the
+	// transmuter pool, the split routes should be essentially the same.
+	// Update: as of 30.06.24, the kava.usdt for osmo only has one optimal route.
+	const usdtOsmoExpectedRoutesHighLiq = 1
+	var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
+
 	tests := map[string]struct {
 		tokenInDenom  string
 		tokenOutDenom string
@@ -612,6 +624,23 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			expectedRoutesCount: 1,
 		},
+
+		"allUSDT for uosmo": {
+			tokenInDenom:  ALLUSDT,
+			tokenOutDenom: UOSMO,
+
+			amountIn: oneHundredThousandUSDValue,
+
+			expectedRoutesCount: usdtOsmoExpectedRoutesHighLiq,
+		},
+		"kava.USDT for uosmo - should have the same routes as allUSDT for uosmo": {
+			tokenInDenom:  ALLUSDT,
+			tokenOutDenom: UOSMO,
+
+			amountIn: oneHundredThousandUSDValue,
+
+			expectedRoutesCount: usdtOsmoExpectedRoutesHighLiq,
+		},
 	}
 
 	for name, tc := range tests {
@@ -654,14 +683,14 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	mainnetState := s.SetupMainnetState()
 
 	// Setup router repository mock
-	routerRepositoryMock := routerrepo.New()
-	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+	tokensRepositoryMock := routerrepo.New(&log.NoOpLogger{})
+	tokensRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb)
+	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", tokensRepositoryMock, domain.UnsetScalingFactorGetterCb)
 	poolsUsecase.StorePools(mainnetState.Pools)
 
-	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 
 	// This pool ID is second best: https://app.osmosis.zone/pool/2
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected
@@ -684,4 +713,16 @@ func (s *RouterTestSuite) validateExpectedPoolIDOneRouteOneHopQuote(quote domain
 	routePools := route.GetPools()
 	s.Require().Equal(1, len(routePools))
 	s.Require().Equal(expectedPoolID, routePools[0].GetId())
+}
+
+// validates that the given quote has multi route with one hop and the expected pool IDs.
+func (s *RouterTestSuite) validateExpectedPoolIDMultiRouteOneHopQuote(quote domain.Quote, expectedPoolID []uint64) {
+	var pools []uint64
+	for _, v := range quote.GetRoute() {
+		for _, p := range v.GetPools() {
+			pools = append(pools, p.GetId())
+		}
+	}
+
+	s.Require().Equal(expectedPoolID, pools)
 }

@@ -17,6 +17,7 @@ import (
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
+	routerWorker "github.com/osmosis-labs/sqs/router/usecase/worker"
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
 	tokensUsecase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
@@ -38,7 +39,6 @@ import (
 // It encapsulates all logic for ingesting chain data into the server
 // and exposes endpoints for querying formatter and processed data from frontend.
 type SideCarQueryServer interface {
-	GetRouterRepository() routerrepo.RouterRepository
 	GetTokensUseCase() mvc.TokensUsecase
 	GetLogger() log.Logger
 	Shutdown(context.Context) error
@@ -46,21 +46,15 @@ type SideCarQueryServer interface {
 }
 
 type sideCarQueryServer struct {
-	routerRepository routerrepo.RouterRepository
-	tokensUseCase    mvc.TokensUsecase
-	e                *echo.Echo
-	sqsAddress       string
-	logger           log.Logger
+	tokensUseCase mvc.TokensUsecase
+	e             *echo.Echo
+	sqsAddress    string
+	logger        log.Logger
 }
 
 // GetTokensUseCase implements SideCarQueryServer.
 func (sqs *sideCarQueryServer) GetTokensUseCase() mvc.TokensUsecase {
 	return sqs.tokensUseCase
-}
-
-// GetRouterRepository implements SideCarQueryServer.
-func (sqs *sideCarQueryServer) GetRouterRepository() routerrepo.RouterRepository {
-	return sqs.routerRepository
 }
 
 // GetLogger implements SideCarQueryServer.
@@ -93,7 +87,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	e.Use(middleware.InstrumentMiddleware)
 	e.Use(middleware.TraceWithParamsMiddleware("sqs"))
 
-	routerRepository := routerrepo.New()
+	routerRepository := routerrepo.New(logger)
 
 	// Compute token metadata from chain denom.
 	tokenMetadataByChainDenom, err := tokensUsecase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
@@ -114,8 +108,11 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	chainInfoRepository := chaininforepo.New()
 	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository)
 
+	cosmWasmPoolConfig := poolsUseCase.GetCosmWasmPoolConfig()
+
 	// Initialize chain pricing strategy
-	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, routerUsecase)
+	pricingSimpleRouterUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, cosmWasmPoolConfig, logger, cache.New(), cache.New())
+	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, pricingSimpleRouterUsecase)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +131,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
-	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, routerUsecase, logger); err != nil {
+	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
 		return nil, err
 	}
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
@@ -150,17 +147,33 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, logger)
 
+		liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
+
+		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase, liquidityPricer, logger)
+
+		candidateRouteSearchDataWorker := routerWorker.NewCandidateRouteSearchDataWorker(poolsUseCase, routerRepository, config.Router.PreferredPoolIDs, cosmWasmPoolConfig, logger)
+
+		// Register chain info use case (healthcheck) as a listener to the candidate route search data worker.
+		candidateRouteSearchDataWorker.RegisterListener(chainInfoUseCase)
+
 		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
 		// It then passes the healthcheck as long as updates are received at the appropriate intervals.
 		quotePriceUpdateWorker.RegisterListener(chainInfoUseCase)
 
+		// pool liquidity compute worker listens to the quote price update worker.
+		quotePriceUpdateWorker.RegisterListener(poolLiquidityComputeWorker)
+
 		// Initialize ingest handler and usecase
+
 		ingestUseCase, err := ingestusecase.NewIngestUsecase(
 			poolsUseCase,
 			routerUsecase,
+			pricingSimpleRouterUsecase,
+			tokensUseCase,
 			chainInfoUseCase,
 			appCodec,
 			quotePriceUpdateWorker,
+			candidateRouteSearchDataWorker,
 			[]func(height uint64){
 				func(height uint64) {
 					// do not block, run as a go routine
@@ -176,9 +189,13 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 			},
 			logger,
 		)
+
 		if err != nil {
 			return nil, err
 		}
+
+		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
+		poolLiquidityComputeWorker.RegisterListener(chainInfoUseCase)
 
 		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig)
 		if err != nil {
@@ -207,10 +224,9 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}()
 
 	return &sideCarQueryServer{
-		routerRepository: routerRepository,
-		tokensUseCase:    tokensUseCase,
-		logger:           logger,
-		e:                e,
-		sqsAddress:       config.ServerAddress,
+		tokensUseCase: tokensUseCase,
+		logger:        logger,
+		e:             e,
+		sqsAddress:    config.ServerAddress,
 	}, nil
 }

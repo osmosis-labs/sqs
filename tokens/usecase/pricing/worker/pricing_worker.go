@@ -38,11 +38,11 @@ func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, minLiquidityCap uin
 
 // UpdatePrices implements PricingWorker.
 func (p *pricingWorker) UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
-	go p.updatePrices(height, uniqueBlockPoolMetaData)
+	go p.UpdatePricesSync(height, uniqueBlockPoolMetaData)
 }
 
-func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
-	baseDenoms := keysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
+func (p *pricingWorker) UpdatePricesSync(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+	baseDenoms := domain.KeysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
 
 	ctx, cancel := context.WithTimeout(context.Background(), priceUpdateTimeout)
 	start := time.Now()
@@ -50,7 +50,7 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 		// Cancel the context
 		cancel()
 
-		p.logger.Info("pricing pre-computation completed", zap.Uint64("height", height), zap.Duration("duration", time.Since(start)))
+		p.logger.Info("pricing pre-computation completed", zap.Uint64("height", height), zap.Int("num_base_denoms", len(baseDenoms)), zap.Duration("duration", time.Since(start)))
 	}()
 
 	p.logger.Info("starting pricing pre-computation", zap.Uint64("height", height), zap.Int("num_base_denoms", len(baseDenoms)))
@@ -58,7 +58,7 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 	// Note that we recompute prices entirely.
 	// Min osmo liquidity must be zero. The reason is that some pools have TVL incorrectly calculated as zero.
 	// For example, BRNCH / STRDST (1288). As a result, they are incorrectly excluded despite having appropriate liquidity.
-	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.minLiquidityCap), domain.WithIsWorkerPrecompute())
+	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.minLiquidityCap))
 	if err != nil {
 		p.logger.Error("failed to pre-compute prices", zap.Error(err))
 
@@ -73,19 +73,10 @@ func (p *pricingWorker) updatePrices(height uint64, uniqueBlockPoolMetaData doma
 	}
 
 	// Measure duration
-	domain.SQSPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
+	domain.SQSPricingWorkerComputeDurationGauge.Set(float64(time.Since(start).Milliseconds()))
 }
 
 // RegisterListener implements PricingWorker.
 func (p *pricingWorker) RegisterListener(listener domain.PricingUpdateListener) {
 	p.updateListeners = append(p.updateListeners, listener)
-}
-
-// Generic function to extract keys from any map.
-func keysFromMap[K comparable, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m)) // Pre-allocate slice with capacity equal to map size
-	for key := range m {
-		keys = append(keys, key)
-	}
-	return keys
 }

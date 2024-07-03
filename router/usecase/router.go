@@ -30,7 +30,7 @@ const (
 // filterPoolsByMinLiquidity filters the given pools by the minimum liquidity
 // capitalization.
 func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minPoolLiquidityCap uint64) []sqsdomain.PoolI {
-	minLiquidityCapInt := osmomath.NewInt(int64(minPoolLiquidityCap))
+	minLiquidityCapInt := osmomath.NewIntFromUint64(minPoolLiquidityCap)
 	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
 	for _, pool := range pools {
 		if pool.GetPoolLiquidityCap().GTE(minLiquidityCapInt) {
@@ -67,9 +67,10 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 
 			_, isTransmuterCodeID := cosmWasmPoolsConfig.TransmuterCodeIDs[cosmWasmPool.GetCodeId()]
 			_, isAlloyedTransmuterCodeID := cosmWasmPoolsConfig.AlloyedTransmuterCodeIDs[cosmWasmPool.GetCodeId()]
+			_, isOrderbookCodeID := cosmWasmPoolsConfig.OrderbookCodeIDs[cosmWasmPool.GetCodeId()]
 			_, isGeneralCosmWasmCodeID := cosmWasmPoolsConfig.GeneralCosmWasmCodeIDs[cosmWasmPool.GetCodeId()]
 
-			if !(isTransmuterCodeID || isAlloyedTransmuterCodeID || isGeneralCosmWasmCodeID) {
+			if !(isTransmuterCodeID || isAlloyedTransmuterCodeID || isOrderbookCodeID || isGeneralCosmWasmCodeID) {
 				logger.Debug("cw pool code id is not added to config, skip silently", zap.Uint64("pool_id", pool.GetId()))
 
 				continue
@@ -104,6 +105,7 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 // - The TVL is the main metric to sort pools by.
 // - Preferred pools are prioritized by getting a boost.
 // - Transmuter pools are the most efficient due to no slippage swaps so they get a boost.
+// - Simillarly, alloyed transmuter pools are comparable due to no slippage swaps so they get a boost.
 // - Concentrated pools follow so they get a smaller boost.
 // - Pools with no error in TVL are prioritized by getting an even smaller boost.
 //
@@ -137,14 +139,27 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 
 		// Transmuter pools get a boost equal to 3/2 of total value locked across all pools
 		if pool.GetType() == poolmanagertypes.CosmWasm {
-			cosmWasmPool, ok := pool.GetUnderlyingPool().(cosmwasmpooltypes.CosmWasmExtension)
-			if !ok {
-				logger.Debug("failed to cast a cosm wasm pool, skip silently", zap.Uint64("pool_id", pool.GetId()))
-				continue
-			}
-			_, isTransmuter := transmuterCodeIDs[cosmWasmPool.GetCodeId()]
-			if isTransmuter {
-				rating += totalTVLFloat * 1.5
+			// Grant additional rating to alloyed transmuter.
+			cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
+			if cosmWasmPoolModel != nil {
+				if cosmWasmPoolModel.IsAlloyTransmuter() {
+					// Grant additional rating if alloyed transmuter.
+					rating += totalTVLFloat * 1.5
+				} else if cosmWasmPoolModel.IsOrderbook() {
+					// Orderbook is ranked a bit lower than Concentrated pools
+					rating += (totalTVLFloat / 2) * 0.9
+				}
+			} else {
+				// Grant additional rating if transmuter.
+				cosmWasmPool, ok := pool.GetUnderlyingPool().(cosmwasmpooltypes.CosmWasmExtension)
+				if !ok {
+					logger.Debug("failed to cast a cosm wasm pool, skip silently", zap.Uint64("pool_id", pool.GetId()))
+					continue
+				}
+				_, isTransmuter := transmuterCodeIDs[cosmWasmPool.GetCodeId()]
+				if isTransmuter {
+					rating += totalTVLFloat * 1.5
+				}
 			}
 		}
 

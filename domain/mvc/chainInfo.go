@@ -15,4 +15,19 @@ type ChainInfoUsecase interface {
 	// - 50 heights have passed since the last update
 	// - The initial price update has not been received
 	ValidatePriceUpdates() error
+	// ValidatePoolLiquidityUpdates validates the pool liquidity updates
+	// Returns nil if the pool liquidity updates are valid
+	// Returns error otherwise.
+	// Pool liquidity updates can be invalid if:
+	// - 50 heights have passed since the last update
+	// - The initial pool liquidity update has not been received
+	ValidatePoolLiquidityUpdates() error
+
+	// ValidateCandidateRouteSearchDataUpdates validates the candidate route search data updates
+	// Returns nil if the candidate route search data updates are valid
+	// Returns error otherwise.
+	// Candidate route search data updates can be invalid if:
+	// - 50 heights have passed since the last update
+	// - The initial candidate route search data update has not been received
+	ValidateCandidateRouteSearchDataUpdates() error
 }

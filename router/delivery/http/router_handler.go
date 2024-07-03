@@ -2,9 +2,9 @@ package http
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"
@@ -29,6 +29,13 @@ const routerResource = "/router"
 
 var (
 	oneDec = osmomath.OneDec()
+)
+
+// Handler Errors
+var (
+	ErrTokenNotValid                   = errors.New("tokenIn is invalid - must be in the format amountDenom")
+	ErrTokenNotSpecified               = errors.New("tokenIn is required")
+	ErrNumOfTokenOutDenomPoolsMismatch = errors.New("number of tokenOutDenom must be equal to number of pool IDs")
 )
 
 func formatRouterResource(resource string) string {
@@ -78,22 +85,24 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		// Note: we do not end the span here as it is ended in the middleware.
 	}()
 
-	isSingleRouteStr := c.QueryParam("singleRoute")
-	isSingleRoute := false
-	if isSingleRouteStr != "" {
-		isSingleRoute, err = strconv.ParseBool(isSingleRouteStr)
-		if err != nil {
-			return err
-		}
+	isSingleRoute, err := domain.ParseBooleanQueryParam(c, "singleRoute")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	shouldApplyExponentsStr := c.QueryParam("applyExponents")
-	shouldApplyExponents := false
-	if shouldApplyExponentsStr != "" {
-		shouldApplyExponents, err = strconv.ParseBool(shouldApplyExponentsStr)
-		if err != nil {
-			return err
-		}
+	shouldApplyExponents, err := domain.ParseBooleanQueryParam(c, "applyExponents")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	disableMinLiquidityFallback, err := domain.ParseBooleanQueryParam(c, "disableMinLiquidityCapFallback")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	forceDefaultMinLiquidityCap, err := domain.ParseBooleanQueryParam(c, "forceDefaultMinLiquidityCap")
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
@@ -101,28 +110,38 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		return err
 	}
 
-	// translate denoms from human to chain if needed
-	tokenOutDenom, tokenInDenom, err := a.getChainDenoms(c, tokenOutDenom, tokenIn.Denom)
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn.Denom, tokenOutDenom})
 	if err != nil {
 		return err
 	}
 
 	// Update coins token in denom it case it was translated from human to chain.
-	tokenIn.Denom = tokenInDenom
+	tokenIn.Denom = chainDenoms[0]
+	tokenOutDenom = chainDenoms[1]
 
-	var quote domain.Quote
-	if isSingleRoute {
-		quote, err = a.RUsecase.GetBestSingleRouteQuote(ctx, tokenIn, tokenOutDenom)
-	} else {
-		quote, err = a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom)
+	// Get the min liquidity cap filter for the given tokenIn and tokenOutDenom.
+	minLiquidityCapFilter, err := a.getMinPoolLiquidityCapFilter(tokenIn.Denom, tokenOutDenom, disableMinLiquidityFallback, forceDefaultMinLiquidityCap)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
+
+	routerOpts := []domain.RouterOption{
+		domain.WithMinPoolLiquidityCap(minLiquidityCapFilter),
+	}
+
+	// Disable split routes if singleRoute is true
+	if isSingleRoute {
+		routerOpts = append(routerOpts, domain.WithMaxSplitRoutes(domain.DisableSplitRoutes))
+	}
+
+	quote, err := a.RUsecase.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, routerOpts...)
 	if err != nil {
 		return err
 	}
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom)
+		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
 	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
@@ -136,19 +155,53 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, quote)
 }
 
-// GetDirectCustomQuote returns a direct custom quote. It does not search for the route.
-// It directly computes the quote for the given poolID.
+// getMinPoolLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
+// if forceDefaultMinLiquidityCap is true, it returns the universal default min pool liquidity capitalization,
+// ignoring disableMinLiquidityCapFallback.
+// Otherwise, it considers the following options:
+// If disableMinLiquidityCapFallback is true, it returns an error if the min liquidity cap cannot be computed.
+// If disableMinLiquidityCapFallback is false, it returns the default config value as fallback.
+// Returns the min liquidity cap filter and an error if any.
+func (a *RouterHandler) getMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom string, disableMinLiquidityCapFallback bool, forceDefaultMinLiquidityCap bool) (uint64, error) {
+	defaultMinLiquidityCap := a.RUsecase.GetConfig().MinPoolLiquidityCap
+
+	// If force flag is true, apply the default.
+	if forceDefaultMinLiquidityCap {
+		return defaultMinLiquidityCap, nil
+	}
+
+	minPoolLiquidityCapBetweenTokens, err := a.TUsecase.GetMinPoolLiquidityCap(tokenInDenom, tokenOutDenom)
+	if err != nil && disableMinLiquidityCapFallback {
+		// If fallback is disabled, error
+		return 0, err
+	} else if err != nil {
+		// If fallback is enabled, get defaiult config value as fallback
+		return defaultMinLiquidityCap, nil
+	}
+
+	// Otherwise, use the mapping to convert from min pool liquidity cap between token in and out denoms
+	// to the proposed filter.
+	minPoolLiquidityCapFilter := a.RUsecase.ConvertMinTokensPoolLiquidityCapToFilter(minPoolLiquidityCapBetweenTokens)
+
+	return minPoolLiquidityCapFilter, nil
+}
+
+// @Summary Compute the quote for the given poolID
+// @Description Call does not search for the route rather directly computes the quote for the given poolID.
+// @ID get-direct-quote
+// @Produce  json
+// @Param  tokenIn         query  string  true  "String representation of the sdk.Coin for the token in."                   example(5OSMO)
+// @Param  tokenOutDenom   query  string  true  "String representing the list of the token denom out separated by comma."   example(ATOM,USDC)
+// @Param  poolID          query  string  true  "String representing list of the pool ID."                                  example(1,2,3)
+// @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
+// @Success 200  {object}  domain.Quote  "The computed best route quote"
+// @Router /router/custom-direct-quote [get]
 func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
+	poolIDs, tokenOutDenom, tokenIn, err := getDirectCustomQuoteParameters(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-	}
-
-	poolIDStr := c.QueryParam("poolID")
-	if len(poolIDStr) == 0 {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "poolID is required"})
 	}
 
 	shouldApplyExponentsStr := c.QueryParam("applyExponents")
@@ -160,20 +213,15 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 		}
 	}
 
-	poolID, err := strconv.ParseUint(poolIDStr, 10, 64)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-	}
-
 	// Quote
-	quote, err := a.RUsecase.GetCustomDirectQuote(ctx, tokenIn, tokenOutDenom, poolID)
+	quote, err := a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, tokenIn, tokenOutDenom, poolIDs)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	scalingFactor := oneDec
 	if shouldApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
+		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom[len(tokenOutDenom)-1])
 	}
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
@@ -201,11 +249,14 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	// translate denoms from human to chain if needed
-	tokenOutDenom, tokenIn, err = a.getChainDenoms(c, tokenOutDenom, tokenIn)
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn, tokenOutDenom})
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
+
+	// Update the tokenIn and tokenOutDenom with the chain denoms if they were translated from human to chain.
+	tokenIn = chainDenoms[0]
+	tokenOutDenom = chainDenoms[1]
 
 	routes, err := a.RUsecase.GetCandidateRoutes(ctx, sdk.NewCoin(tokenIn, osmomath.OneInt()), tokenOutDenom)
 	if err != nil {
@@ -296,57 +347,6 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 	return c.JSON(http.StatusOK, spotPrice)
 }
 
-// returns chain denoms from echo parameters. If human denoms are given, they are converted to chain denoms.
-func (a *RouterHandler) getChainDenoms(c echo.Context, tokenOutDenom, tokenInDenom string) (string, string, error) {
-	isHumanDenomsStr := c.QueryParam("humanDenoms")
-	isHumanDenoms := false
-	var err error
-	if len(isHumanDenomsStr) > 0 {
-		isHumanDenoms, err = strconv.ParseBool(isHumanDenomsStr)
-		if err != nil {
-			return "", "", err
-		}
-	}
-
-	// Note that sdk.Coins initialization
-	// auto-converts base denom from human
-	// to IBC notation.
-	// As a result, we avoid attempting the
-	// to convert a denom that is already changed.
-	baseDenom, err := sdk.GetBaseDenom()
-	if err != nil {
-		return "", "", nil
-	}
-
-	if isHumanDenoms {
-		// See definition of baseDenom.
-		if tokenOutDenom != baseDenom {
-			tokenOutDenom, err = a.TUsecase.GetChainDenom(tokenOutDenom)
-			if err != nil {
-				return "", "", err
-			}
-		}
-
-		// See definition of baseDenom.
-		if tokenInDenom != baseDenom {
-			tokenInDenom, err = a.TUsecase.GetChainDenom(tokenInDenom)
-			if err != nil {
-				return "", "", err
-			}
-		}
-	} else {
-		if !a.TUsecase.IsValidChainDenom(tokenInDenom) {
-			return "", "", fmt.Errorf("tokenInDenom is not a valid chain denom (%s)", tokenInDenom)
-		}
-
-		if !a.TUsecase.IsValidChainDenom(tokenOutDenom) {
-			return "", "", fmt.Errorf("tokenOutDenom is not a valid chain denom (%s)", tokenOutDenom)
-		}
-	}
-
-	return tokenOutDenom, tokenInDenom, nil
-}
-
 // getValidRoutingParameters returns the tokenIn and tokenOutDenom from server context if they are valid.
 func getValidRoutingParameters(c echo.Context) (string, sdk.Coin, error) {
 	tokenOutStr, tokenInStr, err := getValidTokenInTokenOutStr(c)
@@ -356,10 +356,25 @@ func getValidRoutingParameters(c echo.Context) (string, sdk.Coin, error) {
 
 	tokenIn, err := sdk.ParseCoinNormalized(tokenInStr)
 	if err != nil {
-		return "", sdk.Coin{}, errors.New("tokenIn is invalid - must be in the format amountDenom")
+		return "", sdk.Coin{}, ErrTokenNotValid
 	}
 
 	return tokenOutStr, tokenIn, nil
+}
+
+// getDirectCustomQuoteParameters returns the pool IDs, tokenIn and tokenOutDenom from server context if they are valid.
+func getDirectCustomQuoteParameters(c echo.Context) ([]uint64, []string, sdk.Coin, error) {
+	poolID, tokenOut, tokenInStr, err := getPoolsValidTokenInTokensOut(c)
+	if err != nil {
+		return nil, nil, sdk.Coin{}, err
+	}
+
+	tokenIn, err := sdk.ParseCoinNormalized(tokenInStr)
+	if err != nil {
+		return nil, nil, sdk.Coin{}, ErrTokenNotValid
+	}
+
+	return poolID, tokenOut, tokenIn, nil
 }
 
 // getSpotPriceScalingFactor returns the spot price scaling factor for a given tokenIn and tokenOutDenom.
@@ -378,7 +393,7 @@ func getValidTokenInStr(c echo.Context) (string, error) {
 	tokenInStr := c.QueryParam("tokenIn")
 
 	if len(tokenInStr) == 0 {
-		return "", errors.New("tokenIn is required")
+		return "", ErrTokenNotSpecified
 	}
 
 	return tokenInStr, nil
@@ -396,10 +411,60 @@ func getValidTokenInTokenOutStr(c echo.Context) (tokenOutStr, tokenInStr string,
 		return "", "", errors.New("tokenOutDenom is required")
 	}
 
-	// Validate inpit denoms
+	// Validate input denoms
 	if err := domain.ValidateInputDenoms(tokenInStr, tokenOutStr); err != nil {
 		return "", "", err
 	}
 
 	return tokenOutStr, tokenInStr, nil
+}
+
+func getValidPoolID(c echo.Context) ([]uint64, error) {
+	// We accept two poolIDs and poolID parameters, and require at least one of them to be filled
+	poolIDStr := strings.Split(c.QueryParam("poolID"), ",")
+	if len(poolIDStr) == 0 {
+		return nil, errors.New("poolID is required")
+	}
+
+	var poolIDs []uint64
+	for _, v := range poolIDStr {
+		i, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		poolIDs = append(poolIDs, i)
+	}
+
+	return poolIDs, nil
+}
+
+func getPoolsValidTokenInTokensOut(c echo.Context) (poolIDs []uint64, tokenOut []string, tokenIn string, err error) {
+	poolIDs, err = getValidPoolID(c)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	tokenIn, err = getValidTokenInStr(c)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	tokenOut = strings.Split(c.QueryParam("tokenOutDenom"), ",")
+	if len(tokenOut) == 0 {
+		return nil, nil, "", errors.New("tokenOutDenom is required")
+	}
+
+	// one output per each pool
+	if len(tokenOut) != len(poolIDs) {
+		return nil, nil, "", ErrNumOfTokenOutDenomPoolsMismatch
+	}
+
+	// Validate denoms
+	for _, v := range tokenOut {
+		if err := domain.ValidateInputDenoms(tokenIn, v); err != nil {
+			return nil, nil, "", err
+		}
+	}
+
+	return poolIDs, tokenOut, tokenIn, nil
 }

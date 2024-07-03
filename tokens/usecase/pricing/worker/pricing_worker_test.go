@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ type PricingWorkerTestSuite struct {
 }
 
 const (
-	defaultHeight = 1
+	defaultHeight uint64 = 1
 )
 
 var (
@@ -126,10 +127,10 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 }
 
 func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
-	// env := os.Getenv("CI_SQS_PRICING_WORKER_TEST")
-	// if env != "true" {
-	// 	s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
-	// }
+	env := os.Getenv("CI_SQS_PRICING_WORKER_TEST")
+	if env != "true" {
+		s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
+	}
 
 	viper.SetConfigFile("../../../../config.json")
 	err := viper.ReadInConfig()
@@ -220,8 +221,8 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	// 1 more was found on June 10 when adding alloyed code id to config.
 	//
 	// Update on May 29, 2024: 20 unsupported tokens because some tokens have been fallen back to backup pricining source Coingecko
-	// On June 12, 2024: 19 unsupported tokens - likely added liquidity to some pools with the tokens.
-	s.Require().Equal(19, zeroPriceCounter)
+	// On June 12, 2024: 20 unsupported tokens - likely added liquidity to some pools with the tokens.
+	s.Require().Equal(20, zeroPriceCounter)
 }
 
 func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {

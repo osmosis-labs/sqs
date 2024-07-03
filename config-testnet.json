@@ -20,7 +20,13 @@
       "min-pool-liquidity-cap": 10,
       "route-cache-enabled": true,
       "candidate-route-cache-expiry-seconds": 1200,
-      "ranked-route-cache-expiry-seconds": 600
+      "ranked-route-cache-expiry-seconds": 600,
+      "dynamic-min-liquidity-cap-filters-desc": [
+        {
+            "min-tokens-capitalization": 1000000,
+            "filter-value": 75000
+        }
+      ]
     },
     "pools": {
         "transmuter-code-ids": [
@@ -28,6 +34,7 @@
             4643
         ],
         "alloyed-transmuter-code-ids": [8319],
+        "orderbook-code-ids": [],
         "general-cosmwasm-code-ids": [
             5005,
             6688

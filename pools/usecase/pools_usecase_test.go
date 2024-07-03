@@ -6,8 +6,11 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/suite"
+
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
@@ -66,6 +69,14 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		defaultPool,
 	}
 
+	// We break the pool by changing the pool type
+	// to the wrong type. Note that the default is balancer.
+	brokenChainPool := *defaultPool
+	brokenChainPool.PoolType = poolmanagertypes.CosmWasm
+	_, err = pools.NewRoutablePool(&brokenChainPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}, nil)
+	// Validate that it is indeed broken.
+	s.Require().Error(err)
+
 	validCandidateRoutes := sqsdomain.CandidateRoutes{
 		Routes: []sqsdomain.CandidateRoute{
 			{
@@ -111,7 +122,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 
 			expectedRoutes: []route.RouteImpl{
 				{
-					Pools: []sqsdomain.RoutablePool{
+					Pools: []domain.RoutablePool{
 						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
 					},
 				},
@@ -131,7 +142,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 
 			expectedRoutes: []route.RouteImpl{
 				{
-					Pools: []sqsdomain.RoutablePool{
+					Pools: []domain.RoutablePool{
 						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
 					},
 				},
@@ -153,6 +164,24 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 				PoolID: defaultPoolID,
 			},
 		},
+		{
+			name:  "broken chain pool is skipped without failing the whole conversion",
+			pools: []sqsdomain.PoolI{&brokenChainPool, defaultPool},
+
+			candidateRoutes: validCandidateRoutes,
+			takerFeeMap:     validTakerFeeMap,
+
+			tokenInDenom:  denomOne,
+			tokenOutDenom: denomTwo,
+
+			expectedRoutes: []route.RouteImpl{
+				{
+					Pools: []domain.RoutablePool{
+						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
+					},
+				},
+			},
+		},
 
 		// TODO:
 		// Valid conversion of single multi-hop route
@@ -164,7 +193,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		s.Run(tc.name, func() {
 
 			// Create router repository
-			routerRepo := routerrepo.New()
+			routerRepo := routerrepo.New(&log.NoOpLogger{})
 			routerRepo.SetTakerFees(tc.takerFeeMap)
 
 			// Create pools use case
@@ -207,7 +236,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	}
 }
 
-func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) sqsdomain.RoutablePool {
+func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)
 	return routablePool

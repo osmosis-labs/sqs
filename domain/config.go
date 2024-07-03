@@ -1,5 +1,7 @@
 package domain
 
+import "fmt"
+
 // Config defines the config for the sidecar query server.
 type Config struct {
 	// Defines the web server configuration.
@@ -76,4 +78,41 @@ type FlightRecordConfig struct {
 	TraceThresholdMS int `mapstructure:"trace-threshold-ms"`
 	// TraceFileName defines the trace file name to output to.
 	TraceFileName string `mapstructure:"trace-file-name"`
+}
+
+// Validate validates the config. Returns an error if the config is invalid.
+// Nil is returned if the config is valid.
+func (c Config) Validate() error {
+	// Validate the dynamic min liquidity cap filters.
+	if err := validateDynamicMinLiquidityCapDesc(c.Router.DynamicMinLiquidityCapFiltersDesc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateDynamicMinLiquidityCapFiltersDesc validates the dynamic min liquidity cap filters.
+// Returns an error if the filters are invalid. Nil is returned if the filters are valid.
+// The filters must be in descending order both by min tokens capitalization and filter value.
+func validateDynamicMinLiquidityCapDesc(values []DynamicMinLiquidityCapFilterEntry) error {
+	if len(values) == 0 {
+		return nil
+	}
+
+	previousMinTokensCap := values[0].MinTokensCap
+	previousFilterValue := values[0].FilterValue
+	for i := 0; i < len(values); i++ {
+		if values[i].MinTokensCap > previousMinTokensCap {
+			return fmt.Errorf("min_tokens_cap must be in descending order")
+		}
+
+		if values[i].FilterValue > previousFilterValue {
+			return fmt.Errorf("filter_value must be in descending order")
+		}
+
+		previousMinTokensCap = values[i].MinTokensCap
+		previousFilterValue = values[i].FilterValue
+	}
+
+	return nil
 }

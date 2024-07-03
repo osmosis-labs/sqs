@@ -57,6 +57,12 @@ func main() {
 		return
 	}
 
+	// Validate config
+	if err := config.Validate(); err != nil {
+		fmt.Println("Error validating config:", err)
+		return
+	}
+
 	// Handle SIGINT and SIGTERM signals to initiate shutdown
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGTERM)

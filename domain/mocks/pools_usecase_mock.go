@@ -68,7 +68,7 @@ func (pm *PoolsUsecaseMock) GetRoutesFromCandidates(candidateRoutes sqsdomain.Ca
 
 	finalRoutes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
-		routablePools := make([]sqsdomain.RoutablePool, 0, len(candidateRoute.Pools))
+		routablePools := make([]domain.RoutablePool, 0, len(candidateRoute.Pools))
 		for _, candidatePool := range candidateRoute.Pools {
 			// Get the pool data for routing
 			var foundPool sqsdomain.PoolI

@@ -51,8 +51,6 @@ type PricingOptions struct {
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
 	MinPoolLiquidityCap uint64
-	// IsWorkerPrecompute defines whether the pricing is precomputed by the worker.
-	IsWorkerPrecompute bool
 }
 
 // PricingOption configures the pricing options.
@@ -83,13 +81,6 @@ func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap uint64) PricingOption {
 	}
 }
 
-// WithIsWorkerPrecompute configures the pricing options to be used for worker precompute.
-func WithIsWorkerPrecompute() PricingOption {
-	return func(o *PricingOptions) {
-		o.IsWorkerPrecompute = true
-	}
-}
-
 // PricingConfig defines the configuration for the pricing.
 type PricingConfig struct {
 	// The number of milliseconds to cache the pricing data for.
@@ -112,8 +103,7 @@ type PricingConfig struct {
 	MaxRoutes        int `mapstructure:"max-routes"`
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.
 	MinPoolLiquidityCap uint64 `mapstructure:"min-pool-liquidity-cap"`
-
-	// WorkerMinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the pricing worker.
+	// WorkerMinPoolLiquiidtyCap is the minimum liquidity capitalization required for a pool to be considered in the pricing worker.
 	WorkerMinPoolLiquidityCap uint64 `mapstructure:"worker-min-pool-liquidity-cap"`
 }
 
@@ -130,10 +120,16 @@ func FormatPricingCacheKey(a, b string) string {
 }
 
 type PricingWorker interface {
-	// UpdatePrices updates prices for the tokens from the unique block pool metadata
+	// UpdatePricesAsync updates prices for the tokens from the unique block pool metadata
 	// that contains information about changed denoms and pools within a block.
 	// Propagates the results to the listeners.
+	// Performs the update asynchronously.
 	UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
+	// UpdatePricesSync updates prices for the tokens from the unique block pool metadata
+	// that contains information about changed denoms and pools within a block.
+	// Propagates the results to the listeners.
+	// Performs the update synchronously.
+	UpdatePricesSync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 
 	// RegisterListener registers a listener for pricing updates.
 	RegisterListener(listener PricingUpdateListener)
@@ -149,23 +145,27 @@ type PricingUpdateListener interface {
 type PoolLiquidityPricerWorker interface {
 	// Implements PricingUpdateListener
 	PricingUpdateListener
-	// ComputeLiquidityCapitalization computes the capitalization of the liquidity for the given denom
-	// using the total liquidity and the price.
-	// Returs zero if the price is zero or if there is any internal error.
-	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
-	ComputeLiquidityCapitalization(denom string, totalLiquidity osmomath.Int, price osmomath.BigDec) osmomath.Int
 
 	// RepriceDenomMetadata reprices the token liquidity metadata for the denoms updated within the block.
 	// Returns the updated token metadata.
 	// If there is an update for a denom with a later height than the current height, it is skipped, making this a no-op.
+	// If denom is a gamm share, it is also skipped.
 	// Relies on the blockPriceUpdates to get the price for the denoms.
 	// If the price for denom cannot be fetched, the liquidity capitalization for this denom is set to zero.
 	// The latest update height for this denom is updated on completion.
-	RepriceDenomMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap DenomPoolLiquidityMap) PoolDenomMetaDataMap
+	RepriceDenomsMetadata(updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockDenomLiquidityUpdatesMap BlockPoolMetadata) PoolDenomMetaDataMap
+	// CreatePoolDenomMetaData creates a pool denom metatata by finding the total liquidity across all pools in block pool metadata,
+	// retrieving the price from blockPriceUpdates and recomputing the liquidity capitalization for the given denom, update height, block price updates and quote denom.
+	// Returns the pool denom metadata and error if any.
+	// Returns error if:
+	// - the denom pool liquidity data is not found for the updatedBlockDenom.
+	// - the price is not found for the given denom.
+	// Note that in case of an error, the pool denom metadata is still returned with values
+	// computed as best-effort (set to zero if cannot compute).
+	CreatePoolDenomMetaData(updatedBlockDenom string, updateHeight uint64, blockPriceUpdates PricesResult, quoteDenom string, blockPoolMetadata BlockPoolMetadata) (PoolDenomMetaData, error)
 
-	// GetLatestUpdateHeightForDenom returns the latest height for when the liquidity for a given denom was updated
-	// zero if the height is not found or fails to cast it to the return type.
-	GetLatestUpdateHeightForDenom(denom string) uint64
+	// GetHeightForDenom returns zero if the height is not found or fails to cast it to the return type.
+	GetHeightForDenom(denom string) uint64
 
 	// StoreHeightForDenom stores the latest height for the given denom.
 	StoreHeightForDenom(denom string, height uint64)
@@ -175,29 +175,34 @@ type PoolLiquidityPricerWorker interface {
 	RegisterListener(listener PoolLiquidityComputeListener)
 }
 
-// DenomPriceInfo defines the price information for the base denom.
 type DenomPriceInfo struct {
-	// Price is the price of the base denom.
-	Price osmomath.BigDec
-	// ScalingFactor is the scaling factor for the base denom.
+	Price         osmomath.BigDec
 	ScalingFactor osmomath.Dec
 }
 
 type LiquidityPricer interface {
-	// ComputeCoinCap computes the equivalent of the given coin in the desired quote denom that is set on ingester.
-	// Returns error if:
-	// * Price is zero
-	// * Scaling factor is zero
-	// * Truncation occurs in intermediary operations. Truncation is defined as the original amount
-	// being non-zero and the computed amount being zero.
-	ComputeCoinCap(coin sdk.Coin, baseDenomPriceData DenomPriceInfo) (osmomath.Dec, error)
+	// PriceBalances computes capitalization from the given balanes, block price updates and quote denom.
+	// If fails to retrieve price for one of the denoms in balances, the liquidity capitalization contribution for that denom would be zero
+	// and a relevant error appended to the returned error string.
+	//
+	// If no error occurs, the error string is empty.
+	//
+	// The purpose of such handling is to ensure that we silently skip any errors but apply partial liquidity capitalization
+	// updates. The best-effort liquidity capitalization ranking improves the quality of by-liquidity ranking in the router.
+	PriceBalances(balances sdk.Coins, blockPriceUpdates PricesResult) (osmomath.Int, string)
+
+	// PriceCoin computes the capitalization of the liquidity for the given denom
+	// using the total liquidity and the price.
+	// Returs zero if the price is zero or if there is any internal error.
+	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
+	PriceCoin(liquidity sdk.Coin, price osmomath.BigDec) osmomath.Int
 }
 
 // PoolLiquidityComputeListener defines the interface for the pool liquidity compute listener.
 // It is used to notify the listeners of the pool liquidity compute worker that the computation
 // for a given height is completed.
 type PoolLiquidityComputeListener interface {
-	OnPoolLiquidityCompute(height int64) error
+	OnPoolLiquidityCompute(ctx context.Context, height uint64, blockPoolMetaData BlockPoolMetadata) error
 }
 
 // PricesResult defines the result of the prices.
@@ -220,5 +225,5 @@ func (prices PricesResult) GetPriceForDenom(baseDenom string, quoteDenom string)
 		return osmomath.ZeroBigDec()
 	}
 
-	return price
+	return price.Clone()
 }

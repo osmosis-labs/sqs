@@ -36,8 +36,8 @@ func EstimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteIm
 	return estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, logger)
 }
 
-func FilterDuplicatePoolIDRoutes(rankedRoutes []route.RouteImpl) []route.RouteImpl {
-	return filterDuplicatePoolIDRoutes(rankedRoutes)
+func FilterDuplicatePoolIDRoutes(rankedRoutes []RouteWithOutAmount) []route.RouteImpl {
+	return filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes)
 }
 
 func ConvertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.CandidateRoutes {
@@ -64,6 +64,10 @@ func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	return getSplitQuote(ctx, routes, tokenIn)
 }
 
-func EstimateDirectQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, maxRoutes int, logger log.Logger) (domain.Quote, []route.RouteImpl, error) {
-	return estimateDirectQuote(ctx, routes, tokenIn, maxRoutes, logger)
+func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
+	return r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
+}
+
+func CutRoutesForSplits(maxSplitRoutes int, routes []route.RouteImpl) []route.RouteImpl {
+	return cutRoutesForSplits(maxSplitRoutes, routes)
 }
