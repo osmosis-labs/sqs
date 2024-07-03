@@ -83,7 +83,7 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 		s.T().Skip("skip the test that does network call and is used for debugging")
 	}
 
-	tokensMap, err := tokensusecase.GetTokensFromChainRegistry(mainnetAssetListFileURL)
+	tokensMap, _, err := tokensusecase.GetTokensFromChainRegistry(mainnetAssetListFileURL)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(tokensMap)
 
@@ -133,7 +133,7 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 	const (
 		testnetAssetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmo-test-5/osmo-test-5.assetlist.json"
 	)
-	tokensMap, err := tokensusecase.GetTokensFromChainRegistry(testnetAssetListFileURL)
+	tokensMap, _, err := tokensusecase.GetTokensFromChainRegistry(testnetAssetListFileURL)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(tokensMap)
 

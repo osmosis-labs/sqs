@@ -90,7 +90,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	routerRepository := routerrepo.New(logger)
 
 	// Compute token metadata from chain denom.
-	tokenMetadataByChainDenom, err := tokensUseCase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
+	tokenMetadataByChainDenom, _, err := tokensUseCase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
 	if err != nil {
 		return nil, err
 	}

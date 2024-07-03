@@ -1,8 +1,11 @@
 package usecase
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -48,6 +51,9 @@ type tokensUseCase struct {
 
 	// Represents the URL to fetch the chain registry assets file
 	chainRegistryAssetsFileURL string
+
+	// Represents the hash of the last loaded tokens from the chain registry
+	lastLoadTokensFromChainRegistryHash string
 
 	// Logger instance
 	logger log.Logger
@@ -411,24 +417,27 @@ func (t *tokensUseCase) UpdateAssetsAtHeightInterval(height uint64) {
 }
 
 // LoadTokensFromChainRegistry loads tokens from the chain registry into TokensUsecase.
+// Tokens are loaded only if the contents of the chain registry file have changed.
 func (t *tokensUseCase) LoadTokensFromChainRegistry() error {
-	tokens, err := GetTokensFromChainRegistry(t.chainRegistryAssetsFileURL)
+	tokens, hash, err := GetTokensFromChainRegistry(t.chainRegistryAssetsFileURL)
 	if err != nil {
 		return err
 	}
 
-	t.LoadTokens(tokens)
+	if t.lastLoadTokensFromChainRegistryHash != hash {
+		t.LoadTokens(tokens)
+	}
 
 	return nil
 }
 
 // GetTokensFromChainRegistry fetches the tokens from the chain registry.
 // It returns a map of tokens by chain denom.
-func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]domain.Token, error) {
+func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]domain.Token, string, error) {
 	// Fetch the JSON data from the URL
 	response, err := http.Get(chainRegistryAssetsFileURL)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer response.Body.Close()
 
@@ -436,8 +445,15 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 	var assetList AssetList
 	err = json.NewDecoder(response.Body).Decode(&assetList)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
+
+	data, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	response.Body.Close() //  close old response body
+	response.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	tokensByChainDenom := make(map[string]domain.Token)
 
@@ -451,7 +467,7 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 		tokensByChainDenom[asset.CoinMinimalDenom] = token
 	}
 
-	return tokensByChainDenom, nil
+	return tokensByChainDenom, fmt.Sprintf("%x", md5.Sum(data)), nil
 }
 
 // GetSpotPriceScalingFactorByDenomMut implements mvc.TokensUsecase.
