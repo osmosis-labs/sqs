@@ -97,7 +97,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Initialized tokens usecase
 	// TODO: Make the max number of tokens configurable
-	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom, config.UpdateAssetsHeightInterval, config.ChainRegistryAssetsFileURL)
+	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom, config.UpdateAssetsHeightInterval, config.ChainRegistryAssetsFileURL, logger)
 
 	// Initialize pools repository, usecase and HTTP handler
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)

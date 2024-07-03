@@ -370,7 +370,7 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 	}
 }
 
-func (s *IngestUseCaseTestSuite) TestProcessBlockDataCallback() {
+func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightInterval() {
 	logger, err := log.NewLogger(false, "", "")
 	s.Require().NoError(err)
 

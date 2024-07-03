@@ -11,8 +11,10 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -46,6 +48,9 @@ type tokensUseCase struct {
 
 	// Represents the URL to fetch the chain registry assets file
 	chainRegistryAssetsFileURL string
+
+	// Logger instance
+	logger log.Logger
 }
 
 // Struct to represent the JSON structure
@@ -89,12 +94,13 @@ var (
 )
 
 // NewTokensUsecase will create a new tokens use case object
-func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, chainRegistryAssetsFileURL string) mvc.TokensUsecase {
+func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, chainRegistryAssetsFileURL string, logger log.Logger) mvc.TokensUsecase {
 	us := tokensUseCase{
 		pricingStrategyMap:         map[domain.PricingSourceType]domain.PricingSource{},
 		poolDenomMetaData:          sync.Map{},
 		updateAssetsHeightInterval: updateAssetsHeightInterval,
 		chainRegistryAssetsFileURL: chainRegistryAssetsFileURL,
+		logger:                     logger,
 	}
 
 	us.LoadTokens(tokenMetadataByChainDenom)
@@ -187,7 +193,10 @@ func (t *tokensUseCase) GetPoolDenomsMetadata(chainDenoms []string) domain.PoolD
 func (t *tokensUseCase) GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap {
 	var chainDenoms []string
 	t.chainDenoms.Range(func(chainDenom, _ any) bool {
-		chainDenoms = append(chainDenoms, chainDenom.(string))
+		v, ok := chainDenom.(string)
+		if ok {
+			chainDenoms = append(chainDenoms, v)
+		}
 		return true
 	})
 	return t.GetPoolDenomsMetadata(chainDenoms)
@@ -202,7 +211,12 @@ func (t *tokensUseCase) GetChainDenom(humanDenom string) (string, error) {
 		return "", fmt.Errorf("chain denom for human denom (%s) is not found", humanDenomLowerCase)
 	}
 
-	return chainDenom.(string), nil
+	v, ok := chainDenom.(string)
+	if !ok {
+		return "", fmt.Errorf("chain denom for human denom (%v) is not of type string", humanDenomLowerCase)
+	}
+
+	return v, nil
 }
 
 // GetMetadataByChainDenom implements mvc.TokensUsecase.
@@ -212,18 +226,37 @@ func (t *tokensUseCase) GetMetadataByChainDenom(denom string) (domain.Token, err
 		return domain.Token{}, fmt.Errorf("metadata for denom (%s) is not found", denom)
 	}
 
-	return token.(domain.Token), nil
+	v, ok := token.(domain.Token)
+	if !ok {
+		return domain.Token{}, fmt.Errorf("metadata for denom (%v) is not of type domain.Token", denom)
+	}
+
+	return v, nil
 }
 
 // GetFullTokenMetadata implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetFullTokenMetadata() (map[string]domain.Token, error) {
 	// Do a copy of the cached metadata
+	var err error
 	result := make(map[string]domain.Token)
 	t.tokenMetadataByChainDenom.Range(func(denom, token any) bool {
-		result[denom.(string)] = token.(domain.Token)
+		d, ok := denom.(string)
+		if !ok {
+			err = fmt.Errorf("denom (%v) is not of type string", denom)
+			return false
+		}
+
+		t, ok := token.(domain.Token)
+		if !ok {
+			err = fmt.Errorf("token (%v) is not of type domain.Token", token)
+			return false
+		}
+
+		result[d] = t
+
 		return true
 	})
-	return result, nil
+	return result, err
 }
 
 // GetChainScalingFactorByDenomMut implements mvc.TokensUsecase.
@@ -353,7 +386,16 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 
 func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
 	result, ok := t.precisionScalingFactorMap.Load(precision)
-	return result.(osmomath.Dec), ok
+	if !ok {
+		return osmomath.Dec{}, false
+	}
+
+	v, ok := result.(osmomath.Dec)
+	if !ok {
+		return osmomath.Dec{}, false
+	}
+
+	return v, true
 }
 
 // UpdateAssetsAtHeightInterval updates assets at configured height interval.
@@ -361,7 +403,9 @@ func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, b
 func (t *tokensUseCase) UpdateAssetsAtHeightInterval(height uint64) {
 	if height%uint64(t.updateAssetsHeightInterval) == 0 {
 		go func() {
-			t.LoadTokensFromChainRegistry() // nolint
+			if err := t.LoadTokensFromChainRegistry(); err != nil {
+				t.logger.Error("error loading tokens from chain registry", zap.Error(err))
+			}
 		}()
 	}
 }
@@ -437,7 +481,17 @@ func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType,
 // IsValidChainDenom implements mvc.TokensUsecase.
 func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
 	metaData, ok := t.tokenMetadataByChainDenom.Load(chainDenom)
-	return ok && !metaData.(domain.Token).IsUnlisted
+	if !ok {
+		return false
+	}
+
+	v, ok := metaData.(domain.Token)
+	if !ok {
+		return false
+	}
+
+	// is valid only if token is found and is not unlisted
+	return !v.IsUnlisted
 }
 
 // GetMinPoolLiquidityCap implements mvc.TokensUsecase.
@@ -471,9 +525,15 @@ func (t *tokensUseCase) IsValidPricingSource(pricingSource int) bool {
 
 // GetCoingeckoIdByChainDenom implements mvc.TokensUsecase
 func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, error) {
-	if coingeckoId, found := t.coingeckoIds.Load(chainDenom); found {
-		return coingeckoId.(string), nil
-	} else {
+	coingeckoId, found := t.coingeckoIds.Load(chainDenom)
+	if !found {
 		return "", fmt.Errorf("chain denom not found in chain registry")
 	}
+
+	v, ok := coingeckoId.(string)
+	if !ok {
+		return "", fmt.Errorf("coingecko id for chain denom (%v) is not of type string", chainDenom)
+	}
+
+	return v, nil
 }

@@ -39,9 +39,6 @@ type ingestUseCase struct {
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
 
-	// a callback function called after processing each block
-	callbackAfterProcessBlockData []func(height uint64)
-
 	// Worker that computes candidate routes for all tokens.
 	candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker
 
