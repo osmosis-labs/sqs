@@ -61,7 +61,11 @@ lint:
 test-unit:
 	@VERSION=$(VERSION) go test -mod=readonly $(PACKAGES_UNIT)
 
-build: build-reproducible
+build:
+	BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
+	-tags "netgo,ledger,muslc" \
+	-ldflags "-w -s -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
+	-v -o /osmosis/build/sqsd app/*.go 
 
 ###############################################################################
 ###                                Docker                                  ###

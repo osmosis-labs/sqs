@@ -54,10 +54,6 @@ func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom
 			pool := (pools[i]).(*sqsdomain.PoolWrapper)
 			poolID := pool.ChainModel.GetId()
 
-			if poolID == 1888 {
-				fmt.Println(1888)
-			}
-
 			if visited[i] {
 				continue
 			}

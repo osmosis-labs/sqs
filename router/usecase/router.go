@@ -147,7 +147,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 					rating += totalTVLFloat * 1.5
 				} else if cosmWasmPoolModel.IsOrderbook() {
 					// Orderbook is ranked a bit lower than Concentrated pools
-					rating += (totalTVLFloat * 10) * 0.9
+					rating += (totalTVLFloat / 2) * 0.9
 				}
 			} else {
 				// Grant additional rating if transmuter.
