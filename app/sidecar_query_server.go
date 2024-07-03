@@ -19,7 +19,7 @@ import (
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	routerWorker "github.com/osmosis-labs/sqs/router/usecase/worker"
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
-	tokensUsecase "github.com/osmosis-labs/sqs/tokens/usecase"
+	tokensUseCase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 
@@ -90,14 +90,14 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	routerRepository := routerrepo.New(logger)
 
 	// Compute token metadata from chain denom.
-	tokenMetadataByChainDenom, err := tokensUsecase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
+	tokenMetadataByChainDenom, err := tokensUseCase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialized tokens usecase
 	// TODO: Make the max number of tokens configurable
-	tokensUseCase := tokensUsecase.NewTokensUsecase(tokenMetadataByChainDenom, 200, config.ChainRegistryAssetsFileURL)
+	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom, config.UpdateAssetsHeightInterval, config.ChainRegistryAssetsFileURL)
 
 	// Initialize pools repository, usecase and HTTP handler
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)

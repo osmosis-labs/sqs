@@ -7,6 +7,7 @@
     "grpc-gateway-endpoint": "http://localhost:26657",
     "chain-id": "osmosis-1",
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+    "update-assets-height-interval": 200,
     "router": {
       "preferred-pool-ids": [],
       "max-pools-per-route": 4,
