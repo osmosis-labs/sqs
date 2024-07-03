@@ -375,11 +375,6 @@ func (s *IngestUseCaseTestSuite) TestProcessBlockDataCallback() {
 	s.Require().NoError(err)
 
 	var got int
-	callback := []func(height uint64){
-		func(height uint64) {
-			got++
-		},
-	}
 
 	ingester, err := usecase.NewIngestUsecase(
 		&mocks.PoolsUsecaseMock{
@@ -389,7 +384,11 @@ func (s *IngestUseCaseTestSuite) TestProcessBlockDataCallback() {
 		},
 		&mocks.RouterUsecaseMock{},
 		&mocks.RouterUsecaseMock{},
-		nil,
+		&mocks.TokensUsecaseMock{
+			UpdateAssetsAtHeightIntervalFunc: func(height uint64) {
+				got++
+			},
+		},
 		&mocks.ChainInfoUsecaseMock{},
 		nil,
 		&mocks.PricingWorkerMock{
@@ -398,7 +397,6 @@ func (s *IngestUseCaseTestSuite) TestProcessBlockDataCallback() {
 			},
 		},
 		&mocks.CandidateRouteSearchDataWorkerMock{},
-		callback,
 		logger,
 	)
 	s.Require().NoError(err)

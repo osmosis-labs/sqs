@@ -96,7 +96,8 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}
 
 	// Initialized tokens usecase
-	tokensUseCase := tokensUsecase.NewTokensUsecase(tokenMetadataByChainDenom)
+	// TODO: Make the max number of tokens configurable
+	tokensUseCase := tokensUsecase.NewTokensUsecase(tokenMetadataByChainDenom, 200, config.ChainRegistryAssetsFileURL)
 
 	// Initialize pools repository, usecase and HTTP handler
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
@@ -164,7 +165,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		quotePriceUpdateWorker.RegisterListener(poolLiquidityComputeWorker)
 
 		// Initialize ingest handler and usecase
-
 		ingestUseCase, err := ingestusecase.NewIngestUsecase(
 			poolsUseCase,
 			routerUsecase,
@@ -174,19 +174,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 			appCodec,
 			quotePriceUpdateWorker,
 			candidateRouteSearchDataWorker,
-			[]func(height uint64){
-				func(height uint64) {
-					// do not block, run as a go routine
-					tokensUsecase.UpdateAssetsAtHeightInterval(
-						height,
-						200, // TODO config
-						tokensUsecase.LoadTokensFromChainRegistry,
-						tokensUseCase,
-						config.ChainRegistryAssetsFileURL,
-					)
-					logger.Info("callback block processing", zap.Uint64("height", height))
-				},
-			},
 			logger,
 		)
 

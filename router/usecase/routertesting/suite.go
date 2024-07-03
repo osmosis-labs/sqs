@@ -375,7 +375,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	routerUsecase.SetSortedPools(sortedPools)
 
-	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata)
+	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, "")
 
 	// Set up on-chain pricing strategy
 	pricingSource, err := pricing.NewPricingStrategy(options.PricingConfig, tokensUsecase, routerUsecase)
@@ -393,7 +393,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	encCfg := app.MakeEncodingConfig()
 
-	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, pricingRouterUsecase, tokensUsecase, nil, encCfg.Marshaler, nil, nil, nil, logger)
+	ingestUsecase, err := ingestusecase.NewIngestUsecase(poolsUsecase, routerUsecase, pricingRouterUsecase, tokensUsecase, nil, encCfg.Marshaler, nil, nil, logger)
 	if err != nil {
 		panic(err)
 	}

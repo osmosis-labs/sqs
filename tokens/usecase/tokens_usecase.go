@@ -40,6 +40,12 @@ type tokensUseCase struct {
 
 	// Map of chain denoms to coingecko IDs
 	coingeckoIds sync.Map // map[string]string
+
+	// Represents the interval at which to update the assets from the chain registry
+	updateAssetsHeightInterval int
+
+	// Represents the URL to fetch the chain registry assets file
+	chainRegistryAssetsFileURL string
 }
 
 // Struct to represent the JSON structure
@@ -83,10 +89,12 @@ var (
 )
 
 // NewTokensUsecase will create a new tokens use case object
-func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token) mvc.TokensUsecase {
+func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, chainRegistryAssetsFileURL string) mvc.TokensUsecase {
 	us := tokensUseCase{
-		pricingStrategyMap: map[domain.PricingSourceType]domain.PricingSource{},
-		poolDenomMetaData:  sync.Map{},
+		pricingStrategyMap:         map[domain.PricingSourceType]domain.PricingSource{},
+		poolDenomMetaData:          sync.Map{},
+		updateAssetsHeightInterval: updateAssetsHeightInterval,
+		chainRegistryAssetsFileURL: chainRegistryAssetsFileURL,
 	}
 
 	us.LoadTokens(tokenMetadataByChainDenom)
@@ -348,60 +356,24 @@ func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, b
 	return result.(osmomath.Dec), ok
 }
 
-var (
-	jobIsRunning   bool
-	jobIsrunningMu sync.Mutex
-)
-
-// StartAsRoutineIfNotRunning starts the job in a new goroutine if it is not already running.
-func StartAsRoutineIfNotRunning(job func()) bool {
-	jobIsrunningMu.Lock()
-	if jobIsRunning {
-		jobIsrunningMu.Unlock()
-		return false
-	}
-	jobIsRunning = true
-	jobIsrunningMu.Unlock()
-
-	go func() {
-		jobIsrunningMu.Lock()
-		job()
-		jobIsRunning = false
-		jobIsrunningMu.Unlock()
-	}()
-
-	return true
-}
-
-// ExecuteOnTickInterval executes a callback at specified intervals.
-func ExecuteOnTickInterval(tick uint64, interval int, callback func()) {
-	if tick%uint64(interval) == 0 {
-		callback()
+// UpdateAssetsAtHeightInterval updates assets at configured height interval.
+// Internally, it calls LoadTokensFromChainRegistry as a goroutine.
+func (t *tokensUseCase) UpdateAssetsAtHeightInterval(height uint64) {
+	if height%uint64(t.updateAssetsHeightInterval) == 0 {
+		go func() {
+			t.LoadTokensFromChainRegistry() // nolint
+		}()
 	}
 }
-
-// UpdateAssetsAtHeightInterval updates assets at specified height intervals by running fn.
-// Function fn will be launched as separate goroutine.
-func UpdateAssetsAtHeightInterval(height uint64, n int, fn LoadTokensFromChainRegistryFunc, us mvc.TokensUsecase, chainRegistryAssetsFileURL string) {
-	ExecuteOnTickInterval(height, n, func() {
-		StartAsRoutineIfNotRunning(func() {
-			fn(us, chainRegistryAssetsFileURL) // nolint
-		})
-	})
-}
-
-// LoadTokensFromChainRegistryFunc is LoadTokensFromChainRegistry signature.
-type LoadTokensFromChainRegistryFunc func(us mvc.TokensUsecase, chainRegistryAssetsFileURL string) error
 
 // LoadTokensFromChainRegistry loads tokens from the chain registry into TokensUsecase.
-func LoadTokensFromChainRegistry(us mvc.TokensUsecase, chainRegistryAssetsFileURL string) error {
-	tokens, err := GetTokensFromChainRegistry(chainRegistryAssetsFileURL)
+func (t *tokensUseCase) LoadTokensFromChainRegistry() error {
+	tokens, err := GetTokensFromChainRegistry(t.chainRegistryAssetsFileURL)
 	if err != nil {
 		return err
 	}
 
-	// TODO: map move map to sync.Map
-	us.LoadTokens(tokens)
+	t.LoadTokens(tokens)
 
 	return nil
 }

@@ -78,7 +78,7 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, callbackAfterProcessBlockData []func(height uint64), logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
@@ -89,8 +89,6 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 		poolsUseCase:         poolsUseCase,
 
 		denomLiquidityMap: make(domain.DenomPoolLiquidityMap),
-
-		callbackAfterProcessBlockData: callbackAfterProcessBlockData,
 
 		logger: logger,
 
@@ -168,10 +166,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	p.logger.Info("completed block processing", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
-	// after processing the block run configured callbacks
-	for _, callback := range p.callbackAfterProcessBlockData {
-		callback(height)
-	}
+	p.tokensUsecase.UpdateAssetsAtHeightInterval(height)
 
 	// Observe the processing duration with height
 	domain.SQSIngestHandlerProcessBlockDurationGauge.Set(float64(time.Since(startProcessingTime).Milliseconds()))
