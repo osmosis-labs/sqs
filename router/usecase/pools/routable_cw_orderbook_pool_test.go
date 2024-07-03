@@ -36,17 +36,25 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 
 	poolType := cosmwasmPool.GetType()
 
+	bidAmountToExhaustAskLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.BID, nextAskTickIndex, ticks)
+	s.Require().NoError(err)
+
+	askAmountToExhaustBidLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.ASK, nextBidTickIndex, ticks)
+	s.Require().NoError(err)
+
 	mock := &mocks.MockRoutablePool{
 		ChainPoolModel: cosmwasmPool.AsSerializablePool(),
 		CosmWasmPoolModel: cosmwasmpool.NewCWPoolModel(
 			cosmwasmpool.ORDERBOOK_CONTRACT_NAME, cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
 			cosmwasmpool.CosmWasmPoolData{
 				Orderbook: &cosmwasmpool.OrderbookData{
-					QuoteDenom:       QUOTE_DENOM,
-					BaseDenom:        BASE_DENOM,
-					NextBidTickIndex: nextBidTickIndex,
-					NextAskTickIndex: nextAskTickIndex,
-					Ticks:            ticks,
+					QuoteDenom:                     QUOTE_DENOM,
+					BaseDenom:                      BASE_DENOM,
+					NextBidTickIndex:               nextBidTickIndex,
+					NextAskTickIndex:               nextAskTickIndex,
+					BidAmountToExhaustAskLiquidity: bidAmountToExhaustAskLiquidity,
+					AskAmountToExhaustBidLiquidity: askAmountToExhaustBidLiquidity,
+					Ticks:                          ticks,
 				},
 			},
 		),
@@ -213,10 +221,8 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			nextBidTickIndex: -1, // no next bid tick
 			nextAskTickIndex: -1, // no next ask tick
 			ticks:            []cosmwasmpool.OrderbookTick{},
-			expectError: domain.OrderbookPoolMismatchError{
-				PoolId:        defaultPoolID,
-				TokenInDenom:  BASE_DENOM,
-				TokenOutDenom: BASE_DENOM,
+			expectError: cosmwasmpool.DuplicatedDenomError{
+				Denom: BASE_DENOM,
 			},
 		},
 		"invalid: incorrect token in denom": {
@@ -225,10 +231,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			nextBidTickIndex: -1, // no next bid tick
 			nextAskTickIndex: -1, // no next ask tick
 			ticks:            []cosmwasmpool.OrderbookTick{},
-			expectError: domain.OrderbookPoolMismatchError{
-				PoolId:        defaultPoolID,
-				TokenInDenom:  INVALID_DENOM,
-				TokenOutDenom: BASE_DENOM,
+			expectError: cosmwasmpool.OrderbookUnsupportedDenomError{
+				Denom:      INVALID_DENOM,
+				BaseDenom:  BASE_DENOM,
+				QuoteDenom: QUOTE_DENOM,
 			},
 		},
 		"invalid: incorrect token out denom": {
@@ -237,10 +243,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			nextBidTickIndex: -1, // no next bid tick
 			nextAskTickIndex: -1, // no next ask tick
 			ticks:            []cosmwasmpool.OrderbookTick{},
-			expectError: domain.OrderbookPoolMismatchError{
-				PoolId:        defaultPoolID,
-				TokenInDenom:  BASE_DENOM,
-				TokenOutDenom: INVALID_DENOM,
+			expectError: cosmwasmpool.OrderbookUnsupportedDenomError{
+				Denom:      INVALID_DENOM,
+				BaseDenom:  BASE_DENOM,
+				QuoteDenom: QUOTE_DENOM,
 			},
 		},
 	}
@@ -416,10 +422,8 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			nextBidTickIndex:  -1, // no next bid tick
 			nextAskTickIndex:  -1, // no next ask tick
 			ticks:             []cosmwasmpool.OrderbookTick{},
-			expectError: domain.OrderbookPoolMismatchError{
-				PoolId:        defaultPoolID,
-				TokenInDenom:  BASE_DENOM,
-				TokenOutDenom: BASE_DENOM,
+			expectError: cosmwasmpool.DuplicatedDenomError{
+				Denom: BASE_DENOM,
 			},
 		},
 		"invalid: incorrect base denom": {
@@ -429,10 +433,10 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			nextBidTickIndex:  -1, // no next bid tick
 			nextAskTickIndex:  -1, // no next ask tick
 			ticks:             []cosmwasmpool.OrderbookTick{},
-			expectError: domain.OrderbookPoolMismatchError{
-				PoolId:        defaultPoolID,
-				TokenInDenom:  QUOTE_DENOM,
-				TokenOutDenom: INVALID_DENOM,
+			expectError: cosmwasmpool.OrderbookUnsupportedDenomError{
+				Denom:      INVALID_DENOM,
+				BaseDenom:  BASE_DENOM,
+				QuoteDenom: QUOTE_DENOM,
 			},
 		},
 		"invalid: incorrect quote denom": {
@@ -442,10 +446,10 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			nextBidTickIndex:  -1, // no next bid tick
 			nextAskTickIndex:  -1, // no next ask tick
 			ticks:             []cosmwasmpool.OrderbookTick{},
-			expectError: domain.OrderbookPoolMismatchError{
-				PoolId:        defaultPoolID,
-				TokenInDenom:  INVALID_DENOM,
-				TokenOutDenom: BASE_DENOM,
+			expectError: cosmwasmpool.OrderbookUnsupportedDenomError{
+				Denom:      INVALID_DENOM,
+				BaseDenom:  BASE_DENOM,
+				QuoteDenom: QUOTE_DENOM,
 			},
 		},
 	}
@@ -462,7 +466,6 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 				return
 			}
 			s.Require().NoError(err)
-
 			s.Require().Equal(tc.expectedSpotPrice, spotPrice)
 		})
 	}
@@ -470,25 +473,25 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 
 func (s *RoutablePoolTestSuite) TestGetDirection() {
 	tests := map[string]struct {
-		tokenInDenom  string
-		tokenOutDenom string
-		expected      domain.OrderbookDirection
-		expectError   error
+		tokenInDenom      string
+		tokenOutDenom     string
+		expectedDirection cosmwasmpool.OrderbookDirection
+		expectError       error
 	}{
 		"BID direction": {
-			tokenInDenom:  QUOTE_DENOM,
-			tokenOutDenom: BASE_DENOM,
-			expected:      domain.BID,
+			tokenInDenom:      QUOTE_DENOM,
+			tokenOutDenom:     BASE_DENOM,
+			expectedDirection: cosmwasmpool.BID,
 		},
 		"ASK direction": {
-			tokenInDenom:  BASE_DENOM,
-			tokenOutDenom: QUOTE_DENOM,
-			expected:      domain.ASK,
+			tokenInDenom:      BASE_DENOM,
+			tokenOutDenom:     QUOTE_DENOM,
+			expectedDirection: cosmwasmpool.ASK,
 		},
 		"invalid direction": {
 			tokenInDenom:  "invalid",
 			tokenOutDenom: BASE_DENOM,
-			expectError:   domain.OrderbookPoolMismatchError{PoolId: defaultPoolID, TokenInDenom: "invalid", TokenOutDenom: BASE_DENOM},
+			expectError:   cosmwasmpool.OrderbookUnsupportedDenomError{Denom: "invalid", BaseDenom: BASE_DENOM, QuoteDenom: QUOTE_DENOM},
 		},
 	}
 
@@ -503,7 +506,7 @@ func (s *RoutablePoolTestSuite) TestGetDirection() {
 				s.FailNow("failed to cast to RouteableOrderbookPoolImpl")
 			}
 
-			direction, err := routableOrderbookPool.GetDirection(tc.tokenInDenom, tc.tokenOutDenom)
+			direction, err := routableOrderbookPool.OrderbookData.GetDirection(tc.tokenInDenom, tc.tokenOutDenom)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
@@ -511,7 +514,7 @@ func (s *RoutablePoolTestSuite) TestGetDirection() {
 				return
 			}
 			s.Require().NoError(err)
-			s.Require().Equal(tc.expected, *direction)
+			s.Require().Equal(tc.expectedDirection, *direction)
 		})
 	}
 }
