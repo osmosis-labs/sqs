@@ -544,6 +544,43 @@ func (s *TokensUseCaseTestSuite) TestGetMinPoolLiquidityCap() {
 	}
 }
 
+// Test to validate valid chain denom works as expected.
+func (s *TokensUseCaseTestSuite) TestIsValidChainDenom() {
+	testcases := []struct {
+		name           string
+		chainDenom     string
+		tokens         map[string]domain.Token
+		expectedResult bool
+	}{
+		{
+			name:           "Valid chain denom",
+			chainDenom:     "validDenom",
+			tokens:         map[string]domain.Token{"validDenom": {IsUnlisted: false}},
+			expectedResult: true,
+		},
+		{
+			name:           "Invalid chain denom - not found",
+			chainDenom:     "invalidDenom",
+			tokens:         map[string]domain.Token{"validDenom": {IsUnlisted: false}},
+			expectedResult: false,
+		},
+		{
+			name:           "Invalid chain denom - unlisted",
+			chainDenom:     "unlistedDenom",
+			tokens:         map[string]domain.Token{"unlistedDenom": {IsUnlisted: true}},
+			expectedResult: false,
+		},
+	}
+
+	for _, tt := range testcases {
+		s.Run(tt.name, func() {
+			usecase := tokensusecase.NewTokensUsecase(tt.tokens, 0, nil, nil)
+			result := usecase.IsValidChainDenom(tt.chainDenom)
+			s.Require().Equal(tt.expectedResult, result)
+		})
+	}
+}
+
 // mocktokenLoader is a mock implementation of the tokensusecase.TokenLoader interface.
 type mockTokenLoader struct {
 	callback func()
