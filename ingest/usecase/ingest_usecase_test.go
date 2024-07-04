@@ -370,7 +370,7 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 	}
 }
 
-func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightInterval() {
+func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalAsync() {
 	logger, err := log.NewLogger(false, "", "")
 	s.Require().NoError(err)
 
@@ -385,7 +385,7 @@ func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightInterval() {
 		&mocks.RouterUsecaseMock{},
 		&mocks.RouterUsecaseMock{},
 		&mocks.TokensUsecaseMock{
-			UpdateAssetsAtHeightIntervalFunc: func(height uint64) {
+			UpdateAssetsAtHeightIntervalAsyncFunc: func(height uint64) {
 				got++
 			},
 		},

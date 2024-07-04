@@ -404,9 +404,9 @@ func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, b
 	return v, true
 }
 
-// UpdateAssetsAtHeightInterval updates assets at configured height interval.
+// UpdateAssetsAtHeightIntervalAsync updates assets at configured height interval.
 // Internally, it calls LoadTokensFromChainRegistry as a goroutine.
-func (t *tokensUseCase) UpdateAssetsAtHeightInterval(height uint64) {
+func (t *tokensUseCase) UpdateAssetsAtHeightIntervalAsync(height uint64) {
 	if height%uint64(t.updateAssetsHeightInterval) == 0 {
 		go func() {
 			if err := t.LoadTokensFromChainRegistry(); err != nil {
