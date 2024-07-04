@@ -375,7 +375,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	routerUsecase.SetSortedPools(sortedPools)
 
-	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, "", logger)
+	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, nil, logger)
 
 	// Set up on-chain pricing strategy
 	pricingSource, err := pricing.NewPricingStrategy(options.PricingConfig, tokensUsecase, routerUsecase)

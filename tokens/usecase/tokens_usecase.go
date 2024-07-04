@@ -1,12 +1,8 @@
 package usecase
 
 import (
-	"bytes"
 	"context"
-	"crypto/md5"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -15,7 +11,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain/json"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -49,11 +45,8 @@ type tokensUseCase struct {
 	// Represents the interval at which to update the assets from the chain registry
 	updateAssetsHeightInterval int
 
-	// Represents the URL to fetch the chain registry assets file
-	chainRegistryAssetsFileURL string
-
-	// Represents the hash of the last loaded tokens from the chain registry
-	lastLoadTokensFromChainRegistryHash string
+	// TokenRegistryLoader fetches tokens from the chain registry into the tokens use case
+	tokenLoader TokenRegistryLoader
 
 	// Logger instance
 	logger log.Logger
@@ -100,12 +93,12 @@ var (
 )
 
 // NewTokensUsecase will create a new tokens use case object
-func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, chainRegistryAssetsFileURL string, logger log.Logger) mvc.TokensUsecase {
+func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, tokenRegistryLoader TokenRegistryLoader, logger log.Logger) mvc.TokensUsecase {
 	us := tokensUseCase{
 		pricingStrategyMap:         map[domain.PricingSourceType]domain.PricingSource{},
 		poolDenomMetaData:          sync.Map{},
 		updateAssetsHeightInterval: updateAssetsHeightInterval,
-		chainRegistryAssetsFileURL: chainRegistryAssetsFileURL,
+		tokenLoader:                tokenRegistryLoader,
 		logger:                     logger,
 	}
 
@@ -113,6 +106,9 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateA
 
 	return &us
 }
+
+// LoadTokensFunc is a function signature for LoadTokens.
+type LoadTokensFunc func(tokenMetadataByChainDenom map[string]domain.Token)
 
 // LoadTokens implements mvc.TokensUsecase.
 func (t *tokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.Token) {
@@ -409,65 +405,11 @@ func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, b
 func (t *tokensUseCase) UpdateAssetsAtHeightIntervalAsync(height uint64) {
 	if height%uint64(t.updateAssetsHeightInterval) == 0 {
 		go func() {
-			if err := t.LoadTokensFromChainRegistry(); err != nil {
+			if err := t.tokenLoader.FetchAndUpdateTokens(t.LoadTokens); err != nil {
 				t.logger.Error("error loading tokens from chain registry", zap.Error(err))
 			}
 		}()
 	}
-}
-
-// LoadTokensFromChainRegistry loads tokens from the chain registry into TokensUsecase.
-// Tokens are loaded only if the contents of the chain registry file have changed.
-func (t *tokensUseCase) LoadTokensFromChainRegistry() error {
-	tokens, hash, err := GetTokensFromChainRegistry(t.chainRegistryAssetsFileURL)
-	if err != nil {
-		return err
-	}
-
-	if t.lastLoadTokensFromChainRegistryHash != hash {
-		t.LoadTokens(tokens)
-	}
-
-	return nil
-}
-
-// GetTokensFromChainRegistry fetches the tokens from the chain registry.
-// It returns a map of tokens by chain denom.
-func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]domain.Token, string, error) {
-	// Fetch the JSON data from the URL
-	response, err := http.Get(chainRegistryAssetsFileURL)
-	if err != nil {
-		return nil, "", err
-	}
-	defer response.Body.Close()
-
-	// Decode the JSON data
-	var assetList AssetList
-	err = json.NewDecoder(response.Body).Decode(&assetList)
-	if err != nil {
-		return nil, "", err
-	}
-
-	data, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, "", err
-	}
-	response.Body.Close() //  close old response body
-	response.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	tokensByChainDenom := make(map[string]domain.Token)
-
-	// Iterate through each asset and its denom units to print exponents
-	for _, asset := range assetList.Assets {
-		token := domain.Token{}
-		token.Precision = asset.Decimals
-		token.HumanDenom = asset.Symbol
-		token.IsUnlisted = asset.Preview
-		token.CoingeckoID = asset.CoingeckoID
-		tokensByChainDenom[asset.CoinMinimalDenom] = token
-	}
-
-	return tokensByChainDenom, fmt.Sprintf("%x", md5.Sum(data)), nil
 }
 
 // GetSpotPriceScalingFactorByDenomMut implements mvc.TokensUsecase.

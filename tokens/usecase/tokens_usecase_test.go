@@ -3,7 +3,9 @@ package usecase_test
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 )
@@ -539,4 +542,61 @@ func (s *TokensUseCaseTestSuite) TestGetMinPoolLiquidityCap() {
 			s.Require().Equal(tt.expectedMinPoolLiquidityCap, actualMinPoolLiquidityCap)
 		})
 	}
+}
+
+// mocktokenLoader is a mock implementation of the tokensusecase.TokenLoader interface.
+type mockTokenLoader struct {
+	callback func()
+}
+
+// FetchAndUpdateTokens implements the tokensusecase.TokenLoader interface.
+func (m *mockTokenLoader) FetchAndUpdateTokens(loadTokens tokensusecase.LoadTokensFunc) error {
+	m.callback()
+	return nil
+}
+
+// TestUpdateAssetsAtHeightIntervalAsync tests the async update of assets at height interval.
+func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalAsync() {
+	logger, err := log.NewLogger(false, "", "")
+	s.Require().NoError(err)
+
+	updateAssetsHeightInterval, gen, iterations := rand.Intn(100), rand.Intn(8932122), rand.Intn(1000)
+
+	var got int
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// count how many multiples of every exist
+	// within the range from gen to gen + iterations.
+	want := 0
+	for height := gen; height < gen+iterations+1; height++ {
+		if height%updateAssetsHeightInterval == 0 {
+			want++
+		}
+	}
+
+	wg.Add(want)
+
+	callback := func() {
+		defer wg.Done()
+
+		mu.Lock()
+		got++
+		mu.Unlock()
+	}
+
+	mock := &mockTokenLoader{
+		callback: callback,
+	}
+
+	tokensUsecase := tokensusecase.NewTokensUsecase(nil, updateAssetsHeightInterval, mock, logger)
+
+	for i := gen; i < gen+iterations+1; i++ {
+		tokensUsecase.UpdateAssetsAtHeightIntervalAsync(uint64(i))
+	}
+
+	// wait until all go routines are finished their execution
+	wg.Wait()
+
+	s.Require().Equalf(want, got, "want %v, got %v", want, got)
 }
