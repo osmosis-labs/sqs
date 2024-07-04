@@ -408,7 +408,7 @@ func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalAsync() {
 	}
 
 	if want != got {
-		s.T().Fatalf("got %v, want %v", want, got)
+		s.Require().Equal(want, got)
 	}
 }
 
