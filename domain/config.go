@@ -13,7 +13,7 @@ type Config struct {
 	LoggerLevel        string `mapstructure:"logger-level"`
 
 	ChainTendermingRPCEndpoint string `mapstructure:"grpc-tendermint-rpc-endpoint"`
-	ChainGRPCEndpoint          string `mapstructure:"grpc-gateway-endpoint"`
+	ChainGRPCGatewayEndpoint   string `mapstructure:"grpc-gateway-endpoint"`
 	ChainID                    string `mapstructure:"chain-id"`
 
 	// Chain registry assets URL.
