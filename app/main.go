@@ -8,17 +8,17 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"github.com/getsentry/sentry-go"
-	sentryotel "github.com/getsentry/sentry-go/otel"
 	"github.com/osmosis-labs/sqs/chaininfo/client"
 	"github.com/osmosis-labs/sqs/domain"
 	sqslog "github.com/osmosis-labs/sqs/log"
 	"github.com/spf13/viper"
 	_ "github.com/swaggo/echo-swagger"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.uber.org/zap"
+
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
@@ -74,61 +74,35 @@ func main() {
 		}
 	}()
 
-	if config.OTEL.DSN != "" {
-		otelConfig := config.OTEL
+	// Use context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
 
-		var (
-			// sentryEndpointWhitelist is a map of endpoints and their respective sampling rates
-			sentryEndpointWhitelist = map[string]float64{
-				"/router/quote":        otelConfig.CustomSampleRate.Quote,
-				"/custom-direct-quote": otelConfig.CustomSampleRate.Other,
-				"/tokens/prices":       otelConfig.CustomSampleRate.Other,
-				"/pools":               otelConfig.CustomSampleRate.Other,
-			}
-
-			// custom sampler that samples only the whitelisted endpoints per their configured rates.
-			traceSampler sentry.TracesSampler = func(ctx sentry.SamplingContext) float64 {
-				if ctx.Span == nil {
-					return 0
-				}
-
-				spanName := ctx.Span.Name
-
-				if samplerRate, ok := sentryEndpointWhitelist[spanName]; ok {
-					return samplerRate
-				}
-
-				return 0
-			}
+	if config.OTEL.Enabled {
+		// resource.WithContainer() adds container.id which the agent will leverage to fetch container tags via the tagger.
+		res, err := resource.New(ctx, resource.WithContainer(),
+			resource.WithAttributes(semconv.ServiceNameKey.String(*hostName)),
+			resource.WithFromEnv(),
 		)
-
-		err = sentry.Init(sentry.ClientOptions{
-			ServerName:         *hostName,
-			Dsn:                otelConfig.DSN,
-			SampleRate:         otelConfig.SampleRate,
-			EnableTracing:      otelConfig.EnableTracing,
-			Debug:              *isDebug,
-			TracesSampler:      traceSampler,
-			ProfilesSampleRate: otelConfig.ProfilesSampleRate,
-			Environment:        otelConfig.Environment,
-		})
 		if err != nil {
-			log.Fatalf("sentry.Init: %s", err)
+			panic(err)
 		}
-		defer sentry.Flush(2 * time.Second)
 
-		sentry.CaptureMessage("SQS started")
+		tp, err := initOTELTracer(ctx, res)
+		if err != nil {
+			panic(err)
+		}
 
-		initOTELTracer(*hostName)
+		defer func() {
+			if err := tp.Shutdown(ctx); err != nil {
+				log.Fatal("Error shutting down tracer provider: ", zap.Error(err))
+			}
+		}()
 	}
 
-	chainClient, err := client.NewClient(config.ChainID, config.ChainGRPCGatewayEndpoint)
+	chainClient, err := client.NewClient(config.ChainID, config.ChainTendermingRPCEndpoint)
 	if err != nil {
 		panic(err)
 	}
-
-	// Use context for graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
 
 	// If fails, it means that the node is not reachable
 	if _, err := chainClient.GetLatestHeight(ctx); err != nil {
@@ -168,26 +142,18 @@ func main() {
 
 // initOTELTracer initializes the OTEL tracer
 // and wires it up with the Sentry exporter.
-func initOTELTracer(hostName string) {
-	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+func initOTELTracer(ctx context.Context, res *resource.Resource) (*sdktrace.TracerProvider, error) {
+	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("stdouttrace.New: %v", err)
-	}
-
-	resource, err := resource.New(context.Background(),
-		resource.WithAttributes(
-			semconv.ServiceNameKey.String(hostName),
-		),
-	)
-	if err != nil {
-		log.Fatalf("resource.New: %v", err)
+		log.Fatal("can't initialize grpc trace exporter", zap.Error(err))
+		return nil, err
 	}
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(resource),
-		sdktrace.WithSpanProcessor(sentryotel.NewSentrySpanProcessor()),
+		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(sentryotel.NewSentryPropagator())
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	return tp, nil
 }

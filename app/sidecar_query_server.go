@@ -99,7 +99,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	tokensUseCase := tokensUseCase.NewTokensUsecase(tokenMetadataByChainDenom)
 
 	// Initialize pools repository, usecase and HTTP handler
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
+	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
 
 	// Initialize router repository, usecase
 	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())

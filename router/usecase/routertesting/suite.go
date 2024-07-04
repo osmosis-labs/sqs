@@ -103,9 +103,9 @@ var (
 	}
 	EmptyRoute                   = route.RouteImpl{}
 	EmpyCosmWasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{
-		TransmuterCodeIDs:      map[uint64]struct{}{},
-		GeneralCosmWasmCodeIDs: map[uint64]struct{}{},
-		NodeURI:                "",
+		TransmuterCodeIDs:        map[uint64]struct{}{},
+		GeneralCosmWasmCodeIDs:   map[uint64]struct{}{},
+		ChainGRPCGatewayEndpoint: "",
 	}
 
 	// Test denoms

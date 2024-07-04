@@ -55,7 +55,7 @@ const (
 func NewSystemHandler(e *echo.Echo, config domain.Config, logger log.Logger, us mvc.ChainInfoUsecase) {
 	handler := &SystemHandler{
 		logger:      logger,
-		grpcAddress: config.ChainGRPCGatewayEndpoint,
+		grpcAddress: config.ChainTendermingRPCEndpoint,
 		CIUsecase:   us,
 		config:      config,
 	}

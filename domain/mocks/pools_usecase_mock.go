@@ -27,9 +27,9 @@ func (pm *PoolsUsecaseMock) StorePools(pools []sqsdomain.PoolI) error {
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
 func (pm *PoolsUsecaseMock) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return domain.CosmWasmPoolRouterConfig{
-		TransmuterCodeIDs:      map[uint64]struct{}{},
-		GeneralCosmWasmCodeIDs: map[uint64]struct{}{},
-		NodeURI:                "",
+		TransmuterCodeIDs:        map[uint64]struct{}{},
+		GeneralCosmWasmCodeIDs:   map[uint64]struct{}{},
+		ChainGRPCGatewayEndpoint: "",
 	}
 }
 

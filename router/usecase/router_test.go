@@ -212,8 +212,8 @@ func (s *RouterTestSuite) TestRouterSorting() {
 		TransmuterCodeIDs: map[uint64]struct{}{
 			1: {},
 		},
-		GeneralCosmWasmCodeIDs: map[uint64]struct{}{},
-		NodeURI:                "",
+		GeneralCosmWasmCodeIDs:   map[uint64]struct{}{},
+		ChainGRPCGatewayEndpoint: "",
 	}
 
 	totalTVL := osmomath.ZeroInt()
