@@ -4,7 +4,8 @@
     "logger-filename": "sqs.log",
     "logger-is-production": true,
     "logger-level": "info",
-    "grpc-gateway-endpoint": "http://localhost:26657",
+    "grpc-tendermint-rpc-endpoint": "http://localhost:26657",
+    "grpc-gateway-endpoint": "http://localhost:9090",
     "chain-id": "osmosis-1",
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
     "router": {
@@ -77,15 +78,8 @@
         "server-connection-timeout-seconds": 10
     },
     "otel": {
-        "dsn": "",
-        "sample-rate": 0,
-        "enable-tracing": false,
-        "profiles-sample-rate": 0,
-        "environment": "sqs-dev",
-        "custom-sample-rate": {
-            "/router/quote": 0,
-            "other": 0
-        }
+        "enabled": true,
+        "environment": "sqs-dev"
     },
     "cors": {
         "allowed-origin": "*",

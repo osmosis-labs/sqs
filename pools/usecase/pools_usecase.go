@@ -29,7 +29,7 @@ type poolsUseCase struct {
 var _ mvc.PoolsUsecase = &poolsUseCase{}
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb) mvc.PoolsUsecase {
+func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb) mvc.PoolsUsecase {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
 	for _, codeId := range poolsConfig.TransmuterCodeIDs {
 		transmuterCodeIDsMap[codeId] = struct{}{}
@@ -56,7 +56,7 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, nodeURI string, routerRepo
 			AlloyedTransmuterCodeIDs: alloyedTransmuterCodeIDsMap,
 			OrderbookCodeIDs:         orderbookCodeIDsMap,
 			GeneralCosmWasmCodeIDs:   generalizedCosmWasmCodeIDsMap,
-			NodeURI:                  nodeURI,
+			ChainGRPCGatewayEndpoint: chainGRPCGatewayEndpoint,
 		},
 
 		pools:                 sync.Map{},

@@ -12,8 +12,9 @@ type Config struct {
 	LoggerIsProduction bool   `mapstructure:"logger-is-production"`
 	LoggerLevel        string `mapstructure:"logger-level"`
 
-	ChainGRPCGatewayEndpoint string `mapstructure:"grpc-gateway-endpoint"`
-	ChainID                  string `mapstructure:"chain-id"`
+	ChainTendermingRPCEndpoint string `mapstructure:"grpc-tendermint-rpc-endpoint"`
+	ChainGRPCGatewayEndpoint   string `mapstructure:"grpc-gateway-endpoint"`
+	ChainID                    string `mapstructure:"chain-id"`
 
 	// Chain registry assets URL.
 	ChainRegistryAssetsFileURL string `mapstructure:"chain-registry-assets-url"`
@@ -45,19 +46,8 @@ type EndpointOTELConfig struct {
 
 // OTELConfig represents OpenTelemetry configuration.
 type OTELConfig struct {
-	// The DSN to use.
-	DSN string `mapstructure:"dsn"`
-	// The sample rate for event submission in the range [0.0, 1.0].
-	// By default, all events are sent.
-	SampleRate float64 `mapstructure:"sample-rate"`
-	// Enable performance tracing.
-	EnableTracing bool `mapstructure:"enable-tracing"`
-	// The sample rate for profiling traces in the range [0.0, 1.0].
-	// This is relative to TracesSampleRate - it is a ratio of profiled traces out of all sampled traces.
-	ProfilesSampleRate float64 `mapstructure:"profiles-sample-rate"`
-	// The environment to be sent with events.
-	Environment      string             `mapstructure:"environment"`
-	CustomSampleRate EndpointOTELConfig `mapstructure:"custom-sample-rate"`
+	Enabled     bool   `mapstructure:"enabled"`
+	Environment string `mapstructure:"environment"`
 }
 
 // CORSConfig represents HTTP CORS headers configuration.

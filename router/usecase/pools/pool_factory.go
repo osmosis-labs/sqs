@@ -120,7 +120,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 
 	_, isGeneralizedCosmWasmPool := cosmWasmConfig.GeneralCosmWasmCodeIDs[cosmwasmPool.CodeId]
 	if isGeneralizedCosmWasmPool {
-		wasmClient, err := initializeWasmClient(cosmWasmConfig.NodeURI)
+		wasmClient, err := initializeWasmClient(cosmWasmConfig.ChainGRPCGatewayEndpoint)
 		if err != nil {
 			return nil, err
 		}

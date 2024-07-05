@@ -18,8 +18,8 @@ type CosmWasmPoolRouterConfig struct {
 	// code IDs for the generalized cosmwasm pool type
 	GeneralCosmWasmCodeIDs map[uint64]struct{}
 
-	// node URI
-	NodeURI string
+	// ChainGRPCGatewayEndpoint is the endpoint for the chain's gRPC gateway
+	ChainGRPCGatewayEndpoint string
 }
 
 // ScalingFactorGetterCb is a callback that is used to get the scaling factor for a given denom.
