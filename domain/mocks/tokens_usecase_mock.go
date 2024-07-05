@@ -10,24 +10,24 @@ import (
 
 // TokensUsecaseMock is a mock implementation of the TokensUsecase interface
 type TokensUsecaseMock struct {
-	UpdatePoolDenomMetadataFunc           func(tokensMetadata domain.PoolDenomMetaDataMap)
-	LoadTokensFunc                        func(tokenMetadataByChainDenom map[string]domain.Token)
-	GetMetadataByChainDenomFunc           func(denom string) (domain.Token, error)
-	GetFullTokenMetadataFunc              func() (map[string]domain.Token, error)
-	GetChainDenomFunc                     func(humanDenom string) (string, error)
-	GetChainScalingFactorByDenomMutFunc   func(denom string) (osmomath.Dec, error)
-	GetSpotPriceScalingFactorByDenomFunc  func(baseDenom, quoteDenom string) (osmomath.Dec, error)
-	GetPricesFunc                         func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
-	GetMinPoolLiquidityCapFunc            func(denomA, denomB string) (uint64, error)
-	GetPoolDenomMetadataFunc              func(chainDenom string) (domain.PoolDenomMetaData, error)
-	GetPoolLiquidityCapFunc               func(chainDenom string) (osmomath.Int, error)
-	GetPoolDenomsMetadataFunc             func(chainDenoms []string) domain.PoolDenomMetaDataMap
-	GetFullPoolDenomMetadataFunc          func() domain.PoolDenomMetaDataMap
-	RegisterPricingStrategyFunc           func(source domain.PricingSourceType, strategy domain.PricingSource)
-	IsValidChainDenomFunc                 func(chainDenom string) bool
-	IsValidPricingSourceFunc              func(pricingSource int) bool
-	GetCoingeckoIdByChainDenomFunc        func(chainDenom string) (string, error)
-	UpdateAssetsAtHeightIntervalAsyncFunc func(height uint64)
+	UpdatePoolDenomMetadataFunc          func(tokensMetadata domain.PoolDenomMetaDataMap)
+	LoadTokensFunc                       func(tokenMetadataByChainDenom map[string]domain.Token)
+	GetMetadataByChainDenomFunc          func(denom string) (domain.Token, error)
+	GetFullTokenMetadataFunc             func() (map[string]domain.Token, error)
+	GetChainDenomFunc                    func(humanDenom string) (string, error)
+	GetChainScalingFactorByDenomMutFunc  func(denom string) (osmomath.Dec, error)
+	GetSpotPriceScalingFactorByDenomFunc func(baseDenom, quoteDenom string) (osmomath.Dec, error)
+	GetPricesFunc                        func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
+	GetMinPoolLiquidityCapFunc           func(denomA, denomB string) (uint64, error)
+	GetPoolDenomMetadataFunc             func(chainDenom string) (domain.PoolDenomMetaData, error)
+	GetPoolLiquidityCapFunc              func(chainDenom string) (osmomath.Int, error)
+	GetPoolDenomsMetadataFunc            func(chainDenoms []string) domain.PoolDenomMetaDataMap
+	GetFullPoolDenomMetadataFunc         func() domain.PoolDenomMetaDataMap
+	RegisterPricingStrategyFunc          func(source domain.PricingSourceType, strategy domain.PricingSource)
+	IsValidChainDenomFunc                func(chainDenom string) bool
+	IsValidPricingSourceFunc             func(pricingSource int) bool
+	GetCoingeckoIdByChainDenomFunc       func(chainDenom string) (string, error)
+	UpdateAssetsAtHeightIntervalSyncFunc func(height uint64) error
 }
 
 func (m *TokensUsecaseMock) UpdatePoolDenomMetadata(tokensMetadata domain.PoolDenomMetaDataMap) {
@@ -146,8 +146,9 @@ func (m *TokensUsecaseMock) GetCoingeckoIdByChainDenom(chainDenom string) (strin
 	return "", nil
 }
 
-func (m *TokensUsecaseMock) UpdateAssetsAtHeightIntervalAsync(height uint64) {
-	if m.UpdateAssetsAtHeightIntervalAsyncFunc != nil {
-		m.UpdateAssetsAtHeightIntervalAsyncFunc(height)
+func (m *TokensUsecaseMock) UpdateAssetsAtHeightIntervalSync(height uint64) error {
+	if m.UpdateAssetsAtHeightIntervalSyncFunc != nil {
+		return m.UpdateAssetsAtHeightIntervalSyncFunc(height)
 	}
+	return nil
 }

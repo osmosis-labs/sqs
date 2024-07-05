@@ -84,8 +84,8 @@ type TokensUsecase interface {
 	// GetCoingeckoIdByChainDenom gets the Coingecko ID by chain denom
 	GetCoingeckoIdByChainDenom(chainDenom string) (string, error)
 
-	// UpdateAssetsAtHeightIntervalAsync updates assets at configured height interval.
-	UpdateAssetsAtHeightIntervalAsync(height uint64)
+	// UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
+	UpdateAssetsAtHeightIntervalSync(height uint64) error
 }
 
 // ValidateChainDenomQueryParam validates the chain denom query parameter.

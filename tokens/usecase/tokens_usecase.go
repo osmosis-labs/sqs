@@ -13,7 +13,6 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
 )
 
 const (
@@ -400,16 +399,14 @@ func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, b
 	return v, true
 }
 
-// UpdateAssetsAtHeightIntervalAsync updates assets at configured height interval.
-// Internally, it calls LoadTokensFromChainRegistry as a goroutine.
-func (t *tokensUseCase) UpdateAssetsAtHeightIntervalAsync(height uint64) {
+// UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
+func (t *tokensUseCase) UpdateAssetsAtHeightIntervalSync(height uint64) error {
 	if height%uint64(t.updateAssetsHeightInterval) == 0 {
-		go func() {
-			if err := t.tokenLoader.FetchAndUpdateTokens(t.LoadTokens); err != nil {
-				t.logger.Error("error loading tokens from chain registry", zap.Error(err))
-			}
-		}()
+		if err := t.tokenLoader.FetchAndUpdateTokens(t.LoadTokens); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // GetSpotPriceScalingFactorByDenomMut implements mvc.TokensUsecase.

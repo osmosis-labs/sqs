@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
@@ -72,6 +73,16 @@ const (
 
 var (
 	_ mvc.IngestUsecase = &ingestUseCase{}
+)
+
+var (
+	updateAssetsAtHeightIntervalErrorResultCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_update_assets_at_block_height_interval_error_total",
+			Help: "Update assets at block height interval error when processing block data",
+		},
+		[]string{"height", "error"},
+	)
 )
 
 // NewIngestUsecase will create a new pools use case object
@@ -163,7 +174,12 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	p.logger.Info("completed block processing", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
-	p.tokensUsecase.UpdateAssetsAtHeightIntervalAsync(height)
+	// We update the assets at the height interval asynchronously to avoid blocking the processing of the next block.
+	go func() {
+		if err := p.tokensUsecase.UpdateAssetsAtHeightIntervalSync(height); err != nil {
+			updateAssetsAtHeightIntervalErrorResultCounter.WithLabelValues(fmt.Sprint(height), err.Error()).Inc()
+		}
+	}()
 
 	// Observe the processing duration with height
 	domain.SQSIngestHandlerProcessBlockDurationGauge.Set(float64(time.Since(startProcessingTime).Milliseconds()))

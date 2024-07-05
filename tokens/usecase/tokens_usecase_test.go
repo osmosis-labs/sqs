@@ -3,9 +3,7 @@ package usecase_test
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -68,6 +66,8 @@ var (
 		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
 		CoingeckoQuoteCurrency: "usd",
 	}
+
+	noOpLogger = &log.NoOpLogger{}
 )
 
 func TestTokensUseCaseTestSuite(t *testing.T) {
@@ -581,59 +581,78 @@ func (s *TokensUseCaseTestSuite) TestIsValidChainDenom() {
 	}
 }
 
-// mocktokenLoader is a mock implementation of the tokensusecase.TokenLoader interface.
-type mockTokenLoader struct {
-	callback func()
+// MockTokenLoader is a mock implementation of TokenLoader.
+type MockTokenLoader struct {
+	callCount int
+	err       error
 }
 
-// FetchAndUpdateTokens implements the tokensusecase.TokenLoader interface.
-func (m *mockTokenLoader) FetchAndUpdateTokens(loadTokens tokensusecase.LoadTokensFunc) error {
-	m.callback()
-	return nil
+func (m *MockTokenLoader) FetchAndUpdateTokens(loadTokens tokensusecase.LoadTokensFunc) error {
+	m.callCount++
+	return m.err
 }
 
-// TestUpdateAssetsAtHeightIntervalAsync tests the async update of assets at height interval.
-func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalAsync() {
-	logger, err := log.NewLogger(false, "", "")
-	s.Require().NoError(err)
+func (m *MockTokenLoader) CallCount() int {
+	return m.callCount
+}
 
-	updateAssetsHeightInterval, gen, iterations := rand.Intn(100), rand.Intn(8932122), rand.Intn(1000)
-
-	var got int
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	// count how many multiples of every exist
-	// within the range from gen to gen + iterations.
-	want := 0
-	for height := gen; height < gen+iterations+1; height++ {
-		if height%updateAssetsHeightInterval == 0 {
-			want++
-		}
+// TestUpdateAssetsAtHeightIntervalSync tests the async update of assets at height interval.
+func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
+	testcases := []struct {
+		name              string
+		height            uint64
+		interval          uint64
+		mockLoaderErr     error
+		expectedCallCount int
+		expectedErr       error
+	}{
+		{
+			name:              "Height matches interval, no error",
+			height:            10,
+			interval:          10,
+			mockLoaderErr:     nil,
+			expectedCallCount: 1,
+			expectedErr:       nil,
+		},
+		{
+			name:              "Height does not match interval",
+			height:            9,
+			interval:          10,
+			mockLoaderErr:     nil,
+			expectedCallCount: 0,
+			expectedErr:       nil,
+		},
+		{
+			name:              "Height matches interval, with error",
+			height:            20,
+			interval:          10,
+			mockLoaderErr:     fmt.Errorf("mock error"),
+			expectedCallCount: 1,
+			expectedErr:       fmt.Errorf("mock error"),
+		},
 	}
 
-	wg.Add(want)
+	for _, tt := range testcases {
+		s.Run(tt.name, func() {
+			mockLoader := &MockTokenLoader{
+				err: tt.mockLoaderErr,
+			}
 
-	callback := func() {
-		defer wg.Done()
+			usecase := tokensusecase.NewTokensUsecase(
+				nil,
+				int(tt.interval),
+				mockLoader,
+				noOpLogger,
+			)
 
-		mu.Lock()
-		got++
-		mu.Unlock()
+			err := usecase.UpdateAssetsAtHeightIntervalSync(tt.height)
+			if err != nil && err.Error() != tt.expectedErr.Error() {
+				s.Assert().Failf("expected error: %v, got: %v", tt.expectedErr.Error(), err)
+			} else if err == nil && tt.expectedErr != nil {
+				s.Assert().Failf("expected error: %v, got: nil", tt.expectedErr.Error())
+			}
+
+			s.Assert().Equalf(tt.expectedCallCount, mockLoader.CallCount(), "expected call count: %d, got: %d", tt.expectedCallCount, mockLoader.CallCount())
+		})
 	}
-
-	mock := &mockTokenLoader{
-		callback: callback,
-	}
-
-	tokensUsecase := tokensusecase.NewTokensUsecase(nil, updateAssetsHeightInterval, mock, logger)
-
-	for i := gen; i < gen+iterations+1; i++ {
-		tokensUsecase.UpdateAssetsAtHeightIntervalAsync(uint64(i))
-	}
-
-	// wait until all go routines are finished their execution
-	wg.Wait()
-
-	s.Require().Equalf(want, got, "want %v, got %v", want, got)
 }
