@@ -76,9 +76,6 @@ func NewChainRegistryHTTPFetcher(registryURL string, getTokensFromChainRegistry 
 	}
 }
 
-// FetchAndUpdateTokensFunc is a FetchAndUpdateTokens function signature.
-type FetchAndUpdateTokensFunc func(loadTokens func(tokens map[string]domain.Token)) error
-
 // FetchAndUpdateTokens fetches tokens from the chain registry and loads by calling loadTokens  function.
 // In case there were no changes since last fetch, it does not call loadTokens.
 func (f *ChainRegistryHTTPFetcher) FetchAndUpdateTokens(loadTokens LoadTokensFunc) error {
