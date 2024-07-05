@@ -1,7 +1,6 @@
 package usecase
 
 import (
-	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -24,19 +23,22 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 	}
 	defer response.Body.Close()
 
-	// Decode the JSON data
-	var assetList AssetList
-	err = json.NewDecoder(response.Body).Decode(&assetList)
-	if err != nil {
-		return nil, "", err
-	}
-
+	// read the response body once to be used for
+	// decoding and for checksum
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, "", err
 	}
-	response.Body.Close() //  close old response body
-	response.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// Calculate the MD5 checksum of the data
+	checksum := fmt.Sprintf("%x", md5.Sum(data))
+
+	// Decode the JSON data
+	var assetList AssetList
+	err = json.Unmarshal(data, &assetList)
+	if err != nil {
+		return nil, "", err
+	}
 
 	tokensByChainDenom := make(map[string]domain.Token)
 
@@ -50,7 +52,7 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 		tokensByChainDenom[asset.CoinMinimalDenom] = token
 	}
 
-	return tokensByChainDenom, fmt.Sprintf("%x", md5.Sum(data)), nil
+	return tokensByChainDenom, checksum, nil
 }
 
 // TokenRegistryLoader is loader of tokens from the chain registry passing results to the loadTokens function.
