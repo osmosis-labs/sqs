@@ -95,20 +95,22 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
-	// Initialize chain registry HTTP fetcher
-	chainRegistryHTTPFetcher := tokensusecase.NewChainRegistryHTTPFetcher(
-		config.ChainRegistryAssetsFileURL,
-		tokensusecase.GetTokensFromChainRegistry,
-	)
-
 	// Initialized tokens usecase
 	// TODO: Make the max number of tokens configurable
 	tokensUseCase := tokensusecase.NewTokensUsecase(
 		tokenMetadataByChainDenom,
 		config.UpdateAssetsHeightInterval,
-		chainRegistryHTTPFetcher,
 		logger,
 	)
+
+	// Initialize chain registry HTTP fetcher
+	chainRegistryHTTPFetcher := tokensusecase.NewChainRegistryHTTPFetcher(
+		config.ChainRegistryAssetsFileURL,
+		tokensusecase.GetTokensFromChainRegistry,
+		tokensUseCase.LoadTokens,
+	)
+
+	tokensUseCase.SetTokenRegistryLoader(chainRegistryHTTPFetcher)
 
 	// Initialize pools repository, usecase and HTTP handler
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)

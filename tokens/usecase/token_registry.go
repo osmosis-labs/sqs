@@ -55,37 +55,33 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 	return tokensByChainDenom, checksum, nil
 }
 
-// TokenRegistryLoader is loader of tokens from the chain registry passing results to the loadTokens function.
-type TokenRegistryLoader interface {
-	// FetchAndUpdateTokens fetches tokens from the chain registry and loads by calling loadTokens if there are changes.
-	FetchAndUpdateTokens(loadTokens LoadTokensFunc) error
-}
-
 // ChainRegistryHTTPFetcher is an implementation of TokenRegistryLoader that fetches tokens from the HTTP chain registry.
 type ChainRegistryHTTPFetcher struct {
 	registryURL                string
 	getTokensFromChainRegistry GetTokensFromChainRegistryFunc
+	loadTokens                 LoadTokensFunc
 	lastFetchHash              string
 }
 
 // NewChainRegistryHTTPFetcher creates a new instance of ChainRegistryHTTPFetcher.
-func NewChainRegistryHTTPFetcher(registryURL string, getTokensFromChainRegistry GetTokensFromChainRegistryFunc) *ChainRegistryHTTPFetcher {
+func NewChainRegistryHTTPFetcher(registryURL string, getTokensFromChainRegistry GetTokensFromChainRegistryFunc, loadTokens LoadTokensFunc) *ChainRegistryHTTPFetcher {
 	return &ChainRegistryHTTPFetcher{
-		getTokensFromChainRegistry: getTokensFromChainRegistry,
 		registryURL:                registryURL,
+		getTokensFromChainRegistry: getTokensFromChainRegistry,
+		loadTokens:                 loadTokens,
 	}
 }
 
-// FetchAndUpdateTokens fetches tokens from the chain registry and loads by calling loadTokens  function.
-// In case there were no changes since last fetch, it does not call loadTokens.
-func (f *ChainRegistryHTTPFetcher) FetchAndUpdateTokens(loadTokens LoadTokensFunc) error {
+// FetchAndUpdateTokens fetches tokens from the chain registry and updates the token registry.
+// In case there were no changes since last fetch, it does update the token registry.
+func (f *ChainRegistryHTTPFetcher) FetchAndUpdateTokens() error {
 	tokens, hash, err := f.getTokensFromChainRegistry(f.registryURL)
 	if err != nil {
 		return err
 	}
 
 	if f.lastFetchHash != hash {
-		loadTokens(tokens)
+		f.loadTokens(tokens)
 		f.lastFetchHash = hash
 	}
 

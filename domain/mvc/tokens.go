@@ -86,6 +86,9 @@ type TokensUsecase interface {
 
 	// UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
 	UpdateAssetsAtHeightIntervalSync(height uint64) error
+
+	// SetTokenRegistryLoader sets the token registry loader.
+	SetTokenRegistryLoader(loader domain.TokenRegistryLoader)
 }
 
 // ValidateChainDenomQueryParam validates the chain denom query parameter.

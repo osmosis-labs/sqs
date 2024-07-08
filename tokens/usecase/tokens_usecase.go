@@ -45,7 +45,7 @@ type tokensUseCase struct {
 	updateAssetsHeightInterval int
 
 	// TokenRegistryLoader fetches tokens from the chain registry into the tokens use case
-	tokenLoader TokenRegistryLoader
+	tokenLoader domain.TokenRegistryLoader
 
 	// Logger instance
 	logger log.Logger
@@ -92,18 +92,22 @@ var (
 )
 
 // NewTokensUsecase will create a new tokens use case object
-func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, tokenRegistryLoader TokenRegistryLoader, logger log.Logger) mvc.TokensUsecase {
+func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, logger log.Logger) *tokensUseCase {
 	us := tokensUseCase{
 		pricingStrategyMap:         map[domain.PricingSourceType]domain.PricingSource{},
 		poolDenomMetaData:          sync.Map{},
 		updateAssetsHeightInterval: updateAssetsHeightInterval,
-		tokenLoader:                tokenRegistryLoader,
 		logger:                     logger,
 	}
 
 	us.LoadTokens(tokenMetadataByChainDenom)
 
 	return &us
+}
+
+// SetTokenRegistryLoader sets the token registry loader for the tokens use case
+func (t *tokensUseCase) SetTokenRegistryLoader(loader domain.TokenRegistryLoader) {
+	t.tokenLoader = loader
 }
 
 // LoadTokensFunc is a function signature for LoadTokens.
@@ -269,7 +273,7 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 
 	scalingFactor, ok := t.getChainScalingFactorMut(denomMetadata.Precision)
 	if !ok {
-		return osmomath.Dec{}, fmt.Errorf("scalng factor for precision (%d) and denom (%s) not found", denomMetadata.Precision, denom)
+		return osmomath.Dec{}, fmt.Errorf("scaling factor for precision (%d) and denom (%s) not found", denomMetadata.Precision, denom)
 	}
 
 	return scalingFactor, nil
@@ -401,8 +405,12 @@ func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, b
 
 // UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
 func (t *tokensUseCase) UpdateAssetsAtHeightIntervalSync(height uint64) error {
+	if t.tokenLoader == nil {
+		return nil // no-op, no token loader is set
+	}
+
 	if height%uint64(t.updateAssetsHeightInterval) == 0 {
-		if err := t.tokenLoader.FetchAndUpdateTokens(t.LoadTokens); err != nil {
+		if err := t.tokenLoader.FetchAndUpdateTokens(); err != nil {
 			return err
 		}
 	}

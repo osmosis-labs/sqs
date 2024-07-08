@@ -1,9 +1,10 @@
-package usecase
+package usecase_test
 
 import (
 	"testing"
 
 	"github.com/osmosis-labs/sqs/domain"
+	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 )
 
 func TestFetchAndUpdateTokens(t *testing.T) {
@@ -37,24 +38,28 @@ func TestFetchAndUpdateTokens(t *testing.T) {
 	}
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			chainRegistryHTTPFetcher := &ChainRegistryHTTPFetcher{
-				lastFetchHash: tt.initialHash,
-				getTokensFromChainRegistry: func(chainRegistryAssetsFileURL string) (map[string]domain.Token, string, error) {
+			fetchAndUpdateTokensCalled := false
+			chainRegistryHTTPFetcher := tokensusecase.NewChainRegistryHTTPFetcher(
+				"",
+				func(chainRegistryAssetsFileURL string) (map[string]domain.Token, string, error) {
 					return nil, tt.returnedHash, nil
 				},
-			}
+				func(tokens map[string]domain.Token) {
+					fetchAndUpdateTokensCalled = true
+				},
+			)
 
-			fetchAndUpdateTokensCalled := false
-			chainRegistryHTTPFetcher.FetchAndUpdateTokens(func(tokens map[string]domain.Token) {
-				fetchAndUpdateTokensCalled = true
-			})
+			chainRegistryHTTPFetcher.SetLastFetchHash(tt.initialHash)
+
+			// do fetch and update tokens
+			chainRegistryHTTPFetcher.FetchAndUpdateTokens()
 
 			if fetchAndUpdateTokensCalled != tt.expectedFetchAndUpdateTokensCalled {
 				t.Fatalf("expected fetchAndUpdateTokensCalled to be %v, got %v", tt.expectedFetchAndUpdateTokensCalled, fetchAndUpdateTokensCalled)
 			}
 
-			if chainRegistryHTTPFetcher.lastFetchHash != tt.expectedHash {
-				t.Fatalf("expected lastFetchHash to be %s, got %s", tt.expectedHash, chainRegistryHTTPFetcher.lastFetchHash)
+			if lastFetchHash := chainRegistryHTTPFetcher.GetLastFetchHash(); lastFetchHash != tt.expectedHash {
+				t.Fatalf("expected lastFetchHash to be %s, got %s", tt.expectedHash, lastFetchHash)
 			}
 		})
 	}

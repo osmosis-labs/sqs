@@ -549,33 +549,320 @@ func (s *TokensUseCaseTestSuite) TestIsValidChainDenom() {
 	testcases := []struct {
 		name           string
 		chainDenom     string
-		tokens         map[string]domain.Token
+		tokens         map[string]any // domain.Token
 		expectedResult bool
 	}{
 		{
 			name:           "Valid chain denom",
 			chainDenom:     "validDenom",
-			tokens:         map[string]domain.Token{"validDenom": {IsUnlisted: false}},
+			tokens:         map[string]any{"validDenom": domain.Token{IsUnlisted: false}},
 			expectedResult: true,
 		},
 		{
 			name:           "Invalid chain denom - not found",
 			chainDenom:     "invalidDenom",
-			tokens:         map[string]domain.Token{"validDenom": {IsUnlisted: false}},
+			tokens:         map[string]any{"validDenom": domain.Token{IsUnlisted: false}},
 			expectedResult: false,
 		},
 		{
 			name:           "Invalid chain denom - unlisted",
 			chainDenom:     "unlistedDenom",
-			tokens:         map[string]domain.Token{"unlistedDenom": {IsUnlisted: true}},
+			tokens:         map[string]any{"unlistedDenom": domain.Token{IsUnlisted: true}},
+			expectedResult: false,
+		},
+		{
+			name:           "Invalid type - not a domain.Token",
+			chainDenom:     "invalidtype",
+			tokens:         map[string]any{"invalidtype": 1},
 			expectedResult: false,
 		},
 	}
 
 	for _, tt := range testcases {
 		s.Run(tt.name, func() {
-			usecase := tokensusecase.NewTokensUsecase(tt.tokens, 0, nil, nil)
+			usecase := tokensusecase.NewTokensUsecase(nil, 0, nil)
+			for k, v := range tt.tokens {
+				usecase.SetTokenMetadataByChainDenom(k, v)
+			}
+
 			result := usecase.IsValidChainDenom(tt.chainDenom)
+			s.Require().Equal(tt.expectedResult, result)
+		})
+	}
+}
+
+// Test to validate valid human denoms.
+func (s *TokensUseCaseTestSuite) TestGetFullPoolDenomMetadata() {
+	testcases := []struct {
+		name             string
+		chainDenoms      map[any]any
+		poolMetadata     domain.PoolDenomMetaDataMap
+		expectedDenoms   []string
+		expectedMetadata domain.PoolDenomMetaDataMap
+	}{
+		{
+			name: "Single valid denom",
+			chainDenoms: map[any]any{
+				"validDenom": struct{}{},
+			},
+			poolMetadata: domain.PoolDenomMetaDataMap{
+				"validDenom": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(10)},
+			},
+			expectedDenoms: []string{"validDenom"},
+			expectedMetadata: domain.PoolDenomMetaDataMap{
+				"validDenom": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(10)},
+			},
+		},
+		{
+			name: "Multiple valid denoms",
+			chainDenoms: map[any]any{
+				"denom1": struct{}{},
+				"denom2": struct{}{},
+			},
+			poolMetadata: domain.PoolDenomMetaDataMap{
+				"denom1": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(10)},
+				"denom2": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(6)},
+			},
+			expectedDenoms: []string{"denom1", "denom2"},
+			expectedMetadata: domain.PoolDenomMetaDataMap{
+				"denom1": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(10)},
+				"denom2": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(6)},
+			},
+		},
+		{
+			name: "Not valid denom",
+			chainDenoms: map[any]any{
+				"validdenom": struct{}{},
+			},
+			poolMetadata: domain.PoolDenomMetaDataMap{
+				"notvaliddenom": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(10)},
+				"validdenom":    domain.PoolDenomMetaData{Price: osmomath.NewBigDec(6)},
+			},
+			expectedDenoms: []string{"validdenom"},
+			expectedMetadata: domain.PoolDenomMetaDataMap{
+				"validdenom": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(6)},
+			},
+		},
+		{
+			name: "Not valid type denom",
+			chainDenoms: map[any]any{
+				1:        struct{}{},
+				"denom2": struct{}{},
+			},
+			poolMetadata: domain.PoolDenomMetaDataMap{
+				"denom1": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(10)},
+				"denom2": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(6)},
+			},
+			expectedDenoms: []string{"denom2"},
+			expectedMetadata: domain.PoolDenomMetaDataMap{
+				"denom2": domain.PoolDenomMetaData{Price: osmomath.NewBigDec(6)},
+			},
+		},
+		{
+			name:             "No valid denoms",
+			chainDenoms:      map[any]any{},
+			poolMetadata:     domain.PoolDenomMetaDataMap{},
+			expectedDenoms:   []string{},
+			expectedMetadata: domain.PoolDenomMetaDataMap{},
+		},
+	}
+
+	for _, tt := range testcases {
+		s.Run(tt.name, func() {
+			usecase := tokensusecase.NewTokensUsecase(nil, 0, nil)
+			usecase.UpdatePoolDenomMetadata(tt.poolMetadata)
+			for k, v := range tt.chainDenoms {
+				usecase.SetChainDenoms(k, v)
+			}
+
+			result := usecase.GetFullPoolDenomMetadata()
+			s.Require().Equal(tt.expectedMetadata, result)
+		})
+	}
+}
+
+// Tests the GetChainDenom function.
+func (s *TokensUseCaseTestSuite) TestGetChainDenom() {
+	testcases := []struct {
+		name           string
+		humanDenom     string
+		denomMap       map[string]any
+		expectedResult string
+		expectedError  error
+	}{
+		{
+			name:           "Valid human denom",
+			humanDenom:     "validDenom",
+			denomMap:       map[string]any{"validdenom": "chainDenom"},
+			expectedResult: "chainDenom",
+			expectedError:  nil,
+		},
+		{
+			name:           "Invalid human denom - not found",
+			humanDenom:     "invalidDenom",
+			denomMap:       map[string]any{"validdenom": "chainDenom"},
+			expectedResult: "",
+			expectedError:  fmt.Errorf("chain denom for human denom (invaliddenom) is not found"),
+		},
+		{
+			name:           "Invalid type - not a string",
+			humanDenom:     "invalidtype",
+			denomMap:       map[string]any{"invalidtype": 123},
+			expectedResult: "",
+			expectedError:  fmt.Errorf("chain denom for human denom (invalidtype) is not of type string"),
+		},
+	}
+
+	for _, tt := range testcases {
+		s.Run(tt.name, func() {
+			usecase := tokensusecase.NewTokensUsecase(nil, 0, nil)
+			for k, v := range tt.denomMap {
+				usecase.SetTypeHumanToChainDenomMap(k, v)
+			}
+
+			result, err := usecase.GetChainDenom(tt.humanDenom)
+			if tt.expectedError != nil {
+				s.Require().EqualError(err, tt.expectedError.Error())
+			} else {
+				s.Require().NoError(err)
+			}
+			s.Require().Equal(tt.expectedResult, result)
+		})
+	}
+}
+
+// Tests the GetChainScalingFactorByDenomMut function.
+func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
+	testcases := []struct {
+		name             string
+		denom            string
+		denomMetadataMap map[string]any
+		scalingFactorMap map[int]any
+		expectedResult   osmomath.Dec
+		expectedError    error
+	}{
+		{
+			name:  "Valid denom",
+			denom: "validDenom",
+			denomMetadataMap: map[string]any{
+				"validDenom": domain.Token{Precision: 6},
+			},
+			scalingFactorMap: map[int]any{
+				6: osmomath.NewDec(1000000),
+			},
+			expectedResult: osmomath.NewDec(1000000),
+			expectedError:  nil,
+		},
+		{
+			name:  "Invalid denom - not found",
+			denom: "invalidDenom",
+			denomMetadataMap: map[string]any{
+				"validDenom": domain.Token{Precision: 6},
+			},
+			scalingFactorMap: map[int]any{
+				6: osmomath.NewDec(1000000),
+			},
+			expectedResult: osmomath.Dec{},
+			expectedError:  fmt.Errorf("metadata for denom (invalidDenom) is not found"),
+		},
+		{
+			name:  "Invalid scaling factor - not found",
+			denom: "noScalingFactorDenom",
+			denomMetadataMap: map[string]any{
+				"noScalingFactorDenom": domain.Token{Precision: 8},
+			},
+			scalingFactorMap: map[int]any{
+				6: osmomath.NewDec(1000000),
+			},
+			expectedResult: osmomath.Dec{},
+			expectedError:  fmt.Errorf("scaling factor for precision (8) and denom (noScalingFactorDenom) not found"),
+		},
+		{
+			name:  "Invalid scaling factor type",
+			denom: "invalidTypeScalingFactorDenom",
+			denomMetadataMap: map[string]any{
+				"invalidTypeScalingFactorDenom": domain.Token{Precision: 6},
+			},
+			scalingFactorMap: map[int]any{
+				6: "1000000",
+			},
+			expectedResult: osmomath.Dec{},
+			expectedError:  fmt.Errorf("scaling factor for precision (6) and denom (invalidTypeScalingFactorDenom) not found"),
+		},
+	}
+
+	for _, tt := range testcases {
+		s.Run(tt.name, func() {
+			usecase := tokensusecase.NewTokensUsecase(nil, 0, nil)
+			for k, v := range tt.denomMetadataMap {
+				usecase.SetTokenMetadataByChainDenom(k, v)
+			}
+			for k, v := range tt.scalingFactorMap {
+				usecase.SetPrecisionScalingFactorMap(k, v)
+			}
+
+			result, err := usecase.GetChainScalingFactorByDenomMut(tt.denom)
+			if tt.expectedError != nil {
+				s.Require().EqualError(err, tt.expectedError.Error())
+			} else {
+				s.Require().NoError(err)
+			}
+			s.Require().Equal(tt.expectedResult, result)
+		})
+	}
+}
+
+// Tests the GetCoingeckoIdByChainDenom function.
+func (s *TokensUseCaseTestSuite) TestGetCoingeckoIdByChainDenom() {
+	testcases := []struct {
+		name            string
+		chainDenom      string
+		coingeckoIdsMap map[string]any
+		expectedResult  string
+		expectedError   error
+	}{
+		{
+			name:       "Valid chain denom",
+			chainDenom: "validDenom",
+			coingeckoIdsMap: map[string]any{
+				"validDenom": "coingecko-valid",
+			},
+			expectedResult: "coingecko-valid",
+			expectedError:  nil,
+		},
+		{
+			name:       "Chain denom not found",
+			chainDenom: "invalidDenom",
+			coingeckoIdsMap: map[string]any{
+				"validDenom": "coingecko-valid",
+			},
+			expectedResult: "",
+			expectedError:  fmt.Errorf("chain denom not found in chain registry"),
+		},
+		{
+			name:       "Invalid type - not a string",
+			chainDenom: "invalidType",
+			coingeckoIdsMap: map[string]any{
+				"invalidType": 123,
+			},
+			expectedResult: "",
+			expectedError:  fmt.Errorf("coingecko id for chain denom (invalidType) is not of type string"),
+		},
+	}
+
+	for _, tt := range testcases {
+		s.Run(tt.name, func() {
+			usecase := tokensusecase.NewTokensUsecase(nil, 0, nil)
+			for k, v := range tt.coingeckoIdsMap {
+				usecase.SetCoingeckoIDs(k, v)
+			}
+
+			result, err := usecase.GetCoingeckoIdByChainDenom(tt.chainDenom)
+			if tt.expectedError != nil {
+				s.Require().EqualError(err, tt.expectedError.Error())
+			} else {
+				s.Require().NoError(err)
+			}
 			s.Require().Equal(tt.expectedResult, result)
 		})
 	}
@@ -583,11 +870,12 @@ func (s *TokensUseCaseTestSuite) TestIsValidChainDenom() {
 
 // MockTokenLoader is a mock implementation of TokenLoader.
 type MockTokenLoader struct {
-	callCount int
-	err       error
+	loadTokens tokensusecase.LoadTokensFunc
+	callCount  int
+	err        error
 }
 
-func (m *MockTokenLoader) FetchAndUpdateTokens(loadTokens tokensusecase.LoadTokensFunc) error {
+func (m *MockTokenLoader) FetchAndUpdateTokens() error {
 	m.callCount++
 	return m.err
 }
@@ -602,7 +890,7 @@ func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 		name              string
 		height            uint64
 		interval          uint64
-		mockLoaderErr     error
+		loader            *MockTokenLoader
 		expectedCallCount int
 		expectedErr       error
 	}{
@@ -610,7 +898,7 @@ func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 			name:              "Height matches interval, no error",
 			height:            10,
 			interval:          10,
-			mockLoaderErr:     nil,
+			loader:            &MockTokenLoader{},
 			expectedCallCount: 1,
 			expectedErr:       nil,
 		},
@@ -618,32 +906,41 @@ func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 			name:              "Height does not match interval",
 			height:            9,
 			interval:          10,
-			mockLoaderErr:     nil,
+			loader:            &MockTokenLoader{},
 			expectedCallCount: 0,
 			expectedErr:       nil,
 		},
 		{
-			name:              "Height matches interval, with error",
-			height:            20,
-			interval:          10,
-			mockLoaderErr:     fmt.Errorf("mock error"),
+			name:     "Height matches interval, with error",
+			height:   20,
+			interval: 10,
+			loader: &MockTokenLoader{
+				err: fmt.Errorf("mock error"),
+			},
 			expectedCallCount: 1,
 			expectedErr:       fmt.Errorf("mock error"),
+		},
+		{
+			name:              "No loader, no error",
+			height:            20,
+			interval:          10,
+			loader:            nil,
+			expectedCallCount: 0,
+			expectedErr:       nil,
 		},
 	}
 
 	for _, tt := range testcases {
 		s.Run(tt.name, func() {
-			mockLoader := &MockTokenLoader{
-				err: tt.mockLoaderErr,
-			}
-
 			usecase := tokensusecase.NewTokensUsecase(
 				nil,
 				int(tt.interval),
-				mockLoader,
 				noOpLogger,
 			)
+
+			if tt.loader != nil {
+				usecase.SetTokenRegistryLoader(tt.loader) // set loader if non nil, otherwise *MockTokenLoader is not nil
+			}
 
 			err := usecase.UpdateAssetsAtHeightIntervalSync(tt.height)
 			if err != nil && err.Error() != tt.expectedErr.Error() {
@@ -652,7 +949,11 @@ func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 				s.Assert().Failf("expected error: %v, got: nil", tt.expectedErr.Error())
 			}
 
-			s.Assert().Equalf(tt.expectedCallCount, mockLoader.CallCount(), "expected call count: %d, got: %d", tt.expectedCallCount, mockLoader.CallCount())
+			var callCount int
+			if tt.loader != nil {
+				callCount = tt.loader.CallCount() // panics for nil loader  test
+			}
+			s.Assert().Equal(tt.expectedCallCount, callCount)
 		})
 	}
 }

@@ -28,6 +28,7 @@ type TokensUsecaseMock struct {
 	IsValidPricingSourceFunc             func(pricingSource int) bool
 	GetCoingeckoIdByChainDenomFunc       func(chainDenom string) (string, error)
 	UpdateAssetsAtHeightIntervalSyncFunc func(height uint64) error
+	SetTokenRegistryLoaderFunc           func(loader domain.TokenRegistryLoader)
 }
 
 func (m *TokensUsecaseMock) UpdatePoolDenomMetadata(tokensMetadata domain.PoolDenomMetaDataMap) {
@@ -151,4 +152,10 @@ func (m *TokensUsecaseMock) UpdateAssetsAtHeightIntervalSync(height uint64) erro
 		return m.UpdateAssetsAtHeightIntervalSyncFunc(height)
 	}
 	return nil
+}
+
+func (m *TokensUsecaseMock) SetTokenRegistryLoader(loader domain.TokenRegistryLoader) {
+	if m.SetTokenRegistryLoaderFunc != nil {
+		m.SetTokenRegistryLoaderFunc(loader)
+	}
 }
