@@ -220,7 +220,6 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	// 6 more tokens were found to be unsupported on May 29th.
 	// 1 more was found on June 10 when adding alloyed code id to config.
 	//
-	// Update on May 29, 2024: 20 unsupported tokens because some tokens have been fallen back to backup pricining source Coingecko
 	// On June 12, 2024: 20 unsupported tokens - likely added liquidity to some pools with the tokens.
 	s.Require().Equal(20, zeroPriceCounter)
 }

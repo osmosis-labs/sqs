@@ -152,7 +152,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 		// Completely reprice the pool liquidity for the first block asyncronously
 		// second time.
-		// This is necessary because the intial pricing is computed within min liquidity capitalization.
+		// This is necessary because the initial pricing is computed within min liquidity capitalization.
 		// That results in a suboptimal price.
 		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
 	} else {

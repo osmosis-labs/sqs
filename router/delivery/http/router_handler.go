@@ -95,7 +95,6 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-
 	tokenOutDenom, tokenIn, err := getValidRoutingParameters(c)
 	if err != nil {
 		return err
