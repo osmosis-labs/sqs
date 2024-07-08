@@ -82,6 +82,12 @@ type RouterUsecase interface {
 
 	GetConfig() domain.RouterConfig
 
+	// GetMinPoolLiquidityCapFilter returns the min pool liquidity capitalization filter for the given tokenIn and tokenOutDenom.
+	// It is used to filter out pools with liquidity less than the output of this function.
+	// Returns error if one of the denom metadata is not found.
+	// Returns error if the filter is not found for the given denoms.
+	GetMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom string) (uint64, error)
+
 	// ConvertMinTokensPoolLiquidityCapToFilter converts the minTokensPoolLiquidityCap to a filter.
 	// It is used to filter out pools with liquidity less than the output of this function.
 	// We use min(tokenInPoolLiquidityCap, tokenOutPoolLiquidityCap) as a proxy for finding the appropriate

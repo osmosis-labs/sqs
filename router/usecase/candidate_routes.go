@@ -147,7 +147,7 @@ func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom
 // GetCandidateRoutesNew new algorithm for demo purposes.
 // Note: implementation is for demo purposes and is to be further optimized.
 // TODO: spec, unit tests via https://linear.app/osmosis/issue/DATA-250/[candidaterouteopt]-reimplement-and-test-getcandidateroute-algorithm
-func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, minPoolLiquidityCap uint64, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
 	routes := make([][]candidatePoolWrapper, 0, maxRoutes)
 
 	// Preallocate constant visited map size to avoid reallocations.
@@ -185,6 +185,12 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 			poolID := pool.ChainModel.GetId()
 
 			if _, ok := visited[poolID]; ok {
+				continue
+			}
+
+			if pool.GetLiquidityCap().Uint64() < minPoolLiquidityCap {
+				visited[poolID] = struct{}{}
+				// Skip pools that have less liquidity than the minimum required.
 				continue
 			}
 

@@ -203,12 +203,12 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 		s.Require().Zero(result, fmt.Sprintf("usdcQuote: %s, usdtQuote: %s", usdcQuote, usdtQuote))
 	}
 
-	// WBTC is around 50K at the time of creation of this test
+	// WBTC is around 56K at the time of creation of this test
 	// We set tolerance to 15% and compare against this value to have sanity checks
 	// in place against a hardcoded expected value rather than comparing USDT and USDC prices only
 	// that are both computed by the system.
 	// Noe: if WBTC price changes by more than 15% and we update test mainnet state, this test is likely to fail.
-	expectedwBTCPrice := osmomath.NewBigDec(70000)
+	expectedwBTCPrice := osmomath.NewBigDec(56000)
 	wbtcErrorTolerance := osmomath.ErrTolerance{
 		// 15% tolerance
 		MultiplicativeTolerance: osmomath.MustNewDecFromStr("0.15"),
@@ -361,6 +361,8 @@ func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
 
 	// Set up mainnet mock state.
 	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
+	// Clear to set up a clean state.
+	mainnetUsecase.Tokens.ClearPoolDenomMetadata()
 
 	// System under test.
 	// Get the liquidity of ATOM
@@ -521,6 +523,8 @@ func (s *TokensUseCaseTestSuite) TestGetMinPoolLiquidityCap() {
 		s.Run(tt.name, func() {
 			// Set up mainnet mock state.
 			mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
+			// Clear to set up a clean state.
+			mainnetUsecase.Tokens.ClearPoolDenomMetadata()
 
 			// System under test
 			mainnetUsecase.Tokens.UpdatePoolDenomMetadata(tt.preSetPoolDenomMetadata)

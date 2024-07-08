@@ -29,8 +29,10 @@ var (
 )
 
 type routerUseCaseImpl struct {
-	routerRepository mvc.RouterRepository
-	poolsUsecase     mvc.PoolsUsecase
+	routerRepository    mvc.RouterRepository
+	poolsUsecase        mvc.PoolsUsecase
+	tokenMetadataHolder mvc.TokenMetadataHolder
+
 	// This is the default config used when no routing options are provided.
 	defaultConfig       domain.RouterConfig
 	cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig
@@ -86,10 +88,11 @@ func init() {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, tokenMetadataHolder mvc.TokenMetadataHolder, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
 		routerRepository:    tokensRepository,
 		poolsUsecase:        poolsUsecase,
+		tokenMetadataHolder: tokenMetadataHolder,
 		defaultConfig:       config,
 		cosmWasmPoolsConfig: cosmWasmPoolsConfig,
 		logger:              logger,
@@ -143,6 +146,13 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	)
 
 	if len(candidateRankedRoutes.Routes) == 0 {
+		dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenIn.Denom, tokenOutDenom)
+		if err == nil {
+			// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
+			// Oterwise, use default.
+			options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+		}
+
 		poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
 		// Zero implies no filtering, so we skip the iterations.
 		if options.MinPoolLiquidityCap > 0 {
@@ -214,13 +224,20 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		opt(&options)
 	}
 
+	dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenIn.Denom, tokenOutDenom)
+	if err == nil {
+		// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
+		// Oterwise, use default.
+		options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+	}
+
 	// If this is pricing worker precomputation, we need to be able to call this as
 	// some pools have TVL incorrectly calculated as zero. For example, BRNCH / STRDST (1288).
 	// As a result, they are incorrectly excluded despite having appropriate liquidity.
 	// So we want to calculate price, but we never cache routes for pricing the are below the minPoolLiquidityCap value, as these are returned to users.
 
 	// Compute candidate routes.
-	candidateRoutes, err := GetCandidateRoutesNew(r.routerRepository.GetCandidateRouteSearchData(), tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, r.logger)
+	candidateRoutes, err := GetCandidateRoutesNew(r.routerRepository.GetCandidateRouteSearchData(), tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, options.MinPoolLiquidityCap, r.logger)
 	if err != nil {
 		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 		return nil, err
@@ -743,6 +760,29 @@ func (r *routerUseCaseImpl) ConvertMinTokensPoolLiquidityCapToFilter(minTokensPo
 		}
 	}
 	return r.defaultConfig.MinPoolLiquidityCap
+}
+
+// getMinPoolLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
+// if forceDefaultMinLiquidityCap is true, it returns the universal default min pool liquidity capitalization,
+// ignoring disableMinLiquidityCapFallback.
+// Otherwise, it considers the following options:
+// If disableMinLiquidityCapFallback is true, it returns an error if the min liquidity cap cannot be computed.
+// If disableMinLiquidityCapFallback is false, it returns the default config value as fallback.
+// Returns the min liquidity cap filter and an error if any.
+func (r *routerUseCaseImpl) GetMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom string) (uint64, error) {
+	defaultMinLiquidityCap := r.defaultConfig.MinPoolLiquidityCap
+
+	minPoolLiquidityCapBetweenTokens, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenInDenom, tokenOutDenom)
+	if err != nil {
+		// If fallback is enabled, get defaiult config value as fallback
+		return defaultMinLiquidityCap, nil
+	}
+
+	// Otherwise, use the mapping to convert from min pool liquidity cap between token in and out denoms
+	// to the proposed filter.
+	minPoolLiquidityCapFilter := r.ConvertMinTokensPoolLiquidityCapToFilter(minPoolLiquidityCapBetweenTokens)
+
+	return minPoolLiquidityCapFilter, nil
 }
 
 // GetPoolSpotPrice implements mvc.RouterUsecase.

@@ -97,7 +97,7 @@ func StoreTakerFees(takerFeesFile string, takerFeesMap sqsdomain.TakerFeeMap) er
 }
 
 // StoreTokensMetadata stores the tokens meta data to disk at the given path.
-func StoreTokensMetadata(tokensMetaData map[string]domain.Token, tokensFile string) error {
+func StoreTokensMetadata(poolDenomMetaData map[string]domain.Token, tokensFile string) error {
 	_, err := os.Stat(tokensFile)
 	if os.IsNotExist(err) {
 		file, err := os.Create(tokensFile)
@@ -106,7 +106,31 @@ func StoreTokensMetadata(tokensMetaData map[string]domain.Token, tokensFile stri
 		}
 		defer file.Close()
 
-		takerFeesJSON, err := json.Marshal(tokensMetaData)
+		tokensJSON, err := json.Marshal(poolDenomMetaData)
+		if err != nil {
+			return err
+		}
+
+		_, err = file.Write(tokensJSON)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// StorePoolDenomMetaData stores the pool denom meta data to disk at the given path.
+func StorePoolDenomMetaData(poolDenomMetaData domain.PoolDenomMetaDataMap, poolDenomMetaDataFile string) error {
+	_, err := os.Stat(poolDenomMetaDataFile)
+	if os.IsNotExist(err) {
+		file, err := os.Create(poolDenomMetaDataFile)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		takerFeesJSON, err := json.Marshal(poolDenomMetaData)
 		if err != nil {
 			return err
 		}
@@ -224,6 +248,22 @@ func ReadTokensMetadata(tokensMetadataFileName string) (map[string]domain.Token,
 	}
 
 	tokensMetadata := map[string]domain.Token{}
+	err = json.Unmarshal(tokensMetadataBytes, &tokensMetadata)
+	if err != nil {
+		return nil, err
+	}
+
+	return tokensMetadata, nil
+}
+
+// ReadPoolDenomsMetaData reads the pool denom meta data from disk at the given path and returns them.
+func ReadPoolDenomsMetaData(poolDenomMetaData string) (domain.PoolDenomMetaDataMap, error) {
+	tokensMetadataBytes, err := os.ReadFile(poolDenomMetaData)
+	if err != nil {
+		return nil, err
+	}
+
+	tokensMetadata := domain.PoolDenomMetaDataMap{}
 	err = json.Unmarshal(tokensMetadataBytes, &tokensMetadata)
 	if err != nil {
 		return nil, err

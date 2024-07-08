@@ -147,8 +147,14 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		// to avoid overloading the system.
 		defer p.firstBlockWg.Done()
 
-		// Pre-compute the prices for all
+		// Pre-compute the prices for all tokens
 		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
+
+		// Completely reprice the pool liquidity for the first block asyncronously
+		// second time.
+		// This is necessary because the intial pricing is computed within min liquidity capitalization.
+		// That results in a suboptimal price.
+		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
 	} else {
 		// Wait for the first block to be processed before
 		// updating the prices for the next block.

@@ -17,8 +17,16 @@ type TokensPoolLiquidityHandler interface {
 	UpdatePoolDenomMetadata(tokensMetadata domain.PoolDenomMetaDataMap)
 }
 
+type TokenMetadataHolder interface {
+	// GetMinPoolLiquidityCap returns the min pool liquidity capitalization between the two denoms.
+	// Returns error if there is no pool liquidity metadata for one of the tokens.
+	// Returns error if pool liquidity metadata is large enough to cause overflow.
+	GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error)
+}
+
 // TokensUsecase defines an interface for the tokens usecase.
 type TokensUsecase interface {
+	TokenMetadataHolder
 	TokensPoolLiquidityHandler
 
 	// GetMetadataByChainDenom returns token metadata for a given chain denom.
@@ -48,11 +56,6 @@ type TokensUsecase interface {
 	// The result of the inner map is prices of the outer base and inner quote.
 	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
 
-	// GetMinPoolLiquidityCap returns the min pool liquidity capitalization between the two denoms.
-	// Returns error if there is no pool liquidity metadata for one of the tokens.
-	// Returns error if pool liquidity metadata is large enough to cause overflow.
-	GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error)
-
 	// GetPoolDenomMetadata returns the pool denom metadata of a pool denom.
 	// This metadata is accumulated from all pools.
 	GetPoolDenomMetadata(chainDenom string) (domain.PoolDenomMetaData, error)
@@ -80,6 +83,10 @@ type TokensUsecase interface {
 
 	// GetCoingeckoIdByChainDenom gets the Coingecko ID by chain denom
 	GetCoingeckoIdByChainDenom(chainDenom string) (string, error)
+
+	// ClearPoolDenomMetadata implements mvc.TokensUsecase.
+	// WARNING: use with caution, this will clear all pool denom metadata
+	ClearPoolDenomMetadata()
 }
 
 // ValidateChainDenomQueryParam validates the chain denom query parameter.

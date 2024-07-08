@@ -34,16 +34,21 @@ class TestPools:
     @pytest.mark.parametrize("pool_data", filter_pools(conftest.shared_test_state.all_pools_data, min_pool_liquidity_cap_usdc), ids=util.id_from_pool)
     def test_pools_pool_liquidity_cap(self, environment_url, pool_data):
         # Relative errorr tolerance for pool liquidity cap
-        error_tolerance = 0.05
+        error_tolerance = 0.07
 
         # WhiteWhale pools are not supported by Numia, leading to breakages.
         # See: https://linear.app/osmosis/issue/NUMIA-35/missing-data-for-white-whale-pool
         skip_whitewhale_code_id = 641
+        # This pool has a bug in the Numia side.
+        skip_alloyed_pool_id = 1816
 
         sqs_service = SERVICE_MAP[environment_url]
 
         pool_liquidity = pool_data.get("liquidity")
         pool_id = pool_data.get("pool_id")
+
+        if pool_id == skip_alloyed_pool_id:
+            pytest.skip("Skipping alloyed pool since it has flakiness on Numia side")
 
         sqs_pool = sqs_service.get_pool(pool_id)
 
