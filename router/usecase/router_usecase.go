@@ -145,11 +145,14 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		rankedRoutes        []route.RouteImpl
 	)
 
+	// If no cached candidate routes are found, we attempt to
+	// compute them.
 	if len(candidateRankedRoutes.Routes) == 0 {
+		// Get the dynamic min pool liquidity cap for the given token in and token out denoms.
 		dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenIn.Denom, tokenOutDenom)
 		if err == nil {
 			// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
-			// Oterwise, use default.
+			// Otherwise, use the default.
 			options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
 		}
 
@@ -161,6 +164,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 
 		r.logger.Info("filtered pools", zap.Int("num_pools", len(poolsAboveMinLiquidity)))
 
+		// Find candidate routes and rank them by direct quotes.
 		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options)
 		if err != nil {
 			return nil, err
