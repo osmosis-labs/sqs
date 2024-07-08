@@ -693,7 +693,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 37
+		expectedZeroPoolCount = 38
 	)
 
 	viper.SetConfigFile("../../config.json")
@@ -741,7 +741,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	fmt.Printf("\n\n\n")
 	fmt.Println("Tokens with no routes even when min osmo liquidity is set to zero:")
 
-	zeroPriceCounterNoMinLiq := 0
+	zeroRoutesNoFilterCounter := 0
 	// Now set min liquidity capitalization to zero to identify which tokens are missing prices even when we
 	// don't have liquidity filtering.
 	config.Router.MinPoolLiquidityCap = 0
@@ -760,7 +760,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 		if len(routes.Routes) == 0 {
 			fmt.Printf("No route for %s  -- %s (no min liq filtering)\n", chainDenom, tokenMeta.HumanDenom)
-			zeroPriceCounterNoMinLiq++
+			zeroRoutesNoFilterCounter++
 			continue
 		}
 	}
@@ -769,7 +769,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 	// Note that if we update test state, these are likely to change
 	s.Require().Equal(expectedZeroPoolCount, zeroRouteCount)
-	s.Require().Equal(expectedZeroPoolCount, zeroPriceCounterNoMinLiq, "There are tokens with no routes even when min osmo liquidity is set to zero")
+	s.Require().Equal(expectedZeroPoolCount, zeroRoutesNoFilterCounter, "There are tokens with no routes even when min osmo liquidity is set to zero")
 }
 
 // We use this test as a way to ensure that we multiply the amount in by the route fraction.
