@@ -81,7 +81,7 @@
         "-test.timeout",
         "30m",
         "-test.run",
-        "TestTokensUseCaseTestSuite/TestGetPrices_Chain_FindUnsupportedTokens",
+        "TestTokensUseCaseTestSuite/TestGetPrices_Chain_Specific",
         "-test.v"
       ]
     },
@@ -95,7 +95,7 @@
         "-test.timeout",
         "30m",
         "-test.run",
-        "TestPricingWorkerTestSuite/TestGetPrices_Chain_Specific",
+        "TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens",
         "-test.v"
       ]
     },
