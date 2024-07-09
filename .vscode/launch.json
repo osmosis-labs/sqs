@@ -114,6 +114,20 @@
       ]
     },
     {
+        "name": "tokens/usecase/pricing/chain",
+        "type": "go",
+        "request": "launch",
+        "mode": "test",
+        "program": "${workspaceFolder}/tokens/usecase/pricing/chain",
+        "args": [
+          "-test.timeout",
+          "30m",
+          "-test.run",
+          "TestPricingTestSuite/TestComputePrice_Specific",
+          "-test.v"
+        ]
+      },
+    {
       "name": "router/usecase/pools",
       "type": "go",
       "request": "launch",
@@ -135,7 +149,6 @@
       "args": [
         "-v",
         "tests/test_tokens_prices.py"
-        // "tests/test_pools.py"
       ],
       "env": {
         "SQS_ENVIRONMENTS": "local",

@@ -140,6 +140,8 @@ For example, assume that there is an ATOM/OSMO pool that is modified within a bl
 The denom liquidity capitalization and pool liquidity capitalizaion for each pool are computed concurrently by the
 pool liquidity pricer worker after every block.
 
+For the alloyed pools, there is custom handling to account for the alloyed asset denom. See `docs/architecture/COSMWASM_POOLS.MD` for details.
+
 ### Candidate Route Search Data
 
 This worker is responsible for pre-computing the candidate route search pool data for each denom.

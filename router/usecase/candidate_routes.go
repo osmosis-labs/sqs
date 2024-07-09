@@ -228,7 +228,8 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 				// HACK: alloyed LP share is not contained in balances.
 				// TODO: remove the hack and ingest the LP share balance on the Osmosis side.
 				// https://linear.app/osmosis/issue/DATA-236/bug-alloyed-lp-share-is-not-present-in-balances
-				isAlloyed := pool.SQSModel.CosmWasmPoolModel != nil && pool.SQSModel.CosmWasmPoolModel.IsAlloyTransmuter()
+				cosmwasmModel := pool.SQSModel.CosmWasmPoolModel
+				isAlloyed := cosmwasmModel != nil && cosmwasmModel.IsAlloyTransmuter()
 
 				if currentTokenInAmount.LT(tokenIn.Amount) && !isAlloyed {
 					visited[poolID] = struct{}{}
