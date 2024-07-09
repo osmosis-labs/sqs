@@ -12,6 +12,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
@@ -702,14 +703,14 @@ func (s *TokensUseCaseTestSuite) TestGetChainDenom() {
 			humanDenom:     "invalidDenom",
 			denomMap:       map[string]any{"validdenom": "chainDenom"},
 			expectedResult: "",
-			expectedError:  fmt.Errorf("chain denom for human denom (invaliddenom) is not found"),
+			expectedError:  tokensusecase.ChainDenomForHumanDenomNotFoundError{ChainDenom: "invaliddenom"},
 		},
 		{
 			name:           "Invalid type - not a string",
 			humanDenom:     "invalidtype",
 			denomMap:       map[string]any{"invalidtype": 123},
 			expectedResult: "",
-			expectedError:  fmt.Errorf("chain denom for human denom (invalidtype) is not of type string"),
+			expectedError:  tokensusecase.HumanDenomNotValidTypeError{HumanDenom: "invalidtype"},
 		},
 	}
 
@@ -763,7 +764,7 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 				6: osmomath.NewDec(1000000),
 			},
 			expectedResult: osmomath.Dec{},
-			expectedError:  fmt.Errorf("metadata for denom (invalidDenom) is not found"),
+			expectedError:  tokensusecase.MetadataForChainDenomNotFoundError{ChainDenom: "invalidDenom"},
 		},
 		{
 			name:  "Invalid scaling factor - not found",
@@ -775,7 +776,10 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 				6: osmomath.NewDec(1000000),
 			},
 			expectedResult: osmomath.Dec{},
-			expectedError:  fmt.Errorf("scaling factor for precision (8) and denom (noScalingFactorDenom) not found"),
+			expectedError: tokensusecase.ScalingFactorForPrecisionNotFoundError{
+				Precision: 8,
+				Denom:     "noScalingFactorDenom",
+			},
 		},
 		{
 			name:  "Invalid scaling factor type",
@@ -787,7 +791,10 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 				6: "1000000",
 			},
 			expectedResult: osmomath.Dec{},
-			expectedError:  fmt.Errorf("scaling factor for precision (6) and denom (invalidTypeScalingFactorDenom) not found"),
+			expectedError: tokensusecase.ScalingFactorForPrecisionNotFoundError{
+				Precision: 6,
+				Denom:     "invalidTypeScalingFactorDenom",
+			},
 		},
 	}
 
@@ -837,7 +844,7 @@ func (s *TokensUseCaseTestSuite) TestGetCoingeckoIdByChainDenom() {
 				"validDenom": "coingecko-valid",
 			},
 			expectedResult: "",
-			expectedError:  fmt.Errorf("chain denom not found in chain registry"),
+			expectedError:  tokensusecase.ChainDenomNotFoundInChainRegistryError{},
 		},
 		{
 			name:       "Invalid type - not a string",
@@ -846,7 +853,7 @@ func (s *TokensUseCaseTestSuite) TestGetCoingeckoIdByChainDenom() {
 				"invalidType": 123,
 			},
 			expectedResult: "",
-			expectedError:  fmt.Errorf("coingecko id for chain denom (invalidType) is not of type string"),
+			expectedError:  tokensusecase.CoingeckoIDNotValidTypeError{CoingeckoID: 123, Denom: "invalidType"},
 		},
 	}
 
@@ -868,29 +875,13 @@ func (s *TokensUseCaseTestSuite) TestGetCoingeckoIdByChainDenom() {
 	}
 }
 
-// MockTokenLoader is a mock implementation of TokenLoader.
-type MockTokenLoader struct {
-	loadTokens tokensusecase.LoadTokensFunc
-	callCount  int
-	err        error
-}
-
-func (m *MockTokenLoader) FetchAndUpdateTokens() error {
-	m.callCount++
-	return m.err
-}
-
-func (m *MockTokenLoader) CallCount() int {
-	return m.callCount
-}
-
 // TestUpdateAssetsAtHeightIntervalSync tests the async update of assets at height interval.
 func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 	testcases := []struct {
 		name              string
 		height            uint64
 		interval          uint64
-		loader            *MockTokenLoader
+		loader            *mocks.MockTokenLoader
 		expectedCallCount int
 		expectedErr       error
 	}{
@@ -898,7 +889,7 @@ func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 			name:              "Height matches interval, no error",
 			height:            10,
 			interval:          10,
-			loader:            &MockTokenLoader{},
+			loader:            &mocks.MockTokenLoader{},
 			expectedCallCount: 1,
 			expectedErr:       nil,
 		},
@@ -906,7 +897,7 @@ func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 			name:              "Height does not match interval",
 			height:            9,
 			interval:          10,
-			loader:            &MockTokenLoader{},
+			loader:            &mocks.MockTokenLoader{},
 			expectedCallCount: 0,
 			expectedErr:       nil,
 		},
@@ -914,19 +905,11 @@ func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 			name:     "Height matches interval, with error",
 			height:   20,
 			interval: 10,
-			loader: &MockTokenLoader{
-				err: fmt.Errorf("mock error"),
+			loader: &mocks.MockTokenLoader{
+				Err: mocks.MockError{Err: "mock error"},
 			},
 			expectedCallCount: 1,
-			expectedErr:       fmt.Errorf("mock error"),
-		},
-		{
-			name:              "No loader, no error",
-			height:            20,
-			interval:          10,
-			loader:            nil,
-			expectedCallCount: 0,
-			expectedErr:       nil,
+			expectedErr:       mocks.MockError{Err: "mock error"},
 		},
 	}
 
@@ -943,11 +926,13 @@ func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 			}
 
 			err := usecase.UpdateAssetsAtHeightIntervalSync(tt.height)
-			if err != nil && err.Error() != tt.expectedErr.Error() {
-				s.Assert().Failf("expected error: %v, got: %v", tt.expectedErr.Error(), err)
-			} else if err == nil && tt.expectedErr != nil {
-				s.Assert().Failf("expected error: %v, got: nil", tt.expectedErr.Error())
+			if tt.expectedErr != nil {
+				s.Require().Error(err)
+				s.Require().ErrorIs(tt.expectedErr, err)
+				return
 			}
+
+			s.Require().NoError(err)
 
 			var callCount int
 			if tt.loader != nil {

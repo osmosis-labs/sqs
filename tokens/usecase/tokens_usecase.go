@@ -213,12 +213,12 @@ func (t *tokensUseCase) GetChainDenom(humanDenom string) (string, error) {
 
 	chainDenom, ok := t.humanToChainDenomMap.Load(humanDenomLowerCase)
 	if !ok {
-		return "", fmt.Errorf("chain denom for human denom (%s) is not found", humanDenomLowerCase)
+		return "", ChainDenomForHumanDenomNotFoundError{ChainDenom: humanDenomLowerCase}
 	}
 
 	v, ok := chainDenom.(string)
 	if !ok {
-		return "", fmt.Errorf("chain denom for human denom (%v) is not of type string", humanDenomLowerCase)
+		return "", HumanDenomNotValidTypeError{HumanDenom: humanDenomLowerCase}
 	}
 
 	return v, nil
@@ -228,12 +228,12 @@ func (t *tokensUseCase) GetChainDenom(humanDenom string) (string, error) {
 func (t *tokensUseCase) GetMetadataByChainDenom(denom string) (domain.Token, error) {
 	token, ok := t.tokenMetadataByChainDenom.Load(denom)
 	if !ok {
-		return domain.Token{}, fmt.Errorf("metadata for denom (%s) is not found", denom)
+		return domain.Token{}, MetadataForChainDenomNotFoundError{ChainDenom: denom}
 	}
 
 	v, ok := token.(domain.Token)
 	if !ok {
-		return domain.Token{}, fmt.Errorf("metadata for denom (%v) is not of type domain.Token", denom)
+		return domain.Token{}, MetadataForChainDenomNotValidTypeError{ChainDenom: denom}
 	}
 
 	return v, nil
@@ -247,13 +247,13 @@ func (t *tokensUseCase) GetFullTokenMetadata() (map[string]domain.Token, error) 
 	t.tokenMetadataByChainDenom.Range(func(denom, token any) bool {
 		d, ok := denom.(string)
 		if !ok {
-			err = fmt.Errorf("denom (%v) is not of type string", denom)
+			err = DenomNotValidTypeError{Denom: denom}
 			return false
 		}
 
 		t, ok := token.(domain.Token)
 		if !ok {
-			err = fmt.Errorf("token (%v) is not of type domain.Token", token)
+			err = TokenNotValidTypeError{Token: token}
 			return false
 		}
 
@@ -273,7 +273,10 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 
 	scalingFactor, ok := t.getChainScalingFactorMut(denomMetadata.Precision)
 	if !ok {
-		return osmomath.Dec{}, fmt.Errorf("scaling factor for precision (%d) and denom (%s) not found", denomMetadata.Precision, denom)
+		return osmomath.Dec{}, ScalingFactorForPrecisionNotFoundError{
+			Precision: denomMetadata.Precision,
+			Denom:     denom,
+		}
 	}
 
 	return scalingFactor, nil
@@ -405,10 +408,6 @@ func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, b
 
 // UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
 func (t *tokensUseCase) UpdateAssetsAtHeightIntervalSync(height uint64) error {
-	if t.tokenLoader == nil {
-		return nil // no-op, no token loader is set
-	}
-
 	if height%uint64(t.updateAssetsHeightInterval) == 0 {
 		if err := t.tokenLoader.FetchAndUpdateTokens(); err != nil {
 			return err
@@ -490,12 +489,15 @@ func (t *tokensUseCase) IsValidPricingSource(pricingSource int) bool {
 func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, error) {
 	coingeckoId, found := t.coingeckoIds.Load(chainDenom)
 	if !found {
-		return "", fmt.Errorf("chain denom not found in chain registry")
+		return "", ChainDenomNotFoundInChainRegistryError{}
 	}
 
 	v, ok := coingeckoId.(string)
 	if !ok {
-		return "", fmt.Errorf("coingecko id for chain denom (%v) is not of type string", chainDenom)
+		return "", CoingeckoIDNotValidTypeError{
+			CoingeckoID: coingeckoId,
+			Denom:       chainDenom,
+		}
 	}
 
 	return v, nil
