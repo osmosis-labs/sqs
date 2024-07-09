@@ -242,6 +242,8 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
 			}
 
+			// Handle the alloyed LP share stemming from the "minting" pools.
+			// See updateCurrentBlockLiquidityMapAlloyed for details.
 			cosmWasmModel := sqsModel.CosmWasmPoolModel
 			if cosmWasmModel != nil && cosmWasmModel.IsAlloyTransmuter() {
 				alloyedDenom := cosmWasmModel.Data.AlloyTransmuter.AlloyedDenom
