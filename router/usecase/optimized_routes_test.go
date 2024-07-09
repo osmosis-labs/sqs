@@ -41,6 +41,7 @@ var (
 	UMEE     = routertesting.UMEE
 	UION     = routertesting.UION
 	ALLUSDT  = routertesting.ALLUSDT
+	ALLBTC   = routertesting.ALLBTC
 	KAVAUSDT = routertesting.KAVAUSDT
 )
 
@@ -560,7 +561,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 	// that provides no slippage swaps. Given that 100K is under the liqudiity of kava.USDT in the
 	// transmuter pool, the split routes should be essentially the same.
 	// Update: as of 30.06.24, the kava.usdt for osmo only has one optimal route.
-	const usdtOsmoExpectedRoutesHighLiq = 2
+	const usdtOsmoExpectedRoutesHighLiq = 1
 	var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
 
 	tests := map[string]struct {
@@ -587,7 +588,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(5000000),
 
-			expectedRoutesCount: 2,
+			expectedRoutesCount: 1,
 		},
 		"usdt for atom": {
 			tokenInDenom:  USDT,
@@ -622,7 +623,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(1_000_000),
 
-			expectedRoutesCount: 1,
+			expectedRoutesCount: 2,
 		},
 
 		"allUSDT for uosmo": {

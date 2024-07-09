@@ -225,7 +225,8 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 			}
 
 			// Get balances and pool ID.
-			currentPoolBalances := poolResult.pool.GetSQSPoolModel().Balances
+			sqsModel := poolResult.pool.GetSQSPoolModel()
+			currentPoolBalances := sqsModel.Balances
 			poolID := poolResult.pool.GetId()
 
 			// Update block liquidity map.
@@ -239,6 +240,33 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				}
 
 				uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
+			}
+
+			cosmWasmModel := sqsModel.CosmWasmPoolModel
+			if cosmWasmModel != nil && cosmWasmModel.IsAlloyTransmuter() {
+				alloyedDenom := cosmWasmModel.Data.AlloyTransmuter.AlloyedDenom
+				uniqueData.UpdatedDenoms[alloyedDenom] = struct{}{}
+
+				denomPoolLiquidityData, ok := currentBlockLiquidityMap[alloyedDenom]
+
+				// Sum up balances
+				sumOfBalances := osmomath.ZeroInt()
+				for _, balance := range currentPoolBalances {
+					sumOfBalances = sumOfBalances.Add(balance.Amount)
+				}
+
+				if ok {
+					denomPoolLiquidityData.Pools[poolID] = sumOfBalances
+					denomPoolLiquidityData.TotalLiquidity = denomPoolLiquidityData.TotalLiquidity.Add(sumOfBalances)
+					currentBlockLiquidityMap[alloyedDenom] = denomPoolLiquidityData
+				} else {
+					currentBlockLiquidityMap[alloyedDenom] = domain.DenomPoolLiquidityData{
+						TotalLiquidity: sumOfBalances,
+						Pools: map[uint64]osmomath.Int{
+							poolID: sumOfBalances,
+						},
+					}
+				}
 			}
 
 			// Update unique pools.
@@ -268,6 +296,10 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	// For evey coin in balance
 	for _, coin := range currentPoolBalances {
+		if coin.Denom == "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC" {
+			fmt.Println("here")
+		}
+
 		if coin.Validate() != nil {
 			// Skip invalid coins.
 			// Example: pool 1176 (transmuter v1 pool) has invalid coins.

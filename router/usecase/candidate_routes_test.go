@@ -4,6 +4,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/usecase"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -148,6 +149,28 @@ func (s *RouterTestSuite) TestGetCandidateRoutesBFS_Top10VolumePairs() {
 			s.Require().Greater(len(candidateRoutes.Routes), 0, "tokenJ: %s, tokenI: %s", tokenJ, tokenI)
 		}
 	}
+}
+
+func (s *RouterTestSuite) TestGetCandidateRoutesBFS_USDC_ALL_BTC() {
+
+	mainnetState := s.SetupMainnetState()
+
+	candidateRouteSearchData := mainnetState.CandidateRouteSearchData
+
+	didFindAllBTC := false
+	for denom := range candidateRouteSearchData {
+		if denom == ALLBTC {
+			didFindAllBTC = true
+			break
+		}
+	}
+
+	s.Require().True(didFindAllBTC)
+
+	routes, err := usecase.GetCandidateRoutesNew(candidateRouteSearchData, sdk.NewCoin(USDC, one), ALLBTC, 10, 5, 1, &log.NoOpLogger{})
+	s.Require().NoError(err)
+
+	s.Require().Greater(len(routes.Routes), 0)
 }
 
 func (s *RouterTestSuite) validateExpectedPoolIDOneHopRoute(route sqsdomain.CandidateRoute, expectedPoolID uint64) {

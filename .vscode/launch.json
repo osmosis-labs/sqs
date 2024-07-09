@@ -95,7 +95,7 @@
         "-test.timeout",
         "30m",
         "-test.run",
-        "TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens",
+        "TestPricingWorkerTestSuite/TestGetPrices_Chain_Specific",
         "-test.v"
       ]
     },
@@ -113,6 +113,20 @@
         "-test.v"
       ]
     },
+    {
+        "name": "tokens/usecase/pricing/chain",
+        "type": "go",
+        "request": "launch",
+        "mode": "test",
+        "program": "${workspaceFolder}/tokens/usecase/pricing/chain",
+        "args": [
+          "-test.timeout",
+          "30m",
+          "-test.run",
+          "TestPricingTestSuite/TestComputePrice_Specific",
+          "-test.v"
+        ]
+      },
     {
       "name": "router/usecase/pools",
       "type": "go",
@@ -134,8 +148,7 @@
       "module": "pytest",
       "args": [
         "-v",
-        "tests/test_tokens_prices.py"
-        // "tests/test_pools.py"
+        "tests/test_router_quote.py::TestQuote::test_usdc_in_high_liq_out[http://localhost:9092-50586330877ibc/903A61A498756EA560B85A85132D3AEE21B5DEDD41213725D22ABF276EA6945E]"
       ],
       "env": {
         "SQS_ENVIRONMENTS": "local",
