@@ -77,7 +77,10 @@ To address this, we define the following invariants for alloyed assets for the c
 - The pool that does not mint alloyed asset but contains it one of the direct assets includes the alloyed asset value in its liquidity capitalization as well as in the balances
    * Example: [Pool 1835](https://app.osmosis.zone/pool/1835) and USDT.
 - During ingest, we maintain the [BlockPoolMetaData.DenomPoolLiquidityMap](https://github.com/osmosis-labs/sqs/blob/d32f6a1ef6fd2a081f60f1f510023a0c8f9b1530/docs/architecture/ingest.md#L37-L49) to keep track of the liquidity capitalization for each denom across all pools.
-  * We add the alloyed asset value to the liquidity capitalization for both the pool that mints the alloyed asset and the pool that contains it as one of the direct assets. This is done so that candidate routes can be found when through the alloyed asset back into the underlying assets that it represents (burning LP share for the underlying).
+  * We add the alloyed asset value to the liquidity capitalization contribution for non-minting pools that contain an LP share as one of the direct assets.
+  * However, for `BlockPoolMetaData.DenomPoolLiquidityMap.Pools`, we add the LP share as contributing
+  zero to liqudiity capitalization. By maintaining the LP share denom in the `DenomPoolLiquidityMap.Pools`, we can ensure that the LP share is not double counted towards liquidity capitalization but still be able
+  to find routes over the "minting" pools.
 
 ## Orderbook
 `crates.io:sumtree-orderbook` `>= 0.1.0`: requires base and quote denoms, ticks liquidity, next bid and ask tick.

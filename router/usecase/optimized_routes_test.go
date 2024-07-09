@@ -623,7 +623,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(1_000_000),
 
-			expectedRoutesCount: 2,
+			expectedRoutesCount: 1,
 		},
 
 		"allUSDT for uosmo": {

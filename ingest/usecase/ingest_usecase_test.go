@@ -25,9 +25,11 @@ var (
 	emptyBlockLiqMap = domain.DenomPoolLiquidityMap{}
 	defaultAmount    = osmomath.NewInt(1_000)
 
-	UOSMO = routertesting.UOSMO
-	USDC  = routertesting.USDC
-	ATOM  = routertesting.ATOM
+	UOSMO   = routertesting.UOSMO
+	USDC    = routertesting.USDC
+	ATOM    = routertesting.ATOM
+	ALLBTC  = routertesting.ALLBTC
+	ALLUSDT = routertesting.ALLUSDT
 
 	defaultUOSMOBalance = sdk.NewCoin(UOSMO, defaultAmount)
 
@@ -70,6 +72,9 @@ var (
 	}
 
 	emptyDenomLiquidityMap = domain.DenomPoolLiquidityMap{}
+
+	zeroInt = osmomath.ZeroInt()
+	oneInt  = osmomath.OneInt()
 )
 
 func TestIngestUseCaseTestSuite(t *testing.T) {
@@ -494,6 +499,124 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expectedSQSModel, tc.sqsModel)
 			}
+		})
+	}
+}
+
+func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapAlloyed() {
+	var (
+		nonEmptyEntry = domain.DenomPoolLiquidityData{
+			TotalLiquidity: oneInt,
+			Pools: map[uint64]osmomath.Int{
+				defaultPoolID: oneInt,
+			},
+		}
+		nonEmptyAllBTCMap = domain.DenomPoolLiquidityMap{
+			ALLBTC: nonEmptyEntry,
+		}
+	)
+
+	tests := []struct {
+		name string
+
+		blockLiqMap  domain.DenomPoolLiquidityMap
+		balances     sdk.Coins
+		poolID       uint64
+		alloyedDenom string
+
+		expectedBlockLiqMap domain.DenomPoolLiquidityMap
+	}{
+		{
+			name: "Empty map, pool ID -> initializes to zero for the alloyed denom",
+
+			blockLiqMap: emptyBlockLiqMap,
+
+			poolID: defaultPoolID,
+
+			alloyedDenom: ALLBTC,
+
+			expectedBlockLiqMap: domain.DenomPoolLiquidityMap{
+				ALLBTC: domain.DenomPoolLiquidityData{
+					TotalLiquidity: zeroInt,
+					Pools: map[uint64]osmomath.Int{
+						defaultPoolID: zeroInt,
+					},
+				},
+			},
+		},
+		{
+			name: "Non-empty map with different pool id -> initializes to zero for the alloyed denom but does not affect other pool id",
+
+			blockLiqMap: nonEmptyAllBTCMap,
+
+			poolID: defaultPoolID + 1,
+
+			alloyedDenom: ALLBTC,
+
+			expectedBlockLiqMap: domain.DenomPoolLiquidityMap{
+				ALLBTC: domain.DenomPoolLiquidityData{
+					TotalLiquidity: oneInt,
+					Pools: map[uint64]osmomath.Int{
+						defaultPoolID:     oneInt,
+						defaultPoolID + 1: zeroInt,
+					},
+				},
+			},
+		},
+		{
+			name: "Non-empty map with same pool id -> initializes to zero, overriding the previous entry but does not affect total",
+
+			blockLiqMap: nonEmptyAllBTCMap,
+
+			poolID: defaultPoolID,
+
+			alloyedDenom: ALLBTC,
+
+			expectedBlockLiqMap: domain.DenomPoolLiquidityMap{
+				ALLBTC: domain.DenomPoolLiquidityData{
+					// Note: this does not affect the previous liquidity.
+					// But we expect for this case to never happen.
+					TotalLiquidity: oneInt,
+					Pools: map[uint64]osmomath.Int{
+						// Note: this simply overwrites the previous entry.
+						defaultPoolID: zeroInt,
+					},
+				},
+			},
+		},
+		{
+			name: "Non-empty map with same pool id but different denom",
+
+			blockLiqMap: nonEmptyAllBTCMap,
+
+			poolID: defaultPoolID,
+
+			alloyedDenom: ALLUSDT,
+
+			expectedBlockLiqMap: domain.DenomPoolLiquidityMap{
+				ALLBTC: nonEmptyEntry,
+				ALLUSDT: domain.DenomPoolLiquidityData{
+					TotalLiquidity: zeroInt,
+					Pools: map[uint64]osmomath.Int{
+						defaultPoolID: zeroInt,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		s.T().Run(tc.name, func(t *testing.T) {
+			// Note that the transferTo parameter is mutated, so we need to copy it
+			// to avoid flakiness across tests.
+			blockLiqMapCopy := deepCopyDenomLiquidityMap(tc.blockLiqMap)
+
+			// System under test.
+			actualBlockLiqMap := usecase.UpdateCurrentBlockLiquidityMapAlloyed(blockLiqMapCopy, tc.poolID, tc.alloyedDenom)
+
+			// Validate.
+			s.Require().Equal(tc.expectedBlockLiqMap, actualBlockLiqMap)
 		})
 	}
 }

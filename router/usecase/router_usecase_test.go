@@ -579,11 +579,11 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 // We restrict the number of routes via config.
 //
 // As of today there are 3 major ATOM / OSMO pools:
-// Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 8M of liquidity to date
-// Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 4M of liquidity to date
-// Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 268K of liquidity to date
-// Pool ID 1399: https://app.osmosis.zone/pool/1399 (concentrated) 0.01% spread factor and 75K of liquidity to date
-// Pool ID 1400: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 149K of liquidity to date
+// Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 6.8M of liquidity to date
+// Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 3.7M of liquidity to date
+// Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 480K of liquidity to date
+// Pool ID 1399: https://app.osmosis.zone/pool/1399 (concentrated) 0.01% spread factor and 4.9K of liquidity to date
+// Pool ID 1400: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 124K of liquidity to date
 //
 // Based on this state, the small amounts of token in should go through pool 1265
 // Medium amounts of token in should go through pool 1135
