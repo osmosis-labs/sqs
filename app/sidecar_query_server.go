@@ -101,8 +101,11 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Initialize pools repository, usecase and HTTP handler
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
 
+	// Initialize candidate route searcher
+	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, logger)
+
 	// Initialize router repository, usecase
-	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Initialize system handler
 	chainInfoRepository := chaininforepo.New()
@@ -111,7 +114,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	cosmWasmPoolConfig := poolsUseCase.GetCosmWasmPoolConfig()
 
 	// Initialize chain pricing strategy
-	pricingSimpleRouterUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, tokensUseCase, *config.Router, cosmWasmPoolConfig, logger, cache.New(), cache.New())
+	pricingSimpleRouterUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, cosmWasmPoolConfig, logger, cache.New(), cache.New())
 	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, pricingSimpleRouterUsecase)
 	if err != nil {
 		return nil, err

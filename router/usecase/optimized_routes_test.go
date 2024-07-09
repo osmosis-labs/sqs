@@ -692,8 +692,9 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	poolsUsecase.StorePools(mainnetState.Pools)
 
 	tokenMetaDataHolderMock := &mocks.TokenMetadataHolderMock{}
+	candidateRouteFinderMock := &mocks.CandidateRouteFinderMock{}
 
-	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 
 	// This pool ID is second best: https://app.osmosis.zone/pool/2
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected
