@@ -770,11 +770,7 @@ func (r *routerUseCaseImpl) ConvertMinTokensPoolLiquidityCapToFilter(minTokensPo
 }
 
 // getMinPoolLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
-// if forceDefaultMinLiquidityCap is true, it returns the universal default min pool liquidity capitalization,
-// ignoring disableMinLiquidityCapFallback.
-// Otherwise, it considers the following options:
-// If disableMinLiquidityCapFallback is true, it returns an error if the min liquidity cap cannot be computed.
-// If disableMinLiquidityCapFallback is false, it returns the default config value as fallback.
+// If the mapping between min liquidity cap and the filter is not found, it will return the default per config.
 // Returns the min liquidity cap filter and an error if any.
 func (r *routerUseCaseImpl) GetMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom string) (uint64, error) {
 	defaultMinLiquidityCap := r.defaultConfig.MinPoolLiquidityCap
