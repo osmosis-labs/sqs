@@ -296,10 +296,6 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	// For evey coin in balance
 	for _, coin := range currentPoolBalances {
-		if coin.Denom == "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC" {
-			fmt.Println("here")
-		}
-
 		if coin.Validate() != nil {
 			// Skip invalid coins.
 			// Example: pool 1176 (transmuter v1 pool) has invalid coins.
