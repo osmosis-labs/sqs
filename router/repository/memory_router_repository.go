@@ -149,7 +149,6 @@ func (r *routerRepo) GetRankedPoolsByDenom(denom string) ([]sqsdomain.PoolI, err
 	}
 
 	return pools, nil
-
 }
 
 // SetCandidateRouteSearchData implements mvc.RouterUsecase.

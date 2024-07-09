@@ -8,9 +8,9 @@ import (
 // CandidateRouteSearchOptions represents the options for finding candidate routes.
 type CandidateRouteSearchOptions struct {
 	// MaxRoutes is the maximum number of routes to find.
-	MaxRoutes           int
+	MaxRoutes int
 	// MaxPoolsPerRoute is the maximum number of pools to consider for each route.
-	MaxPoolsPerRoute    int
+	MaxPoolsPerRoute int
 	// MinPoolLiquidityCap is the minimum liquidity cap for a pool to be considered.
 	MinPoolLiquidityCap uint64
 }
