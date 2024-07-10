@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
@@ -144,11 +146,23 @@ func GetCandidateRoutes(pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom
 	return validateAndFilterRoutes(routes, tokenIn.Denom, logger)
 }
 
-// GetCandidateRoutesNew new algorithm for demo purposes.
-// Note: implementation is for demo purposes and is to be further optimized.
-// TODO: spec, unit tests via https://linear.app/osmosis/issue/DATA-250/[candidaterouteopt]-reimplement-and-test-getcandidateroute-algorithm
-func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int, minPoolLiquidityCap uint64, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
-	routes := make([][]candidatePoolWrapper, 0, maxRoutes)
+type candidateRouteFinder struct {
+	candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder
+	logger                   log.Logger
+}
+
+var _ domain.CandidateRouteSearcher = candidateRouteFinder{}
+
+func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder, logger log.Logger) candidateRouteFinder {
+	return candidateRouteFinder{
+		candidateRouteDataHolder: candidateRouteDataHolder,
+		logger:                   logger,
+	}
+}
+
+// FindCandidateRoutes implements domain.CandidateRouteFinder.
+func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (sqsdomain.CandidateRoutes, error) {
+	routes := make([][]candidatePoolWrapper, 0, options.MaxRoutes)
 
 	// Preallocate constant visited map size to avoid reallocations.
 	// TODO: choose the best size for the visited map.
@@ -158,9 +172,9 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 	// Preallocate constant queue size to avoid dynamic reallocations.
 	// TODO: choose the best size for the queue.
 	queue := make([][]candidatePoolWrapper, 0, 100)
-	queue = append(queue, make([]candidatePoolWrapper, 0, maxPoolsPerRoute))
+	queue = append(queue, make([]candidatePoolWrapper, 0, options.MaxPoolsPerRoute))
 
-	for len(queue) > 0 && len(routes) < maxRoutes {
+	for len(queue) > 0 && len(routes) < options.MaxRoutes {
 		currentRoute := queue[0]
 		queue[0] = nil // Clear the slice to avoid holding onto references
 		queue = queue[1:]
@@ -173,12 +187,15 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 			currenTokenInDenom = lastPool.TokenOutDenom
 		}
 
-		rankedPools, ok := poolsByDenom[currenTokenInDenom]
-		if !ok {
+		rankedPools, err := c.candidateRouteDataHolder.GetRankedPoolsByDenom(currenTokenInDenom)
+		if err != nil {
+			return sqsdomain.CandidateRoutes{}, err
+		}
+		if len(rankedPools) == 0 {
 			return sqsdomain.CandidateRoutes{}, fmt.Errorf("no pools found for denom %s", currenTokenInDenom)
 		}
 
-		for i := 0; i < len(rankedPools) && len(routes) < maxRoutes; i++ {
+		for i := 0; i < len(rankedPools) && len(routes) < options.MaxRoutes; i++ {
 			// Unsafe cast for performance reasons.
 			// nolint: forcetypeassert
 			pool := (rankedPools[i]).(*sqsdomain.PoolWrapper)
@@ -188,7 +205,7 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 				continue
 			}
 
-			if pool.GetLiquidityCap().Uint64() < minPoolLiquidityCap {
+			if pool.GetLiquidityCap().Uint64() < options.MinPoolLiquidityCap {
 				visited[poolID] = struct{}{}
 				// Skip pools that have less liquidity than the minimum required.
 				continue
@@ -247,9 +264,12 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 					continue
 				}
 
-				_, ok := poolsByDenom[denom]
-				if !ok {
-					logger.Debug("no pools found for denom in candidate route search", zap.String("denom", denom))
+				rankedPools, err := c.candidateRouteDataHolder.GetRankedPoolsByDenom(currenTokenInDenom)
+				if err != nil {
+					return sqsdomain.CandidateRoutes{}, err
+				}
+				if len(rankedPools) == 0 {
+					c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", denom))
 					continue
 				}
 
@@ -267,7 +287,7 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 						Idx:        i,
 					})
 
-					if len(newPath) <= maxPoolsPerRoute {
+					if len(newPath) <= options.MaxPoolsPerRoute {
 						if hasTokenOut {
 							routes = append(routes, newPath)
 							break
@@ -284,7 +304,7 @@ func GetCandidateRoutesNew(poolsByDenom map[string][]sqsdomain.PoolI, tokenIn sd
 		}
 	}
 
-	return validateAndFilterRoutes(routes, tokenIn.Denom, logger)
+	return validateAndFilterRoutes(routes, tokenIn.Denom, c.logger)
 }
 
 // Pool represents a pool in the decentralized exchange.

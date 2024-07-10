@@ -17,6 +17,11 @@ type CandidateRouteSearchDataHolder interface {
 
 	// GetCandidateRouteSearchData gets the candidate route search data from the holder
 	GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI
+
+	// GetRankedPoolsByDenom returns the ranked candidate route search pools for a given denom.
+	// Returns an empty slice if the denom is not found.
+	// Returns error if retrieved pools are not of type sqsdomain.PoolI.
+	GetRankedPoolsByDenom(denom string) ([]sqsdomain.PoolI, error)
 }
 
 // RouterRepository represents the contract for a repository handling tokens information

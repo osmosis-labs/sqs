@@ -29,9 +29,10 @@ var (
 )
 
 type routerUseCaseImpl struct {
-	routerRepository    mvc.RouterRepository
-	poolsUsecase        mvc.PoolsUsecase
-	tokenMetadataHolder mvc.TokenMetadataHolder
+	routerRepository       mvc.RouterRepository
+	poolsUsecase           mvc.PoolsUsecase
+	tokenMetadataHolder    mvc.TokenMetadataHolder
+	candidateRouteSearcher domain.CandidateRouteSearcher
 
 	// This is the default config used when no routing options are provided.
 	defaultConfig       domain.RouterConfig
@@ -88,14 +89,15 @@ func init() {
 }
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, tokenMetadataHolder mvc.TokenMetadataHolder, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, candidateRouteSearcher domain.CandidateRouteSearcher, tokenMetadataHolder mvc.TokenMetadataHolder, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
-		routerRepository:    tokensRepository,
-		poolsUsecase:        poolsUsecase,
-		tokenMetadataHolder: tokenMetadataHolder,
-		defaultConfig:       config,
-		cosmWasmPoolsConfig: cosmWasmPoolsConfig,
-		logger:              logger,
+		routerRepository:       tokensRepository,
+		poolsUsecase:           poolsUsecase,
+		tokenMetadataHolder:    tokenMetadataHolder,
+		defaultConfig:          config,
+		cosmWasmPoolsConfig:    cosmWasmPoolsConfig,
+		candidateRouteSearcher: candidateRouteSearcher,
+		logger:                 logger,
 
 		rankedRouteCache:    rankedRouteCache,
 		candidateRouteCache: candidateRouteCache,
@@ -244,7 +246,12 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 	// So we want to calculate price, but we never cache routes for pricing the are below the minPoolLiquidityCap value, as these are returned to users.
 
 	// Compute candidate routes.
-	candidateRoutes, err := GetCandidateRoutesNew(r.routerRepository.GetCandidateRouteSearchData(), tokenIn, tokenOutDenom, options.MaxRoutes, options.MaxPoolsPerRoute, options.MinPoolLiquidityCap, r.logger)
+	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           options.MaxRoutes,
+		MaxPoolsPerRoute:    options.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: options.MinPoolLiquidityCap,
+	}
+	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutes(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 		return nil, err

@@ -20,3 +20,12 @@ func (c *CandidateRouteSearchDataHolderMock) GetCandidateRouteSearchData() map[s
 func (c *CandidateRouteSearchDataHolderMock) SetCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdomain.PoolI) {
 	c.CandidateRouteSearchData = candidateRouteSearchData
 }
+
+// GetRankedPoolsByDenom implements mvc.CandidateRouteSearchDataHolder.
+func (c *CandidateRouteSearchDataHolderMock) GetRankedPoolsByDenom(denom string) ([]sqsdomain.PoolI, error) {
+	pools, ok := c.CandidateRouteSearchData[denom]
+	if !ok {
+		return []sqsdomain.PoolI{}, nil
+	}
+	return pools, nil
+}

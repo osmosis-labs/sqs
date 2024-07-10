@@ -1,6 +1,7 @@
 package routerrepo
 
 import (
+	"fmt"
 	"sync"
 
 	"cosmossdk.io/math"
@@ -133,6 +134,21 @@ func (r *routerRepo) GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI 
 	})
 
 	return candidateRouteSearchData
+}
+
+// GetRankedPoolsByDenom implements mvc.CandidateRouteSearchDataHolder.
+func (r *routerRepo) GetRankedPoolsByDenom(denom string) ([]sqsdomain.PoolI, error) {
+	poolsData, ok := r.candidateRouteSearchData.Load(denom)
+	if !ok {
+		return []sqsdomain.PoolI{}, nil
+	}
+
+	pools, ok := poolsData.([]sqsdomain.PoolI)
+	if !ok {
+		return nil, fmt.Errorf("error casting value to []sqsdomain.PoolI in GetByDenom")
+	}
+
+	return pools, nil
 }
 
 // SetCandidateRouteSearchData implements mvc.RouterUsecase.

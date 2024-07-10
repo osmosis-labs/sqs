@@ -241,8 +241,9 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			}
 
 			tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
+			candidateRouteFinderMock := mocks.CandidateRouteFinderMock{}
 
-			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, &tokenMetaDataHolder, domain.RouterConfig{
+			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, candidateRouteFinderMock, &tokenMetaDataHolder, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheDisabled,
 			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
 
@@ -972,8 +973,9 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 	poolsUsecase.StorePools(mainnetState.Pools)
 
 	tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
+	candidateRouteFinderMock := mocks.CandidateRouteFinderMock{}
 
-	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, &tokenMetaDataHolder, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinderMock, &tokenMetaDataHolder, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 
 	// Test cases
 	testCases := []struct {

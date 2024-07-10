@@ -46,10 +46,11 @@ type MockMainnetState struct {
 }
 
 type MockMainnetUsecase struct {
-	Pools  mvc.PoolsUsecase
-	Router mvc.RouterUsecase
-	Tokens mvc.TokensUsecase
-	Ingest mvc.IngestUsecase
+	Pools                  mvc.PoolsUsecase
+	Router                 mvc.RouterUsecase
+	Tokens                 mvc.TokensUsecase
+	Ingest                 mvc.IngestUsecase
+	CandidateRouteSearcher domain.CandidateRouteSearcher
 }
 
 const (
@@ -390,12 +391,14 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 
-	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, logger)
+	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, &log.NoOpLogger{})
 	tokensUsecase.UpdatePoolDenomMetadata(mainnetState.PoolDenomsMetaData)
 
-	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
+	candidateRouteFinder := routerusecase.NewCandidateRouteFinder(routerRepositoryMock, logger)
 
-	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
+
+	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Validate and sort pools
 	sortedPools := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
@@ -424,10 +427,11 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	}
 
 	return MockMainnetUsecase{
-		Pools:  poolsUsecase,
-		Router: routerUsecase,
-		Tokens: tokensUsecase,
-		Ingest: ingestUsecase,
+		Pools:                  poolsUsecase,
+		Router:                 routerUsecase,
+		Tokens:                 tokensUsecase,
+		Ingest:                 ingestUsecase,
+		CandidateRouteSearcher: candidateRouteFinder,
 	}
 }
 
