@@ -19,6 +19,9 @@ type Config struct {
 	// Chain registry assets URL.
 	ChainRegistryAssetsFileURL string `mapstructure:"chain-registry-assets-url"`
 
+	// Defines the block interval at which the assets are updated.
+	UpdateAssetsHeightInterval int `mapstructure:"update-assets-height-interval"`
+
 	FlightRecord *FlightRecordConfig `mapstructure:"flight-record"`
 
 	// Router encapsulates the router config.

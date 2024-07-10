@@ -21,6 +21,9 @@ type TokensPoolLiquidityHandler interface {
 type TokensUsecase interface {
 	TokensPoolLiquidityHandler
 
+	// LoadTokens loads token meta data by chain denom into tokensUseCase.
+	LoadTokens(tokenMetadataByChainDenom map[string]domain.Token)
+
 	// GetMetadataByChainDenom returns token metadata for a given chain denom.
 	GetMetadataByChainDenom(denom string) (domain.Token, error)
 
@@ -80,6 +83,12 @@ type TokensUsecase interface {
 
 	// GetCoingeckoIdByChainDenom gets the Coingecko ID by chain denom
 	GetCoingeckoIdByChainDenom(chainDenom string) (string, error)
+
+	// UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
+	UpdateAssetsAtHeightIntervalSync(height uint64) error
+
+	// SetTokenRegistryLoader sets the token registry loader.
+	SetTokenRegistryLoader(loader domain.TokenRegistryLoader)
 }
 
 // ValidateChainDenomQueryParam validates the chain denom query parameter.

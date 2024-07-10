@@ -331,7 +331,7 @@ curl "https://sqs.osmosis.zone/router/custom-direct-quote?tokenIn=1000000uosmo&t
 
 1. GET `/tokens/metadata`
 
-Description: returns oken metadata with chain denom, human denom and precision.
+Description: returns token metadata with chain denom, human denom and precision.
 For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
 See `config.json` and `config-testnet.json` in root for details.
 
@@ -554,6 +554,8 @@ See the recommended enabled configuration below:
     "chain-id": "osmosis-1",
     // Chain assets URL
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+    // Defines the block interval at which the assets are updated.
+    "update-assets-height-interval": 200,
     // Router-specific configuration
     "router": {
       // Pool IDs that are prioritized in the router.

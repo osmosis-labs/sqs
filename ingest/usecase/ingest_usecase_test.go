@@ -1,12 +1,17 @@
 package usecase_test
 
 import (
+	"context"
+	"math/rand"
+	"sync"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/ingest/usecase"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
@@ -70,6 +75,8 @@ var (
 	}
 
 	emptyDenomLiquidityMap = domain.DenomPoolLiquidityMap{}
+
+	noOpLogger = &log.NoOpLogger{}
 )
 
 func TestIngestUseCaseTestSuite(t *testing.T) {
@@ -362,6 +369,84 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 
 			// Validation
 			s.Require().Equal(tc.expectedResult, result)
+		})
+	}
+}
+
+func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalSync() {
+	tests := []struct {
+		name          string
+		wantCallCount int
+	}{
+		{
+			name:          "Random call count",
+			wantCallCount: rand.Intn(100),
+		},
+		{
+			name:          "Zero call count",
+			wantCallCount: 0,
+		},
+		{
+			name:          "Fixed call count",
+			wantCallCount: 50,
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			var (
+				// got is used to count the number of times UpdateAssetsAtHeightIntervalSync
+				// UpdateAssetsAtHeightIntervalSync is being called as a separate goroutine
+				// inside the ProcessBlockData function.
+				got int
+
+				// mu is used to synchronize access to got.
+				mu sync.Mutex
+
+				// wg is used to wait for all UpdateAssetsAtHeightIntervalSync goroutines to finish.
+				wg sync.WaitGroup
+			)
+
+			// Add the number of expected calls to the wait group.
+			wg.Add(tt.wantCallCount)
+
+			ingester, err := usecase.NewIngestUsecase(
+				&mocks.PoolsUsecaseMock{
+					StorePoolsFunc: func(pools []sqsdomain.PoolI) error {
+						return nil
+					},
+				},
+				&mocks.RouterUsecaseMock{},
+				&mocks.RouterUsecaseMock{},
+				&mocks.TokensUsecaseMock{
+					UpdateAssetsAtHeightIntervalSyncFunc: func(height uint64) error {
+						defer wg.Done()
+						mu.Lock()
+						got++
+						mu.Unlock()
+						return nil
+					},
+				},
+				&mocks.ChainInfoUsecaseMock{},
+				nil,
+				&mocks.PricingWorkerMock{
+					UpdatePricesAsyncFunc: func(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+						// do nothing
+					},
+				},
+				&mocks.CandidateRouteSearchDataWorkerMock{},
+				noOpLogger,
+			)
+			s.Require().NoError(err)
+
+			for height := 0; height < tt.wantCallCount; height++ {
+				err = ingester.ProcessBlockData(context.TODO(), uint64(height)+1, nil, nil)
+				s.Require().NoError(err)
+			}
+
+			wg.Wait()
+
+			s.Require().Equal(tt.wantCallCount, got)
 		})
 	}
 }
