@@ -12,7 +12,7 @@ require (
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.13
 	github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240524131320-44f70454a543
-	github.com/osmosis-labs/sqs/sqsdomain v0.18.4-0.20240703175916-64be714c067d
+	github.com/osmosis-labs/sqs/sqsdomain v0.18.4-0.20240710214115-1d2df7b6dab4
 	github.com/prometheus/client_golang v1.19.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.18.2
