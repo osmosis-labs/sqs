@@ -163,10 +163,23 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	p.logger.Info("completed block processing", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
+	// We update the assets at the height interval asynchronously to avoid blocking the processing of the next block.
+	p.updateAssetsAtHeightIntervalAsync(height)
+
 	// Observe the processing duration with height
 	domain.SQSIngestHandlerProcessBlockDurationGauge.Set(float64(time.Since(startProcessingTime).Milliseconds()))
 
 	return nil
+}
+
+// updateAssetsAtHeightIntervalAsync updates the assets at the height interval asynchronously.
+// Any error that occurs during the update is recorded in the error counter.
+func (p *ingestUseCase) updateAssetsAtHeightIntervalAsync(height uint64) {
+	go func() {
+		if err := p.tokensUsecase.UpdateAssetsAtHeightIntervalSync(height); err != nil {
+			domain.SQSUpdateAssetsAtHeightIntervalErrorCounter.WithLabelValues(err.Error(), fmt.Sprint(height)).Inc()
+		}
+	}()
 }
 
 // sortAndStorePools sorts the pools and stores them in the router.
