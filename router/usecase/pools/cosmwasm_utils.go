@@ -4,7 +4,6 @@ import (
 	"context"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -15,7 +14,6 @@ import (
 // initializeWasmClient initializes the wasm client given the node URI
 // Returns error if fails to initialize the client
 func initializeWasmClient(grpcGatewayEndpoint string) (wasmtypes.QueryClient, error) {
-	clientContext := client.Context{}
 	grpcClient, err := grpc.NewClient(grpcGatewayEndpoint,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
@@ -24,8 +22,7 @@ func initializeWasmClient(grpcGatewayEndpoint string) (wasmtypes.QueryClient, er
 		return nil, err
 	}
 
-	clientContext = clientContext.WithGRPCClient(grpcClient)
-	wasmClient := wasmtypes.NewQueryClient(clientContext)
+	wasmClient := wasmtypes.NewQueryClient(grpcClient)
 
 	return wasmClient, nil
 }

@@ -5,9 +5,13 @@ import (
 	"net"
 	"net/http"
 
+	tenderminapi "cosmossdk.io/api/cosmos/base/tendermint/v1beta1"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
@@ -111,6 +115,11 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	)
 
 	tokensUseCase.SetTokenRegistryLoader(chainRegistryHTTPFetcher)
+
+	// Check the status of the grpc gateway
+	if err := checkGRPCGatewayStatus(config.ChainGRPCGatewayEndpoint); err != nil {
+		return nil, err
+	}
 
 	// Initialize pools repository, usecase and HTTP handler
 	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
@@ -232,4 +241,24 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		e:             e,
 		sqsAddress:    config.ServerAddress,
 	}, nil
+}
+
+// checkGRPCGatewayStatus checks the status of the grpc gateway.
+// Returns nil if the grpc gateway is reachable.
+// Returns error if the grpc gateway is unreachable.
+func checkGRPCGatewayStatus(grpcGatewayEndpoint string) error {
+	grpcClient, err := grpc.NewClient(grpcGatewayEndpoint,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		return err
+	}
+
+	tendermintGRPCClient := tenderminapi.NewServiceClient(grpcClient)
+	if _, err := tendermintGRPCClient.GetLatestBlock(context.Background(), &tenderminapi.GetLatestBlockRequest{}); err != nil {
+		return err
+	}
+
+	return nil
 }
