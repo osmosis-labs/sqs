@@ -69,6 +69,12 @@ asset and the default quote denom.
 
 Once complete, it calls a hook to notify the subscribed listeners that the prices have been updated.
 
+Note, that we recompute pricing logic twice for the first block ingested. First time it is done
+syncronously to avoid proceeding before prices are computed. At that point the pool liquidity pricing
+is not enabled yet since we have no pricing data. Therefore, the prices are compouted via suboptimal routes.
+As a result, once the prices for all tokens are computed the first time, we trigger the pricing worker
+asyncronously for all tokens second time.
+
 #### Pricing Listeners
 
 - Healthcheck: The healthcheck listener is responsible for updating the healthcheck status based on the last time the prices were updated. If the prices are not updated within a certain time period, the healthcheck status will be updated to unhealthy.
@@ -133,6 +139,8 @@ For example, assume that there is an ATOM/OSMO pool that is modified within a bl
 
 The denom liquidity capitalization and pool liquidity capitalizaion for each pool are computed concurrently by the
 pool liquidity pricer worker after every block.
+
+For the alloyed pools, there is custom handling to account for the alloyed asset denom. See `docs/architecture/COSMWASM_POOLS.MD` for details.
 
 ### Candidate Route Search Data
 

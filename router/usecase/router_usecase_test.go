@@ -240,7 +240,9 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				Pools: tc.repositoryPools,
 			}
 
-			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, domain.RouterConfig{
+			tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
+
+			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, &tokenMetaDataHolder, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheDisabled,
 			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
 
@@ -577,11 +579,11 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 // We restrict the number of routes via config.
 //
 // As of today there are 3 major ATOM / OSMO pools:
-// Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 8M of liquidity to date
-// Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 4M of liquidity to date
-// Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 268K of liquidity to date
-// Pool ID 1399: https://app.osmosis.zone/pool/1399 (concentrated) 0.01% spread factor and 75K of liquidity to date
-// Pool ID 1400: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 149K of liquidity to date
+// Pool ID 1: https://app.osmosis.zone/pool/1 (balancer) 0.2% spread factor and 6.8M of liquidity to date
+// Pool ID 1135: https://app.osmosis.zone/pool/1135 (concentrated) 0.2% spread factor and 3.7M of liquidity to date
+// Pool ID 1265: https://app.osmosis.zone/pool/1265 (concentrated) 0.05% spread factor and 480K of liquidity to date
+// Pool ID 1399: https://app.osmosis.zone/pool/1399 (concentrated) 0.01% spread factor and 4.9K of liquidity to date
+// Pool ID 1400: https://app.osmosis.zone/pool/1400 (concentrated) 0.00% spread factor and 124K of liquidity to date
 //
 // Based on this state, the small amounts of token in should go through pool 1265
 // Medium amounts of token in should go through pool 1135
@@ -691,7 +693,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 37
+		expectedZeroPoolCount = 38
 	)
 
 	viper.SetConfigFile("../../config.json")
@@ -739,7 +741,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	fmt.Printf("\n\n\n")
 	fmt.Println("Tokens with no routes even when min osmo liquidity is set to zero:")
 
-	zeroPriceCounterNoMinLiq := 0
+	zeroRoutesNoFilterCounter := 0
 	// Now set min liquidity capitalization to zero to identify which tokens are missing prices even when we
 	// don't have liquidity filtering.
 	config.Router.MinPoolLiquidityCap = 0
@@ -758,7 +760,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 		if len(routes.Routes) == 0 {
 			fmt.Printf("No route for %s  -- %s (no min liq filtering)\n", chainDenom, tokenMeta.HumanDenom)
-			zeroPriceCounterNoMinLiq++
+			zeroRoutesNoFilterCounter++
 			continue
 		}
 	}
@@ -767,7 +769,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 	// Note that if we update test state, these are likely to change
 	s.Require().Equal(expectedZeroPoolCount, zeroRouteCount)
-	s.Require().Equal(expectedZeroPoolCount, zeroPriceCounterNoMinLiq, "There are tokens with no routes even when min osmo liquidity is set to zero")
+	s.Require().Equal(expectedZeroPoolCount, zeroRoutesNoFilterCounter, "There are tokens with no routes even when min osmo liquidity is set to zero")
 }
 
 // We use this test as a way to ensure that we multiply the amount in by the route fraction.
@@ -817,7 +819,7 @@ func (s *RouterTestSuite) TestSortPools() {
 	const (
 		// the minimum number of pools should  only change if liqudiity falls below MinPoolLiquidityCap. As a result
 		// this is a good high-level check to ensure that the pools are being loaded correctly.
-		expectedMinNumPools = 239
+		expectedMinNumPools = 234
 
 		// If mainnet state is updated
 		expectedTopPoolID = uint64(1283)
@@ -852,6 +854,8 @@ func (s *RouterTestSuite) TestConvertMinTokensPoolLiquidityCapToFilter() {
 		defaultThresholdMinPoolLiquidityCap = defaultFilters[0].MinTokensCap
 
 		defaultAboveThresholdFilterValue = defaultFilters[0].FilterValue
+
+		capOneBelowMinThreshold = defaultFilters[len(defaultFilters)-1].MinTokensCap - 1
 	)
 
 	tests := []struct {
@@ -888,7 +892,7 @@ func (s *RouterTestSuite) TestConvertMinTokensPoolLiquidityCapToFilter() {
 
 			minLiqCapFilterEntries: defaultFilters,
 
-			minTokensPoolLiquidityCap: defaultThresholdMinPoolLiquidityCap - 1,
+			minTokensPoolLiquidityCap: capOneBelowMinThreshold,
 
 			expectedFilter: defaultConfigFilter,
 		},
@@ -967,7 +971,9 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb)
 	poolsUsecase.StorePools(mainnetState.Pools)
 
-	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
+
+	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, &tokenMetaDataHolder, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 
 	// Test cases
 	testCases := []struct {
@@ -1175,6 +1181,90 @@ func (s *RouterTestSuite) TestCutRoutesForSplits() {
 			routes := usecase.CutRoutesForSplits(tc.maxSplitRoutes, tc.routes)
 
 			s.Require().Len(routes, tc.expectedRoutesLen)
+		})
+	}
+}
+
+func (s *RouterTestSuite) TestGetMinPoolLiquidityCapFilter() {
+
+	const (
+		dynamicFilterValue = 10_000
+		defaultFilterValue = 100
+
+		minTokensCapThreshold = 5_000
+	)
+
+	routerConfig := routertesting.DefaultRouterConfig
+	routerConfig.DynamicMinLiquidityCapFiltersDesc = []domain.DynamicMinLiquidityCapFilterEntry{
+		{
+			MinTokensCap: 5_000,
+			// This is what should be returned with dynamic min liquidity enabled
+			// for UOSMO and USDC since both of these tokens have way more mainnet liquidity
+			//	than $5K
+			FilterValue: dynamicFilterValue,
+		},
+	}
+	// Universal default min liquidity cap is $100
+	// This is what's returned if we fallback by default.
+	routerConfig.MinPoolLiquidityCap = defaultFilterValue
+
+	tests := []struct {
+		name string
+
+		tokenInDenom                string
+		tokenOutDenom               string
+		disableMinLiquidityFallback bool
+		forceDefaultMinLiquidityCap bool
+
+		expectedFilter uint64
+		expectErr      bool
+	}{
+		{
+			name:           "min liquidity fallback is enabled",
+			tokenInDenom:   USDC,
+			tokenOutDenom:  UOSMO,
+			expectedFilter: dynamicFilterValue,
+		},
+		{
+			name: "default filter due to token with no metadata and fallback enabled",
+			// UATOM does not have the pool liquidity metadata pre-configured.
+			tokenInDenom:   ATOM,
+			tokenOutDenom:  UOSMO,
+			expectedFilter: defaultFilterValue,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+
+		s.T().Run(tc.name, func(t *testing.T) {
+			// Set up mainnet mock state.
+			mainnetState := s.SetupMainnetState()
+
+			mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(routerConfig), routertesting.WithLoggerDisabled())
+
+			// Clear the mainnet state for setting up test-specific environment.
+			mainnetUsecase.Tokens.ClearPoolDenomMetadata()
+
+			mainnetUsecase.Tokens.UpdatePoolDenomMetadata(domain.PoolDenomMetaDataMap{
+				USDC: domain.PoolDenomMetaData{
+					TotalLiquidityCap: osmomath.NewInt(minTokensCapThreshold + 1),
+				},
+				UOSMO: domain.PoolDenomMetaData{
+					TotalLiquidityCap: osmomath.NewInt(minTokensCapThreshold + 1),
+				},
+			})
+
+			actualFilter, err := mainnetUsecase.Router.GetMinPoolLiquidityCapFilter(tc.tokenInDenom, tc.tokenOutDenom)
+
+			if tc.expectErr {
+				s.Require().Error(err)
+				return
+			}
+
+			// Validate result
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expectedFilter, actualFilter)
 		})
 	}
 }

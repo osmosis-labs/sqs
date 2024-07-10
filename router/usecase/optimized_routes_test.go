@@ -41,6 +41,7 @@ var (
 	UMEE     = routertesting.UMEE
 	UION     = routertesting.UION
 	ALLUSDT  = routertesting.ALLUSDT
+	ALLBTC   = routertesting.ALLBTC
 	KAVAUSDT = routertesting.KAVAUSDT
 )
 
@@ -579,7 +580,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(1000_000_000),
 
-			expectedRoutesCount: 2,
+			expectedRoutesCount: 1,
 		},
 		"uosmo for uion": {
 			tokenInDenom:  UOSMO,
@@ -603,7 +604,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			amountIn: osmomath.NewInt(100_000_000),
 
-			expectedRoutesCount: 2,
+			expectedRoutesCount: 1,
 		},
 		// This test validates that with a greater max routes value, SQS is able to find
 		// the path from umee to stOsmo
@@ -690,7 +691,9 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", tokensRepositoryMock, domain.UnsetScalingFactorGetterCb)
 	poolsUsecase.StorePools(mainnetState.Pools)
 
-	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	tokenMetaDataHolderMock := &mocks.TokenMetadataHolderMock{}
+
+	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
 
 	// This pool ID is second best: https://app.osmosis.zone/pool/2
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected

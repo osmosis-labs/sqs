@@ -321,5 +321,12 @@ func (a *TokensHandler) StoreTokensStateInFiles(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
 
+	poolDenomMetaData := a.TUsecase.GetFullPoolDenomMetadata()
+
+	err = parsing.StorePoolDenomMetaData(poolDenomMetaData, "pool_denom_metadata.json")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
+	}
+
 	return c.JSON(http.StatusOK, "Tokens metadata state stored in files")
 }

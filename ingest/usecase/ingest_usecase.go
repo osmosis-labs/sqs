@@ -147,8 +147,14 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		// to avoid overloading the system.
 		defer p.firstBlockWg.Done()
 
-		// Pre-compute the prices for all
+		// Pre-compute the prices for all tokens
 		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
+
+		// Completely reprice the pool liquidity for the first block asyncronously
+		// second time.
+		// This is necessary because the initial pricing is computed within min liquidity capitalization.
+		// That results in a suboptimal price.
+		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
 	} else {
 		// Wait for the first block to be processed before
 		// updating the prices for the next block.
@@ -232,7 +238,8 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 			}
 
 			// Get balances and pool ID.
-			currentPoolBalances := poolResult.pool.GetSQSPoolModel().Balances
+			sqsModel := poolResult.pool.GetSQSPoolModel()
+			currentPoolBalances := sqsModel.Balances
 			poolID := poolResult.pool.GetId()
 
 			// Update block liquidity map.
@@ -246,6 +253,16 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				}
 
 				uniqueData.UpdatedDenoms[balance.Denom] = struct{}{}
+			}
+
+			// Handle the alloyed LP share stemming from the "minting" pools.
+			// See updateCurrentBlockLiquidityMapAlloyed for details.
+			cosmWasmModel := sqsModel.CosmWasmPoolModel
+			if cosmWasmModel != nil && cosmWasmModel.IsAlloyTransmuter() {
+				alloyedDenom := cosmWasmModel.Data.AlloyTransmuter.AlloyedDenom
+				uniqueData.UpdatedDenoms[alloyedDenom] = struct{}{}
+
+				currentBlockLiquidityMap = updateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap, poolID, alloyedDenom)
 			}
 
 			// Update unique pools.
@@ -303,6 +320,38 @@ func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.
 	}
 
 	// Return for idiomacy despite param mutation.
+	return currentBlockLiquidityMap
+}
+
+// updateCurrentBlockLiquidityMapAlloyed updates the current block liquidity map with the alloyed LP share.
+// Since the LP share is not present in the balances for the "minting" pool, we treat its contribution to
+// the liqudity as zero. However, we still create a mapping from the LP share to the pool ID so that
+// we can find routes over the minting pools.
+// CONTRACT: the pool ID is validated to be an alloyed pool that mints the LP share.
+// See `docs/architecture/COSMWASM_POOLS.md` for details.
+func updateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, poolID uint64, alloyedDenom string) domain.DenomPoolLiquidityMap {
+	denomPoolLiquidityData, ok := currentBlockLiquidityMap[alloyedDenom]
+
+	// Note: we do not update the total liquidity since this is
+	// a contribution of the "minting" LP share pool.
+	// We only update the total liquidity for an alloyed
+	// whenever it is included in the balances as part of the "non-minting" pools.
+	// However, for the purposes of finding candidate routes, we treate as if the LP
+	// share is contributing zero to the liquidity of the pool it is minted from.
+	// See `docs/architecture/COSMWASM_POOLS.md` for details.
+	if ok {
+		denomPoolLiquidityData.Pools[poolID] = osmomath.ZeroInt()
+		currentBlockLiquidityMap[alloyedDenom] = denomPoolLiquidityData
+	} else {
+		currentBlockLiquidityMap[alloyedDenom] = domain.DenomPoolLiquidityData{
+			// Note: we do not update the total liquidity since it is not present in the balances.
+			TotalLiquidity: osmomath.ZeroInt(),
+			Pools: map[uint64]osmomath.Int{
+				poolID: osmomath.ZeroInt(),
+			},
+		}
+	}
+
 	return currentBlockLiquidityMap
 }
 

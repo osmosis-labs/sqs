@@ -54,6 +54,34 @@ One caveat on utilizing cw2 information is that there is no uniqueness check for
 `crates.io:transmuter` `<3.0.0`: requires no additional information.
 `crates.io:transmuter` `>=3.0.0`: requires alloyed asset denom and normalization factors for each asset.
 
+### Alloyed
+
+[Alloyed Transmuter Pools](https://forum.osmosis.zone/t/alloyed-assets-on-osmosis-unifying-ux-and-solving-liquidity-fragmentation/2624) is a novel mechanism developed
+by Osmosis to unify multiple bridged assets into a single LP share token.
+
+Alloyed assets represent LP shares of these pools, combining various asset versions into one fungible token. Depositing different asset versions into the pool adds liquidity and, in return, users receive LP shares in the form of alloyed assets, enhancing UX by consolidating liquidity.
+
+Users can acquire alloyed assets by simply swapping a like-kind asset for the alloyed version in the swap page.
+
+Swapping into the alloy is equivalent to depositing the asset into the pool and receiving the LP share token. Swapping out of the alloy is equivalent to burning the LP share token and receiving the asset.
+
+In the context of SQS router, this poses a number of challenges. The router needs to be aware of the alloyed asset denom.
+
+For example, the alloyed asset denom is not contained in the pool balances or denoms of the pools that mints it as an LP share. Without custom handling, the router would be unable to consider the alloyed asset denom in route finding
+This stems from the fact that the route finding algorithm looks at the pool denoms as well as how much liquidity a denom contributes to.
+
+To address this, we define the following invariants for alloyed assets for the context of SQS:
+- Each pool that mints alloyed asset denom does not contain it in balances but we include it in the pool denoms.
+- The pool that mints alloyed asset denom does not include the alloyed asset value in its liquidity capitalization.
+   * Example: [Pool 1868](https://app.osmosis.zone/pool/1868) and allBTC.
+- The pool that does not mint alloyed asset but contains it one of the direct assets includes the alloyed asset value in its liquidity capitalization as well as in the balances
+   * Example: [Pool 1835](https://app.osmosis.zone/pool/1835) and USDT.
+- During ingest, we maintain the [BlockPoolMetaData.DenomPoolLiquidityMap](https://github.com/osmosis-labs/sqs/blob/d32f6a1ef6fd2a081f60f1f510023a0c8f9b1530/docs/architecture/ingest.md#L37-L49) to keep track of the liquidity capitalization for each denom across all pools.
+  * We add the alloyed asset value to the liquidity capitalization contribution for non-minting pools that contain an LP share as one of the direct assets.
+  * However, for `BlockPoolMetaData.DenomPoolLiquidityMap.Pools`, we add the LP share as contributing
+  zero to liqudiity capitalization. By maintaining the LP share denom in the `DenomPoolLiquidityMap.Pools`, we can ensure that the LP share is not double counted towards liquidity capitalization but still be able
+  to find routes over the "minting" pools.
+
 ## Orderbook
 `crates.io:sumtree-orderbook` `>= 0.1.0`: requires base and quote denoms, ticks liquidity, next bid and ask tick.
 

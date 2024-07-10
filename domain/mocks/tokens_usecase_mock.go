@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mvc"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -29,7 +30,10 @@ type TokensUsecaseMock struct {
 	GetCoingeckoIdByChainDenomFunc       func(chainDenom string) (string, error)
 	UpdateAssetsAtHeightIntervalSyncFunc func(height uint64) error
 	SetTokenRegistryLoaderFunc           func(loader domain.TokenRegistryLoader)
+	ClearPoolDenomMetadataFunc           func()
 }
+
+var _ mvc.TokensUsecase = &TokensUsecaseMock{}
 
 func (m *TokensUsecaseMock) UpdatePoolDenomMetadata(tokensMetadata domain.PoolDenomMetaDataMap) {
 	if m.UpdatePoolDenomMetadataFunc != nil {
@@ -158,4 +162,13 @@ func (m *TokensUsecaseMock) SetTokenRegistryLoader(loader domain.TokenRegistryLo
 	if m.SetTokenRegistryLoaderFunc != nil {
 		m.SetTokenRegistryLoaderFunc(loader)
 	}
+	panic("unimplemented")
+}
+
+// ClearPoolDenomMetadata implements mvc.TokensUsecase.
+func (m *TokensUsecaseMock) ClearPoolDenomMetadata() {
+	if m.ClearPoolDenomMetadataFunc != nil {
+		m.ClearPoolDenomMetadataFunc()
+	}
+	panic("unimplemented")
 }

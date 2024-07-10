@@ -32,6 +32,15 @@ type RouterUsecaseMock struct {
 	GetConfigFunc                                func() domain.RouterConfig
 	ConvertMinTokensPoolLiquidityCapToFilterFunc func(minTokensPoolLiquidityCap uint64) uint64
 	SetSortedPoolsFunc                           func(pools []sqsdomain.PoolI)
+	GetMinPoolLiquidityCapFilterFunc             func(tokenInDenom string, tokenOutDenom string) (uint64, error)
+}
+
+// GetMinPoolLiquidityCapFilter implements mvc.RouterUsecase.
+func (m *RouterUsecaseMock) GetMinPoolLiquidityCapFilter(tokenInDenom string, tokenOutDenom string) (uint64, error) {
+	if m.GetMinPoolLiquidityCapFilterFunc != nil {
+		return m.GetMinPoolLiquidityCapFilterFunc(tokenInDenom, tokenOutDenom)
+	}
+	panic("unimplemented")
 }
 
 func (m *RouterUsecaseMock) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {

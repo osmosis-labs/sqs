@@ -42,6 +42,7 @@ type MockMainnetState struct {
 	TokensMetadata           map[string]domain.Token
 	PricingConfig            domain.PricingConfig
 	CandidateRouteSearchData map[string][]sqsdomain.PoolI
+	PoolDenomsMetaData       domain.PoolDenomMetaDataMap
 }
 
 type MockMainnetUsecase struct {
@@ -54,11 +55,12 @@ type MockMainnetUsecase struct {
 const (
 	DefaultPoolID = uint64(1)
 
-	relativePathMainnetFiles = "/router/usecase/routertesting/parsing/"
-	poolsFileName            = "pools.json"
-	takerFeesFileName        = "taker_fees.json"
-	tokensMetadataFileName   = "tokens.json"
-	candidateRouteFileName   = "candidate_route_search_data.json"
+	relativePathMainnetFiles   = "/router/usecase/routertesting/parsing/"
+	poolsFileName              = "pools.json"
+	takerFeesFileName          = "taker_fees.json"
+	tokensMetadataFileName     = "tokens.json"
+	candidateRouteFileName     = "candidate_route_search_data.json"
+	poolDenomsMetaDataFileName = "pool_denom_metadata.json"
 )
 
 var (
@@ -133,7 +135,9 @@ var (
 	// DYDX is 18 decimals
 	DYDX     = "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C"
 	ALLUSDT  = "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT"
+	ALLBTC   = "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC"
 	KAVAUSDT = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
+	EVMOS    = "ibc/6AE98883D4D5D5FF9E50D7130F1305DA2FFA0C652D1DD9C123657C6B4EB2DF8A"
 
 	MainnetDenoms = []string{
 		UOSMO,
@@ -169,6 +173,22 @@ var (
 				// 1_000_000 min token liquidity capitalization translates to a 75_000 filter value
 				MinTokensCap: 100000,
 				FilterValue:  75000,
+			},
+			{
+				MinTokensCap: 250000,
+				FilterValue:  15000,
+			},
+			{
+				MinTokensCap: 10000,
+				FilterValue:  1000,
+			},
+			{
+				MinTokensCap: 1000,
+				FilterValue:  10,
+			},
+			{
+				MinTokensCap: 1,
+				FilterValue:  1,
 			},
 		},
 	}
@@ -316,6 +336,9 @@ func (s *RouterTestHelper) SetupMainnetState() MockMainnetState {
 	tokensMetadata, err := parsing.ReadTokensMetadata(absolutePathToStateFiles + tokensMetadataFileName)
 	s.Require().NoError(err)
 
+	poolDenomsMetaData, err := parsing.ReadPoolDenomsMetaData(absolutePathToStateFiles + poolDenomsMetaDataFileName)
+	s.Require().NoError(err)
+
 	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchData(absolutePathToStateFiles + candidateRouteFileName)
 	s.Require().NoError(err)
 
@@ -325,6 +348,7 @@ func (s *RouterTestHelper) SetupMainnetState() MockMainnetState {
 		TakerFeeMap:              takerFeeMap,
 		TokensMetadata:           tokensMetadata,
 		CandidateRouteSearchData: candidateRouteSearchData,
+		PoolDenomsMetaData:       poolDenomsMetaData,
 	}
 }
 
@@ -366,16 +390,17 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 
-	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
+	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, logger)
+	tokensUsecase.UpdatePoolDenomMetadata(mainnetState.PoolDenomsMetaData)
 
-	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
+
+	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Validate and sort pools
 	sortedPools := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
 
 	routerUsecase.SetSortedPools(sortedPools)
-
-	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, logger)
 
 	// Set up on-chain pricing strategy
 	pricingSource, err := pricing.NewPricingStrategy(options.PricingConfig, tokensUsecase, routerUsecase)

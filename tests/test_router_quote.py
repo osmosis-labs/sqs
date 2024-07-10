@@ -45,19 +45,8 @@ class TestQuote:
         amount_str = coin_obj["amount_str"]
         amount_in = int(amount_str)
 
-        # This is the max error tolerance of 7% that we allow.
-        # Arbitrarily hand-picked to avoid flakiness.
-        error_tolerance = 0.07
-        # At a higher amount in, the volatility is much higher, leading to
-        # flakiness. Therefore, we increase the error tolerance to 13%.
-        # The values are arbitrarily hand-picke and can be adjusted if necessary.
-        # This seems to be especially relevant for the Astroport PCL pools.
-        if amount_in > 10_000:
-            error_tolerance = 0.10
-        elif amount_in > 30_000_000_000:
-            error_tolerance = 0.13
-        elif amount_in > 60_000_000_000:
-            error_tolerance = 0.16
+        # Choosse the error tolerance based on amount in swapped.
+        error_tolerance = choose_error_tolerance(amount_in)
 
         # Skip USDC quotes
         if denom_out == USDC:
@@ -92,10 +81,8 @@ class TestQuote:
         token_in_denom = token_in_obj['denom']
         token_in_coin = amount_str + token_in_denom
         denom_out = swap_pair['out_denom']
+        amount_in = int(amount_str)
 
-        # This is the max error tolerance of 7% that we allow.
-        # Arbitrarily hand-picked to avoid flakiness.
-        error_tolerance = 0.07
 
         # All tokens have the same default exponent, resulting in scaling factor of 1.
         spot_price_scaling_factor = 1
@@ -109,10 +96,15 @@ class TestQuote:
         # Compute expected token out
         expected_token_out = int(amount_str) * expected_in_base_out_quote_price
 
+
+        token_in_amount_usdc_value = in_base_usd_quote_price * amount_in
+
+        # Choosse the error tolerance based on amount in swapped.
+        error_tolerance = choose_error_tolerance(token_in_amount_usdc_value)
+
         # Run the quote test
         quote = self.run_quote_test(environment_url, token_in_coin, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
-        token_in_amount_usdc_value = in_base_usd_quote_price * int(amount_str)
 
         # Validate that price impact is present.
         assert quote.price_impact is not None
@@ -287,3 +279,20 @@ class TestQuote:
             return  e2e_pool_type == conftest.E2EPoolType.COSMWASM_TRANSMUTER_V1
         
         return False
+
+def choose_error_tolerance(amount_in: int):
+     # This is the max error tolerance of 7% that we allow.
+    # Arbitrarily hand-picked to avoid flakiness.
+    error_tolerance = 0.07
+    # At a higher amount in, the volatility is much higher, leading to
+    # flakiness. Therefore, we increase the error tolerance based on the amount in swapped.
+    # The values are arbitrarily hand-picke and can be adjusted if necessary.
+    # This seems to be especially relevant for the Astroport PCL pools.
+    if amount_in > 60_000_000_000:
+        error_tolerance = 0.16
+    elif amount_in > 30_000_000_000:
+        error_tolerance = 0.13
+    elif amount_in > 10_000_000_000:
+        error_tolerance = 0.10
+
+    return error_tolerance

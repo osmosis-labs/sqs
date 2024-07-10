@@ -21,3 +21,7 @@ func TransferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 func ProcessSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 	return processSQSModelMut(sqsModel)
 }
+
+func UpdateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, poolID uint64, alloyedDenom string) domain.DenomPoolLiquidityMap {
+	return updateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap, poolID, alloyedDenom)
+}

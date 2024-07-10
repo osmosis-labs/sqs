@@ -165,6 +165,7 @@ sqs-update-mainnet-state:
 
 	curl -X POST "http:/localhost:9092/tokens/store-state"
 	mv tokens.json router/usecase/routertesting/parsing/tokens.json
+	mv pool_denom_metadata.json router/usecase/routertesting/parsing/pool_denom_metadata.json
 
 # Bench tests pricing
 bench-pricing:

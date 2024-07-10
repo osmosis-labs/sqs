@@ -145,6 +145,12 @@ func (t *tokensUseCase) UpdatePoolDenomMetadata(poolDenomMetadata domain.PoolDen
 	}
 }
 
+// ClearPoolDenomMetadata implements mvc.TokensUsecase.
+// WARNING: use with caution, this will clear all pool denom metadata
+func (t *tokensUseCase) ClearPoolDenomMetadata() {
+	t.poolDenomMetaData = sync.Map{}
+}
+
 // GetPoolLiquidityCap implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetPoolLiquidityCap(chainDenom string) (osmomath.Int, error) {
 	poolDenomMetadata, err := t.GetPoolDenomMetadata(chainDenom)
