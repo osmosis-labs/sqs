@@ -29,6 +29,9 @@ type TokensUsecase interface {
 	TokenMetadataHolder
 	TokensPoolLiquidityHandler
 
+	// LoadTokens loads token meta data by chain denom into tokensUseCase.
+	LoadTokens(tokenMetadataByChainDenom map[string]domain.Token)
+
 	// GetMetadataByChainDenom returns token metadata for a given chain denom.
 	GetMetadataByChainDenom(denom string) (domain.Token, error)
 
@@ -87,6 +90,12 @@ type TokensUsecase interface {
 	// ClearPoolDenomMetadata implements mvc.TokensUsecase.
 	// WARNING: use with caution, this will clear all pool denom metadata
 	ClearPoolDenomMetadata()
+
+	// UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
+	UpdateAssetsAtHeightIntervalSync(height uint64) error
+
+	// SetTokenRegistryLoader sets the token registry loader.
+	SetTokenRegistryLoader(loader domain.TokenRegistryLoader)
 }
 
 // ValidateChainDenomQueryParam validates the chain denom query parameter.

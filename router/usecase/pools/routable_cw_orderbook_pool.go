@@ -171,7 +171,7 @@ func (r *routableOrderbookPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 // CalcSpotPrice implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	// Get the expected order directionIn
-	directionIn, err := r.OrderbookData.GetDirection(quoteDenom, baseDenom)
+	directionIn, err := r.OrderbookData.GetDirection(baseDenom, quoteDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -181,6 +181,21 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 
 	if err != nil {
 		return osmomath.BigDec{}, err
+	}
+
+	if tickIdx >= len(r.OrderbookData.Ticks) {
+		return osmomath.BigDec{}, domain.OrderbookTickIndexOutOfBoundError{
+			PoolId:       r.GetId(),
+			TickIndex:    tickIdx,
+			MaxTickIndex: len(r.OrderbookData.Ticks) - 1,
+		}
+	}
+
+	if tickIdx < 0 {
+		return osmomath.BigDec{}, cosmwasmpool.OrderbookOrderNotAvailableError{
+			PoolId:    r.GetId(),
+			Direction: directionOut,
+		}
 	}
 
 	tick := r.OrderbookData.Ticks[tickIdx]

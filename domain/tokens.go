@@ -45,3 +45,10 @@ type DenomPoolLiquidityData struct {
 
 // GAMMSharePrefix is the prefix for the GAMM share
 const GAMMSharePrefix = "gamm/pool"
+
+// TokenRegistryLoader is loader of tokens from the chain registry.
+// Loaded tokens are used to update the token registry.
+type TokenRegistryLoader interface {
+	// FetchAndUpdateTokens fetches tokens from the chain registry and updates the token registry.
+	FetchAndUpdateTokens() error
+}

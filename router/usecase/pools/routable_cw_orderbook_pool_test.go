@@ -280,8 +280,8 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 		expectError       error
 	}{
 		"BID: basic price 1 query": {
-			baseDenom:         BASE_DENOM,
-			quoteDenom:        QUOTE_DENOM,
+			baseDenom:         QUOTE_DENOM,
+			quoteDenom:        BASE_DENOM,
 			expectedSpotPrice: osmomath.NewBigDec(1),
 			nextBidTickIndex:  -1, // no next bid tick
 			nextAskTickIndex:  0,
@@ -293,8 +293,8 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"BID: multi tick lowest price": {
-			baseDenom:         BASE_DENOM,
-			quoteDenom:        QUOTE_DENOM,
+			baseDenom:         QUOTE_DENOM,
+			quoteDenom:        BASE_DENOM,
 			expectedSpotPrice: osmomath.NewBigDec(1),
 			nextBidTickIndex:  -1, // no next bid tick
 			nextAskTickIndex:  0,
@@ -323,8 +323,8 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"BID: change in spot price": {
-			baseDenom:         BASE_DENOM,
-			quoteDenom:        QUOTE_DENOM,
+			baseDenom:         QUOTE_DENOM,
+			quoteDenom:        BASE_DENOM,
 			expectedSpotPrice: osmomath.NewBigDec(2),
 			nextBidTickIndex:  -1, // no next bid tick
 			nextAskTickIndex:  1,
@@ -346,8 +346,8 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"ASK: basic price 1 query": {
-			baseDenom:         QUOTE_DENOM,
-			quoteDenom:        BASE_DENOM,
+			baseDenom:         BASE_DENOM,
+			quoteDenom:        QUOTE_DENOM,
 			expectedSpotPrice: osmomath.NewBigDec(1),
 			nextBidTickIndex:  0,
 			nextAskTickIndex:  -1, // no next ask tick
@@ -359,8 +359,8 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"ASK: multi tick lowest price": {
-			baseDenom:         QUOTE_DENOM,
-			quoteDenom:        BASE_DENOM,
+			baseDenom:         BASE_DENOM,
+			quoteDenom:        QUOTE_DENOM,
 			expectedSpotPrice: osmomath.NewBigDec(1),
 			nextBidTickIndex:  2,
 			nextAskTickIndex:  -1, // no next ask tick
@@ -380,8 +380,8 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"ASK: multi direction lowest tick": {
-			baseDenom:         QUOTE_DENOM,
-			quoteDenom:        BASE_DENOM,
+			baseDenom:         BASE_DENOM,
+			quoteDenom:        QUOTE_DENOM,
 			expectedSpotPrice: osmomath.NewBigDec(1),
 			nextBidTickIndex:  0,
 			nextAskTickIndex:  0,
@@ -393,8 +393,8 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 			},
 		},
 		"ASK: change in spot price": {
-			baseDenom:         QUOTE_DENOM,
-			quoteDenom:        BASE_DENOM,
+			baseDenom:         BASE_DENOM,
+			quoteDenom:        QUOTE_DENOM,
 			expectedSpotPrice: osmomath.NewBigDec(2),
 			nextBidTickIndex:  1,
 			nextAskTickIndex:  -1, // no next ask tick
@@ -457,7 +457,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 	for name, tc := range tests {
 		s.Run(name, func() {
 			s.Setup()
-			routablePool := s.SetupRoutableOrderbookPool(tc.quoteDenom, tc.baseDenom, tc.nextBidTickIndex, tc.nextAskTickIndex, tc.ticks, osmomath.ZeroDec())
+			routablePool := s.SetupRoutableOrderbookPool(tc.baseDenom, tc.quoteDenom, tc.nextBidTickIndex, tc.nextAskTickIndex, tc.ticks, osmomath.ZeroDec())
 			spotPrice, err := routablePool.CalcSpotPrice(context.TODO(), tc.baseDenom, tc.quoteDenom)
 
 			if tc.expectError != nil {
