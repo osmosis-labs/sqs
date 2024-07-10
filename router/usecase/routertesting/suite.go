@@ -390,7 +390,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 
-	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata)
+	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, logger)
 	tokensUsecase.UpdatePoolDenomMetadata(mainnetState.PoolDenomsMetaData)
 
 	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)

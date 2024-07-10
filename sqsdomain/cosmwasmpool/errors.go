@@ -19,3 +19,12 @@ type DuplicatedDenomError struct {
 func (e DuplicatedDenomError) Error() string {
 	return fmt.Sprintf("Denom (%s) is duplicated", e.Denom)
 }
+
+type OrderbookOrderNotAvailableError struct {
+	PoolId    uint64
+	Direction OrderbookDirection
+}
+
+func (e OrderbookOrderNotAvailableError) Error() string {
+	return fmt.Sprintf("There is no %s order in pool (%d)", e.Direction.String(), e.PoolId)
+}

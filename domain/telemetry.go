@@ -46,6 +46,13 @@ var (
 	// gauge that tracks duration of pricing worker computation
 	SQSPoolLiquidityPricingWorkerComputeDurationMetricName = "sqs_pool_liq_pricing_worker_compute_duration"
 
+	// sqs_update_assets_at_block_height_interval_error_total
+	//
+	// counter that measures the number of errors that occur during updating assets in ingest usecase
+	// Has the following labels:
+	// * height - the height of the block being processed
+	SQSUpdateAssetsAtHeightIntervalMetricName = "sqs_update_assets_at_block_height_interval_error_total"
+
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -90,6 +97,14 @@ var (
 			Help: "gauge that tracks duration of pool liquidity pricing worker computation",
 		},
 	)
+
+	SQSUpdateAssetsAtHeightIntervalErrorCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSUpdateAssetsAtHeightIntervalMetricName,
+			Help: "Update assets at block height interval error when processing block data",
+		},
+		[]string{"err", "height"},
+	)
 )
 
 func init() {
@@ -99,4 +114,5 @@ func init() {
 	prometheus.MustRegister(SQSPricingWorkerComputeDurationGauge)
 	prometheus.MustRegister(SQSPricingWorkerComputeErrorCounter)
 	prometheus.MustRegister(SQSPoolLiquidityPricingWorkerComputeDurationGauge)
+	prometheus.MustRegister(SQSUpdateAssetsAtHeightIntervalErrorCounter)
 }

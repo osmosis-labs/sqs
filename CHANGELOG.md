@@ -42,6 +42,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Switch ingest block processing system to rely on worker pool with 2 block processing workers.
 - Wait for cold-start (first block) to be processed before starting the next block to avoid overloading the system.
 - Create a separate simple router usecase to be used in pricing and avoid mixing up configs and caches.
+- [Q3] Auto-update asset list at regular intervals
 
 ## v25.2.0
 

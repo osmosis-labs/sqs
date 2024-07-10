@@ -16,6 +16,7 @@ var DefaultConfig = domain.Config{
 	ChainGRPCGatewayEndpoint:   "http://localhost:9090",
 	ChainID:                    "osmosis-1",
 	ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+	UpdateAssetsHeightInterval: 200,
 
 	Router: &domain.RouterConfig{
 		PreferredPoolIDs:                 []uint64{},

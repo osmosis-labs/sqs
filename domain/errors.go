@@ -265,6 +265,16 @@ func (e OrderbookNotEnoughLiquidityToCompleteSwapError) Error() string {
 	return fmt.Sprintf("not enough liquidity to complete swap in pool (%d) with amount in (%s)", e.PoolId, e.AmountIn)
 }
 
+type OrderbookTickIndexOutOfBoundError struct {
+	PoolId       uint64
+	TickIndex    int
+	MaxTickIndex int
+}
+
+func (e OrderbookTickIndexOutOfBoundError) Error() string {
+	return fmt.Sprintf("tick index (%d) is out of bound for pool (%d), max tick index is (%d)", e.TickIndex, e.PoolId, e.MaxTickIndex)
+}
+
 type DenomPoolLiquidityDataNotFoundError struct {
 	Denom string
 }
