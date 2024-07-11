@@ -35,14 +35,18 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v25.3.0
 
 - Worker pool abstraction implementation & tests
 - Switch prices to worker pool and remove concurrency for quotes since we support only one quote denom atm.
 - Switch ingest block processing system to rely on worker pool with 2 block processing workers.
 - Wait for cold-start (first block) to be processed before starting the next block to avoid overloading the system.
 - Create a separate simple router usecase to be used in pricing and avoid mixing up configs and caches.
-- [Q3] Auto-update asset list at regular intervals
+- [Q3] Auto-update asset list at regular intervals, added `update-assets-height-interval` config
+- Switched to GRPC gateway from Tendermint RPC. `grpc-tendermint-rpc-endpoint` config for Tendermint RPC. `grpc-gateway-endpoint` for GRPC gateway.
+- Added config for orderbook code id `pools.orderbook-code-ids`
+- Move pricing logic to the dynamic min liquidity filter configuration
+- Implement candidate route optimization for the pricing
 
 ## v25.2.0
 
