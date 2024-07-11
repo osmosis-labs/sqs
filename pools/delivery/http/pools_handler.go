@@ -136,6 +136,26 @@ func getStatusCode(err error) int {
 	}
 }
 
+func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
+
+	base := c.Param("base")
+	if base == "" {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "base asset is required"})
+	}
+
+	quote := c.Param("quote")
+	if quote == "" {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "quote asset is required"})
+	}
+
+	poolID, err := a.PUsecase.GetCanonicalOrdrbookPoolID(base, quote)
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, poolID)
+}
+
 // convertPoolToResponse convertes a given pool to the appropriate response type.
 func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
 	return PoolResponse{

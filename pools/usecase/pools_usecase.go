@@ -18,10 +18,17 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
+type orderBookEntry struct {
+	PoolID       uint64
+	LiquidityCap osmomath.Int
+}
+
 type poolsUseCase struct {
 	pools            sync.Map
 	routerRepository routerrepo.RouterRepository
 	cosmWasmConfig   domain.CosmWasmPoolRouterConfig
+
+	canonicalOrderBookForBaseQuoteDenom sync.Map
 
 	scalingFactorGetterCb domain.ScalingFactorGetterCb
 }
@@ -271,8 +278,57 @@ func (p *poolsUseCase) GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error) {
 func (p *poolsUseCase) StorePools(pools []sqsdomain.PoolI) error {
 	for _, pool := range pools {
 		p.pools.Store(pool.GetId(), pool)
+
+		sqsModel := pool.GetSQSPoolModel()
+		cosmWasmPoolModel := sqsModel.CosmWasmPoolModel
+		if cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook() {
+			baseDenom := cosmWasmPoolModel.Data.Orderbook.BaseDenom
+			quoteDenom := cosmWasmPoolModel.Data.Orderbook.QuoteDenom
+
+			baseQuoteKey := baseDenom + quoteDenom
+
+			poolLiquidityCapitalization := pool.GetLiquidityCap()
+
+			topLiquidityOrderBook, found := p.canonicalOrderBookForBaseQuoteDenom.Load(baseQuoteKey)
+			if found {
+				// Cast to orderBookEntry
+				topLiquidityOrderBookEntry, ok := topLiquidityOrderBook.(orderBookEntry)
+				if !ok {
+					// TODO: consider log or metric
+					continue
+				}
+
+				// If the current pool has lower or equak liquidity capitalization than the top liquidity pool
+				// continue to the next pool
+				if poolLiquidityCapitalization.LTE(topLiquidityOrderBookEntry.LiquidityCap) {
+					continue
+				}
+			}
+
+			// If not found or the current pool has higher liquidity capitalization than the top liquidity pool
+			// update the top liquidity pool
+			p.canonicalOrderBookForBaseQuoteDenom.Store(baseQuoteKey, orderBookEntry{
+				PoolID:       pool.GetId(),
+				LiquidityCap: poolLiquidityCapitalization,
+			})
+		}
 	}
 	return nil
+}
+
+func (p *poolsUseCase) GetCanonicalOrdrbookPoolID(baseDenom, quoteDenom string) (uint64, error) {
+	baseQuote := baseDenom + quoteDenom
+	topLiquidityOrderBook, found := p.canonicalOrderBookForBaseQuoteDenom.Load(baseQuote)
+	if !found {
+		return 0, fmt.Errorf("canonical orderbook not found for base %s and quote %s", baseDenom, quoteDenom)
+	}
+
+	topLiquidityOrderBookEntry, ok := topLiquidityOrderBook.(orderBookEntry)
+	if !ok {
+		return 0, fmt.Errorf("failed to cast orderbook entry with value %v", topLiquidityOrderBook)
+	}
+
+	return topLiquidityOrderBookEntry.PoolID, nil
 }
 
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.

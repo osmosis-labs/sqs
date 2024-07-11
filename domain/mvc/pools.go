@@ -27,6 +27,8 @@ type PoolsUsecase interface {
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 
 	GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig
+
+	GetCanonicalOrdrbookPoolID(baseDenom, quoteDenom string) (uint64, error)
 }
 
 type PoolHandler interface {
