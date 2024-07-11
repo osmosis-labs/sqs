@@ -139,12 +139,12 @@ func getStatusCode(err error) int {
 
 func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 
-	base := c.Param("base")
+	base := c.QueryParam("base")
 	if base == "" {
 		return c.JSON(http.StatusBadRequest, ResponseError{Message: "base asset is required"})
 	}
 
-	quote := c.Param("quote")
+	quote := c.QueryParam("quote")
 	if quote == "" {
 		return c.JSON(http.StatusBadRequest, ResponseError{Message: "quote asset is required"})
 	}
