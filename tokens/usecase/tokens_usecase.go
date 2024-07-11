@@ -299,6 +299,7 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 
 	basePriceDispatcher := workerpool.NewDispatcher[priceResults](numWorkers)
 	go basePriceDispatcher.Run()
+	defer basePriceDispatcher.Stop()
 
 	// For every base denom, create a map with quote denom prices.
 	for _, baseDenom := range baseDenoms {
