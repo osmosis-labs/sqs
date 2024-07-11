@@ -36,10 +36,10 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 
 	poolType := cosmwasmPool.GetType()
 
-	bidAmountToExhaustAskLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.BID, nextAskTickIndex, ticks)
+	bidAmountToExhaustAskLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.ASK, nextBidTickIndex, ticks)
 	s.Require().NoError(err)
 
-	askAmountToExhaustBidLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.ASK, nextBidTickIndex, ticks)
+	askAmountToExhaustBidLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.BID, nextAskTickIndex, ticks)
 	s.Require().NoError(err)
 
 	mock := &mocks.MockRoutablePool{
