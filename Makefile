@@ -187,7 +187,7 @@ e2e-run-stage:
 	SQS_ENVIRONMENTS=stage pytest -s -n 4
 
 e2e-run-local:
-	SQS_ENVIRONMENTS=local pytest -s -n 4 tests/e2e
+	SQS_ENVIRONMENTS=local pytest -s -n 4
 
 #### E2E Python Setup
 
