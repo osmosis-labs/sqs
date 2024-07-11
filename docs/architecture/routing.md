@@ -36,7 +36,7 @@ is consumed by a single route as opposed to performing partial split routing ove
 
 ## Pool Filtering - Min Liquidity Capitalization
 
-Osmosis chain consists of many pools where some of them are low liqudity.
+Osmosis chain consists of many pools where some of them are low liquidity.
 Having these pools be included in the router system imposes performance overhead
 without clear benefit.
 
@@ -48,7 +48,7 @@ To work around this constraint, we introduce a min liquidity capitalization filt
 
 This filter requires the pools to meet a certain threshold to be eligible for router inclusion.
 
-However, applying the same filter universally introduces another constraint - swaps between low-liqudiity 
+However, applying the same filter universally introduces another constraint - swaps between low-liquidity 
 tokens might fail to construct routes due to not meeting a high threshold.
 
 Given a large number of tokens with varying liquidity, finding the perfect min liquidity capitalization
@@ -81,14 +81,14 @@ computing token liquidities, storing them in the in-memory cache.
 
 #### Configuration
 
-We configure the mappings from min liqudity capitalization to filters via the following config:
+We configure the mappings from min liquidity capitalization to filters via the following config:
 `router.dynamic-min-liquidity-cap-filters-desc`.
 
 It represents a slice of sorted in descending order by-liquidity entries. We omit further details for brevity.
 
 If filters are unspecified, we fallback to the default and universal `router.min-pool-liquidity-cap`.
 
-**Imporant:** it is worth noting that both the total liquidity capitalization values across all pools
+**Important:** it is worth noting that both the total liquidity capitalization values across all pools
 and the configuration parameters are normalized. That is, they assume having the appropriate scaling factors
 applied.
 
@@ -134,18 +134,18 @@ dynamic_min_liq_cap = map_token_liq_to_liq_cap(min_token_liq)
 ```
 
 The reason for choosing the minimum of the total pool liquidities between token in and token out is
-so that we can still find routes between low liquidity tokens that likely have pools of even smaller liqudity.
+so that we can still find routes between low liquidity tokens that likely have pools of even smaller liquidity.
 
 #### API
 
-The dynamic min liquidity capitalization feature is enabled by default with the fallback to the unversal
+The dynamic min liquidity capitalization feature is enabled by default with the fallback to the universal
 default quote.
 
 For eligible routing endpoints:
 - `/router/quote`
 - `/router/custom-direct-quote`
 
-In some cases, clients may want to disable the fallback, preferring toerror rather than have a potential
-for bad route stemming from the low unoversal default.
+In some cases, clients may want to disable the fallback, preferring to error rather than have a potential
+for bad route stemming from the low universal default.
 
 The query parameter of `disableMinLiquidityFallback` disables the fallback, returning an error instead.
