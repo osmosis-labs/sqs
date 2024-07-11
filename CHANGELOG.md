@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.3.1
+
+- Fix goroutine leak in worker pool for prices
+
 ## v25.3.0
 
 - Worker pool abstraction implementation & tests
