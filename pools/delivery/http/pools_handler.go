@@ -52,6 +52,7 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 	}
 
 	e.GET(formatPoolsResource("/ticks/:id"), handler.GetConcentratedPoolTicks)
+	e.GET(formatPoolsResource("/canonical-orderbook"), handler.GetCanonicalOrderbook)
 	e.GET(formatPoolsResource(""), handler.GetPools)
 }
 
