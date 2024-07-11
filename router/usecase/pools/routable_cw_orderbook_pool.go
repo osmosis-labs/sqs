@@ -90,9 +90,9 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 
 	var amountInToExhaustLiquidity osmomath.BigDec
 	if *directionIn == cosmwasmpool.BID {
-		amountInToExhaustLiquidity = r.OrderbookData.BidAmountToExhaustAskLiquidity
-	} else {
 		amountInToExhaustLiquidity = r.OrderbookData.AskAmountToExhaustBidLiquidity
+	} else {
+		amountInToExhaustLiquidity = r.OrderbookData.BidAmountToExhaustAskLiquidity
 	}
 
 	// check if amount in > amountInToExhaustLiquidity, if so this swap is not possible due to insufficient liquidity
@@ -121,6 +121,7 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 
 		// Amount that should be filled given the current tick price and all the remaining amount of tokens in
 		// if the current tick has enough liquidity
+
 		outputAmount := cosmwasmpool.OrderbookValueInOppositeDirection(amountInRemaining, tickPrice, *directionIn)
 
 		// Cap the output amount to the amount of tokens that can be filled in the current tick
