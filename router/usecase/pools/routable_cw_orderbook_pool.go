@@ -121,14 +121,14 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 
 		// Amount that should be filled given the current tick price and all the remaining amount of tokens in
 		// if the current tick has enough liquidity
-		outputAmount := cosmwasmpool.OrderbookValueInOppositeDirection(amountInRemaining, tickPrice, directionOut)
+		outputAmount := cosmwasmpool.OrderbookValueInOppositeDirection(amountInRemaining, tickPrice, *directionIn)
 
 		// Cap the output amount to the amount of tokens that can be filled in the current tick
 		outputFilled := tick.TickLiquidity.GetFillableAmount(outputAmount, directionOut)
 
 		// Convert the filled amount back to the input amount that should be deducted
 		// from the remaining amount of tokens in
-		inputFilled := cosmwasmpool.OrderbookValueInOppositeDirection(outputFilled, tickPrice, *directionIn)
+		inputFilled := cosmwasmpool.OrderbookValueInOppositeDirection(outputFilled, tickPrice, directionOut)
 
 		// Add the filled amount to the order total
 		amountOutTotal.AddMut(outputFilled)
