@@ -48,6 +48,8 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Move pricing logic to the dynamic min liquidity filter configuration
 - Implement candidate route optimization for the pricing
 
+Chain compatibility: `osmolabs/osmosis-dev:v25.x-49e8ee9`
+
 ## v25.2.0
 
 - Fix bug with allUSDT swaps resulting in extreme price impact due to config and filtering issues.
