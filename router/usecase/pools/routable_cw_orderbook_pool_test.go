@@ -111,8 +111,8 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 		},
 		"BID: multi-tick/direction swap": {
 			tokenIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)),
-			// 100*1 (tick: 0) + 50*2 (tick: LARGE_POSITIVE_TICK) = 200
-			expectedTokenOut: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(200)),
+			// 100 / 1 (tick: 0) + 50/2 (tick: LARGE_POSITIVE_TICK) = 125
+			expectedTokenOut: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(125)),
 			nextBidTickIndex: -1, // no next bid tick
 			nextAskTickIndex: 0,
 			ticks: []cosmwasmpool.OrderbookTick{
@@ -178,8 +178,8 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 		},
 		"ASK: multi-tick/direction swap": {
 			tokenIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
-			// 25 at 0.5 tick price + 100 at 1 tick price = 125
-			expectedTokenOut: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(125)),
+			// 50 at 2 tick price + 100 at 1 tick price = 200
+			expectedTokenOut: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(200)),
 			nextBidTickIndex: 1,
 			nextAskTickIndex: 0,
 			ticks: []cosmwasmpool.OrderbookTick{
@@ -193,8 +193,8 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 				{
 					TickId: LARGE_POSITIVE_TICK,
 					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
-						BidLiquidity: osmomath.NewBigDec(25),
-						AskLiquidity: osmomath.NewBigDec(25),
+						BidLiquidity: osmomath.NewBigDec(100),
+						AskLiquidity: osmomath.NewBigDec(100),
 					},
 				},
 			},
@@ -247,6 +247,18 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 				Denom:      INVALID_DENOM,
 				BaseDenom:  BASE_DENOM,
 				QuoteDenom: QUOTE_DENOM,
+			},
+		},
+		"error: overrid ": {
+			tokenIn:          sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
+			expectedTokenOut: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
+			nextBidTickIndex: MIN_TICK,
+			nextAskTickIndex: 0,
+			ticks: []cosmwasmpool.OrderbookTick{
+				{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+					BidLiquidity: osmomath.ZeroBigDec(),
+					AskLiquidity: osmomath.NewBigDec(100),
+				}},
 			},
 		},
 	}
