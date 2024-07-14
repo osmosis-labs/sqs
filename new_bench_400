@@ -1,0 +1,16 @@
+goos: linux
+goarch: amd64
+pkg: github.com/osmosis-labs/sqs/tokens/usecase
+cpu: Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz
+BenchmarkGetPrices-4   	   14635	     85071 ns/op	   17286 B/op	     210 allocs/op
+BenchmarkGetPrices-4   	   16036	     81866 ns/op	   17257 B/op	     209 allocs/op
+BenchmarkGetPrices-4   	   11571	     92016 ns/op	   17376 B/op	     211 allocs/op
+BenchmarkGetPrices-4   	   13250	     88501 ns/op	   17324 B/op	     210 allocs/op
+BenchmarkGetPrices-4   	   14750	     89394 ns/op	   17292 B/op	     210 allocs/op
+BenchmarkGetPrices-4   	   12614	     86331 ns/op	   17340 B/op	     210 allocs/op
+BenchmarkGetPrices-4   	   15441	     86651 ns/op	   17272 B/op	     210 allocs/op
+BenchmarkGetPrices-4   	   14919	     81053 ns/op	   17281 B/op	     210 allocs/op
+BenchmarkGetPrices-4   	   15302	     96638 ns/op	   17273 B/op	     210 allocs/op
+BenchmarkGetPrices-4   	   13167	     87346 ns/op	   17324 B/op	     210 allocs/op
+PASS
+ok  	github.com/osmosis-labs/sqs/tokens/usecase	40.425s

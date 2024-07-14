@@ -18,7 +18,7 @@ import (
 const (
 	// Max number of workers to fetch prices concurrently
 	// TODO: move to config
-	maxNumWorkes = 10
+	maxNumWorkes = 100
 )
 
 type tokensUseCase struct {

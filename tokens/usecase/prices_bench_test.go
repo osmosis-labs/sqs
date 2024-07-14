@@ -24,7 +24,7 @@ func BenchmarkGetPrices(b *testing.B) {
 	// Customize cache config
 	mainnetState.PricingConfig.CacheExpiryMs = pricingCacheExpiry
 
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig), routertesting.WithLoggerDisabled())
 
 	b.ResetTimer()
 
