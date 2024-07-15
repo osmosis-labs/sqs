@@ -53,6 +53,23 @@ var (
 	// * height - the height of the block being processed
 	SQSUpdateAssetsAtHeightIntervalMetricName = "sqs_update_assets_at_block_height_interval_error_total"
 
+	// sqs_pricing_errors_total
+	//
+	// counter that measures the number of pricing errors
+	// Has the following labels:
+	// * base - the base asset symbol
+	// * quote - the quote asset symbol
+	// * err - the error message occurred
+	SQSPricingErrorCounterMetricName = "sqs_pricing_errors_total"
+
+	// sqs_pricing_fallback_total
+	//
+	// counter that measures the number of fallback from chain pricing source to coingecko
+	// Has the following labels:
+	// * base - the base asset symbol
+	// * quote - the quote asset symbol
+	SQSPricingFallbackCounterMetricName = "sqs_pricing_fallback_total"
+
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -105,6 +122,21 @@ var (
 		},
 		[]string{"err", "height"},
 	)
+
+	SQSPricingErrorCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSPricingErrorCounterMetricName,
+			Help: "Total number of pricing errors",
+		},
+		[]string{"base", "quote", "err"},
+	)
+	SQSPricingFallbackCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSPricingFallbackCounterMetricName,
+			Help: "Total number of fallback from chain pricing source to coingecko",
+		},
+		[]string{"base", "quote"},
+	)
 )
 
 func init() {
@@ -115,4 +147,6 @@ func init() {
 	prometheus.MustRegister(SQSPricingWorkerComputeErrorCounter)
 	prometheus.MustRegister(SQSPoolLiquidityPricingWorkerComputeDurationGauge)
 	prometheus.MustRegister(SQSUpdateAssetsAtHeightIntervalErrorCounter)
+	prometheus.MustRegister(SQSPricingErrorCounter)
+	prometheus.MustRegister(SQSPricingFallbackCounter)
 }

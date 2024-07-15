@@ -11,8 +11,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
 	"github.com/osmosis-labs/sqs/log"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -74,21 +72,6 @@ var _ mvc.TokensUsecase = &tokensUseCase{}
 
 var (
 	tenDec = osmomath.NewDec(10)
-
-	pricingErrorCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_pricing_errors_total",
-			Help: "Total number of pricing errors",
-		},
-		[]string{"base", "quote", "err"},
-	)
-	fallbackCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_pricing_fallback_total",
-			Help: "Total number of fallback from chain pricing source to coingecko",
-		},
-		[]string{"base", "quote"},
-	)
 )
 
 // NewTokensUsecase will create a new tokens use case object
@@ -378,7 +361,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 		if err != nil { // Check if we should fallback to another pricing source
 			fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
 			if fallbackSourceType != domain.NoneSourceType {
-				fallbackCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+				domain.SQSPricingFallbackCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
 				fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
 				if ok {
 					price, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
@@ -390,7 +373,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 			price = osmomath.ZeroBigDec()
 
 			// Increase prometheus counter
-			pricingErrorCounter.WithLabelValues(baseDenom, quoteDenom, err.Error()).Inc()
+			domain.SQSPricingErrorCounter.WithLabelValues(baseDenom, quoteDenom, err.Error()).Inc()
 		}
 
 		byQuoteDenomForGivenBaseResult[quoteDenom] = price

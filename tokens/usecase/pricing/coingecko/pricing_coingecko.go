@@ -122,6 +122,10 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 
 // GetPriceByCoingeckoId fetches the price of a token from Coingecko.
 func (c coingeckoPricing) GetPriceByCoingeckoId(ctx context.Context, baseDenom string, coingeckoId string) (osmomath.BigDec, error) {
+	if coingeckoId == "" {
+		return osmomath.BigDec{}, fmt.Errorf("coingecko ID is empty for base (%s)", baseDenom)
+	}
+
 	url := fmt.Sprintf("%s?ids=%s&vs_currencies=%s", c.coingeckoUrl, coingeckoId, c.quoteCurrency)
 	resp, err := http.Get(url)
 	if err != nil {
