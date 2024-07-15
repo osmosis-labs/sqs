@@ -69,8 +69,11 @@ jobs:
     - 
       if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       name: Send Webhook to deploy automatically to stage
+      # Note, we modify the config.json to refer to the Docker container name. The reason is that in staging, our
+      # infrastructure is managed by Docker Compose, and we need to refer to the container name for correct networking.
       run: |
         echo '{"sqsdockerversion":"${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG }}", "commitsha":"${{ env.SHA }}"}' > temp.json
         jq -s '.[0] * .[1]' config.json temp.json > combined_config.json
-        curl -H "Content-Type: application/json" -X POST -d @combined_config.json ${{ secrets.DEPLOY_URL }}
+        jq '.["grpc-tendermint-rpc-endpoint"] = "http://osmosis:26657" | .["grpc-gateway-endpoint"] = "osmosis:9090"' combined_config.json > modified_config.json
+        curl -H "Content-Type: application/json" -X POST -d @modified_config.json.json ${{ secrets.DEPLOY_URL }}
 
