@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.3.2
+
+- Fix telemetry issues around coingecko pricing source
+
 ## v25.3.1
 
 - Fix goroutine leak in worker pool for prices
