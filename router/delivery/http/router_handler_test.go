@@ -53,7 +53,7 @@ func TestGetPoolsValidTokenInTokensOut(t *testing.T) {
 		{
 			name: "fail case - token through single pool",
 			uri:  "http://localhost?tokenIn=&poolID=1&tokenOutDenom=USDC",
-			err:  routerdelivery.ErrTokenNotSpecified,
+			err:  routerdelivery.ErrTokenInNotSpecified,
 		},
 		{
 			name:     "happy case - token through multi pool",

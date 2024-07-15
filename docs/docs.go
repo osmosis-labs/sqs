@@ -103,15 +103,25 @@ const docTemplate = `{
                         "type": "string",
                         "description": "String representation of the sdk.Coin for the token in.",
                         "name": "tokenIn",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
                         "description": "String representing the denom of the token out.",
                         "name": "tokenOutDenom",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "String representing the denom of the token in.",
+                        "name": "tokenInDenom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "String representation of the sdk.Coin for the token out.",
+                        "name": "tokenOut",
+                        "in": "query"
                     },
                     {
                         "type": "boolean",
@@ -294,10 +304,6 @@ const docTemplate = `{
             "properties": {
                 "coingeckoId": {
                     "type": "string"
-                },
-                "is_unlisted": {
-                    "description": "IsUnlisted is true if the token is unlisted.",
-                    "type": "boolean"
                 },
                 "decimals": {
                     "description": "Precision is the precision of the token.",

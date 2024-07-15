@@ -3,9 +3,6 @@ definitions:
     properties:
       coingeckoId:
         type: string
-      is_unlisted:
-        description: IsUnlisted is true if the token is unlisted.
-        type: boolean
       decimals:
         description: Precision is the precision of the token.
         type: integer
@@ -112,12 +109,18 @@ paths:
       - description: String representation of the sdk.Coin for the token in.
         in: query
         name: tokenIn
-        required: true
         type: string
       - description: String representing the denom of the token out.
         in: query
         name: tokenOutDenom
-        required: true
+        type: string
+      - description: String representing the denom of the token in.
+        in: query
+        name: tokenInDenom
+        type: string
+      - description: String representation of the sdk.Coin for the token out.
+        in: query
+        name: tokenOut
         type: string
       - description: Boolean flag indicating whether to return single routes (no splits).
           False (splits enabled) by default.
