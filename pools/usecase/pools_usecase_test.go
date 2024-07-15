@@ -197,7 +197,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			routerRepo.SetTakerFees(tc.takerFeeMap)
 
 			// Create pools use case
-			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb)
+			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
 
 			poolsUsecase.StorePools(tc.pools)
 

@@ -122,7 +122,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}
 
 	// Initialize pools repository, usecase and HTTP handler
-	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut)
+	poolsUseCase := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut, logger)
 
 	// Initialize candidate route searcher
 	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, logger)

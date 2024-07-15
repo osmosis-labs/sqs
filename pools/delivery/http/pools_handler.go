@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -52,7 +53,8 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 	}
 
 	e.GET(formatPoolsResource("/ticks/:id"), handler.GetConcentratedPoolTicks)
-	e.GET(formatPoolsResource("/canonical-orderbook"), handler.GetCanonicalOrderbook)
+	e.GET(formatPoolsResource("/canonical-orderbook"), handler.GetCanonicalOrderbooks)
+	e.GET(formatPoolsResource("/canonical-orderbooks"), handler.GetCanonicalOrderbooks)
 	e.GET(formatPoolsResource(""), handler.GetPools)
 }
 
@@ -140,21 +142,27 @@ func getStatusCode(err error) int {
 func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 
 	base := c.QueryParam("base")
-	if base == "" {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: "base asset is required"})
-	}
-
 	quote := c.QueryParam("quote")
-	if quote == "" {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: "quote asset is required"})
+	if base == "" || quote == "" {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: fmt.Sprintf("either both base and quote must be provided or none, had base (%s), quote (%s)", base, quote)})
 	}
 
-	poolID, err := a.PUsecase.GetCanonicalOrdrbookPoolID(base, quote)
+	poolID, err := a.PUsecase.GetCanonicalOrderbookPoolID(base, quote)
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, poolID)
+}
+
+func (a *PoolsHandler) GetCanonicalOrderbooks(c echo.Context) error {
+
+	orderbookData, err := a.PUsecase.GetAllCanonicalOrderbookPoolIDs()
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, orderbookData)
 }
 
 // convertPoolToResponse convertes a given pool to the appropriate response type.

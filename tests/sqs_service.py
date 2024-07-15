@@ -11,6 +11,7 @@ TOKENS_METADATA_URL = "/tokens/metadata"
 TOKENS_PRICES_URL = "/tokens/prices"
 
 POOLS_URL = "/pools"
+CANONICAL_ORDERBOOKS_URL = "/pools/canonical-orderbooks"
 
 CONFIG_URL = "/config"
 
@@ -140,3 +141,15 @@ class SQSService:
                 self.asset_list[asset[coin_minimal_denom_key]] = asset.get(coingecko_id_key, None)
 
         return self.asset_list.get(denom, None)
+
+    def get_canonical_orderbooks(self):
+        """
+        Fetches the canonical orderbooks from the specified endpoint and returns them.
+        Raises error if non-200 is returned from the endpoint.
+        """
+        response = requests.get(self.url + CANONICAL_ORDERBOOKS_URL, headers=self.headers)
+
+        if response.status_code != 200:
+            raise Exception(f"Error fetching canonical orderbooks: {response.text}")
+
+        return response.json()
