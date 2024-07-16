@@ -52,6 +52,8 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 	}
 
 	e.GET(formatPoolsResource("/ticks/:id"), handler.GetConcentratedPoolTicks)
+	e.GET(formatPoolsResource("/canonical-orderbook"), handler.GetCanonicalOrderbook)
+	e.GET(formatPoolsResource("/canonical-orderbooks"), handler.GetCanonicalOrderbooks)
 	e.GET(formatPoolsResource(""), handler.GetPools)
 }
 
@@ -134,6 +136,48 @@ func getStatusCode(err error) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+// @Summary Get canonical orderbook pool ID for the given base and quote.
+// @Description Returns the canonical orderbook pool ID for the given base and quote.
+// @Description if the pool ID is not found for the given pair, it returns an error.
+// @Description if the base or quote denom are not provided, it returns an error.
+// @Produce  json
+// @Param  base  query  string  true  "Base denom"
+// @Param  quote  query  string  true  "Quote denom"
+// @Success 200  uint64  "Canonical Orderbook Pool ID for the given base and quote"
+// @Router /pools/canonical-orderbook [get]
+func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
+	base := c.QueryParam("base")
+	if base == "" {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "base must be provided"})
+	}
+
+	quote := c.QueryParam("quote")
+	if quote == "" {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "quote must be provided"})
+	}
+
+	poolID, err := a.PUsecase.GetCanonicalOrderbookPoolID(base, quote)
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, poolID)
+}
+
+// @Summary Get entries for all supported orderbook base and quote denoms.
+// @Description Returns the list of canonical orderbook pool ID entries for all possible base and quote combinations.
+// @Produce  json
+// @Success 200  {array}  domain.CanonicalOrderBooksResult  "List of canonical orderbook ool ID entries for all base and quotes"
+// @Router /pools/canonical-orderbooks [get]
+func (a *PoolsHandler) GetCanonicalOrderbooks(c echo.Context) error {
+	orderbookData, err := a.PUsecase.GetAllCanonicalOrderbookPoolIDs()
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, orderbookData)
 }
 
 // convertPoolToResponse convertes a given pool to the appropriate response type.

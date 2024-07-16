@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/suite"
 
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
@@ -40,6 +41,8 @@ var (
 
 	defaultAmt0 = routertesting.DefaultAmt0
 	defaultAmt1 = routertesting.DefaultAmt1
+
+	defaultPoolLiquidityCap = osmomath.NewInt(100)
 )
 
 func TestPoolsUsecaseTestSuite(t *testing.T) {
@@ -197,7 +200,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			routerRepo.SetTakerFees(tc.takerFeeMap)
 
 			// Create pools use case
-			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb)
+			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
 
 			poolsUsecase.StorePools(tc.pools)
 
@@ -236,8 +239,263 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	}
 }
 
+func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
+	const (
+		differentPoolID = defaultPoolID + 1
+	)
+
+	testCases := []struct {
+		name                        string
+		base                        string
+		quote                       string
+		poolID                      uint64
+		poolLiquidityCapitalization osmomath.Int
+
+		preStoreValidEntryCap osmomath.Int
+		preStoreInvalidEntry  bool
+
+		expectedError   bool
+		expectedUpdated bool
+
+		expectedCanonicalOrderbookPoolID uint64
+	}{
+		{
+			name:  "valid entry - no pre set",
+			base:  denomOne,
+			quote: denomTwo,
+
+			poolID:                      defaultPoolID,
+			poolLiquidityCapitalization: defaultPoolLiquidityCap,
+
+			expectedUpdated:                  true,
+			expectedCanonicalOrderbookPoolID: defaultPoolID,
+		},
+		{
+			name:  "valid entry - pre set with smaller cap -> overriden",
+			base:  denomOne,
+			quote: denomTwo,
+
+			poolID:                      defaultPoolID,
+			poolLiquidityCapitalization: defaultPoolLiquidityCap,
+
+			preStoreValidEntryCap: defaultPoolLiquidityCap.Sub(osmomath.OneInt()),
+
+			expectedUpdated:                  true,
+			expectedCanonicalOrderbookPoolID: defaultPoolID,
+		},
+		{
+			name:  "valid entry - pre set with larger cap -> not overriden",
+			base:  denomOne,
+			quote: denomTwo,
+
+			poolID:                      defaultPoolID,
+			poolLiquidityCapitalization: defaultPoolLiquidityCap,
+
+			preStoreValidEntryCap: defaultPoolLiquidityCap.Add(osmomath.OneInt()),
+
+			expectedUpdated:                  false,
+			expectedCanonicalOrderbookPoolID: differentPoolID,
+		},
+		{
+			name:  "invalid entry - pre set with larger cap -> not overriden",
+			base:  denomOne,
+			quote: denomTwo,
+
+			poolID:                      defaultPoolID,
+			poolLiquidityCapitalization: defaultPoolLiquidityCap,
+
+			preStoreInvalidEntry: true,
+
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		s.Run(tc.name, func() {
+
+			poolsUsecase := newDefaultPoolsUseCase()
+
+			// Pre-set invalid data for the base/quote
+			if tc.preStoreInvalidEntry {
+				poolsUsecase.StoreInvalidOrderBookEntry(tc.base, tc.quote)
+			}
+
+			// Pre-set valid data for the base/quote
+			if !tc.preStoreValidEntryCap.IsNil() {
+				// Note that we store the entry with different pool ID to make sure that the
+				// poolID is updated to the new value.
+				poolsUsecase.StoreValidOrdeBookEntry(tc.base, tc.quote, differentPoolID, tc.preStoreValidEntryCap)
+			}
+
+			// System under test
+			updatedBool, err := poolsUsecase.ProcessOrderbookPoolIDForBaseQuote(tc.base, tc.quote, tc.poolID, tc.poolLiquidityCapitalization)
+
+			if tc.expectedError {
+				s.Require().Error(err)
+				return
+			}
+
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expectedUpdated, updatedBool)
+
+			canonicalPoolID, err := poolsUsecase.GetCanonicalOrderbookPoolID(tc.base, tc.quote)
+			s.Require().NoError(err)
+
+			s.Require().Equal(tc.expectedCanonicalOrderbookPoolID, canonicalPoolID)
+		})
+	}
+}
+
+// Happy path test for StorePools validating that
+// for orderbook pools, we also update the canonical orderbook pool ID.
+// We also validate that any errors stemming from orderbook handling logic are silently skipped
+func (s *PoolsUsecaseTestSuite) TestStorePools() {
+
+	const (
+		validOrderBookPoolID   = defaultPoolID + 1
+		invalidOrderBookPoolID = defaultPoolID + 2
+	)
+
+	var (
+		defaultBalancerPool = &mocks.MockRoutablePool{
+			ChainPoolModel: &mocks.ChainPoolMock{
+				ID:   defaultPoolID,
+				Type: poolmanagertypes.Balancer,
+			},
+			ID: defaultPoolID,
+		}
+
+		validBaseDenom      = denomOne
+		orderBookQuoteDenom = denomTwo
+
+		invalidBaseDenom = denomThree
+
+		defaultOrderbookContractInfo = cosmwasmpool.ContractInfo{
+			Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+			Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+		}
+
+		validOrderBookPool = &mocks.MockRoutablePool{
+			ChainPoolModel: &mocks.ChainPoolMock{
+				ID:   defaultPoolID + 1,
+				Type: poolmanagertypes.CosmWasm,
+			},
+			ID: defaultPoolID + 1,
+			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: defaultOrderbookContractInfo,
+
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						BaseDenom:  validBaseDenom,
+						QuoteDenom: orderBookQuoteDenom,
+					},
+				},
+			},
+		}
+
+		invalidOrderBookPool = &mocks.MockRoutablePool{
+			ChainPoolModel: &mocks.ChainPoolMock{
+				ID:   defaultPoolID + 2,
+				Type: poolmanagertypes.CosmWasm,
+			},
+			ID: defaultPoolID + 2,
+			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: defaultOrderbookContractInfo,
+
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						BaseDenom:  invalidBaseDenom,
+						QuoteDenom: orderBookQuoteDenom,
+					},
+				},
+			},
+		}
+
+		validPools = []sqsdomain.PoolI{
+			defaultBalancerPool,
+			validOrderBookPool,
+			invalidOrderBookPool,
+		}
+	)
+
+	poolsUsecase := newDefaultPoolsUseCase()
+
+	// Pre-set invalid data for the base/quote
+	poolsUsecase.StoreInvalidOrderBookEntry(invalidBaseDenom, orderBookQuoteDenom)
+
+	// System under test
+	poolsUsecase.StorePools(validPools)
+
+	// Validate that the pools are stored
+	actualBalancerPool, err := poolsUsecase.GetPool(defaultPoolID)
+	s.Require().NoError(err)
+	s.Require().Equal(defaultBalancerPool, actualBalancerPool)
+
+	actualOrderBookPool, err := poolsUsecase.GetPool(validOrderBookPoolID)
+	s.Require().NoError(err)
+	s.Require().Equal(validOrderBookPool, actualOrderBookPool)
+
+	// Validate that the canonical orderbook pool ID is correctly set
+	canonicalPoolID, err := poolsUsecase.GetCanonicalOrderbookPoolID(validBaseDenom, orderBookQuoteDenom)
+	s.Require().NoError(err)
+	s.Require().Equal(validOrderBookPool.ID, canonicalPoolID)
+
+	// Validae that the invalid orderbook is saved as the pool but it is not used for the canonical orderbook pool ID
+	actualOrderBookPool, err = poolsUsecase.GetPool(invalidOrderBookPoolID)
+	s.Require().NoError(err)
+	s.Require().Equal(invalidOrderBookPool, actualOrderBookPool)
+
+	_, err = poolsUsecase.GetCanonicalOrderbookPoolID(invalidBaseDenom, orderBookQuoteDenom)
+	s.Require().Error(err)
+}
+
+// This test validates that the canonical orderbook pool IDs are returned as intended
+// if they are correctly set. The correctness of setting them is ensured
+// by the StorePools and ProcessOrderbookPoolIDForBaseQuote tests.
+func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbookPoolIDs_HappyPath() {
+
+	poolsUseCase := newDefaultPoolsUseCase()
+
+	// Denom one and denom two
+	poolsUseCase.StoreValidOrdeBookEntry(denomOne, denomTwo, defaultPoolID, defaultPoolLiquidityCap)
+
+	// Denom three and denom four
+	poolsUseCase.StoreValidOrdeBookEntry(denomThree, denomFour, defaultPoolID+1, defaultPoolLiquidityCap.Add(osmomath.OneInt()))
+
+	expectedCanonicalOrderbookPoolIDs := []domain.CanonicalOrderBooksResult{
+		{
+			Base:   denomOne,
+			Quote:  denomTwo,
+			PoolID: defaultPoolID,
+		},
+		{
+			Base:   denomThree,
+			Quote:  denomFour,
+			PoolID: defaultPoolID + 1,
+		},
+	}
+
+	// System under test
+	canonicalOrderbookPoolIDs, err := poolsUseCase.GetAllCanonicalOrderbookPoolIDs()
+	s.Require().NoError(err)
+
+	// Validate that the correct number of canonical orderbook pool IDs are returned
+	s.Require().Equal(len(canonicalOrderbookPoolIDs), 2)
+
+	// Validate that the correct canonical orderbook pool IDs are returned
+	s.Require().Equal(expectedCanonicalOrderbookPoolIDs, canonicalOrderbookPoolIDs)
+
+}
+
 func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)
 	return routablePool
+}
+
+func newDefaultPoolsUseCase() *usecase.PoolsUsecase {
+	routerRepo := routerrepo.New(&log.NoOpLogger{})
+	poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	return poolsUsecase
 }

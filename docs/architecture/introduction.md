@@ -11,7 +11,9 @@ to group the code by separate "Functional Components" .
 
 This is a component that deals with liquidity pools and their operations.
 
-### Router Use case
+See [docs/architecture/pools.md](https://github.com/osmosis-labs/sqs/blob/v25.x/docs/architecture/pools.md) for more details.
+
+### Router Usecase
 
 This is the routing & quoting component.
 
