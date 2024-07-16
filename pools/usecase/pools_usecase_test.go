@@ -451,6 +451,44 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 	s.Require().Error(err)
 }
 
+// This test validates that the canonical orderbook pool IDs are returned as intended
+// if they are correctly set. The correctness of setting them is ensured
+// by the StorePools and ProcessOrderbookPoolIDForBaseQuote tests.
+func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbookPoolIDs_HappyPath() {
+
+	poolsUseCase := newDefaultPoolsUseCase()
+
+	// Denom one and denom two
+	poolsUseCase.StoreValidOrdeBookEntry(denomOne, denomTwo, defaultPoolID, defaultPoolLiduidityCap)
+
+	// Denom three and denom four
+	poolsUseCase.StoreValidOrdeBookEntry(denomThree, denomFour, defaultPoolID+1, defaultPoolLiduidityCap.Add(osmomath.OneInt()))
+
+	expectedCanonicalOrderbookPoolIDs := []domain.CanonicalOrderBooksResult{
+		{
+			Base:   denomOne,
+			Quote:  denomTwo,
+			PoolID: defaultPoolID,
+		},
+		{
+			Base:   denomThree,
+			Quote:  denomFour,
+			PoolID: defaultPoolID + 1,
+		},
+	}
+
+	// System under test
+	canonicalOrderbookPoolIDs, err := poolsUseCase.GetAllCanonicalOrderbookPoolIDs()
+	s.Require().NoError(err)
+
+	// Validate that the correct number of canonical orderbook pool IDs are returned
+	s.Require().Equal(len(canonicalOrderbookPoolIDs), 2)
+
+	// Validate that the correct canonical orderbook pool IDs are returned
+	s.Require().Equal(expectedCanonicalOrderbookPoolIDs, canonicalOrderbookPoolIDs)
+
+}
+
 func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)

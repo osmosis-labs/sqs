@@ -34,6 +34,7 @@ type PoolsUsecase interface {
 
 	// GetAllCanonicalOrderbookPoolIDs returns all the canonical orderbook results
 	// where each base/quote denom is associated with a default pool ID.
+	// Sorts the results by pool ID.
 	GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error)
 }
 

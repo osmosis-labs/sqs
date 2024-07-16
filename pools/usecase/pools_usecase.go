@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -378,14 +379,18 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 		// Cast key to string
 		baseQuoteKey, ok := key.(string)
 		if !ok {
-			err = fmt.Errorf("failed to cast key with value %v, expected string", key)
+			err = domain.FailCastCanonicalOrderbookKeyError{
+				BaseQuoteKey: baseQuoteKey,
+			}
 			return false
 		}
 
 		// split base and quote denom
 		denoms := strings.Split(baseQuoteKey, baseQuoteKeySeparator)
 		if len(denoms) != 2 {
-			err = fmt.Errorf("failed to split base and quote denom from key %s", baseQuoteKey)
+			err = domain.FailSplitCanonicalOrderBookKeyError{
+				BaseQuoteKey: baseQuoteKey,
+			}
 			return false
 		}
 
@@ -395,7 +400,9 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 		// Cast value to orderBookEntry
 		topLiquidityOrderBook, ok := value.(orderBookEntry)
 		if !ok {
-			err = fmt.Errorf("failed to cast orderbook entry with value %v", value)
+			err = domain.FailCastCanonicalOrderbookEntryError{
+				BaseQuoteKey: baseQuoteKey,
+			}
 			return false
 		}
 
@@ -406,6 +413,11 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 		})
 
 		return true
+	})
+
+	// Sort by pool ID for deterministic results
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].PoolID < results[j].PoolID
 	})
 
 	return results, err

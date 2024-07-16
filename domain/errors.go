@@ -298,3 +298,19 @@ type FailCastCanonicalOrderbookEntryError struct {
 func (e FailCastCanonicalOrderbookEntryError) Error() string {
 	return fmt.Sprintf("failed to cast orderbook entry for key (%s)", e.BaseQuoteKey)
 }
+
+type FailSplitCanonicalOrderBookKeyError struct {
+	BaseQuoteKey string
+}
+
+func (e FailSplitCanonicalOrderBookKeyError) Error() string {
+	return fmt.Sprintf("failed to split base and quote denom from key %s", e.BaseQuoteKey)
+}
+
+type FailCastCanonicalOrderbookKeyError struct {
+	BaseQuoteKey string
+}
+
+func (e FailCastCanonicalOrderbookKeyError) Error() string {
+	return fmt.Sprintf("failed to cast key with value %v, expected string", e.BaseQuoteKey)
+}
