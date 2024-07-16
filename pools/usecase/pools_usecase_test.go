@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/suite"
 
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
@@ -345,6 +346,111 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 			s.Require().Equal(tc.expctedCanonicalOrderbookPoolID, canonicalPoolID)
 		})
 	}
+}
+
+// Happy path test for StorePools validating that
+// for orderbook pools, we also update the canonical orderbook pool ID.
+// We also validate that any errors stemming from orderbook handling logic are silently skipped
+func (s *PoolsUsecaseTestSuite) TestStorePools() {
+
+	const (
+		validOrderBookPoolID   = defaultPoolID + 1
+		invalidOrderBookPoolID = defaultPoolID + 2
+	)
+
+	var (
+		defaultBalancerPool = &mocks.MockRoutablePool{
+			ChainPoolModel: &mocks.ChainPoolMock{
+				ID:   defaultPoolID,
+				Type: poolmanagertypes.Balancer,
+			},
+			ID: defaultPoolID,
+		}
+
+		validBaseDenom      = denomOne
+		orderBookQuoteDenom = denomTwo
+
+		invalidBaseDenom = denomThree
+
+		validOrderBookPool = &mocks.MockRoutablePool{
+			ChainPoolModel: &mocks.ChainPoolMock{
+				ID:   defaultPoolID + 1,
+				Type: poolmanagertypes.CosmWasm,
+			},
+			ID: defaultPoolID + 1,
+			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						BaseDenom:  validBaseDenom,
+						QuoteDenom: orderBookQuoteDenom,
+					},
+				},
+			},
+		}
+
+		invalidOrderBookPool = &mocks.MockRoutablePool{
+			ChainPoolModel: &mocks.ChainPoolMock{
+				ID:   defaultPoolID + 2,
+				Type: poolmanagertypes.CosmWasm,
+			},
+			ID: defaultPoolID + 2,
+			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						BaseDenom:  invalidBaseDenom,
+						QuoteDenom: orderBookQuoteDenom,
+					},
+				},
+			},
+		}
+
+		validPools = []sqsdomain.PoolI{
+			defaultBalancerPool,
+			validOrderBookPool,
+			invalidOrderBookPool,
+		}
+	)
+
+	routerRepo := routerrepo.New(&log.NoOpLogger{})
+	poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+
+	// Pre-set invalid data for the base/quote
+	poolsUsecase.StoreInvalidOrdeBookEntry(invalidBaseDenom, orderBookQuoteDenom)
+
+	// System under test
+	poolsUsecase.StorePools(validPools)
+
+	// Validate that the pools are stored
+	actualBalancerPool, err := poolsUsecase.GetPool(defaultPoolID)
+	s.Require().NoError(err)
+	s.Require().Equal(defaultBalancerPool, actualBalancerPool)
+
+	actualOrderBookPool, err := poolsUsecase.GetPool(validOrderBookPoolID)
+	s.Require().NoError(err)
+	s.Require().Equal(validOrderBookPool, actualOrderBookPool)
+
+	// Validate that the canonical orderbook pool ID is correctly set
+	canonicalPoolID, err := poolsUsecase.GetCanonicalOrderbookPoolID(validBaseDenom, orderBookQuoteDenom)
+	s.Require().NoError(err)
+	s.Require().Equal(validOrderBookPool.ID, canonicalPoolID)
+
+	// Validae that the invalid orderbook is saved as the pool but it is not used for the canonical orderbook pool ID
+	actualOrderBookPool, err = poolsUsecase.GetPool(invalidOrderBookPoolID)
+	s.Require().NoError(err)
+	s.Require().Equal(invalidOrderBookPool, actualOrderBookPool)
+
+	_, err = poolsUsecase.GetCanonicalOrderbookPoolID(invalidBaseDenom, orderBookQuoteDenom)
+	s.Require().Error(err)
 }
 
 func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
