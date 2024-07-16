@@ -42,7 +42,7 @@ var (
 	defaultAmt0 = routertesting.DefaultAmt0
 	defaultAmt1 = routertesting.DefaultAmt1
 
-	defaultPoolLiduidityCap = osmomath.NewInt(100)
+	defaultPoolLiquidityCap = osmomath.NewInt(100)
 )
 
 func TestPoolsUsecaseTestSuite(t *testing.T) {
@@ -257,7 +257,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 		expectedError   bool
 		expectedUpdated bool
 
-		expctedCanonicalOrderbookPoolID uint64
+		expectedCanonicalOrderbookPoolID uint64
 	}{
 		{
 			name:  "valid entry - no pre set",
@@ -265,10 +265,10 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 			quote: denomTwo,
 
 			poolID:                      defaultPoolID,
-			poolLiquidityCapitalization: defaultPoolLiduidityCap,
+			poolLiquidityCapitalization: defaultPoolLiquidityCap,
 
-			expectedUpdated:                 true,
-			expctedCanonicalOrderbookPoolID: defaultPoolID,
+			expectedUpdated:                  true,
+			expectedCanonicalOrderbookPoolID: defaultPoolID,
 		},
 		{
 			name:  "valid entry - pre set with smaller cap -> overriden",
@@ -276,12 +276,12 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 			quote: denomTwo,
 
 			poolID:                      defaultPoolID,
-			poolLiquidityCapitalization: defaultPoolLiduidityCap,
+			poolLiquidityCapitalization: defaultPoolLiquidityCap,
 
-			preStoreValidEntryCap: defaultPoolLiduidityCap.Sub(osmomath.OneInt()),
+			preStoreValidEntryCap: defaultPoolLiquidityCap.Sub(osmomath.OneInt()),
 
-			expectedUpdated:                 true,
-			expctedCanonicalOrderbookPoolID: defaultPoolID,
+			expectedUpdated:                  true,
+			expectedCanonicalOrderbookPoolID: defaultPoolID,
 		},
 		{
 			name:  "valid entry - pre set with larger cap -> not overriden",
@@ -289,12 +289,12 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 			quote: denomTwo,
 
 			poolID:                      defaultPoolID,
-			poolLiquidityCapitalization: defaultPoolLiduidityCap,
+			poolLiquidityCapitalization: defaultPoolLiquidityCap,
 
-			preStoreValidEntryCap: defaultPoolLiduidityCap.Add(osmomath.OneInt()),
+			preStoreValidEntryCap: defaultPoolLiquidityCap.Add(osmomath.OneInt()),
 
-			expectedUpdated:                 false,
-			expctedCanonicalOrderbookPoolID: differentPoolID,
+			expectedUpdated:                  false,
+			expectedCanonicalOrderbookPoolID: differentPoolID,
 		},
 		{
 			name:  "invalid entry - pre set with larger cap -> not overriden",
@@ -302,7 +302,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 			quote: denomTwo,
 
 			poolID:                      defaultPoolID,
-			poolLiquidityCapitalization: defaultPoolLiduidityCap,
+			poolLiquidityCapitalization: defaultPoolLiquidityCap,
 
 			preStoreInvalidEntry: true,
 
@@ -318,7 +318,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 
 			// Pre-set invalid data for the base/quote
 			if tc.preStoreInvalidEntry {
-				poolsUsecase.StoreInvalidOrdeBookEntry(tc.base, tc.quote)
+				poolsUsecase.StoreInvalidOrderBookEntry(tc.base, tc.quote)
 			}
 
 			// Pre-set valid data for the base/quote
@@ -342,7 +342,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 			canonicalPoolID, err := poolsUsecase.GetCanonicalOrderbookPoolID(tc.base, tc.quote)
 			s.Require().NoError(err)
 
-			s.Require().Equal(tc.expctedCanonicalOrderbookPoolID, canonicalPoolID)
+			s.Require().Equal(tc.expectedCanonicalOrderbookPoolID, canonicalPoolID)
 		})
 	}
 }
@@ -422,7 +422,7 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 	poolsUsecase := newDefaultPoolsUseCase()
 
 	// Pre-set invalid data for the base/quote
-	poolsUsecase.StoreInvalidOrdeBookEntry(invalidBaseDenom, orderBookQuoteDenom)
+	poolsUsecase.StoreInvalidOrderBookEntry(invalidBaseDenom, orderBookQuoteDenom)
 
 	// System under test
 	poolsUsecase.StorePools(validPools)
@@ -458,10 +458,10 @@ func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbookPoolIDs_HappyPath() 
 	poolsUseCase := newDefaultPoolsUseCase()
 
 	// Denom one and denom two
-	poolsUseCase.StoreValidOrdeBookEntry(denomOne, denomTwo, defaultPoolID, defaultPoolLiduidityCap)
+	poolsUseCase.StoreValidOrdeBookEntry(denomOne, denomTwo, defaultPoolID, defaultPoolLiquidityCap)
 
 	// Denom three and denom four
-	poolsUseCase.StoreValidOrdeBookEntry(denomThree, denomFour, defaultPoolID+1, defaultPoolLiduidityCap.Add(osmomath.OneInt()))
+	poolsUseCase.StoreValidOrdeBookEntry(denomThree, denomFour, defaultPoolID+1, defaultPoolLiquidityCap.Add(osmomath.OneInt()))
 
 	expectedCanonicalOrderbookPoolIDs := []domain.CanonicalOrderBooksResult{
 		{

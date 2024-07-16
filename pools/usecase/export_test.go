@@ -22,7 +22,7 @@ func (p *poolsUseCase) StoreValidOrdeBookEntry(baseDenom, quoteDenom string, poo
 }
 
 // WARNING: this method is only meant for setting up tests. Do not move out of export_test.go
-func (p *poolsUseCase) StoreInvalidOrdeBookEntry(baseDenom, quoteDenom string) {
+func (p *poolsUseCase) StoreInvalidOrderBookEntry(baseDenom, quoteDenom string) {
 	const invalidEntryType = 1
 	p.canonicalOrderBookForBaseQuoteDenom.Store(formatBaseQuoteDenom(baseDenom, quoteDenom), invalidEntryType)
 }

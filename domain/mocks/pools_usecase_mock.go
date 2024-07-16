@@ -40,11 +40,6 @@ func (pm *PoolsUsecaseMock) GetCanonicalOrderbookPoolID(baseDenom string, quoteD
 	panic("unimplemented")
 }
 
-// GetCanonicalOrdrbookPoolID implements mvc.PoolsUsecase.
-func (pm *PoolsUsecaseMock) GetCanonicalOrdrbookPoolID(baseDenom string, quoteDenom string) (uint64, error) {
-	panic("unimplemented")
-}
-
 // StorePools implements mvc.PoolsUsecase.
 func (pm *PoolsUsecaseMock) StorePools(pools []sqsdomain.PoolI) error {
 	if pm.StorePoolsFunc != nil {
