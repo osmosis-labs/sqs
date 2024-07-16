@@ -32,6 +32,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
 
@@ -145,8 +146,23 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
+	// Get the default quote denom
+	defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get liquidity pricer
+	liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
+
+	// Initialize passthrough grpc client
+	passthroughGRPCClient, err := passthroughdomain.NewPassthroughGRPCClient(config.ChainGRPCGatewayEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
 	// Initialize passthrough query use case
-	passthroughUseCase, err := passthroughUseCase.NewPassThroughUsecase(config.ChainGRPCGatewayEndpoint, poolsUseCase)
+	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, liquidityPricer, defaultQuoteDenom)
 	if err != nil {
 		return nil, err
 	}
@@ -174,15 +190,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester
 	if grpcIngesterConfig.Enabled {
-		// Get the default quote denom
-		defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
-		if err != nil {
-			return nil, err
-		}
-
 		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, logger)
-
-		liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
 
 		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase, liquidityPricer, logger)
 

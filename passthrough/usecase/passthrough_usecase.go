@@ -6,105 +6,119 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
-	concentratedLiquidity "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/client/queryproto"
-	lockup "github.com/osmosis-labs/osmosis/v25/x/lockup/types"
 
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 )
 
 type passthroughUseCase struct {
 	poolsUseCase mvc.PoolsUsecase
 
-	bankQueryClient banktypes.QueryClient
-	stakingQueryClient staking.QueryClient
-	lockupQueryClient lockup.QueryClient
-	concentratedLiquidityQueryClient concentratedLiquidity.QueryClient
+	// TODO: set in constructor
+	priceGetter           mvc.PriceGetter
+	defaultQuoteDenom     string
+	liquidityPricer       domain.LiquidityPricer
+	passthroughGRPCClient passthroughdomain.PassthroughGRPCClient
 }
 
 var _ mvc.PassthroughUsecase = &passthroughUseCase{}
 
 // NewPassThroughUsecase Creates a passthrough use case
-func NewPassThroughUsecase(grpcURI string, puc mvc.PoolsUsecase) (mvc.PassthroughUsecase, error){
-	grpcClient, err := grpc.Dial(grpcURI, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, err
-	}
-	
+func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, priceGetter mvc.PriceGetter, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string) mvc.PassthroughUsecase {
+
 	return &passthroughUseCase{
 		poolsUseCase: puc,
 
-		bankQueryClient: banktypes.NewQueryClient(grpcClient),
-		stakingQueryClient: staking.NewQueryClient(grpcClient),
-		lockupQueryClient: lockup.NewQueryClient(grpcClient),
-		concentratedLiquidityQueryClient: concentratedLiquidity.NewQueryClient(grpcClient),
-	}, nil
+		passthroughGRPCClient: passthroughGRPCClient,
+
+		priceGetter:       priceGetter,
+		defaultQuoteDenom: defaultQuoteDenom,
+		liquidityPricer:   liquidityPricer,
+	}
 }
 
-func (p *passthroughUseCase) GetAccountCoinsTotal(ctx context.Context, address string) (sdk.Coins, error) {
-	coins := sdk.NewCoins();
- 	
-  // Bank balances including GAMM shares
-	allBalancesRes, err := p.bankQueryClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
-		Address: address,
-	})
-	if err != nil {
-		return nil, err
-	}
-	
-	for _, balance := range allBalancesRes.Balances {
-		if strings.HasPrefix(balance.Denom, "gamm") {
-			// calc underlying coins from gamm shares
-			splitDenom := strings.Split(balance.Denom, "/")
-			poolID := splitDenom[len(splitDenom)-1]
-			poolIDInt, err := strconv.ParseInt(poolID, 10, 64)
-			if err != nil {
-				return nil, err
-			}
+func (p *passthroughUseCase) GetAccountCoinsTotal(ctx context.Context, address string) ([]passthroughdomain.AccountCoinsResult, error) {
+	coins := sdk.Coins{}
 
-			exitCoins, err := p.poolsUseCase.CalcExitCFMMPool(uint64(poolIDInt), balance.Amount)
+	const numAccountCoinsFetchFunctons = 5
+
+	results := make(chan sdk.Coins, numAccountCoinsFetchFunctons)
+	errs := make(chan error, numAccountCoinsFetchFunctons)
+
+	fetchFuncs := []func(context.Context, string) (sdk.Coins, error){
+		p.getBankBalances,
+		p.passthroughGRPCClient.DelegatorUnbondingDelegations,
+		p.passthroughGRPCClient.DelegatorDelegations,
+		p.getLockedCoins,
+		p.passthroughGRPCClient.UserPositionsBalances,
+	}
+
+	for _, fetchFunc := range fetchFuncs {
+		go func(fetchFunc func(context.Context, string) (sdk.Coins, error)) {
+			result, err := fetchFunc(ctx, address)
 			if err != nil {
-				return nil, err
+				errs <- err
+				return
 			}
-			coins = coins.Add(exitCoins...)
-		} else {
-			coins = coins.Add(balance)
+			results <- result
+		}(fetchFunc)
+	}
+
+	for i := 0; i < len(fetchFuncs); i++ {
+		select {
+		case res := <-results:
+
+			coins = coins.Add(res...)
+		case err := <-errs:
+			// Handle error (log, return, etc.)
+			return nil, err
 		}
 	}
 
-	// Staking
-	delegatedRes, err := p.stakingQueryClient.DelegatorDelegations(ctx, &staking.QueryDelegatorDelegationsRequest{
-		DelegatorAddr: address,
-	})
+	close(results)
+	close(errs)
+
+	return p.instrumentCoinsWithPrices(ctx, coins)
+}
+
+func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, error) {
+	coinDenoms := coins.Denoms()
+
+	// Compute prices for the final coins
+	priceResult, err := p.priceGetter.GetPrices(ctx, coinDenoms, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
 	if err != nil {
 		return nil, err
 	}
-	undelegationRes, err := p.stakingQueryClient.DelegatorUnbondingDelegations(ctx, &staking.QueryDelegatorUnbondingDelegationsRequest{
-		DelegatorAddr: address,
-	})
-	if err != nil {
-		return nil, err
+
+	// Instrument coins with prices
+	coinsWithPrices := make([]passthroughdomain.AccountCoinsResult, 0, len(coins))
+
+	for _, coin := range coins {
+		price := priceResult.GetPriceForDenom(coin.Denom, p.defaultQuoteDenom)
+
+		coinCapitalization := p.liquidityPricer.PriceCoin(coin, price)
+
+		coinsWithPrices = append(coinsWithPrices, passthroughdomain.AccountCoinsResult{
+			Coin:                coin,
+			CapitalizationValue: coinCapitalization,
+		})
 	}
 
-	for _, delegation := range delegatedRes.DelegationResponses {
-		coins = coins.Add(delegation.Balance)
-	}
+	return coinsWithPrices, nil
+}
 
-	for _, undelegationEntry := range undelegationRes.UnbondingResponses {
-		for _, undelegation := range undelegationEntry.Entries {
-			coins = coins.Add(sdk.NewCoin("uosmo", undelegation.Balance))
-		}
-	}
-
+func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string) (sdk.Coins, error) {
 	// User locked assets including GAMM shares
-	locked, err := p.lockupQueryClient.AccountLockedCoins(ctx, &lockup.AccountLockedCoinsRequest{
-		Owner: address,
-	})
+	lockedCoins, err := p.passthroughGRPCClient.AccountLockedCoins(ctx, address)
 
-	for _, lockedCoin := range locked.Coins {
+	if err != nil {
+		return nil, err
+	}
+
+	coins := sdk.Coins{}
+
+	for _, lockedCoin := range lockedCoins {
 		// calc underlying coins from GAMM shares, only expect gamm shares
 		if strings.HasPrefix(lockedCoin.Denom, "gamm") {
 			splitDenom := strings.Split(lockedCoin.Denom, "/")
@@ -124,17 +138,36 @@ func (p *passthroughUseCase) GetAccountCoinsTotal(ctx context.Context, address s
 		}
 	}
 
-	// Concentrated liquidity positions
-	positions, err := p.concentratedLiquidityQueryClient.UserPositions(ctx, &concentratedLiquidity.UserPositionsRequest{
-		Address: address,
-	})
+	return coins, nil
+}
 
-	for _, position := range positions.Positions {
-		coins = coins.Add(position.Asset0)
-		coins = coins.Add(position.Asset1)
-		coins = coins.Add(position.ClaimableSpreadRewards...)
-		coins = coins.Add(position.ClaimableIncentives...)
+func (p *passthroughUseCase) getBankBalances(ctx context.Context, address string) (sdk.Coins, error) {
+	allBalances, err := p.passthroughGRPCClient.AllBalances(ctx, address)
+	if err != nil {
+		return nil, err
+	}
+
+	coins := sdk.Coins{}
+
+	for _, balance := range allBalances {
+		if strings.HasPrefix(balance.Denom, "gamm") {
+			// calc underlying coins from gamm shares
+			splitDenom := strings.Split(balance.Denom, "/")
+			poolID := splitDenom[len(splitDenom)-1]
+			poolIDInt, err := strconv.ParseInt(poolID, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+
+			exitCoins, err := p.poolsUseCase.CalcExitCFMMPool(uint64(poolIDInt), balance.Amount)
+			if err != nil {
+				return nil, err
+			}
+			coins = coins.Add(exitCoins...)
+		} else {
+			coins = coins.Add(balance)
+		}
 	}
 
 	return coins, nil
-} 
+}
