@@ -166,6 +166,11 @@ func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 	return c.JSON(http.StatusOK, poolID)
 }
 
+// @Summary Get entries for all supported orderbook base and quote denoms.
+// @Description Returns the list of canonical orderbook pool ID entries for the given base and quote.
+// @Produce  json
+// @Success 200  {array}  domain.CanonicalOrderBooksResult  "List of canonical orderbook ool ID entries for all base and quotes"
+// @Router /pools/canonical-orderbooks [get]
 func (a *PoolsHandler) GetCanonicalOrderbooks(c echo.Context) error {
 	orderbookData, err := a.PUsecase.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {

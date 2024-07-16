@@ -1,4 +1,13 @@
 definitions:
+  domain.CanonicalOrderBooksResult:
+    properties:
+      base:
+        type: string
+      pool_id:
+        type: integer
+      quote:
+        type: string
+    type: object
   domain.Token:
     properties:
       coingeckoId:
@@ -88,6 +97,21 @@ paths:
           schema:
             type: uint64
       summary: Get canonical orderbook pool ID for the given base and quote.
+  /pools/canonical-orderbooks:
+    get:
+      description: Returns the list of canonical orderbook pool ID entries for the
+        given base and quote.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of canonical orderbook ool ID entries for all base and
+            quotes
+          schema:
+            items:
+              $ref: '#/definitions/domain.CanonicalOrderBooksResult'
+            type: array
+      summary: Get entries for all supported orderbook base and quote denoms.
   /router/custom-direct-quote:
     get:
       description: Call does not search for the route rather directly computes the

@@ -66,6 +66,26 @@
                 }
             }
         },
+        "/pools/canonical-orderbooks": {
+            "get": {
+                "description": "Returns the list of canonical orderbook pool ID entries for the given base and quote.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get entries for all supported orderbook base and quote denoms.",
+                "responses": {
+                    "200": {
+                        "description": "List of canonical orderbook ool ID entries for all base and quotes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.CanonicalOrderBooksResult"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/router/custom-direct-quote": {
             "get": {
                 "description": "Call does not search for the route rather directly computes the quote for the given poolID.",
@@ -313,6 +333,20 @@
         }
     },
     "definitions": {
+        "domain.CanonicalOrderBooksResult": {
+            "type": "object",
+            "properties": {
+                "base": {
+                    "type": "string"
+                },
+                "pool_id": {
+                    "type": "integer"
+                },
+                "quote": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Token": {
             "type": "object",
             "properties": {
