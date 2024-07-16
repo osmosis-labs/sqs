@@ -77,7 +77,7 @@ const docTemplate = `{
         },
         "/pools/canonical-orderbooks": {
             "get": {
-                "description": "Returns the list of canonical orderbook pool ID entries for the given base and quote.",
+                "description": "Returns the list of canonical orderbook pool ID entries for all possible base and quote combinations.",
                 "produces": [
                     "application/json"
                 ],
