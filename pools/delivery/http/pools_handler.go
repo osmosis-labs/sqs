@@ -140,7 +140,6 @@ func getStatusCode(err error) int {
 }
 
 func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
-
 	base := c.QueryParam("base")
 	quote := c.QueryParam("quote")
 	if base == "" || quote == "" {
@@ -156,7 +155,6 @@ func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 }
 
 func (a *PoolsHandler) GetCanonicalOrderbooks(c echo.Context) error {
-
 	orderbookData, err := a.PUsecase.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})

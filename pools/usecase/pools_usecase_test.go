@@ -314,8 +314,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 		tc := tc
 		s.Run(tc.name, func() {
 
-			routerRepo := routerrepo.New(&log.NoOpLogger{})
-			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+			poolsUsecase := newDefaultPoolsUseCase()
 
 			// Pre-set invalid data for the base/quote
 			if tc.preStoreInvalidEntry {
@@ -421,8 +420,7 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 		}
 	)
 
-	routerRepo := routerrepo.New(&log.NoOpLogger{})
-	poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase := newDefaultPoolsUseCase()
 
 	// Pre-set invalid data for the base/quote
 	poolsUsecase.StoreInvalidOrdeBookEntry(invalidBaseDenom, orderBookQuoteDenom)
@@ -457,4 +455,10 @@ func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDe
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)
 	return routablePool
+}
+
+func newDefaultPoolsUseCase() *usecase.PoolsUsecase {
+	routerRepo := routerrepo.New(&log.NoOpLogger{})
+	poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	return poolsUsecase
 }

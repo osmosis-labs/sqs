@@ -351,6 +351,7 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 	return true, nil
 }
 
+// GetCanonicalOrderbookPoolID implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetCanonicalOrderbookPoolID(baseDenom, quoteDenom string) (uint64, error) {
 	baseQuote := formatBaseQuoteDenom(baseDenom, quoteDenom)
 	topLiquidityOrderBook, found := p.canonicalOrderBookForBaseQuoteDenom.Load(baseQuote)
@@ -368,7 +369,6 @@ func (p *poolsUseCase) GetCanonicalOrderbookPoolID(baseDenom, quoteDenom string)
 
 // GetAllCanonicalOrderbookPoolIDs implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error) {
-
 	var (
 		results []domain.CanonicalOrderBooksResult
 		err     error

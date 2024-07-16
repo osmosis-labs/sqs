@@ -4,7 +4,10 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
-type OrderBookEntry = orderBookEntry
+type (
+	OrderBookEntry = orderBookEntry
+	PoolsUsecase   = poolsUseCase
+)
 
 func (p *poolsUseCase) ProcessOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom string, poolID uint64, poolLiquidityCapitalization osmomath.Int) (updatedBool bool, err error) {
 	return p.processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom, poolID, poolLiquidityCapitalization)
