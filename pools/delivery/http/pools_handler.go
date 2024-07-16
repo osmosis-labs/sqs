@@ -1,7 +1,6 @@
 package http
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -139,11 +138,24 @@ func getStatusCode(err error) int {
 	}
 }
 
+// @Summary Get canonical orderbook pool ID for the given base and quote.
+// @Description Returns the canonical orderbook pool ID for the given base and quote.
+// @Description if the pool ID is not found for the given pair, it returns an error.
+// @Description if the base or quote denom are not provided, it returns an error.
+// @Produce  json
+// @Param  base  query  string  true  "Base denom"
+// @Param  quote  query  string  true  "Quote denom"
+// @Success 200  uint64  "Canonical Orderbook Pool ID for the given base and quote"
+// @Router /pools/canonical-orderbook [get]
 func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 	base := c.QueryParam("base")
+	if base == "" {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "base must be provided"})
+	}
+
 	quote := c.QueryParam("quote")
-	if base == "" || quote == "" {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: fmt.Sprintf("either both base and quote must be provided or none, had base (%s), quote (%s)", base, quote)})
+	if quote == "" {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: "quote must be provided"})
 	}
 
 	poolID, err := a.PUsecase.GetCanonicalOrderbookPoolID(base, quote)

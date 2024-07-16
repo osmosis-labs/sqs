@@ -42,6 +42,39 @@ const docTemplate = `{
                 }
             }
         },
+        "/pools/canonical-orderbook": {
+            "get": {
+                "description": "Returns the canonical orderbook pool ID for the given base and quote.\nif the pool ID is not found for the given pair, it returns an error.\nif the base or quote denom are not provided, it returns an error.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get canonical orderbook pool ID for the given base and quote.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Base denom",
+                        "name": "base",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Quote denom",
+                        "name": "quote",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Canonical Orderbook Pool ID for the given base and quote",
+                        "schema": {
+                            "type": "uint64"
+                        }
+                    }
+                }
+            }
+        },
         "/router/custom-direct-quote": {
             "get": {
                 "description": "Call does not search for the route rather directly computes the quote for the given poolID.",
@@ -294,10 +327,6 @@ const docTemplate = `{
             "properties": {
                 "coingeckoId": {
                     "type": "string"
-                },
-                "is_unlisted": {
-                    "description": "IsUnlisted is true if the token is unlisted.",
-                    "type": "boolean"
                 },
                 "decimals": {
                     "description": "Precision is the precision of the token.",
