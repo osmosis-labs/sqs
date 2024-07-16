@@ -371,6 +371,11 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 
 		invalidBaseDenom = denomThree
 
+		defaultOrderbookContractInfo = cosmwasmpool.ContractInfo{
+			Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+			Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+		}
+
 		validOrderBookPool = &mocks.MockRoutablePool{
 			ChainPoolModel: &mocks.ChainPoolMock{
 				ID:   defaultPoolID + 1,
@@ -378,10 +383,7 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 			},
 			ID: defaultPoolID + 1,
 			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-				ContractInfo: cosmwasmpool.ContractInfo{
-					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-				},
+				ContractInfo: defaultOrderbookContractInfo,
 
 				Data: cosmwasmpool.CosmWasmPoolData{
 					Orderbook: &cosmwasmpool.OrderbookData{
@@ -399,10 +401,7 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 			},
 			ID: defaultPoolID + 2,
 			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-				ContractInfo: cosmwasmpool.ContractInfo{
-					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-				},
+				ContractInfo: defaultOrderbookContractInfo,
 
 				Data: cosmwasmpool.CosmWasmPoolData{
 					Orderbook: &cosmwasmpool.OrderbookData{

@@ -167,7 +167,7 @@ func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 }
 
 // @Summary Get entries for all supported orderbook base and quote denoms.
-// @Description Returns the list of canonical orderbook pool ID entries for the given base and quote.
+// @Description Returns the list of canonical orderbook pool ID entries for all possible base and quote combinations.
 // @Produce  json
 // @Success 200  {array}  domain.CanonicalOrderBooksResult  "List of canonical orderbook ool ID entries for all base and quotes"
 // @Router /pools/canonical-orderbooks [get]
