@@ -290,3 +290,11 @@ type PriceNotFoundForPoolLiquidityCapError struct {
 func (e PriceNotFoundForPoolLiquidityCapError) Error() string {
 	return fmt.Sprintf("price not found (zero) for denom %s", e.Denom)
 }
+
+type FailCastCanonicalOrderbookEntryError struct {
+	BaseQuoteKey string
+}
+
+func (e FailCastCanonicalOrderbookEntryError) Error() string {
+	return fmt.Sprintf("failed to cast orderbook entry for key (%s)", e.BaseQuoteKey)
+}

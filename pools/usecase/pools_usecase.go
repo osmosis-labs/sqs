@@ -45,7 +45,7 @@ const (
 )
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb, logger log.Logger) mvc.PoolsUsecase {
+func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb, logger log.Logger) *poolsUseCase {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
 	for _, codeId := range poolsConfig.TransmuterCodeIDs {
 		transmuterCodeIDsMap[codeId] = struct{}{}
@@ -328,7 +328,9 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 		// Cast to orderBookEntry
 		topLiquidityOrderBookEntry, ok := topLiquidityOrderBook.(orderBookEntry)
 		if !ok {
-			err = fmt.Errorf("failed to cast orderbook entry for key (%s)", baseQuoteKey)
+			err = domain.FailCastCanonicalOrderbookEntryError{
+				BaseQuoteKey: baseQuoteKey,
+			}
 			return false, err
 		}
 
@@ -350,7 +352,7 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 }
 
 func (p *poolsUseCase) GetCanonicalOrderbookPoolID(baseDenom, quoteDenom string) (uint64, error) {
-	baseQuote := baseDenom + quoteDenom
+	baseQuote := formatBaseQuoteDenom(baseDenom, quoteDenom)
 	topLiquidityOrderBook, found := p.canonicalOrderBookForBaseQuoteDenom.Load(baseQuote)
 	if !found {
 		return 0, fmt.Errorf("canonical orderbook not found for base %s and quote %s", baseDenom, quoteDenom)
@@ -364,7 +366,7 @@ func (p *poolsUseCase) GetCanonicalOrderbookPoolID(baseDenom, quoteDenom string)
 	return topLiquidityOrderBookEntry.PoolID, nil
 }
 
-// GetAllCanonicalOrderbookPoolIDs implements mvc.PoolsUsecase. 
+// GetAllCanonicalOrderbookPoolIDs implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error) {
 
 	var (

@@ -40,6 +40,8 @@ var (
 
 	defaultAmt0 = routertesting.DefaultAmt0
 	defaultAmt1 = routertesting.DefaultAmt1
+
+	defaultPoolLiduidityCap = osmomath.NewInt(100)
 )
 
 func TestPoolsUsecaseTestSuite(t *testing.T) {
@@ -232,6 +234,115 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 				// 3. Correct token out denom
 				s.ValidateRoutePools(expectedPools, actualPools)
 			}
+		})
+	}
+}
+
+func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
+	const (
+		differentPoolID = defaultPoolID + 1
+	)
+
+	testCases := []struct {
+		name                        string
+		base                        string
+		quote                       string
+		poolID                      uint64
+		poolLiquidityCapitalization osmomath.Int
+
+		preStoreValidEntryCap osmomath.Int
+		preStoreInvalidEntry  bool
+
+		expectedError   bool
+		expectedUpdated bool
+
+		expctedCanonicalOrderbookPoolID uint64
+	}{
+		{
+			name:  "valid entry - no pre set",
+			base:  denomOne,
+			quote: denomTwo,
+
+			poolID:                      defaultPoolID,
+			poolLiquidityCapitalization: defaultPoolLiduidityCap,
+
+			expectedUpdated:                 true,
+			expctedCanonicalOrderbookPoolID: defaultPoolID,
+		},
+		{
+			name:  "valid entry - pre set with smaller cap -> overriden",
+			base:  denomOne,
+			quote: denomTwo,
+
+			poolID:                      defaultPoolID,
+			poolLiquidityCapitalization: defaultPoolLiduidityCap,
+
+			preStoreValidEntryCap: defaultPoolLiduidityCap.Sub(osmomath.OneInt()),
+
+			expectedUpdated:                 true,
+			expctedCanonicalOrderbookPoolID: defaultPoolID,
+		},
+		{
+			name:  "valid entry - pre set with larger cap -> not overriden",
+			base:  denomOne,
+			quote: denomTwo,
+
+			poolID:                      defaultPoolID,
+			poolLiquidityCapitalization: defaultPoolLiduidityCap,
+
+			preStoreValidEntryCap: defaultPoolLiduidityCap.Add(osmomath.OneInt()),
+
+			expectedUpdated:                 false,
+			expctedCanonicalOrderbookPoolID: differentPoolID,
+		},
+		{
+			name:  "invalid entry - pre set with larger cap -> not overriden",
+			base:  denomOne,
+			quote: denomTwo,
+
+			poolID:                      defaultPoolID,
+			poolLiquidityCapitalization: defaultPoolLiduidityCap,
+
+			preStoreInvalidEntry: true,
+
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		s.Run(tc.name, func() {
+
+			routerRepo := routerrepo.New(&log.NoOpLogger{})
+			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+
+			// Pre-set invalid data for the base/quote
+			if tc.preStoreInvalidEntry {
+				poolsUsecase.StoreInvalidOrdeBookEntry(tc.base, tc.quote)
+			}
+
+			// Pre-set valid data for the base/quote
+			if !tc.preStoreValidEntryCap.IsNil() {
+				// Note that we store the entry with different pool ID to make sure that the
+				// poolID is updated to the new value.
+				poolsUsecase.StoreValidOrdeBookEntry(tc.base, tc.quote, differentPoolID, tc.preStoreValidEntryCap)
+			}
+
+			// System under test
+			updatedBool, err := poolsUsecase.ProcessOrderbookPoolIDForBaseQuote(tc.base, tc.quote, tc.poolID, tc.poolLiquidityCapitalization)
+
+			if tc.expectedError {
+				s.Require().Error(err)
+				return
+			}
+
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expectedUpdated, updatedBool)
+
+			canonicalPoolID, err := poolsUsecase.GetCanonicalOrderbookPoolID(tc.base, tc.quote)
+			s.Require().NoError(err)
+
+			s.Require().Equal(tc.expctedCanonicalOrderbookPoolID, canonicalPoolID)
 		})
 	}
 }
