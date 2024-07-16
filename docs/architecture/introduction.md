@@ -11,6 +11,8 @@ to group the code by separate "Functional Components" .
 
 This is a component that deals with liqudiity pools and their operations.
 
+See [docs/architecture/pools.md](docs/architecture/pools.md) for more details.
+
 ### Router Usecase
 
 This is the routing & quoting component.
