@@ -185,6 +185,11 @@ func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coin
 	return coinsWithPrices, capitalizaionTotal, nil
 }
 
+// getLockedCoins returns the user's locked coins
+// If encountering GAMM shares, it will convert them to underlying coins
+// If encountering concentrated shares, it will skip them
+// For every coin, adds the underlying coins to the total coins.
+// Returns error if fails to get locked coins.
 func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string) (sdk.Coins, error) {
 	// User locked assets including GAMM shares
 	lockedCoins, err := p.passthroughGRPCClient.AccountLockedCoins(ctx, address)
@@ -197,18 +202,16 @@ func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string)
 	for _, lockedCoin := range lockedCoins {
 		// calc underlying coins from GAMM shares, only expect gamm shares
 		if strings.HasPrefix(lockedCoin.Denom, gammSharePrefix) {
-			splitDenom := strings.Split(lockedCoin.Denom, "/")
-			poolID := splitDenom[len(splitDenom)-1]
-			poolIDInt, err := strconv.ParseInt(poolID, 10, 64)
+			exitCoins, err := p.handleGammShares(lockedCoin)
 			if err != nil {
-				return nil, err
+				p.logger.Error("error converting gamm share from locks to underlying coins", zap.Error(err))
+				continue
 			}
 
-			exitCoins, err := p.poolsUseCase.CalcExitCFMMPool(uint64(poolIDInt), lockedCoin.Amount)
-			if err != nil {
-				return nil, err
-			}
 			coins = coins.Add(exitCoins...)
+
+			// Concentrated value is retrieved from positions.
+			// As a result, we skip them here.
 		} else if !strings.HasPrefix(lockedCoin.Denom, concentratedSharePrefix) {
 			coins = coins.Add(lockedCoin)
 		}
@@ -236,22 +239,12 @@ func (p *passthroughUseCase) getBankBalances(ctx context.Context, address string
 
 	for _, balance := range allBalances {
 		if strings.HasPrefix(balance.Denom, gammSharePrefix) {
-			// calc underlying coins from gamm shares
-			splitDenom := strings.Split(balance.Denom, denomShareSeparator)
-			poolID := splitDenom[len(splitDenom)-1]
-			poolIDInt, err := strconv.ParseUint(poolID, 10, 64)
+			exitCoins, err := p.handleGammShares(balance)
 			if err != nil {
-				p.logger.Error("failed to parse pool id when retrieving bank balances", zap.Uint64("pool_id", poolIDInt), zap.Error(err))
-				// Skip unexpected error silently.
+				p.logger.Error("error converting gamm share from balances to underlying coins", zap.Error(err))
 				continue
 			}
 
-			exitCoins, err := p.poolsUseCase.CalcExitCFMMPool(poolIDInt, balance.Amount)
-			if err != nil {
-				p.logger.Error("failed to calculate exit coins from pool", zap.Uint64("pool_id", poolIDInt), zap.Error(err))
-				// Skip unexpected error silently.
-				continue
-			}
 			coins = coins.Add(exitCoins...)
 		} else {
 			coins = coins.Add(balance)
@@ -259,4 +252,25 @@ func (p *passthroughUseCase) getBankBalances(ctx context.Context, address string
 	}
 
 	return coins, nil
+}
+
+// handleGammShares converts GAMM shares to underlying coins
+// Returns error if fails to convert GAMM shares to underlying coins.
+// Returns the underlying coins if successful.
+// CONTRACT: coin is a gamm share
+func (p *passthroughUseCase) handleGammShares(coin sdk.Coin) (sdk.Coins, error) {
+	// calc underlying coins from gamm shares
+	splitDenom := strings.Split(coin.Denom, denomShareSeparator)
+	poolID := splitDenom[len(splitDenom)-1]
+	poolIDInt, err := strconv.ParseUint(poolID, 10, 64)
+	if err != nil {
+		return sdk.Coins{}, err
+	}
+
+	exitCoins, err := p.poolsUseCase.CalcExitCFMMPool(poolIDInt, coin.Amount)
+	if err != nil {
+		return sdk.Coins{}, err
+	}
+
+	return exitCoins, nil
 }
