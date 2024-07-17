@@ -57,7 +57,7 @@ func (p *PassthroughGRPCClientMock) UserPositionsBalances(ctx context.Context, a
 		return p.MockUserPositionsBalancesCb(ctx, address)
 	}
 
-	panic("unimplemented")
+	return nil, errors.New("MockUserPositionsBalancesCb is not implemented")
 }
 
 var _ passthroughdomain.PassthroughGRPCClient = &PassthroughGRPCClientMock{}
