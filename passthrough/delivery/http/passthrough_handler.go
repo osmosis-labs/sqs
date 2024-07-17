@@ -40,7 +40,7 @@ func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase) {
 // @Produce  json
 // @Success 200  struct  passthroughdomain.PortfolioAssetsResult  "Portfolio assets from user balances and capitalization of the entire account value"
 // @Param address path string true "Wallet Address"
-// @Router /portfolio-assets/{address} [get]
+// @Router /passthrough/portfolio-assets/{address} [get]
 func (a *PassthroughHandler) GetPortfolioAssetsByAddress(c echo.Context) error {
 	address := c.Param("address")
 

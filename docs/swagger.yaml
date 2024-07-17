@@ -54,6 +54,26 @@ info:
   title: Osmosis Sidecar Query Server Example API
   version: "1.0"
 paths:
+  /passthrough/portfolio-assets/{address}:
+    get:
+      description: The returned data represents the total value of the assets in the
+        portfolio. Total value cap represents the total value of the assets in the
+        portfolio.
+      parameters:
+      - description: Wallet Address
+        in: path
+        name: address
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Portfolio assets from user balances and capitalization of the
+            entire account value
+          schema:
+            type: struct
+      summary: Returns portfolio assets associated with the given address.
   /pools:
     get:
       description: |-
@@ -114,26 +134,6 @@ paths:
               $ref: '#/definitions/domain.CanonicalOrderBooksResult'
             type: array
       summary: Get entries for all supported orderbook base and quote denoms.
-  /portfolio-assets/{address}:
-    get:
-      description: The returned data represents the total value of the assets in the
-        portfolio. Total value cap represents the total value of the assets in the
-        portfolio.
-      parameters:
-      - description: Wallet Address
-        in: path
-        name: address
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Portfolio assets from user balances and capitalization of the
-            entire account value
-          schema:
-            type: struct
-      summary: Returns portfolio assets associated with the given address.
   /router/custom-direct-quote:
     get:
       description: Call does not search for the route rather directly computes the
