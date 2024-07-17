@@ -8,7 +8,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/passthrough/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -34,6 +36,7 @@ var (
 
 	grpcClientError       = errors.New("grpc-client-error")
 	calcExitCFMMPoolError = errors.New("calc-exit-cfmm-pool-error")
+	miscError             = errors.New("misc-error")
 
 	formatValidGammShare = func(poolID uint64) string {
 		return fmt.Sprintf("%s/pool/%d", usecase.GammSharePrefix, poolID)
@@ -60,10 +63,195 @@ var (
 	defaultConcentratedShareCoin = sdk.NewCoin(usecase.ConcentratedSharePrefix+"/pool", sdk.NewInt(1_000_000))
 
 	emptyCoins = sdk.Coins{}
+
+	zero = osmomath.ZeroDec()
 )
 
 func TestPassthroughUseCase(t *testing.T) {
 	suite.Run(t, new(PassthroughUseCaseTestSuite))
+}
+
+// Tests the compute capitalization for coins method using mocks.
+func (s *PassthroughUseCaseTestSuite) TestComputeCapitalizationForCoins() {
+	var (
+		osmoPrice = osmomath.MustNewBigDecFromStr("0.5")
+		atomPrice = osmomath.MustNewBigDecFromStr("7")
+		wbtcPrice = osmomath.MustNewBigDecFromStr("50000")
+
+		defaultPriceResult = domain.PricesResult{
+			UOSMO: {
+				USDC: osmoPrice,
+			},
+			ATOM: {
+				USDC: atomPrice,
+			},
+			WBTC: {
+				USDC: wbtcPrice,
+			},
+		}
+
+		defaultAmount = sdk.NewInt(1_000_000)
+
+		osmoCoin = sdk.NewCoin(UOSMO, defaultAmount)
+		atomCoin = sdk.NewCoin(ATOM, defaultAmount.MulRaw(2))
+		wbtcCoin = sdk.NewCoin(WBTC, defaultAmount.MulRaw(3))
+
+		invalidDenom = "invalid"
+
+		osmoCapitalization = osmoPrice.Dec().MulMut(defaultAmount.ToLegacyDec())
+		atomCapitalization = atomPrice.Dec().MulMut(defaultAmount.ToLegacyDec().MulInt64(2))
+		wbtcCapitalization = wbtcPrice.Dec().MulMut(defaultAmount.ToLegacyDec().MulInt64(3))
+		invalidCoin        = sdk.NewCoin(invalidDenom, defaultAmount)
+
+		emptyPrices = domain.PricesResult{}
+	)
+
+	tests := []struct {
+		name string
+
+		coins              sdk.Coins
+		mockedPricesResult domain.PricesResult
+		mockedPricesError  error
+
+		expectedError               bool
+		expectedAccountCoinsResult  []passthroughdomain.AccountCoinsResult
+		expectedTotalCapitalization osmomath.Dec
+	}{
+		{
+			name: "empty coins",
+
+			coins: sdk.Coins{},
+
+			mockedPricesResult: defaultPriceResult,
+
+			expectedAccountCoinsResult:  []passthroughdomain.AccountCoinsResult{},
+			expectedTotalCapitalization: osmomath.ZeroDec(),
+		},
+		{
+			name: "one coin in balance",
+
+			coins: sdk.Coins{osmoCoin},
+
+			mockedPricesResult: defaultPriceResult,
+
+			expectedAccountCoinsResult: []passthroughdomain.AccountCoinsResult{
+				{
+					Coin:                osmoCoin,
+					CapitalizationValue: osmoCapitalization,
+				},
+			},
+			expectedTotalCapitalization: osmoCapitalization,
+		},
+		{
+			name: "empty prices -> no capitalization result",
+
+			coins: sdk.Coins{osmoCoin},
+
+			mockedPricesResult: emptyPrices,
+
+			expectedAccountCoinsResult: []passthroughdomain.AccountCoinsResult{
+				{
+					Coin:                osmoCoin,
+					CapitalizationValue: zero,
+				},
+			},
+			expectedTotalCapitalization: zero,
+		},
+		{
+			name: "denom that is not valid denom -> no capitalization",
+
+			coins: sdk.Coins{invalidCoin},
+
+			mockedPricesResult: emptyPrices,
+
+			expectedAccountCoinsResult: []passthroughdomain.AccountCoinsResult{
+				{
+					Coin:                invalidCoin,
+					CapitalizationValue: zero,
+				},
+			},
+			expectedTotalCapitalization: zero,
+		},
+		{
+			name: "multiple coins, including invalid",
+
+			coins: sdk.Coins{osmoCoin, atomCoin, wbtcCoin, invalidCoin},
+
+			mockedPricesResult: defaultPriceResult,
+
+			expectedAccountCoinsResult: []passthroughdomain.AccountCoinsResult{
+				{
+					Coin:                osmoCoin,
+					CapitalizationValue: osmoCapitalization,
+				},
+				{
+					Coin:                atomCoin,
+					CapitalizationValue: atomCapitalization,
+				},
+				{
+					Coin:                wbtcCoin,
+					CapitalizationValue: wbtcCapitalization,
+				},
+				{
+					Coin:                invalidCoin,
+					CapitalizationValue: zero,
+				},
+			},
+			expectedTotalCapitalization: osmoCapitalization.Add(atomCapitalization).Add(wbtcCapitalization),
+		},
+		{
+			name: "error in prices",
+
+			coins: sdk.Coins{osmoCoin},
+
+			mockedPricesError: miscError,
+
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+
+			// Set up tokens use case mock with relevant methods
+			tokensUsecaseMock := mocks.TokensUsecaseMock{
+				GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+					// Return the mocked out results
+					return tt.mockedPricesResult, tt.mockedPricesError
+				},
+
+				IsValidChainDenomFunc: func(denom string) bool {
+					// Treat only UOSMO, ATOM and WBTC as valid for test purposes
+					return denom == UOSMO || denom == ATOM || denom == WBTC
+				},
+			}
+
+			liquidityPricerMock := &mocks.LiquidityPricerMock{
+				PriceCoinFunc: func(coin sdk.Coin, price osmomath.BigDec) osmomath.Dec {
+					if price.IsZero() {
+						return osmomath.ZeroDec()
+					}
+					return coin.Amount.ToLegacyDec().Mul(price.Dec())
+				},
+			}
+
+			pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+
+			// System under test
+			accountCoinsResult, totalCapitalization, err := pu.ComputeCapitalizationForCoins(context.TODO(), tt.coins)
+
+			if tt.expectedError {
+				s.Require().Error(err)
+				return
+			}
+
+			s.Require().NoError(err)
+
+			// Assert
+			s.Require().Equal(tt.expectedAccountCoinsResult, accountCoinsResult)
+			s.Require().Equal(tt.expectedTotalCapitalization, totalCapitalization)
+		})
+	}
 }
 
 // Tests the get locked coins method using mocks.
@@ -144,7 +332,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.GetLockedCoins(context.TODO(), tt.address)
@@ -226,7 +414,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.GetBankBalances(context.TODO(), tt.address)
@@ -320,7 +508,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(nil, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(nil, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.HandleGammShares(tt.coinIn)

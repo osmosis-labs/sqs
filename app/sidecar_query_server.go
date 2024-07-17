@@ -162,7 +162,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}
 
 	// Initialize passthrough query use case
-	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, tokensUseCase.IsValidChainDenom, liquidityPricer, defaultQuoteDenom, logger)
+	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, liquidityPricer, defaultQuoteDenom, logger)
 	if err != nil {
 		return nil, err
 	}

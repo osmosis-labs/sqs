@@ -10,3 +10,5 @@ import (
 type PassthroughUsecase interface {
 	GetPortfolioAssets(ctx context.Context, address string) (passthroughdomain.PortfolioAssetsResult, error)
 }
+
+type PassthroughTokensUseCase interface{}

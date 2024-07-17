@@ -24,22 +24,10 @@ type TokenMetadataHolder interface {
 	GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error)
 }
 
-type PriceGetter interface {
-	// GetPrices returns prices for all given base and quote denoms given a pricing source type or, otherwise, error, if any.
-	// The options configure some customization with regards to how prices are computed.
-	// By default, the prices are computes by using cache and the default min liquidity parameter set via config.
-	// The options are capable of overriding the defaults.
-	// The outer map consists of base denoms as keys.
-	// The inner map consists of quote denoms as keys.
-	// The result of the inner map is prices of the outer base and inner quote.
-	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
-}
-
 // TokensUsecase defines an interface for the tokens usecase.
 type TokensUsecase interface {
 	TokenMetadataHolder
 	TokensPoolLiquidityHandler
-	PriceGetter
 
 	// LoadTokens loads token meta data by chain denom into tokensUseCase.
 	LoadTokens(tokenMetadataByChainDenom map[string]domain.Token)
@@ -73,6 +61,15 @@ type TokensUsecase interface {
 	// GetPoolDenomsMetadata returns the pool denom metadata for the given chain denoms.
 	// These values are accumulated from all Osmosis pools.
 	GetPoolDenomsMetadata(chainDenoms []string) domain.PoolDenomMetaDataMap
+
+	// GetPrices returns prices for all given base and quote denoms given a pricing source type or, otherwise, error, if any.
+	// The options configure some customization with regards to how prices are computed.
+	// By default, the prices are computes by using cache and the default min liquidity parameter set via config.
+	// The options are capable of overriding the defaults.
+	// The outer map consists of base denoms as keys.
+	// The inner map consists of quote denoms as keys.
+	// The result of the inner map is prices of the outer base and inner quote.
+	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
 
 	// GetFullPoolDenomMetadata returns the local market caps for all chain denoms.
 	// For any valid (per the asset list) denom, if there is no metadata, it will be set to empty

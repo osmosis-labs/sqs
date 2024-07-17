@@ -18,11 +18,10 @@ import (
 type passthroughUseCase struct {
 	poolsUseCase mvc.PoolsUsecase
 
-	priceGetter           mvc.PriceGetter
+	tokensUseCase         mvc.TokensUsecase
 	defaultQuoteDenom     string
 	liquidityPricer       domain.LiquidityPricer
 	passthroughGRPCClient passthroughdomain.PassthroughGRPCClient
-	isValidDenomCb        func(chainDenom string) bool
 
 	logger log.Logger
 }
@@ -36,17 +35,15 @@ const (
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
-func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, priceGetter mvc.PriceGetter, isValidDenomCb func(chainDenom string) bool, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string, logger log.Logger) *passthroughUseCase {
+func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, tokensUseCase mvc.TokensUsecase, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string, logger log.Logger) *passthroughUseCase {
 	return &passthroughUseCase{
 		poolsUseCase: puc,
 
 		passthroughGRPCClient: passthroughGRPCClient,
 
-		priceGetter:       priceGetter,
+		tokensUseCase:     tokensUseCase,
 		defaultQuoteDenom: defaultQuoteDenom,
 		liquidityPricer:   liquidityPricer,
-
-		isValidDenomCb: isValidDenomCb,
 
 		logger: logger,
 	}
@@ -146,9 +143,9 @@ func (p *passthroughUseCase) fetchAndAggregateBalancesByUserConcurrent(ctx conte
 	close(results)
 	close(errs)
 
-	accountCoinsResult, capitalizationTotal, err := p.instrumentCoinsWithPrices(ctx, coins)
+	accountCoinsResult, capitalizationTotal, err := p.computeCapitalizationForCoins(ctx, coins)
 	if err != nil {
-		p.logger.Error("error instrumenting coins with prices", zap.Error(err))
+		p.logger.Error("error instrumenting coins with prices when retrieving portfolio", zap.Error(err))
 		finalErr = err
 	}
 
@@ -158,10 +155,14 @@ func (p *passthroughUseCase) fetchAndAggregateBalancesByUserConcurrent(ctx conte
 	}, finalErr // Note that we skip all errors for best-effort aggregation but propagate the last one observed, if any.
 }
 
-func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
+// computeCapitalizationForCoins instruments the coins with their liquiditiy capitalization values.
+// Returns a slice of entries containing each coin and their capialization values. Additonally, returns the capitalization total.
+// If coin is not valid, it is skipped from pricing and its capitalization is set to zero.
+// Returns error if fails to get prices for the coins. However, a best-effort account coins result is returned even if prices fail to be computed.
+func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
 	coinDenomsToPrice := make([]string, 0, len(coins))
 	for _, coin := range coins {
-		if p.isValidDenomCb(coin.Denom) {
+		if p.tokensUseCase.IsValidChainDenom(coin.Denom) {
 			coinDenomsToPrice = append(coinDenomsToPrice, coin.Denom)
 		} else {
 			p.logger.Debug("denom is not valid & skipped from pricing in portfolio", zap.String("denom", coin.Denom))
@@ -169,21 +170,23 @@ func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coin
 	}
 
 	// Compute prices for the final coins
-	priceResult, err := p.priceGetter.GetPrices(ctx, coinDenomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	priceResult, err := p.tokensUseCase.GetPrices(ctx, coinDenomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
 	if err != nil {
-		return nil, osmomath.Dec{}, err
+		// Instead of returning an error, attempt to return a best-effort result
+		// where all prices are zero.
+		priceResult = domain.PricesResult{}
 	}
 
 	// Instrument coins with prices
 	coinsWithPrices := make([]passthroughdomain.AccountCoinsResult, 0, len(coins))
-	capitalizaionTotal := osmomath.ZeroDec()
+	capitalizationTotal := osmomath.ZeroDec()
 
 	for _, coin := range coins {
 		price := priceResult.GetPriceForDenom(coin.Denom, p.defaultQuoteDenom)
 
 		coinCapitalization := p.liquidityPricer.PriceCoin(coin, price)
 
-		capitalizaionTotal = capitalizaionTotal.AddMut(coinCapitalization)
+		capitalizationTotal = capitalizationTotal.AddMut(coinCapitalization)
 
 		coinsWithPrices = append(coinsWithPrices, passthroughdomain.AccountCoinsResult{
 			Coin:                coin,
@@ -191,7 +194,9 @@ func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coin
 		})
 	}
 
-	return coinsWithPrices, capitalizaionTotal, nil
+	// Note that it is possible to have a valid coinsWithPrices result.
+	// Zero capitalizationTotal and non-nil error.
+	return coinsWithPrices, capitalizationTotal, err
 }
 
 // getLockedCoins returns the user's locked coins
