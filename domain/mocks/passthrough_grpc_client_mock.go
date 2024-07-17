@@ -39,7 +39,7 @@ func (p *PassthroughGRPCClientMock) DelegatorDelegations(ctx context.Context, ad
 		return p.MockDelegatorDelegationsCb(ctx, address)
 	}
 
-	panic("unimplemented")
+	return nil, errors.New("MockDelegatorDelegationsCb is not implemented")
 }
 
 	if p.MockDelegatorUnbondingDelegationsCb != nil {
