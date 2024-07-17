@@ -8,11 +8,16 @@ import (
 )
 
 type PassthroughGRPCClientMock struct {
-	MockAllBalancesCb func(ctx context.Context, address string) (types.Coins, error)
+	MockAllBalancesCb        func(ctx context.Context, address string) (types.Coins, error)
+	MockAccountLockedCoinsCb func(ctx context.Context, address string) (types.Coins, error)
 }
 
 // AccountLockedCoins implements passthroughdomain.PassthroughGRPCClient.
 func (p *PassthroughGRPCClientMock) AccountLockedCoins(ctx context.Context, address string) (types.Coins, error) {
+	if p.MockAccountLockedCoinsCb != nil {
+		return p.MockAccountLockedCoinsCb(ctx, address)
+	}
+
 	panic("unimplemented")
 }
 

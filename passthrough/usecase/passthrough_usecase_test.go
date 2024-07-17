@@ -57,11 +57,103 @@ var (
 
 	defaultConcentratedCoin = sdk.NewCoin(USDC, sdk.NewInt(1_000_000))
 
+	defaultConcentratedShareCoin = sdk.NewCoin(usecase.ConcentratedSharePrefix+"/pool", sdk.NewInt(1_000_000))
+
 	emptyCoins = sdk.Coins{}
 )
 
 func TestPassthroughUseCase(t *testing.T) {
 	suite.Run(t, new(PassthroughUseCaseTestSuite))
+}
+
+// Tests the get locked coins method using mocks.
+func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
+	tests := []struct {
+		name    string
+		address string
+
+		mockAccountLockedCoinsIfDefaultAddress sdk.Coins
+
+		expectedCoins sdk.Coins
+		expectedError error
+	}{
+		{
+			name: "happy path",
+
+			address: defaultAddress,
+
+			mockAccountLockedCoinsIfDefaultAddress: defaultBalances,
+
+			expectedCoins: nonShareDefaultBalances.Add(defaultExitPoolCoins...),
+		},
+		{
+			name: "concentrated shares are skipped",
+
+			address: defaultAddress,
+
+			mockAccountLockedCoinsIfDefaultAddress: defaultBalances.Add(defaultConcentratedShareCoin),
+
+			expectedCoins: nonShareDefaultBalances.Add(defaultExitPoolCoins...),
+		},
+		{
+			name: "error: grpc client error",
+
+			address: "wrong address",
+
+			expectedError: grpcClientError,
+		},
+		{
+			name: "skip error in converting gamm share to underlying coins",
+
+			address: defaultAddress,
+
+			mockAccountLockedCoinsIfDefaultAddress: nonShareDefaultBalances.Add(sdk.NewCoin(formatValidGammShare(validGammSharePoolID+1), validGammShareAmount)),
+
+			// Note that only non share balances are returned
+			// The share coins are skipped due to error.
+			expectedCoins: nonShareDefaultBalances,
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+
+			// Initialize GRPC client mock
+			grpcClientMock := mocks.PassthroughGRPCClientMock{
+				MockAccountLockedCoinsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+					// If not default address, return grpc client error
+					if address != defaultAddress {
+						return sdk.Coins{}, grpcClientError
+					}
+
+					// If default address, return mock balances
+					return tt.mockAccountLockedCoinsIfDefaultAddress, nil
+				},
+			}
+
+			// Initialize pools use case mock
+			poolsUseCaseMock := mocks.PoolsUsecaseMock{
+				CalcExitCFMMPoolFunc: func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+					// If the pool ID is valid and the exiting shares are valid, return default exit pool coins
+					if poolID == validGammSharePoolID && exitingShares.Equal(validGammShareAmount) {
+						return defaultExitPoolCoins, nil
+					}
+
+					// Otherwise, return calcExitCFMMPoolError
+					return sdk.Coins{}, calcExitCFMMPoolError
+				},
+			}
+
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+
+			// System under test
+			actualBalances, err := pu.GetLockedCoins(context.TODO(), tt.address)
+
+			// Assert
+			s.Require().Equal(tt.expectedCoins, actualBalances)
+			s.Require().Equal(tt.expectedError, err)
+		})
+	}
 }
 
 // Tests the get all balances method using mocks.
@@ -152,7 +244,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 		name    string
 		address string
 
-		mockAllBalancesIfDefaultAddress sdk.Coin
+		coinIn sdk.Coin
 
 		expectedCoins sdk.Coins
 		expectedError bool
@@ -162,7 +254,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 
 			address: defaultAddress,
 
-			mockAllBalancesIfDefaultAddress: defaultGammShareCoin,
+			coinIn: defaultGammShareCoin,
 
 			expectedCoins: defaultExitPoolCoins,
 		},
@@ -171,7 +263,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 
 			address: defaultAddress,
 
-			mockAllBalancesIfDefaultAddress: defaultConcentratedCoin,
+			coinIn: defaultConcentratedCoin,
 
 			expectedError: true,
 		},
@@ -187,7 +279,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 
 			address: defaultAddress,
 
-			mockAllBalancesIfDefaultAddress: sdk.NewCoin(formatValidGammShare(validGammSharePoolID+1), validGammShareAmount),
+			coinIn: sdk.NewCoin(formatValidGammShare(validGammSharePoolID+1), validGammShareAmount),
 
 			expectedError: true,
 		},
@@ -197,7 +289,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 
 			address: defaultAddress,
 
-			mockAllBalancesIfDefaultAddress: sdk.NewCoin(fmt.Sprintf("%s/pool/%s", usecase.GammSharePrefix, "notuint"), validGammShareAmount),
+			coinIn: sdk.NewCoin(fmt.Sprintf("%s/pool/%s", usecase.GammSharePrefix, "notuint"), validGammShareAmount),
 
 			expectedError: true,
 		},
@@ -206,7 +298,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 
 			address: defaultAddress,
 
-			mockAllBalancesIfDefaultAddress: sdk.NewCoin(usecase.GammSharePrefix, validGammShareAmount),
+			coinIn: sdk.NewCoin(usecase.GammSharePrefix, validGammShareAmount),
 
 			expectedError: true,
 		},
@@ -231,7 +323,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 			pu := usecase.NewPassThroughUsecase(nil, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
-			actualBalances, err := pu.HandleGammShares(tt.mockAllBalancesIfDefaultAddress)
+			actualBalances, err := pu.HandleGammShares(tt.coinIn)
 
 			// Assert
 			if tt.expectedError {
