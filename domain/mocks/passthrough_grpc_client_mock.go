@@ -2,8 +2,10 @@ package mocks
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cosmos/cosmos-sdk/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 )
 
@@ -42,11 +44,14 @@ func (p *PassthroughGRPCClientMock) DelegatorDelegations(ctx context.Context, ad
 	return nil, errors.New("MockDelegatorDelegationsCb is not implemented")
 }
 
+// DelegatorUnbondingDelegations implements passthroughdomain.PassthroughGRPCClient.
+func (p *PassthroughGRPCClientMock) DelegatorUnbondingDelegations(ctx context.Context, address string) (sdk.Coins, error) {
 	if p.MockDelegatorUnbondingDelegationsCb != nil {
 		return p.MockDelegatorUnbondingDelegationsCb(ctx, address)
 	}
 
 	return nil, errors.New("MockDelegatorUnbondingDelegationsCb is not implemented")
+}
 
 // UserPositionsBalances implements passthroughdomain.PassthroughGRPCClient.
 func (p *PassthroughGRPCClientMock) UserPositionsBalances(ctx context.Context, address string) (types.Coins, error) {
