@@ -42,14 +42,11 @@ func (p *PassthroughGRPCClientMock) DelegatorDelegations(ctx context.Context, ad
 	panic("unimplemented")
 }
 
-// DelegatorUnbondingDelegations implements passthroughdomain.PassthroughGRPCClient.
-func (p *PassthroughGRPCClientMock) DelegatorUnbondingDelegations(ctx context.Context, address string) (types.Coins, error) {
 	if p.MockDelegatorUnbondingDelegationsCb != nil {
 		return p.MockDelegatorUnbondingDelegationsCb(ctx, address)
 	}
 
-	panic("unimplemented")
-}
+	return nil, errors.New("MockDelegatorUnbondingDelegationsCb is not implemented")
 
 // UserPositionsBalances implements passthroughdomain.PassthroughGRPCClient.
 func (p *PassthroughGRPCClientMock) UserPositionsBalances(ctx context.Context, address string) (types.Coins, error) {
