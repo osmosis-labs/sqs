@@ -30,7 +30,7 @@ func (p *PassthroughGRPCClientMock) AllBalances(ctx context.Context, address str
 		return p.MockAllBalancesCb(ctx, address)
 	}
 
-	panic("unimplemented")
+	return nil, errors.New("MockAllBalancesCb is not implemented")
 }
 
 // DelegatorDelegations implements passthroughdomain.PassthroughGRPCClient.
