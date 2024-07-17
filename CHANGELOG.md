@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Remove spread factor from fee as it is included in the price impact
+
 ## v25.3.2
 
 - Fix telemetry issues around coingecko pricing source
