@@ -4,21 +4,20 @@ import (
 	"context"
 	"errors"
 
-	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 )
 
 type PassthroughGRPCClientMock struct {
-	MockAllBalancesCb                   func(ctx context.Context, address string) (types.Coins, error)
-	MockAccountLockedCoinsCb            func(ctx context.Context, address string) (types.Coins, error)
-	MockDelegatorDelegationsCb          func(ctx context.Context, address string) (types.Coins, error)
-	MockDelegatorUnbondingDelegationsCb func(ctx context.Context, address string) (types.Coins, error)
-	MockUserPositionsBalancesCb         func(ctx context.Context, address string) (types.Coins, error)
+	MockAllBalancesCb                   func(ctx context.Context, address string) (sdk.Coins, error)
+	MockAccountLockedCoinsCb            func(ctx context.Context, address string) (sdk.Coins, error)
+	MockDelegatorDelegationsCb          func(ctx context.Context, address string) (sdk.Coins, error)
+	MockDelegatorUnbondingDelegationsCb func(ctx context.Context, address string) (sdk.Coins, error)
+	MockUserPositionsBalancesCb         func(ctx context.Context, address string) (sdk.Coins, error)
 }
 
 // AccountLockedCoins implements passthroughdomain.PassthroughGRPCClient.
-func (p *PassthroughGRPCClientMock) AccountLockedCoins(ctx context.Context, address string) (types.Coins, error) {
+func (p *PassthroughGRPCClientMock) AccountLockedCoins(ctx context.Context, address string) (sdk.Coins, error) {
 	if p.MockAccountLockedCoinsCb != nil {
 		return p.MockAccountLockedCoinsCb(ctx, address)
 	}
@@ -27,7 +26,7 @@ func (p *PassthroughGRPCClientMock) AccountLockedCoins(ctx context.Context, addr
 }
 
 // AllBalances implements passthroughdomain.PassthroughGRPCClient.
-func (p *PassthroughGRPCClientMock) AllBalances(ctx context.Context, address string) (types.Coins, error) {
+func (p *PassthroughGRPCClientMock) AllBalances(ctx context.Context, address string) (sdk.Coins, error) {
 	if p.MockAllBalancesCb != nil {
 		return p.MockAllBalancesCb(ctx, address)
 	}
@@ -36,7 +35,7 @@ func (p *PassthroughGRPCClientMock) AllBalances(ctx context.Context, address str
 }
 
 // DelegatorDelegations implements passthroughdomain.PassthroughGRPCClient.
-func (p *PassthroughGRPCClientMock) DelegatorDelegations(ctx context.Context, address string) (types.Coins, error) {
+func (p *PassthroughGRPCClientMock) DelegatorDelegations(ctx context.Context, address string) (sdk.Coins, error) {
 	if p.MockDelegatorDelegationsCb != nil {
 		return p.MockDelegatorDelegationsCb(ctx, address)
 	}
@@ -54,7 +53,7 @@ func (p *PassthroughGRPCClientMock) DelegatorUnbondingDelegations(ctx context.Co
 }
 
 // UserPositionsBalances implements passthroughdomain.PassthroughGRPCClient.
-func (p *PassthroughGRPCClientMock) UserPositionsBalances(ctx context.Context, address string) (types.Coins, error) {
+func (p *PassthroughGRPCClientMock) UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, error) {
 	if p.MockUserPositionsBalancesCb != nil {
 		return p.MockUserPositionsBalancesCb(ctx, address)
 	}
