@@ -500,6 +500,42 @@ func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbooks_HappyPath() {
 
 }
 
+// Happy path test to vaidate that no panics/errors occur and coins are returned
+// as intended.
+// The correctness of math is ensured at a different layer of abstraction.
+func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
+
+	s.Setup()
+
+	// Create pool
+	poolID := s.PrepareBalancerPool()
+	cfmmPool, err := s.App.GAMMKeeper.GetCFMMPool(s.Ctx, poolID)
+	s.Require().NoError(err)
+
+	// Get balances
+	poolBalances := s.App.BankKeeper.GetAllBalances(s.Ctx, cfmmPool.GetAddress())
+	s.Require().NoError(err)
+
+	// Create sqs pool
+	sqsPool := sqsdomain.NewPool(cfmmPool, cfmmPool.GetSpreadFactor(s.Ctx), poolBalances)
+
+	// Create default use case
+	poolsUseCase := newDefaultPoolsUseCase()
+
+	// Store pool
+	poolsUseCase.StorePools([]sqsdomain.PoolI{sqsPool})
+
+	// Arbitrary large number.
+	numSharesExiting := osmomath.NewInt(1_000_000_000_000_000_000)
+
+	// System under test
+	actualCoins, err := poolsUseCase.CalcExitCFMMPool(poolID, numSharesExiting)
+
+	// Validate
+	s.Require().NoError(err)
+	s.Require().False(actualCoins.Empty())
+}
+
 func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs, domain.UnsetScalingFactorGetterCb)
 	s.Require().NoError(err)

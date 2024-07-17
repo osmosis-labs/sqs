@@ -445,6 +445,7 @@ func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return p.cosmWasmConfig
 }
 
+// CalcExitCFMMPool implements mvc.PoolsUsecase.
 func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
 	sqsPool, err := p.GetPool(poolID)
 	if err != nil {
