@@ -19,7 +19,6 @@ type PassthroughHandler struct {
 
 const resourcePrefix = "/passthrough"
 
-
 func formatPoolsResource(resource string) string {
 	return resourcePrefix + resource
 }
@@ -30,21 +29,21 @@ func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase) {
 		PUsecase: ptu,
 	}
 
-	e.GET(formatPoolsResource("/account_coins_total/:address"), handler.GetAccountCoinsTotal)
+	e.GET(formatPoolsResource("/portfolio-assets/:address"), handler.GetAccountCoinsTotal)
 }
 
 // GetAccountCoinsTotal adds an API handler to get total assets data
 func (a *PassthroughHandler) GetAccountCoinsTotal(c echo.Context) error {
 	address := c.Param("address")
 
-	if (address == "") {
+	if address == "" {
 		return c.JSON(http.StatusInternalServerError, ResponseError{Message: "invalid address: cannot be empty"})
 	}
 
-	assets, err := a.PUsecase.GetAccountCoinsTotal(c.Request().Context(), address)
+	portfolioAssetsResult, err := a.PUsecase.GetPortfolioAssets(c.Request().Context(), address)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ResponseError{Message: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, assets)
+	return c.JSON(http.StatusOK, portfolioAssetsResult)
 }

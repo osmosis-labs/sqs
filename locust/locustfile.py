@@ -110,5 +110,5 @@ class SQS(HttpUser):
     @task
     def passthroughTotalCoins(self):
         random_address = random.choice(addresses)
-        self.client.get(f"/passthrough/account_coins_total/{random_address}")
+        self.client.get(f"/passthrough/portfolio-assets/{random_address}")
 

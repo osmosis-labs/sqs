@@ -25,6 +25,8 @@ type PassthroughGRPCClient interface {
 	UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, error)
 }
 
+type PassthroughFetchFn func(context.Context, string) (sdk.Coins, error)
+
 type passthroughGRPCClient struct {
 	bankQueryClient                  banktypes.QueryClient
 	stakingQueryClient               staking.QueryClient

@@ -7,6 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
@@ -38,23 +39,70 @@ func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGR
 	}
 }
 
-func (p *passthroughUseCase) GetAccountCoinsTotal(ctx context.Context, address string) ([]passthroughdomain.AccountCoinsResult, error) {
-	coins := sdk.Coins{}
+// GetPortfolioBalances implements mvc.PassthroughUsecase.
+func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address string) (passthroughdomain.PortfolioAssetsResult, error) {
 
-	const numAccountCoinsFetchFunctons = 5
-
-	results := make(chan sdk.Coins, numAccountCoinsFetchFunctons)
-	errs := make(chan error, numAccountCoinsFetchFunctons)
-
-	fetchFuncs := []func(context.Context, string) (sdk.Coins, error){
-		p.getBankBalances,
+	fetchFuncs := []passthroughdomain.PassthroughFetchFn{
 		p.passthroughGRPCClient.DelegatorUnbondingDelegations,
 		p.passthroughGRPCClient.DelegatorDelegations,
 		p.getLockedCoins,
 		p.passthroughGRPCClient.UserPositionsBalances,
 	}
 
-	for _, fetchFunc := range fetchFuncs {
+	balancesFn := []passthroughdomain.PassthroughFetchFn{
+		p.getBankBalances,
+	}
+
+	totalCapResultChan := make(chan passthroughdomain.PortfolioAssetsResult, 2)
+	errs := make(chan error, 2)
+
+	go func() {
+		// Process all non-balance assets (cl posiions, staked, locked, etc.)
+		portfolioAssetsResult, err := p.fetchAndAggregateBalancesByUserConcurrent(ctx, address, fetchFuncs)
+		if err != nil {
+			errs <- err
+			return
+		}
+		totalCapResultChan <- portfolioAssetsResult
+	}()
+
+	// Process user balances
+	balancesResult, err := p.fetchAndAggregateBalancesByUserConcurrent(ctx, address, balancesFn)
+	if err != nil {
+		errs <- err
+	} else {
+		totalCapResultChan <- balancesResult
+	}
+
+	// Aggregate total capitalization
+	totalCap := osmomath.ZeroInt()
+	for i := 0; i < 2; i++ {
+		select {
+		case res := <-totalCapResultChan:
+			totalCap = totalCap.Add(res.TotalValueCap)
+		case err := <-errs:
+			// Handle error (log, return, etc.)
+			return passthroughdomain.PortfolioAssetsResult{}, err
+		}
+	}
+
+	close(totalCapResultChan)
+	close(errs)
+
+	return passthroughdomain.PortfolioAssetsResult{
+		TotalValueCap:      totalCap,
+		AccountCoinsResult: balancesResult.AccountCoinsResult,
+	}, nil
+}
+
+func (p *passthroughUseCase) fetchAndAggregateBalancesByUserConcurrent(ctx context.Context, address string, fetchFunctions []passthroughdomain.PassthroughFetchFn) (passthroughdomain.PortfolioAssetsResult, error) {
+	coins := sdk.Coins{}
+
+	numAccountCoinsFetchFunctons := len(fetchFunctions)
+	results := make(chan sdk.Coins, numAccountCoinsFetchFunctons)
+	errs := make(chan error, numAccountCoinsFetchFunctons)
+
+	for _, fetchFunc := range fetchFunctions {
 		go func(fetchFunc func(context.Context, string) (sdk.Coins, error)) {
 			result, err := fetchFunc(ctx, address)
 			if err != nil {
@@ -65,39 +113,50 @@ func (p *passthroughUseCase) GetAccountCoinsTotal(ctx context.Context, address s
 		}(fetchFunc)
 	}
 
-	for i := 0; i < len(fetchFuncs); i++ {
+	for i := 0; i < len(fetchFunctions); i++ {
 		select {
 		case res := <-results:
 
 			coins = coins.Add(res...)
 		case err := <-errs:
 			// Handle error (log, return, etc.)
-			return nil, err
+			return passthroughdomain.PortfolioAssetsResult{}, err
 		}
 	}
 
 	close(results)
 	close(errs)
 
-	return p.instrumentCoinsWithPrices(ctx, coins)
+	accountCoinsResult, capitalizationTotal, err := p.instrumentCoinsWithPrices(ctx, coins)
+	if err != nil {
+		return passthroughdomain.PortfolioAssetsResult{}, err
+	}
+
+	return passthroughdomain.PortfolioAssetsResult{
+		AccountCoinsResult: accountCoinsResult,
+		TotalValueCap:      capitalizationTotal,
+	}, nil
 }
 
-func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, error) {
+func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Int, error) {
 	coinDenoms := coins.Denoms()
 
 	// Compute prices for the final coins
 	priceResult, err := p.priceGetter.GetPrices(ctx, coinDenoms, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
 	if err != nil {
-		return nil, err
+		return nil, osmomath.Int{}, err
 	}
 
 	// Instrument coins with prices
 	coinsWithPrices := make([]passthroughdomain.AccountCoinsResult, 0, len(coins))
+	capitalizaionTotal := osmomath.ZeroInt()
 
 	for _, coin := range coins {
 		price := priceResult.GetPriceForDenom(coin.Denom, p.defaultQuoteDenom)
 
 		coinCapitalization := p.liquidityPricer.PriceCoin(coin, price)
+
+		capitalizaionTotal = capitalizaionTotal.Add(coinCapitalization)
 
 		coinsWithPrices = append(coinsWithPrices, passthroughdomain.AccountCoinsResult{
 			Coin:                coin,
@@ -105,7 +164,7 @@ func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coin
 		})
 	}
 
-	return coinsWithPrices, nil
+	return coinsWithPrices, capitalizaionTotal, nil
 }
 
 func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string) (sdk.Coins, error) {
