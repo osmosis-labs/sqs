@@ -51,13 +51,12 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 
 		// Calculate the spread factor across pools in the route
 		for _, pool := range curRoute.GetPools() {
-			poolSpreadFactor := pool.GetSpreadFactor()
-			poolTakerFee := pool.GetTakerFee()
 
-			totalPoolFee := poolSpreadFactor.Add(poolTakerFee)
+			// pool fee is only the taker fee
+			totalPoolFee := pool.GetTakerFee()
 
 			routeTotalFee.AddMut(
-				//  (1 - routeSpreadFactor) * poolSpreadFactor
+				//  (1 - totalPoolFee) * totalPoolFee
 				osmomath.OneDec().SubMut(routeTotalFee).MulTruncateMut(totalPoolFee),
 			)
 		}
