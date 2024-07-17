@@ -32,6 +32,8 @@ const (
 	gammSharePrefix         = "gamm"
 	concentratedSharePrefix = "cl"
 	denomShareSeparator     = "/"
+
+	numPortfolioAssetFetcherWorkloads = 2
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
@@ -62,8 +64,8 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		p.getBankBalances,
 	}
 
-	totalCapResultChan := make(chan passthroughdomain.PortfolioAssetsResult, 2)
-	errs := make(chan error, 2)
+	totalCapResultChan := make(chan passthroughdomain.PortfolioAssetsResult, numPortfolioAssetFetcherWorkloads)
+	errs := make(chan error, numPortfolioAssetFetcherWorkloads)
 
 	go func() {
 		// Process all non-balance assets (cl posiions, staked, locked, etc.)
@@ -85,7 +87,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 
 	// Aggregate total capitalization
 	totalCap := osmomath.ZeroDec()
-	for i := 0; i < 2; i++ {
+	for i := 0; i < numPortfolioAssetFetcherWorkloads; i++ {
 		select {
 		case res := <-totalCapResultChan:
 			totalCap = totalCap.Add(res.TotalValueCap)
