@@ -158,7 +158,7 @@ func (p *passthroughUseCase) fetchAndAggregateBalancesByUserConcurrent(ctx conte
 }
 
 // computeCapitalizationForCoins instruments the coins with their liquiditiy capitalization values.
-// Returns a slice of entries containing each coin and their capialization values. Additonally, returns the capitalization total.
+// Returns a slice of entries containing each coin and their capialization values. Additionally, returns the capitalization total.
 // If coin is not valid, it is skipped from pricing and its capitalization is set to zero.
 // Returns error if fails to get prices for the coins. However, a best-effort account coins result is returned even if prices fail to be computed.
 func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
