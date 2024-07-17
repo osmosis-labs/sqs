@@ -6,11 +6,13 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
+	"github.com/osmosis-labs/sqs/log"
 )
 
 type passthroughUseCase struct {
@@ -21,12 +23,20 @@ type passthroughUseCase struct {
 	defaultQuoteDenom     string
 	liquidityPricer       domain.LiquidityPricer
 	passthroughGRPCClient passthroughdomain.PassthroughGRPCClient
+
+	logger log.Logger
 }
 
 var _ mvc.PassthroughUsecase = &passthroughUseCase{}
 
+const (
+	gammSharePrefix         = "gamm"
+	concentratedSharePrefix = "cl"
+	denomShareSeparator     = "/"
+)
+
 // NewPassThroughUsecase Creates a passthrough use case
-func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, priceGetter mvc.PriceGetter, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string) mvc.PassthroughUsecase {
+func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, priceGetter mvc.PriceGetter, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string, logger log.Logger) *passthroughUseCase {
 	return &passthroughUseCase{
 		poolsUseCase: puc,
 
@@ -35,6 +45,8 @@ func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGR
 		priceGetter:       priceGetter,
 		defaultQuoteDenom: defaultQuoteDenom,
 		liquidityPricer:   liquidityPricer,
+
+		logger: logger,
 	}
 }
 
@@ -79,8 +91,9 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		case res := <-totalCapResultChan:
 			totalCap = totalCap.Add(res.TotalValueCap)
 		case err := <-errs:
-			// Handle error (log, return, etc.)
-			return passthroughdomain.PortfolioAssetsResult{}, err
+			// Rather than returning the error, log it and continue
+			p.logger.Error("error fetching and aggregating porfolio", zap.Error(err))
+			continue
 		}
 	}
 
@@ -111,14 +124,20 @@ func (p *passthroughUseCase) fetchAndAggregateBalancesByUserConcurrent(ctx conte
 		}(fetchFunc)
 	}
 
+	// Final error that we return
+	var finalErr error
+
 	for i := 0; i < len(fetchFunctions); i++ {
 		select {
 		case res := <-results:
 
 			coins = coins.Add(res...)
-		case err := <-errs:
-			// Handle error (log, return, etc.)
-			return passthroughdomain.PortfolioAssetsResult{}, err
+		case curErr := <-errs:
+			// Rather than returning the error, log it and continue
+			p.logger.Error("error fetching and aggregating balances", zap.Error(curErr))
+
+			// Set the last error as the final error
+			finalErr = curErr
 		}
 	}
 
@@ -127,13 +146,14 @@ func (p *passthroughUseCase) fetchAndAggregateBalancesByUserConcurrent(ctx conte
 
 	accountCoinsResult, capitalizationTotal, err := p.instrumentCoinsWithPrices(ctx, coins)
 	if err != nil {
-		return passthroughdomain.PortfolioAssetsResult{}, err
+		p.logger.Error("error instrumenting coins with prices", zap.Error(err))
+		finalErr = err
 	}
 
 	return passthroughdomain.PortfolioAssetsResult{
 		AccountCoinsResult: accountCoinsResult,
 		TotalValueCap:      capitalizationTotal,
-	}, nil
+	}, finalErr // Note that we skip all errors for best-effort aggregation but propagate the last one observed, if any.
 }
 
 func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
@@ -168,7 +188,6 @@ func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coin
 func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string) (sdk.Coins, error) {
 	// User locked assets including GAMM shares
 	lockedCoins, err := p.passthroughGRPCClient.AccountLockedCoins(ctx, address)
-
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +196,7 @@ func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string)
 
 	for _, lockedCoin := range lockedCoins {
 		// calc underlying coins from GAMM shares, only expect gamm shares
-		if strings.HasPrefix(lockedCoin.Denom, "gamm") {
+		if strings.HasPrefix(lockedCoin.Denom, gammSharePrefix) {
 			splitDenom := strings.Split(lockedCoin.Denom, "/")
 			poolID := splitDenom[len(splitDenom)-1]
 			poolIDInt, err := strconv.ParseInt(poolID, 10, 64)
@@ -190,7 +209,7 @@ func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string)
 				return nil, err
 			}
 			coins = coins.Add(exitCoins...)
-		} else if !strings.HasPrefix(lockedCoin.Denom, "cl") {
+		} else if !strings.HasPrefix(lockedCoin.Denom, concentratedSharePrefix) {
 			coins = coins.Add(lockedCoin)
 		}
 	}
@@ -198,27 +217,40 @@ func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string)
 	return coins, nil
 }
 
+// getBankBalances returns the user's bank balances
+// If encountering GAMM shares, it will convert them to underlying coins
+// Returns error if fails to get bank balances.
+// For every coin, adds the underlying coins to the total coins.
+// If the coin is not a GAMM share, it is added as is.
+// If the coin is a GAMM share, it is converted to underlying coins and adds them.
+// If any error occurs during the conversion, it is logged and skipped silently.
 func (p *passthroughUseCase) getBankBalances(ctx context.Context, address string) (sdk.Coins, error) {
 	allBalances, err := p.passthroughGRPCClient.AllBalances(ctx, address)
 	if err != nil {
+		// This error is not expected and is considered fatal
+		// To be handled as needed by the caller.
 		return nil, err
 	}
 
 	coins := sdk.Coins{}
 
 	for _, balance := range allBalances {
-		if strings.HasPrefix(balance.Denom, "gamm") {
+		if strings.HasPrefix(balance.Denom, gammSharePrefix) {
 			// calc underlying coins from gamm shares
-			splitDenom := strings.Split(balance.Denom, "/")
+			splitDenom := strings.Split(balance.Denom, denomShareSeparator)
 			poolID := splitDenom[len(splitDenom)-1]
-			poolIDInt, err := strconv.ParseInt(poolID, 10, 64)
+			poolIDInt, err := strconv.ParseUint(poolID, 10, 64)
 			if err != nil {
-				return nil, err
+				p.logger.Error("failed to parse pool id when retrieving bank balances", zap.Uint64("pool_id", poolIDInt), zap.Error(err))
+				// Skip unexpected error silently.
+				continue
 			}
 
-			exitCoins, err := p.poolsUseCase.CalcExitCFMMPool(uint64(poolIDInt), balance.Amount)
+			exitCoins, err := p.poolsUseCase.CalcExitCFMMPool(poolIDInt, balance.Amount)
 			if err != nil {
-				return nil, err
+				p.logger.Error("failed to calculate exit coins from pool", zap.Uint64("pool_id", poolIDInt), zap.Error(err))
+				// Skip unexpected error silently.
+				continue
 			}
 			coins = coins.Add(exitCoins...)
 		} else {
