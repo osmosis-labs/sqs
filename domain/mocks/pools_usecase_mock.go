@@ -35,8 +35,8 @@ func (pm *PoolsUsecaseMock) GetAllCanonicalOrderbookPoolIDs() ([]domain.Canonica
 	panic("unimplemented")
 }
 
-// GetCanonicalOrderbookPoolID implements mvc.PoolsUsecase.
-func (pm *PoolsUsecaseMock) GetCanonicalOrderbookPoolID(baseDenom string, quoteDenom string) (uint64, error) {
+// GetCanonicalOrderbookPool implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) GetCanonicalOrderbookPool(baseDenom string, quoteDenom string) (uint64, string, error) {
 	panic("unimplemented")
 }
 

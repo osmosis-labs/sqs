@@ -69,7 +69,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Canonical Orderbook Pool ID for the given base and quote",
                         "schema": {
-                            "type": "uint64"
+                            "type": "struct"
                         }
                     }
                 }
@@ -346,6 +346,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "base": {
+                    "type": "string"
+                },
+                "contract_address": {
                     "type": "string"
                 },
                 "pool_id": {

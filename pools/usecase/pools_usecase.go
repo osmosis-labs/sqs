@@ -10,6 +10,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -18,12 +19,14 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
 type orderBookEntry struct {
-	PoolID       uint64
-	LiquidityCap osmomath.Int
+	PoolID          uint64
+	LiquidityCap    osmomath.Int
+	ContractAddress string
 }
 
 type poolsUseCase struct {
@@ -301,8 +304,17 @@ func (p *poolsUseCase) StorePools(pools []sqsdomain.PoolI) error {
 			quoteDenom := cosmWasmPoolModel.Data.Orderbook.QuoteDenom
 			poolLiquidityCapitalization := pool.GetLiquidityCap()
 
+			// Get contract address from chain pool
+			chainPool := pool.GetUnderlyingPool()
+			chainCosmWasmPool, ok := chainPool.(*cosmwasmpoolmodel.CosmWasmPool)
+			if !ok || chainCosmWasmPool == nil {
+				p.logger.Error("failed to cast chain pool to CosmWasmPool", zap.Uint64("poolID", poolID))
+				continue
+			}
+			contractAddress := chainCosmWasmPool.ContractAddress
+
 			// Process orderbook pool ID for base and quote denom
-			_, err := p.processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom, poolID, poolLiquidityCapitalization)
+			_, err := p.processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom, poolID, poolLiquidityCapitalization, contractAddress)
 			if err != nil {
 				p.logger.Error(err.Error())
 				// Continue to the next pool
@@ -319,7 +331,7 @@ func (p *poolsUseCase) StorePools(pools []sqsdomain.PoolI) error {
 // Returns true if the top liquidity pool is updated, false otherwise.
 // Returns an error if the previous top orderbook entry cannot be casted to the right type.
 // CONTRACT: the given poolID is an orderbook pool.
-func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom string, poolID uint64, poolLiquidityCapitalization osmomath.Int) (updatedBool bool, err error) {
+func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom string, poolID uint64, poolLiquidityCapitalization osmomath.Int, contractAddress string) (updatedBool bool, err error) {
 	// Format base and quote denom key.
 	baseQuoteKey := formatBaseQuoteDenom(baseDenom, quoteDenom)
 
@@ -345,27 +357,28 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 	// If not found or the current pool has higher liquidity capitalization than the top liquidity pool
 	// update the top liquidity pool
 	p.canonicalOrderBookForBaseQuoteDenom.Store(baseQuoteKey, orderBookEntry{
-		PoolID:       poolID,
-		LiquidityCap: poolLiquidityCapitalization,
+		PoolID:          poolID,
+		LiquidityCap:    poolLiquidityCapitalization,
+		ContractAddress: contractAddress,
 	})
 
 	return true, nil
 }
 
-// GetCanonicalOrderbookPoolID implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetCanonicalOrderbookPoolID(baseDenom, quoteDenom string) (uint64, error) {
+// GetCanonicalOrderbookPool implements mvc.PoolsUsecase.
+func (p *poolsUseCase) GetCanonicalOrderbookPool(baseDenom, quoteDenom string) (uint64, string, error) {
 	baseQuote := formatBaseQuoteDenom(baseDenom, quoteDenom)
 	topLiquidityOrderBook, found := p.canonicalOrderBookForBaseQuoteDenom.Load(baseQuote)
 	if !found {
-		return 0, fmt.Errorf("canonical orderbook not found for base %s and quote %s", baseDenom, quoteDenom)
+		return 0, "", fmt.Errorf("canonical orderbook not found for base %s and quote %s", baseDenom, quoteDenom)
 	}
 
 	topLiquidityOrderBookEntry, ok := topLiquidityOrderBook.(orderBookEntry)
 	if !ok {
-		return 0, fmt.Errorf("failed to cast orderbook entry with value %v", topLiquidityOrderBook)
+		return 0, "", fmt.Errorf("failed to cast orderbook entry with value %v", topLiquidityOrderBook)
 	}
 
-	return topLiquidityOrderBookEntry.PoolID, nil
+	return topLiquidityOrderBookEntry.PoolID, topLiquidityOrderBookEntry.ContractAddress, nil
 }
 
 // GetAllCanonicalOrderbookPoolIDs implements mvc.PoolsUsecase.
@@ -407,9 +420,10 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 		}
 
 		results = append(results, domain.CanonicalOrderBooksResult{
-			Base:   baseDenom,
-			Quote:  quoteDenom,
-			PoolID: topLiquidityOrderBook.PoolID,
+			Base:            baseDenom,
+			Quote:           quoteDenom,
+			PoolID:          topLiquidityOrderBook.PoolID,
+			ContractAddress: topLiquidityOrderBook.ContractAddress,
 		})
 
 		return true

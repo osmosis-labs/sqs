@@ -61,7 +61,8 @@ var UnsetScalingFactorGetterCb ScalingFactorGetterCb = func(denom string) (osmom
 
 // CanonicalOrderBooksResult is a structure for serializing canonical orderbook result returned to clients.
 type CanonicalOrderBooksResult struct {
-	Base   string `json:"base"`
-	Quote  string `json:"quote"`
-	PoolID uint64 `json:"pool_id"`
+	Base            string `json:"base"`
+	Quote           string `json:"quote"`
+	PoolID          uint64 `json:"pool_id"`
+	ContractAddress string `json:"contract_address"`
 }

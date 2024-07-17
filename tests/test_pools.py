@@ -73,6 +73,7 @@ class TestPools:
         expected_orderbook_pool_id = 1904
         base = "factory/osmo1z0qrq605sjgcqpylfl4aa6s90x738j7m58wyatt0tdzflg2ha26q67k743/wbtc"
         quote = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+        expected_contract_address = "osmo18nzruvalfuukut9fq5st5mg5sn6s8nu4u42kuwwgynu3fne6sd5sxnrwf2"
 
         sqs_service = SERVICE_MAP[environment_url]
         canonical_orderbooks = sqs_service.get_canonical_orderbooks()
@@ -86,6 +87,10 @@ class TestPools:
             if orderbook.get("pool_id") == expected_orderbook_pool_id:
                 assert orderbook.get("base") == base, "Base asset is not correct"
                 assert orderbook.get("quote") == quote, "Quote asset is not correct"
+
+                actual_contract_address = orderbook.get("contract_address")
+                assert actual_contract_address == expected_contract_address, f"Contract address is not correct, actual: {actual_contract_address}, expected: {expected_contract_address}"
+
 
                 didFind = True
                 return
