@@ -18,11 +18,11 @@ import (
 type passthroughUseCase struct {
 	poolsUseCase mvc.PoolsUsecase
 
-	// TODO: set in constructor
 	priceGetter           mvc.PriceGetter
 	defaultQuoteDenom     string
 	liquidityPricer       domain.LiquidityPricer
 	passthroughGRPCClient passthroughdomain.PassthroughGRPCClient
+	isValidDenomCb        func(chainDenom string) bool
 
 	logger log.Logger
 }
@@ -36,7 +36,7 @@ const (
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
-func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, priceGetter mvc.PriceGetter, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string, logger log.Logger) *passthroughUseCase {
+func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, priceGetter mvc.PriceGetter, isValidDenomCb func(chainDenom string) bool, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string, logger log.Logger) *passthroughUseCase {
 	return &passthroughUseCase{
 		poolsUseCase: puc,
 
@@ -45,6 +45,8 @@ func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGR
 		priceGetter:       priceGetter,
 		defaultQuoteDenom: defaultQuoteDenom,
 		liquidityPricer:   liquidityPricer,
+
+		isValidDenomCb: isValidDenomCb,
 
 		logger: logger,
 	}
@@ -157,10 +159,17 @@ func (p *passthroughUseCase) fetchAndAggregateBalancesByUserConcurrent(ctx conte
 }
 
 func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
-	coinDenoms := coins.Denoms()
+	coinDenomsToPrice := make([]string, 0, len(coins))
+	for _, coin := range coins {
+		if p.isValidDenomCb(coin.Denom) {
+			coinDenomsToPrice = append(coinDenomsToPrice, coin.Denom)
+		} else {
+			p.logger.Debug("denom is not valid & skipped from pricing in portfolio", zap.String("denom", coin.Denom))
+		}
+	}
 
 	// Compute prices for the final coins
-	priceResult, err := p.priceGetter.GetPrices(ctx, coinDenoms, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	priceResult, err := p.priceGetter.GetPrices(ctx, coinDenomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
 	if err != nil {
 		return nil, osmomath.Dec{}, err
 	}
@@ -174,7 +183,7 @@ func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coin
 
 		coinCapitalization := p.liquidityPricer.PriceCoin(coin, price)
 
-		capitalizaionTotal = capitalizaionTotal.Add(coinCapitalization)
+		capitalizaionTotal = capitalizaionTotal.AddMut(coinCapitalization)
 
 		coinsWithPrices = append(coinsWithPrices, passthroughdomain.AccountCoinsResult{
 			Coin:                coin,
@@ -247,11 +256,13 @@ func (p *passthroughUseCase) getBankBalances(ctx context.Context, address string
 
 			coins = coins.Add(exitCoins...)
 		} else {
-			coins = coins.Add(balance)
+			// Performance optimization to avoid sorting with Add(...)
+			coins = append(coins, balance)
 		}
 	}
 
-	return coins, nil
+	// Sort since we appended without sorting in the loop
+	return coins.Sort(), nil
 }
 
 // handleGammShares converts GAMM shares to underlying coins

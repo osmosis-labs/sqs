@@ -144,7 +144,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.GetLockedCoins(context.TODO(), tt.address)
@@ -226,7 +226,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.GetBankBalances(context.TODO(), tt.address)
@@ -320,7 +320,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(nil, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(nil, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.HandleGammShares(tt.coinIn)
