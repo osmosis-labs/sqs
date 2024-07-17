@@ -97,6 +97,23 @@ var (
 	invalidCoin        = sdk.NewCoin(invalidDenom, defaultAmount)
 
 	emptyPrices = domain.PricesResult{}
+
+	////////////////////////////
+	// Mocks
+
+	liquidityPricerMock = &mocks.LiquidityPricerMock{
+		PriceCoinFunc: func(coin sdk.Coin, price osmomath.BigDec) osmomath.Dec {
+			if price.IsZero() {
+				return osmomath.ZeroDec()
+			}
+			return coin.Amount.ToLegacyDec().Mul(price.Dec())
+		},
+	}
+
+	isValidChainDenomFuncMock = func(denom string) bool {
+		// Treat only UOSMO, ATOM and WBTC as valid for test purposes
+		return denom == UOSMO || denom == ATOM || denom == WBTC
+	}
 )
 
 func TestPassthroughUseCase(t *testing.T) {
@@ -115,19 +132,7 @@ func (s *PassthroughUseCaseTestSuite) TestFetchAndAggregateBalancesByUserConcurr
 			return defaultPriceResult, nil
 		},
 
-		IsValidChainDenomFunc: func(denom string) bool {
-			// Treat only UOSMO, ATOM and WBTC as valid for test purposes
-			return denom == UOSMO || denom == ATOM || denom == WBTC
-		},
-	}
-
-	liquidityPricerMock := &mocks.LiquidityPricerMock{
-		PriceCoinFunc: func(coin sdk.Coin, price osmomath.BigDec) osmomath.Dec {
-			if price.IsZero() {
-				return osmomath.ZeroDec()
-			}
-			return coin.Amount.ToLegacyDec().Mul(price.Dec())
-		},
+		IsValidChainDenomFunc: isValidChainDenomFuncMock,
 	}
 
 	pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
@@ -157,7 +162,6 @@ func (s *PassthroughUseCaseTestSuite) TestFetchAndAggregateBalancesByUserConcurr
 
 	// System under test
 	aggregatedBalances, err := pu.FetchAndAggregateBalancesByUserConcurrent(context.TODO(), defaultAddress, []passthroughdomain.PassthroughFetchFn{
-
 		func(ctx context.Context, address string) (sdk.Coins, error) {
 			return sdk.NewCoins(osmoCoin), nil
 		},
@@ -300,19 +304,7 @@ func (s *PassthroughUseCaseTestSuite) TestComputeCapitalizationForCoins() {
 					return tt.mockedPricesResult, tt.mockedPricesError
 				},
 
-				IsValidChainDenomFunc: func(denom string) bool {
-					// Treat only UOSMO, ATOM and WBTC as valid for test purposes
-					return denom == UOSMO || denom == ATOM || denom == WBTC
-				},
-			}
-
-			liquidityPricerMock := &mocks.LiquidityPricerMock{
-				PriceCoinFunc: func(coin sdk.Coin, price osmomath.BigDec) osmomath.Dec {
-					if price.IsZero() {
-						return osmomath.ZeroDec()
-					}
-					return coin.Amount.ToLegacyDec().Mul(price.Dec())
-				},
+				IsValidChainDenomFunc: isValidChainDenomFuncMock,
 			}
 
 			pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
