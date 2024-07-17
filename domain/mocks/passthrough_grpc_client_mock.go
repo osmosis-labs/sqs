@@ -21,7 +21,7 @@ func (p *PassthroughGRPCClientMock) AccountLockedCoins(ctx context.Context, addr
 		return p.MockAccountLockedCoinsCb(ctx, address)
 	}
 
-	panic("unimplemented")
+	return nil, errors.New("MockAccountLockedCoinsCb is not implemented")
 }
 
 // AllBalances implements passthroughdomain.PassthroughGRPCClient.
