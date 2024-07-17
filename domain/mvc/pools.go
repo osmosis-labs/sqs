@@ -28,9 +28,10 @@ type PoolsUsecase interface {
 
 	GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig
 
-	// GetCanonicalOrderbookPoolID returns the canonical orderbook pool ID for the given base and quote denoms.
-	// Returns error if the pool ID is not found for the given pair.
-	GetCanonicalOrderbookPoolID(baseDenom, quoteDenom string) (uint64, error)
+	// GetCanonicalOrderbookPool returns the canonical orderbook pool ID for the given base and quote denoms
+	// as well as the associated contract ID.
+	// Returns error if the pool is not found for the given pair.
+	GetCanonicalOrderbookPool(baseDenom, quoteDenom string) (uint64, string, error)
 
 	// GetAllCanonicalOrderbookPoolIDs returns all the canonical orderbook results
 	// where each base/quote denom is associated with a default pool ID.

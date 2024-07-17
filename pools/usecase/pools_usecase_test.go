@@ -11,6 +11,7 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/suite"
 
+	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -241,7 +242,8 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 
 func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 	const (
-		differentPoolID = defaultPoolID + 1
+		differentPoolID        = defaultPoolID + 1
+		defaultContractAddress = "default-address"
 	)
 
 	testCases := []struct {
@@ -258,6 +260,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 		expectedUpdated bool
 
 		expectedCanonicalOrderbookPoolID uint64
+		expectedContractAddress          string
 	}{
 		{
 			name:  "valid entry - no pre set",
@@ -269,6 +272,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 
 			expectedUpdated:                  true,
 			expectedCanonicalOrderbookPoolID: defaultPoolID,
+			expectedContractAddress:          defaultContractAddress,
 		},
 		{
 			name:  "valid entry - pre set with smaller cap -> overriden",
@@ -282,6 +286,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 
 			expectedUpdated:                  true,
 			expectedCanonicalOrderbookPoolID: defaultPoolID,
+			expectedContractAddress:          defaultContractAddress,
 		},
 		{
 			name:  "valid entry - pre set with larger cap -> not overriden",
@@ -295,6 +300,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 
 			expectedUpdated:                  false,
 			expectedCanonicalOrderbookPoolID: differentPoolID,
+			expectedContractAddress:          usecase.OriginalOrderbookAddress,
 		},
 		{
 			name:  "invalid entry - pre set with larger cap -> not overriden",
@@ -329,7 +335,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 			}
 
 			// System under test
-			updatedBool, err := poolsUsecase.ProcessOrderbookPoolIDForBaseQuote(tc.base, tc.quote, tc.poolID, tc.poolLiquidityCapitalization)
+			updatedBool, err := poolsUsecase.ProcessOrderbookPoolIDForBaseQuote(tc.base, tc.quote, tc.poolID, tc.poolLiquidityCapitalization, defaultContractAddress)
 
 			if tc.expectedError {
 				s.Require().Error(err)
@@ -339,10 +345,11 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 			s.Require().NoError(err)
 			s.Require().Equal(tc.expectedUpdated, updatedBool)
 
-			canonicalPoolID, err := poolsUsecase.GetCanonicalOrderbookPoolID(tc.base, tc.quote)
+			canonicalPoolID, contractAddress, err := poolsUsecase.GetCanonicalOrderbookPool(tc.base, tc.quote)
 			s.Require().NoError(err)
 
 			s.Require().Equal(tc.expectedCanonicalOrderbookPoolID, canonicalPoolID)
+			s.Require().Equal(tc.expectedContractAddress, contractAddress)
 		})
 	}
 }
@@ -355,6 +362,8 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 	const (
 		validOrderBookPoolID   = defaultPoolID + 1
 		invalidOrderBookPoolID = defaultPoolID + 2
+
+		imaginaryAddress = "imaginary-address"
 	)
 
 	var (
@@ -377,9 +386,9 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 		}
 
 		validOrderBookPool = &mocks.MockRoutablePool{
-			ChainPoolModel: &mocks.ChainPoolMock{
-				ID:   defaultPoolID + 1,
-				Type: poolmanagertypes.CosmWasm,
+			ChainPoolModel: &cosmwasmpoolmodel.CosmWasmPool{
+				PoolId:          defaultPoolID + 1,
+				ContractAddress: imaginaryAddress,
 			},
 			ID: defaultPoolID + 1,
 			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
@@ -395,9 +404,9 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 		}
 
 		invalidOrderBookPool = &mocks.MockRoutablePool{
-			ChainPoolModel: &mocks.ChainPoolMock{
-				ID:   defaultPoolID + 2,
-				Type: poolmanagertypes.CosmWasm,
+			ChainPoolModel: &cosmwasmpoolmodel.CosmWasmPool{
+				PoolId:          defaultPoolID + 2,
+				ContractAddress: imaginaryAddress,
 			},
 			ID: defaultPoolID + 2,
 			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
@@ -437,23 +446,24 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 	s.Require().Equal(validOrderBookPool, actualOrderBookPool)
 
 	// Validate that the canonical orderbook pool ID is correctly set
-	canonicalPoolID, err := poolsUsecase.GetCanonicalOrderbookPoolID(validBaseDenom, orderBookQuoteDenom)
+	canonicalPoolID, orderbookAddress, err := poolsUsecase.GetCanonicalOrderbookPool(validBaseDenom, orderBookQuoteDenom)
 	s.Require().NoError(err)
 	s.Require().Equal(validOrderBookPool.ID, canonicalPoolID)
+	s.Require().Equal(imaginaryAddress, orderbookAddress)
 
 	// Validae that the invalid orderbook is saved as the pool but it is not used for the canonical orderbook pool ID
 	actualOrderBookPool, err = poolsUsecase.GetPool(invalidOrderBookPoolID)
 	s.Require().NoError(err)
 	s.Require().Equal(invalidOrderBookPool, actualOrderBookPool)
 
-	_, err = poolsUsecase.GetCanonicalOrderbookPoolID(invalidBaseDenom, orderBookQuoteDenom)
+	_, _, err = poolsUsecase.GetCanonicalOrderbookPool(invalidBaseDenom, orderBookQuoteDenom)
 	s.Require().Error(err)
 }
 
 // This test validates that the canonical orderbook pool IDs are returned as intended
 // if they are correctly set. The correctness of setting them is ensured
 // by the StorePools and ProcessOrderbookPoolIDForBaseQuote tests.
-func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbookPoolIDs_HappyPath() {
+func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbooks_HappyPath() {
 
 	poolsUseCase := newDefaultPoolsUseCase()
 
@@ -465,26 +475,28 @@ func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbookPoolIDs_HappyPath() 
 
 	expectedCanonicalOrderbookPoolIDs := []domain.CanonicalOrderBooksResult{
 		{
-			Base:   denomOne,
-			Quote:  denomTwo,
-			PoolID: defaultPoolID,
+			Base:            denomOne,
+			Quote:           denomTwo,
+			PoolID:          defaultPoolID,
+			ContractAddress: usecase.OriginalOrderbookAddress,
 		},
 		{
-			Base:   denomThree,
-			Quote:  denomFour,
-			PoolID: defaultPoolID + 1,
+			Base:            denomThree,
+			Quote:           denomFour,
+			PoolID:          defaultPoolID + 1,
+			ContractAddress: usecase.OriginalOrderbookAddress,
 		},
 	}
 
 	// System under test
-	canonicalOrderbookPoolIDs, err := poolsUseCase.GetAllCanonicalOrderbookPoolIDs()
+	canonicalOrderbooks, err := poolsUseCase.GetAllCanonicalOrderbookPoolIDs()
 	s.Require().NoError(err)
 
 	// Validate that the correct number of canonical orderbook pool IDs are returned
-	s.Require().Equal(len(canonicalOrderbookPoolIDs), 2)
+	s.Require().Equal(len(canonicalOrderbooks), 2)
 
 	// Validate that the correct canonical orderbook pool IDs are returned
-	s.Require().Equal(expectedCanonicalOrderbookPoolIDs, canonicalOrderbookPoolIDs)
+	s.Require().Equal(expectedCanonicalOrderbookPoolIDs, canonicalOrderbooks)
 
 }
 

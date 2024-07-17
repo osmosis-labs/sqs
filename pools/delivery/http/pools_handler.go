@@ -145,7 +145,7 @@ func getStatusCode(err error) int {
 // @Produce  json
 // @Param  base  query  string  true  "Base denom"
 // @Param  quote  query  string  true  "Quote denom"
-// @Success 200  uint64  "Canonical Orderbook Pool ID for the given base and quote"
+// @Success 200  struct domain.CanonicalOrderBooksResult  "Canonical Orderbook Pool ID for the given base and quote"
 // @Router /pools/canonical-orderbook [get]
 func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 	base := c.QueryParam("base")
@@ -158,12 +158,17 @@ func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, ResponseError{Message: "quote must be provided"})
 	}
 
-	poolID, err := a.PUsecase.GetCanonicalOrderbookPoolID(base, quote)
+	poolID, contractAddres, err := a.PUsecase.GetCanonicalOrderbookPool(base, quote)
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, poolID)
+	return c.JSON(http.StatusOK, domain.CanonicalOrderBooksResult{
+		Base:            base,
+		Quote:           quote,
+		PoolID:          poolID,
+		ContractAddress: contractAddres,
+	})
 }
 
 // @Summary Get entries for all supported orderbook base and quote denoms.
