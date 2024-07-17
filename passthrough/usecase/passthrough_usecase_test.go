@@ -114,30 +114,10 @@ var (
 		// Treat only UOSMO, ATOM and WBTC as valid for test purposes
 		return denom == UOSMO || denom == ATOM || denom == WBTC
 	}
-)
 
-func TestPassthroughUseCase(t *testing.T) {
-	suite.Run(t, new(PassthroughUseCaseTestSuite))
-}
-
-// Tests the happy path of fetch and aggregate balances by user concurrent using mocks.
-// It sets up several fetch functions where some return multiple coins and others contain invalid denoms.
-// Eventually, it asserts that the expected results match actual, aggregating balances and computing the total
-// capitalization.
-func (s *PassthroughUseCaseTestSuite) TestFetchAndAggregateBalancesByUserConcurrent_HappyPath() {
-	// Set up tokens use case mock with relevant methods
-	tokensUsecaseMock := mocks.TokensUsecaseMock{
-		GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
-			// Return the mocked out results
-			return defaultPriceResult, nil
-		},
-
-		IsValidChainDenomFunc: isValidChainDenomFuncMock,
-	}
-
-	pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
-
-	expectedResult := passthroughdomain.PortfolioAssetsResult{
+	// TestGetPotrfolioAssets_HappyPath and TestFetchAndAggregateBalancesByUserConcurrent_HappyPath
+	// share the test concfiguration and expected results.
+	sharedExpectedPortfolioAssetsResult = passthroughdomain.PortfolioAssetsResult{
 		AccountCoinsResult: []passthroughdomain.AccountCoinsResult{
 			{
 				// Note: 2x osmo from 2 functions
@@ -159,6 +139,119 @@ func (s *PassthroughUseCaseTestSuite) TestFetchAndAggregateBalancesByUserConcurr
 		},
 		TotalValueCap: osmoCapitalization.Add(osmoCapitalization).Add(atomCapitalization).Add(wbtcCapitalization),
 	}
+)
+
+func TestPassthroughUseCase(t *testing.T) {
+	suite.Run(t, new(PassthroughUseCaseTestSuite))
+}
+
+// Tests the happy path of get portfolio assets byusing mocks.
+// It sets up several fetch functions where some return multiple coins and others contain invalid denoms.
+// Eventually, it asserts that the expected results match actual, aggregating balances and computing the total
+// capitalization.
+func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
+	// Set up tokens use case mock with relevant methods
+	tokensUsecaseMock := mocks.TokensUsecaseMock{
+		GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+			// Return the mocked out results
+			return defaultPriceResult, nil
+		},
+
+		IsValidChainDenomFunc: isValidChainDenomFuncMock,
+	}
+
+	// Initialize GRPC client mock
+	grpcClientMock := mocks.PassthroughGRPCClientMock{
+		MockAllBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			if address != defaultAddress {
+				return sdk.Coins{}, miscError
+			}
+			// Note: we return empty coins for simplicity. This method is tested by its individual unit test.
+			return sdk.NewCoins(osmoCoin), nil
+		},
+		MockAccountLockedCoinsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			if address != defaultAddress {
+				return sdk.Coins{}, miscError
+			}
+			// Note: we return empty coins for simplicity. This method is tested by its individual unit test.
+			return sdk.Coins{}, nil
+		},
+		MockDelegatorDelegationsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			if address != defaultAddress {
+				return nil, miscError
+			}
+			return sdk.NewCoins(osmoCoin), nil
+		},
+		MockDelegatorUnbondingDelegationsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			if address != defaultAddress {
+				return nil, miscError
+			}
+			// Note that osmo is here again
+			return sdk.NewCoins(atomCoin, osmoCoin), nil
+		},
+		MockUserPositionsBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			if address != defaultAddress {
+				return sdk.Coins{}, miscError
+			}
+			return sdk.NewCoins(wbtcCoin, invalidCoin), nil
+		},
+	}
+
+	// Initialize pools use case mock
+	poolsUseCaseMock := mocks.PoolsUsecaseMock{
+		CalcExitCFMMPoolFunc: func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+			// Note: we return empty coins for simplicity. This method is tested by its individual unit test.
+			return sdk.Coins{}, nil
+		},
+	}
+
+	pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+
+	// System under test
+	actualPortfolioAssets, err := pu.GetPortfolioAssets(context.TODO(), defaultAddress)
+	s.Require().NoError(err)
+
+	// Assert
+
+	// NOte: below is a hack to avoid code duplication.
+	// We preserve the shared values for total value cap and account coins result.
+	tempTotalValueCap := sharedExpectedPortfolioAssetsResult.TotalValueCap
+	tempAccountCoinsResult := sharedExpectedPortfolioAssetsResult.AccountCoinsResult
+
+	// Then, we modify per the expectation of this test case:
+	// Only the return from balances is considered (osmo) but total capitalization aggregates all outputs (shared capitalization + 1 extra from balances)
+	sharedExpectedPortfolioAssetsResult.TotalValueCap = sharedExpectedPortfolioAssetsResult.TotalValueCap.Add(osmoCapitalization)
+	sharedExpectedPortfolioAssetsResult.AccountCoinsResult = []passthroughdomain.AccountCoinsResult{
+		{
+			Coin:                osmoCoin,
+			CapitalizationValue: osmoCapitalization,
+		},
+	}
+
+	// Assert the results are correct.
+	s.validatePortfolioAssetsResult(sharedExpectedPortfolioAssetsResult, actualPortfolioAssets)
+
+	// Switch back to the original values
+	sharedExpectedPortfolioAssetsResult.TotalValueCap = tempTotalValueCap
+	sharedExpectedPortfolioAssetsResult.AccountCoinsResult = tempAccountCoinsResult
+}
+
+// Tests the happy path of fetch and aggregate balances by user concurrent using mocks.
+// It sets up several fetch functions where some return multiple coins and others contain invalid denoms.
+// Eventually, it asserts that the expected results match actual, aggregating balances and computing the total
+// capitalization.
+func (s *PassthroughUseCaseTestSuite) TestFetchAndAggregateBalancesByUserConcurrent_HappyPath() {
+	// Set up tokens use case mock with relevant methods
+	tokensUsecaseMock := mocks.TokensUsecaseMock{
+		GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+			// Return the mocked out results
+			return defaultPriceResult, nil
+		},
+
+		IsValidChainDenomFunc: isValidChainDenomFuncMock,
+	}
+
+	pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
 
 	// System under test
 	aggregatedBalances, err := pu.FetchAndAggregateBalancesByUserConcurrent(context.TODO(), defaultAddress, []passthroughdomain.PassthroughFetchFn{
@@ -173,19 +266,10 @@ func (s *PassthroughUseCaseTestSuite) TestFetchAndAggregateBalancesByUserConcurr
 			return sdk.NewCoins(wbtcCoin, invalidCoin), nil
 		},
 	})
+
+	// Assert
 	s.Require().NoError(err)
-	s.Require().Equal(expectedResult.TotalValueCap, aggregatedBalances.TotalValueCap)
-
-	// Sort the results for comparison
-	sort.Slice(aggregatedBalances.AccountCoinsResult, func(i, j int) bool {
-		return aggregatedBalances.AccountCoinsResult[i].Coin.Denom < aggregatedBalances.AccountCoinsResult[j].Coin.Denom
-	})
-
-	sort.Slice(expectedResult.AccountCoinsResult, func(i, j int) bool {
-		return expectedResult.AccountCoinsResult[i].Coin.Denom < expectedResult.AccountCoinsResult[j].Coin.Denom
-	})
-
-	s.Require().Equal(expectedResult.AccountCoinsResult, aggregatedBalances.AccountCoinsResult)
+	s.validatePortfolioAssetsResult(sharedExpectedPortfolioAssetsResult, aggregatedBalances)
 }
 
 // Tests the compute capitalization for coins method using mocks.
@@ -595,4 +679,20 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 			s.Require().Equal(tt.expectedCoins, actualBalances)
 		})
 	}
+}
+
+// validatePortfolioAssetsResult validates the expected and actual portfolio assets results.
+func (s *PassthroughUseCaseTestSuite) validatePortfolioAssetsResult(expectedResult passthroughdomain.PortfolioAssetsResult, actualResult passthroughdomain.PortfolioAssetsResult) {
+	s.Require().Equal(expectedResult.TotalValueCap, actualResult.TotalValueCap)
+
+	// Sort the results for comparison. Order not guaranteed due to concurrency.
+	sort.Slice(actualResult.AccountCoinsResult, func(i, j int) bool {
+		return actualResult.AccountCoinsResult[i].Coin.Denom < actualResult.AccountCoinsResult[j].Coin.Denom
+	})
+
+	sort.Slice(expectedResult.AccountCoinsResult, func(i, j int) bool {
+		return expectedResult.AccountCoinsResult[i].Coin.Denom < expectedResult.AccountCoinsResult[j].Coin.Denom
+	})
+
+	s.Require().Equal(expectedResult.AccountCoinsResult, actualResult.AccountCoinsResult)
 }
