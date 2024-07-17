@@ -141,7 +141,7 @@ func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom st
 
 	result := domain.PoolDenomMetaData{
 		TotalLiquidity:    totalLiquidityForDenom,
-		TotalLiquidityCap: liquidityCapitalization,
+		TotalLiquidityCap: liquidityCapitalization.TruncateInt(),
 		Price:             price,
 	}
 

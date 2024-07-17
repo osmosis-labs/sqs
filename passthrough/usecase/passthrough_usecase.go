@@ -27,7 +27,6 @@ var _ mvc.PassthroughUsecase = &passthroughUseCase{}
 
 // NewPassThroughUsecase Creates a passthrough use case
 func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, priceGetter mvc.PriceGetter, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string) mvc.PassthroughUsecase {
-
 	return &passthroughUseCase{
 		poolsUseCase: puc,
 
@@ -41,7 +40,6 @@ func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGR
 
 // GetPortfolioBalances implements mvc.PassthroughUsecase.
 func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address string) (passthroughdomain.PortfolioAssetsResult, error) {
-
 	fetchFuncs := []passthroughdomain.PassthroughFetchFn{
 		p.passthroughGRPCClient.DelegatorUnbondingDelegations,
 		p.passthroughGRPCClient.DelegatorDelegations,
@@ -75,7 +73,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	}
 
 	// Aggregate total capitalization
-	totalCap := osmomath.ZeroInt()
+	totalCap := osmomath.ZeroDec()
 	for i := 0; i < 2; i++ {
 		select {
 		case res := <-totalCapResultChan:
@@ -138,18 +136,18 @@ func (p *passthroughUseCase) fetchAndAggregateBalancesByUserConcurrent(ctx conte
 	}, nil
 }
 
-func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Int, error) {
+func (p *passthroughUseCase) instrumentCoinsWithPrices(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
 	coinDenoms := coins.Denoms()
 
 	// Compute prices for the final coins
 	priceResult, err := p.priceGetter.GetPrices(ctx, coinDenoms, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
 	if err != nil {
-		return nil, osmomath.Int{}, err
+		return nil, osmomath.Dec{}, err
 	}
 
 	// Instrument coins with prices
 	coinsWithPrices := make([]passthroughdomain.AccountCoinsResult, 0, len(coins))
-	capitalizaionTotal := osmomath.ZeroInt()
+	capitalizaionTotal := osmomath.ZeroDec()
 
 	for _, coin := range coins {
 		price := priceResult.GetPriceForDenom(coin.Denom, p.defaultQuoteDenom)

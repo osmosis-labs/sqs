@@ -140,6 +140,7 @@ func (pm *PoolsUsecaseMock) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	}
 	panic("unimplemented")
 }
+
 // CalcExitCFMMPool implements mvc.PoolsUsecase.
 func (*PoolsUsecaseMock) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
 	panic("unimplemented")
