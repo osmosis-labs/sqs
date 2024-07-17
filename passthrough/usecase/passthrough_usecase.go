@@ -105,6 +105,8 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	}, nil
 }
 
+// fetchAndAggregateBalancesByUserConcurrent fetches and aggregates balances concurrently from the given fetch functions.
+// Returns the aggregated portfolio assets result as well as its total capitalization.
 func (p *passthroughUseCase) fetchAndAggregateBalancesByUserConcurrent(ctx context.Context, address string, fetchFunctions []passthroughdomain.PassthroughFetchFn) (passthroughdomain.PortfolioAssetsResult, error) {
 	coins := sdk.Coins{}
 

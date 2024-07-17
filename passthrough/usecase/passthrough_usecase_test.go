@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -65,47 +66,126 @@ var (
 	emptyCoins = sdk.Coins{}
 
 	zero = osmomath.ZeroDec()
+
+	osmoPrice = osmomath.MustNewBigDecFromStr("0.5")
+	atomPrice = osmomath.MustNewBigDecFromStr("7")
+	wbtcPrice = osmomath.MustNewBigDecFromStr("50000")
+
+	defaultPriceResult = domain.PricesResult{
+		UOSMO: {
+			USDC: osmoPrice,
+		},
+		ATOM: {
+			USDC: atomPrice,
+		},
+		WBTC: {
+			USDC: wbtcPrice,
+		},
+	}
+
+	defaultAmount = sdk.NewInt(1_000_000)
+
+	osmoCoin = sdk.NewCoin(UOSMO, defaultAmount)
+	atomCoin = sdk.NewCoin(ATOM, defaultAmount.MulRaw(2))
+	wbtcCoin = sdk.NewCoin(WBTC, defaultAmount.MulRaw(3))
+
+	invalidDenom = "invalid"
+
+	osmoCapitalization = osmoPrice.Dec().MulMut(defaultAmount.ToLegacyDec())
+	atomCapitalization = atomPrice.Dec().MulMut(defaultAmount.ToLegacyDec().MulInt64(2))
+	wbtcCapitalization = wbtcPrice.Dec().MulMut(defaultAmount.ToLegacyDec().MulInt64(3))
+	invalidCoin        = sdk.NewCoin(invalidDenom, defaultAmount)
+
+	emptyPrices = domain.PricesResult{}
 )
 
 func TestPassthroughUseCase(t *testing.T) {
 	suite.Run(t, new(PassthroughUseCaseTestSuite))
 }
 
+// Tests the happy path of fetch and aggregate balances by user concurrent using mocks.
+// It sets up several fetch functions where some return multiple coins and others contain invalid denoms.
+// Eventually, it asserts that the expected results match actual, aggregating balances and computing the total
+// capitalization.
+func (s *PassthroughUseCaseTestSuite) TestFetchAndAggregateBalancesByUserConcurrent_HappyPath() {
+	// Set up tokens use case mock with relevant methods
+	tokensUsecaseMock := mocks.TokensUsecaseMock{
+		GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+			// Return the mocked out results
+			return defaultPriceResult, nil
+		},
+
+		IsValidChainDenomFunc: func(denom string) bool {
+			// Treat only UOSMO, ATOM and WBTC as valid for test purposes
+			return denom == UOSMO || denom == ATOM || denom == WBTC
+		},
+	}
+
+	liquidityPricerMock := &mocks.LiquidityPricerMock{
+		PriceCoinFunc: func(coin sdk.Coin, price osmomath.BigDec) osmomath.Dec {
+			if price.IsZero() {
+				return osmomath.ZeroDec()
+			}
+			return coin.Amount.ToLegacyDec().Mul(price.Dec())
+		},
+	}
+
+	pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+
+	expectedResult := passthroughdomain.PortfolioAssetsResult{
+		AccountCoinsResult: []passthroughdomain.AccountCoinsResult{
+			{
+				// Note: 2x osmo from 2 functions
+				Coin:                osmoCoin.Add(osmoCoin),
+				CapitalizationValue: osmoCapitalization.Add(osmoCapitalization),
+			},
+			{
+				Coin:                atomCoin,
+				CapitalizationValue: atomCapitalization,
+			},
+			{
+				Coin:                wbtcCoin,
+				CapitalizationValue: wbtcCapitalization,
+			},
+			{
+				Coin:                invalidCoin,
+				CapitalizationValue: zero,
+			},
+		},
+		TotalValueCap: osmoCapitalization.Add(osmoCapitalization).Add(atomCapitalization).Add(wbtcCapitalization),
+	}
+
+	// System under test
+	aggregatedBalances, err := pu.FetchAndAggregateBalancesByUserConcurrent(context.TODO(), defaultAddress, []passthroughdomain.PassthroughFetchFn{
+
+		func(ctx context.Context, address string) (sdk.Coins, error) {
+			return sdk.NewCoins(osmoCoin), nil
+		},
+		func(ctx context.Context, address string) (sdk.Coins, error) {
+			// Note that osmo is here again
+			return sdk.NewCoins(atomCoin, osmoCoin), nil
+		},
+		func(ctx context.Context, address string) (sdk.Coins, error) {
+			return sdk.NewCoins(wbtcCoin, invalidCoin), nil
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Equal(expectedResult.TotalValueCap, aggregatedBalances.TotalValueCap)
+
+	// Sort the results for comparison
+	sort.Slice(aggregatedBalances.AccountCoinsResult, func(i, j int) bool {
+		return aggregatedBalances.AccountCoinsResult[i].Coin.Denom < aggregatedBalances.AccountCoinsResult[j].Coin.Denom
+	})
+
+	sort.Slice(expectedResult.AccountCoinsResult, func(i, j int) bool {
+		return expectedResult.AccountCoinsResult[i].Coin.Denom < expectedResult.AccountCoinsResult[j].Coin.Denom
+	})
+
+	s.Require().Equal(expectedResult.AccountCoinsResult, aggregatedBalances.AccountCoinsResult)
+}
+
 // Tests the compute capitalization for coins method using mocks.
 func (s *PassthroughUseCaseTestSuite) TestComputeCapitalizationForCoins() {
-	var (
-		osmoPrice = osmomath.MustNewBigDecFromStr("0.5")
-		atomPrice = osmomath.MustNewBigDecFromStr("7")
-		wbtcPrice = osmomath.MustNewBigDecFromStr("50000")
-
-		defaultPriceResult = domain.PricesResult{
-			UOSMO: {
-				USDC: osmoPrice,
-			},
-			ATOM: {
-				USDC: atomPrice,
-			},
-			WBTC: {
-				USDC: wbtcPrice,
-			},
-		}
-
-		defaultAmount = sdk.NewInt(1_000_000)
-
-		osmoCoin = sdk.NewCoin(UOSMO, defaultAmount)
-		atomCoin = sdk.NewCoin(ATOM, defaultAmount.MulRaw(2))
-		wbtcCoin = sdk.NewCoin(WBTC, defaultAmount.MulRaw(3))
-
-		invalidDenom = "invalid"
-
-		osmoCapitalization = osmoPrice.Dec().MulMut(defaultAmount.ToLegacyDec())
-		atomCapitalization = atomPrice.Dec().MulMut(defaultAmount.ToLegacyDec().MulInt64(2))
-		wbtcCapitalization = wbtcPrice.Dec().MulMut(defaultAmount.ToLegacyDec().MulInt64(3))
-		invalidCoin        = sdk.NewCoin(invalidDenom, defaultAmount)
-
-		emptyPrices = domain.PricesResult{}
-	)
-
 	tests := []struct {
 		name string
 

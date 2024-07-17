@@ -29,3 +29,7 @@ func (p *passthroughUseCase) HandleGammShares(balance sdk.Coin) (sdk.Coins, erro
 func (p *passthroughUseCase) ComputeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
 	return p.computeCapitalizationForCoins(ctx, coins)
 }
+
+func (p *passthroughUseCase) FetchAndAggregateBalancesByUserConcurrent(ctx context.Context, address string, fetchFunctions []passthroughdomain.PassthroughFetchFn) (passthroughdomain.PortfolioAssetsResult, error) {
+	return p.fetchAndAggregateBalancesByUserConcurrent(ctx, address, fetchFunctions)
+}
