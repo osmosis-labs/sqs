@@ -86,6 +86,32 @@
                 }
             }
         },
+        "/portfolio-assets/{address}": {
+            "get": {
+                "description": "The returned data represents the total value of the assets in the portfolio. Total value cap represents the total value of the assets in the portfolio.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Returns portfolio assets associated with the given address.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Wallet Address",
+                        "name": "address",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Portfolio assets from user balances and capitalization of the entire account value",
+                        "schema": {
+                            "type": "struct"
+                        }
+                    }
+                }
+            }
+        },
         "/router/custom-direct-quote": {
             "get": {
                 "description": "Call does not search for the route rather directly computes the quote for the given poolID.",

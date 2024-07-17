@@ -13,15 +13,21 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// PassthroughGRPCClient represents the GRPC client for the passthrough module to query the chain.
 type PassthroughGRPCClient interface {
+	// AccountLockedCoins returns the locked coins of the user with the given address.
 	AccountLockedCoins(ctx context.Context, address string) (sdk.Coins, error)
 
+	// AllBalances returns all the balances of the user with the given address.
 	AllBalances(ctx context.Context, address string) (sdk.Coins, error)
 
+	// DelegatorDelegations returns the delegator delegations of the user with the given address.
 	DelegatorDelegations(ctx context.Context, address string) (sdk.Coins, error)
 
+	// DelegatorUnbondingDelegations returns the delegator unbonding delegations of the user with the given address.
 	DelegatorUnbondingDelegations(ctx context.Context, address string) (sdk.Coins, error)
 
+	// UserPositionsBalances returns the user concentrated positions balances of the user with the given address.
 	UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, error)
 }
 
