@@ -52,7 +52,7 @@ type Quote interface {
 	GetAmountIn() sdk.Coin
 	GetAmountOut() osmomath.Int
 	GetRoute() []SplitRoute
-	GetEffectiveSpreadFactor() osmomath.Dec
+	GetEffectiveFee() osmomath.Dec
 	GetPriceImpact() osmomath.Dec
 
 	// PrepareResult mutates the quote to prepare
