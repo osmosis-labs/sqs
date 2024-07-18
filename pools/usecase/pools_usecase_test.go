@@ -77,7 +77,11 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	// to the wrong type. Note that the default is balancer.
 	brokenChainPool := *defaultPool
 	brokenChainPool.PoolType = poolmanagertypes.CosmWasm
-	_, err = pools.NewRoutablePool(&brokenChainPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}, nil)
+
+	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+	}
+	_, err = pools.NewRoutablePool(&brokenChainPool, denomTwo, defaultTakerFee, cosmWasmPoolsParams)
 	// Validate that it is indeed broken.
 	s.Require().Error(err)
 
@@ -201,7 +205,8 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			routerRepo.SetTakerFees(tc.takerFeeMap)
 
 			// Create pools use case
-			poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+			poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+			s.Require().NoError(err)
 
 			poolsUsecase.StorePools(tc.pools)
 
@@ -320,7 +325,7 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 		tc := tc
 		s.Run(tc.name, func() {
 
-			poolsUsecase := newDefaultPoolsUseCase()
+			poolsUsecase := s.newDefaultPoolsUseCase()
 
 			// Pre-set invalid data for the base/quote
 			if tc.preStoreInvalidEntry {
@@ -428,7 +433,7 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 		}
 	)
 
-	poolsUsecase := newDefaultPoolsUseCase()
+	poolsUsecase := s.newDefaultPoolsUseCase()
 
 	// Pre-set invalid data for the base/quote
 	poolsUsecase.StoreInvalidOrderBookEntry(invalidBaseDenom, orderBookQuoteDenom)
@@ -465,7 +470,7 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 // by the StorePools and ProcessOrderbookPoolIDForBaseQuote tests.
 func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbooks_HappyPath() {
 
-	poolsUseCase := newDefaultPoolsUseCase()
+	poolsUseCase := s.newDefaultPoolsUseCase()
 
 	// Denom one and denom two
 	poolsUseCase.StoreValidOrdeBookEntry(denomOne, denomTwo, defaultPoolID, defaultPoolLiquidityCap)
@@ -500,14 +505,19 @@ func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbooks_HappyPath() {
 
 }
 
-func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolIDs domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
-	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolIDs, domain.UnsetScalingFactorGetterCb)
+func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
+	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+		Config:                cosmWasmConfig,
+		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+	}
+	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 	return routablePool
 }
 
-func newDefaultPoolsUseCase() *usecase.PoolsUsecase {
+func (s *PoolsUsecaseTestSuite) newDefaultPoolsUseCase() *usecase.PoolsUsecase {
 	routerRepo := routerrepo.New(&log.NoOpLogger{})
-	poolsUsecase := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	s.Require().NoError(err)
 	return poolsUsecase
 }

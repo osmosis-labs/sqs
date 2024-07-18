@@ -8,9 +8,13 @@ import (
 	"sync"
 
 	"cosmossdk.io/math"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -32,11 +36,10 @@ type orderBookEntry struct {
 type poolsUseCase struct {
 	pools            sync.Map
 	routerRepository routerrepo.RouterRepository
-	cosmWasmConfig   domain.CosmWasmPoolRouterConfig
 
 	canonicalOrderBookForBaseQuoteDenom sync.Map
 
-	scalingFactorGetterCb domain.ScalingFactorGetterCb
+	cosmWasmPoolsParams pools.CosmWasmPoolsParams
 
 	logger log.Logger
 }
@@ -49,7 +52,7 @@ const (
 )
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb, logger log.Logger) *poolsUseCase {
+func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb, logger log.Logger) (*poolsUseCase, error) {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
 	for _, codeId := range poolsConfig.TransmuterCodeIDs {
 		transmuterCodeIDsMap[codeId] = struct{}{}
@@ -70,21 +73,31 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint s
 		generalizedCosmWasmCodeIDsMap[codeId] = struct{}{}
 	}
 
+	wasmClient, err := initializeWasmClient(chainGRPCGatewayEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
 	return &poolsUseCase{
-		cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
-			TransmuterCodeIDs:        transmuterCodeIDsMap,
-			AlloyedTransmuterCodeIDs: alloyedTransmuterCodeIDsMap,
-			OrderbookCodeIDs:         orderbookCodeIDsMap,
-			GeneralCosmWasmCodeIDs:   generalizedCosmWasmCodeIDsMap,
-			ChainGRPCGatewayEndpoint: chainGRPCGatewayEndpoint,
+		pools:            sync.Map{},
+		routerRepository: routerRepository,
+
+		cosmWasmPoolsParams: pools.CosmWasmPoolsParams{
+			Config: domain.CosmWasmPoolRouterConfig{
+				TransmuterCodeIDs:        transmuterCodeIDsMap,
+				AlloyedTransmuterCodeIDs: alloyedTransmuterCodeIDsMap,
+				OrderbookCodeIDs:         orderbookCodeIDsMap,
+				GeneralCosmWasmCodeIDs:   generalizedCosmWasmCodeIDsMap,
+				ChainGRPCGatewayEndpoint: chainGRPCGatewayEndpoint,
+			},
+
+			WasmClient: wasmClient,
+
+			ScalingFactorGetterCb: scalingFactorGetterCb,
 		},
 
-		pools:                 sync.Map{},
-		routerRepository:      routerRepository,
-		scalingFactorGetterCb: scalingFactorGetterCb,
-
 		logger: logger,
-	}
+	}, nil
 }
 
 // GetAllPools returns all pools from the repository.
@@ -134,7 +147,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 				takerFee = sqsdomain.DefaultTakerFee
 			}
 
-			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmConfig, p.scalingFactorGetterCb)
+			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmPoolsParams)
 			if err != nil {
 				skipErrorRoute = true
 				break
@@ -218,7 +231,7 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 
 	// N.B.: Empty string for token out denom because it is irrelevant for calculating spot price.
 	// It is only relevant in the context of routing
-	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmConfig, p.scalingFactorGetterCb)
+	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmPoolsParams)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -228,7 +241,7 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 
 // IsGeneralCosmWasmCodeID implements mvc.PoolsUsecase.
 func (p *poolsUseCase) IsGeneralCosmWasmCodeID(codeId uint64) bool {
-	_, isGenneralCosmWasmCodeID := p.cosmWasmConfig.GeneralCosmWasmCodeIDs[codeId]
+	_, isGenneralCosmWasmCodeID := p.cosmWasmPoolsParams.Config.GeneralCosmWasmCodeIDs[codeId]
 	return isGenneralCosmWasmCodeID
 }
 
@@ -439,10 +452,26 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
-	return p.cosmWasmConfig
+	return p.cosmWasmPoolsParams.Config
 }
 
 // formatBaseQuoteDenom formats the base and quote denom into a single string with a separator.
 func formatBaseQuoteDenom(baseDenom, quoteDenom string) string {
 	return baseDenom + baseQuoteKeySeparator + quoteDenom
+}
+
+// initializeWasmClient initializes the wasm client given the node URI
+// Returns error if fails to initialize the client
+func initializeWasmClient(grpcGatewayEndpoint string) (wasmtypes.QueryClient, error) {
+	grpcClient, err := grpc.NewClient(grpcGatewayEndpoint,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	wasmClient := wasmtypes.NewQueryClient(grpcClient)
+
+	return wasmClient, nil
 }

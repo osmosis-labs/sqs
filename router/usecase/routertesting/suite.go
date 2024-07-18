@@ -387,7 +387,8 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	routerRepositoryMock.SetCandidateRouteSearchData(mainnetState.CandidateRouteSearchData)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	s.Require().NoError(err)
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 

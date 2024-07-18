@@ -94,7 +94,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 			s.Require().NoError(err)
 
 			mock := &mocks.MockRoutablePool{ChainPoolModel: pool, PoolType: tc.poolType}
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOutDenom, noTakerFee, domain.CosmWasmPoolRouterConfig{}, domain.UnsetScalingFactorGetterCb)
+			cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+			}
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
