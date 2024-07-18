@@ -35,7 +35,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v25.4.0
 
 - Remove spread factor from fee as it is included in the price impact
 - Format contract address in canonical orderbook endpoints
