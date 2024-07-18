@@ -15,7 +15,7 @@ import (
 
 // NewRoutablePool creates a new RoutablePool.
 // Panics if pool is of invalid type or if does not contain tick data when a concentrated pool.
-func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig, scalingFactorGetterCb domain.ScalingFactorGetterCb) (domain.RoutablePool, error) {
+func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolsParams CosmWasmPoolsParams) (domain.RoutablePool, error) {
 	poolType := pool.GetType()
 	chainPool := pool.GetUnderlyingPool()
 	if poolType == poolmanagertypes.Concentrated {
@@ -84,12 +84,12 @@ func NewRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmoma
 		}, nil
 	}
 
-	return newRoutableCosmWasmPool(pool, cosmWasmConfig, tokenOutDenom, takerFee, scalingFactorGetterCb)
+	return newRoutableCosmWasmPool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 }
 
 // newRoutableCosmWasmPool creates a new RoutablePool for CosmWasm pools.
 // Panics if the given pool is not a cosmwasm pool or if the
-func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWasmPoolRouterConfig, tokenOutDenom string, takerFee osmomath.Dec, scalingFactorGetterCb domain.ScalingFactorGetterCb) (domain.RoutablePool, error) {
+func newRoutableCosmWasmPool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolsParams CosmWasmPoolsParams) (domain.RoutablePool, error) {
 	chainPool := pool.GetUnderlyingPool()
 	poolType := pool.GetType()
 
@@ -104,7 +104,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 	balances := pool.GetSQSPoolModel().Balances
 
 	// Check if the pool is a transmuter pool
-	_, isTransmuter := cosmWasmConfig.TransmuterCodeIDs[cosmwasmPool.CodeId]
+	_, isTransmuter := cosmWasmPoolsParams.Config.TransmuterCodeIDs[cosmwasmPool.CodeId]
 	if isTransmuter {
 		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 
@@ -118,21 +118,17 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 		}, nil
 	}
 
-	_, isGeneralizedCosmWasmPool := cosmWasmConfig.GeneralCosmWasmCodeIDs[cosmwasmPool.CodeId]
+	_, isGeneralizedCosmWasmPool := cosmWasmPoolsParams.Config.GeneralCosmWasmCodeIDs[cosmwasmPool.CodeId]
 	if isGeneralizedCosmWasmPool {
-		wasmClient, err := initializeWasmClient(cosmWasmConfig.ChainGRPCGatewayEndpoint)
-		if err != nil {
-			return nil, err
-		}
 
 		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 
 		// for most other CosmWasm pools, interaction with the chain will
 		// be required. As a result, we have a custom implementation.
-		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, wasmClient, scalingFactorGetterCb), nil
+		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, cosmWasmPoolsParams), nil
 	}
 
-	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmConfig, tokenOutDenom, takerFee)
+	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmPoolsParams, tokenOutDenom, takerFee)
 }
 
 // newRoutableCosmWasmPoolWithCustomModel creates a new RoutablePool for CosmWasm pools that require a custom CosmWasmPoolModel.
@@ -143,7 +139,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 func newRoutableCosmWasmPoolWithCustomModel(
 	pool sqsdomain.PoolI,
 	cosmwasmPool *cwpoolmodel.CosmWasmPool,
-	cosmWasmConfig domain.CosmWasmPoolRouterConfig,
+	cosmWasmPoolsParams CosmWasmPoolsParams,
 	tokenOutDenom string,
 	takerFee osmomath.Dec,
 ) (domain.RoutablePool, error) {
@@ -157,7 +153,7 @@ func newRoutableCosmWasmPoolWithCustomModel(
 		// since v2, we introduce concept of alloyed assets but not yet actively used
 		// since v3, we introduce concept of normalization factor
 		// `routableAlloyTransmuterPoolImpl` is v3 compatible
-		_, isAlloyedTransmuterCodeId := cosmWasmConfig.AlloyedTransmuterCodeIDs[cosmwasmPool.CodeId]
+		_, isAlloyedTransmuterCodeId := cosmWasmPoolsParams.Config.AlloyedTransmuterCodeIDs[cosmwasmPool.CodeId]
 		if isAlloyedTransmuterCodeId && model.IsAlloyTransmuter() {
 			if model.Data.AlloyTransmuter == nil {
 				return nil, domain.CosmWasmPoolDataMissingError{
@@ -176,7 +172,7 @@ func newRoutableCosmWasmPoolWithCustomModel(
 			}, nil
 		}
 
-		_, isOrderbookCodeId := cosmWasmConfig.OrderbookCodeIDs[cosmwasmPool.CodeId]
+		_, isOrderbookCodeId := cosmWasmPoolsParams.Config.OrderbookCodeIDs[cosmwasmPool.CodeId]
 		if isOrderbookCodeId && model.IsOrderbook() {
 			if model.Data.Orderbook == nil {
 				return nil, domain.CosmWasmPoolDataMissingError{

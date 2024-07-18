@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.4.1
+
+- Resolve goroutine leak stemming from creating a grpc connection for every cosmwasm pool in route. Share one connection.
+
 ## v25.4.0
 
 - Remove spread factor from fee as it is included in the price impact

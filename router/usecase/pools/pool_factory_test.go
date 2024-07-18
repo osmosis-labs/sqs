@@ -190,7 +190,10 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			routablePool, err := pools.NewRoutableCosmWasmPoolWithCustomModel(tt.pool, tt.cosmwasmPool, tt.cosmWasmConfig, tt.tokenOutDenom, tt.takerFee)
+			cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+				Config: tt.cosmWasmConfig,
+			}
+			routablePool, err := pools.NewRoutableCosmWasmPoolWithCustomModel(tt.pool, tt.cosmwasmPool, cosmWasmPoolsParams, tt.tokenOutDenom, tt.takerFee)
 
 			if tt.expectedError != nil {
 				require.Equal(t, tt.expectedError, err)
