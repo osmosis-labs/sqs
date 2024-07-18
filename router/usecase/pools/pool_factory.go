@@ -120,7 +120,6 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, tokenOutDenom string, takerFe
 
 	_, isGeneralizedCosmWasmPool := cosmWasmPoolsParams.Config.GeneralCosmWasmCodeIDs[cosmwasmPool.CodeId]
 	if isGeneralizedCosmWasmPool {
-
 		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
 
 		// for most other CosmWasm pools, interaction with the chain will
