@@ -49,7 +49,7 @@ var (
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
 // with token in as base and token out as quote.
-func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, method domain.TokenSwapMethod) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
 		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()
@@ -71,7 +71,11 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]
 		}
 
 		// Charge taker fee
-		tokenIn = pool.ChargeTakerFeeExactIn(tokenIn)
+		if method == domain.TokenSwapMethodExactIn {
+			tokenIn = pool.ChargeTakerFeeExactIn(tokenIn)
+		} else {
+			tokenIn = pool.ChargeTakerFeeExactOut(tokenIn)
+		}
 
 		tokenOut, err := pool.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
@@ -103,6 +107,11 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]
 // GetPools implements Route.
 func (r *RouteImpl) GetPools() []domain.RoutablePool {
 	return r.Pools
+}
+
+// SetPools implements Route.
+func (r *RouteImpl) SetPools(pools []domain.RoutablePool) {
+	r.Pools = pools
 }
 
 // CalculateTokenOutByTokenIn implements Route.

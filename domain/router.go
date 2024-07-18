@@ -22,7 +22,10 @@ type Route interface {
 	// The reason for this is that making network requests to chain is expensive.
 	// As a result, we want to minimize the number of requests we make.
 	ContainsGeneralizedCosmWasmPool() bool
+
 	GetPools() []RoutablePool
+	SetPools(pools []RoutablePool)
+
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.
 	// Returns error if the calculation fails.
 	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
@@ -37,7 +40,7 @@ type Route interface {
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
 	// The token in is the base token and the token out is the quote token.
-	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, method TokenSwapMethod) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
@@ -54,13 +57,14 @@ type Quote interface {
 	GetRoute() []SplitRoute
 	GetEffectiveSpreadFactor() osmomath.Dec
 	GetPriceImpact() osmomath.Dec
+	GetInBaseOutQuoteSpotPrice() osmomath.Dec
 
 	// PrepareResult mutates the quote to prepare
 	// it with the data formatted for output to the client.
 	// scalingFactor is the spot price scaling factor according to chain precision.
 	// scalingFactor of zero is a valid value. It might occur if we do not have precision information
 	// for the tokens. In that case, we invalidate spot price by setting it to zero.
-	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]SplitRoute, osmomath.Dec, error)
+	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, method TokenSwapMethod) ([]SplitRoute, osmomath.Dec, error)
 
 	String() string
 }

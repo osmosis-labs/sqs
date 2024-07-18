@@ -19,8 +19,8 @@ import (
 
 // getSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.
 // Returns error if router repository is not set on the router.
-func getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, routes []route.RouteImpl, logger log.Logger) (quote domain.Quote, err error) {
-	bestSingleRouteQuote, _, err := estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, logger)
+func getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, method domain.TokenSwapMethod, routes []route.RouteImpl, logger log.Logger) (quote domain.Quote, err error) {
+	bestSingleRouteQuote, _, err := estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, method, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, routes []rou
 // Returns best quote as well as all routes sorted by amount out and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+func estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}

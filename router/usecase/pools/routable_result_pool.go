@@ -29,7 +29,8 @@ type routableResultPoolImpl struct {
 	Type          poolmanagertypes.PoolType "json:\"type\""
 	Balances      sdk.Coins                 "json:\"balances\""
 	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
-	TokenOutDenom string                    "json:\"token_out_denom\""
+	TokenOutDenom string                    "json:\"token_out_denom,omitempty\""
+	TokenInDenom  string                    "json:\"token_in_denom,omitempty\""
 	TakerFee      osmomath.Dec              "json:\"taker_fee\""
 	CodeID        uint64                    "json:\"code_id,omitempty\""
 }
@@ -37,6 +38,14 @@ type routableResultPoolImpl struct {
 // GetCodeID implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetCodeID() uint64 {
 	panic("unimplemented")
+}
+
+func (r *routableResultPoolImpl) SetInDenom(denom string) {
+	r.TokenInDenom = denom
+}
+
+func (r *routableResultPoolImpl) SetOutDenom(denom string) {
+	r.TokenOutDenom = denom
 }
 
 // NewRoutableResultPool returns the new routable result pool with the given parameters.
@@ -48,6 +57,17 @@ func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spread
 		TokenOutDenom: tokenOutDenom,
 		TakerFee:      takerFee,
 		CodeID:        codeID,
+	}
+}
+
+func NewExactAmountOutRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenInDenom string, takerFee osmomath.Dec, codeID uint64) domain.RoutablePool {
+	return &routableResultPoolImpl{
+		ID:           ID,
+		Type:         poolType,
+		SpreadFactor: spreadFactor,
+		TokenInDenom: tokenInDenom,
+		TakerFee:     takerFee,
+		CodeID:       codeID,
 	}
 }
 
@@ -105,9 +125,19 @@ func (r *routableResultPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context,
 	return sdk.Coin{}, errors.New("not implemented")
 }
 
+// CalculateTokenInByTokenOut implements RoutablePool.
+func (r *routableResultPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
+	return sdk.Coin{}, errors.New("not implemented")
+}
+
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableResultPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
+}
+
+// GetTokenInDenom implements RoutablePool.
+func (r *routableResultPoolImpl) GetTokenInDenom() string {
+	return r.TokenInDenom
 }
 
 // String implements domain.RoutablePool.
@@ -122,6 +152,13 @@ func (r *routableResultPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenI
 	return tokenInAfterTakerFee
 }
 
+// ChargeTakerFee implements domain.RoutablePool.
+// Charges the taker fee for the given token in and returns the token in after the fee has been charged.
+func (r *routableResultPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
+	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.TakerFee)
+	return tokenOutAfterTakerFee
+}
+
 // GetTakerFee implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
@@ -130,6 +167,11 @@ func (r *routableResultPoolImpl) GetTakerFee() math.LegacyDec {
 // GetBalances implements domain.RoutableResultPool.
 func (r *routableResultPoolImpl) GetBalances() sdk.Coins {
 	return r.Balances
+}
+
+// SetTokenInDenom implements domain.RoutablePool.
+func (r *routableResultPoolImpl) SetTokenInDenom(tokenInDenom string) {
+	r.TokenInDenom = tokenInDenom
 }
 
 // SetTokenOutDenom implements domain.RoutablePool.

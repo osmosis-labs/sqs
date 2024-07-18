@@ -24,7 +24,7 @@ const totalIncrements = uint8(10)
 // The algorithm is based on the knapsack problem.
 // The time complexity is O(n * m), where n is the number of routes and m is the totalIncrements.
 // The space complexity is O(n * m).
-func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, error) {
+func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod) (domain.Quote, error) {
 	// Routes must be non-empty
 	if len(routes) == 0 {
 		return nil, errors.New("no routes")

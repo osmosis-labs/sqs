@@ -129,7 +129,7 @@ func newRoutableCosmWasmPool(pool sqsdomain.PoolI, cosmWasmConfig domain.CosmWas
 
 		// for most other CosmWasm pools, interaction with the chain will
 		// be required. As a result, we have a custom implementation.
-		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, wasmClient, scalingFactorGetterCb), nil
+		return NewRoutableCosmWasmPool(cosmwasmPool, balances, "", tokenOutDenom, takerFee, spreadFactor, wasmClient, scalingFactorGetterCb), nil
 	}
 
 	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmConfig, tokenOutDenom, takerFee)

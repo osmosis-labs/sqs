@@ -13,6 +13,15 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+type QuoteExactAmountOut struct {
+	AmountIn                osmomath.Int        "json:\"amount_in\""
+	AmountOut               sdk.Coin            "json:\"amount_out\""
+	Route                   []domain.SplitRoute "json:\"route\""
+	EffectiveFee            osmomath.Dec        "json:\"effective_fee\""
+	PriceImpact             osmomath.Dec        "json:\"price_impact\""
+	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
+}
+
 type quoteImpl struct {
 	AmountIn                sdk.Coin            "json:\"amount_in\""
 	AmountOut               osmomath.Int        "json:\"amount_out\""
@@ -36,7 +45,7 @@ var _ domain.Quote = &quoteImpl{}
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, method domain.TokenSwapMethod) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
@@ -66,7 +75,7 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
 		amountInFraction := q.AmountIn.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction))
+		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), domain.TokenSwapMethodExactIn)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}
@@ -74,14 +83,21 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 		totalSpotPriceInBaseOutQuote = totalSpotPriceInBaseOutQuote.AddMut(routeSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
 		totalEffectiveSpotPriceInBaseOutQuote = totalEffectiveSpotPriceInBaseOutQuote.AddMut(effectiveSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
 
-		resultRoutes = append(resultRoutes, &RouteWithOutAmount{
+		route := RouteWithOutAmount{
 			RouteImpl: route.RouteImpl{
 				Pools:                      newPools,
 				HasGeneralizedCosmWasmPool: curRoute.ContainsGeneralizedCosmWasmPool(),
 			},
 			InAmount:  curRoute.GetAmountIn(),
 			OutAmount: curRoute.GetAmountOut(),
-		})
+		}
+
+		// invert the in and out amounts if the method is exact out
+		if method == domain.TokenSwapMethodExactOut {
+			route.InAmount, route.OutAmount = route.OutAmount, route.InAmount
+		}
+
+		resultRoutes = append(resultRoutes, &route)
 	}
 
 	// Calculate price impact
@@ -92,6 +108,17 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 	q.EffectiveFee = totalFeeAcrossRoutes
 	q.Route = resultRoutes
 	q.InBaseOutQuoteSpotPrice = totalSpotPriceInBaseOutQuote
+
+	return q.Route, q.EffectiveFee, nil
+}
+
+func (q *QuoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
+	for _, r := range q.Route {
+		for _, p := range r.GetPools() {
+			p.SetTokenInDenom(p.GetTokenOutDenom())
+			p.SetTokenOutDenom("")
+		}
+	}
 
 	return q.Route, q.EffectiveFee, nil
 }
@@ -132,4 +159,9 @@ func (q *quoteImpl) String() string {
 // GetPriceImpact implements domain.Quote.
 func (q *quoteImpl) GetPriceImpact() osmomath.Dec {
 	return q.PriceImpact
+}
+
+// GetInBaseOutQuoteSpotPrice implements domain.Quote.
+func (q *quoteImpl) GetInBaseOutQuoteSpotPrice() osmomath.Dec {
+	return q.InBaseOutQuoteSpotPrice
 }

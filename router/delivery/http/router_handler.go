@@ -16,6 +16,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/usecase"
 )
 
 // RouterHandler  represent the httphandler for the router
@@ -107,13 +108,24 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 
 	return nil
 }
+func (r *GetQuoteRequest) SwapMethod() domain.TokenSwapMethod {
+	if r.TokenIn != nil && r.TokenOutDenom != "" {
+		return domain.TokenSwapMethodExactIn
+	}
+
+	if r.TokenOut != nil && r.TokenInDenom != "" {
+		return domain.TokenSwapMethodExactOut
+	}
+
+	return domain.TokenSwapMethodInvalid
+}
 
 func (r *GetQuoteRequest) IsSwapExactAmountIn() bool {
-	return r.TokenIn != nil && r.TokenOutDenom != ""
+	return r.SwapMethod() == domain.TokenSwapMethodExactIn
 }
 
 func (r *GetQuoteRequest) IsSwapExactAmountOut() bool {
-	return r.TokenOut != nil && r.TokenInDenom != ""
+	return r.SwapMethod() == domain.TokenSwapMethodExactOut
 }
 
 // TODO: it should NOT depend on echo context?
@@ -211,7 +223,22 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		routerOpts = append(routerOpts, domain.WithMaxSplitRoutes(domain.DisableSplitRoutes))
 	}
 
-	quote, err := a.RUsecase.GetOptimalQuote(ctx, *tokenIn, tokenOutDenom, routerOpts...)
+	// NOTE:
+	// In general it seems that original idea of just inverting inputs is moving away from the proposed design.
+	// That is because we have to handle different logic for each swap method in different places even with inputs inversion that results in the similar code amount as it would be with specific quote types.
+	// Specifically, we need to implement following changes ( based on original idea ):
+	// - Each pool needs to have added TokenInDenom field
+	// - Each pool needs to have added ChargeTakerFeeExactOut field
+	//
+	// 
+	// Note parameter req.SwapMethod(), this is currently not implemented, but just to demonstrate the idea:
+	// It would make more sense to construct and return specific swap method quote from GetOptimalQuote
+	// Returned domain.Quote's underlying type can be either ExactAmountInQuote or ExactAmountOutQuote
+	//
+	// That would allow to simplify all handling per swap method below.
+	// We could be able to switch between CalculateTokenOutByTokenIn and CalculateTokenInByTokenOut
+	// As a side effect, all quote related methods ( for example custom direct quote ) could benefit for ExactAmountOut logic.
+	quote, err := a.RUsecase.GetOptimalQuote(ctx, *tokenIn, tokenOutDenom, req.SwapMethod(), routerOpts...)
 	if err != nil {
 		return err
 	}
@@ -221,7 +248,9 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
 	}
 
-	_, _, err = quote.PrepareResult(ctx, scalingFactor)
+	//  PrepareResult requires swap method to be passed in, because based on that
+	// it needs to calculate takers fee for each pool in the route.
+	_, _, err = quote.PrepareResult(ctx, scalingFactor, req.SwapMethod())
 	if err != nil {
 		return err
 	}
@@ -229,7 +258,24 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	span.SetAttributes(attribute.Stringer("token_out", quote.GetAmountOut()))
 	span.SetAttributes(attribute.Stringer("price_impact", quote.GetPriceImpact()))
 
-	return c.JSON(http.StatusOK, quote)
+	// If a Quote is swap method specific, we can remove all below
+	if req.IsSwapExactAmountIn() {
+		return c.JSON(http.StatusOK, quote)
+	}
+
+	// For swap exact amount out, we reformat quote: invert amount in and amount out.
+	q := usecase.QuoteExactAmountOut{
+		AmountOut:               quote.GetAmountIn(),
+		AmountIn:                quote.GetAmountOut(),
+		Route:                   quote.GetRoute(),
+		EffectiveFee:            quote.GetEffectiveSpreadFactor(),
+		PriceImpact:             quote.GetPriceImpact(),
+		InBaseOutQuoteSpotPrice: quote.GetInBaseOutQuoteSpotPrice(),
+	}
+
+	q.PrepareResult(ctx, scalingFactor)
+
+	return c.JSON(http.StatusOK, q)
 }
 
 // @Summary Compute the quote for the given poolID
@@ -260,7 +306,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 	}
 
 	// Quote
-	quote, err := a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, tokenIn, tokenOutDenom, poolIDs)
+	quote, err := a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, tokenIn, tokenOutDenom, poolIDs, domain.TokenSwapMethodExactIn)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -270,7 +316,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom[len(tokenOutDenom)-1])
 	}
 
-	_, _, err = quote.PrepareResult(ctx, scalingFactor)
+	_, _, err = quote.PrepareResult(ctx, scalingFactor, domain.TokenSwapMethodExactIn)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
