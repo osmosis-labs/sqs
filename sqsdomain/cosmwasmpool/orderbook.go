@@ -173,7 +173,7 @@ func CalcAmountInToExhaustOrderbookLiquidity(directionIn OrderbookDirection, sta
 		}
 
 		// convert current tick liquidity to value required in the order direction
-		tickRequiredAmountIn := OrderbookValueInOppositeDirection(tickLiquidity, tickPrice, directionIn)
+		tickRequiredAmountIn := OrderbookValueInOppositeDirection(tickLiquidity, tickPrice, directionOut)
 
 		// accumulate the required amount in
 		requiredAmountIn = requiredAmountIn.Add(tickRequiredAmountIn)
