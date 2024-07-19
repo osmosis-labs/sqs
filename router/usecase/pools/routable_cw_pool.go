@@ -127,7 +127,7 @@ func (r *routableCosmWasmPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 
 // GetTokenInDenom implements RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetTokenInDenom() string {
-	return r.TokenOutDenom
+	return r.TokenInDenom
 }
 
 // GetTokenOutDenom implements RoutablePool.

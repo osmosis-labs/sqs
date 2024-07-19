@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestGetQuoteRequestUnmarhal tests the UnmarshalHTTPRequest method of GetQuoteRequest.
-func TestGetQuoteRequestUnmarhal(t *testing.T) {
+// TestGetQuoteRequestUnmarshal tests the UnmarshalHTTPRequest method of GetQuoteRequest.
+func TestGetQuoteRequestUnmarshal(t *testing.T) {
 	testcases := []struct {
 		name           string
 		queryParams    map[string]string
@@ -126,8 +126,8 @@ func TestGetQuoteRequestUnmarhal(t *testing.T) {
 	}
 }
 
-// TestGetQuoteRequesSwapMethod tests the SwapMethod method of GetQuoteRequest.
-func TestGetQuoteRequesSwapMethod(t *testing.T) {
+// TestGetQuoteRequestSwapMethod tests the SwapMethod method of GetQuoteRequest.
+func TestGetQuoteRequestSwapMethod(t *testing.T) {
 	testcases := []struct {
 		name           string
 		request        *types.GetQuoteRequest
