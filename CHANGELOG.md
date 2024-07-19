@@ -35,6 +35,23 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.5.0
+
+- Switch quotes onto new candidate routes system
+
+## v25.4.1
+
+- Resolve goroutine leak stemming from creating a grpc connection for every cosmwasm pool in route. Share one connection.
+
+## v25.4.0
+
+- Remove spread factor from fee as it is included in the price impact
+- Format contract address in canonical orderbook endpoints
+
+## v25.3.2
+
+- Fix telemetry issues around coingecko pricing source
+
 ## v25.3.1
 
 - Fix goroutine leak in worker pool for prices

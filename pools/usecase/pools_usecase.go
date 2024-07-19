@@ -3,10 +3,18 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
 	"cosmossdk.io/math"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -15,21 +23,36 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
+
+type orderBookEntry struct {
+	PoolID          uint64
+	LiquidityCap    osmomath.Int
+	ContractAddress string
+}
 
 type poolsUseCase struct {
 	pools            sync.Map
 	routerRepository routerrepo.RouterRepository
-	cosmWasmConfig   domain.CosmWasmPoolRouterConfig
 
-	scalingFactorGetterCb domain.ScalingFactorGetterCb
+	canonicalOrderBookForBaseQuoteDenom sync.Map
+
+	cosmWasmPoolsParams pools.CosmWasmPoolsParams
+
+	logger log.Logger
 }
 
 var _ mvc.PoolsUsecase = &poolsUseCase{}
 
+const (
+	// baseQuoteKeySeparator is the separator used to separate base and quote denom in the key.
+	baseQuoteKeySeparator = "~"
+)
+
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb) mvc.PoolsUsecase {
+func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb, logger log.Logger) (*poolsUseCase, error) {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
 	for _, codeId := range poolsConfig.TransmuterCodeIDs {
 		transmuterCodeIDsMap[codeId] = struct{}{}
@@ -50,19 +73,31 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint s
 		generalizedCosmWasmCodeIDsMap[codeId] = struct{}{}
 	}
 
+	wasmClient, err := initializeWasmClient(chainGRPCGatewayEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
 	return &poolsUseCase{
-		cosmWasmConfig: domain.CosmWasmPoolRouterConfig{
-			TransmuterCodeIDs:        transmuterCodeIDsMap,
-			AlloyedTransmuterCodeIDs: alloyedTransmuterCodeIDsMap,
-			OrderbookCodeIDs:         orderbookCodeIDsMap,
-			GeneralCosmWasmCodeIDs:   generalizedCosmWasmCodeIDsMap,
-			ChainGRPCGatewayEndpoint: chainGRPCGatewayEndpoint,
+		pools:            sync.Map{},
+		routerRepository: routerRepository,
+
+		cosmWasmPoolsParams: pools.CosmWasmPoolsParams{
+			Config: domain.CosmWasmPoolRouterConfig{
+				TransmuterCodeIDs:        transmuterCodeIDsMap,
+				AlloyedTransmuterCodeIDs: alloyedTransmuterCodeIDsMap,
+				OrderbookCodeIDs:         orderbookCodeIDsMap,
+				GeneralCosmWasmCodeIDs:   generalizedCosmWasmCodeIDsMap,
+				ChainGRPCGatewayEndpoint: chainGRPCGatewayEndpoint,
+			},
+
+			WasmClient: wasmClient,
+
+			ScalingFactorGetterCb: scalingFactorGetterCb,
 		},
 
-		pools:                 sync.Map{},
-		routerRepository:      routerRepository,
-		scalingFactorGetterCb: scalingFactorGetterCb,
-	}
+		logger: logger,
+	}, nil
 }
 
 // GetAllPools returns all pools from the repository.
@@ -112,7 +147,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 				takerFee = sqsdomain.DefaultTakerFee
 			}
 
-			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmConfig, p.scalingFactorGetterCb)
+			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmPoolsParams)
 			if err != nil {
 				skipErrorRoute = true
 				break
@@ -196,7 +231,7 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 
 	// N.B.: Empty string for token out denom because it is irrelevant for calculating spot price.
 	// It is only relevant in the context of routing
-	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmConfig, p.scalingFactorGetterCb)
+	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmPoolsParams)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -206,7 +241,7 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 
 // IsGeneralCosmWasmCodeID implements mvc.PoolsUsecase.
 func (p *poolsUseCase) IsGeneralCosmWasmCodeID(codeId uint64) bool {
-	_, isGenneralCosmWasmCodeID := p.cosmWasmConfig.GeneralCosmWasmCodeIDs[codeId]
+	_, isGenneralCosmWasmCodeID := p.cosmWasmPoolsParams.Config.GeneralCosmWasmCodeIDs[codeId]
 	return isGenneralCosmWasmCodeID
 }
 
@@ -270,12 +305,173 @@ func (p *poolsUseCase) GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error) {
 // StorePools implements mvc.PoolsUsecase.
 func (p *poolsUseCase) StorePools(pools []sqsdomain.PoolI) error {
 	for _, pool := range pools {
-		p.pools.Store(pool.GetId(), pool)
+		// Store pool
+		poolID := pool.GetId()
+		p.pools.Store(poolID, pool)
+
+		// If orderbook, update top liquidity pool for base and quote denom if it has higher liquidity capitalization.
+		sqsModel := pool.GetSQSPoolModel()
+		cosmWasmPoolModel := sqsModel.CosmWasmPoolModel
+		if cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook() {
+			baseDenom := cosmWasmPoolModel.Data.Orderbook.BaseDenom
+			quoteDenom := cosmWasmPoolModel.Data.Orderbook.QuoteDenom
+			poolLiquidityCapitalization := pool.GetLiquidityCap()
+
+			// Get contract address from chain pool
+			chainPool := pool.GetUnderlyingPool()
+			chainCosmWasmPool, ok := chainPool.(*cosmwasmpoolmodel.CosmWasmPool)
+			if !ok || chainCosmWasmPool == nil {
+				p.logger.Error("failed to cast chain pool to CosmWasmPool", zap.Uint64("poolID", poolID))
+				continue
+			}
+			contractAddress := chainCosmWasmPool.ContractAddress
+
+			// Process orderbook pool ID for base and quote denom
+			_, err := p.processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom, poolID, poolLiquidityCapitalization, contractAddress)
+			if err != nil {
+				p.logger.Error(err.Error())
+				// Continue to the next pool
+				continue
+			}
+		}
 	}
 	return nil
 }
 
+// processOrderbookPoolIDForBaseQuote processes the orderbook pool ID for the base and quote denom and pool liquidity
+// capitalization. If the current pool has higher liquidity capitalization than the top liquidity pool, update the top liquidity pool
+// for the given base and quote denom.
+// Returns true if the top liquidity pool is updated, false otherwise.
+// Returns an error if the previous top orderbook entry cannot be casted to the right type.
+// CONTRACT: the given poolID is an orderbook pool.
+func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom string, poolID uint64, poolLiquidityCapitalization osmomath.Int, contractAddress string) (updatedBool bool, err error) {
+	// Format base and quote denom key.
+	baseQuoteKey := formatBaseQuoteDenom(baseDenom, quoteDenom)
+
+	// Determine there is an existing top liquidity pool for the base and quote denom.
+	topLiquidityOrderBook, found := p.canonicalOrderBookForBaseQuoteDenom.Load(baseQuoteKey)
+	if found {
+		// Cast to orderBookEntry
+		topLiquidityOrderBookEntry, ok := topLiquidityOrderBook.(orderBookEntry)
+		if !ok {
+			err = domain.FailCastCanonicalOrderbookEntryError{
+				BaseQuoteKey: baseQuoteKey,
+			}
+			return false, err
+		}
+
+		// If the current pool has lower or equak liquidity capitalization than the top liquidity pool
+		// continue to the next pool
+		if poolLiquidityCapitalization.LTE(topLiquidityOrderBookEntry.LiquidityCap) {
+			return false, nil
+		}
+	}
+
+	// If not found or the current pool has higher liquidity capitalization than the top liquidity pool
+	// update the top liquidity pool
+	p.canonicalOrderBookForBaseQuoteDenom.Store(baseQuoteKey, orderBookEntry{
+		PoolID:          poolID,
+		LiquidityCap:    poolLiquidityCapitalization,
+		ContractAddress: contractAddress,
+	})
+
+	return true, nil
+}
+
+// GetCanonicalOrderbookPool implements mvc.PoolsUsecase.
+func (p *poolsUseCase) GetCanonicalOrderbookPool(baseDenom, quoteDenom string) (uint64, string, error) {
+	baseQuote := formatBaseQuoteDenom(baseDenom, quoteDenom)
+	topLiquidityOrderBook, found := p.canonicalOrderBookForBaseQuoteDenom.Load(baseQuote)
+	if !found {
+		return 0, "", fmt.Errorf("canonical orderbook not found for base %s and quote %s", baseDenom, quoteDenom)
+	}
+
+	topLiquidityOrderBookEntry, ok := topLiquidityOrderBook.(orderBookEntry)
+	if !ok {
+		return 0, "", fmt.Errorf("failed to cast orderbook entry with value %v", topLiquidityOrderBook)
+	}
+
+	return topLiquidityOrderBookEntry.PoolID, topLiquidityOrderBookEntry.ContractAddress, nil
+}
+
+// GetAllCanonicalOrderbookPoolIDs implements mvc.PoolsUsecase.
+func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error) {
+	var (
+		results []domain.CanonicalOrderBooksResult
+		err     error
+	)
+
+	p.canonicalOrderBookForBaseQuoteDenom.Range(func(key, value any) bool {
+		// Cast key to string
+		baseQuoteKey, ok := key.(string)
+		if !ok {
+			err = domain.FailCastCanonicalOrderbookKeyError{
+				BaseQuoteKey: baseQuoteKey,
+			}
+			return false
+		}
+
+		// split base and quote denom
+		denoms := strings.Split(baseQuoteKey, baseQuoteKeySeparator)
+		if len(denoms) != 2 {
+			err = domain.FailSplitCanonicalOrderBookKeyError{
+				BaseQuoteKey: baseQuoteKey,
+			}
+			return false
+		}
+
+		baseDenom := denoms[0]
+		quoteDenom := denoms[1]
+
+		// Cast value to orderBookEntry
+		topLiquidityOrderBook, ok := value.(orderBookEntry)
+		if !ok {
+			err = domain.FailCastCanonicalOrderbookEntryError{
+				BaseQuoteKey: baseQuoteKey,
+			}
+			return false
+		}
+
+		results = append(results, domain.CanonicalOrderBooksResult{
+			Base:            baseDenom,
+			Quote:           quoteDenom,
+			PoolID:          topLiquidityOrderBook.PoolID,
+			ContractAddress: topLiquidityOrderBook.ContractAddress,
+		})
+
+		return true
+	})
+
+	// Sort by pool ID for deterministic results
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].PoolID < results[j].PoolID
+	})
+
+	return results, err
+}
+
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
-	return p.cosmWasmConfig
+	return p.cosmWasmPoolsParams.Config
+}
+
+// formatBaseQuoteDenom formats the base and quote denom into a single string with a separator.
+func formatBaseQuoteDenom(baseDenom, quoteDenom string) string {
+	return baseDenom + baseQuoteKeySeparator + quoteDenom
+}
+
+// initializeWasmClient initializes the wasm client given the node URI
+// Returns error if fails to initialize the client
+func initializeWasmClient(grpcGatewayEndpoint string) (wasmtypes.QueryClient, error) {
+	grpcClient, err := grpc.NewClient(grpcGatewayEndpoint,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	wasmClient := wasmtypes.NewQueryClient(grpcClient)
+
+	return wasmClient, nil
 }

@@ -47,11 +47,16 @@ func (s *RouterTestSuite) setupSplitsMainnetTestCase(displayDenomIn string, amou
 
 	ctx := context.TODO()
 
-	// Get candidate routes
-	candidateRoutes, err := useCases.Router.GetCandidateRoutes(ctx, tokenIn, chainDenomOut)
-	s.Require().NoError(err)
-
 	config := useCases.Router.GetConfig()
+
+	options := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           config.MaxRoutes,
+		MaxPoolsPerRoute:    config.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: config.MinPoolLiquidityCap,
+	}
+	// Get candidate routes
+	candidateRoutes, err := useCases.CandidateRouteSearcher.FindCandidateRoutes(tokenIn, chainDenomOut, options)
+	s.Require().NoError(err)
 
 	// TODO: consider moving to interface.
 	routerUseCase, ok := useCases.Router.(*usecase.RouterUseCaseImpl)

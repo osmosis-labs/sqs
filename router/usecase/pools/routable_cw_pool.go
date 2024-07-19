@@ -39,7 +39,7 @@ type routableCosmWasmPoolImpl struct {
 }
 
 // NewRoutableCosmWasmPool returns a new routable cosmwasm pool with the given parameters.
-func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, wasmClient wasmtypes.QueryClient, scalingFactorGetterCb domain.ScalingFactorGetterCb) domain.RoutablePool {
+func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, cosmWasmPoolsParams CosmWasmPoolsParams) domain.RoutablePool {
 	// Initializa routable cosmwasm pool
 	routableCosmWasmPool := &routableCosmWasmPoolImpl{
 		ChainPool:     pool,
@@ -47,7 +47,7 @@ func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins,
 		TokenOutDenom: tokenOutDenom,
 		TakerFee:      takerFee,
 		SpreadFactor:  spreadFactor,
-		wasmClient:    wasmClient,
+		wasmClient:    cosmWasmPoolsParams.WasmClient,
 
 		// Note, that there is no calculator set
 		// since we need to wire quote calculation callback to it.
@@ -55,7 +55,7 @@ func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins,
 	}
 
 	// Initialize spot price calculator.
-	spotPriceCalculator := NewSpotPriceQuoteComputer(scalingFactorGetterCb, routableCosmWasmPool.calculateTokenOutByTokenIn)
+	spotPriceCalculator := NewSpotPriceQuoteComputer(cosmWasmPoolsParams.ScalingFactorGetterCb, routableCosmWasmPool.calculateTokenOutByTokenIn)
 
 	// Set it on the routable cosmwasm pool.
 	routableCosmWasmPool.spotPriceQuoteCalculator = spotPriceCalculator

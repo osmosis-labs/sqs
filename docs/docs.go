@@ -42,6 +42,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/pools/canonical-orderbook": {
+            "get": {
+                "description": "Returns the canonical orderbook pool ID for the given base and quote.\nif the pool ID is not found for the given pair, it returns an error.\nif the base or quote denom are not provided, it returns an error.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get canonical orderbook pool ID for the given base and quote.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Base denom",
+                        "name": "base",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Quote denom",
+                        "name": "quote",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Canonical Orderbook Pool ID for the given base and quote",
+                        "schema": {
+                            "type": "struct"
+                        }
+                    }
+                }
+            }
+        },
+        "/pools/canonical-orderbooks": {
+            "get": {
+                "description": "Returns the list of canonical orderbook pool ID entries for all possible base and quote combinations.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get entries for all supported orderbook base and quote denoms.",
+                "responses": {
+                    "200": {
+                        "description": "List of canonical orderbook ool ID entries for all base and quotes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.CanonicalOrderBooksResult"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/router/custom-direct-quote": {
             "get": {
                 "description": "Call does not search for the route rather directly computes the quote for the given poolID.",
@@ -299,6 +352,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "domain.CanonicalOrderBooksResult": {
+            "type": "object",
+            "properties": {
+                "base": {
+                    "type": "string"
+                },
+                "contract_address": {
+                    "type": "string"
+                },
+                "pool_id": {
+                    "type": "integer"
+                },
+                "quote": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Token": {
             "type": "object",
             "properties": {

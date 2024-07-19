@@ -109,7 +109,7 @@ func (s *CoingeckoPricingTestSuite) TestGetPrices_Coingecko_FindUnsupportedToken
 
 	fmt.Println("Total unsupported tokens: ", unsupportedCounter)
 
-	// Total unsupported tokens as of July 7 2024
-	s.Require().Equal(158, unsupportedCounter)
+	// Total unsupported tokens as of July 18 2024
+	s.Require().Equal(165, unsupportedCounter)
 
 }

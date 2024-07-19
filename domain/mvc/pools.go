@@ -27,6 +27,16 @@ type PoolsUsecase interface {
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 
 	GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig
+
+	// GetCanonicalOrderbookPool returns the canonical orderbook pool ID for the given base and quote denoms
+	// as well as the associated contract ID.
+	// Returns error if the pool is not found for the given pair.
+	GetCanonicalOrderbookPool(baseDenom, quoteDenom string) (uint64, string, error)
+
+	// GetAllCanonicalOrderbookPoolIDs returns all the canonical orderbook results
+	// where each base/quote denom is associated with a default pool ID.
+	// Sorts the results by pool ID.
+	GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error)
 }
 
 type PoolHandler interface {

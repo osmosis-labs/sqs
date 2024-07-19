@@ -30,6 +30,16 @@ type PoolsUsecaseMock struct {
 	TickModelMap map[uint64]*sqsdomain.TickModel
 }
 
+// GetAllCanonicalOrderbookPoolIDs implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error) {
+	panic("unimplemented")
+}
+
+// GetCanonicalOrderbookPool implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) GetCanonicalOrderbookPool(baseDenom string, quoteDenom string) (uint64, string, error) {
+	panic("unimplemented")
+}
+
 // StorePools implements mvc.PoolsUsecase.
 func (pm *PoolsUsecaseMock) StorePools(pools []sqsdomain.PoolI) error {
 	if pm.StorePoolsFunc != nil {
@@ -83,7 +93,9 @@ func (pm *PoolsUsecaseMock) GetRoutesFromCandidates(candidateRoutes sqsdomain.Ca
 			}
 
 			// TODO: note that taker fee is force set to zero
-			routablePool, err := pools.NewRoutablePool(foundPool, candidatePool.TokenOutDenom, osmomath.ZeroDec(), domain.CosmWasmPoolRouterConfig{}, domain.UnsetScalingFactorGetterCb)
+			routablePool, err := pools.NewRoutablePool(foundPool, candidatePool.TokenOutDenom, osmomath.ZeroDec(), pools.CosmWasmPoolsParams{
+				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+			})
 			if err != nil {
 				return nil, err
 			}

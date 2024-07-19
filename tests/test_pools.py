@@ -40,14 +40,14 @@ class TestPools:
         # See: https://linear.app/osmosis/issue/NUMIA-35/missing-data-for-white-whale-pool
         skip_whitewhale_code_id = 641
         # This pool has a bug in the Numia side.
-        skip_alloyed_pool_id = 1816
+        skip_alloyed_pool_id = [1816, 1878]
 
         sqs_service = SERVICE_MAP[environment_url]
 
         pool_liquidity = pool_data.get("liquidity")
         pool_id = pool_data.get("pool_id")
 
-        if pool_id == skip_alloyed_pool_id:
+        if pool_id in skip_alloyed_pool_id:
             pytest.skip("Skipping alloyed pool since it has flakiness on Numia side")
 
         sqs_pool = sqs_service.get_pool(pool_id)
@@ -66,3 +66,34 @@ class TestPools:
             assert actual_error < error_tolerance, f"ID ({pool_id}) Pool liquidity cap was {sqs_liquidity_cap} - expected {pool_liquidity}, actual error {actual_error} error tolerance {error_tolerance}" 
         else:
             pytest.skip("Pool liquidity is too low - skipping to reduce flakiness")
+
+    def test_canonical_orderbook(self, environment_url):
+        # Note, that this is the first orderbook created on mainnet. As a result, it is the canonical orderbook.
+        # If more orederbooks are added in the future and liquidity changes, this might have to be refactored.
+        expected_orderbook_pool_id = 1904
+        base = "factory/osmo1z0qrq605sjgcqpylfl4aa6s90x738j7m58wyatt0tdzflg2ha26q67k743/wbtc"
+        quote = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+        expected_contract_address = "osmo18nzruvalfuukut9fq5st5mg5sn6s8nu4u42kuwwgynu3fne6sd5sxnrwf2"
+
+        sqs_service = SERVICE_MAP[environment_url]
+        canonical_orderbooks = sqs_service.get_canonical_orderbooks()
+
+        assert canonical_orderbooks is not None, "Canonical orderbooks are None"
+        assert len(canonical_orderbooks) > 0, "Canonical orderbooks are empty"
+
+        didFind = False
+
+        for orderbook in canonical_orderbooks:
+            if orderbook.get("pool_id") == expected_orderbook_pool_id:
+                assert orderbook.get("base") == base, "Base asset is not correct"
+                assert orderbook.get("quote") == quote, "Quote asset is not correct"
+
+                actual_contract_address = orderbook.get("contract_address")
+                assert actual_contract_address == expected_contract_address, f"Contract address is not correct, actual: {actual_contract_address}, expected: {expected_contract_address}"
+
+
+                didFind = True
+                return
+
+        # This may fail as we keep adding more orderbooks. If it does, we need to refactor this test.
+        assert didFind, "Expected canonical orderbook was not found"

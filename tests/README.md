@@ -38,9 +38,8 @@ It is possible to launch the test suite directly from VS Code.
 We have a debug configuration under `.vscode/launch.json` called .
 
 This configuration runs the test suite in verbose mode without parallelization.
-It alows setting breakpoints for streamlined debugging.
+It allows setting breakpoints for streamlined debugging.
 
-<<<<<<< HEAD
 ## Test Suite Setup
 
 There are 2 modes of running the suite:
@@ -81,7 +80,7 @@ that sometimes has outdated data (from rumors, by 20 or so blocks).
 ## Common Flakiness
 
 - Transmuter v1 pool imbalance (All liquidity gets swapped into one token)
-- Astroport pool spot-price isssues (their spot price query scales output amount by scaling factor)
+- Astroport pool spot-price issues (their spot price query scales output amount by scaling factor)
 - Latency issues (need to be investigated and fixed, sometimes restart helps to warm up caches)
 
 ## CI Integration
@@ -98,7 +97,7 @@ There are 3 possible triggers:
 
 3. Post auto-deployment to stage ([TBD](https://linear.app/osmosis/issue/PLAT-207/sqs-stage-deployment-completion-hook-in-ci))
 
-### Supported Environmnets
+### Supported Environments
 
 - `prod` -> `https://sqs.osmosis.zone`
 - `stage` -> `https://sqs.stage.osmosis.zone`
@@ -107,5 +106,5 @@ There are 3 possible triggers:
 
 Our `pytest` parses the following environment variables in `conftest.py`
 
-- `SQS_API_KEY` -> API Key to bypass rate limite. If not provided, the tests will run without api key set.
+- `SQS_API_KEY` -> API Key to bypass rate limit. If not provided, the tests will run without API key set.
 - `SQS_ENVIRONMENTS` -> Comma separated list of environment names per "Supported Environments" to run the tests against. If not provided, the tests will run against stage.

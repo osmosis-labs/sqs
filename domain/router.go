@@ -54,7 +54,7 @@ type Quote interface {
 	GetAmountIn() sdk.Coin
 	GetAmountOut() osmomath.Int
 	GetRoute() []SplitRoute
-	GetEffectiveSpreadFactor() osmomath.Dec
+	GetEffectiveFee() osmomath.Dec
 	GetPriceImpact() osmomath.Dec
 	GetInBaseOutQuoteSpotPrice() osmomath.Dec
 

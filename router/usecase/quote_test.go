@@ -36,7 +36,6 @@ var (
 // Route 2: 1 hop
 //
 // Validate that the effective swap fee is computed correctly.
-// TODO: validate that taker fees are accounted for.
 func (s *RouterTestSuite) TestPrepareResult() {
 	s.SetupTest()
 
@@ -223,18 +222,18 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	}
 
 	// Compute expected total fee and validate against actual
-	expectedPoolOneTotalFee := poolOne.GetSpreadFactor(sdk.Context{}).Add(takerFeeOne)
-	expectedPoolTwoTotalFee := poolTwo.GetSpreadFactor(sdk.Context{}).Add(takerFeeTwo)
-	expectedPoolThreeTotalFee := poolThree.GetSpreadFactor(sdk.Context{}).Add(takerFeeThree)
+	expectedPoolOneTotalFee := takerFeeOne
+	expectedPoolTwoTotalFee := takerFeeTwo
+	expectedPoolThreeTotalFee := takerFeeThree
 
 	expectedRouteOneFee := expectedPoolOneTotalFee.Add(osmomath.OneDec().Sub(expectedPoolOneTotalFee).MulMut(expectedPoolTwoTotalFee)).MulMut(osmomath.NewDecWithPrec(5, 1))
-	expectedRouteTwoFee := expectedPoolThreeTotalFee.MulMut(osmomath.NewDecWithPrec(5, 1))
+	expectedRouteTwoFee := expectedPoolThreeTotalFee.Mul(osmomath.NewDecWithPrec(5, 1))
 
-	// ((0.01 + 0.02) + (1 - (0.01 + 0.02)) * (0.03 + 0.0004)) * 0.5 + (0.005 + 0.003) * 0.5
-	expectedEffectiveSpreadFactor := expectedRouteOneFee.Add(expectedRouteTwoFee)
+	// (0.02 + (1 - 0.02) * 0.0004) * 0.5 + 0.003 * 0.5
+	expectedEffectiveFee := expectedRouteOneFee.Add(expectedRouteTwoFee)
 
 	// System under test
-	routes, effectiveSpreadFactor, err := testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
+	routes, effectiveFee, err := testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
 	s.Require().NoError(err)
 
 	// Validate routes.
@@ -242,8 +241,8 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	s.validateRoutes(expectedRoutes, testQuote.GetRoute())
 
 	// Validate effective spread factor.
-	s.Require().Equal(expectedEffectiveSpreadFactor.String(), effectiveSpreadFactor.String())
-	s.Require().Equal(expectedEffectiveSpreadFactor.String(), testQuote.GetEffectiveSpreadFactor().String())
+	s.Require().Equal(expectedEffectiveFee.String(), effectiveFee.String())
+	s.Require().Equal(expectedEffectiveFee.String(), testQuote.GetEffectiveFee().String())
 }
 
 // This test validates that price impact is computed correctly.
@@ -337,7 +336,11 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 }
 
 func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
-	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmConfig, domain.UnsetScalingFactorGetterCb)
+	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+		Config:                cosmWasmConfig,
+		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+	}
+	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 	return routablePool
 }

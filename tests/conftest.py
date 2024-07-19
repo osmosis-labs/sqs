@@ -442,8 +442,15 @@ def create_misc_token_pairs():
     all_tokens = set(top_five_liquidity_tokens + top_five_volume_tokens +
                      five_low_liquidity_tokens + five_low_volume_tokens)
 
+    tokens_metadata = SERVICE_SQS_PROD.get_tokens_metadata()
+
+    # Filter tokens based on the 'preview' attribute in tokens_metadata
+    # That is, skip unlisted tokens to avoid flakiness
+    filtered_tokens = {token for token in all_tokens
+                    if token in tokens_metadata and not tokens_metadata[token].get('preview', True)}
+
     # Construct all unique combinations of token pairs
-    token_pairs = create_no_dupl_token_pairs(all_tokens)
+    token_pairs = create_no_dupl_token_pairs(filtered_tokens)
 
     # Format pairs for return
     formatted_pairs = [[token1, token2] for token1, token2 in token_pairs]

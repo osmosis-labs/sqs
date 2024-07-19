@@ -28,8 +28,8 @@ func ValidateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDe
 	return validateAndFilterRoutes(candidateRoutes, tokenInDenom, logger)
 }
 
-func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
-	return r.handleCandidateRoutes(ctx, pools, tokenIn, tokenOutDenom, maxRoutes, maxPoolsPerRoute)
+func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
+	return r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 }
 
 func EstimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {

@@ -165,7 +165,7 @@ var (
 		MaxRoutes:           20,
 		MaxPoolsPerRoute:    4,
 		MaxSplitRoutes:      3,
-		MinPoolLiquidityCap: 20000,
+		MinPoolLiquidityCap: 1000,
 		RouteCacheEnabled:   true,
 
 		// Set proper dynamic min liquidity config here
@@ -387,7 +387,8 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	routerRepositoryMock.SetCandidateRouteSearchData(mainnetState.CandidateRouteSearchData)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb)
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	s.Require().NoError(err)
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 
