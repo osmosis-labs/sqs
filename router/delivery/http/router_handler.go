@@ -302,21 +302,6 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 	return c.JSON(http.StatusOK, spotPrice)
 }
 
-// getValidRoutingParameters returns the tokenIn and tokenOutDenom from server context if they are valid.
-func getValidRoutingParameters(c echo.Context) (string, sdk.Coin, error) {
-	tokenOutStr, tokenInStr, err := getValidTokenInTokenOutStr(c)
-	if err != nil {
-		return "", sdk.Coin{}, err
-	}
-
-	tokenIn, err := sdk.ParseCoinNormalized(tokenInStr)
-	if err != nil {
-		return "", sdk.Coin{}, types.ErrTokenNotValid
-	}
-
-	return tokenOutStr, tokenIn, nil
-}
-
 // getDirectCustomQuoteParameters returns the pool IDs, tokenIn and tokenOutDenom from server context if they are valid.
 func getDirectCustomQuoteParameters(c echo.Context) ([]uint64, []string, sdk.Coin, error) {
 	poolID, tokenOut, tokenInStr, err := getPoolsValidTokenInTokensOut(c)
