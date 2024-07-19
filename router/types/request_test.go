@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestGetQuoteRequestUnmarhal tests the UnmarshalHTTPRequest method of GetQuoteRequest.
 func TestGetQuoteRequestUnmarhal(t *testing.T) {
 	testcases := []struct {
 		name           string
@@ -124,5 +126,135 @@ func TestGetQuoteRequestUnmarhal(t *testing.T) {
 	}
 }
 
+// TestGetQuoteRequesSwapMethod tests the SwapMethod method of GetQuoteRequest.
+func TestGetQuoteRequesSwapMethod(t *testing.T) {
+	testcases := []struct {
+		name           string
+		request        *types.GetQuoteRequest
+		expectedMethod domain.TokenSwapMethod
+	}{
+		{
+			name: "valid exact in swap method",
+			request: &types.GetQuoteRequest{
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenOutDenom: "usdc",
+			},
+			expectedMethod: domain.TokenSwapMethodExactIn,
+		},
+		{
+			name: "valid exact out swap method",
+			request: &types.GetQuoteRequest{
+				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenInDenom: "ust",
+			},
+			expectedMethod: domain.TokenSwapMethodExactOut,
+		},
+		{
+			name: "invalid swap method with both tokenIn and tokenOut",
+			request: &types.GetQuoteRequest{
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenInDenom:  "ust",
+				TokenOutDenom: "usdc",
+			},
+			expectedMethod: domain.TokenSwapMethodInvalid,
+		},
+		{
+			name: "invalid swap method with only tokenIn",
+			request: &types.GetQuoteRequest{
+				TokenIn: &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+			},
+			expectedMethod: domain.TokenSwapMethodInvalid,
+		},
+		{
+			name: "invalid swap method with only tokenOut",
+			request: &types.GetQuoteRequest{
+				TokenOut: &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+			},
+			expectedMethod: domain.TokenSwapMethodInvalid,
+		},
+		{
+			name:           "invalid swap method with neither tokenIn nor tokenOut",
+			request:        &types.GetQuoteRequest{},
+			expectedMethod: domain.TokenSwapMethodInvalid,
+		},
+	}
 
-// TODO: test validate method
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			method := tc.request.SwapMethod()
+			assert.Equal(t, tc.expectedMethod, method)
+		})
+	}
+}
+
+// TestGetQuoteRequestValidate tests the Validate method of GetQuoteRequest.
+func TestGetQuoteRequestValidate(t *testing.T) {
+	testcases := []struct {
+		name          string
+		request       *types.GetQuoteRequest
+		expectedError error
+	}{
+		{
+			name: "valid exact in request",
+			request: &types.GetQuoteRequest{
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenOutDenom: "usdc",
+			},
+			expectedError: nil,
+		},
+		{
+			name: "valid exact out request",
+			request: &types.GetQuoteRequest{
+				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenInDenom: "ust",
+			},
+			expectedError: nil,
+		},
+		{
+			name: "invalid request with both tokenIn and tokenOut",
+			request: &types.GetQuoteRequest{
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenInDenom:  "ust",
+				TokenOutDenom: "usdc",
+			},
+			expectedError: types.ErrSwapMethodNotValid,
+		},
+		{
+			name: "invalid exact in request with invalid denoms",
+			request: &types.GetQuoteRequest{
+				TokenIn:       &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOutDenom: "usdc",
+			},
+			expectedError: domain.SameDenomError{
+				DenomA: "usdc",
+				DenomB: "usdc",
+			},
+		},
+		{
+			name: "invalid exact out request with invalid denoms",
+			request: &types.GetQuoteRequest{
+				TokenOut:     &sdk.Coin{Denom: "usdt", Amount: sdk.NewInt(1000)},
+				TokenInDenom: "usdt",
+			},
+			expectedError: domain.SameDenomError{
+				DenomA: "usdt",
+				DenomB: "usdt",
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.request.Validate()
+			if tc.expectedError != nil {
+				assert.Error(t, err)
+				assert.Equal(t, tc.expectedError, err)
+				return
+			}
+
+			assert.NoError(t, err)
+		})
+	}
+}

@@ -18,6 +18,10 @@ type GetQuoteRequest struct {
 	ApplyExponents bool
 }
 
+// UnmarshalHTTPRequest unmarshals the HTTP request to GetQuoteRequest.
+// It returns an error if the request is invalid.
+// NOTE: Currently method for some cases returns an error, while for others
+// it returns a response error. This is not consistent and should be fixed.
 func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	var err error
 	r.SingleRoute, err = domain.ParseBooleanQueryParam(c, "singleRoute")
@@ -53,66 +57,45 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 }
 
 // SwapMethod returns the swap method of the request.
+// Request may contain data for both swap methods, only one of them should be specified, otherwise it's invalid.
 func (r *GetQuoteRequest) SwapMethod() domain.TokenSwapMethod {
-	if r.TokenIn != nil && r.TokenOutDenom != "" {
+	exactIn := r.TokenIn != nil && r.TokenOutDenom != ""
+	exactOut := r.TokenOut != nil && r.TokenInDenom != ""
+
+	if exactIn && exactOut {
+		return domain.TokenSwapMethodInvalid
+	}
+
+	if exactIn {
 		return domain.TokenSwapMethodExactIn
 	}
 
-	if r.TokenOut != nil && r.TokenInDenom != "" {
+	if exactOut {
 		return domain.TokenSwapMethodExactOut
 	}
 
 	return domain.TokenSwapMethodInvalid
 }
 
-// IsSwapExactAmountIn returns true if the swap method is exact amount in.
-func (r *GetQuoteRequest) IsSwapExactAmountIn() bool {
-	return r.SwapMethod() == domain.TokenSwapMethodExactIn
-}
-
-// IsSwapExactAmountOut returns true if the swap method is exact amount out.
-func (r *GetQuoteRequest) IsSwapExactAmountOut() bool {
-	return r.SwapMethod() == domain.TokenSwapMethodExactOut
-}
-
-// Validate validates the GetQuoteRequest
+// Validate validates the GetQuoteRequest.
 func (r *GetQuoteRequest) Validate() error {
-	// Request must have contain either swap exact amount in or swap exact amount out
-	if (r.IsSwapExactAmountIn() && r.IsSwapExactAmountOut()) || (!r.IsSwapExactAmountIn() && !r.IsSwapExactAmountOut()) {
+	method := r.SwapMethod()
+	if method == domain.TokenSwapMethodInvalid {
 		return ErrSwapMethodNotValid
 	}
 
+	// token denoms
+	var a, b string
+
 	// Validate swap method exact amount in
-	if r.IsSwapExactAmountIn() {
-		if r.TokenIn == nil {
-			return ErrTokenInNotSpecified
-		}
-
-		if r.TokenOutDenom == "" {
-			return ErrTokenOutDenomNotSpecified
-		}
-
-		if err := domain.ValidateInputDenoms(r.TokenIn.Denom, r.TokenOutDenom); err != nil {
-			return err
-		}
-
-		return nil
+	if method == domain.TokenSwapMethodExactIn {
+		a, b = r.TokenIn.Denom, r.TokenOutDenom
 	}
 
 	// Validate swap method exact amount out
-	if r.IsSwapExactAmountOut() {
-		if r.TokenOut == nil {
-			return ErrTokenOutNotSpecified
-		}
-
-		if r.TokenInDenom == "" {
-			return ErrTokenInDenomNotSpecified
-		}
-
-		if err := domain.ValidateInputDenoms(r.TokenOut.Denom, r.TokenInDenom); err != nil {
-			return err
-		}
+	if method == domain.TokenSwapMethodExactOut {
+		a, b = r.TokenOut.Denom, r.TokenInDenom
 	}
 
-	return nil
+	return domain.ValidateInputDenoms(a, b)
 }

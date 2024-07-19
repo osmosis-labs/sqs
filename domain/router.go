@@ -24,7 +24,6 @@ type Route interface {
 	ContainsGeneralizedCosmWasmPool() bool
 
 	GetPools() []RoutablePool
-	SetPools(pools []RoutablePool)
 
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.
 	// Returns error if the calculation fails.

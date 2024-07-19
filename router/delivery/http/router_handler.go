@@ -96,11 +96,11 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		tokenOutDenom string
 	)
 
-	if req.IsSwapExactAmountIn() {
+	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
 		tokenIn, tokenOutDenom = req.TokenIn, req.TokenOutDenom
 	}
 
-	if req.IsSwapExactAmountOut() {
+	if req.SwapMethod() == domain.TokenSwapMethodExactOut {
 		tokenIn, tokenOutDenom = req.TokenOut, req.TokenInDenom
 	}
 
