@@ -60,17 +60,6 @@ func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spread
 	}
 }
 
-func NewExactAmountOutRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenInDenom string, takerFee osmomath.Dec, codeID uint64) domain.RoutablePool {
-	return &routableResultPoolImpl{
-		ID:           ID,
-		Type:         poolType,
-		SpreadFactor: spreadFactor,
-		TokenInDenom: tokenInDenom,
-		TakerFee:     takerFee,
-		CodeID:       codeID,
-	}
-}
-
 // GetId implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetId() uint64 {
 	return r.ID

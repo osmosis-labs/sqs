@@ -13,6 +13,8 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+// quoteExactAmountOut is a quote wrapper for exact out quotes.
+// Note that only the PrepareResult method is different from the quoteImpl.
 type quoteExactAmountOut struct {
 	*quoteImpl              "json:\"-\""
 	AmountIn                osmomath.Int        "json:\"amount_in\""
@@ -23,6 +25,7 @@ type quoteExactAmountOut struct {
 	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
 }
 
+// quoteImpl is a quote implementation for token swap method exact in.
 type quoteImpl struct {
 	AmountIn                sdk.Coin            "json:\"amount_in\""
 	AmountOut               osmomath.Int        "json:\"amount_out\""
@@ -103,16 +106,14 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 		totalSpotPriceInBaseOutQuote = totalSpotPriceInBaseOutQuote.AddMut(routeSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
 		totalEffectiveSpotPriceInBaseOutQuote = totalEffectiveSpotPriceInBaseOutQuote.AddMut(effectiveSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
 
-		route := RouteWithOutAmount{
+		resultRoutes = append(resultRoutes, &RouteWithOutAmount{
 			RouteImpl: route.RouteImpl{
 				Pools:                      newPools,
 				HasGeneralizedCosmWasmPool: curRoute.ContainsGeneralizedCosmWasmPool(),
 			},
 			InAmount:  curRoute.GetAmountIn(),
 			OutAmount: curRoute.GetAmountOut(),
-		}
-
-		resultRoutes = append(resultRoutes, &route)
+		})
 	}
 
 	// Calculate price impact

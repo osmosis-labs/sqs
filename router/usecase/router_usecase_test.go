@@ -655,7 +655,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRankedRoutesCache(rankedRouteCache), routertesting.WithCandidateRoutesCache(candidateRouteCache))
 
 			// System under test
-			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom)
+			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom, domain.TokenSwapMethodExactIn)
 
 			// We only validate that error does not occur without actually validating the quote.
 			s.Require().NoError(err)
@@ -801,7 +801,7 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	s.Require().True(ok)
 
 	// Get quote.
-	quote, err := mainnetUsecase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(chainWBTC, osmomath.NewInt(1_00_000_000)), USDC)
+	quote, err := mainnetUsecase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(chainWBTC, osmomath.NewInt(1_00_000_000)), USDC, domain.TokenSwapMethodExactIn)
 	s.Require().NoError(err)
 
 	// Prepare quote result.
@@ -1078,7 +1078,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			quotes, err := routerUsecase.GetCustomDirectQuoteMultiPool(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
+			quotes, err := routerUsecase.GetCustomDirectQuoteMultiPool(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID, domain.TokenSwapMethodExactIn)
 			s.Require().ErrorIs(err, tc.err)
 			if err != nil {
 				return // nothing else to do
@@ -1275,7 +1275,7 @@ func (s *RouterTestSuite) TestGetMinPoolLiquidityCapFilter() {
 // This helper is useful in specific tests that rely on this configuration.
 func (s *RouterTestSuite) validatePoolIDInRoute(routerUseCase mvc.RouterUsecase, coinIn sdk.Coin, tokenOutDenom string, expectedPoolID uint64) {
 	// Get quote
-	quote, err := routerUseCase.GetOptimalQuote(context.Background(), coinIn, tokenOutDenom)
+	quote, err := routerUseCase.GetOptimalQuote(context.Background(), coinIn, tokenOutDenom, domain.TokenSwapMethodExactIn)
 	s.Require().NoError(err)
 
 	quoteRoutes := quote.GetRoute()

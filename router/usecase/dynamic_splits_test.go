@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -20,7 +21,7 @@ func (s *RouterTestSuite) TestGetSplitQuote() {
 
 	tokenIn, rankedRoutes := s.setupSplitsMainnetTestCase(displayDenomIn, amountIn, USDC)
 
-	splitQuote, err := usecase.GetSplitQuote(context.TODO(), rankedRoutes, tokenIn)
+	splitQuote, err := usecase.GetSplitQuote(context.TODO(), rankedRoutes, tokenIn, domain.TokenSwapMethodExactIn)
 
 	s.Require().NotNil(splitQuote)
 	s.Require().NoError(err)
@@ -57,7 +58,7 @@ func (s *RouterTestSuite) setupSplitsMainnetTestCase(displayDenomIn string, amou
 	s.Require().True(ok)
 
 	// Estimate direct quote
-	_, rankedRoutes, err := routerUseCase.RankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, chainDenomOut, config.MaxRoutes)
+	_, rankedRoutes, err := routerUseCase.RankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, chainDenomOut, domain.TokenSwapMethodExactIn, config.MaxRoutes)
 	s.Require().NoError(err)
 
 	return tokenIn, rankedRoutes

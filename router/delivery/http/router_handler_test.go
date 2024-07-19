@@ -9,6 +9,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	routerdelivery "github.com/osmosis-labs/sqs/router/delivery/http"
+	routertypes "github.com/osmosis-labs/sqs/router/types"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/stretchr/testify/suite"
 )
@@ -53,7 +54,7 @@ func TestGetPoolsValidTokenInTokensOut(t *testing.T) {
 		{
 			name: "fail case - token through single pool",
 			uri:  "http://localhost?tokenIn=&poolID=1&tokenOutDenom=USDC",
-			err:  routerdelivery.ErrTokenInNotSpecified,
+			err:  routertypes.ErrTokenInNotSpecified,
 		},
 		{
 			name:     "happy case - token through multi pool",
@@ -65,7 +66,7 @@ func TestGetPoolsValidTokenInTokensOut(t *testing.T) {
 		{
 			name: "fail case - token through multi pool",
 			uri:  "http://localhost?tokenIn=56OSMO&poolID=1,5&tokenOutDenom=ATOM,AKT,USDC",
-			err:  routerdelivery.ErrNumOfTokenOutDenomPoolsMismatch,
+			err:  routertypes.ErrNumOfTokenOutDenomPoolsMismatch,
 		},
 	}
 

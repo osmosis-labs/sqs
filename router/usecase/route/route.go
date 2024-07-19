@@ -105,11 +105,6 @@ func (r *RouteImpl) GetPools() []domain.RoutablePool {
 	return r.Pools
 }
 
-// SetPools implements Route.
-func (r *RouteImpl) SetPools(pools []domain.RoutablePool) {
-	r.Pools = pools
-}
-
 // CalculateTokenOutByTokenIn implements Route.
 func (r *RouteImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (tokenOut sdk.Coin, err error) {
 	defer func() {

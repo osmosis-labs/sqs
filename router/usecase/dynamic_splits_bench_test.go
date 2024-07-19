@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase"
 )
 
@@ -29,7 +30,7 @@ func BenchmarkGetSplitQuote(b *testing.B) {
 	// Run the benchmark
 	for i := 0; i < b.N; i++ {
 		// System under test.
-		_, err := usecase.GetSplitQuote(context.TODO(), rankedRoutes, tokenIn)
+		_, err := usecase.GetSplitQuote(context.TODO(), rankedRoutes, tokenIn, domain.TokenSwapMethodExactIn)
 		s.Require().NoError(err)
 		if err != nil {
 			b.Errorf("GetPrices returned an error: %v", err)

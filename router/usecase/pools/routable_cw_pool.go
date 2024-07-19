@@ -39,12 +39,11 @@ type routableCosmWasmPoolImpl struct {
 }
 
 // NewRoutableCosmWasmPool returns a new routable cosmwasm pool with the given parameters.
-func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, wasmClient wasmtypes.QueryClient, scalingFactorGetterCb domain.ScalingFactorGetterCb) domain.RoutablePool {
+func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, wasmClient wasmtypes.QueryClient, scalingFactorGetterCb domain.ScalingFactorGetterCb) domain.RoutablePool {
 	// Initializa routable cosmwasm pool
 	routableCosmWasmPool := &routableCosmWasmPoolImpl{
 		ChainPool:     pool,
 		Balances:      balances,
-		TokenInDenom:  tokenInDenom,
 		TokenOutDenom: tokenOutDenom,
 		TakerFee:      takerFee,
 		SpreadFactor:  spreadFactor,

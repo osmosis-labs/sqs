@@ -16,6 +16,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/types"
 )
 
 // RouterHandler  represent the httphandler for the router
@@ -29,17 +30,6 @@ const routerResource = "/router"
 
 var (
 	oneDec = osmomath.OneDec()
-)
-
-// Handler Errors
-var (
-	ErrTokenNotValid = errors.New("tokenIn is invalid - must be in the format amountDenom")
-
-	ErrTokenOutDenom                   = errors.New("tokenOutDenom is required")
-	ErrTokenOutNotSpecified            = errors.New("tokenOut is required")
-	ErrTokenInNotSpecified             = errors.New("tokenIn is required")
-	ErrSwapMethodNotValid              = errors.New("swap method is invalid - must be either swap exact amount in or swap exact amount out")
-	ErrNumOfTokenOutDenomPoolsMismatch = errors.New("number of tokenOutDenom must be equal to number of pool IDs")
 )
 
 func formatRouterResource(resource string) string {
@@ -61,100 +51,6 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
 	e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
 	e.GET(formatRouterResource("/state"), handler.GetRouterState)
-}
-
-// GetQuoteRequest represents swap quote request for the /router/quote endpoint.
-type GetQuoteRequest struct {
-	TokenIn        *sdk.Coin
-	TokenOutDenom  string
-	TokenOut       *sdk.Coin
-	TokenInDenom   string
-	SingleRoute    bool
-	HumanDenoms    bool
-	ApplyExponents bool
-}
-
-func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
-	var err error
-	r.SingleRoute, err = domain.ParseBooleanQueryParam(c, "singleRoute")
-	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-	}
-
-	r.ApplyExponents, err = domain.ParseBooleanQueryParam(c, "applyExponents")
-	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-	}
-
-	if tokenIn := c.QueryParam("tokenIn"); tokenIn != "" {
-		tokenInCoin, err := sdk.ParseCoinNormalized(tokenIn)
-		if err != nil {
-			return ErrTokenNotValid
-		}
-		r.TokenIn = &tokenInCoin
-	}
-
-	if tokenOut := c.QueryParam("tokenOut"); tokenOut != "" {
-		tokenOutCoin, err := sdk.ParseCoinNormalized(tokenOut)
-		if err != nil {
-			return ErrTokenNotValid
-		}
-		r.TokenOut = &tokenOutCoin
-	}
-
-	r.TokenInDenom = c.QueryParam("tokenInDenom")
-	r.TokenOutDenom = c.QueryParam("tokenOutDenom")
-
-	return nil
-}
-func (r *GetQuoteRequest) SwapMethod() domain.TokenSwapMethod {
-	if r.TokenIn != nil && r.TokenOutDenom != "" {
-		return domain.TokenSwapMethodExactIn
-	}
-
-	if r.TokenOut != nil && r.TokenInDenom != "" {
-		return domain.TokenSwapMethodExactOut
-	}
-
-	return domain.TokenSwapMethodInvalid
-}
-
-func (r *GetQuoteRequest) IsSwapExactAmountIn() bool {
-	return r.SwapMethod() == domain.TokenSwapMethodExactIn
-}
-
-func (r *GetQuoteRequest) IsSwapExactAmountOut() bool {
-	return r.SwapMethod() == domain.TokenSwapMethodExactOut
-}
-
-// TODO: it should NOT depend on echo context?
-func (r *GetQuoteRequest) Validate(c echo.Context) error {
-	// Request must have contain either swap exact amount in or swap exact amount out
-	if (r.IsSwapExactAmountIn() && r.IsSwapExactAmountOut()) || (!r.IsSwapExactAmountIn() && !r.IsSwapExactAmountOut()) {
-		return ErrSwapMethodNotValid
-	}
-
-	// Validate swap method exact amount in
-	if r.IsSwapExactAmountIn() {
-		_, _, err := getValidRoutingParameters(c)
-		return err
-	}
-
-	// Validate swap method exact amount out
-	if r.IsSwapExactAmountOut() {
-		if r.TokenOut == nil {
-			return ErrTokenOutNotSpecified
-		}
-
-		if r.TokenInDenom == "" {
-			return ErrTokenOutDenom
-		}
-
-		if err := domain.ValidateInputDenoms(r.TokenOut.Denom, r.TokenInDenom); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // @Summary Optimal Quote
@@ -185,13 +81,13 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		// Note: we do not end the span here as it is ended in the middleware.
 	}()
 
-	var req GetQuoteRequest
+	var req types.GetQuoteRequest
 	if err := UnmarshalRequest(c, &req); err != nil {
 		return err
 	}
 
 	// Validate the request
-	if err := req.Validate(c); err != nil {
+	if err := req.Validate(); err != nil {
 		return err
 	}
 
@@ -415,7 +311,7 @@ func getValidRoutingParameters(c echo.Context) (string, sdk.Coin, error) {
 
 	tokenIn, err := sdk.ParseCoinNormalized(tokenInStr)
 	if err != nil {
-		return "", sdk.Coin{}, ErrTokenNotValid
+		return "", sdk.Coin{}, types.ErrTokenNotValid
 	}
 
 	return tokenOutStr, tokenIn, nil
@@ -430,7 +326,7 @@ func getDirectCustomQuoteParameters(c echo.Context) ([]uint64, []string, sdk.Coi
 
 	tokenIn, err := sdk.ParseCoinNormalized(tokenInStr)
 	if err != nil {
-		return nil, nil, sdk.Coin{}, ErrTokenNotValid
+		return nil, nil, sdk.Coin{}, types.ErrTokenNotValid
 	}
 
 	return poolID, tokenOut, tokenIn, nil
@@ -452,7 +348,7 @@ func getValidTokenInStr(c echo.Context) (string, error) {
 	tokenInStr := c.QueryParam("tokenIn")
 
 	if len(tokenInStr) == 0 {
-		return "", ErrTokenInNotSpecified
+		return "", types.ErrTokenInNotSpecified
 	}
 
 	return tokenInStr, nil
@@ -467,7 +363,7 @@ func getValidTokenInTokenOutStr(c echo.Context) (tokenOutStr, tokenInStr string,
 	tokenOutStr = c.QueryParam("tokenOutDenom")
 
 	if len(tokenOutStr) == 0 {
-		return "", "", ErrTokenOutDenom
+		return "", "", types.ErrTokenOutDenomNotSpecified
 	}
 
 	// Validate input denoms
@@ -515,7 +411,7 @@ func getPoolsValidTokenInTokensOut(c echo.Context) (poolIDs []uint64, tokenOut [
 
 	// one output per each pool
 	if len(tokenOut) != len(poolIDs) {
-		return nil, nil, "", ErrNumOfTokenOutDenomPoolsMismatch
+		return nil, nil, "", types.ErrNumOfTokenOutDenomPoolsMismatch
 	}
 
 	// Validate denoms
