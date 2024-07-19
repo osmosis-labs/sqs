@@ -846,15 +846,6 @@ func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
 	return r.defaultConfig
 }
 
-// getSortedPoolsShallowCopy returns a shallow copy of the sorted pools.
-// This is to avoid concurrent read and write to the same address by ingester.
-func (r *routerUseCaseImpl) getSortedPoolsShallowCopy() []sqsdomain.PoolI {
-	r.sortedPoolsMu.RLock()
-	poolsCopy := r.sortedPools
-	r.sortedPoolsMu.RUnlock()
-	return poolsCopy
-}
-
 // filterOutGeneralizedCosmWasmPoolRoutes filters out routes that contain generalized cosm wasm pool.
 // The reason for this is that making network requests to chain is expensive. Generalized cosmwasm pools
 // make such network requests.
