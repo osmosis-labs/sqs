@@ -489,7 +489,6 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 
 // GetCandidateRoutes implements domain.RouterUsecase.
 func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
-
 	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
 		MaxRoutes:           r.defaultConfig.MaxRoutes,
 		MaxPoolsPerRoute:    r.defaultConfig.MaxPoolsPerRoute,

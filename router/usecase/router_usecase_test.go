@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -699,10 +700,10 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 //
 // The mainnet state must be manually updated when needed with 'make sqs-update-mainnet-state'
 func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
-	// env := os.Getenv("CI_SQS_ROUTE_TEST")
-	// if env != "true" {
-	// 	s.T().Skip("This test exists to identify which mainnet routes are unsupported")
-	// }
+	env := os.Getenv("CI_SQS_ROUTE_TEST")
+	if env != "true" {
+		s.T().Skip("This test exists to identify which mainnet routes are unsupported")
+	}
 
 	const (
 		// This was selected by looking at the routes and concluding that it's
