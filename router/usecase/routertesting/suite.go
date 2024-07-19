@@ -165,7 +165,7 @@ var (
 		MaxRoutes:           20,
 		MaxPoolsPerRoute:    4,
 		MaxSplitRoutes:      3,
-		MinPoolLiquidityCap: 20000,
+		MinPoolLiquidityCap: 1000,
 		RouteCacheEnabled:   true,
 
 		// Set proper dynamic min liquidity config here

@@ -40,14 +40,14 @@ class TestPools:
         # See: https://linear.app/osmosis/issue/NUMIA-35/missing-data-for-white-whale-pool
         skip_whitewhale_code_id = 641
         # This pool has a bug in the Numia side.
-        skip_alloyed_pool_id = 1816
+        skip_alloyed_pool_id = [1816, 1878]
 
         sqs_service = SERVICE_MAP[environment_url]
 
         pool_liquidity = pool_data.get("liquidity")
         pool_id = pool_data.get("pool_id")
 
-        if pool_id == skip_alloyed_pool_id:
+        if pool_id in skip_alloyed_pool_id:
             pytest.skip("Skipping alloyed pool since it has flakiness on Numia side")
 
         sqs_pool = sqs_service.get_pool(pool_id)

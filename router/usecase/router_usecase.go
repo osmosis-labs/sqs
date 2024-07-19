@@ -158,16 +158,8 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 			options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
 		}
 
-		poolsAboveMinLiquidity := r.getSortedPoolsShallowCopy()
-		// Zero implies no filtering, so we skip the iterations.
-		if options.MinPoolLiquidityCap > 0 {
-			poolsAboveMinLiquidity = FilterPoolsByMinLiquidity(poolsAboveMinLiquidity, options.MinPoolLiquidityCap)
-		}
-
-		r.logger.Info("filtered pools", zap.Int("num_pools", len(poolsAboveMinLiquidity)))
-
 		// Find candidate routes and rank them by direct quotes.
-		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, poolsAboveMinLiquidity, tokenIn, tokenOutDenom, options)
+		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, tokenIn, tokenOutDenom, options)
 		if err != nil {
 			return nil, err
 		}
@@ -355,11 +347,17 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 }
 
 // computeAndRankRoutesByDirectQuote computes candidate routes and ranks them by token out after estimating direct quotes.
-func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
 	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
 
+	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           routingOptions.MaxRoutes,
+		MaxPoolsPerRoute:    routingOptions.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: routingOptions.MinPoolLiquidityCap,
+	}
+
 	// If top routes are not present in cache, retrieve unranked candidate routes
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, pools, tokenIn, tokenOutDenom, routingOptions.MaxRoutes, routingOptions.MaxPoolsPerRoute)
+	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))
 		return nil, nil, err
@@ -491,7 +489,21 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 
 // GetCandidateRoutes implements domain.RouterUsecase.
 func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, r.getSortedPoolsShallowCopy(), tokenIn, tokenOutDenom, r.defaultConfig.MaxRoutes, r.defaultConfig.MaxPoolsPerRoute)
+	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           r.defaultConfig.MaxRoutes,
+		MaxPoolsPerRoute:    r.defaultConfig.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: r.defaultConfig.MinPoolLiquidityCap,
+	}
+
+	// Get the dynamic min pool liquidity cap for the given token in and token out denoms.
+	dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenIn.Denom, tokenOutDenom)
+	if err == nil {
+		// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
+		// Otherwise, use the default.
+		candidateRouteSearchOptions.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+	}
+
+	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		return sqsdomain.CandidateRoutes{}, err
 	}
@@ -601,7 +613,7 @@ func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, tokenInDe
 // - there is an error retrieving routes from cache
 // - there are no routes cached and there is an error computing them
 // - fails to persist the computed routes in cache
-func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoutes int) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
+func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
 	r.logger.Debug("getting routes")
 
 	// Check cache for routes if enabled
@@ -619,8 +631,9 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, pools []s
 	if !isFoundCached {
 		r.logger.Debug("calculating routes")
 
-		candidateRoutes, err = GetCandidateRoutes(pools, tokenIn, tokenOutDenom, maxRoutes, maxPoolsPerRoutes, r.logger)
+		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutes(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 		if err != nil {
+			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return sqsdomain.CandidateRoutes{}, err
 		}
 
@@ -831,15 +844,6 @@ func (r *routerUseCaseImpl) GetSortedPools() []sqsdomain.PoolI {
 // GetConfig implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetConfig() domain.RouterConfig {
 	return r.defaultConfig
-}
-
-// getSortedPoolsShallowCopy returns a shallow copy of the sorted pools.
-// This is to avoid concurrent read and write to the same address by ingester.
-func (r *routerUseCaseImpl) getSortedPoolsShallowCopy() []sqsdomain.PoolI {
-	r.sortedPoolsMu.RLock()
-	poolsCopy := r.sortedPools
-	r.sortedPoolsMu.RUnlock()
-	return poolsCopy
 }
 
 // filterOutGeneralizedCosmWasmPoolRoutes filters out routes that contain generalized cosm wasm pool.

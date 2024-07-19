@@ -128,7 +128,15 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			},
 		)
 
-		defaultSinglePools = []sqsdomain.PoolI{defaultPool}
+		recomputedRoute = WithCandidateRoutePools(
+			EmptyCandidateRoute,
+			[]sqsdomain.CandidatePool{
+				{
+					ID:            defaultPool.GetId() + 1,
+					TokenOutDenom: tokenOutDenom,
+				},
+			},
+		)
 
 		singleDefaultRoutes = sqsdomain.CandidateRoutes{
 			Routes: []sqsdomain.CandidateRoute{defaultRoute},
@@ -137,7 +145,12 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			},
 		}
 
-		emptyPools = []sqsdomain.PoolI{}
+		singeldRecomputedRoutes = sqsdomain.CandidateRoutes{
+			Routes: []sqsdomain.CandidateRoute{recomputedRoute},
+			UniquePoolIDs: map[uint64]struct{}{
+				defaultPool.GetId() + 1: {},
+			},
+		}
 
 		emptyRoutes = sqsdomain.CandidateRoutes{}
 
@@ -157,7 +170,6 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		name string
 
 		repositoryRoutes     sqsdomain.CandidateRoutes
-		repositoryPools      []sqsdomain.PoolI
 		takerFeeMap          sqsdomain.TakerFeeMap
 		isCacheDisabled      bool
 		shouldSkipAddToCache bool
@@ -171,7 +183,6 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			name: "routes in cache -> use them",
 
 			repositoryRoutes: singleDefaultRoutes,
-			repositoryPools:  emptyPools,
 
 			expectedCandidateRoutes: singleDefaultRoutes,
 			expectedIsCached:        true,
@@ -180,36 +191,32 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			name: "cache is disabled in config -> recomputes routes despite having available in cache",
 
 			repositoryRoutes: singleDefaultRoutes,
-			repositoryPools:  emptyPools,
 			isCacheDisabled:  true,
 
-			expectedCandidateRoutes: emptyRoutes,
+			expectedCandidateRoutes: singeldRecomputedRoutes,
 			expectedIsCached:        false,
 		},
 		{
-			name: "no routes in cache but relevant pools in store -> recomputes routes & caches them",
+			name: "no routes in cache -> recomputes routes & caches them",
 
 			repositoryRoutes:     emptyRoutes,
-			repositoryPools:      defaultSinglePools,
 			shouldSkipAddToCache: true,
 
-			expectedCandidateRoutes: singleDefaultRoutes,
+			expectedCandidateRoutes: singeldRecomputedRoutes,
 			expectedIsCached:        true,
 		},
 		{
-			name: "empty routes in cache but relevant pools in store -> does not recompute routes",
+			name: "empty routes in cache-> does not recompute routes",
 
 			repositoryRoutes: emptyRoutes,
-			repositoryPools:  defaultSinglePools,
 
 			expectedCandidateRoutes: emptyRoutes,
 			expectedIsCached:        true,
 		},
 		{
-			name: "no routes in cache and no relevant pools in store -> returns no routes & caches them",
+			name: "no routes in cache and -> returns no routes & caches them",
 
 			repositoryRoutes: emptyRoutes,
-			repositoryPools:  emptyPools,
 
 			expectedCandidateRoutes: emptyRoutes,
 			expectedIsCached:        true,
@@ -235,31 +242,30 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), tc.repositoryRoutes, time.Hour)
 			}
 
-			poolsUseCaseMock := &mocks.PoolsUsecaseMock{
-				// These are the pools returned by the call to GetAllPools
-				Pools: tc.repositoryPools,
-			}
+			poolsUseCaseMock := &mocks.PoolsUsecaseMock{}
 
 			tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
-			candidateRouteFinderMock := mocks.CandidateRouteFinderMock{}
+			candidateRouteFinderMock := mocks.CandidateRouteFinderMock{
+				Routes: tc.expectedCandidateRoutes,
+			}
 
 			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, candidateRouteFinderMock, &tokenMetaDataHolder, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheDisabled,
 			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
 
-			// Validate and sort pools
-			sortedPools := usecase.ValidateAndSortPools(tc.repositoryPools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
-
-			// Filter pools by min liquidity
-			sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)
-
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
 
-			// System under test
 			ctx := context.Background()
-			// TODO: filter pools per router config
-			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, sortedPools, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, defaultRouterConfig.MaxRoutes, defaultRouterConfig.MaxPoolsPerRoute)
+
+			candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
+				MinPoolLiquidityCap: minPoolLiquidityCap,
+				MaxRoutes:           defaultRouterConfig.MaxRoutes,
+				MaxPoolsPerRoute:    defaultRouterConfig.MaxPoolsPerRoute,
+			}
+
+			// System under test
+			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, candidateRouteSearchOptions)
 
 			if tc.expectedError != nil {
 				s.Require().EqualError(err, tc.expectedError.Error())
@@ -277,6 +283,14 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			}
 
 			cachedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
+
+			if tc.isCacheDisabled {
+				s.Require().NoError(err)
+				s.Require().Empty(cachedCandidateRoutes.Routes)
+				s.Require().False(isCached)
+				return
+			}
+
 			// For the case where the cache is disabled, the expected routes in cache
 			// will be the same as the original routes in the repository.
 			// Check that router repository was updated
@@ -612,7 +626,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -634,7 +648,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 	}
 
@@ -694,7 +708,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 38
+		expectedZeroPoolCount = 39
 	)
 
 	viper.SetConfigFile("../../config.json")
@@ -722,9 +736,20 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
+		minPoolLiquidityCap, err := mainnetUsecase.Tokens.GetMinPoolLiquidityCap(chainDenom, USDC)
+		s.Require().NoError(err)
+
+		minPoolLiquidityCapFilter := mainnetUsecase.Router.ConvertMinTokensPoolLiquidityCapToFilter(minPoolLiquidityCap)
+
+		options := domain.CandidateRouteSearchOptions{
+			MinPoolLiquidityCap: minPoolLiquidityCapFilter,
+			MaxRoutes:           config.Router.MaxRoutes,
+			MaxPoolsPerRoute:    config.Router.MaxPoolsPerRoute,
+		}
+
+		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutes(sdk.NewCoin(chainDenom, one), USDC, options)
 		if err != nil {
-			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
+			fmt.Printf("Error for %s  -- %s -- %v\n", chainDenom, tokenMeta.HumanDenom, err)
 			errorCounter++
 			continue
 		}
@@ -752,9 +777,15 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
+		options := domain.CandidateRouteSearchOptions{
+			MinPoolLiquidityCap: 0,
+			MaxRoutes:           config.Router.MaxRoutes,
+			MaxPoolsPerRoute:    config.Router.MaxPoolsPerRoute,
+		}
+
+		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutes(sdk.NewCoin(chainDenom, one), USDC, options)
 		if err != nil {
-			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
+			fmt.Printf("Error for %s  -- %s -- %v\n", chainDenom, tokenMeta.HumanDenom, err)
 			errorCounter++
 			continue
 		}

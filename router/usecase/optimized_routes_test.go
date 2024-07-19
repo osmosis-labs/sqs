@@ -561,7 +561,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 	// that provides no slippage swaps. Given that 100K is under the liqudiity of kava.USDT in the
 	// transmuter pool, the split routes should be essentially the same.
 	// Update: as of 30.06.24, the kava.usdt for osmo only has one optimal route.
-	const usdtOsmoExpectedRoutesHighLiq = 1
+	const usdtOsmoExpectedRoutesHighLiq = 2
 	var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
 
 	tests := map[string]struct {
