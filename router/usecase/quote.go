@@ -13,33 +13,14 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
-// quoteExactAmountOut is a quote wrapper for exact out quotes.
-// Note that only the PrepareResult method is different from the quoteImpl.
-type quoteExactAmountOut struct {
-	*quoteImpl              "json:\"-\""
-	AmountIn                osmomath.Int        "json:\"amount_in\""
-	AmountOut               sdk.Coin            "json:\"amount_out\""
-	Route                   []domain.SplitRoute "json:\"route\""
-	EffectiveFee            osmomath.Dec        "json:\"effective_fee\""
-	PriceImpact             osmomath.Dec        "json:\"price_impact\""
-	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
-}
-
-// quoteImpl is a quote implementation for token swap method exact in.
-type quoteImpl struct {
-	AmountIn                sdk.Coin            "json:\"amount_in\""
-	AmountOut               osmomath.Int        "json:\"amount_out\""
-	Route                   []domain.SplitRoute "json:\"route\""
-	EffectiveFee            osmomath.Dec        "json:\"effective_fee\""
-	PriceImpact             osmomath.Dec        "json:\"price_impact\""
-	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
-}
-
 var (
 	one = osmomath.OneDec()
 )
 
-var _ domain.Quote = &quoteImpl{}
+var (
+	_ domain.Quote = &quoteImpl{}
+	_ domain.Quote = &quoteExactAmountOut{}
+)
 
 // newQuote creates a new swap method based quote with the given parameters.
 // Note that returned implementation must support exact in quote, exact out is calculated by inverting the quote.
@@ -58,6 +39,16 @@ func newQuote(method domain.TokenSwapMethod, amountIn sdk.Coin, amountOut osmoma
 	return &quoteExactAmountOut{
 		quoteImpl: &quote,
 	}
+}
+
+// quoteImpl is a quote implementation for token swap method exact in.
+type quoteImpl struct {
+	AmountIn                sdk.Coin            "json:\"amount_in\""
+	AmountOut               osmomath.Int        "json:\"amount_out\""
+	Route                   []domain.SplitRoute "json:\"route\""
+	EffectiveFee            osmomath.Dec        "json:\"effective_fee\""
+	PriceImpact             osmomath.Dec        "json:\"price_impact\""
+	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
 }
 
 // PrepareResult implements domain.Quote.
@@ -128,41 +119,6 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 	return q.Route, q.EffectiveFee, nil
 }
 
-func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
-	// Prepare exact out in the quote for inputs inversion
-	if _, _, err := q.quoteImpl.PrepareResult(ctx, scalingFactor); err != nil {
-		return nil, osmomath.Dec{}, err
-	}
-
-	// Assign the inverted values to the quote
-	q.AmountOut = q.quoteImpl.AmountIn
-	q.AmountIn = q.quoteImpl.AmountOut
-	q.Route = q.quoteImpl.Route
-	q.EffectiveFee = q.quoteImpl.EffectiveFee
-	q.PriceImpact = q.quoteImpl.PriceImpact
-	q.InBaseOutQuoteSpotPrice = q.quoteImpl.InBaseOutQuoteSpotPrice
-
-	for i, route := range q.Route {
-		route, ok := route.(*RouteWithOutAmount)
-		if !ok {
-			panic("invalid route type") // should never happen
-		}
-
-		// invert the in and out amounts
-		route.InAmount, route.OutAmount = route.OutAmount, route.InAmount
-
-		q.Route[i] = route
-
-		// invert the in and out amounts for each pool
-		for _, p := range route.GetPools() {
-			p.SetTokenInDenom(p.GetTokenOutDenom())
-			p.SetTokenOutDenom("")
-		}
-	}
-
-	return q.Route, q.EffectiveFee, nil
-}
-
 // GetAmountIn implements Quote.
 func (q *quoteImpl) GetAmountIn() sdk.Coin {
 	return q.AmountIn
@@ -204,4 +160,59 @@ func (q *quoteImpl) GetPriceImpact() osmomath.Dec {
 // GetInBaseOutQuoteSpotPrice implements domain.Quote.
 func (q *quoteImpl) GetInBaseOutQuoteSpotPrice() osmomath.Dec {
 	return q.InBaseOutQuoteSpotPrice
+}
+
+// quoteExactAmountOut is a quote wrapper for exact out quotes.
+// Note that only the PrepareResult method is different from the quoteImpl.
+type quoteExactAmountOut struct {
+	*quoteImpl              "json:\"-\""
+	AmountIn                osmomath.Int        "json:\"amount_in\""
+	AmountOut               sdk.Coin            "json:\"amount_out\""
+	Route                   []domain.SplitRoute "json:\"route\""
+	EffectiveFee            osmomath.Dec        "json:\"effective_fee\""
+	PriceImpact             osmomath.Dec        "json:\"price_impact\""
+	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
+}
+
+// PrepareResult implements domain.Quote.
+// PrepareResult mutates the quote to prepare
+// it with the data formatted for output to the client.
+// Specifically:
+// It strips away unnecessary fields from each pool in the route.
+// Computes an effective spread factor from all routes.
+//
+// Returns the updated route and the effective spread factor.
+func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
+	// Prepare exact out in the quote for inputs inversion
+	if _, _, err := q.quoteImpl.PrepareResult(ctx, scalingFactor); err != nil {
+		return nil, osmomath.Dec{}, err
+	}
+
+	// Assign the inverted values to the quote
+	q.AmountOut = q.quoteImpl.AmountIn
+	q.AmountIn = q.quoteImpl.AmountOut
+	q.Route = q.quoteImpl.Route
+	q.EffectiveFee = q.quoteImpl.EffectiveFee
+	q.PriceImpact = q.quoteImpl.PriceImpact
+	q.InBaseOutQuoteSpotPrice = q.quoteImpl.InBaseOutQuoteSpotPrice
+
+	for i, route := range q.Route {
+		route, ok := route.(*RouteWithOutAmount)
+		if !ok {
+			panic("invalid route type") // should never happen
+		}
+
+		// invert the in and out amounts
+		route.InAmount, route.OutAmount = route.OutAmount, route.InAmount
+
+		q.Route[i] = route
+
+		// invert the in and out amounts for each pool
+		for _, p := range route.GetPools() {
+			p.SetTokenInDenom(p.GetTokenOutDenom())
+			p.SetTokenOutDenom("")
+		}
+	}
+
+	return q.Route, q.EffectiveFee, nil
 }

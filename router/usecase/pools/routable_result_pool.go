@@ -40,10 +40,12 @@ func (r *routableResultPoolImpl) GetCodeID() uint64 {
 	panic("unimplemented")
 }
 
+// SetInDenom implements domain.RoutablePool.
 func (r *routableResultPoolImpl) SetInDenom(denom string) {
 	r.TokenInDenom = denom
 }
 
+// SetOutDenom implements domain.RoutablePool.
 func (r *routableResultPoolImpl) SetOutDenom(denom string) {
 	r.TokenOutDenom = denom
 }
