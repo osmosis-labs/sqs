@@ -37,15 +37,11 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 			return nil, err
 		}
 
-		quote := &quoteImpl{
-			AmountIn:  tokenIn,
-			AmountOut: coinOut.Amount,
-			Route: []domain.SplitRoute{&RouteWithOutAmount{
-				RouteImpl: route,
-				OutAmount: coinOut.Amount,
-				InAmount:  tokenIn.Amount,
-			}},
-		}
+		quote := newQuote(method, tokenIn, coinOut.Amount, []domain.SplitRoute{&RouteWithOutAmount{
+			RouteImpl: route,
+			OutAmount: coinOut.Amount,
+			InAmount:  tokenIn.Amount,
+		}})
 
 		return quote, nil
 	}
@@ -170,11 +166,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		return nil, fmt.Errorf("total increments (%d) does not match expected total increments (%d)", totalIncrementsInSplits, totalIncrements)
 	}
 
-	quote := &quoteImpl{
-		AmountIn:  tokenIn,
-		AmountOut: bestSplit.amountOut,
-		Route:     resultRoutes,
-	}
+	quote := newQuote(method, tokenIn, bestSplit.amountOut, resultRoutes)
 
 	return quote, nil
 }

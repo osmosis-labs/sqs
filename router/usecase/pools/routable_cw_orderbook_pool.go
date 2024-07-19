@@ -143,90 +143,6 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 	return sdk.Coin{Denom: r.TokenOutDenom, Amount: amountOutTotal.Dec().TruncateInt()}, nil
 }
 
-func (r *routableOrderbookPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	poolType := r.GetType()
-
-	// Esnure that the pool is a cosmwasm pool
-	if poolType != poolmanagertypes.CosmWasm {
-		return sdk.Coin{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
-	}
-
-	// Get the expected order directionIn
-	directionOut, err := r.OrderbookData.GetDirection(tokenOut.Denom, r.TokenInDenom)
-	if err != nil {
-		return sdk.Coin{}, err
-	}
-
-	directionIn := directionOut.Opposite()
-	iterationStep, err := directionIn.IterationStep()
-	if err != nil {
-		return sdk.Coin{}, err
-	}
-
-	// Get starting tick index for the "in" side of the orderbook
-	// Since the order will get the liquidity out from that side
-	tickIdx, err := r.OrderbookData.GetStartTickIndex(directionIn)
-	if err != nil {
-		return sdk.Coin{}, err
-	}
-
-	amountInTotal := osmomath.ZeroBigDec()
-	amountOutRemaining := osmomath.BigDecFromSDKInt(tokenOut.Amount)
-
-	var amountOutToExhaustLiquidity osmomath.BigDec
-	if *directionOut == cosmwasmpool.BID {
-		amountOutToExhaustLiquidity = r.OrderbookData.AskAmountToExhaustBidLiquidity
-	} else {
-		amountOutToExhaustLiquidity = r.OrderbookData.BidAmountToExhaustAskLiquidity
-	}
-
-	// check if amount in > amountOutToExhaustLiquidity, if so this swap is not possible due to insufficient liquidity
-	if amountOutRemaining.GT(amountOutToExhaustLiquidity) {
-		return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenOut}
-	}
-
-	// ASSUMPTION: Ticks are ordered
-	for amountOutRemaining.GT(zeroBigDec) {
-		// Order has run out of ticks to iterate
-		if tickIdx >= len(r.OrderbookData.Ticks) || tickIdx < 0 {
-			return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenOut}
-		}
-
-		// According to the check on amountOutToExhaustLiquidity above, we should never run out of ticks here
-		tick := r.OrderbookData.Ticks[tickIdx]
-
-		// Increment or decrement the current tick index depending on out order direction
-		tickIdx += iterationStep
-
-		// Calculate the price for the current tick
-		tickPrice, err := clmath.TickToPrice(tick.TickId)
-		if err != nil {
-			return sdk.Coin{}, err
-		}
-
-		// Amount that should be filled given the current tick price and all the remaining amount of tokens in
-		// if the current tick has enough liquidity
-
-		inputAmount := cosmwasmpool.OrderbookValueInOppositeDirection(amountOutRemaining, tickPrice, *directionOut)
-
-		// Cap the output amount to the amount of tokens that can be filled in the current tick
-		inputFilled := tick.TickLiquidity.GetFillableAmount(inputAmount, directionIn)
-
-		// Convert the filled amount back to the out amount that should be deducted
-		// from the remaining amount of tokens in
-		outputFilled := cosmwasmpool.OrderbookValueInOppositeDirection(inputFilled, tickPrice, directionIn)
-
-		// Add the filled amount to the order total
-		amountInTotal.AddMut(inputFilled)
-
-		// Subtract the filled amount from the remaining amount of tokens in
-		amountOutRemaining.SubMut(outputFilled)
-	}
-
-	// Return total amount out
-	return sdk.Coin{Denom: r.TokenInDenom, Amount: amountInTotal.Dec().TruncateInt()}, nil
-}
-
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableOrderbookPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -247,13 +163,6 @@ func (r *routableOrderbookPoolImpl) String() string {
 func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
-}
-
-// ChargeTakerFee implements sqsdomain.RoutablePool.
-// Charges the taker fee for the given token in and returns the token in after the fee has been charged.
-func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.GetTakerFee())
-	return tokenOutAfterTakerFee
 }
 
 // GetTakerFee implements domain.RoutablePool.

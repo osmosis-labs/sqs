@@ -73,33 +73,6 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 	return sdk.Coin{Denom: r.TokenOutDenom, Amount: tokenIn.Amount}, nil
 }
 
-// CalculateTokenInByTokenOut implements domain.RoutablePool.
-// It calculates the amount of token out given the amount of token in for a transmuter pool.
-// Transmuter pool allows no slippage swaps. It just returns the same amount of token out as token in
-// Returns error if:
-// - the underlying chain pool set on the routable pool is not of transmuter type
-// - the token in amount is greater than the balance of the token in
-// - the token in amount is greater than the balance of the token out
-func (r *routableTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	poolType := r.GetType()
-
-	// Esnure that the pool is concentrated
-	if poolType != poolmanagertypes.CosmWasm {
-		return sdk.Coin{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
-	}
-
-	balances := r.Balances
-
-	// Validate token out balance
-	if err := validateTransmuterBalance(tokenOut.Amount, balances, r.TokenInDenom); err != nil {
-		return sdk.Coin{}, err
-	}
-
-	// No slippage swaps - just return the same amount of token out as token in
-	// as long as there is enough liquidity in the pool.
-	return sdk.Coin{Denom: r.TokenInDenom, Amount: tokenOut.Amount}, nil
-}
-
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableTransmuterPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -119,12 +92,6 @@ func (r *routableTransmuterPoolImpl) String() string {
 func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
-}
-
-// ChargeTakerFeeExactOut implements domain.RoutablePool.
-func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (outAmountAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.GetTakerFee())
-	return tokenOutAfterTakerFee
 }
 
 // validateTransmuterBalance validates that the balance of the denom to validate is greater than the token in amount.

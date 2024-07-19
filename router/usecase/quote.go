@@ -13,7 +13,8 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
-type QuoteExactAmountOut struct {
+type quoteExactAmountOut struct {
+	*quoteImpl              "json:\"-\""
 	AmountIn                osmomath.Int        "json:\"amount_in\""
 	AmountOut               sdk.Coin            "json:\"amount_out\""
 	Route                   []domain.SplitRoute "json:\"route\""
@@ -37,6 +38,25 @@ var (
 
 var _ domain.Quote = &quoteImpl{}
 
+// newQuote creates a new swap method based quote with the given parameters.
+// Note that returned implementation must support exact in quote, exact out is calculated by inverting the quote.
+// Inversion is done by calling PrepareResult on the quote.
+func newQuote(method domain.TokenSwapMethod, amountIn sdk.Coin, amountOut osmomath.Int, route []domain.SplitRoute) domain.Quote {
+	quote := quoteImpl{
+		AmountIn:  amountIn,
+		AmountOut: amountOut,
+		Route:     route,
+	}
+
+	if method == domain.TokenSwapMethodExactIn {
+		return &quote
+	}
+
+	return &quoteExactAmountOut{
+		quoteImpl: &quote,
+	}
+}
+
 // PrepareResult implements domain.Quote.
 // PrepareResult mutates the quote to prepare
 // it with the data formatted for output to the client.
@@ -45,7 +65,7 @@ var _ domain.Quote = &quoteImpl{}
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, method domain.TokenSwapMethod) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
@@ -75,7 +95,7 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
 		amountInFraction := q.AmountIn.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), domain.TokenSwapMethodExactIn)
+		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction))
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}
@@ -90,11 +110,6 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 			},
 			InAmount:  curRoute.GetAmountIn(),
 			OutAmount: curRoute.GetAmountOut(),
-		}
-
-		// invert the in and out amounts if the method is exact out
-		if method == domain.TokenSwapMethodExactOut {
-			route.InAmount, route.OutAmount = route.OutAmount, route.InAmount
 		}
 
 		resultRoutes = append(resultRoutes, &route)
@@ -112,9 +127,33 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 	return q.Route, q.EffectiveFee, nil
 }
 
-func (q *QuoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
-	for _, r := range q.Route {
-		for _, p := range r.GetPools() {
+func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
+	// Prepare exact out in the quote for inputs inversion
+	if _, _, err := q.quoteImpl.PrepareResult(ctx, scalingFactor); err != nil {
+		return nil, osmomath.Dec{}, err
+	}
+
+	// Assign the inverted values to the quote
+	q.AmountOut = q.quoteImpl.AmountIn
+	q.AmountIn = q.quoteImpl.AmountOut
+	q.Route = q.quoteImpl.Route
+	q.EffectiveFee = q.quoteImpl.EffectiveFee
+	q.PriceImpact = q.quoteImpl.PriceImpact
+	q.InBaseOutQuoteSpotPrice = q.quoteImpl.InBaseOutQuoteSpotPrice
+
+	for i, route := range q.Route {
+		route, ok := route.(*RouteWithOutAmount)
+		if !ok {
+			panic("invalid route type") // should never happen
+		}
+
+		// invert the in and out amounts
+		route.InAmount, route.OutAmount = route.OutAmount, route.InAmount
+
+		q.Route[i] = route
+
+		// invert the in and out amounts for each pool
+		for _, p := range route.GetPools() {
 			p.SetTokenInDenom(p.GetTokenOutDenom())
 			p.SetTokenOutDenom("")
 		}

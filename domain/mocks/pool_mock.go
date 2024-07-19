@@ -28,7 +28,6 @@ type MockRoutablePool struct {
 	TokenOutDenom     string
 	TakerFee          osmomath.Dec
 	SpreadFactor      osmomath.Dec
-	mockedTokenIn     sdk.Coin
 	mockedTokenOut    sdk.Coin
 
 	PoolLiquidityCap      osmomath.Int
@@ -101,26 +100,6 @@ func (mp *MockRoutablePool) CalculateTokenOutByTokenIn(_ctx context.Context, tok
 	return balancerPool.CalcOutAmtGivenIn(sdk.Context{}, sdk.NewCoins(tokenIn), mp.TokenOutDenom, mp.SpreadFactor)
 }
 
-// CalculateTokenInByTokenOut implements routerusecase.RoutablePool.
-func (mp *MockRoutablePool) CalculateTokenInByTokenOut(_ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	// We allow the ability to mock out the token out amount.
-	if !mp.mockedTokenIn.IsNil() {
-		return mp.mockedTokenIn, nil
-	}
-
-	if mp.PoolType == poolmanagertypes.CosmWasm {
-		return sdk.NewCoin(mp.TokenInDenom, tokenOut.Amount), nil
-	}
-
-	// Cast to balancer
-	balancerPool, ok := mp.ChainPoolModel.(*balancer.Pool)
-	if !ok {
-		panic("not a balancer pool")
-	}
-
-	return balancerPool.CalcInAmtGivenOut(sdk.Context{}, sdk.NewCoins(tokenOut), mp.TokenInDenom, mp.SpreadFactor)
-}
-
 // String implements domain.RoutablePool.
 func (*MockRoutablePool) String() string {
 	panic("unimplemented")
@@ -153,14 +132,14 @@ func (mp *MockRoutablePool) GetTokenInDenom() string {
 	return mp.TokenInDenom
 }
 
-// ChargeTakerFee implements domain.RoutablePool.
-func (mp *MockRoutablePool) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
-	return tokenIn.Sub(sdk.NewCoin(tokenIn.Denom, mp.TakerFee.Mul(tokenIn.Amount.ToLegacyDec()).TruncateInt()))
+// SetTokenInDenom implements routerusecase.RoutablePool.
+func (mp *MockRoutablePool) SetTokenInDenom(tokenInDenom string) {
+	mp.TokenInDenom = tokenInDenom
 }
 
 // ChargeTakerFee implements domain.RoutablePool.
-func (mp *MockRoutablePool) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
-	return tokenOut.Sub(sdk.NewCoin(tokenOut.Denom, mp.TakerFee.Mul(tokenOut.Amount.ToLegacyDec()).TruncateInt()))
+func (mp *MockRoutablePool) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
+	return tokenIn.Sub(sdk.NewCoin(tokenIn.Denom, mp.TakerFee.Mul(tokenIn.Amount.ToLegacyDec()).TruncateInt()))
 }
 
 // GetTakerFee implements sqsdomain.PoolI.

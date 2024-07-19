@@ -125,11 +125,6 @@ func (r *routableResultPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context,
 	return sdk.Coin{}, errors.New("not implemented")
 }
 
-// CalculateTokenInByTokenOut implements RoutablePool.
-func (r *routableResultPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-	return sdk.Coin{}, errors.New("not implemented")
-}
-
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableResultPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -150,13 +145,6 @@ func (r *routableResultPoolImpl) String() string {
 func (r *routableResultPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.TakerFee)
 	return tokenInAfterTakerFee
-}
-
-// ChargeTakerFee implements domain.RoutablePool.
-// Charges the taker fee for the given token in and returns the token in after the fee has been charged.
-func (r *routableResultPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.TakerFee)
-	return tokenOutAfterTakerFee
 }
 
 // GetTakerFee implements domain.RoutablePool.

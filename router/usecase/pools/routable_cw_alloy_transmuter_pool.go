@@ -79,24 +79,6 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context
 	return sdk.Coin{Denom: r.TokenOutDenom, Amount: tokenOutAmtInt}, nil
 }
 
-func (r *routableAlloyTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	tokenInAmt, err := r.CalcTokenInAmt(r.TokenInDenom, tokenOut)
-	if err != nil {
-		return sdk.Coin{}, err
-	}
-
-	tokenInAmtInt := tokenInAmt.Dec().TruncateInt()
-
-	// Validate token out balance if not alloyed
-	if r.TokenInDenom != r.AlloyTransmuterData.AlloyedDenom {
-		if err := validateTransmuterBalance(tokenInAmtInt, r.Balances, r.TokenOutDenom); err != nil {
-			return sdk.Coin{}, err
-		}
-	}
-
-	return sdk.Coin{Denom: r.TokenInDenom, Amount: tokenInAmtInt}, nil
-}
-
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -117,13 +99,6 @@ func (r *routableAlloyTransmuterPoolImpl) String() string {
 func (r *routableAlloyTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
-}
-
-// ChargeTakerFeeExactOut implements domain.RoutablePool.
-// Returns tokenOutAmount and does not charge any fee for transmuter pools.
-func (r *routableAlloyTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (outAmountAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.GetTakerFee())
-	return tokenOutAfterTakerFee
 }
 
 // GetTakerFee implements domain.RoutablePool.

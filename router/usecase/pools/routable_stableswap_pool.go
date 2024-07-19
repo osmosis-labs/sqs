@@ -35,16 +35,6 @@ func (r *routableStableswapPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 	return tokenOut, nil
 }
 
-// CalculateTokenInByTokenOut implements RoutablePool.
-func (r *routableStableswapPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	tokenIn, err := r.ChainPool.CalcInAmtGivenOut(sdk.Context{}, sdk.Coins{tokenOut}, r.TokenInDenom, r.GetSpreadFactor())
-	if err != nil {
-		return sdk.Coin{}, err
-	}
-
-	return tokenIn, nil
-}
-
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableStableswapPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -65,13 +55,6 @@ func (r *routableStableswapPoolImpl) String() string {
 func (r *routableStableswapPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.TakerFee)
 	return tokenInAfterTakerFee
-}
-
-// ChargeTakerFee implements domain.RoutablePool.
-// Charges the taker fee for the given token in and returns the token in after the fee has been charged.
-func (r *routableStableswapPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.TakerFee)
-	return tokenOutAfterTakerFee
 }
 
 // GetTakerFee implements domain.RoutablePool.
