@@ -1,8 +1,6 @@
 package usecase
 
 import (
-	"fmt"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -192,7 +190,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 			return sqsdomain.CandidateRoutes{}, err
 		}
 		if len(rankedPools) == 0 {
-			return sqsdomain.CandidateRoutes{}, fmt.Errorf("no pools found for denom %s", currenTokenInDenom)
+			return sqsdomain.CandidateRoutes{}, nil
 		}
 
 		for i := 0; i < len(rankedPools) && len(routes) < options.MaxRoutes; i++ {
