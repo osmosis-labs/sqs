@@ -28,21 +28,22 @@ const (
 )
 
 var (
-	UOSMO    = routertesting.UOSMO
-	ATOM     = routertesting.ATOM
-	stOSMO   = routertesting.STOSMO
-	stATOM   = routertesting.STATOM
-	USDC     = routertesting.USDC
-	USDCaxl  = routertesting.USDCaxl
-	USDT     = routertesting.USDT
-	WBTC     = routertesting.WBTC
-	ETH      = routertesting.ETH
-	AKT      = routertesting.AKT
-	UMEE     = routertesting.UMEE
-	UION     = routertesting.UION
-	ALLUSDT  = routertesting.ALLUSDT
-	ALLBTC   = routertesting.ALLBTC
-	KAVAUSDT = routertesting.KAVAUSDT
+	UOSMO       = routertesting.UOSMO
+	ATOM        = routertesting.ATOM
+	stOSMO      = routertesting.STOSMO
+	stATOM      = routertesting.STATOM
+	USDC        = routertesting.USDC
+	USDCaxl     = routertesting.USDCaxl
+	USDT        = routertesting.USDT
+	WBTC        = routertesting.WBTC
+	ETH         = routertesting.ETH
+	AKT         = routertesting.AKT
+	UMEE        = routertesting.UMEE
+	UION        = routertesting.UION
+	ALLUSDT     = routertesting.ALLUSDT
+	ALLBTC      = routertesting.ALLBTC
+	KAVAUSDT    = routertesting.KAVAUSDT
+	NATIVE_WBTC = routertesting.NATIVE_WBTC
 )
 
 // TODO: copy exists in candidate_routes_test.go - share & reuse
