@@ -174,15 +174,24 @@ class TestQuote:
         self.validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
     
 
-    def test_orderbook(self, environment_url):
-        sqs_service = conftest.SERVICE_MAP[environment_url]
+    @pytest.mark.parametrize("amount", [10])
+    def test_orderbook(self, environment_url, amount):
+        """
+        This test aims to validate the orderbook functionality by performing a direct quote request.
+        
+        The amount out from direct quote is compared to the amount out calculated by amount in after fee * spot price
+        to ensure that the orderbook quote is working as expected.
 
-        denom_in = "10factory/osmo1z0qrq605sjgcqpylfl4aa6s90x738j7m58wyatt0tdzflg2ha26q67k743/wbtc"
-        denom_out = USDC
-        pool_id = "1904"
+        Small amount in is used since spot price is calculated based on the tick price at the top of the orderbook.
+        If the amount in is large, the actual amount out will be different from the amount out calculated by amount in after fee * spot price
+        due to the price impact.
+        """
+        sqs_service = conftest.SERVICE_MAP[environment_url]
+        [pool] = conftest.shared_test_state.orderbook_token_pair
+        [pool_id, [denom_in, denom_out]] = pool
 
         start_time = time.time()
-        response = sqs_service.get_custom_direct_quote(denom_in, denom_out, pool_id)
+        response = sqs_service.get_custom_direct_quote(str(amount) + denom_in, denom_out, pool_id)
         elapsed_time_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == 200, f"Error: {response.text}"
