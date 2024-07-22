@@ -4,7 +4,8 @@ import "errors"
 
 // Handler Errors
 var (
-	ErrTokenNotValid                   = errors.New("tokenIn is invalid - must be in the format amountDenom")
+	ErrTokenInNotValid                 = errors.New("tokenIn is invalid - must be in the format amountDenom")
+	ErrTokenOutNotValid                = errors.New("tokenOut is invalid - must be in the format amountDenom")
 	ErrTokenInDenomNotSpecified        = errors.New("tokenInDenom is required")
 	ErrTokenOutDenomNotSpecified       = errors.New("tokenOutDenom is required")
 	ErrTokenOutNotSpecified            = errors.New("tokenOut is required")

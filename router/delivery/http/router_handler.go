@@ -96,6 +96,12 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		tokenOutDenom string
 	)
 
+	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
+		tokenIn, tokenOutDenom = req.TokenIn, req.TokenOutDenom
+	} else {
+		tokenIn, tokenOutDenom = req.TokenOut, req.TokenInDenom
+	}
+
 	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn.Denom, tokenOutDenom})
 	if err != nil {
 		return err
@@ -112,9 +118,9 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	var quote domain.Quote
 	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		quote, err = a.RUsecase.GetOptimalQuote(ctx, *req.TokenIn, req.TokenOutDenom, routerOpts...)
+		quote, err = a.RUsecase.GetOptimalQuote(ctx, *tokenIn, tokenOutDenom, routerOpts...)
 	} else {
-		quote, err = a.RUsecase.GetOptimalQuoteInGivenOut(ctx, *req.TokenOut, req.TokenInDenom, routerOpts...)
+		quote, err = a.RUsecase.GetOptimalQuoteInGivenOut(ctx, *tokenIn, tokenOutDenom, routerOpts...)
 	}
 
 	if err != nil {
@@ -309,7 +315,7 @@ func getDirectCustomQuoteParameters(c echo.Context) ([]uint64, []string, sdk.Coi
 
 	tokenIn, err := sdk.ParseCoinNormalized(tokenInStr)
 	if err != nil {
-		return nil, nil, sdk.Coin{}, types.ErrTokenNotValid
+		return nil, nil, sdk.Coin{}, types.ErrTokenInNotValid
 	}
 
 	return poolID, tokenOut, tokenIn, nil

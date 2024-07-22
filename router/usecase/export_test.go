@@ -24,12 +24,6 @@ const (
 	NoPoolLiquidityCapError = noPoolLiquidityCapError
 )
 
-func NewQuoteExactAmountOut(q *QuoteImpl) domain.Quote {
-	return &quoteExactAmountOut{
-		quoteImpl: q,
-	}
-}
-
 func ValidateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
 	return validateAndFilterRoutes(candidateRoutes, tokenInDenom, logger)
 }

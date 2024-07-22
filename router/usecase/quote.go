@@ -22,6 +22,18 @@ var (
 	_ domain.Quote = &quoteExactAmountOut{}
 )
 
+// NOTE: This is because structs in alias declaration are not exported
+type (
+	QuoteExactAmountOut = quoteExactAmountOut
+	QuoteExactAmountIn  = quoteImpl
+)
+
+func NewQuoteExactAmountOut(q *QuoteExactAmountIn) *quoteExactAmountOut {
+	return &quoteExactAmountOut{
+		quoteImpl: q,
+	}
+}
+
 // quoteImpl is a quote implementation for token swap method exact in.
 type quoteImpl struct {
 	AmountIn                sdk.Coin            "json:\"amount_in\""

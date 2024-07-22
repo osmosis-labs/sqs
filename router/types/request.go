@@ -37,7 +37,7 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	if tokenIn := c.QueryParam("tokenIn"); tokenIn != "" {
 		tokenInCoin, err := sdk.ParseCoinNormalized(tokenIn)
 		if err != nil {
-			return ErrTokenNotValid
+			return ErrTokenInNotValid
 		}
 		r.TokenIn = &tokenInCoin
 	}
@@ -45,7 +45,7 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	if tokenOut := c.QueryParam("tokenOut"); tokenOut != "" {
 		tokenOutCoin, err := sdk.ParseCoinNormalized(tokenOut)
 		if err != nil {
-			return ErrTokenNotValid
+			return ErrTokenOutNotValid
 		}
 		r.TokenOut = &tokenOutCoin
 	}
