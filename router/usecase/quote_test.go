@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"encoding/json"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -122,127 +123,334 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	poolThree, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, poolIDThree)
 	s.Require().NoError(err)
 
-	testQuote := &usecase.QuoteImpl{
-		AmountIn:  sdk.NewCoin(ETH, totalInAmount),
-		AmountOut: totalOutAmount,
+	testcases := []struct {
+		name  string
+		quote domain.Quote
 
-		// 2 routes with 50-50 split, each single hop
-		Route: []domain.SplitRoute{
+		expectedRoutes       []domain.SplitRoute
+		expectedEffectiveFee string
+		expectedJSON         string
+	}{
+		{
+			name: "exact amount in",
+			quote: &usecase.QuoteImpl{
+				AmountIn:  sdk.NewCoin(ETH, totalInAmount),
+				AmountOut: totalOutAmount,
 
-			// Route 1
-			&usecase.RouteWithOutAmount{
-				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
-							USDT,
-							takerFeeOne,
-							domain.CosmWasmPoolRouterConfig{},
-						),
-						s.newRoutablePool(
-							sqsdomain.NewPool(poolTwo, poolTwo.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
-							USDC,
-							takerFeeTwo,
-							domain.CosmWasmPoolRouterConfig{},
-						),
+				// 2 routes with 50-50 split, each single hop
+				Route: []domain.SplitRoute{
+
+					// Route 1
+					&usecase.RouteWithOutAmount{
+						RouteImpl: route.RouteImpl{
+							Pools: []domain.RoutablePool{
+								s.newRoutablePool(
+									sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
+									USDT,
+									takerFeeOne,
+									domain.CosmWasmPoolRouterConfig{},
+								),
+								s.newRoutablePool(
+									sqsdomain.NewPool(poolTwo, poolTwo.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
+									USDC,
+									takerFeeTwo,
+									domain.CosmWasmPoolRouterConfig{},
+								),
+							},
+						},
+
+						InAmount:  totalInAmount.QuoRaw(2),
+						OutAmount: totalOutAmount.QuoRaw(2),
+					},
+
+					// Route 2
+					&usecase.RouteWithOutAmount{
+						RouteImpl: route.RouteImpl{
+							Pools: []domain.RoutablePool{
+								s.newRoutablePool(
+									sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
+									USDC,
+									takerFeeThree,
+									domain.CosmWasmPoolRouterConfig{},
+								),
+							},
+						},
+
+						InAmount:  totalInAmount.QuoRaw(2),
+						OutAmount: totalOutAmount.QuoRaw(2),
 					},
 				},
-
-				InAmount:  totalInAmount.QuoRaw(2),
-				OutAmount: totalOutAmount.QuoRaw(2),
+				EffectiveFee: osmomath.ZeroDec(),
 			},
-
-			// Route 2
-			&usecase.RouteWithOutAmount{
-				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
-							USDC,
-							takerFeeThree,
-							domain.CosmWasmPoolRouterConfig{},
-						),
+			expectedRoutes: []domain.SplitRoute{
+				// Route 1
+				&usecase.RouteWithOutAmount{
+					RouteImpl: route.RouteImpl{
+						Pools: []domain.RoutablePool{
+							pools.NewRoutableResultPool(
+								poolIDOne,
+								poolmanagertypes.Balancer,
+								poolOne.GetSpreadFactor(sdk.Context{}),
+								USDT,
+								takerFeeOne,
+								notCosmWasmPoolCodeID,
+							),
+							pools.NewRoutableResultPool(
+								poolIDTwo,
+								poolmanagertypes.Balancer,
+								poolTwo.GetSpreadFactor(sdk.Context{}),
+								USDC,
+								takerFeeTwo,
+								notCosmWasmPoolCodeID,
+							),
+						},
 					},
+
+					InAmount:  totalInAmount.QuoRaw(2),
+					OutAmount: totalOutAmount.QuoRaw(2),
 				},
 
-				InAmount:  totalInAmount.QuoRaw(2),
-				OutAmount: totalOutAmount.QuoRaw(2),
+				// Route 2
+				&usecase.RouteWithOutAmount{
+					RouteImpl: route.RouteImpl{
+						Pools: []domain.RoutablePool{
+							pools.NewRoutableResultPool(
+								poolIDThree,
+								poolmanagertypes.Balancer,
+								poolThree.GetSpreadFactor(sdk.Context{}),
+								USDC,
+								takerFeeThree,
+								notCosmWasmPoolCodeID,
+							),
+						},
+					},
+
+					InAmount:  totalInAmount.QuoRaw(2),
+					OutAmount: totalOutAmount.QuoRaw(2),
+				},
 			},
+			// (0.02 + (1 - 0.02) * 0.0004) * 0.5 + 0.003 * 0.5
+			expectedEffectiveFee: "0.011696000000000000",
+			expectedJSON: `{
+			  "amount_in": {
+				"denom": "ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5",
+				"amount": "10000000"
+			  },
+			  "amount_out": "40000000",
+			  "route": [
+				{
+				  "pools": [
+					{
+					  "id": 1,
+					  "type": 0,
+					  "balances": [],
+					  "spread_factor": "0.010000000000000000",
+					  "token_out_denom": "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB",
+					  "taker_fee": "0.020000000000000000"
+					},
+					{
+					  "id": 2,
+					  "type": 0,
+					  "balances": [],
+					  "spread_factor": "0.030000000000000000",
+					  "token_out_denom": "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+					  "taker_fee": "0.000400000000000000"
+					}
+				  ],
+				  "has-cw-pool": false,
+				  "out_amount": "20000000",
+				  "in_amount": "5000000"
+				},
+				{
+				  "pools": [
+					{
+					  "id": 3,
+					  "type": 0,
+					  "balances": [],
+					  "spread_factor": "0.005000000000000000",
+					  "token_out_denom": "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+					  "taker_fee": "0.003000000000000000"
+					}
+				  ],
+				  "has-cw-pool": false,
+				  "out_amount": "20000000",
+				  "in_amount": "5000000"
+				}
+			  ],
+			  "effective_fee": "0.011696000000000000",
+			  "price_impact": "-0.565353638051463862",
+			  "in_base_out_quote_spot_price": "4.500000000000000000"
+			}`,
 		},
-		EffectiveFee: osmomath.ZeroDec(),
+		{
+			name: "exact amount out",
+			quote: usecase.NewQuoteExactAmountOut(
+				&usecase.QuoteImpl{
+
+					AmountIn:  sdk.NewCoin(ETH, totalInAmount),
+					AmountOut: totalOutAmount,
+
+					// 2 routes with 50-50 split, each single hop
+					Route: []domain.SplitRoute{
+						&usecase.RouteWithOutAmount{
+							RouteImpl: route.RouteImpl{
+								Pools: []domain.RoutablePool{
+									s.newRoutablePool(
+										sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
+										USDT,
+										takerFeeOne,
+										domain.CosmWasmPoolRouterConfig{},
+									),
+									s.newRoutablePool(
+										sqsdomain.NewPool(poolTwo, poolTwo.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
+										USDC,
+										takerFeeTwo,
+										domain.CosmWasmPoolRouterConfig{},
+									),
+								},
+							},
+
+							InAmount:  totalInAmount.QuoRaw(2),
+							OutAmount: totalOutAmount.QuoRaw(3),
+						},
+						&usecase.RouteWithOutAmount{
+							RouteImpl: route.RouteImpl{
+								Pools: []domain.RoutablePool{
+									s.newRoutablePool(
+										sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
+										USDC,
+										takerFeeThree,
+										domain.CosmWasmPoolRouterConfig{},
+									),
+								},
+							},
+
+							InAmount:  totalInAmount.QuoRaw(4),
+							OutAmount: totalOutAmount.QuoRaw(5),
+						},
+					},
+					EffectiveFee: osmomath.ZeroDec(),
+				},
+			),
+			expectedRoutes: []domain.SplitRoute{
+				&usecase.RouteWithOutAmount{
+					RouteImpl: route.RouteImpl{
+						Pools: []domain.RoutablePool{
+							pools.NewExactAmountOutRoutableResultPool(
+								poolIDOne,
+								poolmanagertypes.Balancer,
+								poolOne.GetSpreadFactor(sdk.Context{}),
+								USDT,
+								takerFeeOne,
+								notCosmWasmPoolCodeID,
+							),
+							pools.NewExactAmountOutRoutableResultPool(
+								poolIDTwo,
+								poolmanagertypes.Balancer,
+								poolTwo.GetSpreadFactor(sdk.Context{}),
+								USDC,
+								takerFeeTwo,
+								notCosmWasmPoolCodeID,
+							),
+						},
+					},
+
+					InAmount:  totalOutAmount.QuoRaw(3),
+					OutAmount: totalInAmount.QuoRaw(2),
+				},
+				&usecase.RouteWithOutAmount{
+					RouteImpl: route.RouteImpl{
+						Pools: []domain.RoutablePool{
+							pools.NewExactAmountOutRoutableResultPool(
+								poolIDThree,
+								poolmanagertypes.Balancer,
+								poolThree.GetSpreadFactor(sdk.Context{}),
+								USDC,
+								takerFeeThree,
+								notCosmWasmPoolCodeID,
+							),
+						},
+					},
+
+					InAmount:  totalOutAmount.QuoRaw(5),
+					OutAmount: totalInAmount.QuoRaw(4),
+				},
+			},
+			expectedEffectiveFee: "0.010946000000000000",
+			expectedJSON: `{
+			  "amount_in": "40000000",
+			  "amount_out": {
+				"denom": "ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5",
+				"amount": "10000000"
+			  },
+			  "route": [
+				{
+				  "pools": [
+					{
+					  "id": 1,
+					  "type": 0,
+					  "balances": [],
+					  "spread_factor": "0.010000000000000000",
+					  "token_in_denom": "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB",
+					  "taker_fee": "0.020000000000000000"
+					},
+					{
+					  "id": 2,
+					  "type": 0,
+					  "balances": [],
+					  "spread_factor": "0.030000000000000000",
+					  "token_in_denom": "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+					  "taker_fee": "0.000400000000000000"
+					}
+				  ],
+				  "has-cw-pool": false,
+				  "out_amount": "5000000",
+				  "in_amount": "13333333"
+				},
+				{
+				  "pools": [
+					{
+					  "id": 3,
+					  "type": 0,
+					  "balances": [],
+					  "spread_factor": "0.005000000000000000",
+					  "token_in_denom": "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+					  "taker_fee": "0.003000000000000000"
+					}
+				  ],
+				  "has-cw-pool": false,
+				  "out_amount": "2500000",
+				  "in_amount": "8000000"
+				}
+			  ],
+			  "effective_fee": "0.010946000000000000",
+			  "price_impact": "-0.593435820925030124",
+			  "in_base_out_quote_spot_price": "3.500000000000000000"
+							}`,
+		},
 	}
 
-	expectedRoutes := []domain.SplitRoute{
+	for _, tc := range testcases {
+		s.Run(tc.name, func() {
+			// System under test
+			routes, effectiveFee, err := tc.quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
+			s.Require().NoError(err)
 
-		// Route 1
-		&usecase.RouteWithOutAmount{
-			RouteImpl: route.RouteImpl{
-				Pools: []domain.RoutablePool{
-					pools.NewRoutableResultPool(
-						poolIDOne,
-						poolmanagertypes.Balancer,
-						poolOne.GetSpreadFactor(sdk.Context{}),
-						USDT,
-						takerFeeOne,
-						notCosmWasmPoolCodeID,
-					),
-					pools.NewRoutableResultPool(
-						poolIDTwo,
-						poolmanagertypes.Balancer,
-						poolTwo.GetSpreadFactor(sdk.Context{}),
-						USDC,
-						takerFeeTwo,
-						notCosmWasmPoolCodeID,
-					),
-				},
-			},
+			// Validate JSON representation, which is used for output to the client
+			// That covers amount in and amount out which can not be validated with getter methods.
+			response, err := json.Marshal(tc.quote)
+			s.Require().NoError(err)
+			s.Require().JSONEq(tc.expectedJSON, string(response))
 
-			InAmount:  totalInAmount.QuoRaw(2),
-			OutAmount: totalOutAmount.QuoRaw(2),
-		},
+			// Validate routes.
+			s.validateRoutes(tc.expectedRoutes, routes)
+			s.validateRoutes(tc.expectedRoutes, tc.quote.GetRoute())
 
-		// Route 2
-		&usecase.RouteWithOutAmount{
-			RouteImpl: route.RouteImpl{
-				Pools: []domain.RoutablePool{
-					pools.NewRoutableResultPool(
-						poolIDThree,
-						poolmanagertypes.Balancer,
-						poolThree.GetSpreadFactor(sdk.Context{}),
-						USDC,
-						takerFeeThree,
-						notCosmWasmPoolCodeID,
-					),
-				},
-			},
-
-			InAmount:  totalInAmount.QuoRaw(2),
-			OutAmount: totalOutAmount.QuoRaw(2),
-		},
+			// Validate effective spread factor.
+			s.Require().Equal(tc.expectedEffectiveFee, effectiveFee.String())
+			s.Require().Equal(tc.expectedEffectiveFee, tc.quote.GetEffectiveFee().String())
+		})
 	}
-
-	// Compute expected total fee and validate against actual
-	expectedPoolOneTotalFee := takerFeeOne
-	expectedPoolTwoTotalFee := takerFeeTwo
-	expectedPoolThreeTotalFee := takerFeeThree
-
-	expectedRouteOneFee := expectedPoolOneTotalFee.Add(osmomath.OneDec().Sub(expectedPoolOneTotalFee).MulMut(expectedPoolTwoTotalFee)).MulMut(osmomath.NewDecWithPrec(5, 1))
-	expectedRouteTwoFee := expectedPoolThreeTotalFee.Mul(osmomath.NewDecWithPrec(5, 1))
-
-	// (0.02 + (1 - 0.02) * 0.0004) * 0.5 + 0.003 * 0.5
-	expectedEffectiveFee := expectedRouteOneFee.Add(expectedRouteTwoFee)
-
-	// System under test
-	routes, effectiveFee, err := testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
-	s.Require().NoError(err)
-
-	// Validate routes.
-	s.validateRoutes(expectedRoutes, routes)
-	s.validateRoutes(expectedRoutes, testQuote.GetRoute())
-
-	// Validate effective spread factor.
-	s.Require().Equal(expectedEffectiveFee.String(), effectiveFee.String())
-	s.Require().Equal(expectedEffectiveFee.String(), testQuote.GetEffectiveFee().String())
 }
 
 // This test validates that price impact is computed correctly.
