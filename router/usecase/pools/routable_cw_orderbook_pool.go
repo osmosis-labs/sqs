@@ -207,7 +207,7 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 		return osmomath.BigDec{}, err
 	}
 
-	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, directionOut), nil
+	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, *directionIn), nil
 }
 
 // IsGeneralizedCosmWasmPool implements domain.RoutablePool.

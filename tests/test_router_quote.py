@@ -172,6 +172,37 @@ class TestQuote:
 
         # Validate the quote test
         self.validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
+    
+
+    def test_orderbook(self, environment_url):
+        sqs_service = conftest.SERVICE_MAP[environment_url]
+
+        denom_in = "10factory/osmo1z0qrq605sjgcqpylfl4aa6s90x738j7m58wyatt0tdzflg2ha26q67k743/wbtc"
+        denom_out = USDC
+        pool_id = "1904"
+
+        start_time = time.time()
+        response = sqs_service.get_custom_direct_quote(denom_in, denom_out, pool_id)
+        elapsed_time_ms = (time.time() - start_time) * 1000
+
+        assert response.status_code == 200, f"Error: {response.text}"
+        assert EXPECTED_LATENCY_UPPER_BOUND_MS > elapsed_time_ms, \
+             f"Error: latency {elapsed_time_ms} exceeded {EXPECTED_LATENCY_UPPER_BOUND_MS} ms, token in {denom_in} and token out {denom_out}" 
+
+        res = response.json()
+        
+        spot_price = float(res["in_base_out_quote_spot_price"])
+        amount_in = int(res["amount_in"]["amount"])
+        amount_out = int(res["amount_out"])
+        effective_fee = float(res["effective_fee"])
+        amount_in_after_fee = int(amount_in * (1 - effective_fee))
+
+        # assert that difference between calculated amount out by spot price and actual amount out is less than 1%
+        amount_out_by_spot_price = amount_in_after_fee * spot_price
+        diff_pct = abs((amount_out_by_spot_price - amount_out) / amount_out)
+        assert diff_pct < 0.01, \
+            f"Error: difference between calculated and actual amount out is greater than 1%"
+
 
     def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteResponse:
         """
