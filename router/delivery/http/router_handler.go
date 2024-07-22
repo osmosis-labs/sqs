@@ -96,14 +96,6 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		tokenOutDenom string
 	)
 
-	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		tokenIn, tokenOutDenom = req.TokenIn, req.TokenOutDenom
-	}
-
-	if req.SwapMethod() == domain.TokenSwapMethodExactOut {
-		tokenIn, tokenOutDenom = req.TokenOut, req.TokenInDenom
-	}
-
 	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn.Denom, tokenOutDenom})
 	if err != nil {
 		return err
@@ -118,7 +110,13 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		routerOpts = append(routerOpts, domain.WithMaxSplitRoutes(domain.DisableSplitRoutes))
 	}
 
-	quote, err := a.RUsecase.GetOptimalQuote(ctx, *tokenIn, tokenOutDenom, req.SwapMethod(), routerOpts...)
+	var quote domain.Quote
+	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
+		quote, err = a.RUsecase.GetOptimalQuote(ctx, *req.TokenIn, req.TokenOutDenom, routerOpts...)
+	} else {
+		quote, err = a.RUsecase.GetOptimalQuoteInGivenOut(ctx, *req.TokenOut, req.TokenInDenom, routerOpts...)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -169,7 +167,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 	}
 
 	// Quote
-	quote, err := a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, tokenIn, tokenOutDenom, poolIDs, domain.TokenSwapMethodExactIn)
+	quote, err := a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, tokenIn, tokenOutDenom, poolIDs)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}

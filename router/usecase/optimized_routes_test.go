@@ -199,7 +199,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 	for name, tc := range tests {
 		s.Run(name, func() {
-			quote, err := routerusecase.GetSplitQuote(context.TODO(), tc.routes, tc.tokenIn, domain.TokenSwapMethodExactIn)
+			quote, err := routerusecase.GetSplitQuote(context.TODO(), tc.routes, tc.tokenIn)
 			if tc.expectError != nil {
 				s.Require().Error(err)
 				s.Require().ErrorIs(tc.expectError, err)
@@ -653,7 +653,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
 			// System under test
-			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom, domain.TokenSwapMethodExactIn)
+			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
 
 			// We only validate that error does not occur without actually validating the quote.
 			s.Require().NoError(err)
@@ -702,7 +702,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	const expectedPoolID = uint64(2)
 
 	// System under test 2
-	quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID, domain.TokenSwapMethodExactIn)
+	quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 }

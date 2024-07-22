@@ -46,7 +46,7 @@ type RouterRepository interface {
 type SimpleRouterUsecase interface {
 	// GetSimpleQuote returns a simple quote for the given tokenIn and tokenOutDenom.
 	// No split routes or caching is used.
-	GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, opts ...domain.RouterOption) (domain.Quote, error)
+	GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 
 	// GetPoolSpotPrice returns the spot price of a pool.
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error)
@@ -57,15 +57,18 @@ type RouterUsecase interface {
 	SimpleRouterUsecase
 
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.
-	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, opts ...domain.RouterOption) (domain.Quote, error)
+	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
+
+	// GetOptimalQuoteInGivenOut returns the optimal quote for the given token swap method exact amount out.
+	GetOptimalQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 
 	// GetCustomDirectQuote returns the custom direct quote for the given tokenIn, tokenOutDenom and poolID.
 	// It does not search for the route. It directly computes the quote for the given poolID.
 	// This allows to bypass a min liquidity requirement in the router when attempting to swap over a specific pool.
-	GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64, method domain.TokenSwapMethod) (domain.Quote, error)
+	GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error)
 	// GetCustomDirectQuoteMultiPool calculates direct custom quote for given tokenIn and tokenOutDenom over given poolID route.
 	// Otherwise it implements same rules as GetCustomDirectQuote.
-	GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64, method domain.TokenSwapMethod) (domain.Quote, error)
+	GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error)
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
 	GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 	// GetTakerFee returns the taker fee for all token pairs in a pool.

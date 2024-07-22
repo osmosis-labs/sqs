@@ -185,7 +185,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	}
 
 	// Compute a quote for one quote coin.
-	quote, err := c.RUsecase.GetSimpleQuote(ctx, tenQuoteCoin, baseDenom, domain.TokenSwapMethodExactIn, routingOptions...)
+	quote, err := c.RUsecase.GetSimpleQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}

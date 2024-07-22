@@ -32,8 +32,8 @@ func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, 
 	return r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 }
 
-func EstimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
-	return estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, method, logger)
+func EstimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
+	return estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, logger)
 }
 
 func FilterDuplicatePoolIDRoutes(rankedRoutes []RouteWithOutAmount) []route.RouteImpl {
@@ -60,12 +60,12 @@ func SortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 	return sortPools(pools, transmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger)
 }
 
-func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod) (domain.Quote, error) {
-	return getSplitQuote(ctx, routes, tokenIn, method)
+func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, error) {
+	return getSplitQuote(ctx, routes, tokenIn)
 }
 
-func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
-	return r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, method, maxRoutes)
+func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
+	return r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
 }
 
 func CutRoutesForSplits(maxSplitRoutes int, routes []route.RouteImpl) []route.RouteImpl {

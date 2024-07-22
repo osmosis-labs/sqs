@@ -21,7 +21,7 @@ func (s *RouterTestSuite) TestGetSplitQuote() {
 
 	tokenIn, rankedRoutes := s.setupSplitsMainnetTestCase(displayDenomIn, amountIn, USDC)
 
-	splitQuote, err := usecase.GetSplitQuote(context.TODO(), rankedRoutes, tokenIn, domain.TokenSwapMethodExactIn)
+	splitQuote, err := usecase.GetSplitQuote(context.TODO(), rankedRoutes, tokenIn)
 
 	s.Require().NotNil(splitQuote)
 	s.Require().NoError(err)
@@ -63,7 +63,7 @@ func (s *RouterTestSuite) setupSplitsMainnetTestCase(displayDenomIn string, amou
 	s.Require().True(ok)
 
 	// Estimate direct quote
-	_, rankedRoutes, err := routerUseCase.RankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, chainDenomOut, domain.TokenSwapMethodExactIn, config.MaxRoutes)
+	_, rankedRoutes, err := routerUseCase.RankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, chainDenomOut, config.MaxRoutes)
 	s.Require().NoError(err)
 
 	return tokenIn, rankedRoutes

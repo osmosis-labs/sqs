@@ -24,7 +24,7 @@ const totalIncrements = uint8(10)
 // The algorithm is based on the knapsack problem.
 // The time complexity is O(n * m), where n is the number of routes and m is the totalIncrements.
 // The space complexity is O(n * m).
-func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod) (domain.Quote, error) {
+func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, error) {
 	// Routes must be non-empty
 	if len(routes) == 0 {
 		return nil, errors.New("no routes")
@@ -37,7 +37,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 			return nil, err
 		}
 
-		quote := newQuote(method, tokenIn, coinOut.Amount, []domain.SplitRoute{&RouteWithOutAmount{
+		quote := newQuote(tokenIn, coinOut.Amount, []domain.SplitRoute{&RouteWithOutAmount{
 			RouteImpl: route,
 			OutAmount: coinOut.Amount,
 			InAmount:  tokenIn.Amount,
@@ -166,7 +166,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		return nil, fmt.Errorf("total increments (%d) does not match expected total increments (%d)", totalIncrementsInSplits, totalIncrements)
 	}
 
-	quote := newQuote(method, tokenIn, bestSplit.amountOut, resultRoutes)
+	quote := newQuote(tokenIn, bestSplit.amountOut, resultRoutes)
 
 	return quote, nil
 }
