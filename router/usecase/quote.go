@@ -22,17 +22,6 @@ var (
 	_ domain.Quote = &quoteExactAmountOut{}
 )
 
-// newQuote creates a new swap method based quote with the given parameters.
-// Note that returned implementation must support exact in quote, exact out is calculated by inverting the quote.
-// Inversion is done by calling PrepareResult on the quote.
-func newQuote(amountIn sdk.Coin, amountOut osmomath.Int, route []domain.SplitRoute) domain.Quote {
-	return &quoteImpl{
-		AmountIn:  amountIn,
-		AmountOut: amountOut,
-		Route:     route,
-	}
-}
-
 // quoteImpl is a quote implementation for token swap method exact in.
 type quoteImpl struct {
 	AmountIn                sdk.Coin            "json:\"amount_in\""

@@ -70,7 +70,12 @@ func estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteIm
 	})
 
 	bestRoute := routesWithAmountOut[0]
-	finalQuote := newQuote(tokenIn, bestRoute.OutAmount, []domain.SplitRoute{&bestRoute})
+
+	finalQuote := &quoteImpl{
+		AmountIn:  tokenIn,
+		AmountOut: bestRoute.OutAmount,
+		Route:     []domain.SplitRoute{&bestRoute},
+	}
 
 	return finalQuote, routesWithAmountOut, nil
 }

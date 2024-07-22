@@ -211,6 +211,8 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	return finalQuote, nil
 }
 
+// GetOptimalQuoteInGivenOut returns an optimal quote through the pools for the exact amount out token swap method.
+// Underlying implementation is the same as GetOptimalQuote, but the returned quote is wrapped in a quoteExactAmountOut.
 func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
 	quote, err := r.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, opts...)
 	if err != nil {
