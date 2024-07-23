@@ -1,5 +1,6 @@
 import time
 import pytest
+import itertools
 
 import conftest
 from sqs_service import *
@@ -26,6 +27,17 @@ HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD = 5000
 # The max price impact threshold for the high liquidity check
 HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD = 0.5
 
+
+def orderbook_token_pairs():
+    """
+    Returns a list of tuples of the form (pool_id, (token_in, token_out))
+    """
+    return [
+        (pool_id, pair) \
+            for [pool_id, denoms] in conftest.shared_test_state.orderbook_token_pair \
+                for pair in itertools.combinations(denoms, 2)
+    ]
+    
 
 # Test suite for the /router/quote endpoint
 class TestQuote:
@@ -174,8 +186,9 @@ class TestQuote:
         self.validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
     
 
-    @pytest.mark.parametrize("amount", [10])
-    def test_orderbook(self, environment_url, amount):
+    @pytest.mark.parametrize("amount", [1000])
+    @pytest.mark.parametrize("token_pair", orderbook_token_pairs())
+    def test_orderbook(self, environment_url, amount, token_pair):
         """
         This test aims to validate the orderbook functionality by performing a direct quote request.
         
@@ -184,12 +197,11 @@ class TestQuote:
 
         Small amount in is used since spot price is calculated based on the tick price at the top of the orderbook.
         If the amount in is large, the actual amount out will be different from the amount out calculated by amount in after fee * spot price
-        due to the price impact.
+        due to the moving ticks and potential low liquidity on one side of the orderbook.
         """
-        sqs_service = conftest.SERVICE_MAP[environment_url]
-        [pool] = conftest.shared_test_state.orderbook_token_pair
-        [pool_id, [denom_in, denom_out]] = pool
+        (pool_id, (denom_in, denom_out)) = token_pair
 
+        sqs_service = conftest.SERVICE_MAP[environment_url]
         start_time = time.time()
         response = sqs_service.get_custom_direct_quote(str(amount) + denom_in, denom_out, pool_id)
         elapsed_time_ms = (time.time() - start_time) * 1000
@@ -207,7 +219,7 @@ class TestQuote:
         amount_in_after_fee = int(amount_in * (1 - effective_fee))
 
         # assert that difference between calculated amount out by spot price and actual amount out is less than 1%
-        amount_out_by_spot_price = amount_in_after_fee * spot_price
+        amount_out_by_spot_price = int(amount_in_after_fee * spot_price)
         diff_pct = abs((amount_out_by_spot_price - amount_out) / amount_out)
         assert diff_pct < 0.01, \
             f"Error: difference between calculated and actual amount out is greater than 1%"
