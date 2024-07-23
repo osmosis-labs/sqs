@@ -13,7 +13,6 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
-	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"

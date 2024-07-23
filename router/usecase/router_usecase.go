@@ -219,13 +219,13 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 		return nil, err
 	}
 
-	q, ok := quote.(*quoteImpl)
+	q, ok := quote.(*quoteExactAmountIn)
 	if !ok {
-		return nil, errors.New("quote is not a quoteImpl")
+		return nil, errors.New("quote is not a quoteExactAmountIn")
 	}
 
 	return &quoteExactAmountOut{
-		quoteImpl: q,
+		quoteExactAmountIn: q,
 	}, nil
 }
 
@@ -485,7 +485,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 	}
 
 	// AmountIn is the first token of the asset pair.
-	result := quoteImpl{AmountIn: tokenIn}
+	result := quoteExactAmountIn{AmountIn: tokenIn}
 	for i, v := range poolIDs {
 		tokenOutDenom := tokenOutDenom[i]
 

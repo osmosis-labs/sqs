@@ -22,8 +22,8 @@ type routableAlloyTransmuterPoolImpl struct {
 	ChainPool           *cwpoolmodel.CosmWasmPool         "json:\"pool\""
 	AlloyTransmuterData *cosmwasmpool.AlloyTransmuterData "json:\"alloy_transmuter_data\""
 	Balances            sdk.Coins                         "json:\"balances\""
-	TokenInDenom        string                            "json:\"token_in_denom\""
-	TokenOutDenom       string                            "json:\"token_out_denom\""
+	TokenInDenom        string                            "json:\"token_in_denom,omitempty\""
+	TokenOutDenom       string                            "json:\"token_out_denom,omitempty\""
 	TakerFee            osmomath.Dec                      "json:\"taker_fee\""
 	SpreadFactor        osmomath.Dec                      "json:\"spread_factor\""
 }

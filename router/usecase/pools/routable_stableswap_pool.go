@@ -20,8 +20,8 @@ var _ domain.RoutablePool = &routableStableswapPoolImpl{}
 
 type routableStableswapPoolImpl struct {
 	ChainPool     *stableswap.Pool "json:\"pool\""
-	TokenInDenom  string           "json:\"token_in_denom\""
-	TokenOutDenom string           "json:\"token_out_denom\""
+	TokenInDenom  string           "json:\"token_in_denom,omitempty\""
+	TokenOutDenom string           "json:\"token_out_denom,omitempty\""
 	TakerFee      osmomath.Dec     "json:\"taker_fee\""
 }
 

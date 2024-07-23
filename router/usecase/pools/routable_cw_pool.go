@@ -30,8 +30,8 @@ var _ domain.RoutablePool = &routableCosmWasmPoolImpl{}
 type routableCosmWasmPoolImpl struct {
 	ChainPool                *cwpoolmodel.CosmWasmPool       "json:\"pool\""
 	Balances                 sdk.Coins                       "json:\"balances\""
-	TokenOutDenom            string                          "json:\"token_out_denom\""
-	TokenInDenom             string                          "json:\"token_in_denom\""
+	TokenOutDenom            string                          "json:\"token_out_denom,omitempty\""
+	TokenInDenom             string                          "json:\"token_in_denom,omitempty\""
 	TakerFee                 osmomath.Dec                    "json:\"taker_fee\""
 	SpreadFactor             osmomath.Dec                    "json:\"spread_factor\""
 	wasmClient               wasmtypes.QueryClient           "json:\"-\""

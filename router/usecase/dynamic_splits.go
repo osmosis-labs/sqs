@@ -37,7 +37,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 			return nil, err
 		}
 
-		quote := &quoteImpl{
+		quote := &quoteExactAmountIn{
 			AmountIn:  tokenIn,
 			AmountOut: coinOut.Amount,
 			Route: []domain.SplitRoute{&RouteWithOutAmount{
@@ -170,7 +170,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		return nil, fmt.Errorf("total increments (%d) does not match expected total increments (%d)", totalIncrementsInSplits, totalIncrements)
 	}
 
-	quote := &quoteImpl{
+	quote := &quoteExactAmountIn{
 		AmountIn:  tokenIn,
 		AmountOut: bestSplit.amountOut,
 		Route:     resultRoutes,
