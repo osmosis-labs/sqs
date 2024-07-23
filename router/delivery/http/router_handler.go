@@ -132,8 +132,6 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
 	}
 
-	//  PrepareResult requires swap method to be passed in, because based on that
-	// it needs to calculate takers fee for each pool in the route.
 	_, _, err = quote.PrepareResult(ctx, scalingFactor)
 	if err != nil {
 		return err

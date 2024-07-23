@@ -16,7 +16,6 @@ import (
 	routerdelivery "github.com/osmosis-labs/sqs/router/delivery/http"
 	routertypes "github.com/osmosis-labs/sqs/router/types"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -35,6 +34,12 @@ func TestRouterHandlerSuite(t *testing.T) {
 }
 
 func (s *RouterHandlerSuite) TestGetOptimalQuote() {
+	// Prepare 3 pools, we create once and reuse them in the test cases
+	// It's done to avoid creating them multiple times and increasing pool IDs counter.
+	_, poolOne := s.PoolOne()
+	_, poolTwo := s.PoolTwo()
+	_, poolThree := s.PoolThree()
+
 	testcases := []struct {
 		name               string
 		queryParams        map[string]string
@@ -52,13 +57,14 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 				"applyExponents": "true",
 			},
 			handler: &routerdelivery.RouterHandler{
-				TUsecase: tokensusecase.NewTokensUsecase(nil, 0, nil),
+				TUsecase: &mocks.TokensUsecaseMock{
+					IsValidChainDenomFunc: func(chainDenom string) bool {
+						return true
+					},
+				},
 				RUsecase: &mocks.RouterUsecaseMock{
 					GetOptimalQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
-						_, p1 := s.PoolOne()
-						_, p2 := s.PoolTwo()
-						_, p3 := s.PoolThree()
-						return s.NewExactAmountInQuote(p1, p2, p3), nil
+						return s.NewExactAmountInQuote(poolOne, poolTwo, poolThree), nil
 					},
 				},
 			},
@@ -75,13 +81,14 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 				"applyExponents": "true",
 			},
 			handler: &routerdelivery.RouterHandler{
-				TUsecase: tokensusecase.NewTokensUsecase(nil, 0, nil),
+				TUsecase: &mocks.TokensUsecaseMock{
+					IsValidChainDenomFunc: func(chainDenom string) bool {
+						return true
+					},
+				},
 				RUsecase: &mocks.RouterUsecaseMock{
 					GetOptimalQuoteInGivenOutFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
-						_, p1 := s.PoolOne()
-						_, p2 := s.PoolTwo()
-						_, p3 := s.PoolThree()
-						return s.NewExactAmountOutQuote(p1, p2, p3), nil
+						return s.NewExactAmountOutQuote(poolOne, poolTwo, poolThree), nil
 					},
 				},
 			},
@@ -151,7 +158,10 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 
 			s.Assert().NoError(err)
 			s.Assert().Equal(tc.expectedStatusCode, rec.Code)
-			s.Assert().Equal(tc.expectedResponse, strings.TrimSpace(rec.Body.String())) // JSONEq fails
+			s.Assert().JSONEq(
+				strings.TrimSpace(tc.expectedResponse),
+				strings.TrimSpace(rec.Body.String()),
+			)
 		})
 	}
 }

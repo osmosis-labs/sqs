@@ -78,7 +78,7 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 				"applyExponents": "true",
 			},
 			expectedResult: nil,
-			expectedError:  types.ErrTokenNotValid,
+			expectedError:  types.ErrTokenInNotValid,
 		},
 		{
 			name: "invalid tokenOut param",
@@ -89,7 +89,7 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 				"applyExponents": "true",
 			},
 			expectedResult: nil,
-			expectedError:  types.ErrTokenNotValid,
+			expectedError:  types.ErrTokenOutNotValid,
 		},
 	}
 
