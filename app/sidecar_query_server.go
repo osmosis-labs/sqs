@@ -8,6 +8,9 @@ import (
 	tenderminapi "cosmossdk.io/api/cosmos/base/tendermint/v1beta1"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/labstack/echo/v4"
+
+	// nolint: staticcheck
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -89,7 +92,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	middleware := middleware.InitMiddleware(config.CORS, config.FlightRecord, logger)
 	e.Use(middleware.CORS)
 	e.Use(middleware.InstrumentMiddleware)
-	e.Use(middleware.TraceWithParamsMiddleware("sqs"))
+	e.Use(otelecho.Middleware("sqs"), middleware.TraceWithParamsMiddleware())
 
 	routerRepository := routerrepo.New(logger)
 

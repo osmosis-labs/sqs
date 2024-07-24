@@ -8,7 +8,7 @@ require (
 	github.com/alecthomas/assert/v2 v2.7.0
 	github.com/cometbft/cometbft v0.37.4
 	github.com/cosmos/cosmos-sdk v0.47.8
-	github.com/labstack/echo/v4 v4.11.4
+	github.com/labstack/echo/v4 v4.12.0
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.13
 	github.com/osmosis-labs/osmosis/v25 v25.0.2-0.20240524131320-44f70454a543
@@ -30,8 +30,10 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/bits-and-blooms/bitset v1.8.0 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
 	github.com/skip-mev/block-sdk v1.4.2 // indirect
+	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.53.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.28.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 )
