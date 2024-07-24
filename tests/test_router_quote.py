@@ -207,22 +207,39 @@ class TestQuote:
         elapsed_time_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == 200, f"Error: {response.text}"
-        assert EXPECTED_LATENCY_UPPER_BOUND_MS > elapsed_time_ms, \
+        assert elapsed_time_ms < EXPECTED_LATENCY_UPPER_BOUND_MS, \
              f"Error: latency {elapsed_time_ms} exceeded {EXPECTED_LATENCY_UPPER_BOUND_MS} ms, token in {denom_in} and token out {denom_out}" 
 
         res = response.json()
         
-        spot_price = float(res["in_base_out_quote_spot_price"])
+        in_base_out_quote_spot_price = Decimal(res["in_base_out_quote_spot_price"])
         amount_in = int(res["amount_in"]["amount"])
         amount_out = int(res["amount_out"])
-        effective_fee = float(res["effective_fee"])
+        effective_fee = Decimal(res["effective_fee"])
         amount_in_after_fee = int(amount_in * (1 - effective_fee))
 
-        # assert that difference between calculated amount out by spot price and actual amount out is less than 1%
-        amount_out_by_spot_price = int(amount_in_after_fee * spot_price)
-        diff_pct = abs((amount_out_by_spot_price - amount_out) / amount_out)
-        assert diff_pct < 0.01, \
-            f"Error: difference between calculated and actual amount out is greater than 1%"
+        denom_in_data = conftest.shared_test_state.chain_denom_to_data_map.get(denom_in)
+        denom_out_data = conftest.shared_test_state.chain_denom_to_data_map.get(denom_out)
+
+        denom_in_precision = denom_in_data.get("exponent")
+        denom_out_precision = denom_out_data.get("exponent")
+
+        # Compute expected spot prices
+        in_price = Decimal(denom_in_data.get("price")) 
+        out_price = Decimal(denom_out_data.get("price"))
+        expected_in_base_out_quote_price = (in_price * Decimal(10)**denom_out_precision) / (out_price * Decimal(10)**denom_in_precision)
+
+        # Compute expected token out
+        expected_amount_out = amount_in_after_fee * expected_in_base_out_quote_price
+        error_tolerance = choose_error_tolerance(amount_in_after_fee)
+
+        numia_sqs_price_diff = relative_error(expected_in_base_out_quote_price, in_base_out_quote_spot_price)
+        assert numia_sqs_price_diff < error_tolerance, \
+            f"Error: difference between numia spot price and sqs spot price is {numia_sqs_price_diff} which is greater than {error_tolerance}"
+
+        amount_out_diff = relative_error(expected_amount_out, amount_out)
+        assert amount_out_diff < error_tolerance, \
+            f"Error: difference between calculated and actual amount out is {amount_out_diff} which is greater than {error_tolerance}"
 
 
     def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteResponse:
