@@ -52,10 +52,22 @@ func (s *RouterTestHelper) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom s
 	return routablePool
 }
 
+// NewAmountIn creates a new amount in.
+func (s *RouterTestHelper) NewAmountIn() sdk.Coin {
+	return sdk.NewCoin(ETH, totalInAmount)
+}
+
+// NewAmountOut creates a new amount out.
+func (s *RouterTestHelper) NewAmountOut() osmomath.Int {
+	return totalOutAmount
+}
+
+// NewExactAmountInQuote creates a new exact amount in Quote.
+// AmountIn is filled with s.NewAmountIn() and AmountOut is filled with s.NewAmountOut().
 func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.PoolI) *usecase.QuoteExactAmountIn {
 	return &usecase.QuoteExactAmountIn{
-		AmountIn:  sdk.NewCoin(ETH, totalInAmount),
-		AmountOut: totalOutAmount,
+		AmountIn:  s.NewAmountIn(),
+		AmountOut: s.NewAmountOut(),
 
 		// 2 routes with 50-50 split, each single hop
 		Route: []domain.SplitRoute{

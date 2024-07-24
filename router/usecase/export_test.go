@@ -29,7 +29,15 @@ func ValidateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDe
 }
 
 func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
-	return r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+	return handleCandidateRoutes(ctx, r.defaultConfig, r.candidateRouteCache, r.candidateRouteSearcher, r.logger, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+}
+
+// MockGetOptimalQuote mocks the GetOptimalQuote function.
+// It returns the original GetOptimalQuote function for restoring the original behavior later.
+func (r *routerUseCaseImpl) MockGetOptimalQuote(mock GetOptimalQuoteFunc) GetOptimalQuoteFunc {
+	original := getOptimalQuoteFunc
+	getOptimalQuoteFunc = mock
+	return original
 }
 
 func EstimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
@@ -65,7 +73,7 @@ func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 }
 
 func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
-	return r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
+	return rankRoutesByDirectQuote(ctx, r.poolsUsecase, candidateRoutes, r.logger, tokenIn, tokenOutDenom, maxRoutes)
 }
 
 func CutRoutesForSplits(maxSplitRoutes int, routes []route.RouteImpl) []route.RouteImpl {

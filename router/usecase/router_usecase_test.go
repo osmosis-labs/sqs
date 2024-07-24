@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
+	"github.com/osmosis-labs/sqs/router/types"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -84,7 +86,40 @@ var (
 	defaultPricingConfig       = routertesting.DefaultPricingConfig
 )
 
-// Tests the call to handleRoutes by mocking the router repository and pools use case
+func (s *RouterTestSuite) SetupRouterUsecase() *usecase.RouterUseCaseImpl {
+	mainnetState := s.SetupMainnetState()
+
+	// Setup router repository mock
+	routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
+	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+
+	// Setup pools usecase mock.
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(
+		&domain.PoolsConfig{},
+		"node-uri-placeholder",
+		routerRepositoryMock,
+		domain.UnsetScalingFactorGetterCb,
+		&log.NoOpLogger{},
+	)
+	s.Require().NoError(err)
+
+	poolsUsecase.StorePools(mainnetState.Pools)
+
+	routerUsecase := usecase.NewRouterUsecase(
+		routerRepositoryMock,
+		poolsUsecase,
+		mocks.CandidateRouteFinderMock{},
+		&mocks.TokenMetadataHolderMock{},
+		routertesting.DefaultRouterConfig,
+		emptyCosmWasmPoolsRouterConfig,
+		&log.NoOpLogger{},
+		cache.New(),
+		cache.New(),
+	)
+
+	return routerUsecase.(*usecase.RouterUseCaseImpl)
+}
+
 // with relevant data.
 func (s *RouterTestSuite) TestHandleRoutes() {
 	const (
@@ -585,6 +620,97 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 			actualCandidateRoutes := usecase.ConvertRankedToCandidateRoutes(tc.rankedRoutes)
 
 			s.Require().Equal(tc.expectedCandidateRoutes, actualCandidateRoutes)
+		})
+	}
+}
+
+// newGetOptimalQuoteFunc returns a GetOptimalQuoteFunc that returns the given quote and error.
+func newGetOptimalQuoteFunc(fn func() (domain.Quote, error)) usecase.GetOptimalQuoteFunc {
+	return func(
+		ctx context.Context,
+		config domain.RouterConfig,
+		tokenMetadataHolder mvc.TokenMetadataHolder,
+		rankedRouteCache *cache.Cache,
+		candidateRouteCache *cache.Cache,
+		candidateRouteSearcher domain.CandidateRouteSearcher,
+		poolsUsecase mvc.PoolsUsecase,
+		logger log.Logger,
+		tokenIn sdk.Coin,
+		tokenOutDenom string,
+		opts ...domain.RouterOption,
+	) (domain.Quote, error) {
+		return fn()
+	}
+}
+func (s *RouterTestSuite) TestGetOptimalQuoteInGivenOut() {
+	// Prepare 3 pools, we create once and reuse them in the test cases
+	// It's done to avoid creating them multiple times and increasing pool IDs counter.
+	_, poolOne := s.PoolOne()
+	_, poolTwo := s.PoolTwo()
+	_, poolThree := s.PoolThree()
+
+	testcases := []struct {
+		name                    string
+		tokenIn                 sdk.Coin
+		tokenOutDenom           string
+		opts                    []domain.RouterOption
+		getOptimalQuoteMockFunc usecase.GetOptimalQuoteFunc
+		expectedQuote           domain.Quote
+		expectedError           error
+	}{
+		{
+			name:          "valid quoteExactAmountIn conversion",
+			tokenIn:       s.NewAmountIn(),
+			tokenOutDenom: "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB",
+			opts:          nil,
+			getOptimalQuoteMockFunc: newGetOptimalQuoteFunc(func() (domain.Quote, error) {
+				return s.NewExactAmountInQuote(poolOne, poolTwo, poolThree), nil
+			}),
+			expectedQuote: usecase.NewQuoteExactAmountOut(s.NewExactAmountInQuote(poolOne, poolTwo, poolThree)),
+			expectedError: nil,
+		},
+		{
+			name:          "getOptimalQuote returns error",
+			tokenIn:       sdk.NewCoin("ust", sdk.NewInt(1000)),
+			tokenOutDenom: "usdc",
+			opts:          nil,
+			getOptimalQuoteMockFunc: newGetOptimalQuoteFunc(func() (domain.Quote, error) {
+				return nil, types.ErrNumOfTokenOutDenomPoolsMismatch
+			}),
+			expectedQuote: nil,
+			expectedError: types.ErrNumOfTokenOutDenomPoolsMismatch,
+		},
+		{
+			name:          "invalid quote type",
+			tokenIn:       sdk.NewCoin("ust", sdk.NewInt(1000)),
+			tokenOutDenom: "usdc",
+			opts:          nil,
+			getOptimalQuoteMockFunc: newGetOptimalQuoteFunc(func() (domain.Quote, error) {
+				return s.NewExactAmountOutQuote(poolOne, poolTwo, poolThree), nil
+			}),
+			expectedQuote: nil,
+			expectedError: errors.New("quote is not a quoteExactAmountIn"),
+		},
+	}
+
+	for _, tc := range testcases {
+		s.Run(tc.name, func() {
+			routerusecase := s.SetupRouterUsecase()
+			original := routerusecase.MockGetOptimalQuote(tc.getOptimalQuoteMockFunc)
+			defer func(usecase.GetOptimalQuoteFunc) {
+				routerusecase.MockGetOptimalQuote(original) // restore original func for other tests
+			}(original)
+
+			quote, err := routerusecase.GetOptimalQuoteInGivenOut(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.opts...)
+			if tc.expectedError != nil {
+				s.Assert().Error(err)
+				s.Assert().Equal(tc.expectedError, err)
+				return
+			}
+
+			s.Assert().NoError(err)
+			s.Assert().Equal(tc.expectedQuote, quote)
+
 		})
 	}
 }
