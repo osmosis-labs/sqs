@@ -22,7 +22,6 @@ ASTRO         = "ibc/C25A2303FE24B922DAFFDCE377AC5A42E5EF746806D32E2ED4B610DE85C
 
 INVALID_DENOM = "invalid_denom"
 
-
 top10ByVolumePairs = [
     UOSMO,
     ATOM,
@@ -38,18 +37,17 @@ top10ByVolumePairs = [
     ASTRO
 ];
 
-
 class SQS(HttpUser):
 
     # all-pools endpoint
-
     @task
     def all_pools(self):
         self.client.get("/pools")
     
     # Quote the same pair of UOSMO and USDC (UOSMO in) while progressively
     # increasing the amount of the tokenIn per endpoint.
-
+    #
+    # Token swap method is exact amount in.
     @task
     def quoteUOSMOUSDC_1In(self):
         self.client.get(f"/router/quote?tokenIn=1000000{UOSMO}&tokenOutDenom={USDC}")
@@ -62,7 +60,24 @@ class SQS(HttpUser):
     def quoteUOSMOUSDC_1000000In(self):
         self.client.get(f"/router/quote?tokenIn=1000000000000{UOSMO}&tokenOutDenom={USDC}")
 
+    # Quote the same pair of UOSMO and USDC (UOSMO in) while progressively
+    # increasing the amount of the tokenIn per endpoint.
+    #
+    # Token swap method is exact amount out.
+    @task
+    def quoteUOSMOUSDC_1In(self):
+        self.client.get(f"/router/quote?tokenOut=1000000{UOSMO}&tokenInDenom={USDC}")
+
+    @task
+    def quoteUOSMOUSDC_1000In(self):
+        self.client.get(f"/router/quote?tokenOut=1000000000{UOSMO}&tokenInDenom={USDC}")
+
+    @task
+    def quoteUOSMOUSDC_1000000In(self):
+        self.client.get(f"/router/quote?tokenOut=1000000000000{UOSMO}&tokenInDenom={USDC}")
+
     # Quote the same pair of UOSMO and USDC (USDC in).
+    # Token swap method is exact amount in.
     @task
     def quoteUSDCUOSMO_1000000In(self):
         self.client.get(f"/router/quote?tokenIn=100000000000{USDC}&tokenOutDenom={UOSMO}")
@@ -82,11 +97,36 @@ class SQS(HttpUser):
     @task
     def routesUOSMOUSDC(self):
         self.client.get(f"/router/routes?tokenIn={UOSMO}&tokenOutDenom={USDC}")
-
     
     @task
     def routesUSDCUOSMO(self):
         self.client.get(f"/router/routes?tokenIn={USDC}&tokenOutDenom={UOSMO}")
+
+    # Quote the same pair of UOSMO and USDC (USDC in).
+    # Token swap method is exact amount out.
+    @task
+    def quoteUSDCUOSMO_1000000In(self):
+        self.client.get(f"/router/quote?tokenOut=100000000000{USDC}&tokenInDenom={UOSMO}")
+
+    @task
+    def quoteUSDCTUMEE_3000IN(self):
+        self.client.get(f"/router/quote?tokenOut=3000000000{USDT}&tokenInDenom={UMEE}")
+
+    @task
+    def quoteASTROCWPool(self):
+        self.client.get(f"/router/quote?tokenOut=1000000000{UOSMO}&tokenInDenom={ASTRO}")
+
+    @task
+    def quoteInvalidToken(self):
+        self.client.get(f"/router/quote?tokenOut=1000000000{UOSMO}&tokenInDenom={INVALID_DENOM}")
+
+    @task
+    def routesUOSMOUSDC(self):
+        self.client.get(f"/router/routes?tokenOut={UOSMO}&tokenInDenom={USDC}")
+    
+    @task
+    def routesUSDCUOSMO(self):
+        self.client.get(f"/router/routes?tokenOut={USDC}&tokenInDenom={UOSMO}")
 
     @task
     def tokenPrices(self):
