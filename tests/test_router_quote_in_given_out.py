@@ -28,9 +28,10 @@ HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD = 0.5
 
 
 # Test suite for the /router/quote endpoint
-class TestQuote:
+# Test runs tests for exact amount in quotes.
+class TestExactAmountInQuote:
     @pytest.mark.parametrize("coin_obj", construct_token_in_combos(conftest.choose_tokens_liq_range(QUOTE_NUM_TOP_LIQUIDITY_DENOMS), USDC_PRECISION - 1, USDC_PRECISION + 4), ids=id_from_coin)
-    def test_usdc_in_high_liq_out(self, environment_url, coin_obj):
+    def test_usdc_in_high_liq(self, environment_url, coin_obj):
         """
         This test case validates quotes betwen USDC in and NUM_TOP_LIQUIDITY_DENOMS.
         The amounts are constructed to be seeded random values between 10^USDC_PRECISION-1 and 10 ^(USDC_PRECISION + 4)
@@ -70,10 +71,9 @@ class TestQuote:
 
         # Run the quote test
         quote = self.run_quote_test(environment_url, token_in_coin, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
-
         self.validate_quote_test(quote, amount_str, USDC, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
 
-    # - Constructrs combinations between each from 10^6 to 10^9 amount input
+    # - Constructs combinations between each from 10^6 to 10^9 amount input
     @pytest.mark.parametrize("swap_pair", conftest.create_coins_from_pairs(conftest.create_no_dupl_token_pairs(conftest.choose_tokens_liq_range(num_tokens=10, min_liq=500_000, exponent_filter=USDC_PRECISION)), USDC_PRECISION, USDC_PRECISION + 3), ids=id_from_swap_pair)
     def test_top_liq_combos_default_exponent(self, environment_url, swap_pair):
         token_in_obj = swap_pair['token_in']
@@ -82,7 +82,6 @@ class TestQuote:
         token_in_coin = amount_str + token_in_denom
         denom_out = swap_pair['out_denom']
         amount_in = int(amount_str)
-
 
         # All tokens have the same default exponent, resulting in scaling factor of 1.
         spot_price_scaling_factor = 1
@@ -96,7 +95,6 @@ class TestQuote:
         # Compute expected token out
         expected_token_out = int(amount_str) * expected_in_base_out_quote_price
 
-
         token_in_amount_usdc_value = in_base_usd_quote_price * amount_in
 
         # Choosse the error tolerance based on amount in swapped.
@@ -104,8 +102,6 @@ class TestQuote:
 
         # Run the quote test
         quote = self.run_quote_test(environment_url, token_in_coin, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
-
-
         # Validate that price impact is present.
         assert quote.price_impact is not None
 
@@ -173,7 +169,7 @@ class TestQuote:
         # Validate the quote test
         self.validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance)
 
-    def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteResponse:
+    def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountInResponse:
         """
         Runs a test for the /router/quote endpoint with the given input parameters.
 
@@ -189,7 +185,7 @@ class TestQuote:
         sqs_service = conftest.SERVICE_MAP[environment_url]
 
         start_time = time.time()
-        response = sqs_service.get_quote(token_in, token_out)
+        response = sqs_service.get_exact_amount_in_quote(token_in, token_out)
         elapsed_time_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == expected_status_code, f"Error: {response.text}"
@@ -198,7 +194,7 @@ class TestQuote:
         response_json = response.json()
 
         # Return route for more detailed validation
-        return QuoteResponse(**response_json)
+        return QuoteExactAmountInResponse(**response_json)
 
     def validate_quote_test(self, quote, expected_amount_in_str, expected_denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, error_tolerance):
         """
