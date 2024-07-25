@@ -3,6 +3,7 @@ import pytest
 
 import conftest
 from sqs_service import *
+from quote import *
 from quote_response import *
 from rand_util import *
 from e2e_math import *
@@ -46,7 +47,7 @@ class TestExactAmountOutQuote:
         amount_out = int(amount_str)
 
         # Choose the error tolerance based on amount in swapped.
-        error_tolerance = choose_error_tolerance(amount_out)
+        error_tolerance = Quote.choose_error_tolerance(amount_out)
 
         # Skip USDC quotes
         if denom_in == USDC:
@@ -99,7 +100,7 @@ class TestExactAmountOutQuote:
         token_out_amount_usdc_value = in_base_usd_quote_price * amount_out
 
         # Chose the error tolerance based on amount in swapped.
-        error_tolerance = choose_error_tolerance(token_out_amount_usdc_value)
+        error_tolerance = Quote.choose_error_tolerance(token_out_amount_usdc_value)
 
         # Run the quote test
         quote = self.run_quote_test(environment_url, token_out_coin, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
@@ -165,7 +166,7 @@ class TestExactAmountOutQuote:
         quote = self.run_quote_test(environment_url, amount + denom_out, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
         # Validate transmuter was in route
-        assert self.is_transmuter_in_single_route(quote.route) is True
+        assert Quote.is_transmuter_in_single_route(quote.route) is True
 
         # Validate the quote test
         self.validate_quote_test(quote, amount, denom_out, spot_price_scaling_factor, expected_out_base_in_quote_price, expected_token_in, error_tolerance)
@@ -210,7 +211,7 @@ class TestExactAmountOutQuote:
 
         # Check if the route is a single pool single transmuter route
         # For such routes, the price impact is 0.
-        is_transmuter_route = self.is_transmuter_in_single_route(quote.route)
+        is_transmuter_route = Quote.is_transmuter_in_single_route(quote.route)
 
         # Validate price impact
         # If it is a single pool single transmuter route, we expect the price impact to be 0
@@ -224,7 +225,7 @@ class TestExactAmountOutQuote:
         assert quote.amount_out.denom == expected_denom_out
 
         # Validate that the fee is charged
-        self.validate_fee(quote)
+        Quote.validate_fee(quote)
 
         # Validate that the spot price is present
         assert quote.in_base_out_quote_spot_price is not None
@@ -240,72 +241,3 @@ class TestExactAmountOutQuote:
         # Validate that the amount out is within the error tolerance
         amount_in_scaled = quote.amount_in * spot_price_scaling_factor
         assert relative_error(amount_in_scaled, expected_token_in) < error_tolerance, f"Error: amount out scaled {amount_out_scaled} is not within {error_tolerance} of expected {expected_token_out}"
-
-    def validate_fee(self, quote):
-        """
-        Validates fee returned in the quote response.
-        If the returned fee is zero, it iterates over every pool in every route and ensures that their fee
-        is zero based on external data source.
-
-        In other cases, asserts that the fee is non-zero.
-        """
-        # Validate that the fee is charged
-        if quote.effective_fee == 0:
-            for route in quote.route:
-                for pool in route.pools:
-                    pool_id = pool.id
-                    pool_data = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
-                    swap_fee = pool_data.get("swap_fees")
-
-                    if swap_fee != 0:
-                        assert False, f"Error: swap fee {swap_fee} is not charged for pool {pool_id}"
-        else:
-            assert quote.effective_fee > 0
-
-    def is_transmuter_in_single_route(self, routes):
-        """
-        Returns true if there is a single route with
-        one transmuter pool in it.
-        """
-        if len(routes) == 1 and len(routes[0].pools) == 1:
-            pool_in_route = routes[0].pools[0]
-            pool = conftest.shared_test_state.pool_by_id_map.get(str(pool_in_route.id))
-            e2e_pool_type = conftest.get_e2e_pool_type_from_numia_pool(pool)
-
-            return  e2e_pool_type == conftest.E2EPoolType.COSMWASM_TRANSMUTER_V1
-        
-        return False
-
-def choose_error_tolerance(amount_in: int):
-     # This is the max error tolerance of 7% that we allow.
-    # Arbitrarily hand-picked to avoid flakiness.
-    error_tolerance = 0.07
-    # At a higher amount in, the volatility is much higher, leading to
-    # flakiness. Therefore, we increase the error tolerance based on the amount in swapped.
-    # The values are arbitrarily hand-picked and can be adjusted if necessary.
-    # This seems to be especially relevant for the Astroport PCL pools.
-    if amount_in > 60_000_000_000:
-        error_tolerance = 0.16
-    elif amount_in > 30_000_000_000:
-        error_tolerance = 0.13
-    elif amount_in > 10_000_000_000:
-        error_tolerance = 0.10
-
-    return error_tolerance
-def choose_error_tolerance(amount_in: int):
-     # This is the max error tolerance of 7% that we allow.
-    # Arbitrarily hand-picked to avoid flakiness.
-    error_tolerance = 0.07
-    # At a higher amount in, the volatility is much higher, leading to
-    # flakiness. Therefore, we increase the error tolerance based on the amount in swapped.
-    # The values are arbitrarily hand-picked and can be adjusted if necessary.
-    # This seems to be especially relevant for the Astroport PCL pools.
-    if amount_in > 60_000_000_000:
-        error_tolerance = 0.16
-    elif amount_in > 30_000_000_000:
-        error_tolerance = 0.13
-    elif amount_in > 10_000_000_000:
-        error_tolerance = 0.10
-
-    return error_tolerance
-
