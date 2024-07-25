@@ -626,7 +626,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1265Concentrated,
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -648,7 +648,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1265Concentrated,
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 	}
 
@@ -1120,6 +1120,92 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 			s.Require().Equal(quotes.GetAmountIn().Denom, tc.tokenIn.Denom)
 			s.Require().Equal(tc.expectedNumOfRoutes, len(quotes.GetRoute()))
 			s.validateExpectedPoolIDMultiRouteOneHopQuote(quotes, tc.expectedPoolID)
+		})
+	}
+}
+
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Orderbook() {
+	config := routertesting.DefaultRouterConfig
+	config.MaxPoolsPerRoute = 5
+	config.MaxRoutes = 10
+
+	var (
+		orderbookCodeId = uint64(885)
+	)
+
+	mainnetState := s.SetupMainnetState()
+
+	// Setup router repository mock
+	routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
+	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+
+	// Setup pools usecase mock.
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{
+		OrderbookCodeIDs: []uint64{
+			orderbookCodeId,
+		},
+	}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	poolsUsecase.StorePools(mainnetState.Pools)
+
+	tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
+	candidateRouteFinderMock := mocks.CandidateRouteFinderMock{}
+
+	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinderMock, &tokenMetaDataHolder, config, domain.CosmWasmPoolRouterConfig{
+		OrderbookCodeIDs: map[uint64]struct{}{
+			orderbookCodeId: {},
+		},
+	}, &log.NoOpLogger{}, cache.New(), cache.New())
+
+	// Test cases
+	testCases := []struct {
+		// test name
+		name string
+
+		// token being swapped
+		tokenIn sdk.Coin
+
+		// token to be received
+		tokenOutDenom string
+
+		// pool to swap
+		poolID uint64
+
+		expectedAmountOut osmomath.Int
+
+		err error
+	}{
+		{
+			name:              "quote with enough liquidity",
+			tokenIn:           sdk.NewCoin(NATIVE_WBTC, osmomath.NewInt(11)),
+			tokenOutDenom:     USDC,
+			poolID:            1904,
+			expectedAmountOut: osmomath.NewInt(6463),
+		},
+		{
+			name:          "quote with not enough liquidity",
+			tokenIn:       sdk.NewCoin(NATIVE_WBTC, osmomath.NewInt(1000000000000)),
+			tokenOutDenom: USDC,
+			poolID:        1904,
+			err: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
+				PoolId:   1904,
+				AmountIn: sdk.NewCoin(NATIVE_WBTC, osmomath.NewInt(999000000000)),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
+
+			if err != nil {
+				s.Require().EqualError(tc.err, err.Error())
+				return // nothing else to do
+			}
+
+			// token in must match
+			s.Require().Equal(tc.tokenIn.Denom, quote.GetAmountIn().Denom)
+			s.Require().Equal(tc.expectedAmountOut.String(), quote.GetAmountOut().String())
 		})
 	}
 }

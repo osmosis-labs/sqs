@@ -36,10 +36,10 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 
 	poolType := cosmwasmPool.GetType()
 
-	bidAmountToExhaustAskLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.ASK, nextBidTickIndex, ticks)
+	bidAmountToExhaustAskLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.BID, nextAskTickIndex, ticks)
 	s.Require().NoError(err)
 
-	askAmountToExhaustBidLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.BID, nextAskTickIndex, ticks)
+	askAmountToExhaustBidLiquidity, err := cosmwasmpool.CalcAmountInToExhaustOrderbookLiquidity(cosmwasmpool.ASK, nextBidTickIndex, ticks)
 	s.Require().NoError(err)
 
 	mock := &mocks.MockRoutablePool{
@@ -341,7 +341,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 		"BID: change in spot price": {
 			baseDenom:         QUOTE_DENOM,
 			quoteDenom:        BASE_DENOM,
-			expectedSpotPrice: osmomath.NewBigDec(2),
+			expectedSpotPrice: osmomath.NewBigDecWithPrec(5, 1),
 			nextBidTickIndex:  -1, // no next bid tick
 			nextAskTickIndex:  1,
 			ticks: []cosmwasmpool.OrderbookTick{
@@ -411,7 +411,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 		"ASK: change in spot price": {
 			baseDenom:         BASE_DENOM,
 			quoteDenom:        QUOTE_DENOM,
-			expectedSpotPrice: osmomath.NewBigDec(2),
+			expectedSpotPrice: osmomath.NewBigDecWithPrec(5, 1),
 			nextBidTickIndex:  1,
 			nextAskTickIndex:  -1, // no next ask tick
 			ticks: []cosmwasmpool.OrderbookTick{
