@@ -30,7 +30,7 @@ HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD = 0.5
 # Test runs tests for exact amount out quotes.
 class TestExactAmountOutQuote:
     @pytest.mark.parametrize("coin_obj", construct_token_in_combos(conftest.choose_tokens_liq_range(QUOTE_NUM_TOP_LIQUIDITY_DENOMS), USDC_PRECISION - 1, USDC_PRECISION + 4), ids=id_from_coin)
-    def test_usdc_in_high_liq_out(self, environment_url, coin_obj):
+    def test_usdc_in_high_liq_in(self, environment_url, coin_obj):
         """
         This test case validates quotes between USDC in and NUM_TOP_LIQUIDITY_DENOMS.
         The amounts are constructed to be seeded random values between 10^USDC_PRECISION-1 and 10 ^(USDC_PRECISION + 4)

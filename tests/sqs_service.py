@@ -107,7 +107,6 @@ class SQSService:
             "singleRoute": singleRoute,
         }
 
-        print("hello from get_exact_amount_out_quote")
         print(params)
 
         # Send the GET request
