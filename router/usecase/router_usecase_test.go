@@ -642,6 +642,7 @@ func newGetOptimalQuoteFunc(fn func() (domain.Quote, error)) usecase.GetOptimalQ
 		return fn()
 	}
 }
+
 func (s *RouterTestSuite) TestGetOptimalQuoteInGivenOut() {
 	// Prepare 3 pools, we create once and reuse them in the test cases
 	// It's done to avoid creating them multiple times and increasing pool IDs counter.
@@ -660,7 +661,7 @@ func (s *RouterTestSuite) TestGetOptimalQuoteInGivenOut() {
 	}{
 		{
 			name:          "valid quoteExactAmountIn conversion",
-			tokenIn:       s.NewAmountIn(),
+			tokenIn:       routertesting.TokenIn,
 			tokenOutDenom: "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB",
 			opts:          nil,
 			getOptimalQuoteMockFunc: newGetOptimalQuoteFunc(func() (domain.Quote, error) {

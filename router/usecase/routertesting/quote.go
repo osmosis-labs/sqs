@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	defaultAmount  = sdk.NewInt(100_000_00)
-	totalInAmount  = defaultAmount
-	totalOutAmount = defaultAmount.MulRaw(4)
+	DefaultAmount  = sdk.NewInt(100_000_00)
+	TotalInAmount  = DefaultAmount
+	TotalOutAmount = DefaultAmount.MulRaw(4)
+	TokenIn        = sdk.NewCoin(ETH, TotalInAmount)
 )
 
 var (
@@ -25,18 +26,18 @@ var (
 	takerFeeThree = osmomath.NewDecWithPrec(3, 3)
 
 	poolOneBalances = sdk.NewCoins(
-		sdk.NewCoin(USDT, defaultAmount.MulRaw(5)),
-		sdk.NewCoin(ETH, defaultAmount),
+		sdk.NewCoin(USDT, DefaultAmount.MulRaw(5)),
+		sdk.NewCoin(ETH, DefaultAmount),
 	)
 
 	poolTwoBalances = sdk.NewCoins(
-		sdk.NewCoin(USDC, defaultAmount),
-		sdk.NewCoin(USDT, defaultAmount),
+		sdk.NewCoin(USDC, DefaultAmount),
+		sdk.NewCoin(USDT, DefaultAmount),
 	)
 
 	poolThreeBalances = sdk.NewCoins(
-		sdk.NewCoin(ETH, defaultAmount),
-		sdk.NewCoin(USDC, defaultAmount.MulRaw(4)),
+		sdk.NewCoin(ETH, DefaultAmount),
+		sdk.NewCoin(USDC, DefaultAmount.MulRaw(4)),
 	)
 )
 
@@ -52,22 +53,12 @@ func (s *RouterTestHelper) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom s
 	return routablePool
 }
 
-// NewAmountIn creates a new amount in.
-func (s *RouterTestHelper) NewAmountIn() sdk.Coin {
-	return sdk.NewCoin(ETH, totalInAmount)
-}
-
-// NewAmountOut creates a new amount out.
-func (s *RouterTestHelper) NewAmountOut() osmomath.Int {
-	return totalOutAmount
-}
-
 // NewExactAmountInQuote creates a new exact amount in Quote.
 // AmountIn is filled with s.NewAmountIn() and AmountOut is filled with s.NewAmountOut().
 func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.PoolI) *usecase.QuoteExactAmountIn {
 	return &usecase.QuoteExactAmountIn{
-		AmountIn:  s.NewAmountIn(),
-		AmountOut: s.NewAmountOut(),
+		AmountIn:  TokenIn,
+		AmountOut: TotalOutAmount,
 
 		// 2 routes with 50-50 split, each single hop
 		Route: []domain.SplitRoute{
@@ -91,8 +82,8 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 					},
 				},
 
-				InAmount:  totalInAmount.QuoRaw(2),
-				OutAmount: totalOutAmount.QuoRaw(2),
+				InAmount:  TotalInAmount.QuoRaw(2),
+				OutAmount: TotalOutAmount.QuoRaw(2),
 			},
 
 			// Route 2
@@ -108,8 +99,8 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 					},
 				},
 
-				InAmount:  totalInAmount.QuoRaw(2),
-				OutAmount: totalOutAmount.QuoRaw(2),
+				InAmount:  TotalInAmount.QuoRaw(2),
+				OutAmount: TotalOutAmount.QuoRaw(2),
 			},
 		},
 		EffectiveFee: osmomath.ZeroDec(),
@@ -120,8 +111,8 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 // NOTE: It is not possible to access the usecase.QuoteImpl struct directly from here.
 func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.PoolI) *usecase.QuoteExactAmountOut {
 	return usecase.NewQuoteExactAmountOut(&usecase.QuoteExactAmountIn{
-		AmountIn:  sdk.NewCoin(ETH, totalInAmount),
-		AmountOut: totalOutAmount,
+		AmountIn:  TokenIn,
+		AmountOut: TotalOutAmount,
 
 		// 2 routes with 50-50 split, each single hop
 		Route: []domain.SplitRoute{
@@ -143,8 +134,8 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 					},
 				},
 
-				InAmount:  totalInAmount.QuoRaw(2),
-				OutAmount: totalOutAmount.QuoRaw(3),
+				InAmount:  TotalInAmount.QuoRaw(2),
+				OutAmount: TotalOutAmount.QuoRaw(3),
 			},
 			&usecase.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
@@ -158,8 +149,8 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 					},
 				},
 
-				InAmount:  totalInAmount.QuoRaw(4),
-				OutAmount: totalOutAmount.QuoRaw(5),
+				InAmount:  TotalInAmount.QuoRaw(4),
+				OutAmount: TotalOutAmount.QuoRaw(5),
 			},
 		},
 		EffectiveFee: osmomath.ZeroDec(),

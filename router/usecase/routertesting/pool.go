@@ -11,11 +11,11 @@ import (
 func (s *RouterTestHelper) PoolOne() (uint64, poolmanagertypes.PoolI) {
 	poolIDOne := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
-			Token:  sdk.NewCoin(USDT, defaultAmount.MulRaw(5)),
+			Token:  sdk.NewCoin(USDT, DefaultAmount.MulRaw(5)),
 			Weight: sdk.NewInt(100),
 		},
 		{
-			Token:  sdk.NewCoin(ETH, defaultAmount),
+			Token:  sdk.NewCoin(ETH, DefaultAmount),
 			Weight: sdk.NewInt(100),
 		},
 	}, balancer.PoolParams{
@@ -33,11 +33,11 @@ func (s *RouterTestHelper) PoolOne() (uint64, poolmanagertypes.PoolI) {
 func (s *RouterTestHelper) PoolTwo() (uint64, poolmanagertypes.PoolI) {
 	poolIDTwo := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
-			Token:  sdk.NewCoin(USDC, defaultAmount),
+			Token:  sdk.NewCoin(USDC, DefaultAmount),
 			Weight: sdk.NewInt(100),
 		},
 		{
-			Token:  sdk.NewCoin(USDT, defaultAmount),
+			Token:  sdk.NewCoin(USDT, DefaultAmount),
 			Weight: sdk.NewInt(100),
 		},
 	}, balancer.PoolParams{
@@ -55,11 +55,11 @@ func (s *RouterTestHelper) PoolTwo() (uint64, poolmanagertypes.PoolI) {
 func (s *RouterTestHelper) PoolThree() (uint64, poolmanagertypes.PoolI) {
 	poolIDThree := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
-			Token:  sdk.NewCoin(ETH, defaultAmount),
+			Token:  sdk.NewCoin(ETH, DefaultAmount),
 			Weight: sdk.NewInt(100),
 		},
 		{
-			Token:  sdk.NewCoin(USDC, defaultAmount.MulRaw(4)),
+			Token:  sdk.NewCoin(USDC, DefaultAmount.MulRaw(4)),
 			Weight: sdk.NewInt(100),
 		},
 	}, balancer.PoolParams{
