@@ -6,8 +6,12 @@ import (
 
 // Token represents the token's domain model
 type Token struct {
+	// Name
+	Name string `json:"name"`
 	// HumanDenom is the human readable denom.
 	HumanDenom string `json:"symbol"`
+	// Denom is the chain denom of the token.
+	Denom string `json:"coinMinimalDenom"`
 	// Precision is the precision of the token.
 	Precision int `json:"decimals"`
 	// IsUnlisted is true if the token is unlisted.

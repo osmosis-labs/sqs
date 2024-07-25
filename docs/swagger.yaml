@@ -12,6 +12,12 @@ definitions:
     type: object
   domain.Token:
     properties:
+      name:
+        description: Name is the name of the token.
+        type: string
+      denom:
+        description: Denom is the chain denom of the token.
+        type: string
       coingeckoId:
         type: string
       decimals:

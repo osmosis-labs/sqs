@@ -9,13 +9,14 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
 type TokensUseCaseTestSuite struct {
@@ -96,6 +97,8 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, atomToken.Precision)
 	s.Require().NotEmpty(atomToken.CoingeckoID)
+	s.Require().NotEmpty(atomToken.Name)
+	s.Require().NotEmpty(atomToken.Denom)
 
 	// ION is present
 	ionMainnetDenom := "uion"
@@ -103,6 +106,8 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, ionToken.Precision)
 	s.Require().NotEmpty(ionToken.CoingeckoID)
+	s.Require().NotEmpty(ionToken.Name)
+	s.Require().NotEmpty(ionToken.Denom)
 
 	// IBCX is present
 	ibcxMainnetDenom := "factory/osmo14klwqgkmackvx2tqa0trtg69dmy0nrg4ntq4gjgw2za4734r5seqjqm4gm/uibcx"
@@ -110,12 +115,16 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, ibcxToken.Precision)
 	s.Require().NotEmpty(ibcxToken.CoingeckoID)
+	s.Require().NotEmpty(ibcxToken.Name)
+	s.Require().NotEmpty(ibcxToken.Denom)
 
 	// DYSON is present, but doesn't have coingecko id
 	dysonMainnetDenom := "ibc/E27CD305D33F150369AB526AEB6646A76EC3FFB1A6CA58A663B5DE657A89D55D"
 	dysonToken, ok := tokensMap[dysonMainnetDenom]
 	s.Require().True(ok)
 	s.Require().Equal(0, dysonToken.Precision)
+	s.Require().NotEmpty(dysonToken.Name)
+	s.Require().NotEmpty(dysonToken.Denom)
 
 	// ETH is present
 	ethToken, ok := tokensMap[ETH]
@@ -123,12 +132,16 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().Equal(ethExponent, ethToken.Precision)
 	s.Require().False(ethToken.IsUnlisted)
 	s.Require().NotEmpty(ethToken.CoingeckoID)
+	s.Require().NotEmpty(ethToken.Name)
+	s.Require().NotEmpty(ethToken.Denom)
 
 	// AAVE is present but is unlisted
 	aaveToken, ok := tokensMap[AAVE_UNLISTED]
 	s.Require().True(ok)
 	s.Require().True(aaveToken.IsUnlisted)
 	s.Require().NotEmpty(aaveToken.CoingeckoID)
+	s.Require().NotEmpty(aaveToken.Name)
+	s.Require().NotEmpty(aaveToken.Denom)
 }
 
 func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {

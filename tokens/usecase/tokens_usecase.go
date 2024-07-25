@@ -6,11 +6,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
 	"github.com/osmosis-labs/sqs/log"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
 const (
@@ -53,6 +54,7 @@ type tokensUseCase struct {
 type AssetList struct {
 	ChainName string `json:"chainName"`
 	Assets    []struct {
+		Name             string `json:"name"`
 		CoinMinimalDenom string `json:"coinMinimalDenom"`
 		Symbol           string `json:"symbol"`
 		Decimals         int    `json:"decimals"`

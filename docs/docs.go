@@ -362,6 +362,14 @@ const docTemplate = `{
         "domain.Token": {
             "type": "object",
             "properties": {
+                "name": {
+                    "type": "string"
+                    "description": "Name is the name of the token."
+                },
+                "denom": {
+                    "type": "string"
+                    "description": "Denom is the chain denom of the token."
+                },
                 "coingeckoId": {
                     "type": "string"
                 },
