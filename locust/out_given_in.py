@@ -43,12 +43,3 @@ class ExactAmountInQuote(HttpUser):
     @task
     def quoteInvalidToken(self):
         self.client.get(f"/router/quote?tokenIn=1000000000{UOSMO}&tokenOutDenom={INVALID_DENOM}")
-
-    @task
-    def routesUOSMOUSDC(self):
-        self.client.get(f"/router/routes?tokenIn={UOSMO}&tokenOutDenom={USDC}")
-
-    @task
-    def routesUSDCUOSMO(self):
-        self.client.get(f"/router/routes?tokenIn={USDC}&tokenOutDenom={UOSMO}")
-
