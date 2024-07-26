@@ -12,6 +12,7 @@ from constants import *
 from rand_util import construct_token_in_combos
 from coingecko_service import *
 from constants import *
+from chain_service import ChainService
 from util import *
 from decimal import *
 
@@ -78,6 +79,8 @@ SERVICE_MAP = {
     SQS_PROD: SERVICE_SQS_PROD,
     SQS_LOCAL: SERVICE_SQS_LOCAL
 }
+
+CHAIN_SERVICE = ChainService()
 
 # Numia pool type constants using an Enum
 class NumiaPoolType(Enum):
@@ -285,7 +288,6 @@ def create_chain_denom_to_data_map(tokens_data):
 
 def get_token_data_copy():
     """Return deep copy of all tokens from shared_test_state."""
-    global all_tokens_data
     return copy.deepcopy(shared_test_state.all_tokens_data)
 
 
@@ -591,6 +593,9 @@ def pytest_sessionstart(session):
 
         # One Orderbook token pair [[pool_id, ['denom0', 'denom1']]]
         shared_test_state.orderbook_token_pair = choose_orderbook_pool_tokens_by_liq_asc(shared_test_state.pool_type_to_denoms, 1)
+
+        # Filter tokens data to only contain listed
+        shared_test_state.all_tokens_data = [token for token in shared_test_state.all_tokens_data if token['denom'] in shared_test_state.valid_listed_tokens]
 
         shared_test_state.misc_token_pairs = create_misc_token_pairs()
 

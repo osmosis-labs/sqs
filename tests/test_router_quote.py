@@ -9,6 +9,7 @@ from rand_util import *
 from e2e_math import *
 from decimal import *
 from constants import *
+from chain_service import *
 from util import *
 
 ROUTES_URL = "/router/quote"
@@ -317,21 +318,31 @@ class TestQuote:
     def validate_fee(self, quote):
         """
         Validates fee returned in the quote response.
-        If the returned fee is zero, it iterates over every pool in every route and ensures that their fee
-        is zero based on external data source.
+        If the returned fee is zero, it iterates over every pool in every route and ensures that their taker fees
+        are zero based on external data source.
 
         In other cases, asserts that the fee is non-zero.
         """
         # Validate that the fee is charged
         if quote.effective_fee == 0:
+            token_in = quote.amount_in.denom
             for route in quote.route:
+                cur_token_in = token_in
                 for pool in route.pools:
                     pool_id = pool.id
-                    pool_data = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
-                    swap_fee = pool_data.get("swap_fees")
 
-                    if swap_fee != 0:
-                        assert False, f"Error: swap fee {swap_fee} is not charged for pool {pool_id}"
+                    token_out = pool.token_out_denom
+
+                    pair_taker_fee = conftest.CHAIN_SERVICE.get_trading_pair_taker_fee(cur_token_in, token_out)
+
+                    assert pair_taker_fee is not None, f"Error: taker fee is not available for {cur_token_in} and {token_out}"
+                    taker_fee_decimal = Decimal(pair_taker_fee.get("taker_fee"))
+                    taker_fee_decimal == quote.effective_fee, f"Error: taker fee {taker_fee_decimal} is not equal to effective fee {quote.effective_fee}"
+
+                    if taker_fee_decimal != 0:
+                        assert False, f"Error: taker fee {taker_fee_decimal} is not charged for pool {pool_id}"
+
+                    cur_token_in = token_out
         else:
             assert quote.effective_fee > 0
 
