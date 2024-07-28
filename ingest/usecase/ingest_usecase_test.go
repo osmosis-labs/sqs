@@ -467,6 +467,9 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 			CosmWasmPoolModel:     nil,
 		}
 
+		// We reorder them by balances value
+		reorderedDefaultDenoms = []string{USDC, UOSMO}
+
 		deepCopy = func(sqsPool *sqsdomain.SQSPool) *sqsdomain.SQSPool {
 			copy := *sqsPool
 
@@ -521,6 +524,8 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 			return sqsPool
 		}
 
+		reorderedDefaultModel = withPoolDenoms(defaultModel, reorderedDefaultDenoms...)
+
 		modelWithCWModelSet = withCosmWasmModel(defaultModel, defaultCosmWasmModel)
 	)
 
@@ -537,14 +542,14 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 
 			sqsModel: defaultModel,
 
-			expectedSQSModel: defaultModel,
+			expectedSQSModel: reorderedDefaultModel,
 		},
 		{
 			name: "with gamm share in balance -> filtered",
 
 			sqsModel: withBalances(defaultModel, sdk.NewCoins(sdk.NewCoin(domain.GAMMSharePrefix, osmomath.OneInt())).Add(defaultModel.Balances...)),
 
-			expectedSQSModel: defaultModel,
+			expectedSQSModel: reorderedDefaultModel,
 		},
 		{
 			name: "with gamm share in pool denoms -> filtered",
@@ -560,12 +565,12 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 			sqsModel: modelWithCWModelSet,
 
 			// Note: append wrangling is done to avoid mutation of defaultModel.
-			expectedSQSModel: withPoolDenoms(modelWithCWModelSet, append(append([]string{}, defaultModel.PoolDenoms...), routertesting.ALLUSDT)...),
+			expectedSQSModel: withPoolDenoms(modelWithCWModelSet, append(append([]string{}, reorderedDefaultDenoms...), routertesting.ALLUSDT)...),
 		},
 		{
 			name: "cosmwasm model not correctly set -> error",
 
-			sqsModel: withCosmWasmModel(defaultModel, invalidCosmWasmModel),
+			sqsModel: withPoolDenoms(withCosmWasmModel(defaultModel, invalidCosmWasmModel), append(reorderedDefaultDenoms, routertesting.ALLUSDT)...),
 
 			expectedErr: true,
 		},

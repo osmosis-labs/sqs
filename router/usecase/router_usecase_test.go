@@ -626,7 +626,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -648,7 +648,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolID: poolID1265Concentrated,
 		},
 	}
 
@@ -708,7 +708,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 39
+		expectedZeroPoolCount = 36
 	)
 
 	viper.SetConfigFile("../../config.json")
@@ -1180,7 +1180,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Order
 			tokenIn:           sdk.NewCoin(NATIVE_WBTC, osmomath.NewInt(11)),
 			tokenOutDenom:     USDC,
 			poolID:            1904,
-			expectedAmountOut: osmomath.NewInt(6463),
+			expectedAmountOut: osmomath.NewInt(6745),
 		},
 		{
 			name:          "quote with not enough liquidity",

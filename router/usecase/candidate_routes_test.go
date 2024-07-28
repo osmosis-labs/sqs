@@ -141,6 +141,11 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_HappyPath() {
 			tokenIn:       sdk.NewCoin(ALLBTC, one),
 			tokenOutDenom: USDC,
 		},
+		{
+			name:          "ALLBTC -> TIA",
+			tokenIn:       sdk.NewCoin(ALLBTC, one),
+			tokenOutDenom: TIA,
+		},
 	}
 
 	for _, tc := range tests {
