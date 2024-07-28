@@ -480,7 +480,7 @@ func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 
 	// Sort the pool denoms by balance amount
 	// This is useful for edge case handling for certain pools such as alloyed
-	// where the token amounts might get imbalanced, making the liqudiity of one denom completely zero.
+	// where the token amounts might get imbalanced, making the liquidity of one denom completely zero.
 	// In that case, we would like to deprioritize the out-of-liquidity denoms.
 	sort.Slice(newPoolDenoms, func(i, j int) bool {
 		amountI, ok := balancesMap[sqsModel.PoolDenoms[i]]
