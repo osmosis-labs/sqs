@@ -25,6 +25,7 @@ func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensU
 		poolsUseCase:  poolsUseCase,
 		routerUseCase: routerUseCase,
 		tokensUseCase: tokensUseCase,
+		logger:        logger,
 	}
 }
 
