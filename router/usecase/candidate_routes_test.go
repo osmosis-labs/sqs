@@ -126,21 +126,21 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_HappyPath() {
 		tokenIn       sdk.Coin
 		tokenOutDenom string
 	}{
-		// {
-		// 	name:          "UOSMO -> USDT",
-		// 	tokenIn:       sdk.NewCoin(UOSMO, one),
-		// 	tokenOutDenom: USDT,
-		// },
-		// {
-		// 	name:          "UMEE -> AKT",
-		// 	tokenIn:       sdk.NewCoin(UMEE, one),
-		// 	tokenOutDenom: AKT,
-		// },
-		// {
-		// 	name:          "ALLBTC -> USDC",
-		// 	tokenIn:       sdk.NewCoin(ALLBTC, one),
-		// 	tokenOutDenom: USDC,
-		// },
+		{
+			name:          "UOSMO -> USDT",
+			tokenIn:       sdk.NewCoin(UOSMO, one),
+			tokenOutDenom: USDT,
+		},
+		{
+			name:          "UMEE -> AKT",
+			tokenIn:       sdk.NewCoin(UMEE, one),
+			tokenOutDenom: AKT,
+		},
+		{
+			name:          "ALLBTC -> USDC",
+			tokenIn:       sdk.NewCoin(ALLBTC, one),
+			tokenOutDenom: USDC,
+		},
 		{
 			name:          "ALLBTC -> TIA",
 			tokenIn:       sdk.NewCoin(ALLBTC, one),
