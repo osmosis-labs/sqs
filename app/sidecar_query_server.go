@@ -33,6 +33,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
+	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
@@ -217,7 +218,15 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		// TODO: move to config.
 		const isOrderBookFillerPluginEnabled = true
 		if isOrderBookFillerPluginEnabled {
-			orderbookFillerPlugin := orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, logger)
+			// Create keyring
+			keyring, err := keyring.New()
+			if err != nil {
+				return nil, err
+			}
+
+			logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
+
+			orderbookFillerPlugin := orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, keyring, logger)
 			ingestUseCase.RegisterEndBlockProcessPlugin(orderbookFillerPlugin)
 		}
 
