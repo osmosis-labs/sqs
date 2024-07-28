@@ -50,7 +50,6 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 
 	// If we skipped all routes due to errors, return the first error
 	if len(routesWithAmountOut) == 0 && len(errors) > 0 {
-
 		// If we encounter this problem, we attempte to invalidate all caches to recompute the routes
 		// completely.
 		// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.

@@ -708,7 +708,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 39
+		expectedZeroPoolCount = 36
 	)
 
 	viper.SetConfigFile("../../config.json")
