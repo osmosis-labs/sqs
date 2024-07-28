@@ -124,7 +124,7 @@ type RouterState struct {
 	TakerFees                sqsdomain.TakerFeeMap
 	TickMap                  map[uint64]*sqsdomain.TickModel
 	AlloyedDataMap           map[uint64]*cosmwasmpool.AlloyTransmuterData
-	CandidateRouteSearchData map[string][]sqsdomain.PoolI
+	CandidateRouteSearchData map[string]CandidateRouteDenomData
 }
 
 // RouterOptions defines the options for the router

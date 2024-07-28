@@ -1,31 +1,31 @@
 package mocks
 
 import (
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 type CandidateRouteSearchDataHolderMock struct {
-	CandidateRouteSearchData map[string][]sqsdomain.PoolI
+	CandidateRouteSearchData map[string]domain.CandidateRouteDenomData
 }
 
 var _ mvc.CandidateRouteSearchDataHolder = &CandidateRouteSearchDataHolderMock{}
 
 // GetCandidateRouteSearchData implements mvc.CandidateRouteSearchDataHolder.
-func (c *CandidateRouteSearchDataHolderMock) GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI {
+func (c *CandidateRouteSearchDataHolderMock) GetCandidateRouteSearchData() map[string]domain.CandidateRouteDenomData {
 	return c.CandidateRouteSearchData
 }
 
 // SetCandidateRouteSearchData implements mvc.CandidateRouteSearchDataHolder.
-func (c *CandidateRouteSearchDataHolderMock) SetCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdomain.PoolI) {
+func (c *CandidateRouteSearchDataHolderMock) SetCandidateRouteSearchData(candidateRouteSearchData map[string]domain.CandidateRouteDenomData) {
 	c.CandidateRouteSearchData = candidateRouteSearchData
 }
 
-// GetRankedPoolsByDenom implements mvc.CandidateRouteSearchDataHolder.
-func (c *CandidateRouteSearchDataHolderMock) GetRankedPoolsByDenom(denom string) ([]sqsdomain.PoolI, error) {
-	pools, ok := c.CandidateRouteSearchData[denom]
+// GetDenomData implements mvc.CandidateRouteSearchDataHolder.
+func (c *CandidateRouteSearchDataHolderMock) GetDenomData(denom string) (domain.CandidateRouteDenomData, error) {
+	denomData, ok := c.CandidateRouteSearchData[denom]
 	if !ok {
-		return []sqsdomain.PoolI{}, nil
+		return domain.CandidateRouteDenomData{}, nil
 	}
-	return pools, nil
+	return denomData, nil
 }

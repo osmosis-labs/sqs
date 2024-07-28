@@ -17,6 +17,11 @@ type candidatePoolWrapper struct {
 	PoolDenoms []string
 }
 
+type candidateRouteWrapper struct {
+	Pools                     []candidatePoolWrapper
+	IsCanonicalOrderboolRoute bool
+}
+
 type candidateRouteFinder struct {
 	candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder
 	logger                   log.Logger
@@ -33,7 +38,7 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 
 // FindCandidateRoutes implements domain.CandidateRouteFinder.
 func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (sqsdomain.CandidateRoutes, error) {
-	routes := make([][]candidatePoolWrapper, 0, options.MaxRoutes)
+	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
 	// Preallocate constant visited map size to avoid reallocations.
 	// TODO: choose the best size for the visited map.
@@ -44,6 +49,31 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 	// TODO: choose the best size for the queue.
 	queue := make([][]candidatePoolWrapper, 0, 100)
 	queue = append(queue, make([]candidatePoolWrapper, 0, options.MaxPoolsPerRoute))
+
+	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenIn.Denom)
+	if err != nil {
+		return sqsdomain.CandidateRoutes{}, err
+	}
+
+	if len(denomData.CanonicalOrderbooks) > 0 {
+		canonicalOrderbook, ok := denomData.CanonicalOrderbooks[tokenOutDenom]
+		if ok {
+			// Add the canonical orderbook as a route.
+			routes = append(routes, candidateRouteWrapper{
+				IsCanonicalOrderboolRoute: true,
+				Pools: []candidatePoolWrapper{
+					{
+						CandidatePool: sqsdomain.CandidatePool{
+							ID:            canonicalOrderbook.GetId(),
+							TokenOutDenom: tokenOutDenom,
+						},
+						PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
+					},
+				},
+			})
+			visited[canonicalOrderbook.GetId()] = struct{}{}
+		}
+	}
 
 	for len(queue) > 0 && len(routes) < options.MaxRoutes {
 		currentRoute := queue[0]
@@ -58,10 +88,13 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 			currenTokenInDenom = lastPool.TokenOutDenom
 		}
 
-		rankedPools, err := c.candidateRouteDataHolder.GetRankedPoolsByDenom(currenTokenInDenom)
+		denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
 		if err != nil {
 			return sqsdomain.CandidateRoutes{}, err
 		}
+
+		rankedPools := denomData.SortedPools
+
 		if len(rankedPools) == 0 {
 			return sqsdomain.CandidateRoutes{}, nil
 		}
@@ -135,10 +168,12 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 					continue
 				}
 
-				rankedPools, err := c.candidateRouteDataHolder.GetRankedPoolsByDenom(currenTokenInDenom)
+				denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
 				if err != nil {
 					return sqsdomain.CandidateRoutes{}, err
 				}
+
+				rankedPools := denomData.SortedPools
 				if len(rankedPools) == 0 {
 					c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", denom))
 					continue
@@ -159,7 +194,10 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 
 					if len(newPath) <= options.MaxPoolsPerRoute {
 						if hasTokenOut {
-							routes = append(routes, newPath)
+							routes = append(routes, candidateRouteWrapper{
+								Pools:                     newPath,
+								IsCanonicalOrderboolRoute: false,
+							})
 							break
 						} else {
 							queue = append(queue, newPath)

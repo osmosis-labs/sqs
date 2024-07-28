@@ -30,6 +30,11 @@ type PoolsUsecaseMock struct {
 	TickModelMap map[uint64]*sqsdomain.TickModel
 }
 
+// IsCanonicalOrderbookPool implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) IsCanonicalOrderbookPool(poolID uint64) bool {
+	panic("unimplemented")
+}
+
 // GetAllCanonicalOrderbookPoolIDs implements mvc.PoolsUsecase.
 func (pm *PoolsUsecaseMock) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error) {
 	panic("unimplemented")

@@ -38,6 +38,7 @@ type poolsUseCase struct {
 	routerRepository routerrepo.RouterRepository
 
 	canonicalOrderBookForBaseQuoteDenom sync.Map
+	canonicalOrderbookPoolIDs           sync.Map
 
 	cosmWasmPoolsParams pools.CosmWasmPoolsParams
 
@@ -170,6 +171,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 		routes = append(routes, route.RouteImpl{
 			Pools:                      routablePools,
 			HasGeneralizedCosmWasmPool: containsGeneralizedCosmWasmPool,
+			HasCanonicalOrderbookPool:  candidateRoute.IsCanonicalOrderboolRoute,
 		})
 	}
 
@@ -365,6 +367,9 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 		if poolLiquidityCapitalization.LTE(topLiquidityOrderBookEntry.LiquidityCap) {
 			return false, nil
 		}
+
+		// Remove the old pool from the canonical map
+		p.canonicalOrderbookPoolIDs.Delete(topLiquidityOrderBookEntry.PoolID)
 	}
 
 	// If not found or the current pool has higher liquidity capitalization than the top liquidity pool
@@ -374,6 +379,9 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 		LiquidityCap:    poolLiquidityCapitalization,
 		ContractAddress: contractAddress,
 	})
+
+	// Store the pool ID in the canonical orderbook pool IDs
+	p.canonicalOrderbookPoolIDs.Store(poolID, struct{}{})
 
 	return true, nil
 }
@@ -448,6 +456,12 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 	})
 
 	return results, err
+}
+
+// IsCanonicalOrderbookPool implements mvc.PoolsUsecase.
+func (p *poolsUseCase) IsCanonicalOrderbookPool(poolID uint64) bool {
+	_, exists := p.canonicalOrderbookPoolIDs.Load(poolID)
+	return exists
 }
 
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.

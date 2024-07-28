@@ -6,6 +6,7 @@ import (
 
 	"cosmossdk.io/math"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -111,8 +112,8 @@ func (r *routerRepo) SetTakerFees(takerFees sqsdomain.TakerFeeMap) {
 }
 
 // GetCandidateRouteSearchData implements mvc.RouterUsecase.
-func (r *routerRepo) GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI {
-	candidateRouteSearchData := make(map[string][]sqsdomain.PoolI)
+func (r *routerRepo) GetCandidateRouteSearchData() map[string]domain.CandidateRouteDenomData {
+	candidateRouteSearchData := make(map[string]domain.CandidateRouteDenomData)
 
 	r.candidateRouteSearchData.Range(func(key, value interface{}) bool {
 		denom, ok := key.(string)
@@ -122,14 +123,14 @@ func (r *routerRepo) GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI 
 			return false
 		}
 
-		pools, ok := value.([]sqsdomain.PoolI)
+		candidateRouteDenomData, ok := value.(domain.CandidateRouteDenomData)
 		if !ok {
 			// Note: should never happen.
 			r.logger.Error("error casting value to []sqsdomain.PoolI in GetCandidateRouteSearchData")
 			return false
 		}
 
-		candidateRouteSearchData[denom] = pools
+		candidateRouteSearchData[denom] = candidateRouteDenomData
 		return true
 	})
 
@@ -137,22 +138,22 @@ func (r *routerRepo) GetCandidateRouteSearchData() map[string][]sqsdomain.PoolI 
 }
 
 // GetRankedPoolsByDenom implements mvc.CandidateRouteSearchDataHolder.
-func (r *routerRepo) GetRankedPoolsByDenom(denom string) ([]sqsdomain.PoolI, error) {
-	poolsData, ok := r.candidateRouteSearchData.Load(denom)
+func (r *routerRepo) GetDenomData(denom string) (domain.CandidateRouteDenomData, error) {
+	denomRawData, ok := r.candidateRouteSearchData.Load(denom)
 	if !ok {
-		return []sqsdomain.PoolI{}, nil
+		return domain.CandidateRouteDenomData{}, nil
 	}
 
-	pools, ok := poolsData.([]sqsdomain.PoolI)
+	denomData, ok := denomRawData.(domain.CandidateRouteDenomData)
 	if !ok {
-		return nil, fmt.Errorf("error casting value to []sqsdomain.PoolI in GetByDenom")
+		return domain.CandidateRouteDenomData{}, fmt.Errorf("error casting value to domain.CandidateRouteDenomData in GetByDenom")
 	}
 
-	return pools, nil
+	return denomData, nil
 }
 
 // SetCandidateRouteSearchData implements mvc.RouterUsecase.
-func (r *routerRepo) SetCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdomain.PoolI) {
+func (r *routerRepo) SetCandidateRouteSearchData(candidateRouteSearchData map[string]domain.CandidateRouteDenomData) {
 	for denom, pools := range candidateRouteSearchData {
 		r.candidateRouteSearchData.Store(denom, pools)
 	}
