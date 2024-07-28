@@ -43,6 +43,9 @@ type ingestUseCase struct {
 	// Worker that computes candidate routes for all tokens.
 	candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker
 
+	// endBlockProcessPlugins are the plugins to execute at the end of the block.
+	endBlockProcessPlugins []domain.EndBlockProcessPlugin
+
 	// The first height observed after start-up
 	// See firstBlockPoolCountThreshold for details.
 	firstHeightAfterStartUp atomic.Uint64
@@ -179,10 +182,18 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	// We update the assets at the height interval asynchronously to avoid blocking the processing of the next block.
 	p.updateAssetsAtHeightIntervalAsync(height)
 
+	// Execute the end block process plugins.
+	go p.executeEndBlockProcessPlugins(ctx, height, uniqueBlockPoolMetadata)
+
 	// Observe the processing duration with height
 	domain.SQSIngestHandlerProcessBlockDurationGauge.Set(float64(time.Since(startProcessingTime).Milliseconds()))
 
 	return nil
+}
+
+// RegisterEndBlockProcessPlugin implements mvc.IngestUsecase.
+func (p *ingestUseCase) RegisterEndBlockProcessPlugin(plugin domain.EndBlockProcessPlugin) {
+	p.endBlockProcessPlugins = append(p.endBlockProcessPlugins, plugin)
 }
 
 // updateAssetsAtHeightIntervalAsync updates the assets at the height interval asynchronously.
@@ -436,6 +447,15 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsdomain.PoolI, error)
 	}
 
 	return &poolWrapper, nil
+}
+
+// executeEndBlockProcessPlugins executes the end block process plugins.
+func (p *ingestUseCase) executeEndBlockProcessPlugins(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) {
+	for _, plugin := range p.endBlockProcessPlugins {
+		if err := plugin.ProcessEndBlock(ctx, blockHeight, metadata); err != nil {
+			p.logger.Error("error executing end block process plugin", zap.Error(err), zap.Uint64("block_height", blockHeight))
+		}
+	}
 }
 
 // processSQSModelMut processes the SQS model and updates it.

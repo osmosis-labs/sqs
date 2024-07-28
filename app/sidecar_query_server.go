@@ -18,6 +18,7 @@ import (
 
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
+	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller"
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
@@ -210,6 +211,14 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		if err != nil {
 			return nil, err
+		}
+
+		// Register ingest block end process plugins
+		// TODO: move to config.
+		const isOrderBookFillerPluginEnabled = true
+		if isOrderBookFillerPluginEnabled {
+			orderbookFillerPlugin := orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, logger)
+			ingestUseCase.RegisterEndBlockProcessPlugin(orderbookFillerPlugin)
 		}
 
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
