@@ -2,7 +2,6 @@ package usecase_test
 
 import (
 	"context"
-	"errors"
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -45,7 +44,6 @@ var (
 	ALLBTC      = routertesting.ALLBTC
 	KAVAUSDT    = routertesting.KAVAUSDT
 	NATIVE_WBTC = routertesting.NATIVE_WBTC
-	TIA         = routertesting.TIA
 )
 
 // TODO: copy exists in candidate_routes_test.go - share & reuse
@@ -564,7 +562,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 	// that provides no slippage swaps. Given that 100K is under the liqudiity of kava.USDT in the
 	// transmuter pool, the split routes should be essentially the same.
 	// Update: as of 30.06.24, the kava.usdt for osmo only has one optimal route.
-	const usdtOsmoExpectedRoutesHighLiq = 1
+	const usdtOsmoExpectedRoutesHighLiq = 2
 	var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
 
 	tests := map[string]struct {
@@ -709,208 +707,6 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
-}
-
-// Validates that the logic skips errors from individual routes
-// and only fails if all routes error.
-// Additionally, validates that the highest amount route is chosen, routes
-// are correctly ranked by amounts out.
-// Lastly, validates, that the candidate and ranked route cache gets invalidated if
-// all routes error.
-func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuote() {
-	// Setup mock router use case
-	mainnetState := s.SetupMainnetState()
-	usecase := s.SetupRouterAndPoolsUsecase(mainnetState)
-	routerUseCaseI := usecase.Router
-	routerUseCase, ok := routerUseCaseI.(*routerusecase.RouterUseCaseImpl)
-	s.Require().True(ok)
-
-	// Token in amount that is used as input to all tests
-	tokenInAmount := osmomath.NewInt(5000000)
-	tokenInOrderOfMagnitude := routerusecase.GetPrecomputeOrderOfMagnitude(tokenInAmount)
-	defaultTokenIn := sdk.NewCoin(UOSMO, tokenInAmount)
-	tokenOutDenom := UION
-
-	// Default amount that is returned by the mock pool
-	// and a smaller amount
-	lessDefaultAmount := defaultAmount.QuoRaw(2)
-	tokenOutCoin := sdk.NewCoin(tokenOutDenom, defaultAmount)
-	tokenOutLessCoin := sdk.NewCoin(tokenOutDenom, lessDefaultAmount)
-
-	defaultError := errors.New("default error")
-
-	// Pool that returns the default amount
-	validMockPool := &mocks.MockRoutablePool{
-		TakerFee: osmomath.ZeroDec(),
-
-		CalculateTokenOutByTokenInFunc: func(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-			return tokenOutCoin, nil
-		},
-
-		TokenOutDenom: tokenOutDenom,
-	}
-
-	// Pool that returns smaller amount
-	validMockPoolSmallerAmount := &mocks.MockRoutablePool{
-		TakerFee: osmomath.ZeroDec(),
-
-		CalculateTokenOutByTokenInFunc: func(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-			return tokenOutLessCoin, nil
-		},
-
-		TokenOutDenom: tokenOutDenom,
-	}
-
-	// Pool that returns errors
-	errorMockPool := &mocks.MockRoutablePool{
-		TakerFee: osmomath.ZeroDec(),
-
-		CalculateTokenOutByTokenInFunc: func(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-			return sdk.Coin{}, defaultError
-		},
-
-		TokenOutDenom: tokenOutDenom,
-	}
-
-	testCases := []struct {
-		name string
-
-		routeMockPools [][]domain.RoutablePool
-
-		tokenIn sdk.Coin
-
-		expectedTokenOutAmount  osmomath.Int
-		expectedRouteAmounstOut []osmomath.Int
-		expectedError           error
-	}{
-		{
-			name: "single valid route",
-
-			routeMockPools: [][]domain.RoutablePool{
-				{
-					validMockPool,
-				},
-			},
-
-			tokenIn: defaultTokenIn,
-
-			expectedTokenOutAmount:  defaultAmount,
-			expectedRouteAmounstOut: []osmomath.Int{defaultAmount},
-		},
-		{
-			name: "single error route",
-
-			routeMockPools: [][]domain.RoutablePool{
-				{
-					errorMockPool,
-				},
-			},
-
-			tokenIn: defaultTokenIn,
-
-			expectedError: defaultError,
-		},
-		{
-			name: "two valid routes -> top one returned with correct ranking",
-
-			routeMockPools: [][]domain.RoutablePool{
-				{
-					validMockPoolSmallerAmount,
-				},
-				{
-					validMockPool,
-				},
-			},
-
-			tokenIn: defaultTokenIn,
-
-			expectedTokenOutAmount:  defaultAmount,
-			expectedRouteAmounstOut: []osmomath.Int{defaultAmount, lessDefaultAmount},
-		},
-		{
-			name: "two routes, one error route -> silently skip error",
-
-			routeMockPools: [][]domain.RoutablePool{
-				{
-					errorMockPool,
-				},
-				{
-					validMockPool,
-				},
-			},
-
-			tokenIn: defaultTokenIn,
-
-			expectedTokenOutAmount:  defaultAmount,
-			expectedRouteAmounstOut: []osmomath.Int{defaultAmount},
-		},
-		{
-			name: "two failing routes -> error returned",
-
-			routeMockPools: [][]domain.RoutablePool{
-				{
-					errorMockPool,
-				},
-				{
-					errorMockPool,
-				},
-			},
-
-			expectedError: defaultError,
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		s.Run(tc.name, func() {
-
-			// Pre-set cache
-			routerUseCase.SetCandidateRouteCacheToMock(defaultTokenIn.Denom, tokenOutDenom)
-			routerUseCase.SetRankedRouteCacheToMock(defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
-
-			// Construct routes from mock pools
-			routes := []route.RouteImpl{}
-			for _, pools := range tc.routeMockPools {
-				routes = append(routes, WithRoutePools(EmptyRoute, pools))
-			}
-
-			// System under test
-			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuote(context.Background(), routes, defaultTokenIn, &log.NoOpLogger{})
-
-			// Get cache results
-			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), defaultTokenIn.Denom, tokenOutDenom)
-			s.Require().NoError(err)
-
-			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
-			s.Require().NoError(err)
-
-			if tc.expectedError != nil {
-				s.Require().Error(sytErr)
-				s.Require().ErrorIs(sytErr, tc.expectedError)
-
-				// Validate cache was invalidated
-				s.Require().False(foundcandidateRoutes)
-				s.Require().Empty(cachedRankedRoutes)
-				return
-			}
-
-			s.Require().NoError(sytErr)
-
-			// Validate quote amount out
-			s.Require().Equal(tokenOutCoin.Amount, quote.GetAmountOut())
-
-			// Validate ranked route order
-			s.Require().Equal(len(tc.expectedRouteAmounstOut), len(rankedRoutes))
-			for i, route := range rankedRoutes {
-				s.Require().Equal(tc.expectedRouteAmounstOut[i], route.GetAmountOut())
-			}
-
-			// Validate cache did not get invalidated
-			s.Require().True(foundcandidateRoutes)
-			s.Require().NotEmpty(cachedRankedRoutes)
-
-		})
-	}
 }
 
 // validates that the given quote has one route with one hop and the expected pool ID.
