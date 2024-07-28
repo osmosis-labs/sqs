@@ -713,7 +713,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 36
+		expectedZeroPoolCount = 35
 	)
 
 	viper.SetConfigFile("../../config.json")
@@ -740,6 +740,10 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	zeroRouteCount := 0
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMeta := range tokenMetadata {
+
+		if chainDenom == USDC {
+			continue
+		}
 
 		minPoolLiquidityCap, err := mainnetUsecase.Tokens.GetMinPoolLiquidityCap(chainDenom, USDC)
 		s.Require().NoError(err)
@@ -786,6 +790,10 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 			MinPoolLiquidityCap: 0,
 			MaxRoutes:           config.Router.MaxRoutes,
 			MaxPoolsPerRoute:    config.Router.MaxPoolsPerRoute,
+		}
+
+		if chainDenom == USDC {
+			continue
 		}
 
 		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutes(sdk.NewCoin(chainDenom, one), USDC, options)
