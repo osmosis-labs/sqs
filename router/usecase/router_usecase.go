@@ -255,7 +255,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		return nil, err
 	}
 
-	topQuote, _, err := estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
+	topQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
 	if err != nil {
 		return nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -332,7 +332,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 		return nil, nil, err
 	}
 
-	topQuote, routesWithAmtOut, err := estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
+	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -446,7 +446,12 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	}
 
 	// Compute direct quote
-	return getBestSingleRouteQuote(ctx, tokenIn, routes, r.logger)
+	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return bestSingleRouteQuote, nil
 }
 
 var ErrValidationFailed = fmt.Errorf("validation failed")

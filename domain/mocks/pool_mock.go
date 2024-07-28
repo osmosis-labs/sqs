@@ -16,6 +16,8 @@ import (
 )
 
 type MockRoutablePool struct {
+	CalculateTokenOutByTokenInFunc func(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
+
 	ChainPoolModel    poolmanagertypes.PoolI
 	TickModel         *sqsdomain.TickModel
 	CosmWasmPoolModel *cosmwasmpool.CosmWasmPoolModel
@@ -81,6 +83,10 @@ func (mp *MockRoutablePool) GetSQSPoolModel() sqsdomain.SQSPool {
 
 // CalculateTokenOutByTokenIn implements routerusecase.RoutablePool.
 func (mp *MockRoutablePool) CalculateTokenOutByTokenIn(_ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
+	if mp.CalculateTokenOutByTokenInFunc != nil {
+		return mp.CalculateTokenOutByTokenInFunc(_ctx, tokenIn)
+	}
+
 	// We allow the ability to mock out the token out amount.
 	if !mp.mockedTokenOut.IsNil() {
 		return mp.mockedTokenOut, nil

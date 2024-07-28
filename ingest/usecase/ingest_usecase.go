@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -449,6 +450,8 @@ func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 
 	// Remove gamm shares from balances
 	newBalances := make([]sdk.Coin, 0, len(sqsModel.Balances))
+
+	balancesMap := make(map[string]osmomath.Int)
 	for i, balance := range sqsModel.Balances {
 		if balance.Validate() != nil {
 			continue
@@ -459,6 +462,8 @@ func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 		}
 
 		newBalances = append(newBalances, sqsModel.Balances[i])
+
+		balancesMap[balance.Denom] = balance.Amount
 	}
 
 	sqsModel.Balances = newBalances
@@ -472,6 +477,22 @@ func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 
 		newPoolDenoms = append(newPoolDenoms, denom)
 	}
+
+	// Sort the pool denoms by balance amount
+	// This is useful for edge case handling for certain pools such as alloyed
+	// where the token amounts might get imbalanced, making the liqudiity of one denom completely zero.
+	// In that case, we would like to deprioritize the out-of-liquidity denoms.
+	sort.Slice(newPoolDenoms, func(i, j int) bool {
+		amountI, ok := balancesMap[sqsModel.PoolDenoms[i]]
+		if !ok {
+			return false
+		}
+		amountJ, ok := balancesMap[sqsModel.PoolDenoms[j]]
+		if !ok {
+			return true
+		}
+		return amountI.GTE(amountJ)
+	})
 
 	sqsModel.PoolDenoms = newPoolDenoms
 
