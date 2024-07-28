@@ -394,12 +394,24 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	}
 
 	// Convert ranked routes back to candidate for caching
-	candidateRoutes = convertRankedToCandidateRoutes(rankedRoutes)
+	convertedCandidateRoutes := convertRankedToCandidateRoutes(rankedRoutes)
 
 	if len(rankedRoutes) > 0 {
+		// We would like to always consider the canonical orderbook route so that if new limits appear
+		// we can detect them. Oterwise, our cache would have to expire to detect them.
+		if !convertedCandidateRoutes.ContainsCanonicalOrderbook && candidateRoutes.ContainsCanonicalOrderbook {
+			// Find the canonical orderbook route and add it to the converted candidate routes.
+			for _, candidateRoute := range candidateRoutes.Routes {
+				if candidateRoute.IsCanonicalOrderboolRoute {
+					convertedCandidateRoutes.Routes = append(convertedCandidateRoutes.Routes, candidateRoute)
+					break
+				}
+			}
+		}
+
 		cacheWrite.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
 
-		r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
+		r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
 	}
 
 	return topSingleRouteQuote, rankedRoutes, nil
@@ -741,14 +753,18 @@ func formatCandidateRouteCacheKey(tokenInDenom string, tokenOutDenom string) str
 // The primary use case for this is to keep minimal data for caching.
 func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.CandidateRoutes {
 	candidateRoutes := sqsdomain.CandidateRoutes{
-		Routes:        make([]sqsdomain.CandidateRoute, 0, len(rankedRoutes)),
-		UniquePoolIDs: map[uint64]struct{}{},
+		Routes:                     make([]sqsdomain.CandidateRoute, 0, len(rankedRoutes)),
+		UniquePoolIDs:              map[uint64]struct{}{},
+		ContainsCanonicalOrderbook: false,
 	}
 
 	for _, rankedRoute := range rankedRoutes {
 		candidateRoute := sqsdomain.CandidateRoute{
-			Pools: make([]sqsdomain.CandidatePool, 0, len(rankedRoute.GetPools())),
+			Pools:                     make([]sqsdomain.CandidatePool, 0, len(rankedRoute.GetPools())),
+			IsCanonicalOrderboolRoute: rankedRoute.HasCanonicalOrderbookPool,
 		}
+
+		candidateRoutes.ContainsCanonicalOrderbook = candidateRoutes.ContainsCanonicalOrderbook || rankedRoute.HasCanonicalOrderbookPool
 
 		for _, randkedPool := range rankedRoute.GetPools() {
 			candidatePool := sqsdomain.CandidatePool{

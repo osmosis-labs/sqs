@@ -43,10 +43,13 @@ func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minPoolLiquidityCap uint
 // ValidateAndSortPools filters and sorts the given pools for use in the router
 // according to the given configuration.
 // Filters out pools that have no tvl error set and have zero liquidity.
-func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) []sqsdomain.PoolI {
+// As a second return value, it returns the orderbook pools.
+func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) ([]sqsdomain.PoolI, []sqsdomain.PoolI) {
 	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
 
 	totalTVL := sdk.ZeroInt()
+
+	orderbookPools := make([]sqsdomain.PoolI, 0)
 
 	// Make a copy and filter pools
 	for _, pool := range pools {
@@ -75,6 +78,10 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 
 				continue
 			}
+
+			if isOrderbookCodeID {
+				orderbookPools = append(orderbookPools, pool)
+			}
 		}
 
 		filteredPools = append(filteredPools, pool)
@@ -89,7 +96,7 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 
 	logger.Info("validated pools", zap.Int("num_pools", len(filteredPools)))
 
-	return sortPools(filteredPools, cosmWasmPoolsConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger)
+	return sortPools(filteredPools, cosmWasmPoolsConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger), orderbookPools
 }
 
 // sortPools sorts the given pools so that the most appropriate pools are at the top.
@@ -146,8 +153,9 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 					// Grant additional rating if alloyed transmuter.
 					rating += totalTVLFloat * 1.5
 				} else if cosmWasmPoolModel.IsOrderbook() {
-					// Orderbook is ranked a bit lower than Concentrated pools
-					rating += (totalTVLFloat / 2) * 0.9
+					// Orderbook is ranked the highest so that its limits are considered
+					// frequently.
+					rating += totalTVLFloat * 2
 				}
 			} else {
 				// Grant additional rating if transmuter.

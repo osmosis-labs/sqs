@@ -37,6 +37,10 @@ type PoolsUsecase interface {
 	// where each base/quote denom is associated with a default pool ID.
 	// Sorts the results by pool ID.
 	GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error)
+
+	// IsCanonicalOrderbookPool returns true if the given pool ID is a canonical orderbook pool
+	// for some token pair.
+	IsCanonicalOrderbookPool(poolID uint64) bool
 }
 
 type PoolHandler interface {
@@ -45,4 +49,12 @@ type PoolHandler interface {
 
 	// StorePools stores the given pools in the usecase
 	StorePools(pools []sqsdomain.PoolI) error
+}
+
+type CandidateRouteSearchPoolHandler interface {
+	PoolHandler
+
+	// IsCanonicalOrderbookPool returns true if the given pool ID is a canonical orderbook pool
+	// for at least one of the base and quote denoms.
+	IsCanonicalOrderbookPool(poolID uint64) bool
 }

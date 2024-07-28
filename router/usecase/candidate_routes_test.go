@@ -98,7 +98,13 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_HappyPath() {
 					poolInRoute, err := usecase.Pools.GetPool(pool.ID)
 					s.Require().NoError(err)
 
-					s.Require().True(poolInRoute.GetPoolLiquidityCap().GTE(expectedMinPoolLiquidityCapInt), "poolID: %d, expectedMinPoolLiquidityCapInt: %s, poolInRoute.GetPoolLiquidityCap(): %s", pool.ID, expectedMinPoolLiquidityCapInt, poolInRoute.GetPoolLiquidityCap())
+					cosmwasmModel := poolInRoute.GetSQSPoolModel().CosmWasmPoolModel
+					isOrderbook := cosmwasmModel != nil && cosmwasmModel.IsOrderbook()
+					// Note: canonical order books are injected into routes, completely ignoring liquidity caps
+					// so we don't need to check for liquidity caps for canonical order books
+					if !isOrderbook {
+						s.Require().True(poolInRoute.GetPoolLiquidityCap().GTE(expectedMinPoolLiquidityCapInt), "poolID: %d, expectedMinPoolLiquidityCapInt: %s, poolInRoute.GetPoolLiquidityCap(): %s", pool.ID, expectedMinPoolLiquidityCapInt, poolInRoute.GetPoolLiquidityCap())
+					}
 
 					// Pool contains token in
 					poolDenoms := poolInRoute.GetPoolDenoms()

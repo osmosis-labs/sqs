@@ -156,6 +156,12 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		// This is necessary because the initial pricing is computed within min liquidity capitalization.
 		// That results in a suboptimal price.
 		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+
+		// Recompute search data given the availability of pool liquidity pricing.
+		if err := p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata); err != nil {
+			p.logger.Error("failed to compute search data", zap.Error(err))
+			return err
+		}
 	} else {
 		// Wait for the first block to be processed before
 		// updating the prices for the next block.
@@ -195,7 +201,7 @@ func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
 	cosmWasmPoolConfig := p.poolsUseCase.GetCosmWasmPoolConfig()
 	routerConfig := p.routerUsecase.GetConfig()
 
-	sortedPools := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
+	sortedPools, _ := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
 
 	// Sort the pools and store them in the router.
 	p.routerUsecase.SetSortedPools(sortedPools)

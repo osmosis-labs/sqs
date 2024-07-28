@@ -41,7 +41,7 @@ type MockMainnetState struct {
 	TakerFeeMap              sqsdomain.TakerFeeMap
 	TokensMetadata           map[string]domain.Token
 	PricingConfig            domain.PricingConfig
-	CandidateRouteSearchData map[string][]sqsdomain.PoolI
+	CandidateRouteSearchData map[string]domain.CandidateRouteDenomData
 	PoolDenomsMetaData       domain.PoolDenomMetaDataMap
 }
 
@@ -282,7 +282,8 @@ func denomNum(i int) string {
 // Note that it does not deep copy pools
 func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
 	newRoute := route.RouteImpl{
-		Pools: make([]domain.RoutablePool, 0, len(pools)),
+		HasCanonicalOrderbookPool: r.HasCanonicalOrderbookPool,
+		Pools:                     make([]domain.RoutablePool, 0, len(pools)),
 	}
 
 	newRoute.Pools = append(newRoute.Pools, pools...)
@@ -293,7 +294,8 @@ func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteI
 // Note that it does not deep copy pools
 func WithCandidateRoutePools(r sqsdomain.CandidateRoute, pools []sqsdomain.CandidatePool) sqsdomain.CandidateRoute {
 	newRoute := sqsdomain.CandidateRoute{
-		Pools: make([]sqsdomain.CandidatePool, 0, len(pools)),
+		IsCanonicalOrderboolRoute: r.IsCanonicalOrderboolRoute,
+		Pools:                     make([]sqsdomain.CandidatePool, 0, len(pools)),
 	}
 
 	newRoute.Pools = append(newRoute.Pools, pools...)
@@ -405,7 +407,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Validate and sort pools
-	sortedPools := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
+	sortedPools, _ := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
 
 	routerUsecase.SetSortedPools(sortedPools)
 
@@ -448,7 +450,7 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 
 // PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
 func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap uint64) []sqsdomain.PoolI {
-	sortedPools := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
+	sortedPools, _ := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
 
 	// Sort pools
 	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)

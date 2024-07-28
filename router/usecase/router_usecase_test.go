@@ -545,17 +545,20 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 				},
 			},
 		},
-		"two routes": {
+		"two routes, one with canonical orderbook": {
 			rankedRoutes: []route.RouteImpl{
 				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID),
 				}),
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{
+					HasCanonicalOrderbookPool: true,
+				}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID+1),
 				}),
 			},
 
 			expectedCandidateRoutes: sqsdomain.CandidateRoutes{
+				ContainsCanonicalOrderbook: true,
 				Routes: []sqsdomain.CandidateRoute{
 					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
 						{
@@ -563,7 +566,9 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 							TokenOutDenom: DenomOne,
 						},
 					}),
-					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
+					WithCandidateRoutePools(sqsdomain.CandidateRoute{
+						IsCanonicalOrderboolRoute: true,
+					}, []sqsdomain.CandidatePool{
 						{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomOne,
@@ -626,7 +631,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1265Concentrated,
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 		"cache is set to balancer - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -648,7 +653,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1265Concentrated,
+			expectedRoutePoolID: poolID1400Concentrated,
 		},
 	}
 
@@ -708,7 +713,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 36
+		expectedZeroPoolCount = 35
 	)
 
 	viper.SetConfigFile("../../config.json")
@@ -735,6 +740,10 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	zeroRouteCount := 0
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMeta := range tokenMetadata {
+
+		if chainDenom == USDC {
+			continue
+		}
 
 		minPoolLiquidityCap, err := mainnetUsecase.Tokens.GetMinPoolLiquidityCap(chainDenom, USDC)
 		s.Require().NoError(err)
@@ -781,6 +790,10 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 			MinPoolLiquidityCap: 0,
 			MaxRoutes:           config.Router.MaxRoutes,
 			MaxPoolsPerRoute:    config.Router.MaxPoolsPerRoute,
+		}
+
+		if chainDenom == USDC {
+			continue
 		}
 
 		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutes(sdk.NewCoin(chainDenom, one), USDC, options)
@@ -851,10 +864,12 @@ func (s *RouterTestSuite) TestSortPools() {
 	const (
 		// the minimum number of pools should  only change if liqudiity falls below MinPoolLiquidityCap. As a result
 		// this is a good high-level check to ensure that the pools are being loaded correctly.
-		expectedMinNumPools = 234
+		expectedMinNumPools = 400
 
 		// If mainnet state is updated
-		expectedTopPoolID = uint64(1283)
+		expectedTopPoolID = uint64(1904)
+
+		orderbookCodeID = uint64(885)
 	)
 
 	mainnetState := s.SetupMainnetState()
@@ -865,7 +880,13 @@ func (s *RouterTestSuite) TestSortPools() {
 	s.Require().NoError(err)
 
 	// Validate and sort pools
-	sortedPools := usecase.ValidateAndSortPools(pools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
+	cosmWasmPoolsConfig := domain.CosmWasmPoolRouterConfig{
+		OrderbookCodeIDs: map[uint64]struct{}{
+			orderbookCodeID: {},
+		},
+	}
+	sortedPools, orderBookPools := usecase.ValidateAndSortPools(pools, cosmWasmPoolsConfig, []uint64{}, noOpLogger)
+	s.Require().NotEmpty(orderBookPools)
 
 	// Filter pools by min liquidity
 	sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, defaultRouterConfig.MinPoolLiquidityCap)
@@ -874,6 +895,13 @@ func (s *RouterTestSuite) TestSortPools() {
 
 	// Check that the top pool is the expected one.
 	s.Require().Equal(expectedTopPoolID, sortedPools[0].GetId())
+
+	// Validate orderbooks
+	for _, pool := range orderBookPools {
+		cosmWasmModel := pool.GetSQSPoolModel().CosmWasmPoolModel
+		s.Require().NotNil(cosmWasmModel)
+		s.Require().True(pool.GetSQSPoolModel().CosmWasmPoolModel.IsOrderbook())
+	}
 }
 
 // Validates ConvertMinTokensPoolLiquidityCapToFilter method per its spec.

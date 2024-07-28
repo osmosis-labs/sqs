@@ -22,3 +22,13 @@ type CandidateRouteSearcher interface {
 	// Returns the candidate routes and an error if any.
 	FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, options CandidateRouteSearchOptions) (sqsdomain.CandidateRoutes, error)
 }
+
+// CandidateRouteDenomData represents the data for a candidate route for a given denom.
+type CandidateRouteDenomData struct {
+	// SortedPools is the sorted list of pools for the denom.
+	SortedPools []sqsdomain.PoolI
+	// CanonicalOrderbooks is the map of canonical orderbooks keyed by the pair token.
+	// For example if this is candidate route denom data for OSMO and there is a canonical orderbook with ID 23
+	// for ATOM/OSMO, we would have an entry from ATOM to 23 in this map.
+	CanonicalOrderbooks map[string]sqsdomain.PoolI
+}

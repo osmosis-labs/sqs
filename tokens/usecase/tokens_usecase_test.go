@@ -207,7 +207,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 		s.Require().Zero(result, fmt.Sprintf("usdcQuote: %s, usdtQuote: %s", usdcQuote, usdtQuote))
 	}
 
-	// WBTC is around 56K at the time of creation of this test
+	// WBTC is around 66K at the time of creation of this test
 	// We set tolerance to 15% and compare against this value to have sanity checks
 	// in place against a hardcoded expected value rather than comparing USDT and USDC prices only
 	// that are both computed by the system.

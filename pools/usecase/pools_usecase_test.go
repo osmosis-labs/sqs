@@ -355,6 +355,10 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 
 			s.Require().Equal(tc.expectedCanonicalOrderbookPoolID, canonicalPoolID)
 			s.Require().Equal(tc.expectedContractAddress, contractAddress)
+
+			// Validate that the canonical orderbook pool ID is correctly set
+			s.Require().Equal(tc.expectedCanonicalOrderbookPoolID == defaultPoolID, poolsUsecase.IsCanonicalOrderbookPool(defaultPoolID))
+			s.Require().Equal(tc.expectedCanonicalOrderbookPoolID == differentPoolID, poolsUsecase.IsCanonicalOrderbookPool(differentPoolID))
 		})
 	}
 }

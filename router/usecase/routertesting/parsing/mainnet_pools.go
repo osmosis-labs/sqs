@@ -145,12 +145,18 @@ func StorePoolDenomMetaData(poolDenomMetaData domain.PoolDenomMetaDataMap, poolD
 }
 
 type candidateRouteSerializedData struct {
-	Denom string            `json:"denom"`
-	Pool  []json.RawMessage `json:"pool"`
+	Denom      string                              `json:"denom"`
+	Pool       []json.RawMessage                   `json:"pool"`
+	Orderbooks []candidateRouteOrderbookSearchData `json:"orderbooks"`
+}
+
+type candidateRouteOrderbookSearchData struct {
+	PairDenom string          `json:"pair_denom"`
+	Orderbook json.RawMessage `json:"orderbook"`
 }
 
 // StoreCandidateRouteSearchData stores the candidate route search data to disk at the given path.
-func StoreCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdomain.PoolI, candidateRouteSearchDataFile string) error {
+func StoreCandidateRouteSearchData(candidateRouteSearchData map[string]domain.CandidateRouteDenomData, candidateRouteSearchDataFile string) error {
 	_, err := os.Stat(candidateRouteSearchDataFile)
 	if os.IsNotExist(err) {
 		file, err := os.Create(candidateRouteSearchDataFile)
@@ -163,7 +169,7 @@ func StoreCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdoma
 
 		for denom, candidateRouteSearchData := range candidateRouteSearchData {
 			serializedPools := make([]json.RawMessage, 0)
-			for _, pool := range candidateRouteSearchData {
+			for _, pool := range candidateRouteSearchData.SortedPools {
 				serializedPool, err := MarshalPool(pool)
 				if err != nil {
 					return err
@@ -171,9 +177,25 @@ func StoreCandidateRouteSearchData(candidateRouteSearchData map[string][]sqsdoma
 				serializedPools = append(serializedPools, serializedPool)
 			}
 
+			serializedOrderbooks := make([]candidateRouteOrderbookSearchData, 0)
+			for pairDenom, orderbook := range candidateRouteSearchData.CanonicalOrderbooks {
+				serializedOrderbook, err := MarshalPool(orderbook)
+				if err != nil {
+					return err
+				}
+
+				orderbookData := candidateRouteOrderbookSearchData{
+					PairDenom: pairDenom,
+					Orderbook: serializedOrderbook,
+				}
+
+				serializedOrderbooks = append(serializedOrderbooks, orderbookData)
+			}
+
 			serializedResult = append(serializedResult, candidateRouteSerializedData{
-				Denom: denom,
-				Pool:  serializedPools,
+				Denom:      denom,
+				Pool:       serializedPools,
+				Orderbooks: serializedOrderbooks,
 			})
 		}
 
@@ -273,7 +295,7 @@ func ReadPoolDenomsMetaData(poolDenomMetaData string) (domain.PoolDenomMetaDataM
 }
 
 // ReadCandidateRouteSearchData reads the candidate route search data from disk at the
-func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string][]sqsdomain.PoolI, error) {
+func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string]domain.CandidateRouteDenomData, error) {
 	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -285,7 +307,7 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
-	candidateRouteSearchData := make(map[string][]sqsdomain.PoolI, len(serialized))
+	candidateRouteSearchData := make(map[string]domain.CandidateRouteDenomData, len(serialized))
 
 	for _, data := range serialized {
 		pools := make([]sqsdomain.PoolI, 0, len(data.Pool))
@@ -304,7 +326,26 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 			pools = append(pools, pool)
 		}
 
-		candidateRouteSearchData[data.Denom] = pools
+		orderbooks := make(map[string]sqsdomain.PoolI)
+		for _, orderbookData := range data.Orderbooks {
+			var serializedPool SerializedPool
+
+			if err := json.Unmarshal(orderbookData.Orderbook, &serializedPool); err != nil {
+				return nil, err
+			}
+
+			pool, err := UnmarshalPool(serializedPool)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal pool: %w", err)
+			}
+
+			orderbooks[orderbookData.PairDenom] = pool
+		}
+
+		candidateRouteSearchData[data.Denom] = domain.CandidateRouteDenomData{
+			SortedPools:         pools,
+			CanonicalOrderbooks: orderbooks,
+		}
 	}
 
 	return candidateRouteSearchData, nil

@@ -17,14 +17,15 @@ type (
 
 	QuoteImpl = quoteImpl
 
-	CandidatePoolWrapper = candidatePoolWrapper
+	CandidatePoolWrapper  = candidatePoolWrapper
+	CandidateRouteWrapper = candidateRouteWrapper
 )
 
 const (
 	NoPoolLiquidityCapError = noPoolLiquidityCapError
 )
 
-func ValidateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+func ValidateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
 	return validateAndFilterRoutes(candidateRoutes, tokenInDenom, logger)
 }
 
