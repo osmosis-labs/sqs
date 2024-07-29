@@ -42,7 +42,6 @@ func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensU
 
 // ProcessEndBlock implements domain.EndBlockProcessPlugin.
 func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) error {
-
 	if !o.swapDone.Load() {
 		sequence, accNum := getInitialSequence(o.keyring.GetAddress().String())
 		_, _, err := o.swapExactAmountIn(sdk.NewCoin("uosmo", sdk.NewInt(5000)), sequence, accNum, o.keyring)
