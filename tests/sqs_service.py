@@ -14,6 +14,8 @@ TOKENS_PRICES_URL = "/tokens/prices"
 POOLS_URL = "/pools"
 CANONICAL_ORDERBOOKS_URL = "/pools/canonical-orderbooks"
 
+PASSTHROUGH_PORTFOLIO_ASSETS = "/passthrough/portfolio-assets/"
+
 CONFIG_URL = "/config"
 
 ASSET_LIST_URL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json"
@@ -172,5 +174,17 @@ class SQSService:
 
         if response.status_code != 200:
             raise Exception(f"Error fetching canonical orderbooks: {response.text}")
+
+        return response.json()
+
+    def get_portfolio_assets(self, address):
+        """
+        Fetches the portfolio assets from the specified endpoint and address and returns them.
+        """
+
+        response = requests.get(self.url + f"{PASSTHROUGH_PORTFOLIO_ASSETS}{address}", headers=self.headers)
+
+        if response.status_code != 200:
+            raise Exception(f"Error fetching portfolio assets: {response.text}")
 
         return response.json()

@@ -21,6 +21,8 @@ import (
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
+	passthroughHttpDelivery "github.com/osmosis-labs/sqs/passthrough/delivery/http"
+	passthroughUseCase "github.com/osmosis-labs/sqs/passthrough/usecase"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -33,6 +35,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
 
@@ -149,6 +152,27 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
+	// Get the default quote denom
+	defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get liquidity pricer
+	liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
+
+	// Initialize passthrough grpc client
+	passthroughGRPCClient, err := passthroughdomain.NewPassthroughGRPCClient(config.ChainGRPCGatewayEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize passthrough query use case
+	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, liquidityPricer, defaultQuoteDenom, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	// Use the same config to initialize coingecko pricing strategy
 	config.Pricing.DefaultSource = domain.CoinGeckoPricingSourceType
 	coingeckoPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, nil)
@@ -162,6 +186,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
+	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
 		return nil, err
@@ -171,15 +196,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester
 	if grpcIngesterConfig.Enabled {
-		// Get the default quote denom
-		defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
-		if err != nil {
-			return nil, err
-		}
-
 		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, logger)
-
-		liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
 
 		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase, liquidityPricer, logger)
 
