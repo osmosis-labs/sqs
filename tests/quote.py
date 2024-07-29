@@ -2,7 +2,7 @@ import conftest
 
 class Quote:
     @staticmethod
-    def choose_error_tolerance(amount_in: int):
+    def choose_error_tolerance(amount: int):
          # This is the max error tolerance of 7% that we allow.
         # Arbitrarily hand-picked to avoid flakiness.
         error_tolerance = 0.07
@@ -10,11 +10,11 @@ class Quote:
         # flakiness. Therefore, we increase the error tolerance based on the amount in swapped.
         # The values are arbitrarily hand-picked and can be adjusted if necessary.
         # This seems to be especially relevant for the Astroport PCL pools.
-        if amount_in > 60_000_000_000:
+        if amount > 60_000_000_000:
             error_tolerance = 0.16
-        elif amount_in > 30_000_000_000:
+        elif amount > 30_000_000_000:
             error_tolerance = 0.13
-        elif amount_in > 10_000_000_000:
+        elif amount > 10_000_000_000:
             error_tolerance = 0.10
 
         return error_tolerance
