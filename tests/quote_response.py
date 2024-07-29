@@ -8,12 +8,13 @@ class Coin:
 
 # Pool represents a pool in the /router/quote response
 class Pool:
-    def __init__(self, id, type, balances, spread_factor, token_out_denom, taker_fee, **kwargs):
+    def __init__(self, id, type, balances, spread_factor, taker_fee, **kwargs):
         self.id = int(id)
         self.type = type
         self.balances = balances
         self.spread_factor = float(spread_factor)
-        self.token_out_denom = token_out_denom
+        self.token_in_denom = kwargs.get('token_in_denom', None)
+        self.token_out_denom = kwargs.get('token_out_denom', None)
         self.taker_fee = float(taker_fee)
         code_id = kwargs.get('code_id', 0)
         # Only CW pools have code id
@@ -29,12 +30,23 @@ class Route:
         # "has-cw-pool" format is unsupported
         self.has_cw_pool = kwargs.get('has-cw-pool', False)
 
-# QuoteResponse represents the response format
-# of the /router/quote endpoint
-class QuoteResponse:
+# QuoteExactAmountInResponse represents the response format
+# of the /router/quote endpoint for Exact Amount In Quote.
+class QuoteExactAmountInResponse:
     def __init__(self, amount_in, amount_out, route, effective_fee, price_impact, in_base_out_quote_spot_price):
         self.amount_in = Coin(**amount_in)
         self.amount_out = int(amount_out)
+        self.route = [Route(**r) for r in route]
+        self.effective_fee = Decimal(effective_fee)
+        self.price_impact = Decimal(price_impact)
+        self.in_base_out_quote_spot_price = Decimal(in_base_out_quote_spot_price)
+
+# QuoteExactAmountOutResponse represents the response format
+# of the /router/quote endpoint for Exact Amount Out Quote.
+class QuoteExactAmountOutResponse:
+    def __init__(self, amount_in, amount_out, route, effective_fee, price_impact, in_base_out_quote_spot_price):
+        self.amount_in = int(amount_in)
+        self.amount_out = Coin(**amount_out)
         self.route = [Route(**r) for r in route]
         self.effective_fee = Decimal(effective_fee)
         self.price_impact = Decimal(price_impact)
