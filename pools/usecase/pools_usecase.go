@@ -314,7 +314,7 @@ func (p *poolsUseCase) StorePools(pools []sqsdomain.PoolI) error {
 		// If orderbook, update top liquidity pool for base and quote denom if it has higher liquidity capitalization.
 		sqsModel := pool.GetSQSPoolModel()
 		cosmWasmPoolModel := sqsModel.CosmWasmPoolModel
-		if cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook() {
+		if cosmWasmPoolModel != nil && cosmWasmPoolModel.Data.Orderbook != nil && cosmWasmPoolModel.IsOrderbook() {
 			baseDenom := cosmWasmPoolModel.Data.Orderbook.BaseDenom
 			quoteDenom := cosmWasmPoolModel.Data.Orderbook.QuoteDenom
 			poolLiquidityCapitalization := pool.GetLiquidityCap()
