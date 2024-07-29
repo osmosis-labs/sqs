@@ -18,7 +18,6 @@ import (
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client/tx"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
@@ -117,10 +116,7 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, sequen
 	key := keyring.GetKey()
 	keyBytes := key.Bytes()
 
-	privKey, err := newSecp256k1PrivKeyFromBytes(keyBytes)
-	if err != nil {
-		return nil, "", err
-	}
+	privKey := &secp256k1.PrivKey{Key: keyBytes}
 
 	encodingConfig := simapp.MakeTestEncodingConfig()
 	// encodingConfig.Marshaler = cdc
@@ -246,9 +242,4 @@ func BroadcastTransaction(txBytes []byte, rpcEndpoint string) (*coretypes.Result
 	fmt.Println("txid: ", res.Hash)
 
 	return res, nil
-}
-
-func newSecp256k1PrivKeyFromBytes(privKeyBytes []byte) (cryptotypes.PrivKey, error) {
-	privKey := &secp256k1.PrivKey{Key: privKeyBytes}
-	return privKey, nil
 }
