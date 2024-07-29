@@ -5,6 +5,7 @@ import (
 
 	"github.com/alecthomas/assert/v2"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -200,26 +201,30 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestGetRankedPoolsByDenom_HappyPat
 			}}
 	)
 
-	candidateRouteSearchData := map[string][]sqsdomain.PoolI{
-		denomA: denomOnePools,
-		denomB: denomTwoPools,
+	candidateRouteSearchData := map[string]domain.CandidateRouteDenomData{
+		denomA: {
+			SortedPools: denomOnePools,
+		},
+		denomB: {
+			SortedPools: denomTwoPools,
+		},
 	}
 
 	// System under test.
 	suite.repository.SetCandidateRouteSearchData(candidateRouteSearchData)
 
 	// Denom a has the expected pools.
-	actualDenomOnePools, err := suite.repository.GetRankedPoolsByDenom(denomA)
+	actualDenomOnePools, err := suite.repository.GetDenomData(denomA)
 	suite.Require().NoError(err)
-	suite.Require().Equal(denomOnePools, actualDenomOnePools)
+	suite.Require().Equal(denomOnePools, actualDenomOnePools.SortedPools)
 
 	// Denom b has the expected pools.
-	actualDenomTwoPools, err := suite.repository.GetRankedPoolsByDenom(denomB)
+	actualDenomTwoPools, err := suite.repository.GetDenomData(denomB)
 	suite.Require().NoError(err)
-	suite.Require().Equal(denomTwoPools, actualDenomTwoPools)
+	suite.Require().Equal(denomTwoPools, actualDenomTwoPools.SortedPools)
 
 	// Denom with no pools returns an empty slice.
-	actualNoDenomPools, err := suite.repository.GetRankedPoolsByDenom(denomNoPools)
+	actualNoDenomPools, err := suite.repository.GetDenomData(denomNoPools)
 	suite.Require().NoError(err)
-	suite.Require().Empty(actualNoDenomPools)
+	suite.Require().Empty(actualNoDenomPools.SortedPools)
 }

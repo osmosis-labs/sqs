@@ -39,6 +39,10 @@ type PoolsUsecase interface {
 	// where each base/quote denom is associated with a default pool ID.
 	// Sorts the results by pool ID.
 	GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error)
+
+	// IsCanonicalOrderbookPool returns true if the given pool ID is a canonical orderbook pool
+	// for some token pair.
+	IsCanonicalOrderbookPool(poolID uint64) bool
 }
 
 type PoolHandler interface {
@@ -51,4 +55,12 @@ type PoolHandler interface {
 	// CalcExitCFMMPool estimates the coins returned from redeeming CFMM pool shares given a pool ID and the GAMM shares to convert
 	// poolID must be a CFMM pool. Returns error if not.
 	CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)
+}
+
+type CandidateRouteSearchPoolHandler interface {
+	PoolHandler
+
+	// IsCanonicalOrderbookPool returns true if the given pool ID is a canonical orderbook pool
+	// for at least one of the base and quote denoms.
+	IsCanonicalOrderbookPool(poolID uint64) bool
 }

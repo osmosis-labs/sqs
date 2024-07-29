@@ -128,7 +128,15 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			},
 		)
 
-		defaultSinglePools = []sqsdomain.PoolI{defaultPool}
+		recomputedRoute = WithCandidateRoutePools(
+			EmptyCandidateRoute,
+			[]sqsdomain.CandidatePool{
+				{
+					ID:            defaultPool.GetId() + 1,
+					TokenOutDenom: tokenOutDenom,
+				},
+			},
+		)
 
 		singleDefaultRoutes = sqsdomain.CandidateRoutes{
 			Routes: []sqsdomain.CandidateRoute{defaultRoute},
@@ -137,7 +145,12 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			},
 		}
 
-		emptyPools = []sqsdomain.PoolI{}
+		singeldRecomputedRoutes = sqsdomain.CandidateRoutes{
+			Routes: []sqsdomain.CandidateRoute{recomputedRoute},
+			UniquePoolIDs: map[uint64]struct{}{
+				defaultPool.GetId() + 1: {},
+			},
+		}
 
 		emptyRoutes = sqsdomain.CandidateRoutes{}
 
@@ -157,7 +170,6 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		name string
 
 		repositoryRoutes     sqsdomain.CandidateRoutes
-		repositoryPools      []sqsdomain.PoolI
 		takerFeeMap          sqsdomain.TakerFeeMap
 		isCacheDisabled      bool
 		shouldSkipAddToCache bool
@@ -171,7 +183,6 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			name: "routes in cache -> use them",
 
 			repositoryRoutes: singleDefaultRoutes,
-			repositoryPools:  emptyPools,
 
 			expectedCandidateRoutes: singleDefaultRoutes,
 			expectedIsCached:        true,
@@ -180,36 +191,32 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			name: "cache is disabled in config -> recomputes routes despite having available in cache",
 
 			repositoryRoutes: singleDefaultRoutes,
-			repositoryPools:  emptyPools,
 			isCacheDisabled:  true,
 
-			expectedCandidateRoutes: emptyRoutes,
+			expectedCandidateRoutes: singeldRecomputedRoutes,
 			expectedIsCached:        false,
 		},
 		{
-			name: "no routes in cache but relevant pools in store -> recomputes routes & caches them",
+			name: "no routes in cache -> recomputes routes & caches them",
 
 			repositoryRoutes:     emptyRoutes,
-			repositoryPools:      defaultSinglePools,
 			shouldSkipAddToCache: true,
 
-			expectedCandidateRoutes: singleDefaultRoutes,
+			expectedCandidateRoutes: singeldRecomputedRoutes,
 			expectedIsCached:        true,
 		},
 		{
-			name: "empty routes in cache but relevant pools in store -> does not recompute routes",
+			name: "empty routes in cache-> does not recompute routes",
 
 			repositoryRoutes: emptyRoutes,
-			repositoryPools:  defaultSinglePools,
 
 			expectedCandidateRoutes: emptyRoutes,
 			expectedIsCached:        true,
 		},
 		{
-			name: "no routes in cache and no relevant pools in store -> returns no routes & caches them",
+			name: "no routes in cache and -> returns no routes & caches them",
 
 			repositoryRoutes: emptyRoutes,
-			repositoryPools:  emptyPools,
 
 			expectedCandidateRoutes: emptyRoutes,
 			expectedIsCached:        true,
@@ -235,31 +242,30 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), tc.repositoryRoutes, time.Hour)
 			}
 
-			poolsUseCaseMock := &mocks.PoolsUsecaseMock{
-				// These are the pools returned by the call to GetAllPools
-				Pools: tc.repositoryPools,
-			}
+			poolsUseCaseMock := &mocks.PoolsUsecaseMock{}
 
 			tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
-			candidateRouteFinderMock := mocks.CandidateRouteFinderMock{}
+			candidateRouteFinderMock := mocks.CandidateRouteFinderMock{
+				Routes: tc.expectedCandidateRoutes,
+			}
 
 			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, candidateRouteFinderMock, &tokenMetaDataHolder, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheDisabled,
 			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
 
-			// Validate and sort pools
-			sortedPools := usecase.ValidateAndSortPools(tc.repositoryPools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
-
-			// Filter pools by min liquidity
-			sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)
-
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
 
-			// System under test
 			ctx := context.Background()
-			// TODO: filter pools per router config
-			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, sortedPools, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, defaultRouterConfig.MaxRoutes, defaultRouterConfig.MaxPoolsPerRoute)
+
+			candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
+				MinPoolLiquidityCap: minPoolLiquidityCap,
+				MaxRoutes:           defaultRouterConfig.MaxRoutes,
+				MaxPoolsPerRoute:    defaultRouterConfig.MaxPoolsPerRoute,
+			}
+
+			// System under test
+			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, candidateRouteSearchOptions)
 
 			if tc.expectedError != nil {
 				s.Require().EqualError(err, tc.expectedError.Error())
@@ -277,6 +283,14 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			}
 
 			cachedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
+
+			if tc.isCacheDisabled {
+				s.Require().NoError(err)
+				s.Require().Empty(cachedCandidateRoutes.Routes)
+				s.Require().False(isCached)
+				return
+			}
+
 			// For the case where the cache is disabled, the expected routes in cache
 			// will be the same as the original routes in the repository.
 			// Check that router repository was updated
@@ -531,17 +545,20 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 				},
 			},
 		},
-		"two routes": {
+		"two routes, one with canonical orderbook": {
 			rankedRoutes: []route.RouteImpl{
 				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID),
 				}),
-				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
+				WithRoutePools(route.RouteImpl{
+					HasCanonicalOrderbookPool: true,
+				}, []domain.RoutablePool{
 					mocks.WithPoolID(mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), &balancer.Pool{}), defaultPoolID+1),
 				}),
 			},
 
 			expectedCandidateRoutes: sqsdomain.CandidateRoutes{
+				ContainsCanonicalOrderbook: true,
 				Routes: []sqsdomain.CandidateRoute{
 					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
 						{
@@ -549,7 +566,9 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 							TokenOutDenom: DenomOne,
 						},
 					}),
-					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
+					WithCandidateRoutePools(sqsdomain.CandidateRoute{
+						IsCanonicalOrderboolRoute: true,
+					}, []sqsdomain.CandidatePool{
 						{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomOne,
@@ -694,7 +713,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	const (
 		// This was selected by looking at the routes and concluding that it's
 		// probably fine. Might need to re-evaluate in the future.
-		expectedZeroPoolCount = 38
+		expectedZeroPoolCount = 35
 	)
 
 	viper.SetConfigFile("../../config.json")
@@ -722,9 +741,24 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	s.Require().NotZero(len(tokenMetadata))
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
+		if chainDenom == USDC {
+			continue
+		}
+
+		minPoolLiquidityCap, err := mainnetUsecase.Tokens.GetMinPoolLiquidityCap(chainDenom, USDC)
+		s.Require().NoError(err)
+
+		minPoolLiquidityCapFilter := mainnetUsecase.Router.ConvertMinTokensPoolLiquidityCapToFilter(minPoolLiquidityCap)
+
+		options := domain.CandidateRouteSearchOptions{
+			MinPoolLiquidityCap: minPoolLiquidityCapFilter,
+			MaxRoutes:           config.Router.MaxRoutes,
+			MaxPoolsPerRoute:    config.Router.MaxPoolsPerRoute,
+		}
+
+		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutes(sdk.NewCoin(chainDenom, one), USDC, options)
 		if err != nil {
-			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
+			fmt.Printf("Error for %s  -- %s -- %v\n", chainDenom, tokenMeta.HumanDenom, err)
 			errorCounter++
 			continue
 		}
@@ -752,9 +786,19 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 
 	for chainDenom, tokenMeta := range tokenMetadata {
 
-		routes, err := usecase.GetCandidateRoutes(mainnetState.Pools, sdk.NewCoin(chainDenom, one), USDC, config.Router.MaxRoutes, config.Router.MaxPoolsPerRoute, noOpLogger)
+		options := domain.CandidateRouteSearchOptions{
+			MinPoolLiquidityCap: 0,
+			MaxRoutes:           config.Router.MaxRoutes,
+			MaxPoolsPerRoute:    config.Router.MaxPoolsPerRoute,
+		}
+
+		if chainDenom == USDC {
+			continue
+		}
+
+		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutes(sdk.NewCoin(chainDenom, one), USDC, options)
 		if err != nil {
-			fmt.Printf("Error for %s  -- %s\n", chainDenom, tokenMeta.HumanDenom)
+			fmt.Printf("Error for %s  -- %s -- %v\n", chainDenom, tokenMeta.HumanDenom, err)
 			errorCounter++
 			continue
 		}
@@ -820,10 +864,12 @@ func (s *RouterTestSuite) TestSortPools() {
 	const (
 		// the minimum number of pools should  only change if liqudiity falls below MinPoolLiquidityCap. As a result
 		// this is a good high-level check to ensure that the pools are being loaded correctly.
-		expectedMinNumPools = 234
+		expectedMinNumPools = 400
 
 		// If mainnet state is updated
-		expectedTopPoolID = uint64(1283)
+		expectedTopPoolID = uint64(1904)
+
+		orderbookCodeID = uint64(885)
 	)
 
 	mainnetState := s.SetupMainnetState()
@@ -834,7 +880,13 @@ func (s *RouterTestSuite) TestSortPools() {
 	s.Require().NoError(err)
 
 	// Validate and sort pools
-	sortedPools := usecase.ValidateAndSortPools(pools, emptyCosmWasmPoolsRouterConfig, []uint64{}, noOpLogger)
+	cosmWasmPoolsConfig := domain.CosmWasmPoolRouterConfig{
+		OrderbookCodeIDs: map[uint64]struct{}{
+			orderbookCodeID: {},
+		},
+	}
+	sortedPools, orderBookPools := usecase.ValidateAndSortPools(pools, cosmWasmPoolsConfig, []uint64{}, noOpLogger)
+	s.Require().NotEmpty(orderBookPools)
 
 	// Filter pools by min liquidity
 	sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, defaultRouterConfig.MinPoolLiquidityCap)
@@ -843,6 +895,13 @@ func (s *RouterTestSuite) TestSortPools() {
 
 	// Check that the top pool is the expected one.
 	s.Require().Equal(expectedTopPoolID, sortedPools[0].GetId())
+
+	// Validate orderbooks
+	for _, pool := range orderBookPools {
+		cosmWasmModel := pool.GetSQSPoolModel().CosmWasmPoolModel
+		s.Require().NotNil(cosmWasmModel)
+		s.Require().True(pool.GetSQSPoolModel().CosmWasmPoolModel.IsOrderbook())
+	}
 }
 
 // Validates ConvertMinTokensPoolLiquidityCapToFilter method per its spec.
@@ -969,7 +1028,8 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	s.Require().NoError(err)
 	poolsUsecase.StorePools(mainnetState.Pools)
 
 	tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
@@ -1088,6 +1148,92 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 			s.Require().Equal(quotes.GetAmountIn().Denom, tc.tokenIn.Denom)
 			s.Require().Equal(tc.expectedNumOfRoutes, len(quotes.GetRoute()))
 			s.validateExpectedPoolIDMultiRouteOneHopQuote(quotes, tc.expectedPoolID)
+		})
+	}
+}
+
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Orderbook() {
+	config := routertesting.DefaultRouterConfig
+	config.MaxPoolsPerRoute = 5
+	config.MaxRoutes = 10
+
+	var (
+		orderbookCodeId = uint64(885)
+	)
+
+	mainnetState := s.SetupMainnetState()
+
+	// Setup router repository mock
+	routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
+	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+
+	// Setup pools usecase mock.
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{
+		OrderbookCodeIDs: []uint64{
+			orderbookCodeId,
+		},
+	}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	poolsUsecase.StorePools(mainnetState.Pools)
+
+	tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
+	candidateRouteFinderMock := mocks.CandidateRouteFinderMock{}
+
+	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinderMock, &tokenMetaDataHolder, config, domain.CosmWasmPoolRouterConfig{
+		OrderbookCodeIDs: map[uint64]struct{}{
+			orderbookCodeId: {},
+		},
+	}, &log.NoOpLogger{}, cache.New(), cache.New())
+
+	// Test cases
+	testCases := []struct {
+		// test name
+		name string
+
+		// token being swapped
+		tokenIn sdk.Coin
+
+		// token to be received
+		tokenOutDenom string
+
+		// pool to swap
+		poolID uint64
+
+		expectedAmountOut osmomath.Int
+
+		err error
+	}{
+		{
+			name:              "quote with enough liquidity",
+			tokenIn:           sdk.NewCoin(NATIVE_WBTC, osmomath.NewInt(11)),
+			tokenOutDenom:     USDC,
+			poolID:            1904,
+			expectedAmountOut: osmomath.NewInt(6745),
+		},
+		{
+			name:          "quote with not enough liquidity",
+			tokenIn:       sdk.NewCoin(NATIVE_WBTC, osmomath.NewInt(1000000000000)),
+			tokenOutDenom: USDC,
+			poolID:        1904,
+			err: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
+				PoolId:   1904,
+				AmountIn: sdk.NewCoin(NATIVE_WBTC, osmomath.NewInt(999000000000)),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
+
+			if err != nil {
+				s.Require().EqualError(tc.err, err.Error())
+				return // nothing else to do
+			}
+
+			// token in must match
+			s.Require().Equal(tc.tokenIn.Denom, quote.GetAmountIn().Denom)
+			s.Require().Equal(tc.expectedAmountOut.String(), quote.GetAmountOut().String())
 		})
 	}
 }

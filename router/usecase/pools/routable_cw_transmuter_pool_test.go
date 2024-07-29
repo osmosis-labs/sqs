@@ -60,11 +60,16 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
 			poolType := cosmwasmPool.GetType()
 
 			mock := &mocks.MockRoutablePool{ChainPoolModel: cosmwasmPool.AsSerializablePool(), Balances: tc.balances, PoolType: poolType}
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOutDenom, noTakerFee, domain.CosmWasmPoolRouterConfig{
-				TransmuterCodeIDs: map[uint64]struct{}{
-					cosmwasmPool.GetCodeId(): {},
+
+			cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+				Config: domain.CosmWasmPoolRouterConfig{
+					TransmuterCodeIDs: map[uint64]struct{}{
+						cosmwasmPool.GetCodeId(): {},
+					},
 				},
-			}, domain.UnsetScalingFactorGetterCb)
+				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+			}
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
 			// Overwrite pool type for edge case testing

@@ -19,9 +19,9 @@ type (
 func NewRoutableCosmWasmPoolWithCustomModel(
 	pool sqsdomain.PoolI,
 	cosmwasmPool *cwpoolmodel.CosmWasmPool,
-	cosmWasmConfig domain.CosmWasmPoolRouterConfig,
+	cosmWasmPoolsParams CosmWasmPoolsParams,
 	tokenOutDenom string,
 	takerFee osmomath.Dec,
 ) (domain.RoutablePool, error) {
-	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmConfig, tokenOutDenom, takerFee)
+	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmPoolsParams, tokenOutDenom, takerFee)
 }

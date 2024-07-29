@@ -90,9 +90,9 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 
 	var amountInToExhaustLiquidity osmomath.BigDec
 	if *directionIn == cosmwasmpool.BID {
-		amountInToExhaustLiquidity = r.OrderbookData.AskAmountToExhaustBidLiquidity
-	} else {
 		amountInToExhaustLiquidity = r.OrderbookData.BidAmountToExhaustAskLiquidity
+	} else {
+		amountInToExhaustLiquidity = r.OrderbookData.AskAmountToExhaustBidLiquidity
 	}
 
 	// check if amount in > amountInToExhaustLiquidity, if so this swap is not possible due to insufficient liquidity
@@ -207,7 +207,7 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 		return osmomath.BigDec{}, err
 	}
 
-	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, directionOut), nil
+	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, *directionIn), nil
 }
 
 // IsGeneralizedCosmWasmPool implements domain.RoutablePool.

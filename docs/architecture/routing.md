@@ -73,6 +73,14 @@ dynamic_min_liq_cap = map_token_liq_to_liq_cap(min_token_liq)
 1. Get the minimum token liquidity across all pools between token in and token out.
 2. Use the minimum token liquidity to get the appropriate min liquidity capitalization filter.
 
+### Orderbooks
+
+Orderbooks are not affected by the minimum liquidity capitalization filter. For each token pair, we maintain a canonical orderbook with the highest liquidity. We keep this orderbook because:
+
+- Limit orders can be placed on any tick, regardless of liquidity. Therefore, we avoid prematurely filtering out orderbooks and exclude them from caches.
+
+Consequently, orderbooks are always prioritized and never filtered in pool liquidity filtering. We always include the canonical orderbook route in the route caches, even if better routes are available. For example, if the maximum number of routes is three, we keep those three routes and also include the canonical orderbook route in the cache.
+
 #### Ingestion
 
 Note that this assumes the existence of mapping from denoms to their respective liquidities

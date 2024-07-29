@@ -49,11 +49,15 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 		TakerFee: takerFee,
 	}
 
-	routablePool, err := pools.NewRoutablePool(mock, tokenOutDenom, takerFee, domain.CosmWasmPoolRouterConfig{
-		AlloyedTransmuterCodeIDs: map[uint64]struct{}{
-			defaultPoolID: {},
+	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+		Config: domain.CosmWasmPoolRouterConfig{
+			AlloyedTransmuterCodeIDs: map[uint64]struct{}{
+				defaultPoolID: {},
+			},
 		},
-	}, domain.UnsetScalingFactorGetterCb)
+		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+	}
+	routablePool, err := pools.NewRoutablePool(mock, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 
 	return routablePool

@@ -17,23 +17,24 @@ type (
 
 	QuoteImpl = quoteImpl
 
-	CandidatePoolWrapper = candidatePoolWrapper
+	CandidatePoolWrapper  = candidatePoolWrapper
+	CandidateRouteWrapper = candidateRouteWrapper
 )
 
 const (
 	NoPoolLiquidityCapError = noPoolLiquidityCapError
 )
 
-func ValidateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+func ValidateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
 	return validateAndFilterRoutes(candidateRoutes, tokenInDenom, logger)
 }
 
-func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, pools []sqsdomain.PoolI, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes, maxPoolsPerRoute int) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
-	return r.handleCandidateRoutes(ctx, pools, tokenIn, tokenOutDenom, maxRoutes, maxPoolsPerRoute)
+func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
+	return r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 }
 
-func EstimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
-	return estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, logger)
+func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
+	return r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, logger)
 }
 
 func FilterDuplicatePoolIDRoutes(rankedRoutes []RouteWithOutAmount) []route.RouteImpl {
@@ -70,4 +71,21 @@ func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candida
 
 func CutRoutesForSplits(maxSplitRoutes int, routes []route.RouteImpl) []route.RouteImpl {
 	return cutRoutesForSplits(maxSplitRoutes, routes)
+}
+
+func (r *routerUseCaseImpl) SetCandidateRouteCacheToMock(tokenInDenom, tokenOutDenom string) {
+	r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), sqsdomain.CandidateRoutes{
+		// Note: some mock dummy values
+		Routes: []sqsdomain.CandidateRoute{
+			{}, {},
+		}}, 0)
+}
+
+func (r *routerUseCaseImpl) SetRankedRouteCacheToMock(tokenInDenom, tokenOutDenom string, orderOfMagnitude int) {
+	r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenInDenom, tokenOutDenom, orderOfMagnitude), sqsdomain.CandidateRoutes{
+		// Note: some mock dummy values
+		Routes: []sqsdomain.CandidateRoute{
+			{}, {},
+		}}, 0)
+
 }

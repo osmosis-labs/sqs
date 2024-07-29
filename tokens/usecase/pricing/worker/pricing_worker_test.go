@@ -220,8 +220,8 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	// 6 more tokens were found to be unsupported on May 29th.
 	// 1 more was found on June 10 when adding alloyed code id to config.
 	//
-	// On June 12, 2024: 20 unsupported tokens - likely added liquidity to some pools with the tokens.
-	s.Require().Equal(20, zeroPriceCounter)
+	// On July 20, 2024: 23 unsupported tokens - likely added liquidity to some pools with the tokens.
+	s.Require().Equal(23, zeroPriceCounter)
 }
 
 func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {

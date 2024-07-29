@@ -37,6 +37,19 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+- Mitigate the alloy rebalancing router breakage by invalidating route cache if all routes fail and ordering denoms by balances.
+- Prioritize canonical orderbook in router and caches
+
+## v25.5.0
+
+- Switch quotes onto new candidate routes system
+
+## v25.4.1
+
+- Resolve goroutine leak stemming from creating a grpc connection for every cosmwasm pool in route. Share one connection.
+
+## v25.4.0
+
 - Remove spread factor from fee as it is included in the price impact
 - Format contract address in canonical orderbook endpoints
 

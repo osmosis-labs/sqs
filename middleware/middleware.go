@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"sync"
 
@@ -17,10 +16,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/prometheus/client_golang/prometheus"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -150,26 +146,12 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 	}
 }
 
-// Middleware to create a span and capture request parameters
-func (m *GoMiddleware) TraceWithParamsMiddleware(tracerName string) echo.MiddlewareFunc {
-	tracer := otel.Tracer(tracerName)
-
+// Middleware to capture request parameters
+func (m *GoMiddleware) TraceWithParamsMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			// Extract the existing span context from the incoming request
-			parentCtx := otel.GetTextMapPropagator().Extract(c.Request().Context(), propagation.HeaderCarrier(c.Request().Header))
-
-			// Start a new span representing the request
-			// The span ends when the request is complete
-			urlPath := c.Request().URL.Path
-			ctx, span := tracer.Start(parentCtx, urlPath, trace.WithSpanKind(trace.SpanKindServer))
-			defer span.End()
-
-			span.SetAttributes(attribute.String("http.request.method", c.Request().Method))
-			span.SetAttributes(attribute.String("http.url.full", urlPath))
-
-			// Inject the span context back into the Echo context and request context
-			c.SetRequest(c.Request().WithContext(ctx))
+			// Get span from context (it is initialized by the preceding echo OTEL middleware)
+			span := trace.SpanFromContext(c.Request().Context())
 
 			// Iterate through query parameters and add them as attributes to the span
 			// Ensure to filter out any sensitive parameters here
@@ -181,16 +163,6 @@ func (m *GoMiddleware) TraceWithParamsMiddleware(tracerName string) echo.Middlew
 
 			// Proceed with the request handling
 			err := next(c)
-
-			// Record status code and response body
-			statusCode := c.Response().Status
-
-			span.SetAttributes(attribute.Int("http.response.status_code", statusCode))
-			if statusCode >= http.StatusOK && statusCode < http.StatusBadRequest {
-				span.SetStatus(codes.Ok, "OK")
-			} else {
-				span.SetStatus(codes.Error, fmt.Sprintf("HTTP %d", statusCode))
-			}
 
 			return err
 		}

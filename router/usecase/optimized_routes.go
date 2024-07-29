@@ -17,21 +17,10 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
-// getSingleRouteQuote returns the best single route quote for the given tokenIn and tokenOutDenom.
-// Returns error if router repository is not set on the router.
-func getBestSingleRouteQuote(ctx context.Context, tokenIn sdk.Coin, routes []route.RouteImpl, logger log.Logger) (quote domain.Quote, err error) {
-	bestSingleRouteQuote, _, err := estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	return bestSingleRouteQuote, nil
-}
-
 // Returns best quote as well as all routes sorted by amount out and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
@@ -61,6 +50,19 @@ func estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteIm
 
 	// If we skipped all routes due to errors, return the first error
 	if len(routesWithAmountOut) == 0 && len(errors) > 0 {
+		// If we encounter this problem, we attempte to invalidate all caches to recompute the routes
+		// completely.
+		// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
+		// If the original routes were computed only through the zero liquidity token, they will be recomputed
+		// through another token due to changed order.
+
+		// Note: the zero length check occurred at the start of function.
+		tokenOutDenom := routes[0].GetTokenOutDenom()
+
+		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom))
+		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
+		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+
 		return nil, nil, errors[0]
 	}
 
@@ -88,7 +90,7 @@ func estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteIm
 // - the previous pool token out denom is in the current pool.
 // - the current pool token out denom is in the current pool.
 // Returns error if not. Nil otherwise.
-func validateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+func validateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
 	var (
 		tokenOutDenom  string
 		filteredRoutes []sqsdomain.CandidateRoute
@@ -96,21 +98,27 @@ func validateAndFilterRoutes(candidateRoutes [][]candidatePoolWrapper, tokenInDe
 
 	uniquePoolIDs := make(map[uint64]struct{})
 
+	containsCanonicalOrderbook := false
+
 ROUTE_LOOP:
 	for i, candidateRoute := range candidateRoutes {
-		if len(candidateRoute) == 0 {
+		candidateRoutePools := candidateRoute.Pools
+
+		containsCanonicalOrderbook = containsCanonicalOrderbook || candidateRoute.IsCanonicalOrderboolRoute
+
+		if len(candidateRoute.Pools) == 0 {
 			return sqsdomain.CandidateRoutes{}, NoPoolsInRouteError{RouteIndex: i}
 		}
 
-		lastPool := candidateRoute[len(candidateRoute)-1]
+		lastPool := candidateRoutePools[len(candidateRoutePools)-1]
 		currentRouteTokenOutDenom := lastPool.TokenOutDenom
 
 		// Validate that route pools do not have the token in denom or token out denom
 		previousTokenOut := tokenInDenom
 
-		uniquePoolIDsIntraRoute := make(map[uint64]struct{}, len(candidateRoute))
+		uniquePoolIDsIntraRoute := make(map[uint64]struct{}, len(candidateRoutePools))
 
-		for j, currentPool := range candidateRoute {
+		for j, currentPool := range candidateRoutePools {
 			if _, ok := uniquePoolIDs[currentPool.ID]; !ok {
 				uniquePoolIDs[currentPool.ID] = struct{}{}
 			}
@@ -122,7 +130,7 @@ ROUTE_LOOP:
 				uniquePoolIDsIntraRoute[currentPool.ID] = struct{}{}
 			}
 
-			currentPoolDenoms := candidateRoute[j].PoolDenoms
+			currentPoolDenoms := candidateRoutePools[j].PoolDenoms
 			currentPoolTokenOutDenom := currentPool.TokenOutDenom
 
 			// Check that token in denom and token out denom are in the pool
@@ -139,7 +147,7 @@ ROUTE_LOOP:
 				}
 
 				// Validate that intermediary pools do not contain the token in denom or token out denom
-				if j > 0 && j < len(candidateRoute)-1 {
+				if j > 0 && j < len(candidateRoutePools)-1 {
 					if denom == tokenInDenom {
 						logger.Warn("route skipped - found token in intermediary pool", zap.Error(RoutePoolWithTokenInDenomError{RouteIndex: i, TokenInDenom: tokenInDenom}))
 						continue ROUTE_LOOP
@@ -177,11 +185,12 @@ ROUTE_LOOP:
 
 		// Update filtered routes if this route passed all checks
 		filteredRoute := sqsdomain.CandidateRoute{
-			Pools: make([]sqsdomain.CandidatePool, 0, len(candidateRoute)),
+			IsCanonicalOrderboolRoute: candidateRoute.IsCanonicalOrderboolRoute,
+			Pools:                     make([]sqsdomain.CandidatePool, 0, len(candidateRoutePools)),
 		}
 
 		// Convert route to the final output format
-		for _, pool := range candidateRoute {
+		for _, pool := range candidateRoutePools {
 			filteredRoute.Pools = append(filteredRoute.Pools, sqsdomain.CandidatePool{
 				ID:            pool.ID,
 				TokenOutDenom: pool.TokenOutDenom,
@@ -196,8 +205,9 @@ ROUTE_LOOP:
 	}
 
 	return sqsdomain.CandidateRoutes{
-		Routes:        filteredRoutes,
-		UniquePoolIDs: uniquePoolIDs,
+		Routes:                     filteredRoutes,
+		UniquePoolIDs:              uniquePoolIDs,
+		ContainsCanonicalOrderbook: containsCanonicalOrderbook,
 	}, nil
 }
 

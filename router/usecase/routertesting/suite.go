@@ -41,7 +41,7 @@ type MockMainnetState struct {
 	TakerFeeMap              sqsdomain.TakerFeeMap
 	TokensMetadata           map[string]domain.Token
 	PricingConfig            domain.PricingConfig
-	CandidateRouteSearchData map[string][]sqsdomain.PoolI
+	CandidateRouteSearchData map[string]domain.CandidateRouteDenomData
 	PoolDenomsMetaData       domain.PoolDenomMetaDataMap
 }
 
@@ -130,15 +130,17 @@ var (
 	ETH     = "ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5"
 	AKT     = "ibc/1480B8FD20AD5FCAE81EA87584D269547DD4D436843C1D20F15E00EB64743EF4"
 	UMEE    = "ibc/67795E528DF67C5606FC20F824EA39A6EF55BA133F4DC79C90A8C47A0901E17C"
+	TIA     = "ibc/D79E7D83AB399BFFF93433E54FAA480C191248FC556924A2A8351AE2638B3877"
 	UION    = "uion"
 	CRE     = "ibc/5A7C219BA5F7582B99629BA3B2A01A61BFDA0F6FD1FE95B5366F7334C4BC0580"
 	STEVMOS = "ibc/C5579A9595790017C600DD726276D978B9BF314CF82406CE342720A9C7911A01"
 	// DYDX is 18 decimals
-	DYDX     = "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C"
-	ALLUSDT  = "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT"
-	ALLBTC   = "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC"
-	KAVAUSDT = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
-	EVMOS    = "ibc/6AE98883D4D5D5FF9E50D7130F1305DA2FFA0C652D1DD9C123657C6B4EB2DF8A"
+	DYDX        = "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C"
+	ALLUSDT     = "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT"
+	ALLBTC      = "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC"
+	KAVAUSDT    = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
+	EVMOS       = "ibc/6AE98883D4D5D5FF9E50D7130F1305DA2FFA0C652D1DD9C123657C6B4EB2DF8A"
+	NATIVE_WBTC = "factory/osmo1z0qrq605sjgcqpylfl4aa6s90x738j7m58wyatt0tdzflg2ha26q67k743/wbtc"
 
 	MainnetDenoms = []string{
 		UOSMO,
@@ -165,7 +167,7 @@ var (
 		MaxRoutes:           20,
 		MaxPoolsPerRoute:    4,
 		MaxSplitRoutes:      3,
-		MinPoolLiquidityCap: 20000,
+		MinPoolLiquidityCap: 1000,
 		RouteCacheEnabled:   true,
 
 		// Set proper dynamic min liquidity config here
@@ -198,6 +200,7 @@ var (
 		// Transmuter V1 and V2
 		TransmuterCodeIDs:        []uint64{148, 254},
 		AlloyedTransmuterCodeIDs: []uint64{814},
+		OrderbookCodeIDs:         []uint64{885},
 		GeneralCosmWasmCodeIDs:   []uint64{},
 	}
 
@@ -279,7 +282,8 @@ func denomNum(i int) string {
 // Note that it does not deep copy pools
 func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
 	newRoute := route.RouteImpl{
-		Pools: make([]domain.RoutablePool, 0, len(pools)),
+		HasCanonicalOrderbookPool: r.HasCanonicalOrderbookPool,
+		Pools:                     make([]domain.RoutablePool, 0, len(pools)),
 	}
 
 	newRoute.Pools = append(newRoute.Pools, pools...)
@@ -290,7 +294,8 @@ func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteI
 // Note that it does not deep copy pools
 func WithCandidateRoutePools(r sqsdomain.CandidateRoute, pools []sqsdomain.CandidatePool) sqsdomain.CandidateRoute {
 	newRoute := sqsdomain.CandidateRoute{
-		Pools: make([]sqsdomain.CandidatePool, 0, len(pools)),
+		IsCanonicalOrderboolRoute: r.IsCanonicalOrderboolRoute,
+		Pools:                     make([]sqsdomain.CandidatePool, 0, len(pools)),
 	}
 
 	newRoute.Pools = append(newRoute.Pools, pools...)
@@ -387,7 +392,8 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	routerRepositoryMock.SetCandidateRouteSearchData(mainnetState.CandidateRouteSearchData)
 
 	// Setup pools usecase mock.
-	poolsUsecase := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	s.Require().NoError(err)
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 
@@ -401,7 +407,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Validate and sort pools
-	sortedPools := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
+	sortedPools, _ := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
 
 	routerUsecase.SetSortedPools(sortedPools)
 
@@ -444,7 +450,7 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 
 // PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
 func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap uint64) []sqsdomain.PoolI {
-	sortedPools := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
+	sortedPools, _ := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
 
 	// Sort pools
 	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)
