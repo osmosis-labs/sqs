@@ -24,3 +24,23 @@ If CL share, we want to skip because we get CL value from positions.
 
 For token and gamm shares, there is no overlap with pooled assets or user-balances. As a result,
 we count them as its own contribution to total assets.
+
+#### Pooled Assets
+
+Stem from concentrated liquidity positions and unlocked gamm shares from bank balances.
+
+#### User Balances
+
+Individual coins from bank balances, excluding gamm shares.
+
+#### Staked
+
+Staked value from delegator delegations chain query.
+
+#### Unstaking
+
+Unstaking value from delegator undelegating chain query.
+
+#### Unclaimed Rewards
+
+Unclaimed rewards from concentrated liquidity positions.
