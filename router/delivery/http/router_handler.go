@@ -54,17 +54,17 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 }
 
 // @Summary Optimal Quote
-// @Description returns the best quote it can compute for the given tokenIn and tokenOutDenom.
+// @Description Returns the best quote it can compute for the exact in or exact out token swap method.
 // If `singleRoute` parameter is set to true, it gives the best single quote while excluding splits.
 // @ID get-route-quote
 // @Produce  json
-// @Param  tokenIn  query  string  false  "String representation of the sdk.Coin for the token in."
-// @Param  tokenOutDenom  query  string  false  "String representing the denom of the token out."
-// @Param  tokenInDenom  query  string  false  "String representing the denom of the token in."
-// @Param  tokenOut  query  string  false  "String representation of the sdk.Coin for the token out."
-// @Param  singleRoute  query  bool  false  "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default."
-// @Param humanDenoms query bool true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
-// @Param  applyExponents  query  bool  false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
+// @Param  tokenIn         query  string  false  "String representation of the sdk.Coin denoting the input token for the exact amount in swap method."
+// @Param  tokenOutDenom   query  string  false  "String representing the denomination of the output token for the exact amount in swap method."
+// @Param  tokenOut        query  string  false  "String representation of the sdk.Coin denoting the output token for the exact amount out swap method."
+// @Param  tokenInDenom    query  string  false  "String representing the denomination of the input token for the exact amount out swap method."
+// @Param  singleRoute     query  bool    false  "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default."
+// @Param  humanDenoms     query  bool    true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
+// @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/quote [get]
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {

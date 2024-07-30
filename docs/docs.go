@@ -145,7 +145,7 @@ const docTemplate = `{
         },
         "/router/quote": {
             "get": {
-                "description": "returns the best quote it can compute for the given tokenIn and tokenOutDenom.",
+                "description": "Returns the best quote it can compute for the exact in or exact out token swap method.",
                 "produces": [
                     "application/json"
                 ],
@@ -154,26 +154,26 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "String representation of the sdk.Coin for the token in.",
+                        "description": "String representation of the sdk.Coin denoting the input token for the exact amount in swap method.",
                         "name": "tokenIn",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "String representing the denom of the token out.",
+                        "description": "String representing the denomination of the output token for the exact amount in swap method.",
                         "name": "tokenOutDenom",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "String representing the denom of the token in.",
-                        "name": "tokenInDenom",
+                        "description": "String representation of the sdk.Coin denoting the output token for the exact amount out swap method.",
+                        "name": "tokenOut",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "String representation of the sdk.Coin for the token out.",
-                        "name": "tokenOut",
+                        "description": "String representing the denomination of the input token for the exact amount out swap method.",
+                        "name": "tokenInDenom",
                         "in": "query"
                     },
                     {
