@@ -32,6 +32,7 @@ const (
 	gammSharePrefix         = "gamm"
 	concentratedSharePrefix = "cl"
 	denomShareSeparator     = "/"
+	denomShareSeparatorByte = '/'
 
 	numPortfolioAssetFetcherWorkloads = 2
 )
@@ -219,18 +220,13 @@ func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string)
 
 	for _, lockedCoin := range lockedCoins {
 		// calc underlying coins from GAMM shares, only expect gamm shares
-		if strings.HasPrefix(lockedCoin.Denom, gammSharePrefix) {
-			exitCoins, err := p.handleGammShares(lockedCoin)
-			if err != nil {
-				p.logger.Error("error converting gamm share from locks to underlying coins", zap.Error(err))
-				continue
-			}
-
-			coins = coins.Add(exitCoins...)
-
-			// Concentrated value is retrieved from positions.
-			// As a result, we skip them here.
-		} else if !strings.HasPrefix(lockedCoin.Denom, concentratedSharePrefix) {
+		accumulated, err := p.tryAccumulateGammShares(&coins, lockedCoin)
+		if accumulated || err != nil {
+			continue
+		}
+		// Concentrated value is retrieved from positions.
+		// As a result, we skip them here.
+		if !strings.HasPrefix(lockedCoin.Denom, concentratedSharePrefix) {
 			coins = coins.Add(lockedCoin)
 		}
 	}
@@ -256,18 +252,13 @@ func (p *passthroughUseCase) getBankBalances(ctx context.Context, address string
 	coins := sdk.Coins{}
 
 	for _, balance := range allBalances {
-		if strings.HasPrefix(balance.Denom, gammSharePrefix) {
-			exitCoins, err := p.handleGammShares(balance)
-			if err != nil {
-				p.logger.Error("error converting gamm share from balances to underlying coins", zap.Error(err))
-				continue
-			}
-
-			coins = coins.Add(exitCoins...)
-		} else {
-			// Performance optimization to avoid sorting with Add(...)
-			coins = append(coins, balance)
+		// Try to accumulate GAMM shares
+		accumulated, err := p.tryAccumulateGammShares(&coins, balance)
+		if accumulated || err != nil {
+			continue
 		}
+		// Performance optimization to avoid sorting with Add(...)
+		coins = append(coins, balance)
 	}
 
 	// Sort since we appended without sorting in the loop
@@ -280,9 +271,8 @@ func (p *passthroughUseCase) getBankBalances(ctx context.Context, address string
 // CONTRACT: coin is a gamm share
 func (p *passthroughUseCase) handleGammShares(coin sdk.Coin) (sdk.Coins, error) {
 	// calc underlying coins from gamm shares
-	splitDenom := strings.Split(coin.Denom, denomShareSeparator)
-	poolID := splitDenom[len(splitDenom)-1]
-	poolIDInt, err := strconv.ParseUint(poolID, 10, 64)
+	poolIDStart := strings.LastIndexByte(coin.Denom, denomShareSeparatorByte) + 1
+	poolIDInt, err := strconv.ParseUint(coin.Denom[poolIDStart:], 10, 64)
 	if err != nil {
 		return sdk.Coins{}, err
 	}
@@ -293,4 +283,20 @@ func (p *passthroughUseCase) handleGammShares(coin sdk.Coin) (sdk.Coins, error) 
 	}
 
 	return exitCoins, nil
+}
+
+func (p *passthroughUseCase) tryAccumulateGammShares(coinsTarget *sdk.Coins, coin sdk.Coin) (isGammShare bool, err error) {
+	if strings.HasPrefix(coin.Denom, gammSharePrefix) {
+		exitCoins, err := p.handleGammShares(coin)
+		if err != nil {
+			p.logger.Error("error converting gamm share from balances to underlying coins", zap.Error(err))
+			return true, err
+		}
+
+		target := *coinsTarget
+		target = target.Add(exitCoins...)
+		*coinsTarget = target
+		return true, nil
+	}
+	return false, nil
 }
