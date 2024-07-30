@@ -246,7 +246,7 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 		return osmomath.Dec{}, err
 	}
 
-	scalingFactor, ok := getPrecisionScalingFactorMut(denomMetadata.Precision)
+	scalingFactor, ok := getPrecisionScalingFactorImmutable(denomMetadata.Precision)
 	if !ok {
 		return osmomath.Dec{}, ScalingFactorForPrecisionNotFoundError{
 			Precision: denomMetadata.Precision,

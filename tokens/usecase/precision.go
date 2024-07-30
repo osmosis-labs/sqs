@@ -17,13 +17,15 @@ const maxDecPrecision = 74
 
 func buildPrecisionScalingFactors() []osmomath.Dec {
 	precisionScalingFactors := make([]osmomath.Dec, maxDecPrecision)
-	for i := 0; i < 74; i++ {
+	for i := 0; i < maxDecPrecision; i++ {
 		precisionScalingFactors[i] = tenDec.Power(uint64(i))
 	}
 	return precisionScalingFactors
 }
 
-func getPrecisionScalingFactorMut(precision int) (osmomath.Dec, bool) {
+// Returns a reference to the precision scaling factor for the given precision.
+// This reference should not be mutated.
+func getPrecisionScalingFactorImmutable(precision int) (osmomath.Dec, bool) {
 	if precision < 0 || precision >= len(precisionScalingFactors) {
 		return osmomath.Dec{}, false
 	}
