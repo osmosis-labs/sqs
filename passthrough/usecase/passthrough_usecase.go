@@ -115,7 +115,7 @@ func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGR
 }
 
 // GetPortfolioBalances implements mvc.PassthroughUsecase.
-func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address string) (passthroughdomain.PortfolioAssetsResult2, error) {
+func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address string) (passthroughdomain.PortfolioAssetsResult, error) {
 	// Channel to fetch bank balances concurrently.
 	bankBalancesChan := make(chan coinsResult)
 	defer close(bankBalancesChan)
@@ -237,7 +237,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	finalResultsJobs := make(chan finalResultPortfolioAssetsJob, numFinalResultJobs)
 	defer close(finalResultsJobs)
 
-	finalResult := passthroughdomain.PortfolioAssetsResult2{
+	finalResult := passthroughdomain.PortfolioAssetsResult{
 		Categories: make(map[string]passthroughdomain.PortfolioAssetsCategoryResult, numFinalResultJobs),
 	}
 

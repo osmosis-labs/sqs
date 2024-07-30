@@ -185,7 +185,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 	// Assert
 
 	// Expected results are manually calculated based on the mocked out results.
-	expectedResult := passthroughdomain.PortfolioAssetsResult2{
+	expectedResult := passthroughdomain.PortfolioAssetsResult{
 		Categories: map[string]passthroughdomain.PortfolioAssetsCategoryResult{
 			usecase.UserBalancesAssetsCategoryName: {
 				Capitalization: osmoCapitalization,
@@ -688,7 +688,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 }
 
 // validatePortfolioAssetsResult validates the expected and actual portfolio assets results.
-func (s *PassthroughUseCaseTestSuite) validatePortfolioAssetsResult(expectedResult passthroughdomain.PortfolioAssetsResult2, actualResult passthroughdomain.PortfolioAssetsResult2) {
+func (s *PassthroughUseCaseTestSuite) validatePortfolioAssetsResult(expectedResult passthroughdomain.PortfolioAssetsResult, actualResult passthroughdomain.PortfolioAssetsResult) {
 
 	s.Require().Equal(len(expectedResult.Categories), len(actualResult.Categories))
 

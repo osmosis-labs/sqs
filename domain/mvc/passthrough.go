@@ -10,5 +10,5 @@ import (
 type PassthroughUsecase interface {
 	// GetPortfolioAssets returns the total value of the assets in the portfolio
 	// of the user with the given address.
-	GetPortfolioAssets(ctx context.Context, address string) (passthroughdomain.PortfolioAssetsResult2, error)
+	GetPortfolioAssets(ctx context.Context, address string) (passthroughdomain.PortfolioAssetsResult, error)
 }
