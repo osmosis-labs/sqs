@@ -18,9 +18,9 @@ func (p *passthroughUseCase) GetCoinsFromLocks(ctx context.Context, address stri
 	return p.getCoinsFromLocks(ctx, address)
 }
 
-// func (p *passthroughUseCase) GetBankBalances(ctx context.Context, address string) (sdk.Coins, error) {
-// 	return p.getBankBalances(ctx, address)
-// }
+func (p *passthroughUseCase) GetBankBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
+	return p.getBankBalances(ctx, address)
+}
 
 func (p *passthroughUseCase) HandleGammShares(balance sdk.Coin) (sdk.Coins, error) {
 	return p.handleGammShares(balance)

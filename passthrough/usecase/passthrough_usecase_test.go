@@ -503,8 +503,9 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 
 		mockAllBalancesIfDefaultAddress sdk.Coins
 
-		expectedCoins sdk.Coins
-		expectedError error
+		expectedBalanceCoins sdk.Coins
+		expectedShareCoins   sdk.Coins
+		expectedError        error
 	}{
 		{
 			name: "happy path",
@@ -513,7 +514,8 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 
 			mockAllBalancesIfDefaultAddress: defaultBalances,
 
-			expectedCoins: nonShareDefaultBalances.Add(defaultExitPoolCoins...),
+			expectedBalanceCoins: nonShareDefaultBalances,
+			expectedShareCoins:   defaultExitPoolCoins,
 		},
 		{
 			name: "error: grpc client error",
@@ -531,7 +533,8 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 
 			// Note that only non share balances are returned
 			// The share coins are skipped due to error.
-			expectedCoins: nonShareDefaultBalances,
+			expectedBalanceCoins: nonShareDefaultBalances,
+			expectedShareCoins:   sdk.Coins{},
 		},
 	}
 
@@ -539,39 +542,40 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 		s.Run(tt.name, func() {
 
 			// Initialize GRPC client mock
-			// grpcClientMock := mocks.PassthroughGRPCClientMock{
-			// 	MockAllBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
-			// 		// If not default address, return grpc client error
-			// 		if address != defaultAddress {
-			// 			return sdk.Coins{}, grpcClientError
-			// 		}
+			grpcClientMock := mocks.PassthroughGRPCClientMock{
+				MockAllBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+					// If not default address, return grpc client error
+					if address != defaultAddress {
+						return sdk.Coins{}, grpcClientError
+					}
 
-			// 		// If default address, return mock balances
-			// 		return tt.mockAllBalancesIfDefaultAddress, nil
-			// 	},
-			// }
+					// If default address, return mock balances
+					return tt.mockAllBalancesIfDefaultAddress, nil
+				},
+			}
 
 			// Initialize pools use case mock
-			// poolsUseCaseMock := mocks.PoolsUsecaseMock{
-			// 	CalcExitCFMMPoolFunc: func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
-			// 		// If the pool ID is valid and the exiting shares are valid, return default exit pool coins
-			// 		if poolID == validGammSharePoolID && exitingShares.Equal(validGammShareAmount) {
-			// 			return defaultExitPoolCoins, nil
-			// 		}
+			poolsUseCaseMock := mocks.PoolsUsecaseMock{
+				CalcExitCFMMPoolFunc: func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+					// If the pool ID is valid and the exiting shares are valid, return default exit pool coins
+					if poolID == validGammSharePoolID && exitingShares.Equal(validGammShareAmount) {
+						return defaultExitPoolCoins, nil
+					}
 
-			// 		// Otherwise, return calcExitCFMMPoolError
-			// 		return sdk.Coins{}, calcExitCFMMPoolError
-			// 	},
-			// }
+					// Otherwise, return calcExitCFMMPoolError
+					return sdk.Coins{}, calcExitCFMMPoolError
+				},
+			}
 
-			// pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
-			// actualBalances, err := pu.GetBankBalances(context.TODO(), tt.address)
+			actualBalances, gammShareBalances, err := pu.GetBankBalances(context.TODO(), tt.address)
 
 			// Assert
-			// s.Require().Equal(tt.expectedCoins, actualBalances)
-			// s.Require().Equal(tt.expectedError, err)
+			s.Require().Equal(tt.expectedBalanceCoins, actualBalances)
+			s.Require().Equal(tt.expectedError, err)
+			s.Require().Equal(tt.expectedShareCoins, gammShareBalances)
 		})
 	}
 }
