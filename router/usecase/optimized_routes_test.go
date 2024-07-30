@@ -550,100 +550,110 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 	}
 }
 
+// At the time of test creation, we aim to have the same number of routes
+// between allUSDT and uosmo and kava.USDT and uosmo.
+// The reason is that there is an alloyed transmuter for routes between allUSDT and kava.USDT
+// that provides no slippage swaps. Given that 100K is under the liqudiity of kava.USDT in the
+// transmuter pool, the split routes should be essentially the same.
+// Update: as of 30.06.24, the kava.usdt for osmo only has one optimal route.
+const usdtOsmoExpectedRoutesHighLiq = 2
+
+var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
+
+var optimalQuoteTestCases = map[string]struct {
+	tokenInDenom  string
+	tokenOutDenom string
+
+	amountIn osmomath.Int
+
+	expectedRoutesCountExactAmountIn  int
+	expectedRoutesCountExactAmountOut int
+}{
+	// This pair originally caused an error due to the lack of filtering that was
+	// added later.
+	"usdt for umee": {
+		tokenInDenom:  USDT,
+		tokenOutDenom: UMEE,
+
+		amountIn: osmomath.NewInt(1000_000_000),
+
+		expectedRoutesCountExactAmountIn:  1,
+		expectedRoutesCountExactAmountOut: 1,
+	},
+	"uosmo for uion": {
+		tokenInDenom:  UOSMO,
+		tokenOutDenom: UION,
+
+		amountIn: osmomath.NewInt(5000000),
+
+		expectedRoutesCountExactAmountIn:  1,
+		expectedRoutesCountExactAmountOut: 3,
+	},
+	"usdt for atom": {
+		tokenInDenom:  USDT,
+		tokenOutDenom: ATOM,
+
+		amountIn: osmomath.NewInt(5000000),
+
+		expectedRoutesCountExactAmountIn:  1,
+		expectedRoutesCountExactAmountOut: 1,
+	},
+	"uakt for umee": {
+		tokenInDenom:  AKT,
+		tokenOutDenom: UMEE,
+
+		amountIn: osmomath.NewInt(100_000_000),
+
+		expectedRoutesCountExactAmountIn:  1,
+		expectedRoutesCountExactAmountOut: 1,
+	},
+	// This test validates that with a greater max routes value, SQS is able to find
+	// the path from umee to stOsmo
+	"umee for stosmo": {
+		tokenInDenom:  UMEE,
+		tokenOutDenom: stOSMO,
+
+		amountIn: osmomath.NewInt(1_000_000),
+
+		expectedRoutesCountExactAmountIn:  1,
+		expectedRoutesCountExactAmountOut: 1,
+	},
+
+	"atom for akt": {
+		tokenInDenom:  ATOM,
+		tokenOutDenom: AKT,
+
+		amountIn: osmomath.NewInt(1_000_000),
+
+		expectedRoutesCountExactAmountIn:  1,
+		expectedRoutesCountExactAmountOut: 1,
+	},
+
+	"allUSDT for uosmo": {
+		tokenInDenom:  ALLUSDT,
+		tokenOutDenom: UOSMO,
+
+		amountIn: oneHundredThousandUSDValue,
+
+		expectedRoutesCountExactAmountIn:  usdtOsmoExpectedRoutesHighLiq,
+		expectedRoutesCountExactAmountOut: usdtOsmoExpectedRoutesHighLiq,
+	},
+
+	"kava.USDT for uosmo - should have the same routes as allUSDT for uosmo": {
+		tokenInDenom:  ALLUSDT,
+		tokenOutDenom: UOSMO,
+
+		amountIn: oneHundredThousandUSDValue,
+
+		expectedRoutesCountExactAmountIn:  usdtOsmoExpectedRoutesHighLiq,
+		expectedRoutesCountExactAmountOut: usdtOsmoExpectedRoutesHighLiq,
+	},
+}
+
 // Validates that quotes constructed from mainnet state can be computed with no error
 // for selected pairs.
-func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
-	// At the time of test creation, we aim to have the same number of routes
-	// between allUSDT and uosmo and kava.USDT and uosmo.
-	// The reason is that there is an alloyed transmuter for routes between allUSDT and kava.USDT
-	// that provides no slippage swaps. Given that 100K is under the liqudiity of kava.USDT in the
-	// transmuter pool, the split routes should be essentially the same.
-	// Update: as of 30.06.24, the kava.usdt for osmo only has one optimal route.
-	const usdtOsmoExpectedRoutesHighLiq = 2
-	var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
-
-	tests := map[string]struct {
-		tokenInDenom  string
-		tokenOutDenom string
-
-		amountIn osmomath.Int
-
-		expectedRoutesCount int
-	}{
-		// This pair originally caused an error due to the lack of filtering that was
-		// added later.
-		"usdt for umee": {
-			tokenInDenom:  USDT,
-			tokenOutDenom: UMEE,
-
-			amountIn: osmomath.NewInt(1000_000_000),
-
-			expectedRoutesCount: 1,
-		},
-		"uosmo for uion": {
-			tokenInDenom:  UOSMO,
-			tokenOutDenom: UION,
-
-			amountIn: osmomath.NewInt(5000000),
-
-			expectedRoutesCount: 1,
-		},
-		"usdt for atom": {
-			tokenInDenom:  USDT,
-			tokenOutDenom: ATOM,
-
-			amountIn: osmomath.NewInt(5000000),
-
-			expectedRoutesCount: 1,
-		},
-		"uakt for umee": {
-			tokenInDenom:  AKT,
-			tokenOutDenom: UMEE,
-
-			amountIn: osmomath.NewInt(100_000_000),
-
-			expectedRoutesCount: 1,
-		},
-		// This test validates that with a greater max routes value, SQS is able to find
-		// the path from umee to stOsmo
-		"umee for stosmo": {
-			tokenInDenom:  UMEE,
-			tokenOutDenom: stOSMO,
-
-			amountIn: osmomath.NewInt(1_000_000),
-
-			expectedRoutesCount: 1,
-		},
-
-		"atom for akt": {
-			tokenInDenom:  ATOM,
-			tokenOutDenom: AKT,
-
-			amountIn: osmomath.NewInt(1_000_000),
-
-			expectedRoutesCount: 1,
-		},
-
-		"allUSDT for uosmo": {
-			tokenInDenom:  ALLUSDT,
-			tokenOutDenom: UOSMO,
-
-			amountIn: oneHundredThousandUSDValue,
-
-			expectedRoutesCount: usdtOsmoExpectedRoutesHighLiq,
-		},
-
-		"kava.USDT for uosmo - should have the same routes as allUSDT for uosmo": {
-			tokenInDenom:  ALLUSDT,
-			tokenOutDenom: UOSMO,
-
-			amountIn: oneHundredThousandUSDValue,
-
-			expectedRoutesCount: usdtOsmoExpectedRoutesHighLiq,
-		},
-	}
-
-	for name, tc := range tests {
+func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounIn_Mainnet() {
+	for name, tc := range optimalQuoteTestCases {
 		tc := tc
 		s.Run(name, func() {
 			// Setup mainnet router
@@ -652,53 +662,86 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
-			// Setup the quotes to be tested
-			quotes := []func() (domain.Quote, error){
-				func() (domain.Quote, error) {
-					return mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
-				},
-				func() (domain.Quote, error) {
-					return mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
-				},
-			}
+			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
+			s.Require().NoError(err)
 
-			// Test each quote
-			for _, getQuote := range quotes {
-				quote, err := getQuote()
+			// TODO: update mainnet state and validate the quote for each test stricter.
+			routes := quote.GetRoute()
+			s.Require().Len(routes, tc.expectedRoutesCountExactAmountIn)
 
-				// We only validate that error does not occur without actually validating the quote.
-				s.Require().NoError(err)
+			// Validate that the routes are valid
+			for _, r := range routes {
+				input := tc.tokenInDenom
+				for _, p := range r.GetPools() {
+					pool, err := mainnetUseCase.Pools.GetPool(p.GetId())
+					s.Require().NoError(err)
 
-				// TODO: update mainnet state and validate the quote for each test stricter.
-				routes := quote.GetRoute()
-				s.Require().Len(routes, tc.expectedRoutesCount)
+					denoms := pool.GetPoolDenoms()
 
-				// Validate that the routes are valid
-				for _, r := range routes {
-					input := tc.tokenInDenom
-					for _, p := range r.GetPools() {
-						pool, err := mainnetUseCase.Pools.GetPool(p.GetId())
-						s.Require().NoError(err)
+					// Pool denoms must contain input denom
+					s.Require().Contains(denoms, input)
 
-						denoms := pool.GetPoolDenoms()
+					// Pool denoms must contain route output denom
+					s.Require().Contains(denoms, p.GetTokenOutDenom())
 
-						// Pool denoms must contain input denom
-						s.Require().Contains(denoms, input)
-
-						// Pool denoms must contain route output denom
-						s.Require().Contains(denoms, p.GetTokenOutDenom())
-
-						// Token out denom becomes input to the next pool
-						input = p.GetTokenOutDenom()
-					}
-
-					// The last route's token out denom must be the output denom of the quote
-					s.Require().Equal(tc.tokenOutDenom, r.GetTokenOutDenom())
+					// Pool's token out denom becomes input to the next pool
+					input = p.GetTokenOutDenom()
 				}
 
-				// Validate that the quote is not nil
-				s.Require().NotNil(quote.GetAmountOut())
+				// The last route's token out denom must be the output denom of the quote
+				s.Require().Equal(tc.tokenOutDenom, r.GetTokenOutDenom())
 			}
+
+			// Validate that the quote is not nil
+			s.Require().NotNil(quote.GetAmountOut())
+		})
+	}
+}
+
+func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
+	for name, tc := range optimalQuoteTestCases {
+		tc := tc
+		s.Run(name, func() {
+			// Setup mainnet router
+			mainnetState := s.SetupMainnetState()
+
+			// Mock router use case.
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+			quote, err := mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), sdk.NewCoin(tc.tokenOutDenom, tc.amountIn), tc.tokenInDenom)
+			s.Require().NoError(err)
+
+			// TODO: update mainnet state and validate the quote for each test stricter.
+			routes, _, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0)) //  we are not checking the scaling factor
+			s.Require().NoError(err)
+
+			s.Require().Len(routes, tc.expectedRoutesCountExactAmountOut)
+
+			// Validate that the routes are valid
+			for _, r := range routes {
+				output := tc.tokenOutDenom
+				for _, p := range r.GetPools() {
+					pool, err := mainnetUseCase.Pools.GetPool(p.GetId())
+					s.Require().NoError(err)
+
+					denoms := pool.GetPoolDenoms()
+
+					// Pool denoms must contain output denom
+					s.Require().Contains(denoms, output)
+
+					// Pool denoms must contain route input denom
+					s.Require().Contains(denoms, p.GetTokenInDenom())
+
+					// Pool's token in denom becomes output of the next pool
+					output = p.GetTokenInDenom()
+				}
+
+				// The last route's token out denom must be the output denom of the quote
+				s.Require().Equal(tc.tokenInDenom, r.GetTokenInDenom())
+			}
+
+			// Validate that the quote is not nil
+			s.Require().NotNil(quote.GetAmountOut())
 		})
 	}
 }
