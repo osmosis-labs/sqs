@@ -8,6 +8,16 @@ import (
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 )
 
+const (
+	UserBalancesAssetsCategoryName     = userBalancesAssetsCategoryName
+	UnstakingAssetsCategoryName        = unstakingAssetsCategoryName
+	StakedAssetsCategoryName           = stakedAssetsCategoryName
+	InLocksAssetsCategoryName          = inLocksAssetsCategoryName
+	PooledAssetsCategoryName           = pooledAssetsCategoryName
+	UnclaimedRewardsAssetsCategoryName = unclaimedRewardsAssetsCategoryName
+	TotalAssetsCategoryName            = totalAssetsCategoryName
+)
+
 var (
 	GammSharePrefix         = gammSharePrefix
 	ConcentratedSharePrefix = concentratedSharePrefix

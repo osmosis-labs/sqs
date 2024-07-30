@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -172,6 +173,12 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 			if pooledCoinsResult.err != nil {
 				// Rather than returning the error, log it and continue
 				finalErr = pooledCoinsResult.err
+
+				// Ensure that coins are valid to be added and avoid panic.
+				if len(pooledCoinsResult.coins) > 0 && !pooledCoinsResult.coins.IsAnyNil() {
+					pooledCoins = pooledCoins.Add(pooledCoinsResult.coins...)
+				}
+
 				continue
 			}
 
@@ -237,24 +244,30 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	for _, fetchJob := range fetchJobs {
 		go func(job fetchBalancesPortfolioAssetsJob) {
 			// Fetch the balances for the category
-			result, err := job.fetchFn(ctx, address)
+			result, finalErr := job.fetchFn(ctx, address)
 
 			// Send the result to the total assets composition channel
 			totalAssetsCompositionJobs <- totalAssetsCompositionPortfolioAssetsJob{
 				name:  job.name,
 				coins: result,
-				err:   err,
+				err:   finalErr,
 			}
 
 			// Skip the category if it is excluded from the final result.
 			byAssetCapBreakdown, totalCap, err := p.computeCapitalizationForCoins(ctx, result)
+			// Rather than returning the error, persist it and propagate in the pipeline
+			// to compute final result.
+			if err != nil {
+				finalErr = fmt.Errorf("%v, %v", finalErr, err)
+			}
 
 			finalJob := finalResultPortfolioAssetsJob{
 				name: job.name,
 				result: passthroughdomain.PortfolioAssetsCategoryResult{
 					Capitalization: totalCap,
+					IsBestEffort:   finalErr != nil,
 				},
-				err: err,
+				err: finalErr,
 			}
 
 			// Breakdown the capitalization of the category by asset.
@@ -269,9 +282,23 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 
 	go func() {
 		totalAssetsCompositionCoins := sdk.Coins{}
+		var finalErr error
 		for i := 0; i < totalAssetCompositionNumJobs; i++ {
 			job := <-totalAssetsCompositionJobs
 			if job.err != nil {
+
+				// Attempt to add the coins to the total assets composition
+				// even if an error occurred.
+				if len(job.coins) > 0 && !job.coins.IsAnyNil() {
+					totalAssetsCompositionCoins = totalAssetsCompositionCoins.Add(job.coins...)
+				}
+
+				// Rather than returning the error, persist it
+				if finalErr == nil {
+					finalErr = job.err
+				} else {
+					finalErr = fmt.Errorf("%v, %v", finalErr, job.err)
+				}
 				continue
 			}
 
@@ -279,14 +306,19 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		}
 
 		totalAssetsResult, totalAssetsCap, err := p.computeCapitalizationForCoins(ctx, totalAssetsCompositionCoins)
+		if err != nil {
+			// Rather than returning the error, persist it
+			finalErr = fmt.Errorf("%v, %v", finalErr, err)
+		}
 
 		finalResultsJobs <- finalResultPortfolioAssetsJob{
 			name: totalAssetsCategoryName,
 			result: passthroughdomain.PortfolioAssetsCategoryResult{
 				Capitalization:     totalAssetsCap,
 				AccountCoinsResult: totalAssetsResult,
+				IsBestEffort:       finalErr != nil,
 			},
-			err: err,
+			err: finalErr,
 		}
 	}()
 
