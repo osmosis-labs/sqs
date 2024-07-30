@@ -163,19 +163,35 @@ func (p *passthroughGRPCClient) DelegatorUnbondingDelegations(ctx context.Contex
 }
 
 func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
-	response, err := p.concentratedLiquidityQueryClient.UserPositions(ctx, &concentratedLiquidity.UserPositionsRequest{Address: address})
-	if err != nil {
-		return nil, nil, err
-	}
+	var (
+		response = &concentratedLiquidity.UserPositionsResponse{
+			Pagination: &query.PageResponse{},
+		}
+		isFirstRequest = true
+		pooledCoins    = sdk.Coins{}
+		rewardCoins    = sdk.Coins{}
+		err            error
+		pageRequest    *query.PageRequest
+	)
 
-	pooledCoins := sdk.Coins{}
-	rewardCoins := sdk.Coins{}
+	for isFirstRequest || response.Pagination.NextKey != nil {
+		if !isFirstRequest {
+			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
+		}
 
-	for _, position := range response.Positions {
-		pooledCoins = pooledCoins.Add(position.Asset0)
-		pooledCoins = pooledCoins.Add(position.Asset1)
-		rewardCoins = rewardCoins.Add(position.ClaimableSpreadRewards...)
-		rewardCoins = rewardCoins.Add(position.ClaimableIncentives...)
+		response, err = p.concentratedLiquidityQueryClient.UserPositions(ctx, &concentratedLiquidity.UserPositionsRequest{Address: address, Pagination: pageRequest})
+		if err != nil {
+			return nil, nil, err
+		}
+
+		for _, position := range response.Positions {
+			pooledCoins = pooledCoins.Add(position.Asset0)
+			pooledCoins = pooledCoins.Add(position.Asset1)
+			rewardCoins = rewardCoins.Add(position.ClaimableSpreadRewards...)
+			rewardCoins = rewardCoins.Add(position.ClaimableIncentives...)
+		}
+
+		isFirstRequest = false
 	}
 
 	return pooledCoins, rewardCoins, nil
