@@ -49,6 +49,8 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 		token.HumanDenom = asset.Symbol
 		token.IsUnlisted = asset.Preview
 		token.CoingeckoID = asset.CoingeckoID
+		token.Name = asset.Name
+		token.CoinMinimalDenom = asset.CoinMinimalDenom
 		tokensByChainDenom[asset.CoinMinimalDenom] = token
 	}
 
