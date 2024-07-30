@@ -1,4 +1,4 @@
-package prefetcher
+package datafetchers
 
 import (
 	"testing"
@@ -19,7 +19,7 @@ func TestWaitUntilFirstResult(t *testing.T) {
 	}
 
 	start := time.Now()
-	p := NewPrefetcher(updateFn, 1*time.Second)
+	p := NewIntervalFetcher(updateFn, 1*time.Second)
 	v, timestamp, err := p.Get()
 	require.Error(t, err)
 	require.Equal(t, 0, v)

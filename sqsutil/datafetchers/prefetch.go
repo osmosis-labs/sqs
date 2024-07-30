@@ -1,4 +1,4 @@
-package prefetcher
+package datafetchers
 
 import (
 	"errors"
@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-// Prefetcher is a struct that prefetches a value at a given interval
+// IntervalFetcher is a struct that prefetches a value at a given interval
 // and provides a method to get the latest value.
 // NOTE: It may return stale data if the update function takes longer than the interval.
-type Prefetcher[T any] struct {
+type IntervalFetcher[T any] struct {
 	updateFn  func() T
 	interval  time.Duration
 	hasClosed bool
@@ -22,8 +22,11 @@ type Prefetcher[T any] struct {
 	mutex                 sync.RWMutex
 }
 
-func NewPrefetcher[T any](updateFn func() T, interval time.Duration) *Prefetcher[T] {
-	prefetcher := &Prefetcher[T]{
+func NewIntervalFetcher[T any](updateFn func() T, interval time.Duration) *IntervalFetcher[T] {
+	if interval <= 0 {
+		panic("interval must be greater than 0")
+	}
+	prefetcher := &IntervalFetcher[T]{
 		updateFn:       updateFn,
 		interval:       interval,
 		firstFetchChan: make(chan struct{}),
@@ -34,7 +37,7 @@ func NewPrefetcher[T any](updateFn func() T, interval time.Duration) *Prefetcher
 	return prefetcher
 }
 
-func (p *Prefetcher[T]) startTimer() {
+func (p *IntervalFetcher[T]) startTimer() {
 	p.prefetch()
 	p.timer = time.NewTicker(p.interval)
 
@@ -43,7 +46,7 @@ func (p *Prefetcher[T]) startTimer() {
 	}
 }
 
-func (p *Prefetcher[T]) prefetch() {
+func (p *IntervalFetcher[T]) prefetch() {
 	newValue := p.updateFn()
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -58,7 +61,7 @@ func (p *Prefetcher[T]) prefetch() {
 
 // WaitUntilFirstResult blocks until the first value is fetched.
 // This function cannot be called concurrently multiple times.
-func (p *Prefetcher[T]) WaitUntilFirstResult() {
+func (p *IntervalFetcher[T]) WaitUntilFirstResult() {
 	p.mutex.RLock()
 	hasFetched := p.hasSuccesfullyFetched
 	p.mutex.RUnlock()
@@ -72,7 +75,7 @@ func (p *Prefetcher[T]) WaitUntilFirstResult() {
 // Returns the latest value and the time it was last retrieved.
 // If no value has ever been retrieved, it returns the zero value of T and time.Time{}.
 // If p.hasClosed is true, it returns the zero value of T and time.Time{}.
-func (p *Prefetcher[T]) Get() (T, time.Time, error) {
+func (p *IntervalFetcher[T]) Get() (T, time.Time, error) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	if p.lastRetrievedTime.IsZero() {
@@ -85,7 +88,7 @@ func (p *Prefetcher[T]) Get() (T, time.Time, error) {
 	return p.cache, p.lastRetrievedTime, nil
 }
 
-func (p *Prefetcher[T]) Close() {
+func (p *IntervalFetcher[T]) Close() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
