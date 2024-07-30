@@ -85,8 +85,6 @@ const (
 	denomShareSeparator     = "/"
 	denomShareSeparatorByte = '/'
 
-	numPortfolioAssetFetcherWorkloads = 2
-
 	numFinalResultJobs = 7
 
 	totalAssetCompositionNumJobs = 6
@@ -95,6 +93,9 @@ const (
 	// 1. Gamm shares from user balances
 	// 2. Concentrated positions
 	pooledBalancedNumJobs = 2
+
+	// locked + unlocking
+	numInLocksQueries = 2
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
@@ -384,13 +385,15 @@ func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string,
 	return coins, nil
 }
 
+// getCoinsFromLocks returns the user's coins from locks
+// Returns both locked and unlocking coins.
+// If encountering GAMM shares, it will convert them to underlying coins
+// If encountering concentrated shares, it will skip them
+// For every coin, adds the underlying coins to the total coins.
+// Returns error if fails to get locked coins but the best-effort result is returned still
 func (p *passthroughUseCase) getCoinsFromLocks(ctx context.Context, address string) (sdk.Coins, error) {
-	type lockResult struct {
-		coins sdk.Coins
-		err   error
-	}
-
-	result := make(chan lockResult, 2)
+	result := make(chan coinsResult, numInLocksQueries)
+	defer close(result)
 
 	for _, fetchLocksFn := range []passthroughdomain.PassthroughFetchFn{
 		p.passthroughGRPCClient.AccountLockedCoins,
@@ -398,30 +401,31 @@ func (p *passthroughUseCase) getCoinsFromLocks(ctx context.Context, address stri
 	} {
 		go func(fetchLocksFn passthroughdomain.PassthroughFetchFn) {
 			lockedCoins, err := p.getLockedCoins(ctx, address, fetchLocksFn)
-			result <- lockResult{
+			result <- coinsResult{
 				coins: lockedCoins,
 				err:   err,
 			}
 		}(fetchLocksFn)
-
 	}
 
-	coinsResult := sdk.Coins{}
+	var (
+		coinsResult = sdk.Coins{}
+		finalErr    error
+	)
 
-	for i := 0; i < 2; i++ {
-		select {
-		case res := <-result:
-			if res.err != nil {
-				return nil, res.err
-			}
-
-			coinsResult = coinsResult.Add(res.coins...)
+	for i := 0; i < numInLocksQueries; i++ {
+		res := <-result
+		if res.err != nil {
+			// Skip silently and continue
+			finalErr = res.err
+			continue
 		}
+
+		coinsResult = coinsResult.Add(res.coins...)
 	}
 
-	close(result)
-
-	return coinsResult, nil
+	// Return best-effort result and error.
+	return coinsResult, finalErr
 }
 
 // getBankBalances returns the user's bank balances

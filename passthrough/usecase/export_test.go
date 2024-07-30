@@ -14,9 +14,9 @@ var (
 	DenomShareSeparator     = denomShareSeparator
 )
 
-// func (p *passthroughUseCase) GetLockedCoins(ctx context.Context, address string) (sdk.Coins, error) {
-// 	return p.getLockedCoins(ctx, address)
-// }
+func (p *passthroughUseCase) GetCoinsFromLocks(ctx context.Context, address string) (sdk.Coins, error) {
+	return p.getCoinsFromLocks(ctx, address)
+}
 
 // func (p *passthroughUseCase) GetBankBalances(ctx context.Context, address string) (sdk.Coins, error) {
 // 	return p.getBankBalances(ctx, address)

@@ -375,13 +375,16 @@ func (s *PassthroughUseCaseTestSuite) TestComputeCapitalizationForCoins() {
 	}
 }
 
-// Tests the get locked coins method using mocks.
-func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
+// Tests the get locked and unlocking coins method using mocks.
+func (s *PassthroughUseCaseTestSuite) TestGetCoinsFromLocks() {
+	dafultResult := nonShareDefaultBalances.Add(defaultExitPoolCoins...)
+
 	tests := []struct {
 		name    string
 		address string
 
-		mockAccountLockedCoinsIfDefaultAddress sdk.Coins
+		mockAccountLockedCoinsIfDefaultAddress    sdk.Coins
+		mockAccountUnlockingCoinsIfDefaultAddress sdk.Coins
 
 		expectedCoins sdk.Coins
 		expectedError error
@@ -393,7 +396,18 @@ func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
 
 			mockAccountLockedCoinsIfDefaultAddress: defaultBalances,
 
-			expectedCoins: nonShareDefaultBalances.Add(defaultExitPoolCoins...),
+			expectedCoins: dafultResult,
+		},
+		{
+			name: "happy path with unlocking",
+
+			address: defaultAddress,
+
+			mockAccountLockedCoinsIfDefaultAddress:    defaultBalances,
+			mockAccountUnlockingCoinsIfDefaultAddress: defaultBalances,
+
+			// 2x for locked and unlocking.
+			expectedCoins: dafultResult.Add(dafultResult...),
 		},
 		{
 			name: "concentrated shares are skipped",
@@ -410,6 +424,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
 			address: "wrong address",
 
 			expectedError: grpcClientError,
+			expectedCoins: sdk.Coins{},
 		},
 		{
 			name: "skip error in converting gamm share to underlying coins",
@@ -428,39 +443,53 @@ func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
 		s.Run(tt.name, func() {
 
 			// Initialize GRPC client mock
-			// grpcClientMock := mocks.PassthroughGRPCClientMock{
-			// 	MockAccountLockedCoinsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
-			// 		// If not default address, return grpc client error
-			// 		if address != defaultAddress {
-			// 			return sdk.Coins{}, grpcClientError
-			// 		}
+			grpcClientMock := mocks.PassthroughGRPCClientMock{
+				MockAccountLockedCoinsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+					// If not default address, return grpc client error
+					if address != defaultAddress {
+						return sdk.Coins{}, grpcClientError
+					}
 
-			// 		// If default address, return mock balances
-			// 		return tt.mockAccountLockedCoinsIfDefaultAddress, nil
-			// 	},
-			// }
+					// If default address, return mock balances
+					return tt.mockAccountLockedCoinsIfDefaultAddress, nil
+				},
+				MockAccountUnlockingCoinsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+
+					// If not default address, return grpc client error
+					if address != defaultAddress {
+						return sdk.Coins{}, grpcClientError
+					}
+
+					if tt.mockAccountUnlockingCoinsIfDefaultAddress == nil {
+						return sdk.Coins{}, nil
+					}
+
+					// If default address, return mock balances
+					return tt.mockAccountUnlockingCoinsIfDefaultAddress, nil
+				},
+			}
 
 			// Initialize pools use case mock
-			// poolsUseCaseMock := mocks.PoolsUsecaseMock{
-			// 	CalcExitCFMMPoolFunc: func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
-			// 		// If the pool ID is valid and the exiting shares are valid, return default exit pool coins
-			// 		if poolID == validGammSharePoolID && exitingShares.Equal(validGammShareAmount) {
-			// 			return defaultExitPoolCoins, nil
-			// 		}
+			poolsUseCaseMock := mocks.PoolsUsecaseMock{
+				CalcExitCFMMPoolFunc: func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+					// If the pool ID is valid and the exiting shares are valid, return default exit pool coins
+					if poolID == validGammSharePoolID && exitingShares.Equal(validGammShareAmount) {
+						return defaultExitPoolCoins, nil
+					}
 
-			// 		// Otherwise, return calcExitCFMMPoolError
-			// 		return sdk.Coins{}, calcExitCFMMPoolError
-			// 	},
-			// }
+					// Otherwise, return calcExitCFMMPoolError
+					return sdk.Coins{}, calcExitCFMMPoolError
+				},
+			}
 
-			// pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
-			// actualBalances, err := pu.GetLockedCoins(context.TODO(), tt.address)
+			actualBalances, err := pu.GetCoinsFromLocks(context.TODO(), tt.address)
 
 			// Assert
-			// s.Require().Equal(tt.expectedCoins, actualBalances)
-			// s.Require().Equal(tt.expectedError, err)
+			s.Require().Equal(tt.expectedCoins, actualBalances)
+			s.Require().Equal(tt.expectedError, err)
 		})
 	}
 }
