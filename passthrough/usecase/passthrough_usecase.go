@@ -246,6 +246,10 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 			// Fetch the balances for the category
 			result, finalErr := job.fetchFn(ctx, address)
 
+			if finalErr != nil {
+				p.logger.Error("error fetching balances for category", zap.Error(finalErr), zap.String("category", job.name), zap.String("address", address))
+			}
+
 			// Send the result to the total assets composition channel
 			totalAssetsCompositionJobs <- totalAssetsCompositionPortfolioAssetsJob{
 				name:  job.name,
@@ -259,6 +263,8 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 			// to compute final result.
 			if err != nil {
 				finalErr = fmt.Errorf("%v, %v", finalErr, err)
+
+				p.logger.Error("error computing capitalization for category", zap.Error(err), zap.String("category", job.name), zap.String("address", address))
 			}
 
 			finalJob := finalResultPortfolioAssetsJob{
@@ -286,7 +292,6 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		for i := 0; i < totalAssetCompositionNumJobs; i++ {
 			job := <-totalAssetsCompositionJobs
 			if job.err != nil {
-
 				// Attempt to add the coins to the total assets composition
 				// even if an error occurred.
 				if len(job.coins) > 0 && !job.coins.IsAnyNil() {
@@ -309,6 +314,8 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		if err != nil {
 			// Rather than returning the error, persist it
 			finalErr = fmt.Errorf("%v, %v", finalErr, err)
+
+			p.logger.Error("error computing total assets capitalization for total assets composition", zap.Error(err), zap.String("address", address))
 		}
 
 		finalResultsJobs <- finalResultPortfolioAssetsJob{

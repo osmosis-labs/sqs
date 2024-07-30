@@ -12,11 +12,6 @@ type ResponseError struct {
 	Message string `json:"message"`
 }
 
-// PartialContent represent the partial content struct
-type PartialContent struct {
-	Message string `json:"message"`
-}
-
 // PassthroughHandler is the http handler for passthrough use case
 type PassthroughHandler struct {
 	PUsecase mvc.PassthroughUsecase
@@ -37,19 +32,14 @@ func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase) {
 	e.GET(formatPoolsResource("/portfolio-assets/:address"), handler.GetPortfolioAssetsByAddress)
 }
 
-// @Summary Returns portfolio assets associated with the given address.
-// @Description The returned data represents the total value of the assets in the portfolio. Total value cap represents the total value of the assets in the portfolio.
-// includes capitalization of user balances, value in locks, bonding or unbonding
-// as well as the concentrated positions.
-// Account coins result represents coins only from user balances (contrary to the total value cap).
-// available = user-coin-balances + unclaimed-rewards + pooled - in-locks
-// or
-// available = total - staked - unstaking - in-locks
+// @Summary Returns portfolio assets associated with the given address by category.
+// @Description The returned data represents the potfolio asset breakdown by category for the specified address.
+// The categories include user balances, unstaking, staked, in-locks, pooled, unclaimed rewards, and total.
+// The user balances and total assets are brokend down by-coin with the capitalization of the entire account value.
 //
-// pooled = gamm shares from user balances + value of CL positions
 // @Produce  json
-// @Success 200  struct  passthroughdomain.PortfolioAssetsResult  "Portfolio assets from user balances and capitalization of the entire account value"
-// @Failure 206  struct  PartialContent  "Partial content and an rrror message"
+// @Success 200  struct  passthroughdomain.PortfolioAssetsResult  "Portfolio assets by-category and capitalization of the entire account value"
+// @Failure 500  struct  ResponseError  "Response error"
 // @Param address path string true "Wallet Address"
 // @Router /passthrough/portfolio-assets/{address} [get]
 func (a *PassthroughHandler) GetPortfolioAssetsByAddress(c echo.Context) error {
@@ -61,7 +51,7 @@ func (a *PassthroughHandler) GetPortfolioAssetsByAddress(c echo.Context) error {
 
 	portfolioAssetsResult, err := a.PUsecase.GetPortfolioAssets(c.Request().Context(), address)
 	if err != nil {
-		return c.JSON(http.StatusPartialContent, PartialContent{Message: err.Error()})
+		return c.JSON(http.StatusPartialContent, ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, portfolioAssetsResult)

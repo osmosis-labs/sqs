@@ -12,22 +12,22 @@ definitions:
     type: object
   domain.Token:
     properties:
-      name:
-        description: Name is the name of the token.
-        type: string
-      denom:
-        description: Denom is the chain denom of the token.
+      coinMinimalDenom:
+        description: Denom is the chain denom of the token, e.g. ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2
         type: string
       coingeckoId:
         type: string
       decimals:
         description: Precision is the precision of the token.
         type: integer
+      name:
+        description: Name
+        type: string
       preview:
         description: IsUnlisted is true if the token is unlisted.
         type: boolean
       symbol:
-        description: HumanDenom is the human readable denom.
+        description: HumanDenom is the human readable denom, e.g. atom
         type: string
     type: object
   sqsdomain.CandidatePool:
@@ -66,9 +66,8 @@ info:
 paths:
   /passthrough/portfolio-assets/{address}:
     get:
-      description: The returned data represents the total value of the assets in the
-        portfolio. Total value cap represents the total value of the assets in the
-        portfolio.
+      description: The returned data represents the potfolio asset breakdown by category
+        for the specified address.
       parameters:
       - description: Wallet Address
         in: path
@@ -79,15 +78,15 @@ paths:
       - application/json
       responses:
         "200":
-          description: Portfolio assets from user balances and capitalization of the
-            entire account value
+          description: Portfolio assets by-category and capitalization of the entire
+            account value
           schema:
             type: struct
-        "206":
-          description: Partial content and an rrror message
+        "500":
+          description: Response error
           schema:
             type: struct
-      summary: Returns portfolio assets associated with the given address.
+      summary: Returns portfolio assets associated with the given address by category.
   /pools:
     get:
       description: |-
