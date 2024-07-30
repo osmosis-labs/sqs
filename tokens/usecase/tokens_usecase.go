@@ -26,9 +26,6 @@ type tokensUseCase struct {
 	humanToChainDenomMap      sync.Map // string
 	chainDenoms               sync.Map // struct{}
 
-	// No mutex since we only instantiate this once, and its static content
-	precisionScalingFactors []osmomath.Dec
-
 	// Metadata about denoms that is collected from the pools.
 	// E.g. total denom liquidity across all pools.
 	poolDenomMetaData sync.Map
@@ -72,15 +69,10 @@ type priceResults struct {
 
 var _ mvc.TokensUsecase = &tokensUseCase{}
 
-var (
-	tenDec = osmomath.NewDec(10)
-)
-
 // NewTokensUsecase will create a new tokens use case object
 func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, logger log.Logger) *tokensUseCase {
 	us := tokensUseCase{
 		pricingStrategyMap:         map[domain.PricingSourceType]domain.PricingSource{},
-		precisionScalingFactors:    buildPrecisionScalingFactors(),
 		poolDenomMetaData:          sync.Map{},
 		updateAssetsHeightInterval: updateAssetsHeightInterval,
 		logger:                     logger,
@@ -89,16 +81,6 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateA
 	us.LoadTokens(tokenMetadataByChainDenom)
 
 	return &us
-}
-
-const maxDecPrecision = 74
-
-func buildPrecisionScalingFactors() []osmomath.Dec {
-	precisionScalingFactors := make([]osmomath.Dec, maxDecPrecision)
-	for i := 0; i < 74; i++ {
-		precisionScalingFactors[i] = tenDec.Power(uint64(i))
-	}
-	return precisionScalingFactors
 }
 
 // SetTokenRegistryLoader sets the token registry loader for the tokens use case
@@ -264,7 +246,7 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 		return osmomath.Dec{}, err
 	}
 
-	scalingFactor, ok := t.getChainScalingFactorMut(denomMetadata.Precision)
+	scalingFactor, ok := getPrecisionScalingFactorMut(denomMetadata.Precision)
 	if !ok {
 		return osmomath.Dec{}, ScalingFactorForPrecisionNotFoundError{
 			Precision: denomMetadata.Precision,
@@ -384,14 +366,6 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 	}
 
 	return byQuoteDenomForGivenBaseResult, nil
-}
-
-func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
-	if precision < 0 || precision >= len(t.precisionScalingFactors) {
-		return osmomath.Dec{}, false
-	}
-	result := t.precisionScalingFactors[precision]
-	return result, true
 }
 
 // UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
