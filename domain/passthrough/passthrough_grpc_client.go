@@ -103,8 +103,8 @@ func (p *passthroughGRPCClient) DelegatorDelegations(ctx context.Context, addres
 		response = &staking.QueryDelegatorDelegationsResponse{
 			Pagination: &query.PageResponse{},
 		}
-		isFirstRequest          = true
-		coin           sdk.Coin = sdk.Coin{Denom: defaultBondDenom, Amount: sdk.ZeroInt()}
+		isFirstRequest = true
+		coin           = sdk.Coin{Denom: defaultBondDenom, Amount: sdk.ZeroInt()}
 		err            error
 		pageRequest    *query.PageRequest
 	)
@@ -130,19 +130,36 @@ func (p *passthroughGRPCClient) DelegatorDelegations(ctx context.Context, addres
 }
 
 func (p *passthroughGRPCClient) DelegatorUnbondingDelegations(ctx context.Context, address string) (sdk.Coins, error) {
-	response, err := p.stakingQueryClient.DelegatorUnbondingDelegations(ctx, &staking.QueryDelegatorUnbondingDelegationsRequest{DelegatorAddr: address})
-	if err != nil {
-		return nil, err
-	}
-
-	coins := sdk.Coins{}
-	for _, delegation := range response.UnbondingResponses {
-		for _, entry := range delegation.Entries {
-			coins = coins.Add(sdk.Coin{Denom: defaultBondDenom, Amount: entry.Balance})
+	var (
+		response = &staking.QueryDelegatorUnbondingDelegationsResponse{
+			Pagination: &query.PageResponse{},
 		}
+		isFirstRequest = true
+		coin           = sdk.Coin{Denom: defaultBondDenom, Amount: sdk.ZeroInt()}
+		err            error
+		pageRequest    *query.PageRequest
+	)
+
+	for isFirstRequest || response.Pagination.NextKey != nil {
+		if !isFirstRequest {
+			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
+		}
+
+		response, err = p.stakingQueryClient.DelegatorUnbondingDelegations(ctx, &staking.QueryDelegatorUnbondingDelegationsRequest{DelegatorAddr: address, Pagination: pageRequest})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, delegation := range response.UnbondingResponses {
+			for _, entry := range delegation.Entries {
+				coin.Amount = coin.Amount.Add(entry.Balance)
+			}
+		}
+
+		isFirstRequest = false
 	}
 
-	return coins, nil
+	return sdk.Coins{coin}, nil
 }
 
 func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
