@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	query "github.com/cosmos/cosmos-sdk/types/query"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	concentratedLiquidity "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/client/queryproto"
@@ -98,17 +99,34 @@ func (p *passthroughGRPCClient) AllBalances(ctx context.Context, address string)
 }
 
 func (p *passthroughGRPCClient) DelegatorDelegations(ctx context.Context, address string) (sdk.Coins, error) {
-	response, err := p.stakingQueryClient.DelegatorDelegations(ctx, &staking.QueryDelegatorDelegationsRequest{DelegatorAddr: address})
-	if err != nil {
-		return nil, err
+	var (
+		response = &staking.QueryDelegatorDelegationsResponse{
+			Pagination: &query.PageResponse{},
+		}
+		isFirstRequest          = true
+		coin           sdk.Coin = sdk.Coin{Denom: defaultBondDenom, Amount: sdk.ZeroInt()}
+		err            error
+		pageRequest    *query.PageRequest
+	)
+
+	for isFirstRequest || response.Pagination.NextKey != nil {
+		if !isFirstRequest {
+			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
+		}
+
+		response, err = p.stakingQueryClient.DelegatorDelegations(ctx, &staking.QueryDelegatorDelegationsRequest{DelegatorAddr: address, Pagination: pageRequest})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, delegation := range response.DelegationResponses {
+			coin = coin.Add(delegation.Balance)
+		}
+
+		isFirstRequest = false
 	}
 
-	coins := sdk.Coins{}
-	for _, delegation := range response.DelegationResponses {
-		coins = coins.Add(delegation.Balance)
-	}
-
-	return coins, nil
+	return sdk.Coins{coin}, nil
 }
 
 func (p *passthroughGRPCClient) DelegatorUnbondingDelegations(ctx context.Context, address string) (sdk.Coins, error) {
