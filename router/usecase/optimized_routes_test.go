@@ -553,7 +553,6 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 // Validates that quotes constructed from mainnet state can be computed with no error
 // for selected pairs.
 func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
-
 	// At the time of test creation, we aim to have the same number of routes
 	// between allUSDT and uosmo and kava.USDT and uosmo.
 	// The reason is that there is an alloyed transmuter for routes between allUSDT and kava.USDT
@@ -633,6 +632,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 
 			expectedRoutesCount: usdtOsmoExpectedRoutesHighLiq,
 		},
+
 		"kava.USDT for uosmo - should have the same routes as allUSDT for uosmo": {
 			tokenInDenom:  ALLUSDT,
 			tokenOutDenom: UOSMO,
@@ -652,18 +652,53 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Mainnet() {
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
-			// System under test
-			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
+			// Setup the quotes to be tested
+			quotes := []func() (domain.Quote, error){
+				func() (domain.Quote, error) {
+					return mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
+				},
+				func() (domain.Quote, error) {
+					return mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
+				},
+			}
 
-			// We only validate that error does not occur without actually validating the quote.
-			s.Require().NoError(err)
+			// Test each quote
+			for _, getQuote := range quotes {
+				quote, err := getQuote()
 
-			// TODO: update mainnet state and validate the quote for each test stricter.
-			quoteRoutes := quote.GetRoute()
-			s.Require().Len(quoteRoutes, tc.expectedRoutesCount)
+				// We only validate that error does not occur without actually validating the quote.
+				s.Require().NoError(err)
 
-			// Validate that the quote is not nil
-			s.Require().NotNil(quote.GetAmountOut())
+				// TODO: update mainnet state and validate the quote for each test stricter.
+				routes := quote.GetRoute()
+				s.Require().Len(routes, tc.expectedRoutesCount)
+
+				// Validate that the routes are valid
+				for _, r := range routes {
+					input := tc.tokenInDenom
+					for _, p := range r.GetPools() {
+						pool, err := mainnetUseCase.Pools.GetPool(p.GetId())
+						s.Require().NoError(err)
+
+						denoms := pool.GetPoolDenoms()
+
+						// Pool denoms must contain input denom
+						s.Require().Contains(denoms, input)
+
+						// Pool denoms must contain route output denom
+						s.Require().Contains(denoms, p.GetTokenOutDenom())
+
+						// Token out denom becomes input to the next pool
+						input = p.GetTokenOutDenom()
+					}
+
+					// The last route's token out denom must be the output denom of the quote
+					s.Require().Equal(tc.tokenOutDenom, r.GetTokenOutDenom())
+				}
+
+				// Validate that the quote is not nil
+				s.Require().NotNil(quote.GetAmountOut())
+			}
 		})
 	}
 }
