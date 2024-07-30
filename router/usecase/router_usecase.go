@@ -736,12 +736,12 @@ func (r *routerUseCaseImpl) GetRouterState() (domain.RouterState, error) {
 
 // formatRouteCacheKey formats the given token in and token out denoms to a string.
 func formatRouteCacheKey(tokenInDenom string, tokenOutDenom string) string {
-	return fmt.Sprintf("%s%s%s", tokenInDenom, denomSeparatorChar, tokenOutDenom)
+	return fmt.Sprintf("%s|%s", tokenInDenom, tokenOutDenom)
 }
 
 // formatRankedRouteCacheKey formats the given token in and token out denoms and order of magnitude to a string.
 func formatRankedRouteCacheKey(tokenInDenom string, tokenOutDenom string, tokenIOrderOfMagnitude int) string {
-	return fmt.Sprintf("%s%s%d", formatRouteCacheKey(tokenInDenom, tokenOutDenom), denomSeparatorChar, tokenIOrderOfMagnitude)
+	return fmt.Sprintf("%s|%d", formatRouteCacheKey(tokenInDenom, tokenOutDenom), tokenIOrderOfMagnitude)
 }
 
 // formatCandidateRouteCacheKey formats the given token in and token out denoms to a string.
