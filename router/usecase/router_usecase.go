@@ -54,7 +54,7 @@ const (
 	// for candidate route cache, there is no order of magnitude
 	noOrderOfMagnitude = ""
 
-	denomSeparatorChar = "|"
+	// denomSeparatorChar = "|"
 )
 
 var (
