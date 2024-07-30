@@ -54,6 +54,10 @@ const (
 	defaultBondDenom = "uosmo"
 )
 
+var (
+	zero = sdk.ZeroInt()
+)
+
 func NewPassthroughGRPCClient(grpcURI string) (PassthroughGRPCClient, error) {
 	grpcClient, err := grpc.NewClient(grpcURI,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -90,96 +94,43 @@ func (p *passthroughGRPCClient) AccountUnlockingCoins(ctx context.Context, addre
 }
 
 func (p *passthroughGRPCClient) AllBalances(ctx context.Context, address string) (sdk.Coins, error) {
-	var (
-		response = &banktypes.QueryAllBalancesResponse{
-			Pagination: &query.PageResponse{},
-		}
-		isFirstRequest = true
-		coins          = sdk.Coins{}
-		err            error
-		pageRequest    *query.PageRequest
-	)
-
-	for isFirstRequest || response.Pagination.NextKey != nil {
-		if !isFirstRequest {
-			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
-		}
-
-		response, err = p.bankQueryClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{Address: address, Pagination: pageRequest})
+	return paginateRequest(ctx, func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error) {
+		response, err := p.bankQueryClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{Address: address, Pagination: pageRequest})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-
-		coins = coins.Add(response.Balances...)
-
-		isFirstRequest = false
-	}
-
-	return response.Balances, nil
+		return response.Pagination, response.Balances, nil
+	})
 }
 
 func (p *passthroughGRPCClient) DelegatorDelegations(ctx context.Context, address string) (sdk.Coins, error) {
-	var (
-		response = &staking.QueryDelegatorDelegationsResponse{
-			Pagination: &query.PageResponse{},
-		}
-		isFirstRequest = true
-		coin           = sdk.Coin{Denom: defaultBondDenom, Amount: sdk.ZeroInt()}
-		err            error
-		pageRequest    *query.PageRequest
-	)
-
-	for isFirstRequest || response.Pagination.NextKey != nil {
-		if !isFirstRequest {
-			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
-		}
-
-		response, err = p.stakingQueryClient.DelegatorDelegations(ctx, &staking.QueryDelegatorDelegationsRequest{DelegatorAddr: address, Pagination: pageRequest})
+	return paginateRequest(ctx, func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error) {
+		response, err := p.stakingQueryClient.DelegatorDelegations(ctx, &staking.QueryDelegatorDelegationsRequest{DelegatorAddr: address, Pagination: pageRequest})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-
+		coin := sdk.Coin{Denom: defaultBondDenom, Amount: zero}
 		for _, delegation := range response.DelegationResponses {
 			coin = coin.Add(delegation.Balance)
 		}
-
-		isFirstRequest = false
-	}
-
-	return sdk.Coins{coin}, nil
+		return response.Pagination, sdk.Coins{coin}, nil
+	})
 }
 
 func (p *passthroughGRPCClient) DelegatorUnbondingDelegations(ctx context.Context, address string) (sdk.Coins, error) {
-	var (
-		response = &staking.QueryDelegatorUnbondingDelegationsResponse{
-			Pagination: &query.PageResponse{},
-		}
-		isFirstRequest = true
-		coin           = sdk.Coin{Denom: defaultBondDenom, Amount: sdk.ZeroInt()}
-		err            error
-		pageRequest    *query.PageRequest
-	)
-
-	for isFirstRequest || response.Pagination.NextKey != nil {
-		if !isFirstRequest {
-			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
-		}
-
-		response, err = p.stakingQueryClient.DelegatorUnbondingDelegations(ctx, &staking.QueryDelegatorUnbondingDelegationsRequest{DelegatorAddr: address, Pagination: pageRequest})
+	return paginateRequest(ctx, func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error) {
+		response, err := p.stakingQueryClient.DelegatorUnbondingDelegations(ctx, &staking.QueryDelegatorUnbondingDelegationsRequest{DelegatorAddr: address, Pagination: pageRequest})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-
+		coin := sdk.Coin{Denom: defaultBondDenom, Amount: zero}
 		for _, delegation := range response.UnbondingResponses {
 			for _, entry := range delegation.Entries {
 				coin.Amount = coin.Amount.Add(entry.Balance)
 			}
 		}
-
-		isFirstRequest = false
-	}
-
-	return sdk.Coins{coin}, nil
+		return response.Pagination, sdk.Coins{coin}, nil
+	})
 }
 
 func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
@@ -215,4 +166,29 @@ func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, addre
 	}
 
 	return pooledCoins, rewardCoins, nil
+}
+
+func paginateRequest(ctx context.Context, fetchCoinsFn func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error)) (sdk.Coins, error) {
+	var (
+		isFirstRequest = true
+		allCoins       = sdk.Coins{}
+		pageRequest    = &query.PageRequest{}
+	)
+
+	for isFirstRequest || pageRequest.Key != nil {
+		if !isFirstRequest {
+			pageRequest = &query.PageRequest{Key: pageRequest.Key}
+		}
+
+		response, coins, err := fetchCoinsFn(ctx, pageRequest)
+		if err != nil {
+			return nil, err
+		}
+
+		allCoins = allCoins.Add(coins...)
+		pageRequest.Key = response.NextKey
+		isFirstRequest = false
+	}
+
+	return allCoins, nil
 }
