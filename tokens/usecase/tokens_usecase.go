@@ -26,9 +26,6 @@ type tokensUseCase struct {
 	humanToChainDenomMap      sync.Map // string
 	chainDenoms               sync.Map // struct{}
 
-	// No mutex since we only expect reads to this shared resource and no writes.
-	precisionScalingFactorMap sync.Map // map[int]osmomath.Dec
-
 	// Metadata about denoms that is collected from the pools.
 	// E.g. total denom liquidity across all pools.
 	poolDenomMetaData sync.Map
@@ -72,10 +69,6 @@ type priceResults struct {
 
 var _ mvc.TokensUsecase = &tokensUseCase{}
 
-var (
-	tenDec = osmomath.NewDec(10)
-)
-
 // NewTokensUsecase will create a new tokens use case object
 func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, logger log.Logger) *tokensUseCase {
 	us := tokensUseCase{
@@ -101,8 +94,6 @@ type LoadTokensFunc func(tokenMetadataByChainDenom map[string]domain.Token)
 // LoadTokens implements mvc.TokensUsecase.
 func (t *tokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.Token) {
 	// Create human denom to chain denom map
-	uniquePrecisionMap := make(map[int]struct{}, 0)
-
 	for chainDenom, tokenMetadata := range tokenMetadataByChainDenom {
 		// lower case human denom
 		lowerCaseHumanDenom := strings.ToLower(tokenMetadata.HumanDenom)
@@ -110,16 +101,9 @@ func (t *tokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.T
 		t.humanToChainDenomMap.Store(lowerCaseHumanDenom, chainDenom)
 		t.tokenMetadataByChainDenom.Store(chainDenom, tokenMetadata)
 
-		uniquePrecisionMap[tokenMetadata.Precision] = struct{}{}
-
 		t.chainDenoms.Store(chainDenom, struct{}{})
 
 		t.coingeckoIds.Store(chainDenom, tokenMetadata.CoingeckoID)
-	}
-
-	// Precompute precision scaling factors
-	for precision := range uniquePrecisionMap {
-		t.precisionScalingFactorMap.Store(precision, tenDec.Power(uint64(precision)))
 	}
 }
 
@@ -262,7 +246,7 @@ func (t *tokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 		return osmomath.Dec{}, err
 	}
 
-	scalingFactor, ok := t.getChainScalingFactorMut(denomMetadata.Precision)
+	scalingFactor, ok := getPrecisionScalingFactorImmutable(denomMetadata.Precision)
 	if !ok {
 		return osmomath.Dec{}, ScalingFactorForPrecisionNotFoundError{
 			Precision: denomMetadata.Precision,
@@ -382,20 +366,6 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 	}
 
 	return byQuoteDenomForGivenBaseResult, nil
-}
-
-func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
-	result, ok := t.precisionScalingFactorMap.Load(precision)
-	if !ok {
-		return osmomath.Dec{}, false
-	}
-
-	v, ok := result.(osmomath.Dec)
-	if !ok {
-		return osmomath.Dec{}, false
-	}
-
-	return v, true
 }
 
 // UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
