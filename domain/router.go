@@ -29,7 +29,13 @@ type Route interface {
 	// Returns error if the calculation fails.
 	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
 
+	// Returns token out denom of the last pool in the route.
+	// If route is empty, returns empty string.
 	GetTokenOutDenom() string
+
+	// Returns token in denom of the last pool in the route.
+	// If route is empty, returns empty string.
+	GetTokenInDenom() string
 
 	// PrepareResultPools strips away unnecessary fields
 	// from each pool in the route,

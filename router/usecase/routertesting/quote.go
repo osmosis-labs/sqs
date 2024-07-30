@@ -40,9 +40,8 @@ var (
 	)
 )
 
-func (s *RouterTestHelper) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
+func (s *RouterTestHelper) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
-		Config:                cosmWasmConfig,
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
@@ -68,13 +67,11 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 							sqsdomain.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
 							USDT,
 							takerFeeOne,
-							domain.CosmWasmPoolRouterConfig{},
 						),
 						s.newRoutablePool(
 							sqsdomain.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
 							USDC,
 							takerFeeTwo,
-							domain.CosmWasmPoolRouterConfig{},
 						),
 					},
 				},
@@ -91,7 +88,6 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 							sqsdomain.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
 							USDC,
 							takerFeeThree,
-							domain.CosmWasmPoolRouterConfig{},
 						),
 					},
 				},
@@ -120,13 +116,11 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 							sqsdomain.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
 							USDT,
 							takerFeeOne,
-							domain.CosmWasmPoolRouterConfig{},
 						),
 						s.newRoutablePool(
 							sqsdomain.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
 							USDC,
 							takerFeeTwo,
-							domain.CosmWasmPoolRouterConfig{},
 						),
 					},
 				},
@@ -141,7 +135,6 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 							sqsdomain.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
 							USDC,
 							takerFeeThree,
-							domain.CosmWasmPoolRouterConfig{},
 						),
 					},
 				},

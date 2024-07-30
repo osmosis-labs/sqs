@@ -131,7 +131,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
+						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee),
 					},
 				},
 			},
@@ -151,7 +151,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
+						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee),
 					},
 				},
 			},
@@ -185,7 +185,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
+						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee),
 					},
 				},
 			},
@@ -505,9 +505,8 @@ func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbooks_HappyPath() {
 
 }
 
-func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
+func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
-		Config:                cosmWasmConfig,
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
