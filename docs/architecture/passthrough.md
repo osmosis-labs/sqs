@@ -13,3 +13,34 @@ The new portfolio page [project](https://linear.app/osmosis/project/portfolio-pa
 This module to move the client interacting with the node as close to the node as possible in a predictable manner to reduce intermediary latencies impacting the total time.
 
 A [prototype](https://github.com/osmosis-labs/sqs/pull/291) exploiting this idea in SQS has been observed to reduce the total latency to near-instant, imperceptible levels.
+
+### Portfolio Assets
+
+#### Locks
+
+Can be locked or unlocking. Can be regular token, gamm share or CL share.
+
+If CL share, we want to skip because we get CL value from positions.
+
+For token and gamm shares, there is no overlap with pooled assets or user-balances. As a result,
+we count them as its own contribution to total assets.
+
+#### Pooled Assets
+
+Stem from concentrated liquidity positions and unlocked gamm shares from bank balances.
+
+#### User Balances
+
+Individual coins from bank balances, excluding gamm shares.
+
+#### Staked
+
+Staked value from delegator delegations chain query.
+
+#### Unstaking
+
+Unstaking value from delegator undelegating chain query.
+
+#### Unclaimed Rewards
+
+Unclaimed rewards from concentrated liquidity positions.

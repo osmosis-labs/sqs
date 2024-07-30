@@ -7,6 +7,15 @@ from conftest import SERVICE_MAP
 from e2e_math import *
 from decimal import *
 
+
+user_balances_assets_category_name  = "user-balances"
+unstaking_assets_category_name  = "unstaking"
+staked_assets_category_name  = "staked"
+inLocks_assets_category_name  = "in-locks"
+pooled_assets_category_name  = "pooled"
+unclaimed_rewards_assets_category_name  = "unclaimed-rewards"
+total_assets_category_name  = "total-assets"
+
 # Test suite for the /passthrough endpoint
 
 # Note: this is for convinience to skip long-running tests in development
@@ -28,17 +37,49 @@ class TestPassthrough:
         for address in addresses:
             response = sqs_service.get_portfolio_assets(address)
 
-            totalValueCap = response.get('total_value_cap')
-            accountCoinsResult = response.get('account_coins_result')
+            categories = response.get('categories')
+            assert categories is not None
 
-            print(address)
-            print(f"totalValueCap: {totalValueCap}")
-            print(f"accountCoinsResult: {accountCoinsResult}")
+            user_balances = categories.get(user_balances_assets_category_name)
+            validate_category(user_balances, True)
 
-            assert totalValueCap is not None
-            assert accountCoinsResult is not None
+            unstaking = categories.get(unstaking_assets_category_name)
+            validate_category(unstaking)
 
-            assert Decimal(totalValueCap) >= 0
-            assert len(accountCoinsResult) > 0
+            staked = categories.get(staked_assets_category_name)
+            validate_category(staked)
+
+            inLocks = categories.get(inLocks_assets_category_name)
+            validate_category(inLocks)
+
+            pooled = categories.get(pooled_assets_category_name)
+            validate_category(pooled)
+
+            unclaimed_rewards = categories.get(unclaimed_rewards_assets_category_name)
+            validate_category(unclaimed_rewards)
+
+            total_assets = categories.get(total_assets_category_name)
+            validate_category(total_assets, True)
+
+def validate_category(category, should_have_breakdown=False):
+    assert category is not None
+
+    capitalization = category.get('capitalization')
+    assert capitalization is not None
+
+    assert Decimal(capitalization) >= 0
+
+    is_best_effort = category.get('is_best_effort')
+    assert not is_best_effort
+
+    if not should_have_breakdown:
+        return
+
+    account_coins_result = category.get('account_coins_result')
+    assert account_coins_result is not None
+    
+    for coin_result in account_coins_result:
+        assert coin_result.get('coin') is not None
+        assert coin_result.get('cap_value') is not None
 
 

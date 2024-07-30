@@ -8,17 +8,27 @@ import (
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 )
 
+const (
+	UserBalancesAssetsCategoryName     = userBalancesAssetsCategoryName
+	UnstakingAssetsCategoryName        = unstakingAssetsCategoryName
+	StakedAssetsCategoryName           = stakedAssetsCategoryName
+	InLocksAssetsCategoryName          = inLocksAssetsCategoryName
+	PooledAssetsCategoryName           = pooledAssetsCategoryName
+	UnclaimedRewardsAssetsCategoryName = unclaimedRewardsAssetsCategoryName
+	TotalAssetsCategoryName            = totalAssetsCategoryName
+)
+
 var (
 	GammSharePrefix         = gammSharePrefix
 	ConcentratedSharePrefix = concentratedSharePrefix
 	DenomShareSeparator     = denomShareSeparator
 )
 
-func (p *passthroughUseCase) GetLockedCoins(ctx context.Context, address string) (sdk.Coins, error) {
-	return p.getLockedCoins(ctx, address)
+func (p *passthroughUseCase) GetCoinsFromLocks(ctx context.Context, address string) (sdk.Coins, error) {
+	return p.getCoinsFromLocks(ctx, address)
 }
 
-func (p *passthroughUseCase) GetBankBalances(ctx context.Context, address string) (sdk.Coins, error) {
+func (p *passthroughUseCase) GetBankBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
 	return p.getBankBalances(ctx, address)
 }
 
@@ -28,8 +38,4 @@ func (p *passthroughUseCase) HandleGammShares(balance sdk.Coin) (sdk.Coins, erro
 
 func (p *passthroughUseCase) ComputeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
 	return p.computeCapitalizationForCoins(ctx, coins)
-}
-
-func (p *passthroughUseCase) FetchAndAggregateBalancesByUserConcurrent(ctx context.Context, address string, fetchFunctions []passthroughdomain.PassthroughFetchFn) (passthroughdomain.PortfolioAssetsResult, error) {
-	return p.fetchAndAggregateBalancesByUserConcurrent(ctx, address, fetchFunctions)
 }

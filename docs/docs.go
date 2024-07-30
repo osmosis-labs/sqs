@@ -17,11 +17,11 @@ const docTemplate = `{
     "paths": {
         "/passthrough/portfolio-assets/{address}": {
             "get": {
-                "description": "The returned data represents the total value of the assets in the portfolio. Total value cap represents the total value of the assets in the portfolio.",
+                "description": "The returned data represents the potfolio asset breakdown by category for the specified address.",
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Returns portfolio assets associated with the given address.",
+                "summary": "Returns portfolio assets associated with the given address by category.",
                 "parameters": [
                     {
                         "type": "string",
@@ -33,7 +33,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Portfolio assets from user balances and capitalization of the entire account value",
+                        "description": "Portfolio assets by-category and capitalization of the entire account value",
+                        "schema": {
+                            "type": "struct"
+                        }
+                    },
+                    "500": {
+                        "description": "Response error",
                         "schema": {
                             "type": "struct"
                         }
@@ -388,13 +394,9 @@ const docTemplate = `{
         "domain.Token": {
             "type": "object",
             "properties": {
-                "name": {
+                "coinMinimalDenom": {
+                    "description": "Denom is the chain denom of the token, e.g. ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
                     "type": "string"
-                    "description": "Name is the name of the token."
-                },
-                "denom": {
-                    "type": "string"
-                    "description": "Denom is the chain denom of the token."
                 },
                 "coingeckoId": {
                     "type": "string"
@@ -403,12 +405,16 @@ const docTemplate = `{
                     "description": "Precision is the precision of the token.",
                     "type": "integer"
                 },
+                "name": {
+                    "description": "Name",
+                    "type": "string"
+                },
                 "preview": {
                     "description": "IsUnlisted is true if the token is unlisted.",
                     "type": "boolean"
                 },
                 "symbol": {
-                    "description": "HumanDenom is the human readable denom.",
+                    "description": "HumanDenom is the human readable denom, e.g. atom",
                     "type": "string"
                 }
             }
@@ -427,6 +433,9 @@ const docTemplate = `{
         "sqsdomain.CandidateRoute": {
             "type": "object",
             "properties": {
+                "isCanonicalOrderboolRoute": {
+                    "type": "boolean"
+                },
                 "pools": {
                     "type": "array",
                     "items": {
@@ -438,6 +447,9 @@ const docTemplate = `{
         "sqsdomain.CandidateRoutes": {
             "type": "object",
             "properties": {
+                "containsCanonicalOrderbook": {
+                    "type": "boolean"
+                },
                 "routes": {
                     "type": "array",
                     "items": {
