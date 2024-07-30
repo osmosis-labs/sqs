@@ -90,9 +90,29 @@ func (p *passthroughGRPCClient) AccountUnlockingCoins(ctx context.Context, addre
 }
 
 func (p *passthroughGRPCClient) AllBalances(ctx context.Context, address string) (sdk.Coins, error) {
-	response, err := p.bankQueryClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{Address: address})
-	if err != nil {
-		return nil, err
+	var (
+		response = &banktypes.QueryAllBalancesResponse{
+			Pagination: &query.PageResponse{},
+		}
+		isFirstRequest = true
+		coins          = sdk.Coins{}
+		err            error
+		pageRequest    *query.PageRequest
+	)
+
+	for isFirstRequest || response.Pagination.NextKey != nil {
+		if !isFirstRequest {
+			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
+		}
+
+		response, err = p.bankQueryClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{Address: address, Pagination: pageRequest})
+		if err != nil {
+			return nil, err
+		}
+
+		coins = coins.Add(response.Balances...)
+
+		isFirstRequest = false
 	}
 
 	return response.Balances, nil
