@@ -39,6 +39,8 @@ definitions:
     type: object
   sqsdomain.CandidateRoute:
     properties:
+      isCanonicalOrderboolRoute:
+        type: boolean
       pools:
         items:
           $ref: '#/definitions/sqsdomain.CandidatePool'
@@ -46,6 +48,8 @@ definitions:
     type: object
   sqsdomain.CandidateRoutes:
     properties:
+      containsCanonicalOrderbook:
+        type: boolean
       routes:
         items:
           $ref: '#/definitions/sqsdomain.CandidateRoute'
@@ -77,6 +81,10 @@ paths:
         "200":
           description: Portfolio assets from user balances and capitalization of the
             entire account value
+          schema:
+            type: struct
+        "206":
+          description: Partial content and an rrror message
           schema:
             type: struct
       summary: Returns portfolio assets associated with the given address.

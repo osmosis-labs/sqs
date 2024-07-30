@@ -28,6 +28,12 @@
                         "schema": {
                             "type": "struct"
                         }
+                    },
+                    "206": {
+                        "description": "Partial content and an rrror message",
+                        "schema": {
+                            "type": "struct"
+                        }
                     }
                 }
             }
@@ -418,6 +424,9 @@
         "sqsdomain.CandidateRoute": {
             "type": "object",
             "properties": {
+                "isCanonicalOrderboolRoute": {
+                    "type": "boolean"
+                },
                 "pools": {
                     "type": "array",
                     "items": {
@@ -429,6 +438,9 @@
         "sqsdomain.CandidateRoutes": {
             "type": "object",
             "properties": {
+                "containsCanonicalOrderbook": {
+                    "type": "boolean"
+                },
                 "routes": {
                     "type": "array",
                     "items": {

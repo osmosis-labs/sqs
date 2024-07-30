@@ -18,6 +18,9 @@ type PassthroughGRPCClient interface {
 	// AccountLockedCoins returns the locked coins of the user with the given address.
 	AccountLockedCoins(ctx context.Context, address string) (sdk.Coins, error)
 
+	// AccountUnlockingCoins returns the unlocking coins of the user with the given address.
+	AccountUnlockingCoins(ctx context.Context, address string) (sdk.Coins, error)
+
 	// AllBalances returns all the balances of the user with the given address.
 	AllBalances(ctx context.Context, address string) (sdk.Coins, error)
 
@@ -28,10 +31,16 @@ type PassthroughGRPCClient interface {
 	DelegatorUnbondingDelegations(ctx context.Context, address string) (sdk.Coins, error)
 
 	// UserPositionsBalances returns the user concentrated positions balances of the user with the given address.
-	UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, error)
+	// The first return is the pooled balance. The second return is the reward balance.
+	UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error)
 }
 
 type PassthroughFetchFn func(context.Context, string) (sdk.Coins, error)
+
+type PassthroughFetchFunctionWithName struct {
+	Name string
+	Fn   PassthroughFetchFn
+}
 
 type passthroughGRPCClient struct {
 	bankQueryClient                  banktypes.QueryClient
@@ -63,6 +72,15 @@ func NewPassthroughGRPCClient(grpcURI string) (PassthroughGRPCClient, error) {
 
 func (p *passthroughGRPCClient) AccountLockedCoins(ctx context.Context, address string) (sdk.Coins, error) {
 	response, err := p.lockupQueryClient.AccountLockedCoins(ctx, &lockup.AccountLockedCoinsRequest{Owner: address})
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Coins, nil
+}
+
+func (p *passthroughGRPCClient) AccountUnlockingCoins(ctx context.Context, address string) (sdk.Coins, error) {
+	response, err := p.lockupQueryClient.AccountUnlockingCoins(ctx, &lockup.AccountUnlockingCoinsRequest{Owner: address})
 	if err != nil {
 		return nil, err
 	}
@@ -109,20 +127,21 @@ func (p *passthroughGRPCClient) DelegatorUnbondingDelegations(ctx context.Contex
 	return coins, nil
 }
 
-func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, error) {
+func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
 	response, err := p.concentratedLiquidityQueryClient.UserPositions(ctx, &concentratedLiquidity.UserPositionsRequest{Address: address})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	coins := sdk.Coins{}
+	pooledCoins := sdk.Coins{}
+	rewardCoins := sdk.Coins{}
 
 	for _, position := range response.Positions {
-		coins = coins.Add(position.Asset0)
-		coins = coins.Add(position.Asset1)
-		coins = coins.Add(position.ClaimableSpreadRewards...)
-		coins = coins.Add(position.ClaimableIncentives...)
+		pooledCoins = pooledCoins.Add(position.Asset0)
+		pooledCoins = pooledCoins.Add(position.Asset1)
+		rewardCoins = rewardCoins.Add(position.ClaimableSpreadRewards...)
+		rewardCoins = rewardCoins.Add(position.ClaimableIncentives...)
 	}
 
-	return coins, nil
+	return pooledCoins, rewardCoins, nil
 }

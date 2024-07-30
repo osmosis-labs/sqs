@@ -37,6 +37,12 @@ const docTemplate = `{
                         "schema": {
                             "type": "struct"
                         }
+                    },
+                    "206": {
+                        "description": "Partial content and an rrror message",
+                        "schema": {
+                            "type": "struct"
+                        }
                     }
                 }
             }
@@ -427,6 +433,9 @@ const docTemplate = `{
         "sqsdomain.CandidateRoute": {
             "type": "object",
             "properties": {
+                "isCanonicalOrderboolRoute": {
+                    "type": "boolean"
+                },
                 "pools": {
                     "type": "array",
                     "items": {
@@ -438,6 +447,9 @@ const docTemplate = `{
         "sqsdomain.CandidateRoutes": {
             "type": "object",
             "properties": {
+                "containsCanonicalOrderbook": {
+                    "type": "boolean"
+                },
                 "routes": {
                     "type": "array",
                     "items": {
