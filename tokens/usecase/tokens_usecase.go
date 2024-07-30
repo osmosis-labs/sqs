@@ -26,8 +26,8 @@ type tokensUseCase struct {
 	humanToChainDenomMap      sync.Map // string
 	chainDenoms               sync.Map // struct{}
 
-	// No mutex since we only expect reads to this shared resource and no writes.
-	precisionScalingFactorMap sync.Map // map[int]osmomath.Dec
+	// No mutex since we only instantiate this once, and its static content
+	precisionScalingFactors []osmomath.Dec
 
 	// Metadata about denoms that is collected from the pools.
 	// E.g. total denom liquidity across all pools.
@@ -80,6 +80,7 @@ var (
 func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateAssetsHeightInterval int, logger log.Logger) *tokensUseCase {
 	us := tokensUseCase{
 		pricingStrategyMap:         map[domain.PricingSourceType]domain.PricingSource{},
+		precisionScalingFactors:    buildPrecisionScalingFactors(),
 		poolDenomMetaData:          sync.Map{},
 		updateAssetsHeightInterval: updateAssetsHeightInterval,
 		logger:                     logger,
@@ -88,6 +89,16 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateA
 	us.LoadTokens(tokenMetadataByChainDenom)
 
 	return &us
+}
+
+const maxDecPrecision = 74
+
+func buildPrecisionScalingFactors() []osmomath.Dec {
+	precisionScalingFactors := make([]osmomath.Dec, maxDecPrecision)
+	for i := 0; i < 74; i++ {
+		precisionScalingFactors[i] = tenDec.Power(uint64(i))
+	}
+	return precisionScalingFactors
 }
 
 // SetTokenRegistryLoader sets the token registry loader for the tokens use case
@@ -101,8 +112,6 @@ type LoadTokensFunc func(tokenMetadataByChainDenom map[string]domain.Token)
 // LoadTokens implements mvc.TokensUsecase.
 func (t *tokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.Token) {
 	// Create human denom to chain denom map
-	uniquePrecisionMap := make(map[int]struct{}, 0)
-
 	for chainDenom, tokenMetadata := range tokenMetadataByChainDenom {
 		// lower case human denom
 		lowerCaseHumanDenom := strings.ToLower(tokenMetadata.HumanDenom)
@@ -110,16 +119,9 @@ func (t *tokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.T
 		t.humanToChainDenomMap.Store(lowerCaseHumanDenom, chainDenom)
 		t.tokenMetadataByChainDenom.Store(chainDenom, tokenMetadata)
 
-		uniquePrecisionMap[tokenMetadata.Precision] = struct{}{}
-
 		t.chainDenoms.Store(chainDenom, struct{}{})
 
 		t.coingeckoIds.Store(chainDenom, tokenMetadata.CoingeckoID)
-	}
-
-	// Precompute precision scaling factors
-	for precision := range uniquePrecisionMap {
-		t.precisionScalingFactorMap.Store(precision, tenDec.Power(uint64(precision)))
 	}
 }
 
@@ -385,17 +387,11 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 }
 
 func (t *tokensUseCase) getChainScalingFactorMut(precision int) (osmomath.Dec, bool) {
-	result, ok := t.precisionScalingFactorMap.Load(precision)
-	if !ok {
+	if precision < 0 || precision >= len(t.precisionScalingFactors) {
 		return osmomath.Dec{}, false
 	}
-
-	v, ok := result.(osmomath.Dec)
-	if !ok {
-		return osmomath.Dec{}, false
-	}
-
-	return v, true
+	result := t.precisionScalingFactors[precision]
+	return result, true
 }
 
 // UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.

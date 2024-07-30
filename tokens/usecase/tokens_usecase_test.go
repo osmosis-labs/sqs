@@ -755,7 +755,6 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 		name             string
 		denom            string
 		denomMetadataMap map[string]any
-		scalingFactorMap map[int]any
 		expectedResult   osmomath.Dec
 		expectedError    error
 	}{
@@ -764,9 +763,6 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 			denom: "validDenom",
 			denomMetadataMap: map[string]any{
 				"validDenom": domain.Token{Precision: 6},
-			},
-			scalingFactorMap: map[int]any{
-				6: osmomath.NewDec(1000000),
 			},
 			expectedResult: osmomath.NewDec(1000000),
 			expectedError:  nil,
@@ -777,9 +773,6 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 			denomMetadataMap: map[string]any{
 				"validDenom": domain.Token{Precision: 6},
 			},
-			scalingFactorMap: map[int]any{
-				6: osmomath.NewDec(1000000),
-			},
 			expectedResult: osmomath.Dec{},
 			expectedError:  tokensusecase.MetadataForChainDenomNotFoundError{ChainDenom: "invalidDenom"},
 		},
@@ -787,30 +780,12 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 			name:  "Invalid scaling factor - not found",
 			denom: "noScalingFactorDenom",
 			denomMetadataMap: map[string]any{
-				"noScalingFactorDenom": domain.Token{Precision: 8},
-			},
-			scalingFactorMap: map[int]any{
-				6: osmomath.NewDec(1000000),
+				"noScalingFactorDenom": domain.Token{Precision: 77},
 			},
 			expectedResult: osmomath.Dec{},
 			expectedError: tokensusecase.ScalingFactorForPrecisionNotFoundError{
-				Precision: 8,
+				Precision: 77,
 				Denom:     "noScalingFactorDenom",
-			},
-		},
-		{
-			name:  "Invalid scaling factor type",
-			denom: "invalidTypeScalingFactorDenom",
-			denomMetadataMap: map[string]any{
-				"invalidTypeScalingFactorDenom": domain.Token{Precision: 6},
-			},
-			scalingFactorMap: map[int]any{
-				6: "1000000",
-			},
-			expectedResult: osmomath.Dec{},
-			expectedError: tokensusecase.ScalingFactorForPrecisionNotFoundError{
-				Precision: 6,
-				Denom:     "invalidTypeScalingFactorDenom",
 			},
 		},
 	}
@@ -820,9 +795,6 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 			usecase := tokensusecase.NewTokensUsecase(nil, 0, nil)
 			for k, v := range tt.denomMetadataMap {
 				usecase.SetTokenMetadataByChainDenom(k, v)
-			}
-			for k, v := range tt.scalingFactorMap {
-				usecase.SetPrecisionScalingFactorMap(k, v)
 			}
 
 			result, err := usecase.GetChainScalingFactorByDenomMut(tt.denom)
