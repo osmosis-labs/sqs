@@ -153,25 +153,40 @@ paths:
       summary: Get entries for all supported orderbook base and quote denoms.
   /router/custom-direct-quote:
     get:
-      description: Call does not search for the route rather directly computes the
-        quote for the given poolID.
+      description: |
+        Call does not search for the route rather directly computes the quote for the given poolID.
+
+        For exact amount in swap method, the `tokenIn` and `tokenOutDenom` are required.
+        For exact amount out swap method, the `tokenOut` and `tokenInDenom` are required.
+        Mixing swap method parameters in other way than specified will result in an error.
       operationId: get-direct-quote
       parameters:
-      - description: String representation of the sdk.Coin for the token in.
-        example: 5OSMO
+      - description: String representation of the sdk.Coin denoting the input token
+          for the exact amount in swap method.
+        example: 1000000uosmo
         in: query
         name: tokenIn
-        required: true
         type: string
-      - description: String representing the list of the token denom out separated
-          by comma.
-        example: ATOM,USDC
+      - description: String representing the list of the output token denominations
+          separated by comma for the exact amount in swap method.
+        example: uion
         in: query
         name: tokenOutDenom
-        required: true
+        type: string
+      - description: String representation of the sdk.Coin denoting the output token
+          for the exact amount out swap method.
+        example: 2353uion
+        in: query
+        name: tokenOut
+        type: string
+      - description: String representing the list of the input token denominations
+          separated by comma for the exact amount out swap method.
+        example: uosmo
+        in: query
+        name: tokenInDenom
         type: string
       - description: String representing list of the pool ID.
-        example: 1,2,3
+        example: "1100"
         in: query
         name: poolID
         required: true
@@ -188,61 +203,6 @@ paths:
           description: The computed best route quote
           schema: {}
       summary: Compute the quote for the given poolID
-  /router/quote:
-    get:
-      description: |-
-        Returns the best quote it can compute for the exact in or exact out token swap method.
-
-        For exact amount in swap method, the `tokenIn` and `tokenOutDenom` are required.
-        For exact amount out swap method, the `tokenOut` and `tokenInDenom` are required.
-        Mixing swap method parameters in other way than specified will result in an error.
-
-        When `singleRoute` parameter is set to true, it gives the best single quote while excluding splits.
-      operationId: get-route-quote
-      parameters:
-      - description: String representation of the sdk.Coin denoting the input token
-          for the exact amount in swap method.
-        in: query
-        name: tokenIn
-        type: string
-      - description: String representing the denomination of the output token for
-          the exact amount in swap method.
-        in: query
-        name: tokenOutDenom
-        type: string
-      - description: String representation of the sdk.Coin denoting the output token
-          for the exact amount out swap method.
-        in: query
-        name: tokenOut
-        type: string
-      - description: String representing the denomination of the input token for the
-          exact amount out swap method.
-        in: query
-        name: tokenInDenom
-        type: string
-      - description: Boolean flag indicating whether to return single routes (no splits).
-          False (splits enabled) by default.
-        in: query
-        name: singleRoute
-        type: boolean
-      - description: Boolean flag indicating whether the given denoms are human readable
-          or not. Human denoms get converted to chain internally
-        in: query
-        name: humanDenoms
-        required: true
-        type: boolean
-      - description: Boolean flag indicating whether to apply exponents to the spot
-          price. False by default.
-        in: query
-        name: applyExponents
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: The computed best route quote
-          schema: {}
-      summary: Optimal Quote
   /router/routes:
     get:
       description: returns all routes that can be used for routing from tokenIn to

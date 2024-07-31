@@ -1,10 +1,8 @@
 package http
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"
@@ -63,10 +61,10 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 // @Description When `singleRoute` parameter is set to true, it gives the best single quote while excluding splits.
 // @ID get-route-quote
 // @Produce  json
-// @Param  tokenIn         query  string  false  "String representation of the sdk.Coin denoting the input token for the exact amount in swap method."
-// @Param  tokenOutDenom   query  string  false  "String representing the denomination of the output token for the exact amount in swap method."
-// @Param  tokenOut        query  string  false  "String representation of the sdk.Coin denoting the output token for the exact amount out swap method."
-// @Param  tokenInDenom    query  string  false  "String representing the denomination of the input token for the exact amount out swap method."
+// @Param  tokenIn         query  string  false  "String representation of the sdk.Coin denoting the input token for the exact amount in swap method."     example(1000000uosmo)
+// @Param  tokenOutDenom   query  string  false  "String representing the denomination of the output token for the exact amount in swap method."           example(uion)
+// @Param  tokenOut        query  string  false  "String representation of the sdk.Coin denoting the output token for the exact amount out swap method."   example(2353uion)
+// @Param  tokenInDenom    query  string  false  "String representing the denomination of the input token for the exact amount out swap method."           example(uosmo)
 // @Param  singleRoute     query  bool    false  "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default."
 // @Param  humanDenoms     query  bool    true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
 // @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
@@ -150,39 +148,66 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 // @Summary Compute the quote for the given poolID
 // @Description Call does not search for the route rather directly computes the quote for the given poolID.
+// @Description
+// @Description For exact amount in swap method, the `tokenIn` and `tokenOutDenom` are required.
+// @Description For exact amount out swap method, the `tokenOut` and `tokenInDenom` are required.
+// @Description Mixing swap method parameters in other way than specified will result in an error.
+// @Description
 // @ID get-direct-quote
 // @Produce  json
-// @Param  tokenIn         query  string  true  "String representation of the sdk.Coin for the token in."                   example(5OSMO)
-// @Param  tokenOutDenom   query  string  true  "String representing the list of the token denom out separated by comma."   example(ATOM,USDC)
-// @Param  poolID          query  string  true  "String representing list of the pool ID."                                  example(1,2,3)
+// @Param  tokenIn         query  string  false  "String representation of the sdk.Coin denoting the input token for the exact amount in swap method."                       example(1000000uosmo)
+// @Param  tokenOutDenom   query  string  false  "String representing the list of the output token denominations separated by comma for the exact amount in swap method."    example(uion)
+// @Param  tokenOut        query  string  false  "String representation of the sdk.Coin denoting the output token for the exact amount out swap method."                     example(2353uion)
+// @Param  tokenInDenom    query  string  false  "String representing the list of the input token denominations separated by comma for the exact amount out swap method."    example(uosmo)
+// @Param  poolID          query  string  true  "String representing list of the pool ID."                                                                                   example(1100)
 // @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/custom-direct-quote [get]
-func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
+func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 
-	poolIDs, tokenOutDenom, tokenIn, err := getDirectCustomQuoteParameters(c)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-	}
-
-	shouldApplyExponentsStr := c.QueryParam("applyExponents")
-	shouldApplyExponents := false
-	if shouldApplyExponentsStr != "" {
-		shouldApplyExponents, err = strconv.ParseBool(shouldApplyExponentsStr)
+	defer func() {
 		if err != nil {
-			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+			// nolint:errcheck // ignore error
+			c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 		}
+
+		// Note: we do not end the span here as it is ended in the middleware.
+	}()
+
+	var req types.GetDirectCustomQuoteRequest
+	if err := UnmarshalRequest(c, &req); err != nil {
+		return err
 	}
 
-	// Quote
-	quote, err := a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, tokenIn, tokenOutDenom, poolIDs)
+	// Validate the request
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	var (
+		tokenIn       *sdk.Coin
+		tokenOutDenom []string
+	)
+
+	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
+		tokenIn, tokenOutDenom = req.TokenIn, req.TokenOutDenom
+	} else {
+		tokenIn, tokenOutDenom = req.TokenOut, req.TokenInDenom
+	}
+
+	var quote domain.Quote
+	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
+		quote, err = a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, *tokenIn, tokenOutDenom, req.PoolID)
+	} else {
+		quote, err = a.RUsecase.GetCustomDirectQuoteMultiPoolInGivenOut(ctx, *tokenIn, tokenOutDenom, req.PoolID)
+	}
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	scalingFactor := oneDec
-	if shouldApplyExponents {
+	if req.ApplyExponents {
 		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom[len(tokenOutDenom)-1])
 	}
 
@@ -309,21 +334,6 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 	return c.JSON(http.StatusOK, spotPrice)
 }
 
-// getDirectCustomQuoteParameters returns the pool IDs, tokenIn and tokenOutDenom from server context if they are valid.
-func getDirectCustomQuoteParameters(c echo.Context) ([]uint64, []string, sdk.Coin, error) {
-	poolID, tokenOut, tokenInStr, err := getPoolsValidTokenInTokensOut(c)
-	if err != nil {
-		return nil, nil, sdk.Coin{}, err
-	}
-
-	tokenIn, err := sdk.ParseCoinNormalized(tokenInStr)
-	if err != nil {
-		return nil, nil, sdk.Coin{}, types.ErrTokenInNotValid
-	}
-
-	return poolID, tokenOut, tokenIn, nil
-}
-
 // getSpotPriceScalingFactor returns the spot price scaling factor for a given tokenIn and tokenOutDenom.
 func (a *RouterHandler) getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom string) osmomath.Dec {
 	scalingFactor, err := a.TUsecase.GetSpotPriceScalingFactorByDenom(tokenOutDenom, tokenInDenom)
@@ -364,54 +374,4 @@ func getValidTokenInTokenOutStr(c echo.Context) (tokenOutStr, tokenInStr string,
 	}
 
 	return tokenOutStr, tokenInStr, nil
-}
-
-func getValidPoolID(c echo.Context) ([]uint64, error) {
-	// We accept two poolIDs and poolID parameters, and require at least one of them to be filled
-	poolIDStr := strings.Split(c.QueryParam("poolID"), ",")
-	if len(poolIDStr) == 0 {
-		return nil, errors.New("poolID is required")
-	}
-
-	var poolIDs []uint64
-	for _, v := range poolIDStr {
-		i, err := strconv.ParseUint(v, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		poolIDs = append(poolIDs, i)
-	}
-
-	return poolIDs, nil
-}
-
-func getPoolsValidTokenInTokensOut(c echo.Context) (poolIDs []uint64, tokenOut []string, tokenIn string, err error) {
-	poolIDs, err = getValidPoolID(c)
-	if err != nil {
-		return nil, nil, "", err
-	}
-
-	tokenIn, err = getValidTokenInStr(c)
-	if err != nil {
-		return nil, nil, "", err
-	}
-
-	tokenOut = strings.Split(c.QueryParam("tokenOutDenom"), ",")
-	if len(tokenOut) == 0 {
-		return nil, nil, "", errors.New("tokenOutDenom is required")
-	}
-
-	// one output per each pool
-	if len(tokenOut) != len(poolIDs) {
-		return nil, nil, "", types.ErrNumOfTokenOutDenomPoolsMismatch
-	}
-
-	// Validate denoms
-	for _, v := range tokenOut {
-		if err := domain.ValidateInputDenoms(tokenIn, v); err != nil {
-			return nil, nil, "", err
-		}
-	}
-
-	return poolIDs, tokenOut, tokenIn, nil
 }

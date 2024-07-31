@@ -19,6 +19,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/types"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -484,21 +485,19 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	return bestSingleRouteQuote, nil
 }
 
-var ErrValidationFailed = fmt.Errorf("validation failed")
-
 // GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
 	if len(poolIDs) == 0 {
-		return nil, fmt.Errorf("%w: at least one pool ID should be specified", ErrValidationFailed)
+		return nil, fmt.Errorf("%w: at least one pool ID should be specified", types.ErrValidationFailed)
 	}
 
 	if len(tokenOutDenom) == 0 {
-		return nil, fmt.Errorf("%w: at least one token out denom should be specified", ErrValidationFailed)
+		return nil, fmt.Errorf("%w: at least one token out denom should be specified", types.ErrValidationFailed)
 	}
 
 	// for each given pool we expect to have provided token out denom
 	if len(poolIDs) != len(tokenOutDenom) {
-		return nil, fmt.Errorf("%w: number of pool ID should match number of out denom", ErrValidationFailed)
+		return nil, fmt.Errorf("%w: number of pool ID should match number of out denom", types.ErrValidationFailed)
 	}
 
 	// AmountIn is the first token of the asset pair.
@@ -520,6 +519,23 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 		tokenIn = sdk.NewCoin(tokenOutDenom, quote.GetAmountOut())
 	}
 	return &result, nil
+}
+
+// GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error) {
+	quote, err := r.GetCustomDirectQuoteMultiPool(ctx, tokenOut, tokenInDenom, poolIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	q, ok := quote.(*quoteExactAmountIn)
+	if !ok {
+		return nil, errors.New("quote is not a quoteExactAmountIn")
+	}
+
+	return &quoteExactAmountOut{
+		quoteExactAmountIn: q,
+	}, nil
 }
 
 // GetCandidateRoutes implements domain.RouterUsecase.

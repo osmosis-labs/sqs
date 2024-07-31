@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestGetQuoteRequestUnmarshal tests the UnmarshalHTTPRequest method of GetQuoteRequest.
-func TestGetQuoteRequestUnmarshal(t *testing.T) {
+// TestGetDirectCustomQuoteRequestUnmarshal tests the UnmarshalHTTPRequest method of GetDirectCustomQuoteRequest.
+func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 	testcases := []struct {
 		name           string
 		queryParams    map[string]string
-		expectedResult *types.GetQuoteRequest
+		expectedResult *types.GetDirectCustomQuoteRequest
 		expectedError  error
 		expectedStatus int
 		expectedBody   string
@@ -29,14 +29,18 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 			name: "valid request with tokenIn and tokenOut",
 			queryParams: map[string]string{
 				"tokenIn":        "1000ust",
+				"tokenOutDenom":  "usdc,ion",
 				"tokenOut":       "1000usdc",
-				"singleRoute":    "true",
+				"tokenInDenom":   "atom,uosmo",
+				"poolID":         "1,23",
 				"applyExponents": "true",
 			},
-			expectedResult: &types.GetQuoteRequest{
+			expectedResult: &types.GetDirectCustomQuoteRequest{
 				TokenIn:        &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenOutDenom:  []string{"usdc", "ion"},
 				TokenOut:       &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
-				SingleRoute:    true,
+				TokenInDenom:   []string{"atom", "uosmo"},
+				PoolID:         []uint64{1, 23},
 				ApplyExponents: true,
 			},
 			expectedError:  nil,
@@ -44,17 +48,16 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 			expectedBody:   "",
 		},
 		{
-			name: "invalid singleRoute param",
+			name: "invalid poolID param",
 			queryParams: map[string]string{
-				"tokenIn":        "1000ust",
-				"tokenOut":       "1000usdc",
-				"singleRoute":    "invalid",
-				"applyExponents": "true",
+				"tokenIn":     "1000ust",
+				"tokenOut":    "1000usdc",
+				"singleRoute": "true",
+				"poolID":      "invalid,10",
 			},
 			expectedResult: nil,
-			expectedError:  nil,
+			expectedError:  types.ErrPoolIDNotValid,
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   `{"message":"strconv.ParseBool: parsing \"invalid\": invalid syntax"}`,
 		},
 		{
 			name: "invalid applyExponents param",
@@ -105,7 +108,7 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			var result types.GetQuoteRequest
+			var result types.GetDirectCustomQuoteRequest
 			err := (&result).UnmarshalHTTPRequest(c)
 
 			if tc.expectedError != nil {
@@ -118,7 +121,7 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 			assert.Equal(t, tc.expectedStatus, rec.Code)
 			assert.Equal(t, tc.expectedBody, strings.TrimSpace(rec.Body.String())) // JSONEq fails
 
-			// GetQuoteRequest must contain the expected result if the status is OK
+			// GetDirectCustomQuoteRequest must contain the expected result if the status is OK
 			if tc.expectedStatus == http.StatusOK {
 				assert.Equal(t, tc.expectedResult, &result)
 			}
@@ -126,56 +129,59 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 	}
 }
 
-// TestGetQuoteRequestSwapMethod tests the SwapMethod method of GetQuoteRequest.
-func TestGetQuoteRequestSwapMethod(t *testing.T) {
+// TestGetDirectCustomQuoteRequestSwapMethod tests the SwapMethod method of GetDirectCustomQuoteRequest.
+func TestGetDirectCustomQuoteRequestSwapMethod(t *testing.T) {
 	testcases := []struct {
 		name           string
-		request        *types.GetQuoteRequest
+		request        *types.GetDirectCustomQuoteRequest
 		expectedMethod domain.TokenSwapMethod
 	}{
 		{
 			name: "valid exact in swap method",
-			request: &types.GetQuoteRequest{
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
-				TokenOutDenom: "usdc",
+				TokenOutDenom: []string{"usdc"},
+				PoolID:        []uint64{1},
 			},
 			expectedMethod: domain.TokenSwapMethodExactIn,
 		},
 		{
 			name: "valid exact out swap method",
-			request: &types.GetQuoteRequest{
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
-				TokenInDenom: "ust",
+				TokenInDenom: []string{"ust"},
+				PoolID:       []uint64{1},
 			},
 			expectedMethod: domain.TokenSwapMethodExactOut,
 		},
 		{
 			name: "invalid swap method with both tokenIn and tokenOut",
-			request: &types.GetQuoteRequest{
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
 				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
-				TokenInDenom:  "ust",
-				TokenOutDenom: "usdc",
+				TokenInDenom:  []string{"ust"},
+				TokenOutDenom: []string{"usdc"},
+				PoolID:        []uint64{1},
 			},
 			expectedMethod: domain.TokenSwapMethodInvalid,
 		},
 		{
 			name: "invalid swap method with only tokenIn",
-			request: &types.GetQuoteRequest{
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenIn: &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
 			},
 			expectedMethod: domain.TokenSwapMethodInvalid,
 		},
 		{
 			name: "invalid swap method with only tokenOut",
-			request: &types.GetQuoteRequest{
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenOut: &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
 			},
 			expectedMethod: domain.TokenSwapMethodInvalid,
 		},
 		{
 			name:           "invalid swap method with neither tokenIn nor tokenOut",
-			request:        &types.GetQuoteRequest{},
+			request:        &types.GetDirectCustomQuoteRequest{},
 			expectedMethod: domain.TokenSwapMethodInvalid,
 		},
 	}
@@ -188,44 +194,65 @@ func TestGetQuoteRequestSwapMethod(t *testing.T) {
 	}
 }
 
-// TestGetQuoteRequestValidate tests the Validate method of GetQuoteRequest.
-func TestGetQuoteRequestValidate(t *testing.T) {
+// TestGetDirectCustomQuoteRequestValidate tests the Validate method of GetDirectCustomQuoteRequest.
+func TestGetDirectCustomQuoteRequestValidate(t *testing.T) {
 	testcases := []struct {
 		name          string
-		request       *types.GetQuoteRequest
+		request       *types.GetDirectCustomQuoteRequest
 		expectedError error
 	}{
 		{
 			name: "valid exact in request",
-			request: &types.GetQuoteRequest{
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
-				TokenOutDenom: "usdc",
+				TokenOutDenom: []string{"usdc"},
+				PoolID:        []uint64{1},
 			},
 			expectedError: nil,
+		},
+		{
+			name: "exact in request pool id and token out denom mismatch",
+			request: &types.GetDirectCustomQuoteRequest{
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenOutDenom: []string{"usdc", "usdt", "uusd"},
+				PoolID:        []uint64{1, 2},
+			},
+			expectedError: types.ErrNumOfTokenOutDenomPoolsMismatch,
 		},
 		{
 			name: "valid exact out request",
-			request: &types.GetQuoteRequest{
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
-				TokenInDenom: "ust",
+				TokenInDenom: []string{"ust"},
+				PoolID:       []uint64{1},
 			},
 			expectedError: nil,
 		},
 		{
-			name: "invalid request with both tokenIn and tokenOut",
-			request: &types.GetQuoteRequest{
+			name: "exact out request pool id and token in denom mismatch",
+			request: &types.GetDirectCustomQuoteRequest{
+				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenInDenom: []string{"usdc", "usdt", "uusd"},
+				PoolID:       []uint64{1},
+			},
+			expectedError: types.ErrNumOfTokenInDenomPoolsMismatch,
+		},
+		{
+			name: "invalid request: contains both tokenIn and tokenOut",
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
 				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
-				TokenInDenom:  "ust",
-				TokenOutDenom: "usdc",
+				TokenInDenom:  []string{"ust"},
+				TokenOutDenom: []string{"usdc"},
 			},
 			expectedError: types.ErrSwapMethodNotValid,
 		},
 		{
 			name: "invalid exact in request with invalid denoms",
-			request: &types.GetQuoteRequest{
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenIn:       &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
-				TokenOutDenom: "usdc",
+				TokenOutDenom: []string{"usdc"},
+				PoolID:        []uint64{1},
 			},
 			expectedError: domain.SameDenomError{
 				DenomA: "usdc",
@@ -234,9 +261,10 @@ func TestGetQuoteRequestValidate(t *testing.T) {
 		},
 		{
 			name: "invalid exact out request with invalid denoms",
-			request: &types.GetQuoteRequest{
+			request: &types.GetDirectCustomQuoteRequest{
 				TokenOut:     &sdk.Coin{Denom: "usdt", Amount: sdk.NewInt(1000)},
-				TokenInDenom: "usdt",
+				TokenInDenom: []string{"usdt"},
+				PoolID:       []uint64{1},
 			},
 			expectedError: domain.SameDenomError{
 				DenomA: "usdt",
