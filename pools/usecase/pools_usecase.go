@@ -302,24 +302,35 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		opt(&options)
 	}
 
-	if len(options.PoolIDFilter) > 0 {
-		pools := make([]sqsdomain.PoolI, 0, len(options.PoolIDFilter))
+	pools := []sqsdomain.PoolI{}
 
+	if len(options.PoolIDFilter) > 0 {
 		for _, poolID := range options.PoolIDFilter {
 			pool, err := p.GetPool(poolID)
 			if err != nil {
 				return nil, err
 			}
 
-			pools = append(pools, pool)
+			if pool.GetLiquidityCap().GTE(osmomath.NewInt(options.MinPoolLiquidityCap)) {
+				pools = append(pools, pool)
+			}
 		}
+	} else {
+		p.pools.Range(func(key, value interface{}) bool {
+			pool, ok := value.(sqsdomain.PoolI)
+			if !ok {
+				return false
+			}
 
-		return pools, nil
+			if pool.GetLiquidityCap().GTE(osmomath.NewInt(options.MinPoolLiquidityCap)) {
+				pools = append(pools, pool)
+			}
+
+			return true
+		})
 	}
 
-	// TODO: min filter logic
-
-	return nil, nil
+	return pools, nil
 }
 
 // StorePools implements mvc.PoolsUsecase.

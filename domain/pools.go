@@ -68,16 +68,16 @@ type CanonicalOrderBooksResult struct {
 }
 
 type PoolsOptions struct {
-	MinPoolLiquidityCap uint64
+	MinPoolLiquidityCap int64
 	PoolIDFilter        []uint64
 }
 
 // RouterOption configures the router options.
 type PoolsOption func(*PoolsOptions)
 
-// WithMinPooslLiquidityCap configures the router options with the min pool liquidity
+// WithMinPooslLiquidityCap configures with the min pool liquidity
 // capitalization.
-func WithMinPoolsLiquidityCap(minPoolLiquidityCap uint64) PoolsOption {
+func WithMinPoolsLiquidityCap(minPoolLiquidityCap int64) PoolsOption {
 	return func(o *PoolsOptions) {
 		o.MinPoolLiquidityCap = minPoolLiquidityCap
 	}
