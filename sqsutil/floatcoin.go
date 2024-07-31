@@ -157,7 +157,7 @@ func floatToBigInt(scratchFloat *big.Float, amount float64, roundingMode Roundin
 }
 
 var maxFloatForInt = math.Exp2(256.0) - 1.0
-var maxSdkInt sdk.Int
+var maxSdkInt sdkmath.Int
 
 func init() {
 	maxSdkInt = sdkmath.OneInt()
@@ -168,7 +168,8 @@ func init() {
 	}
 }
 
-func floatToSDKInt(scratchFloat *big.Float, amount float64, roundingMode RoundingMode) sdk.Int {
+//nolint:unparam
+func floatToSDKInt(scratchFloat *big.Float, amount float64, roundingMode RoundingMode) sdkmath.Int {
 	if amount > maxFloatForInt {
 		// If the amount is too large, return the maximum possible integer
 		return maxSdkInt
