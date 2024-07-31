@@ -15,6 +15,32 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/passthrough/portfolio-assets/{address}": {
+            "get": {
+                "description": "The returned data represents the total value of the assets in the portfolio. Total value cap represents the total value of the assets in the portfolio.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Returns portfolio assets associated with the given address.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Wallet Address",
+                        "name": "address",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Portfolio assets from user balances and capitalization of the entire account value",
+                        "schema": {
+                            "type": "struct"
+                        }
+                    }
+                }
+            }
+        },
         "/pools": {
             "get": {
                 "description": "Returns a list of pools if the IDs parameter is not given. Otherwise,\nit batch fetches specific pools by the given pool IDs parameter.",
@@ -372,6 +398,14 @@ const docTemplate = `{
         "domain.Token": {
             "type": "object",
             "properties": {
+                "name": {
+                    "type": "string"
+                    "description": "Name is the name of the token."
+                },
+                "denom": {
+                    "type": "string"
+                    "description": "Denom is the chain denom of the token."
+                },
                 "coingeckoId": {
                     "type": "string"
                 },

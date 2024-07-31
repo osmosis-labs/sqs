@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
@@ -25,9 +26,15 @@ type PoolsUsecaseMock struct {
 	GetPoolFunc                 func(poolID uint64) (sqsdomain.PoolI, error)
 	GetPoolSpotPriceFunc        func(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 	GetCosmWasmPoolConfigFunc   func() domain.CosmWasmPoolRouterConfig
+	CalcExitCFMMPoolFunc        func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)
 
 	Pools        []sqsdomain.PoolI
 	TickModelMap map[uint64]*sqsdomain.TickModel
+}
+
+// IsCanonicalOrderbookPool implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) IsCanonicalOrderbookPool(poolID uint64) bool {
+	panic("unimplemented")
 }
 
 // GetAllCanonicalOrderbookPoolIDs implements mvc.PoolsUsecase.
@@ -141,3 +148,13 @@ func (pm *PoolsUsecaseMock) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	}
 	panic("unimplemented")
 }
+
+// CalcExitCFMMPool implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+	if pm.CalcExitCFMMPoolFunc != nil {
+		return pm.CalcExitCFMMPoolFunc(poolID, exitingShares)
+	}
+	panic("unimplemented")
+}
+
+var _ mvc.PoolsUsecase = &PoolsUsecaseMock{}

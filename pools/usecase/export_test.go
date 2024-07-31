@@ -24,6 +24,7 @@ func (p *poolsUseCase) StoreValidOrdeBookEntry(baseDenom, quoteDenom string, poo
 		LiquidityCap:    poolLiquidityCapitalization,
 		ContractAddress: OriginalOrderbookAddress,
 	})
+	p.canonicalOrderbookPoolIDs.Store(poolID, struct{}{})
 }
 
 // WARNING: this method is only meant for setting up tests. Do not move out of export_test.go

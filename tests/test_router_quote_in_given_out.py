@@ -267,7 +267,7 @@ class TestExactAmountOutQuote:
                 assert output in denoms, f"Error: output {output} not found in pool {pool_id} denoms {denoms}"
 
                 # Pool denoms must contain route input denom
-                assert p.token_in_denom in denoms, f"Error: token_in_denom {token_in_denom} not found in pool {pool_id} denoms {denoms}"
+                assert p.token_in_denom in denoms, f"Error: pool token_in_denom {p.token_in_denom} not found in pool {pool_id} denoms {denoms}"
 
                 output = p.token_in_denom
 

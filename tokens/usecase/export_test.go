@@ -10,11 +10,6 @@ func (t *tokensUseCase) SetTypeHumanToChainDenomMap(key string, value any) {
 	t.humanToChainDenomMap.Store(key, value)
 }
 
-// SetPrecisionScalingFactorMap is a test helper to put arbitrary types to precision scaling factor map
-func (t *tokensUseCase) SetPrecisionScalingFactorMap(key int, value any) {
-	t.precisionScalingFactorMap.Store(key, value)
-}
-
 // SetChainDenoms is a test helper to put arbitrary types to chain denoms
 func (t *tokensUseCase) SetChainDenoms(key any, value any) {
 	t.chainDenoms.Store(key, value)

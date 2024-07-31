@@ -1,5 +1,6 @@
 import time
 import pytest
+import itertools
 
 import conftest
 from sqs_service import *
@@ -9,6 +10,7 @@ from rand_util import *
 from e2e_math import *
 from decimal import *
 from constants import *
+from chain_service import *
 from util import *
 from route import *
 
@@ -28,6 +30,17 @@ HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD = 5000
 # The max price impact threshold for the high liquidity check
 HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD = 0.5
 
+
+def orderbook_token_pairs():
+    """
+    Returns a list of tuples of the form (pool_id, (token_in, token_out))
+    """
+    return [
+        (pool_id, pair) \
+            for [pool_id, denoms] in conftest.shared_test_state.orderbook_token_pair \
+                for pair in itertools.combinations(denoms, 2)
+    ]
+    
 
 # Test suite for the /router/quote endpoint
 # Test runs tests for exact amount in quotes.
@@ -171,6 +184,62 @@ class TestExactAmountInQuote:
 
         # Validate the quote test
         self.validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
+    
+
+    @pytest.mark.parametrize("amount", [1000])
+    @pytest.mark.parametrize("token_pair", orderbook_token_pairs())
+    def test_orderbook(self, environment_url, amount, token_pair):
+        """
+        This test aims to validate the orderbook functionality by performing a direct quote request.
+        
+        The amount out from direct quote is compared to the amount out calculated by amount in after fee * spot price
+        to ensure that the orderbook quote is working as expected.
+
+        Small amount in is used since spot price is calculated based on the tick price at the top of the orderbook.
+        If the amount in is large, the actual amount out will be different from the amount out calculated by amount in after fee * spot price
+        due to the moving ticks and potential low liquidity on one side of the orderbook.
+        """
+        (pool_id, (denom_in, denom_out)) = token_pair
+
+        sqs_service = conftest.SERVICE_MAP[environment_url]
+        start_time = time.time()
+        response = sqs_service.get_custom_direct_quote(str(amount) + denom_in, denom_out, pool_id)
+        elapsed_time_ms = (time.time() - start_time) * 1000
+
+        assert response.status_code == 200, f"Error: {response.text}"
+        assert elapsed_time_ms < EXPECTED_LATENCY_UPPER_BOUND_MS, \
+             f"Error: latency {elapsed_time_ms} exceeded {EXPECTED_LATENCY_UPPER_BOUND_MS} ms, token in {denom_in} and token out {denom_out}" 
+
+        res = response.json()
+        
+        in_base_out_quote_spot_price = Decimal(res["in_base_out_quote_spot_price"])
+        amount_in = int(res["amount_in"]["amount"])
+        amount_out = int(res["amount_out"])
+        effective_fee = Decimal(res["effective_fee"])
+        amount_in_after_fee = int(amount_in * (1 - effective_fee))
+
+        denom_in_data = conftest.shared_test_state.chain_denom_to_data_map.get(denom_in)
+        denom_out_data = conftest.shared_test_state.chain_denom_to_data_map.get(denom_out)
+
+        denom_in_precision = denom_in_data.get("exponent")
+        denom_out_precision = denom_out_data.get("exponent")
+
+        # Compute expected spot prices
+        in_price = Decimal(denom_in_data.get("price")) 
+        out_price = Decimal(denom_out_data.get("price"))
+        expected_in_base_out_quote_price = (in_price * Decimal(10)**denom_out_precision) / (out_price * Decimal(10)**denom_in_precision)
+
+        # Compute expected token out
+        expected_amount_out = amount_in_after_fee * expected_in_base_out_quote_price
+        error_tolerance = choose_error_tolerance(amount_in_after_fee)
+
+        numia_sqs_price_diff = relative_error(expected_in_base_out_quote_price, in_base_out_quote_spot_price)
+        assert numia_sqs_price_diff < error_tolerance, \
+            f"Error: difference between numia spot price and sqs spot price is {numia_sqs_price_diff} which is greater than {error_tolerance}"
+
+        amount_out_diff = relative_error(expected_amount_out, amount_out)
+        assert amount_out_diff < error_tolerance, \
+            f"Error: difference between calculated and actual amount out is {amount_out_diff} which is greater than {error_tolerance}"
 
     def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountInResponse:
         """
@@ -267,10 +336,9 @@ class TestExactAmountInQuote:
                 assert input in denoms, f"Error: input {input} not found in pool {pool_id} denoms {denoms}"
 
                 # Pool denoms must contain route output denom
-                assert p.token_out_denom in denoms, f"Error: token_out_denom {token_out_denom} not found in pool {pool_id} denoms {denoms}"
+                assert p.token_out_denom in denoms, f"Error: pool token_out_denom {p.token_out_denom} not found in pool {pool_id} denoms {denoms}"
 
                 input = p.token_out_denom
 
             # Last route token out must be equal to denom out
             assert denom_out == get_last_route_token_out(route), f"Error: denom out {denom_out} not equal to last token out {get_last_route_token_out(route)}"
-

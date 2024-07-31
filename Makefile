@@ -206,3 +206,19 @@ e2e-install-requirements:
 # Persist any new dependencies to requirements.txt
 e2e-update-requirements:
 	pip freeze > tests/requirements.txt
+
+# Set DATADOG_API_KEY in the environment
+datadog-agent-start:
+	export DATADOG_API_KEY=your-key; \
+	docker run --cgroupns host \
+				--pid host \
+				-v /var/run/docker.sock:/var/run/docker.sock:ro \
+				-v /proc/:/host/proc/:ro \
+				-v /sys/fs/cgroup/:/host/sys/fs/cgroup:ro \
+				-p 127.0.0.1:8126:8126/tcp \
+				-p 127.0.0.1:4317:4317/tcp \
+				-e DD_API_KEY=$$DATADOG_API_KEY \
+				-e DD_APM_ENABLED=true \
+				-e DD_SITE=us5.datadoghq.com \
+				-e DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT=0.0.0.0:4317 \
+				gcr.io/datadoghq/agent:latest

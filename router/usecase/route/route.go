@@ -24,6 +24,8 @@ type RouteImpl struct {
 	// The reason for this is that making network requests to chain is expensive.
 	// As a result, we want to minimize the number of requests we make.
 	HasGeneralizedCosmWasmPool bool "json:\"has-cw-pool\""
+	// HasCanonicalOrderbookPool is true if the route contains a canonical orderbook pool.
+	HasCanonicalOrderbookPool bool "json:\"-\""
 }
 
 var (

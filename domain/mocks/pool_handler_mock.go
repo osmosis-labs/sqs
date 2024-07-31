@@ -1,6 +1,8 @@
 package mocks
 
 import (
+	"cosmossdk.io/math"
+	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
@@ -59,4 +61,9 @@ func (p *PoolHandlerMock) StorePools(pools []sqsdomain.PoolI) error {
 		}
 	}
 	return nil
+}
+
+// CalcExitCFMMPool implements mvc.PoolHandler.
+func (p *PoolHandlerMock) CalcExitCFMMPool(poolID uint64, exitingShares math.Int) (types.Coins, error) {
+	panic("unimplemented")
 }

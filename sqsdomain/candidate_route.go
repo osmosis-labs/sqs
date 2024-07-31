@@ -10,7 +10,8 @@ type CandidatePool struct {
 // CandidateRoute is a data structure representing a
 // candidate route to be used for routing.
 type CandidateRoute struct {
-	Pools []CandidatePool
+	Pools                     []CandidatePool
+	IsCanonicalOrderboolRoute bool
 }
 
 // CandidateRoutes is a data structure representing a
@@ -18,6 +19,7 @@ type CandidateRoute struct {
 // Additionally, it encapsulates a map of unique pool IDs
 // contained in the routes.
 type CandidateRoutes struct {
-	Routes        []CandidateRoute
-	UniquePoolIDs map[uint64]struct{}
+	Routes                     []CandidateRoute
+	UniquePoolIDs              map[uint64]struct{}
+	ContainsCanonicalOrderbook bool
 }

@@ -241,6 +241,8 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceCoin() {
 		ethScaledLiquidity = ethScalingFactor.MulInt(defaultLiquidity).TruncateInt()
 
 		defaultPriceOne = osmomath.OneBigDec()
+
+		zeroCapitalization = osmomath.ZeroDec()
 	)
 
 	tests := []struct {
@@ -253,7 +255,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceCoin() {
 		totalLiquidity osmomath.Int
 		price          osmomath.BigDec
 
-		expectedCapitalization osmomath.Int
+		expectedCapitalization osmomath.Dec
 	}{
 		{
 			name: "scaling factor unset",
@@ -301,7 +303,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceCoin() {
 			price:          defaultPriceOne,
 
 			// 10^6 / 10^6 = 1
-			expectedCapitalization: osmomath.OneInt(),
+			expectedCapitalization: osmomath.OneDec(),
 		},
 		{
 			name: "happy path with different inputs",
@@ -313,7 +315,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceCoin() {
 			totalLiquidity: ethScaledLiquidity.MulRaw(2),
 			price:          osmomath.NewBigDec(2),
 
-			expectedCapitalization: ethScaledLiquidity.ToLegacyDec().QuoMut(ethScalingFactor).TruncateInt().MulRaw(4),
+			expectedCapitalization: ethScaledLiquidity.ToLegacyDec().QuoMut(ethScalingFactor).MulInt64(4),
 		},
 	}
 

@@ -35,6 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Mitigate the alloy rebalancing router breakage by invalidating route cache if all routes fail and ordering denoms by balances.
+- Prioritize canonical orderbook in router and caches
+
 ## v25.5.0
 
 - Switch quotes onto new candidate routes system

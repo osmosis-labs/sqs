@@ -12,6 +12,12 @@ definitions:
     type: object
   domain.Token:
     properties:
+      name:
+        description: Name is the name of the token.
+        type: string
+      denom:
+        description: Denom is the chain denom of the token.
+        type: string
       coingeckoId:
         type: string
       decimals:
@@ -54,6 +60,26 @@ info:
   title: Osmosis Sidecar Query Server Example API
   version: "1.0"
 paths:
+  /passthrough/portfolio-assets/{address}:
+    get:
+      description: The returned data represents the total value of the assets in the
+        portfolio. Total value cap represents the total value of the assets in the
+        portfolio.
+      parameters:
+      - description: Wallet Address
+        in: path
+        name: address
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Portfolio assets from user balances and capitalization of the
+            entire account value
+          schema:
+            type: struct
+      summary: Returns portfolio assets associated with the given address.
   /pools:
     get:
       description: |-

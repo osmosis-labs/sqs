@@ -12,6 +12,7 @@ from constants import *
 from rand_util import construct_token_in_combos
 from coingecko_service import *
 from constants import *
+from chain_service import ChainService
 from util import *
 from decimal import *
 
@@ -79,6 +80,8 @@ SERVICE_MAP = {
     SQS_LOCAL: SERVICE_SQS_LOCAL
 }
 
+CHAIN_SERVICE = ChainService()
+
 # Numia pool type constants using an Enum
 class NumiaPoolType(Enum):
     BALANCER = 'osmosis.gamm.v1beta1.Pool'
@@ -89,6 +92,7 @@ class NumiaPoolType(Enum):
 # Cosmwasm pool code IDs using standard constants
 TRANSMUTER_CODE_ID = 148
 ASTROPORT_CODE_ID = 773
+ORDERBOOK_CODE_ID = 885
 
 # Local e2e pool types using an IntEnum for convenience
 class E2EPoolType(IntEnum):
@@ -98,6 +102,7 @@ class E2EPoolType(IntEnum):
     COSMWASM_MISC = 3
     COSMWASM_TRANSMUTER_V1 = 4
     COSMWASM_ASTROPORT = 5
+    COSMWASM_ORDERBOOK = 6
 
 # Mapping from Numia pool types to e2e pool types
 NUMIA_TO_E2E_MAP = {
@@ -138,6 +143,7 @@ class SharedTestState:
         self.valid_listed_tokens = kwargs.get('valid_listed_tokens', None)
         self.transmuter_token_pairs = kwargs.get('transmuter_token_pairs', None)
         self.astroport_token_pair = kwargs.get('astroport_token_pair', None)
+        self.orderbook_token_pair = kwargs.get('orderbook_token_pair', None)
         self.misc_token_pairs = kwargs.get('misc_token_pairs', None)
 
     def to_json(self):
@@ -162,6 +168,8 @@ def get_e2e_pool_type_from_numia_pool(pool):
             return E2EPoolType.COSMWASM_TRANSMUTER_V1
         elif pool_code_id == ASTROPORT_CODE_ID:
             return E2EPoolType.COSMWASM_ASTROPORT
+        elif pool_code_id == ORDERBOOK_CODE_ID:
+            return E2EPoolType.COSMWASM_ORDERBOOK
         else:
             return E2EPoolType.COSMWASM_MISC
 
@@ -280,7 +288,6 @@ def create_chain_denom_to_data_map(tokens_data):
 
 def get_token_data_copy():
     """Return deep copy of all tokens from shared_test_state."""
-    global all_tokens_data
     return copy.deepcopy(shared_test_state.all_tokens_data)
 
 
@@ -365,6 +372,11 @@ def choose_pcl_pool_tokens_by_liq_asc(pool_type_to_denoms, num_pairs=1, min_liq=
     """Function to choose pool ID and tokens associated with a Astroport PCL pool type based on liquidity.
     Returns [pool ID, [tokens]]"""
     return choose_pool_type_tokens_by_liq_asc(pool_type_to_denoms, E2EPoolType.COSMWASM_ASTROPORT, num_pairs, min_liq, max_liq, asc)
+
+def choose_orderbook_pool_tokens_by_liq_asc(pool_type_to_denoms, num_pairs=1, min_liq=0, max_liq=float('inf'), asc=False):
+    """Function to choose pool ID and tokens associated with a CosmWasm orderbook pool type based on liquidity.
+    Returns [pool ID, [tokens]]"""
+    return choose_pool_type_tokens_by_liq_asc(pool_type_to_denoms, E2EPoolType.COSMWASM_ORDERBOOK, num_pairs, min_liq, max_liq, asc)
 
 def choose_valid_listed_tokens(denom_top_liquidity_pool_map):
     """
@@ -578,6 +590,12 @@ def pytest_sessionstart(session):
 
         # One Astroport token pair [[pool_id, ['denom0', 'denom1']]]
         shared_test_state.astroport_token_pair = choose_pcl_pool_tokens_by_liq_asc(shared_test_state.pool_type_to_denoms, 1)
+
+        # One Orderbook token pair [[pool_id, ['denom0', 'denom1']]]
+        shared_test_state.orderbook_token_pair = choose_orderbook_pool_tokens_by_liq_asc(shared_test_state.pool_type_to_denoms, 1)
+
+        # Filter tokens data to only contain listed
+        shared_test_state.all_tokens_data = [token for token in shared_test_state.all_tokens_data if token['denom'] in shared_test_state.valid_listed_tokens]
 
         shared_test_state.misc_token_pairs = create_misc_token_pairs()
 

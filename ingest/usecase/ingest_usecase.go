@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -155,6 +156,12 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		// This is necessary because the initial pricing is computed within min liquidity capitalization.
 		// That results in a suboptimal price.
 		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+
+		// Recompute search data given the availability of pool liquidity pricing.
+		if err := p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata); err != nil {
+			p.logger.Error("failed to compute search data", zap.Error(err))
+			return err
+		}
 	} else {
 		// Wait for the first block to be processed before
 		// updating the prices for the next block.
@@ -194,7 +201,7 @@ func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
 	cosmWasmPoolConfig := p.poolsUseCase.GetCosmWasmPoolConfig()
 	routerConfig := p.routerUsecase.GetConfig()
 
-	sortedPools := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
+	sortedPools, _ := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
 
 	// Sort the pools and store them in the router.
 	p.routerUsecase.SetSortedPools(sortedPools)
@@ -449,6 +456,8 @@ func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 
 	// Remove gamm shares from balances
 	newBalances := make([]sdk.Coin, 0, len(sqsModel.Balances))
+
+	balancesMap := make(map[string]osmomath.Int)
 	for i, balance := range sqsModel.Balances {
 		if balance.Validate() != nil {
 			continue
@@ -459,6 +468,8 @@ func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 		}
 
 		newBalances = append(newBalances, sqsModel.Balances[i])
+
+		balancesMap[balance.Denom] = balance.Amount
 	}
 
 	sqsModel.Balances = newBalances
@@ -472,6 +483,22 @@ func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 
 		newPoolDenoms = append(newPoolDenoms, denom)
 	}
+
+	// Sort the pool denoms by balance amount
+	// This is useful for edge case handling for certain pools such as alloyed
+	// where the token amounts might get imbalanced, making the liquidity of one denom completely zero.
+	// In that case, we would like to deprioritize the out-of-liquidity denoms.
+	sort.Slice(newPoolDenoms, func(i, j int) bool {
+		amountI, ok := balancesMap[sqsModel.PoolDenoms[i]]
+		if !ok {
+			return false
+		}
+		amountJ, ok := balancesMap[sqsModel.PoolDenoms[j]]
+		if !ok {
+			return true
+		}
+		return amountI.GTE(amountJ)
+	})
 
 	sqsModel.PoolDenoms = newPoolDenoms
 

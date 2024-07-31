@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -24,6 +26,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
@@ -38,6 +41,7 @@ type poolsUseCase struct {
 	routerRepository routerrepo.RouterRepository
 
 	canonicalOrderBookForBaseQuoteDenom sync.Map
+	canonicalOrderbookPoolIDs           sync.Map
 
 	cosmWasmPoolsParams pools.CosmWasmPoolsParams
 
@@ -54,8 +58,8 @@ const (
 // NewPoolsUsecase will create a new pools use case object
 func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb, logger log.Logger) (*poolsUseCase, error) {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
-	for _, codeId := range poolsConfig.TransmuterCodeIDs {
-		transmuterCodeIDsMap[codeId] = struct{}{}
+	for _, codeID := range poolsConfig.TransmuterCodeIDs {
+		transmuterCodeIDsMap[codeID] = struct{}{}
 	}
 
 	alloyedTransmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.AlloyedTransmuterCodeIDs))
@@ -69,8 +73,8 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint s
 	}
 
 	generalizedCosmWasmCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.GeneralCosmWasmCodeIDs))
-	for _, codeId := range poolsConfig.GeneralCosmWasmCodeIDs {
-		generalizedCosmWasmCodeIDsMap[codeId] = struct{}{}
+	for _, codeID := range poolsConfig.GeneralCosmWasmCodeIDs {
+		generalizedCosmWasmCodeIDsMap[codeID] = struct{}{}
 	}
 
 	wasmClient, err := initializeWasmClient(chainGRPCGatewayEndpoint)
@@ -170,6 +174,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 		routes = append(routes, route.RouteImpl{
 			Pools:                      routablePools,
 			HasGeneralizedCosmWasmPool: containsGeneralizedCosmWasmPool,
+			HasCanonicalOrderbookPool:  candidateRoute.IsCanonicalOrderboolRoute,
 		})
 	}
 
@@ -365,6 +370,9 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 		if poolLiquidityCapitalization.LTE(topLiquidityOrderBookEntry.LiquidityCap) {
 			return false, nil
 		}
+
+		// Remove the old pool from the canonical map
+		p.canonicalOrderbookPoolIDs.Delete(topLiquidityOrderBookEntry.PoolID)
 	}
 
 	// If not found or the current pool has higher liquidity capitalization than the top liquidity pool
@@ -374,6 +382,9 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 		LiquidityCap:    poolLiquidityCapitalization,
 		ContractAddress: contractAddress,
 	})
+
+	// Store the pool ID in the canonical orderbook pool IDs
+	p.canonicalOrderbookPoolIDs.Store(poolID, struct{}{})
 
 	return true, nil
 }
@@ -450,9 +461,36 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 	return results, err
 }
 
+// IsCanonicalOrderbookPool implements mvc.PoolsUsecase.
+func (p *poolsUseCase) IsCanonicalOrderbookPool(poolID uint64) bool {
+	_, exists := p.canonicalOrderbookPoolIDs.Load(poolID)
+	return exists
+}
+
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return p.cosmWasmPoolsParams.Config
+}
+
+// CalcExitCFMMPool implements mvc.PoolsUsecase.
+func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+	sqsPool, err := p.GetPool(poolID)
+	if err != nil {
+		return nil, err
+	}
+
+	if sqsPool.GetType() != poolmanagertypes.Balancer && sqsPool.GetType() != poolmanagertypes.Stableswap {
+		return nil, fmt.Errorf("invalid pool type for pool ID %d, expected CFMM pool", poolID)
+	}
+
+	pool, ok := sqsPool.GetUnderlyingPool().(types.CFMMPoolI)
+	if !ok {
+		return nil, fmt.Errorf("failed to cast underlying pool to CFMMPoolI for ID: %d", poolID)
+	}
+
+	// fine to pass empty context as no data is mutated
+	exitFee := pool.GetExitFee(sdk.Context{})
+	return pool.CalcExitPoolCoinsFromShares(sdk.Context{}, exitingShares, exitFee)
 }
 
 // formatBaseQuoteDenom formats the base and quote denom into a single string with a separator.
