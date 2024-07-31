@@ -70,6 +70,9 @@ type CanonicalOrderBooksResult struct {
 type PoolsOptions struct {
 	MinPoolLiquidityCap uint64
 	PoolIDFilter        []uint64
+	// HadEmptyFilter is true if the pool ID filter was empty.
+	// This signifies avoid getting all pools and rather exit early.
+	HadEmptyFilter bool
 }
 
 // PoolsOption configures the pools filter options.
@@ -86,6 +89,12 @@ func WithMinPoolsLiquidityCap(minPoolLiquidityCap uint64) PoolsOption {
 // WithPoolIDFilter configures the pools options with the pool ID filter.
 func WithPoolIDFilter(poolIDFilter []uint64) PoolsOption {
 	return func(o *PoolsOptions) {
+		// We should simply return early rather than attempting to get all pools.
+		if len(poolIDFilter) == 0 {
+			o.HadEmptyFilter = true
+			return
+		}
+
 		o.PoolIDFilter = poolIDFilter
 	}
 }

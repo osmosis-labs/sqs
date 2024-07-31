@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 )
 
@@ -207,15 +209,27 @@ func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, heigh
 func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]struct{}, blockPriceUpdates domain.PricesResult) error {
 	blockPoolIDs := domain.KeysFromMap(poolIDs)
 
-	pools, err := p.poolHandler.GetPools(domain.WithPoolIDFilter(blockPoolIDs))
-	if err != nil {
-		return err
+	var (
+		pools []sqsdomain.PoolI
+		err   error
+	)
+
+	// Since empty block
+	if len(blockPoolIDs) == 0 {
+		pools, err = p.poolHandler.GetPools(domain.WithPoolIDFilter(blockPoolIDs))
+		if err != nil {
+			return err
+		}
 	}
 
 	for i, pool := range pools {
 		balances := pool.GetSQSPoolModel().Balances
 
 		poolLiquidityCapitalization, poolLiquidityCapError := p.liquidityPricer.PriceBalances(balances, blockPriceUpdates)
+
+		if (pool.GetId() == 1 || pool.GetId() == 1135) && poolLiquidityCapError != "" {
+			fmt.Println("pool id: ", pool.GetId())
+		}
 
 		// Update the liquidity capitalization and error (if any)
 		pools[i].SetLiquidityCap(poolLiquidityCapitalization)

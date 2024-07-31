@@ -572,6 +572,11 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 	pools, err = usecase.Pools.GetPools(domain.WithMinPoolsLiquidityCap(1), domain.WithPoolIDFilter(poolsFilter))
 	s.Require().NoError(err)
 	s.Require().Len(pools, 2)
+
+	// Empty filter signifies returning nothing and exiting early
+	pools, err = usecase.Pools.GetPools(domain.WithPoolIDFilter([]uint64{}))
+	s.Require().NoError(err)
+	s.Require().Empty(pools)
 }
 
 func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
