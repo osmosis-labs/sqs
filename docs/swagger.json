@@ -174,7 +174,7 @@
         },
         "/router/quote": {
             "get": {
-                "description": "Returns the best quote it can compute for the exact in or exact out token swap method.",
+                "description": "Returns the best quote it can compute for the exact in or exact out token swap method.\n\nFor exact amount in swap method, the `tokenIn` and `tokenOutDenom` are required.\nFor exact amount out swap method, the `tokenOut` and `tokenInDenom` are required.\nMixing swap method parameters in other way than specified will result in an error.\n\nWhen `singleRoute` parameter is set to true, it gives the best single quote while excluding splits.",
                 "produces": [
                     "application/json"
                 ],

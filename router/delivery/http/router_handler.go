@@ -55,7 +55,12 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 
 // @Summary Optimal Quote
 // @Description Returns the best quote it can compute for the exact in or exact out token swap method.
-// If `singleRoute` parameter is set to true, it gives the best single quote while excluding splits.
+// @Description
+// @Description For exact amount in swap method, the `tokenIn` and `tokenOutDenom` are required.
+// @Description For exact amount out swap method, the `tokenOut` and `tokenInDenom` are required.
+// @Description Mixing swap method parameters in other way than specified will result in an error.
+// @Description
+// @Description When `singleRoute` parameter is set to true, it gives the best single quote while excluding splits.
 // @ID get-route-quote
 // @Produce  json
 // @Param  tokenIn         query  string  false  "String representation of the sdk.Coin denoting the input token for the exact amount in swap method."
