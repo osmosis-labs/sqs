@@ -39,6 +39,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 - Mitigate the alloy rebalancing router breakage by invalidating route cache if all routes fail and ordering denoms by balances.
 - Prioritize canonical orderbook in router and caches
+- Add liquidity filter to pools query
 
 ## v25.5.0
 
