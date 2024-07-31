@@ -72,7 +72,7 @@ type PoolsOptions struct {
 	PoolIDFilter        []uint64
 }
 
-// RouterOption configures the router options.
+// PoolsOption configures the pools filter options.
 type PoolsOption func(*PoolsOptions)
 
 // WithMinPooslLiquidityCap configures with the min pool liquidity
@@ -80,5 +80,12 @@ type PoolsOption func(*PoolsOptions)
 func WithMinPoolsLiquidityCap(minPoolLiquidityCap int64) PoolsOption {
 	return func(o *PoolsOptions) {
 		o.MinPoolLiquidityCap = minPoolLiquidityCap
+	}
+}
+
+// WithPoolIDFilter configures the pools options with the pool ID filter.
+func WithPoolIDFilter(poolIDFilter []uint64) PoolsOption {
+	return func(o *PoolsOptions) {
+		o.PoolIDFilter = poolIDFilter
 	}
 }

@@ -86,7 +86,9 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 
 			denomPoolsIDs := domain.KeysFromMap(denomLiquidityData.Pools)
 
-			unsortedDenomPools, err := c.poolsHandler.GetPools(denomPoolsIDs)
+			unsortedDenomPools, err := c.poolsHandler.GetPools(
+				domain.WithPoolIDFilter(denomPoolsIDs),
+			)
 			if err != nil {
 				// TODO: add counter
 				c.logger.Error("failed to get pools in candidate route worker", zap.Error(err))

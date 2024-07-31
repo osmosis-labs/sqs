@@ -68,6 +68,7 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 func (a *PoolsHandler) GetPools(c echo.Context) error {
 	// Get pool ID parameters as strings.
 	poolIDsStr := c.QueryParam("IDs")
+	minLiquidityCapStr := c.QueryParam("min_liquidity_cap")
 
 	var (
 		pools []sqsdomain.PoolI
@@ -87,8 +88,20 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
 		}
 
+		// Parse min liquidity cap if provided
+		var minLiquidityCap int64
+		if minLiquidityCapStr != "" {
+			minLiquidityCap, err = strconv.ParseInt(minLiquidityCapStr, 10, 64)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, ResponseError{Message: "Invalid min_liquidity_cap value"})
+			}
+		}
+
 		// Get pools
-		pools, err = a.PUsecase.GetPools(poolIDs)
+		pools, err = a.PUsecase.GetPools(
+			domain.WithMinPoolsLiquidityCap(minLiquidityCap),
+			domain.WithPoolIDFilter(poolIDs),
+		)
 		if err != nil {
 			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 		}
