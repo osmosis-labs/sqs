@@ -83,9 +83,9 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	}
 
 	// Parse min liquidity cap if provided
-	var minLiquidityCap int64
+	var minLiquidityCap uint64
 	if minLiquidityCapStr != "" {
-		minLiquidityCap, err = strconv.ParseInt(minLiquidityCapStr, 10, 64)
+		minLiquidityCap, err = strconv.ParseUint(minLiquidityCapStr, 10, 64)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, ResponseError{Message: "Invalid min_liquidity_cap value"})
 		}

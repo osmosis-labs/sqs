@@ -55,6 +55,10 @@ const (
 	baseQuoteKeySeparator = "~"
 )
 
+var (
+	zero = osmomath.ZeroInt()
+)
+
 // NewPoolsUsecase will create a new pools use case object
 func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb, logger log.Logger) (*poolsUseCase, error) {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
@@ -302,30 +306,33 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		opt(&options)
 	}
 
-	pools := []sqsdomain.PoolI{}
+	var (
+		pools []sqsdomain.PoolI
+	)
 
-	var poolIDs []uint64
 	if len(options.PoolIDFilter) > 0 {
-		poolIDs = options.PoolIDFilter
+		// Get specific pools
+		pools = make([]sqsdomain.PoolI, 0, len(options.PoolIDFilter))
+		for _, poolID := range options.PoolIDFilter {
+			pool, err := p.GetPool(poolID)
+			if err != nil {
+				return nil, err
+			}
+
+			if pool.GetLiquidityCap().Uint64() > options.MinPoolLiquidityCap {
+				pools = append(pools, pool)
+			}
+		}
 	} else {
+		// Pre-allocate 2000 since this is how many pools there are today.
+		pools := make([]sqsdomain.PoolI, 0, 2000)
 		p.pools.Range(func(key, value interface{}) bool {
 			pool, ok := value.(sqsdomain.PoolI)
-			if ok {
-				poolIDs = append(poolIDs, pool.GetId())
+			if ok && pool.GetLiquidityCap().Uint64() > options.MinPoolLiquidityCap {
+				pools = append(pools, pool)
 			}
 			return true
 		})
-	}
-
-	for _, poolID := range poolIDs {
-		pool, err := p.GetPool(poolID)
-		if err != nil {
-			return nil, err
-		}
-
-		if pool.GetLiquidityCap().GTE(osmomath.NewInt(options.MinPoolLiquidityCap)) {
-			pools = append(pools, pool)
-		}
 	}
 
 	return pools, nil

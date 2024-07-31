@@ -3,7 +3,6 @@ package mocks
 import (
 	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -37,14 +36,14 @@ func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.Pool
 	if len(options.PoolIDFilter) > 0 {
 		for _, id := range options.PoolIDFilter {
 			for _, pool := range p.Pools {
-				if pool.GetId() == id && pool.GetLiquidityCap().GTE(osmomath.NewInt(options.MinPoolLiquidityCap)) {
+				if pool.GetId() == id {
 					result = append(result, pool)
 				}
 			}
 		}
 	} else {
 		for _, pool := range p.Pools {
-			if pool.GetLiquidityCap().GTE(osmomath.NewInt(options.MinPoolLiquidityCap)) {
+			if pool.GetLiquidityCap().Uint64() > options.MinPoolLiquidityCap {
 				result = append(result, pool)
 			}
 		}
