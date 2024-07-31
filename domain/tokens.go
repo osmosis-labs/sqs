@@ -56,3 +56,18 @@ type TokenRegistryLoader interface {
 	// FetchAndUpdateTokens fetches tokens from the chain registry and updates the token registry.
 	FetchAndUpdateTokens() error
 }
+
+// SwapMethod is the type of token swap method.
+type TokenSwapMethod int
+
+// SwapMethod constants represent specific type of swap method.
+const (
+	// Token swap method where the exact amount of token in is swapped for token out.
+	TokenSwapMethodExactIn TokenSwapMethod = iota
+
+	// Token swap method where the exact amount of token out is swapped for token in.
+	TokenSwapMethodExactOut
+
+	// Unknown swap method, used for error handling.
+	TokenSwapMethodInvalid
+)

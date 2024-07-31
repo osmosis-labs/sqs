@@ -59,6 +59,9 @@ type RouterUsecase interface {
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.
 	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 
+	// GetOptimalQuoteInGivenOut returns the optimal quote for the given token swap method exact amount out.
+	GetOptimalQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, opts ...domain.RouterOption) (domain.Quote, error)
+
 	// GetCustomDirectQuote returns the custom direct quote for the given tokenIn, tokenOutDenom and poolID.
 	// It does not search for the route. It directly computes the quote for the given poolID.
 	// This allows to bypass a min liquidity requirement in the router when attempting to swap over a specific pool.

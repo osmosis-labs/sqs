@@ -75,9 +75,9 @@ class SQSService:
         # Send the GET request
         return requests.get(self.url + ROUTER_ROUTES_URL, params=params, headers=self.headers)
 
-    def get_quote(self, denom_in, denom_out, human_denoms="false", singleRoute="false"):
+    def get_exact_amount_in_quote(self, denom_in, denom_out, human_denoms="false", singleRoute="false"):
         """
-        Fetches quote from the specified endpoint and returns it.
+        Fetches exact amount in quote from the specified endpoint and returns it.
 
         Raises error if non-200 is returned from the endpoint.
         """
@@ -86,6 +86,26 @@ class SQSService:
         params = {
             "tokenIn": denom_in,
             "tokenOutDenom": denom_out,
+            "humanDenoms": human_denoms,
+            "singleRoute": singleRoute,
+        }
+
+        print(params)
+
+        # Send the GET request
+        return requests.get(self.url + ROUTER_QUOTE_URL, params=params, headers=self.headers)
+
+    def get_exact_amount_out_quote(self, token_out, denom_in, human_denoms="false", singleRoute="false"):
+        """
+        Fetches exact amount out quote from the specified endpoint and returns it.
+
+        Raises error if non-200 is returned from the endpoint.
+        """
+
+        # Set the query parameters
+        params = {
+            "tokenOut": token_out,
+            "tokenInDenom": denom_in,
             "humanDenoms": human_denoms,
             "singleRoute": singleRoute,
         }

@@ -15,7 +15,7 @@ import (
 type (
 	RouterUseCaseImpl = routerUseCaseImpl
 
-	QuoteImpl = quoteImpl
+	QuoteImpl = quoteExactAmountIn
 
 	CandidatePoolWrapper  = candidatePoolWrapper
 	CandidateRouteWrapper = candidateRouteWrapper

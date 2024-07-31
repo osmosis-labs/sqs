@@ -22,7 +22,8 @@ type routableAlloyTransmuterPoolImpl struct {
 	ChainPool           *cwpoolmodel.CosmWasmPool         "json:\"pool\""
 	AlloyTransmuterData *cosmwasmpool.AlloyTransmuterData "json:\"alloy_transmuter_data\""
 	Balances            sdk.Coins                         "json:\"balances\""
-	TokenOutDenom       string                            "json:\"token_out_denom\""
+	TokenInDenom        string                            "json:\"token_in_denom,omitempty\""
+	TokenOutDenom       string                            "json:\"token_out_denom,omitempty\""
 	TakerFee            osmomath.Dec                      "json:\"taker_fee\""
 	SpreadFactor        osmomath.Dec                      "json:\"spread_factor\""
 }
@@ -83,6 +84,11 @@ func (r *routableAlloyTransmuterPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
+// GetTokenInDenom implements RoutablePool.
+func (r *routableAlloyTransmuterPoolImpl) GetTokenInDenom() string {
+	return r.TokenInDenom
+}
+
 // String implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d) Transmuter with alloyed denom, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
@@ -98,6 +104,11 @@ func (r *routableAlloyTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin
 // GetTakerFee implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
+}
+
+// SetTokenInDenom implements domain.RoutablePool.
+func (r *routableAlloyTransmuterPoolImpl) SetTokenInDenom(tokenInDenom string) {
+	r.TokenInDenom = tokenInDenom
 }
 
 // SetTokenOutDenom implements domain.RoutablePool.

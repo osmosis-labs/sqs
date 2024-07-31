@@ -26,6 +26,7 @@ type MockRoutablePool struct {
 	Denoms            []string
 	PoolType          poolmanagertypes.PoolType
 	SQSPoolType       domain.SQSPoolType
+	TokenInDenom      string
 	TokenOutDenom     string
 	TakerFee          osmomath.Dec
 	SpreadFactor      osmomath.Dec
@@ -130,6 +131,16 @@ func (*MockRoutablePool) Validate(minUOSMOTVL math.Int) error {
 // GetTokenOutDenom implements routerusecase.RoutablePool.
 func (mp *MockRoutablePool) GetTokenOutDenom() string {
 	return mp.TokenOutDenom
+}
+
+// GetTokenInDenom implements routerusecase.RoutablePool.
+func (mp *MockRoutablePool) GetTokenInDenom() string {
+	return mp.TokenInDenom
+}
+
+// SetTokenInDenom implements routerusecase.RoutablePool.
+func (mp *MockRoutablePool) SetTokenInDenom(tokenInDenom string) {
+	mp.TokenInDenom = tokenInDenom
 }
 
 // ChargeTakerFee implements domain.RoutablePool.

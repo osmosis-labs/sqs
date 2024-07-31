@@ -30,7 +30,8 @@ var _ domain.RoutablePool = &routableCosmWasmPoolImpl{}
 type routableCosmWasmPoolImpl struct {
 	ChainPool                *cwpoolmodel.CosmWasmPool       "json:\"pool\""
 	Balances                 sdk.Coins                       "json:\"balances\""
-	TokenOutDenom            string                          "json:\"token_out_denom\""
+	TokenOutDenom            string                          "json:\"token_out_denom,omitempty\""
+	TokenInDenom             string                          "json:\"token_in_denom,omitempty\""
 	TakerFee                 osmomath.Dec                    "json:\"taker_fee\""
 	SpreadFactor             osmomath.Dec                    "json:\"spread_factor\""
 	wasmClient               wasmtypes.QueryClient           "json:\"-\""
@@ -112,6 +113,21 @@ func (r *routableCosmWasmPoolImpl) calculateTokenOutByTokenIn(ctx context.Contex
 	// No slippage swaps - just return the same amount of token out as token in
 	// as long as there is enough liquidity in the pool.
 	return calcOutAmtGivenInResponse.TokenOut, nil
+}
+
+// SetTokenInDenom implements domain.RoutablePool.
+func (r *routableCosmWasmPoolImpl) SetTokenInDenom(tokenInDenom string) {
+	r.TokenInDenom = tokenInDenom
+}
+
+// SetTokenInDenom implements domain.RoutablePool.
+func (r *routableCosmWasmPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
+	r.TokenOutDenom = tokenOutDenom
+}
+
+// GetTokenInDenom implements RoutablePool.
+func (r *routableCosmWasmPoolImpl) GetTokenInDenom() string {
+	return r.TokenInDenom
 }
 
 // GetTokenOutDenom implements RoutablePool.

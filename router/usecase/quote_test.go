@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"encoding/json"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -47,21 +48,6 @@ func (s *RouterTestSuite) TestPrepareResult() {
 		takerFeeOne   = osmomath.NewDecWithPrec(2, 2)
 		takerFeeTwo   = osmomath.NewDecWithPrec(4, 4)
 		takerFeeThree = osmomath.NewDecWithPrec(3, 3)
-
-		poolOneBalances = sdk.NewCoins(
-			sdk.NewCoin(USDT, defaultAmount.MulRaw(5)),
-			sdk.NewCoin(ETH, defaultAmount),
-		)
-
-		poolTwoBalances = sdk.NewCoins(
-			sdk.NewCoin(USDC, defaultAmount),
-			sdk.NewCoin(USDT, defaultAmount),
-		)
-
-		poolThreeBalances = sdk.NewCoins(
-			sdk.NewCoin(ETH, defaultAmount),
-			sdk.NewCoin(USDC, defaultAmount.MulRaw(4)),
-		)
 	)
 
 	// Prepare 2 routes
@@ -69,180 +55,149 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	// Route 2: 1 hop
 
 	// Pool USDT / ETH -> 0.01 spread factor & 5 USDTfor 1 ETH
-	poolIDOne := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
-		{
-			Token:  sdk.NewCoin(USDT, defaultAmount.MulRaw(5)),
-			Weight: sdk.NewInt(100),
-		},
-		{
-			Token:  sdk.NewCoin(ETH, defaultAmount),
-			Weight: sdk.NewInt(100),
-		},
-	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(1, 2),
-		ExitFee: osmomath.ZeroDec(),
-	})
-
-	poolOne, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, poolIDOne)
-	s.Require().NoError(err)
+	poolIDOne, poolOne := s.PoolOne()
 
 	// Pool USDC / USDT -> 0.01 spread factor & 1 USDC for 1 USDT
-	poolIDTwo := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
-		{
-			Token:  sdk.NewCoin(USDC, defaultAmount),
-			Weight: sdk.NewInt(100),
-		},
-		{
-			Token:  sdk.NewCoin(USDT, defaultAmount),
-			Weight: sdk.NewInt(100),
-		},
-	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(3, 2),
-		ExitFee: osmomath.ZeroDec(),
-	})
-
-	poolTwo, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, poolIDTwo)
-	s.Require().NoError(err)
+	poolIDTwo, poolTwo := s.PoolTwo()
 
 	// Pool ETH / USDC -> 0.005 spread factor & 4 USDC for 1 ETH
-	poolIDThree := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
+	poolIDThree, poolThree := s.PoolThree()
+
+	testcases := []struct {
+		name  string
+		quote domain.Quote
+
+		expectedRoutes       []domain.SplitRoute
+		expectedEffectiveFee string
+		expectedJSON         string
+	}{
 		{
-			Token:  sdk.NewCoin(ETH, defaultAmount),
-			Weight: sdk.NewInt(100),
-		},
-		{
-			Token:  sdk.NewCoin(USDC, defaultAmount.MulRaw(4)),
-			Weight: sdk.NewInt(100),
-		},
-	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(5, 3),
-		ExitFee: osmomath.ZeroDec(),
-	})
-
-	poolThree, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, poolIDThree)
-	s.Require().NoError(err)
-
-	testQuote := &usecase.QuoteImpl{
-		AmountIn:  sdk.NewCoin(ETH, totalInAmount),
-		AmountOut: totalOutAmount,
-
-		// 2 routes with 50-50 split, each single hop
-		Route: []domain.SplitRoute{
-
-			// Route 1
-			&usecase.RouteWithOutAmount{
-				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							sqsdomain.NewPool(poolOne, poolOne.GetSpreadFactor(sdk.Context{}), poolOneBalances),
-							USDT,
-							takerFeeOne,
-							domain.CosmWasmPoolRouterConfig{},
-						),
-						s.newRoutablePool(
-							sqsdomain.NewPool(poolTwo, poolTwo.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
-							USDC,
-							takerFeeTwo,
-							domain.CosmWasmPoolRouterConfig{},
-						),
+			name:  "exact amount in",
+			quote: s.NewExactAmountInQuote(poolOne, poolTwo, poolThree),
+			expectedRoutes: []domain.SplitRoute{
+				// Route 1
+				&usecase.RouteWithOutAmount{
+					RouteImpl: route.RouteImpl{
+						Pools: []domain.RoutablePool{
+							pools.NewRoutableResultPool(
+								poolIDOne,
+								poolmanagertypes.Balancer,
+								poolOne.GetSpreadFactor(sdk.Context{}),
+								USDT,
+								takerFeeOne,
+								notCosmWasmPoolCodeID,
+							),
+							pools.NewRoutableResultPool(
+								poolIDTwo,
+								poolmanagertypes.Balancer,
+								poolTwo.GetSpreadFactor(sdk.Context{}),
+								USDC,
+								takerFeeTwo,
+								notCosmWasmPoolCodeID,
+							),
+						},
 					},
+
+					InAmount:  totalInAmount.QuoRaw(2),
+					OutAmount: totalOutAmount.QuoRaw(2),
 				},
 
-				InAmount:  totalInAmount.QuoRaw(2),
-				OutAmount: totalOutAmount.QuoRaw(2),
-			},
-
-			// Route 2
-			&usecase.RouteWithOutAmount{
-				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							sqsdomain.NewPool(poolThree, poolThree.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
-							USDC,
-							takerFeeThree,
-							domain.CosmWasmPoolRouterConfig{},
-						),
+				// Route 2
+				&usecase.RouteWithOutAmount{
+					RouteImpl: route.RouteImpl{
+						Pools: []domain.RoutablePool{
+							pools.NewRoutableResultPool(
+								poolIDThree,
+								poolmanagertypes.Balancer,
+								poolThree.GetSpreadFactor(sdk.Context{}),
+								USDC,
+								takerFeeThree,
+								notCosmWasmPoolCodeID,
+							),
+						},
 					},
-				},
 
-				InAmount:  totalInAmount.QuoRaw(2),
-				OutAmount: totalOutAmount.QuoRaw(2),
+					InAmount:  totalInAmount.QuoRaw(2),
+					OutAmount: totalOutAmount.QuoRaw(2),
+				},
 			},
+			// (0.02 + (1 - 0.02) * 0.0004) * 0.5 + 0.003 * 0.5
+			expectedEffectiveFee: "0.011696000000000000",
+			expectedJSON:         s.MustReadFile("./routertesting/parsing/quote_amount_in_response.json"),
 		},
-		EffectiveFee: osmomath.ZeroDec(),
+		{
+			name:  "exact amount out",
+			quote: s.NewExactAmountOutQuote(poolOne, poolTwo, poolThree),
+			expectedRoutes: []domain.SplitRoute{
+				&usecase.RouteWithOutAmount{
+					RouteImpl: route.RouteImpl{
+						Pools: []domain.RoutablePool{
+							pools.NewExactAmountOutRoutableResultPool(
+								poolIDOne,
+								poolmanagertypes.Balancer,
+								poolOne.GetSpreadFactor(sdk.Context{}),
+								USDT,
+								takerFeeOne,
+								notCosmWasmPoolCodeID,
+							),
+							pools.NewExactAmountOutRoutableResultPool(
+								poolIDTwo,
+								poolmanagertypes.Balancer,
+								poolTwo.GetSpreadFactor(sdk.Context{}),
+								USDC,
+								takerFeeTwo,
+								notCosmWasmPoolCodeID,
+							),
+						},
+					},
+
+					InAmount:  totalOutAmount.QuoRaw(3),
+					OutAmount: totalInAmount.QuoRaw(2),
+				},
+				&usecase.RouteWithOutAmount{
+					RouteImpl: route.RouteImpl{
+						Pools: []domain.RoutablePool{
+							pools.NewExactAmountOutRoutableResultPool(
+								poolIDThree,
+								poolmanagertypes.Balancer,
+								poolThree.GetSpreadFactor(sdk.Context{}),
+								USDC,
+								takerFeeThree,
+								notCosmWasmPoolCodeID,
+							),
+						},
+					},
+
+					InAmount:  totalOutAmount.QuoRaw(5),
+					OutAmount: totalInAmount.QuoRaw(4),
+				},
+			},
+			expectedEffectiveFee: "0.010946000000000000",
+			expectedJSON:         s.MustReadFile("./routertesting/parsing/quote_amount_out_response.json"),
+		},
 	}
 
-	expectedRoutes := []domain.SplitRoute{
+	for _, tc := range testcases {
+		s.Run(tc.name, func() {
+			// System under test
+			routes, effectiveFee, err := tc.quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
+			s.Require().NoError(err)
 
-		// Route 1
-		&usecase.RouteWithOutAmount{
-			RouteImpl: route.RouteImpl{
-				Pools: []domain.RoutablePool{
-					pools.NewRoutableResultPool(
-						poolIDOne,
-						poolmanagertypes.Balancer,
-						poolOne.GetSpreadFactor(sdk.Context{}),
-						USDT,
-						takerFeeOne,
-						notCosmWasmPoolCodeID,
-					),
-					pools.NewRoutableResultPool(
-						poolIDTwo,
-						poolmanagertypes.Balancer,
-						poolTwo.GetSpreadFactor(sdk.Context{}),
-						USDC,
-						takerFeeTwo,
-						notCosmWasmPoolCodeID,
-					),
-				},
-			},
+			// Validate JSON representation, which is used for output to the client
+			// That covers amount in and amount out which can not be validated with getter methods.
+			response, err := json.Marshal(tc.quote)
+			s.Require().NoError(err)
+			s.Require().JSONEq(tc.expectedJSON, string(response))
 
-			InAmount:  totalInAmount.QuoRaw(2),
-			OutAmount: totalOutAmount.QuoRaw(2),
-		},
+			// Validate routes.
+			s.validateRoutes(tc.expectedRoutes, routes)
+			s.validateRoutes(tc.expectedRoutes, tc.quote.GetRoute())
 
-		// Route 2
-		&usecase.RouteWithOutAmount{
-			RouteImpl: route.RouteImpl{
-				Pools: []domain.RoutablePool{
-					pools.NewRoutableResultPool(
-						poolIDThree,
-						poolmanagertypes.Balancer,
-						poolThree.GetSpreadFactor(sdk.Context{}),
-						USDC,
-						takerFeeThree,
-						notCosmWasmPoolCodeID,
-					),
-				},
-			},
-
-			InAmount:  totalInAmount.QuoRaw(2),
-			OutAmount: totalOutAmount.QuoRaw(2),
-		},
+			// Validate effective spread factor.
+			s.Require().Equal(tc.expectedEffectiveFee, effectiveFee.String())
+			s.Require().Equal(tc.expectedEffectiveFee, tc.quote.GetEffectiveFee().String())
+		})
 	}
-
-	// Compute expected total fee and validate against actual
-	expectedPoolOneTotalFee := takerFeeOne
-	expectedPoolTwoTotalFee := takerFeeTwo
-	expectedPoolThreeTotalFee := takerFeeThree
-
-	expectedRouteOneFee := expectedPoolOneTotalFee.Add(osmomath.OneDec().Sub(expectedPoolOneTotalFee).MulMut(expectedPoolTwoTotalFee)).MulMut(osmomath.NewDecWithPrec(5, 1))
-	expectedRouteTwoFee := expectedPoolThreeTotalFee.Mul(osmomath.NewDecWithPrec(5, 1))
-
-	// (0.02 + (1 - 0.02) * 0.0004) * 0.5 + 0.003 * 0.5
-	expectedEffectiveFee := expectedRouteOneFee.Add(expectedRouteTwoFee)
-
-	// System under test
-	routes, effectiveFee, err := testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
-	s.Require().NoError(err)
-
-	// Validate routes.
-	s.validateRoutes(expectedRoutes, routes)
-	s.validateRoutes(expectedRoutes, testQuote.GetRoute())
-
-	// Validate effective spread factor.
-	s.Require().Equal(expectedEffectiveFee.String(), effectiveFee.String())
-	s.Require().Equal(expectedEffectiveFee.String(), testQuote.GetEffectiveFee().String())
 }
 
 // This test validates that price impact is computed correctly.

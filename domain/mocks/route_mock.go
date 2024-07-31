@@ -13,6 +13,7 @@ type RouteMock struct {
 	ContainsGeneralizedCosmWasmPoolFunc func() bool
 	GetPoolsFunc                        func() []domain.RoutablePool
 	GetTokenOutDenomFunc                func() string
+	GetTokenInDenomFunc                 func() string
 	PrepareResultPoolsFunc              func(ctx context.Context, tokenIn types.Coin) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
 	StringFunc                          func() string
 }
@@ -48,6 +49,15 @@ func (r *RouteMock) GetPools() []domain.RoutablePool {
 func (r *RouteMock) GetTokenOutDenom() string {
 	if r.GetTokenOutDenomFunc != nil {
 		return r.GetTokenOutDenomFunc()
+	}
+
+	panic("unimplemented")
+}
+
+// GetTokenInDenom implements domain.Route.
+func (r *RouteMock) GetTokenInDenom() string {
+	if r.GetTokenInDenomFunc != nil {
+		return r.GetTokenInDenomFunc()
 	}
 
 	panic("unimplemented")

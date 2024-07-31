@@ -29,7 +29,8 @@ type routableResultPoolImpl struct {
 	Type          poolmanagertypes.PoolType "json:\"type\""
 	Balances      sdk.Coins                 "json:\"balances\""
 	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
-	TokenOutDenom string                    "json:\"token_out_denom\""
+	TokenOutDenom string                    "json:\"token_out_denom,omitempty\""
+	TokenInDenom  string                    "json:\"token_in_denom,omitempty\""
 	TakerFee      osmomath.Dec              "json:\"taker_fee\""
 	CodeID        uint64                    "json:\"code_id,omitempty\""
 }
@@ -37,6 +38,16 @@ type routableResultPoolImpl struct {
 // GetCodeID implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetCodeID() uint64 {
 	panic("unimplemented")
+}
+
+// SetInDenom implements domain.RoutablePool.
+func (r *routableResultPoolImpl) SetInDenom(denom string) {
+	r.TokenInDenom = denom
+}
+
+// SetOutDenom implements domain.RoutablePool.
+func (r *routableResultPoolImpl) SetOutDenom(denom string) {
+	r.TokenOutDenom = denom
 }
 
 // NewRoutableResultPool returns the new routable result pool with the given parameters.
@@ -48,6 +59,18 @@ func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spread
 		TokenOutDenom: tokenOutDenom,
 		TakerFee:      takerFee,
 		CodeID:        codeID,
+	}
+}
+
+// NewExactAmountOutRoutableResultPool returns the new routable result pool with the given parameters.
+func NewExactAmountOutRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenInDenom string, takerFee osmomath.Dec, codeID uint64) domain.RoutablePool {
+	return &routableResultPoolImpl{
+		ID:           ID,
+		Type:         poolType,
+		SpreadFactor: spreadFactor,
+		TokenInDenom: tokenInDenom,
+		TakerFee:     takerFee,
+		CodeID:       codeID,
 	}
 }
 
@@ -110,6 +133,11 @@ func (r *routableResultPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
+// GetTokenInDenom implements RoutablePool.
+func (r *routableResultPoolImpl) GetTokenInDenom() string {
+	return r.TokenInDenom
+}
+
 // String implements domain.RoutablePool.
 func (r *routableResultPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v)", r.GetId(), r.GetType(), r.GetPoolDenoms())
@@ -130,6 +158,11 @@ func (r *routableResultPoolImpl) GetTakerFee() math.LegacyDec {
 // GetBalances implements domain.RoutableResultPool.
 func (r *routableResultPoolImpl) GetBalances() sdk.Coins {
 	return r.Balances
+}
+
+// SetTokenInDenom implements domain.RoutablePool.
+func (r *routableResultPoolImpl) SetTokenInDenom(tokenInDenom string) {
+	r.TokenInDenom = tokenInDenom
 }
 
 // SetTokenOutDenom implements domain.RoutablePool.

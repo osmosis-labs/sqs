@@ -190,19 +190,35 @@ paths:
       summary: Compute the quote for the given poolID
   /router/quote:
     get:
-      description: returns the best quote it can compute for the given tokenIn and
-        tokenOutDenom.
+      description: |-
+        Returns the best quote it can compute for the exact in or exact out token swap method.
+
+        For exact amount in swap method, the `tokenIn` and `tokenOutDenom` are required.
+        For exact amount out swap method, the `tokenOut` and `tokenInDenom` are required.
+        Mixing swap method parameters in other way than specified will result in an error.
+
+        When `singleRoute` parameter is set to true, it gives the best single quote while excluding splits.
       operationId: get-route-quote
       parameters:
-      - description: String representation of the sdk.Coin for the token in.
+      - description: String representation of the sdk.Coin denoting the input token
+          for the exact amount in swap method.
         in: query
         name: tokenIn
-        required: true
         type: string
-      - description: String representing the denom of the token out.
+      - description: String representing the denomination of the output token for
+          the exact amount in swap method.
         in: query
         name: tokenOutDenom
-        required: true
+        type: string
+      - description: String representation of the sdk.Coin denoting the output token
+          for the exact amount out swap method.
+        in: query
+        name: tokenOut
+        type: string
+      - description: String representing the denomination of the input token for the
+          exact amount out swap method.
+        in: query
+        name: tokenInDenom
         type: string
       - description: Boolean flag indicating whether to return single routes (no splits).
           False (splits enabled) by default.
