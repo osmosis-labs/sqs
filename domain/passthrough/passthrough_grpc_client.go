@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	query "github.com/cosmos/cosmos-sdk/types/query"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	concentratedLiquidity "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/client/queryproto"
@@ -18,6 +19,9 @@ type PassthroughGRPCClient interface {
 	// AccountLockedCoins returns the locked coins of the user with the given address.
 	AccountLockedCoins(ctx context.Context, address string) (sdk.Coins, error)
 
+	// AccountUnlockingCoins returns the unlocking coins of the user with the given address.
+	AccountUnlockingCoins(ctx context.Context, address string) (sdk.Coins, error)
+
 	// AllBalances returns all the balances of the user with the given address.
 	AllBalances(ctx context.Context, address string) (sdk.Coins, error)
 
@@ -28,10 +32,16 @@ type PassthroughGRPCClient interface {
 	DelegatorUnbondingDelegations(ctx context.Context, address string) (sdk.Coins, error)
 
 	// UserPositionsBalances returns the user concentrated positions balances of the user with the given address.
-	UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, error)
+	// The first return is the pooled balance. The second return is the reward balance.
+	UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error)
 }
 
 type PassthroughFetchFn func(context.Context, string) (sdk.Coins, error)
+
+type PassthroughFetchFunctionWithName struct {
+	Name string
+	Fn   PassthroughFetchFn
+}
 
 type passthroughGRPCClient struct {
 	bankQueryClient                  banktypes.QueryClient
@@ -42,6 +52,10 @@ type passthroughGRPCClient struct {
 
 const (
 	defaultBondDenom = "uosmo"
+)
+
+var (
+	zero = sdk.ZeroInt()
 )
 
 func NewPassthroughGRPCClient(grpcURI string) (PassthroughGRPCClient, error) {
@@ -70,59 +84,111 @@ func (p *passthroughGRPCClient) AccountLockedCoins(ctx context.Context, address 
 	return response.Coins, nil
 }
 
-func (p *passthroughGRPCClient) AllBalances(ctx context.Context, address string) (sdk.Coins, error) {
-	response, err := p.bankQueryClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{Address: address})
+func (p *passthroughGRPCClient) AccountUnlockingCoins(ctx context.Context, address string) (sdk.Coins, error) {
+	response, err := p.lockupQueryClient.AccountUnlockingCoins(ctx, &lockup.AccountUnlockingCoinsRequest{Owner: address})
 	if err != nil {
 		return nil, err
 	}
 
-	return response.Balances, nil
+	return response.Coins, nil
+}
+
+func (p *passthroughGRPCClient) AllBalances(ctx context.Context, address string) (sdk.Coins, error) {
+	return paginateRequest(ctx, func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error) {
+		response, err := p.bankQueryClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{Address: address, Pagination: pageRequest})
+		if err != nil {
+			return nil, nil, err
+		}
+		return response.Pagination, response.Balances, nil
+	})
 }
 
 func (p *passthroughGRPCClient) DelegatorDelegations(ctx context.Context, address string) (sdk.Coins, error) {
-	response, err := p.stakingQueryClient.DelegatorDelegations(ctx, &staking.QueryDelegatorDelegationsRequest{DelegatorAddr: address})
-	if err != nil {
-		return nil, err
-	}
-
-	coins := sdk.Coins{}
-	for _, delegation := range response.DelegationResponses {
-		coins = coins.Add(delegation.Balance)
-	}
-
-	return coins, nil
+	return paginateRequest(ctx, func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error) {
+		response, err := p.stakingQueryClient.DelegatorDelegations(ctx, &staking.QueryDelegatorDelegationsRequest{DelegatorAddr: address, Pagination: pageRequest})
+		if err != nil {
+			return nil, nil, err
+		}
+		coin := sdk.Coin{Denom: defaultBondDenom, Amount: zero}
+		for _, delegation := range response.DelegationResponses {
+			coin = coin.Add(delegation.Balance)
+		}
+		return response.Pagination, sdk.Coins{coin}, nil
+	})
 }
 
 func (p *passthroughGRPCClient) DelegatorUnbondingDelegations(ctx context.Context, address string) (sdk.Coins, error) {
-	response, err := p.stakingQueryClient.DelegatorUnbondingDelegations(ctx, &staking.QueryDelegatorUnbondingDelegationsRequest{DelegatorAddr: address})
-	if err != nil {
-		return nil, err
-	}
-
-	coins := sdk.Coins{}
-	for _, delegation := range response.UnbondingResponses {
-		for _, entry := range delegation.Entries {
-			coins = coins.Add(sdk.Coin{Denom: defaultBondDenom, Amount: entry.Balance})
+	return paginateRequest(ctx, func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error) {
+		response, err := p.stakingQueryClient.DelegatorUnbondingDelegations(ctx, &staking.QueryDelegatorUnbondingDelegationsRequest{DelegatorAddr: address, Pagination: pageRequest})
+		if err != nil {
+			return nil, nil, err
 		}
-	}
-
-	return coins, nil
+		coin := sdk.Coin{Denom: defaultBondDenom, Amount: zero}
+		for _, delegation := range response.UnbondingResponses {
+			for _, entry := range delegation.Entries {
+				coin.Amount = coin.Amount.Add(entry.Balance)
+			}
+		}
+		return response.Pagination, sdk.Coins{coin}, nil
+	})
 }
 
-func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, error) {
-	response, err := p.concentratedLiquidityQueryClient.UserPositions(ctx, &concentratedLiquidity.UserPositionsRequest{Address: address})
-	if err != nil {
-		return nil, err
+func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
+	var (
+		response = &concentratedLiquidity.UserPositionsResponse{
+			Pagination: &query.PageResponse{},
+		}
+		isFirstRequest = true
+		pooledCoins    = sdk.Coins{}
+		rewardCoins    = sdk.Coins{}
+		err            error
+		pageRequest    *query.PageRequest
+	)
+
+	for isFirstRequest || response.Pagination.NextKey != nil {
+		if !isFirstRequest {
+			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
+		}
+
+		response, err = p.concentratedLiquidityQueryClient.UserPositions(ctx, &concentratedLiquidity.UserPositionsRequest{Address: address, Pagination: pageRequest})
+		if err != nil {
+			return nil, nil, err
+		}
+
+		for _, position := range response.Positions {
+			pooledCoins = pooledCoins.Add(position.Asset0)
+			pooledCoins = pooledCoins.Add(position.Asset1)
+			rewardCoins = rewardCoins.Add(position.ClaimableSpreadRewards...)
+			rewardCoins = rewardCoins.Add(position.ClaimableIncentives...)
+		}
+
+		isFirstRequest = false
 	}
 
-	coins := sdk.Coins{}
+	return pooledCoins, rewardCoins, nil
+}
 
-	for _, position := range response.Positions {
-		coins = coins.Add(position.Asset0)
-		coins = coins.Add(position.Asset1)
-		coins = coins.Add(position.ClaimableSpreadRewards...)
-		coins = coins.Add(position.ClaimableIncentives...)
+func paginateRequest(ctx context.Context, fetchCoinsFn func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error)) (sdk.Coins, error) {
+	var (
+		isFirstRequest = true
+		allCoins       = sdk.Coins{}
+		pageRequest    = &query.PageRequest{}
+	)
+
+	for isFirstRequest || pageRequest.Key != nil {
+		if !isFirstRequest {
+			pageRequest = &query.PageRequest{Key: pageRequest.Key}
+		}
+
+		response, coins, err := fetchCoinsFn(ctx, pageRequest)
+		if err != nil {
+			return nil, err
+		}
+
+		allCoins = allCoins.Add(coins...)
+		pageRequest.Key = response.NextKey
+		isFirstRequest = false
 	}
 
-	return coins, nil
+	return allCoins, nil
 }

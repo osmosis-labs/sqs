@@ -63,35 +63,41 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 // @ID get-pools
 // @Produce  json
 // @Param  IDs  query  string  false  "Comma-separated list of pool IDs to fetch, e.g., '1,2,3'"
+// @Param  min_liquidity_cap  query  int  false  "Minimum pool liquidity cap"
 // @Success 200  {array}  sqsdomain.PoolI  "List of pool(s) details"
 // @Router /pools [get]
 func (a *PoolsHandler) GetPools(c echo.Context) error {
 	// Get pool ID parameters as strings.
 	poolIDsStr := c.QueryParam("IDs")
+	minLiquidityCapStr := c.QueryParam("min_liquidity_cap")
 
 	var (
 		pools []sqsdomain.PoolI
 		err   error
 	)
 
-	// if IDs are not given, get all pools
-	if len(poolIDsStr) == 0 {
-		pools, err = a.PUsecase.GetAllPools()
-		if err != nil {
-			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
-		}
-	} else {
-		// Parse them to numbers
-		poolIDs, err := domain.ParseNumbers(poolIDsStr)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
-		}
+	// Parse numbers
+	poolIDs, err := domain.ParseNumbers(poolIDsStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+	}
 
-		// Get pools
-		pools, err = a.PUsecase.GetPools(poolIDs)
+	// Parse min liquidity cap if provided
+	var minLiquidityCap uint64
+	if minLiquidityCapStr != "" {
+		minLiquidityCap, err = strconv.ParseUint(minLiquidityCapStr, 10, 64)
 		if err != nil {
-			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+			return c.JSON(http.StatusBadRequest, ResponseError{Message: "Invalid min_liquidity_cap value"})
 		}
+	}
+
+	// Get pools
+	pools, err = a.PUsecase.GetPools(
+		domain.WithMinPoolsLiquidityCap(minLiquidityCap),
+		domain.WithPoolIDFilter(poolIDs),
+	)
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
 	// Convert pools to the appropriate format

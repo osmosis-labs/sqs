@@ -545,6 +545,35 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
 	s.Require().False(actualCoins.Empty())
 }
 
+func (s *PoolsUsecaseTestSuite) TestGetPools() {
+	mainnetState := s.SetupMainnetState()
+
+	usecase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+	// No filter
+	pools, err := usecase.Pools.GetPools()
+	s.Require().NoError(err)
+	s.Require().True(len(pools) > 1500)
+
+	// Pool 32 is garbage and has zero liq.
+	// Pools 1 and 1066 are major pools.
+	poolsFilter := []uint64{32, 1, 1066}
+
+	// Pool ID filter
+	pools, err = usecase.Pools.GetPools(domain.WithPoolIDFilter(poolsFilter))
+	s.Require().NoError(err)
+	s.Require().Len(pools, len(poolsFilter))
+
+	// Min liquidity cap filter
+	pools, err = usecase.Pools.GetPools(domain.WithMinPoolsLiquidityCap(1_000_000))
+	s.Require().NoError(err)
+	s.Require().True(len(pools) < 100)
+
+	pools, err = usecase.Pools.GetPools(domain.WithMinPoolsLiquidityCap(1), domain.WithPoolIDFilter(poolsFilter))
+	s.Require().NoError(err)
+	s.Require().Len(pools, 2)
+}
+
 func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,

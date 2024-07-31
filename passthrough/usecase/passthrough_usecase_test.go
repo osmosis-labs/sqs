@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -114,31 +113,6 @@ var (
 		// Treat only UOSMO, ATOM and WBTC as valid for test purposes
 		return denom == UOSMO || denom == ATOM || denom == WBTC
 	}
-
-	// TestGetPotrfolioAssets_HappyPath and TestFetchAndAggregateBalancesByUserConcurrent_HappyPath
-	// share the test concfiguration and expected results.
-	sharedExpectedPortfolioAssetsResult = passthroughdomain.PortfolioAssetsResult{
-		AccountCoinsResult: []passthroughdomain.AccountCoinsResult{
-			{
-				// Note: 2x osmo from 2 functions
-				Coin:                osmoCoin.Add(osmoCoin),
-				CapitalizationValue: osmoCapitalization.Add(osmoCapitalization),
-			},
-			{
-				Coin:                atomCoin,
-				CapitalizationValue: atomCapitalization,
-			},
-			{
-				Coin:                wbtcCoin,
-				CapitalizationValue: wbtcCapitalization,
-			},
-			{
-				Coin:                invalidCoin,
-				CapitalizationValue: zero,
-			},
-		},
-		TotalValueCap: osmoCapitalization.Add(osmoCapitalization).Add(atomCapitalization).Add(wbtcCapitalization),
-	}
 )
 
 func TestPassthroughUseCase(t *testing.T) {
@@ -160,40 +134,37 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 		IsValidChainDenomFunc: isValidChainDenomFuncMock,
 	}
 
+	var (
+		miscError = fmt.Errorf("misc error")
+	)
+
 	// Initialize GRPC client mock
 	grpcClientMock := mocks.PassthroughGRPCClientMock{
 		MockAllBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
-			if address != defaultAddress {
-				return sdk.Coins{}, miscError
-			}
-			// Note: we return empty coins for simplicity. This method is tested by its individual unit test.
+			// Return coins and no error.
 			return sdk.NewCoins(osmoCoin), nil
 		},
 		MockAccountLockedCoinsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
-			if address != defaultAddress {
-				return sdk.Coins{}, miscError
-			}
 			// Note: we return empty coins for simplicity. This method is tested by its individual unit test.
-			return sdk.Coins{}, nil
+			// Returns an error to test the silent error handling.
+			return sdk.Coins{}, miscError
+		},
+		MockAccountUnlockingCoinsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			// Note: we return empty coins for simplicity. This method is tested by its individual unit test.
+			// Returns an error to test the silent error handling.
+			return sdk.Coins{}, miscError
 		},
 		MockDelegatorDelegationsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
-			if address != defaultAddress {
-				return nil, miscError
-			}
-			return sdk.NewCoins(osmoCoin), nil
+			// Return error to test the silent error handling.
+			return sdk.NewCoins(osmoCoin), miscError
 		},
 		MockDelegatorUnbondingDelegationsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
-			if address != defaultAddress {
-				return nil, miscError
-			}
-			// Note that osmo is here again
-			return sdk.NewCoins(atomCoin, osmoCoin), nil
+			// Return error to test the silent error handling.
+			return sdk.NewCoins(atomCoin, osmoCoin), miscError
 		},
-		MockUserPositionsBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
-			if address != defaultAddress {
-				return sdk.Coins{}, miscError
-			}
-			return sdk.NewCoins(wbtcCoin, invalidCoin), nil
+		MockUserPositionsBalancesCb: func(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
+			// Return error to test the silent error handling.
+			return sdk.NewCoins(wbtcCoin), sdk.NewCoins(invalidCoin), miscError
 		},
 	}
 
@@ -213,63 +184,65 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 
 	// Assert
 
-	// NOte: below is a hack to avoid code duplication.
-	// We preserve the shared values for total value cap and account coins result.
-	tempTotalValueCap := sharedExpectedPortfolioAssetsResult.TotalValueCap
-	tempAccountCoinsResult := sharedExpectedPortfolioAssetsResult.AccountCoinsResult
-
-	// Then, we modify per the expectation of this test case:
-	// Only the return from balances is considered (osmo) but total capitalization aggregates all outputs (shared capitalization + 1 extra from balances)
-	sharedExpectedPortfolioAssetsResult.TotalValueCap = sharedExpectedPortfolioAssetsResult.TotalValueCap.Add(osmoCapitalization)
-	sharedExpectedPortfolioAssetsResult.AccountCoinsResult = []passthroughdomain.AccountCoinsResult{
-		{
-			Coin:                osmoCoin,
-			CapitalizationValue: osmoCapitalization,
+	// Expected results are manually calculated based on the mocked out results.
+	expectedResult := passthroughdomain.PortfolioAssetsResult{
+		Categories: map[string]passthroughdomain.PortfolioAssetsCategoryResult{
+			usecase.UserBalancesAssetsCategoryName: {
+				Capitalization: osmoCapitalization,
+				AccountCoinsResult: []passthroughdomain.AccountCoinsResult{
+					{
+						Coin:                osmoCoin,
+						CapitalizationValue: osmoCapitalization,
+					},
+				},
+			},
+			usecase.UnstakingAssetsCategoryName: {
+				Capitalization: osmoCapitalization.Add(atomCapitalization),
+				IsBestEffort:   true,
+			},
+			usecase.StakedAssetsCategoryName: {
+				Capitalization: osmoCapitalization,
+				IsBestEffort:   true,
+			},
+			usecase.InLocksAssetsCategoryName: {
+				Capitalization: zero,
+				IsBestEffort:   true,
+			},
+			usecase.PooledAssetsCategoryName: {
+				Capitalization: wbtcCapitalization,
+				IsBestEffort:   true,
+			},
+			usecase.UnclaimedRewardsAssetsCategoryName: {
+				Capitalization: zero,
+				IsBestEffort:   true,
+			},
+			usecase.TotalAssetsCategoryName: {
+				Capitalization: osmoCapitalization.Add(osmoCapitalization).Add(osmoCapitalization).Add(atomCapitalization).Add(wbtcCapitalization),
+				AccountCoinsResult: []passthroughdomain.AccountCoinsResult{
+					{
+						Coin:                atomCoin,
+						CapitalizationValue: atomCapitalization,
+					},
+					{
+						Coin:                wbtcCoin,
+						CapitalizationValue: wbtcCapitalization,
+					},
+					{
+						Coin:                invalidCoin,
+						CapitalizationValue: zero,
+					},
+					{
+						Coin:                osmoCoin.Add(osmoCoin).Add(osmoCoin),
+						CapitalizationValue: osmoCapitalization.Add(osmoCapitalization).Add(osmoCapitalization),
+					},
+				},
+				IsBestEffort: true,
+			},
 		},
 	}
 
 	// Assert the results are correct.
-	s.validatePortfolioAssetsResult(sharedExpectedPortfolioAssetsResult, actualPortfolioAssets)
-
-	// Switch back to the original values
-	sharedExpectedPortfolioAssetsResult.TotalValueCap = tempTotalValueCap
-	sharedExpectedPortfolioAssetsResult.AccountCoinsResult = tempAccountCoinsResult
-}
-
-// Tests the happy path of fetch and aggregate balances by user concurrent using mocks.
-// It sets up several fetch functions where some return multiple coins and others contain invalid denoms.
-// Eventually, it asserts that the expected results match actual, aggregating balances and computing the total
-// capitalization.
-func (s *PassthroughUseCaseTestSuite) TestFetchAndAggregateBalancesByUserConcurrent_HappyPath() {
-	// Set up tokens use case mock with relevant methods
-	tokensUsecaseMock := mocks.TokensUsecaseMock{
-		GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
-			// Return the mocked out results
-			return defaultPriceResult, nil
-		},
-
-		IsValidChainDenomFunc: isValidChainDenomFuncMock,
-	}
-
-	pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
-
-	// System under test
-	aggregatedBalances, err := pu.FetchAndAggregateBalancesByUserConcurrent(context.TODO(), defaultAddress, []passthroughdomain.PassthroughFetchFn{
-		func(ctx context.Context, address string) (sdk.Coins, error) {
-			return sdk.NewCoins(osmoCoin), nil
-		},
-		func(ctx context.Context, address string) (sdk.Coins, error) {
-			// Note that osmo is here again
-			return sdk.NewCoins(atomCoin, osmoCoin), nil
-		},
-		func(ctx context.Context, address string) (sdk.Coins, error) {
-			return sdk.NewCoins(wbtcCoin, invalidCoin), nil
-		},
-	})
-
-	// Assert
-	s.Require().NoError(err)
-	s.validatePortfolioAssetsResult(sharedExpectedPortfolioAssetsResult, aggregatedBalances)
+	s.validatePortfolioAssetsResult(expectedResult, actualPortfolioAssets)
 }
 
 // Tests the compute capitalization for coins method using mocks.
@@ -410,13 +383,16 @@ func (s *PassthroughUseCaseTestSuite) TestComputeCapitalizationForCoins() {
 	}
 }
 
-// Tests the get locked coins method using mocks.
-func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
+// Tests the get locked and unlocking coins method using mocks.
+func (s *PassthroughUseCaseTestSuite) TestGetCoinsFromLocks() {
+	dafultResult := nonShareDefaultBalances.Add(defaultExitPoolCoins...)
+
 	tests := []struct {
 		name    string
 		address string
 
-		mockAccountLockedCoinsIfDefaultAddress sdk.Coins
+		mockAccountLockedCoinsIfDefaultAddress    sdk.Coins
+		mockAccountUnlockingCoinsIfDefaultAddress sdk.Coins
 
 		expectedCoins sdk.Coins
 		expectedError error
@@ -428,7 +404,18 @@ func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
 
 			mockAccountLockedCoinsIfDefaultAddress: defaultBalances,
 
-			expectedCoins: nonShareDefaultBalances.Add(defaultExitPoolCoins...),
+			expectedCoins: dafultResult,
+		},
+		{
+			name: "happy path with unlocking",
+
+			address: defaultAddress,
+
+			mockAccountLockedCoinsIfDefaultAddress:    defaultBalances,
+			mockAccountUnlockingCoinsIfDefaultAddress: defaultBalances,
+
+			// 2x for locked and unlocking.
+			expectedCoins: dafultResult.Add(dafultResult...),
 		},
 		{
 			name: "concentrated shares are skipped",
@@ -445,6 +432,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
 			address: "wrong address",
 
 			expectedError: grpcClientError,
+			expectedCoins: sdk.Coins{},
 		},
 		{
 			name: "skip error in converting gamm share to underlying coins",
@@ -473,6 +461,20 @@ func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
 					// If default address, return mock balances
 					return tt.mockAccountLockedCoinsIfDefaultAddress, nil
 				},
+				MockAccountUnlockingCoinsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+
+					// If not default address, return grpc client error
+					if address != defaultAddress {
+						return sdk.Coins{}, grpcClientError
+					}
+
+					if tt.mockAccountUnlockingCoinsIfDefaultAddress == nil {
+						return sdk.Coins{}, nil
+					}
+
+					// If default address, return mock balances
+					return tt.mockAccountUnlockingCoinsIfDefaultAddress, nil
+				},
 			}
 
 			// Initialize pools use case mock
@@ -491,7 +493,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetLockedCoins() {
 			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
-			actualBalances, err := pu.GetLockedCoins(context.TODO(), tt.address)
+			actualBalances, err := pu.GetCoinsFromLocks(context.TODO(), tt.address)
 
 			// Assert
 			s.Require().Equal(tt.expectedCoins, actualBalances)
@@ -509,8 +511,9 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 
 		mockAllBalancesIfDefaultAddress sdk.Coins
 
-		expectedCoins sdk.Coins
-		expectedError error
+		expectedBalanceCoins sdk.Coins
+		expectedShareCoins   sdk.Coins
+		expectedError        error
 	}{
 		{
 			name: "happy path",
@@ -519,7 +522,8 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 
 			mockAllBalancesIfDefaultAddress: defaultBalances,
 
-			expectedCoins: nonShareDefaultBalances.Add(defaultExitPoolCoins...),
+			expectedBalanceCoins: nonShareDefaultBalances,
+			expectedShareCoins:   defaultExitPoolCoins,
 		},
 		{
 			name: "error: grpc client error",
@@ -537,7 +541,8 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 
 			// Note that only non share balances are returned
 			// The share coins are skipped due to error.
-			expectedCoins: nonShareDefaultBalances,
+			expectedBalanceCoins: nonShareDefaultBalances,
+			expectedShareCoins:   sdk.Coins{},
 		},
 	}
 
@@ -573,11 +578,12 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
-			actualBalances, err := pu.GetBankBalances(context.TODO(), tt.address)
+			actualBalances, gammShareBalances, err := pu.GetBankBalances(context.TODO(), tt.address)
 
 			// Assert
-			s.Require().Equal(tt.expectedCoins, actualBalances)
+			s.Require().Equal(tt.expectedBalanceCoins, actualBalances)
 			s.Require().Equal(tt.expectedError, err)
+			s.Require().Equal(tt.expectedShareCoins, gammShareBalances)
 		})
 	}
 }
@@ -683,16 +689,21 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 
 // validatePortfolioAssetsResult validates the expected and actual portfolio assets results.
 func (s *PassthroughUseCaseTestSuite) validatePortfolioAssetsResult(expectedResult passthroughdomain.PortfolioAssetsResult, actualResult passthroughdomain.PortfolioAssetsResult) {
-	s.Require().Equal(expectedResult.TotalValueCap, actualResult.TotalValueCap)
 
-	// Sort the results for comparison. Order not guaranteed due to concurrency.
-	sort.Slice(actualResult.AccountCoinsResult, func(i, j int) bool {
-		return actualResult.AccountCoinsResult[i].Coin.Denom < actualResult.AccountCoinsResult[j].Coin.Denom
-	})
+	s.Require().Equal(len(expectedResult.Categories), len(actualResult.Categories))
 
-	sort.Slice(expectedResult.AccountCoinsResult, func(i, j int) bool {
-		return expectedResult.AccountCoinsResult[i].Coin.Denom < expectedResult.AccountCoinsResult[j].Coin.Denom
-	})
+	for categoryName, expectedCategory := range expectedResult.Categories {
+		actualCategory := actualResult.Categories[categoryName]
 
-	s.Require().Equal(expectedResult.AccountCoinsResult, actualResult.AccountCoinsResult)
+		s.Require().Equal(expectedCategory.Capitalization, actualCategory.Capitalization, categoryName)
+		s.Require().Equal(len(expectedCategory.AccountCoinsResult), len(actualCategory.AccountCoinsResult), categoryName)
+		for j, expectedAccountCoinsResult := range expectedCategory.AccountCoinsResult {
+			actualAccountCoinsResult := actualCategory.AccountCoinsResult[j]
+
+			s.Require().Equal(expectedAccountCoinsResult.Coin, actualAccountCoinsResult.Coin, categoryName)
+			s.Require().Equal(expectedAccountCoinsResult.CapitalizationValue, actualAccountCoinsResult.CapitalizationValue, categoryName)
+		}
+
+		s.Require().Equal(expectedCategory.IsBestEffort, actualCategory.IsBestEffort, categoryName)
+	}
 }
