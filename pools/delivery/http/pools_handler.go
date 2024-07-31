@@ -63,6 +63,7 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 // @ID get-pools
 // @Produce  json
 // @Param  IDs  query  string  false  "Comma-separated list of pool IDs to fetch, e.g., '1,2,3'"
+// @Param  min_liquidity_cap  query  int  false  "Minimum pool liquidity cap"
 // @Success 200  {array}  sqsdomain.PoolI  "List of pool(s) details"
 // @Router /pools [get]
 func (a *PoolsHandler) GetPools(c echo.Context) error {
