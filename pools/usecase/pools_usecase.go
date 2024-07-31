@@ -292,19 +292,34 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 }
 
 // GetPools implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error) {
-	pools := make([]sqsdomain.PoolI, 0, len(poolIDs))
-
-	for _, poolID := range poolIDs {
-		pool, err := p.GetPool(poolID)
-		if err != nil {
-			return nil, err
-		}
-
-		pools = append(pools, pool)
+func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error) {
+	options := domain.PoolsOptions{
+		MinPoolLiquidityCap: 0,
+		PoolIDFilter:        []uint64{},
 	}
 
-	return pools, nil
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	if len(options.PoolIDFilter) > 0 {
+		pools := make([]sqsdomain.PoolI, 0, len(options.PoolIDFilter))
+
+		for _, poolID := range options.PoolIDFilter {
+			pool, err := p.GetPool(poolID)
+			if err != nil {
+				return nil, err
+			}
+
+			pools = append(pools, pool)
+		}
+
+		return pools, nil
+	}
+
+	// TODO: min filter logic
+
+	return nil, nil
 }
 
 // StorePools implements mvc.PoolsUsecase.
