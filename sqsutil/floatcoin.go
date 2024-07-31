@@ -120,6 +120,7 @@ func (m *FloatCoinsMap) ToSortedList() []FloatCoin {
 
 var oneInt = big.NewInt(1)
 
+//nolint:unparam
 func bigIntToFloat(scratchFloat *big.Float, amount *big.Int, roundingMode RoundingMode) float64 {
 	fAmount, _ := scratchFloat.SetInt(amount).Float64()
 	// TODO: implement rounding mode, not so obvious how to do this
@@ -168,7 +169,6 @@ func init() {
 	}
 }
 
-//nolint:unparam
 func floatToSDKInt(scratchFloat *big.Float, amount float64, roundingMode RoundingMode) sdkmath.Int {
 	if amount > maxFloatForInt {
 		// If the amount is too large, return the maximum possible integer
