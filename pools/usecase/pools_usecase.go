@@ -292,16 +292,45 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 }
 
 // GetPools implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error) {
-	pools := make([]sqsdomain.PoolI, 0, len(poolIDs))
+func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error) {
+	options := domain.PoolsOptions{
+		MinPoolLiquidityCap: 0,
+		PoolIDFilter:        []uint64{},
+	}
 
-	for _, poolID := range poolIDs {
-		pool, err := p.GetPool(poolID)
-		if err != nil {
-			return nil, err
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	var (
+		pools []sqsdomain.PoolI
+	)
+
+	if len(options.PoolIDFilter) > 0 {
+		// Get specific pools
+		pools = make([]sqsdomain.PoolI, 0, len(options.PoolIDFilter))
+		for _, poolID := range options.PoolIDFilter {
+			pool, err := p.GetPool(poolID)
+			if err != nil {
+				return nil, err
+			}
+
+			// Check filter is non-zero to avoid more expensive get liquidity cap check.
+			if pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
+				pools = append(pools, pool)
+			}
 		}
-
-		pools = append(pools, pool)
+	} else {
+		// Pre-allocate 2000 since this is how many pools there are today.
+		pools = make([]sqsdomain.PoolI, 0, 2000)
+		p.pools.Range(func(key, value interface{}) bool {
+			pool, ok := value.(sqsdomain.PoolI)
+			// Check filter is non-zero to avoid more expensive get liquidity cap check.
+			if ok && pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
+				pools = append(pools, pool)
+			}
+			return true
+		})
 	}
 
 	return pools, nil

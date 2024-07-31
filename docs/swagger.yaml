@@ -98,6 +98,10 @@ paths:
         in: query
         name: IDs
         type: string
+      - description: Minimum pool liquidity cap
+        in: query
+        name: min_liquidity_cap
+        type: integer
       produces:
       - application/json
       responses:

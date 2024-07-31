@@ -61,6 +61,12 @@ const docTemplate = `{
                         "description": "Comma-separated list of pool IDs to fetch, e.g., '1,2,3'",
                         "name": "IDs",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum pool liquidity cap",
+                        "name": "min_liquidity_cap",
+                        "in": "query"
                     }
                 ],
                 "responses": {
