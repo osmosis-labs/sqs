@@ -304,30 +304,28 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 
 	pools := []sqsdomain.PoolI{}
 
+	var poolIDs []uint64
 	if len(options.PoolIDFilter) > 0 {
-		for _, poolID := range options.PoolIDFilter {
-			pool, err := p.GetPool(poolID)
-			if err != nil {
-				return nil, err
-			}
-
-			if pool.GetLiquidityCap().GTE(osmomath.NewInt(options.MinPoolLiquidityCap)) {
-				pools = append(pools, pool)
-			}
-		}
+		poolIDs = options.PoolIDFilter
 	} else {
 		p.pools.Range(func(key, value interface{}) bool {
 			pool, ok := value.(sqsdomain.PoolI)
-			if !ok {
-				return false
+			if ok {
+				poolIDs = append(poolIDs, pool.GetId())
 			}
-
-			if pool.GetLiquidityCap().GTE(osmomath.NewInt(options.MinPoolLiquidityCap)) {
-				pools = append(pools, pool)
-			}
-
 			return true
 		})
+	}
+
+	for _, poolID := range poolIDs {
+		pool, err := p.GetPool(poolID)
+		if err != nil {
+			return nil, err
+		}
+
+		if pool.GetLiquidityCap().GTE(osmomath.NewInt(options.MinPoolLiquidityCap)) {
+			pools = append(pools, pool)
+		}
 	}
 
 	return pools, nil

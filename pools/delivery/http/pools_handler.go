@@ -76,36 +76,28 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 		err   error
 	)
 
-	// if IDs are not given, get all pools
-	if len(poolIDsStr) == 0 {
-		pools, err = a.PUsecase.GetAllPools()
-		if err != nil {
-			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
-		}
-	} else {
-		// Parse them to numbers
-		poolIDs, err := domain.ParseNumbers(poolIDsStr)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
-		}
+	// Parse numbers
+	poolIDs, err := domain.ParseNumbers(poolIDsStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+	}
 
-		// Parse min liquidity cap if provided
-		var minLiquidityCap int64
-		if minLiquidityCapStr != "" {
-			minLiquidityCap, err = strconv.ParseInt(minLiquidityCapStr, 10, 64)
-			if err != nil {
-				return c.JSON(http.StatusBadRequest, ResponseError{Message: "Invalid min_liquidity_cap value"})
-			}
-		}
-
-		// Get pools
-		pools, err = a.PUsecase.GetPools(
-			domain.WithMinPoolsLiquidityCap(minLiquidityCap),
-			domain.WithPoolIDFilter(poolIDs),
-		)
+	// Parse min liquidity cap if provided
+	var minLiquidityCap int64
+	if minLiquidityCapStr != "" {
+		minLiquidityCap, err = strconv.ParseInt(minLiquidityCapStr, 10, 64)
 		if err != nil {
-			return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+			return c.JSON(http.StatusBadRequest, ResponseError{Message: "Invalid min_liquidity_cap value"})
 		}
+	}
+
+	// Get pools
+	pools, err = a.PUsecase.GetPools(
+		domain.WithMinPoolsLiquidityCap(minLiquidityCap),
+		domain.WithPoolIDFilter(poolIDs),
+	)
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
 	// Convert pools to the appropriate format
