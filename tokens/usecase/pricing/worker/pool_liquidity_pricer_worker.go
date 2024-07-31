@@ -14,7 +14,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 )
 
@@ -209,17 +208,9 @@ func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, heigh
 func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]struct{}, blockPriceUpdates domain.PricesResult) error {
 	blockPoolIDs := domain.KeysFromMap(poolIDs)
 
-	var (
-		pools []sqsdomain.PoolI
-		err   error
-	)
-
-	// Since empty block
-	if len(blockPoolIDs) == 0 {
-		pools, err = p.poolHandler.GetPools(domain.WithPoolIDFilter(blockPoolIDs))
-		if err != nil {
-			return err
-		}
+	pools, err := p.poolHandler.GetPools(domain.WithPoolIDFilter(blockPoolIDs))
+	if err != nil {
+		return err
 	}
 
 	for i, pool := range pools {
