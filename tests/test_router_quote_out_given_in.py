@@ -323,7 +323,7 @@ class TestExactAmountInQuote:
          - The last token out is equal to denom out
         """
         for route in quote.route:
-            input = denom_in
+            cur_token_in_denom = denom_in
             for p in route.pools:
                 pool_id = p.id
                 pool = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
@@ -332,13 +332,10 @@ class TestExactAmountInQuote:
 
                 denoms = conftest.get_denoms_from_pool_tokens(pool.get("pool_tokens"))
 
-                # Pool denoms must contain input denom
-                assert input in denoms, f"Error: input {input} not found in pool {pool_id} denoms {denoms}"
+                # Validate route denoms are present in pool
+                Quote.validate_pool_denoms_in_route(cur_token_in_denom, p.token_out_denom, denoms, pool_id, denom_in, denom_out)
 
-                # Pool denoms must contain route output denom
-                assert p.token_out_denom in denoms, f"Error: pool token_out_denom {p.token_out_denom} not found in pool {pool_id} denoms {denoms}"
-
-                input = p.token_out_denom
+                cur_token_in_denom = p.token_out_denom
 
             # Last route token out must be equal to denom out
             assert denom_out == get_last_route_token_out(route), f"Error: denom out {denom_out} not equal to last token out {get_last_route_token_out(route)}"

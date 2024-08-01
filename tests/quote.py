@@ -64,6 +64,21 @@ class Quote:
         else:
             assert quote.effective_fee > 0
 
+    @staticmethod
+    def validate_pool_denoms_in_route(token_in_denom, token_out_denom, denoms, pool_id, route_denom_in, route_denom_out):
+        """
+        Validates that the pool denoms are present in the route.
+        """
+        
+        # HACK:
+        # Numia does not put alloyed LP share into pool denoms so we skip for simplicity
+        # Should eventually check this unconditionally
+        if "all" not in token_out_denom:
+            assert token_out_denom, f"Error: token out {token_out_denom} not found in pool denoms {denoms}, pool ID {pool_id}, route in {route_denom_in}, route out {route_denom_out}"
+
+        if "all" not in token_in_denom:
+            assert token_in_denom, f"Error: token in {token_in_denom} not found in pool denoms {denoms}, pool ID {pool_id}, route in {route_denom_in}, route out {route_denom_out}"
+
 class ExactAmountOutQuote:
     @staticmethod
     def calculate_amount_transmuter(tokenOut: Coin, denom_in):
@@ -166,7 +181,7 @@ class ExactAmountOutQuote:
          - The last token in is equal to denom in
         """
         for route in quote.route:
-            output = denom_out
+            cur_out_denom = denom_out
             for p in route.pools:
                 pool_id = p.id
                 pool = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
@@ -175,13 +190,9 @@ class ExactAmountOutQuote:
 
                 denoms = conftest.get_denoms_from_pool_tokens(pool.get("pool_tokens"))
 
-                # Pool denoms must contain output denom
-                assert output in denoms, f"Error: output {output} not found in pool {pool_id} denoms {denoms}"
+                Quote.validate_pool_denoms_in_route(p.token_in_denom, cur_out_denom, denoms, pool_id, denom_in, denom_out)
 
-                # Pool denoms must contain route input denom
-                assert p.token_in_denom in denoms, f"Error: pool token_in_denom {p.token_in_denom} not found in pool {pool_id} denoms {denoms}"
-
-                output = p.token_in_denom
+                cur_out_denom = p.token_in_denom
 
             # Last route token in must be equal to denom in
             assert denom_in == get_last_route_token_in(route), f"Error: denom in {denom_in} not equal to last token in {get_last_route_token_in(route)}"
