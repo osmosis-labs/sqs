@@ -1,6 +1,7 @@
 package sqsutil
 
 import (
+	"fmt"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -86,5 +87,34 @@ func TestFloatCoinsMap_ToSdkCoins(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func BenchmarkFloatCoinsMapAdd(b *testing.B) {
+	numCoins := 10
+	coins := sdk.Coins{}
+	for i := 0; i < numCoins; i++ {
+		coins = append(coins, sdk.NewInt64Coin(fmt.Sprintf("coin%04d", i), 1))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fcm := NewFloatCoinsMap()
+		for _, coin := range coins {
+			fCoin := NewFloatCoinFromSdkCoin(coin)
+			fcm.Add(coin.Denom, fCoin.Amount)
+		}
+	}
+}
+
+func BenchmarkFloatCoinsMapFromCoins(b *testing.B) {
+	numCoins := 10
+	coins := sdk.Coins{}
+	for i := 0; i < numCoins; i++ {
+		coins = append(coins, sdk.NewInt64Coin(fmt.Sprintf("coin%04d", i), 1))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fcm := NewFloatCoinsMapFromCoins(coins)
+		_ = fcm
 	}
 }
