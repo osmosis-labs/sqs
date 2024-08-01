@@ -164,8 +164,11 @@ class TestExactAmountOutQuote:
         # Run the quote test
         quote = self.run_quote_test(environment_url, amount + denom_out, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
-        # Validate transmuter was in route
-        assert Quote.is_transmuter_in_single_route(quote.route) is True
+        # Transmuter is expected to be in the route only if the amount out is equal to the amount in
+        # in rare cases, CL pools can be picked up instead of transmuter, providing a higher amount out.
+        if quote.amount_in == quote.amount_out.amount:
+            # Validate transmuter was in route
+            assert Quote.is_transmuter_in_single_route(quote.route) is True
 
         # Validate the quote test
         ExactAmountOutQuote.validate_quote_test(quote, amount, denom_out, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance)
