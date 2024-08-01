@@ -231,7 +231,7 @@ class TestExactAmountInQuote:
 
         # Compute expected token out
         expected_amount_out = amount_in_after_fee * expected_in_base_out_quote_price
-        error_tolerance = choose_error_tolerance(amount_in_after_fee)
+        error_tolerance = Quote.choose_error_tolerance(amount_in_after_fee)
 
         numia_sqs_price_diff = relative_error(expected_in_base_out_quote_price, in_base_out_quote_spot_price)
         assert numia_sqs_price_diff < error_tolerance, \
