@@ -35,12 +35,15 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## 25.6.0
 
 - Mitigate the alloy rebalancing router breakage by invalidating route cache if all routes fail and ordering denoms by balances.
 - Prioritize canonical orderbook in router and caches
 - Add liquidity filter to pools query
 - Fix bug applying invalid pool liquidity filter in the liquidity pricing pipeline.
+- In given out /router/quite refactor
+
+Chain compatibility: v25.x-c8140e68-1722532245
 
 ## v25.5.0
 
