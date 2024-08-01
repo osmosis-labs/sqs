@@ -135,6 +135,26 @@ class SQSService:
             headers=self.headers,
         )
 
+    def get_exact_amount_out_custom_direct_quote(self, token_out, denom_in, pool_id):
+        """
+        Fetches custom direct quote from the specified endpoint and returns it.
+
+        Similar to get_quote, instead of path finding, specific pool is enforced.
+
+        Raises error if non-200 is returned from the endpoint.
+        """
+
+        params = {
+            "tokenOut": token_out,
+            "tokenInDenom": denom_in,
+            "poolID": pool_id,
+        }
+        return requests.get(
+            self.url + ROUTER_CUSTOM_DIRECT_QUOTE_URL,
+            params=params,
+            headers=self.headers,
+        )
+
     def get_tokens_metadata(self):
         """
         Fetches tokens metadata from the specified endpoint and returns them.
