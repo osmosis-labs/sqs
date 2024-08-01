@@ -296,7 +296,7 @@ class TestExactAmountInQuote:
         assert quote.amount_in.denom == expected_denom_in
 
         # Validate that the fee is charged
-        Quote.validate_fee(quote)
+        ExactAmountInQuote.validate_fee(quote)
 
         # Validate that the route is valid
         self.validate_route(quote, expected_denom_in, denom_out)
