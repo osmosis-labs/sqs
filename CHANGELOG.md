@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Unreleased
 
 - Numia Pools APR fetcher, associated configs and wiring
+- Timeseries pool fees fetcher, associated configs and wiring
 
 ## 25.7.0
 

@@ -75,6 +75,11 @@ var (
 	// counter that measures the number of errors when fetching APRs from Numia in a passthrough module.
 	SQSPassthroughNumiaAPRsFetchErrorCounterMetricName = "sqs_passthrough_numia_aprs_fetch_error_total"
 
+	// sqs_passthrough_timeseries_pool_fees_fetch_error_total
+	//
+	// counter that measures the number of errors when fetching fees from timeseries data stack in a passthrough module.
+	SQSPassthroughTimeseriesPoolFeesFetchErrorCounterMetricName = "sqs_passthrough_timeseries_pool_fees_fetch_error_total"
+
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -143,12 +148,18 @@ var (
 		[]string{"base", "quote"},
 	)
 
-	SQSPassthroughNumiaAPRsFetchErrorCounter = prometheus.NewCounterVec(
+	SQSPassthroughNumiaAPRsFetchErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSPassthroughNumiaAPRsFetchErrorCounterMetricName,
 			Help: "Total number of errors when fetching APRs from Numia in a passthrough module.",
 		},
-		[]string{"base", "quote"},
+	)
+
+	SQSPassthroughTimeseriesPoolFeesFetchErrorCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPassthroughTimeseriesPoolFeesFetchErrorCounterMetricName,
+			Help: "Total number of errors when fetching pool fees from timeseries in a passthrough module.",
+		},
 	)
 )
 
@@ -163,4 +174,5 @@ func init() {
 	prometheus.MustRegister(SQSPricingErrorCounter)
 	prometheus.MustRegister(SQSPricingFallbackCounter)
 	prometheus.MustRegister(SQSPassthroughNumiaAPRsFetchErrorCounter)
+	prometheus.MustRegister(SQSPassthroughTimeseriesPoolFeesFetchErrorCounter)
 }

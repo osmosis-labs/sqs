@@ -55,7 +55,9 @@
     },
     "passthrough":{
         "numia-url": "https://public-osmosis-api.numia.xyz",
-        "apr-fetch-interval-minutes": 5
+        "timeseries-url": "https://stage-proxy-data-api.osmosis-labs.workers.dev",
+        "apr-fetch-interval-minutes": 5,
+        "pool-fees-fetch-interval-minutes": 5
     },
     "grpc-ingester": {
         "enabled": false,

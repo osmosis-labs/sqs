@@ -48,7 +48,9 @@ var DefaultConfig = domain.Config{
 	},
 
 	Passthrough: &passthroughdomain.PassthroughConfig{
-		NumiaURL:                "https://public-osmosis-api.numia.xyz",
-		APRFetchIntervalMinutes: 5,
+		NumiaURL:                     "https://public-osmosis-api.numia.xyz",
+		TimeseriesURL:                "https://stage-proxy-data-api.osmosis-labs.workers.dev",
+		APRFetchIntervalMinutes:      5,
+		PoolFeesFetchIntervalMinutes: 5,
 	},
 }
