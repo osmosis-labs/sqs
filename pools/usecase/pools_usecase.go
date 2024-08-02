@@ -296,10 +296,15 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	options := domain.PoolsOptions{
 		MinPoolLiquidityCap: 0,
 		PoolIDFilter:        []uint64{},
+		HadEmptyFilter:      false,
 	}
 
 	for _, opt := range opts {
 		opt(&options)
+	}
+
+	if options.HadEmptyFilter {
+		return nil, nil
 	}
 
 	var (
@@ -316,7 +321,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 			}
 
 			// Check filter is non-zero to avoid more expensive get liquidity cap check.
-			if pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
+			if options.MinPoolLiquidityCap == 0 || pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
 				pools = append(pools, pool)
 			}
 		}
@@ -326,7 +331,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		p.pools.Range(func(key, value interface{}) bool {
 			pool, ok := value.(sqsdomain.PoolI)
 			// Check filter is non-zero to avoid more expensive get liquidity cap check.
-			if ok && pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
+			if ok && (options.MinPoolLiquidityCap == 0 || pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap) {
 				pools = append(pools, pool)
 			}
 			return true

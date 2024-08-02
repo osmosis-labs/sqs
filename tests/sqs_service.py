@@ -52,12 +52,28 @@ class SQSService:
 
         return self.config
     
-    def get_pool(self, pool_id):
+    def get_pools(self, pool_ids=None, min_liquidity_cap=None):
         """
         Fetches the pool from the specified endpoint and returns it.
         Raises error if non-200 is returned from the endpoint.
         """
-        response = requests.get(self.url + f"{POOLS_URL}?IDs={pool_id}", headers=self.headers)
+        url_ext = f"{POOLS_URL}"
+
+        is_pool_id_filter_provided = pool_ids is not None
+        is_min_liquidity_cap_filter_provided = min_liquidity_cap is not None 
+        if pool_ids is not None or is_min_liquidity_cap_filter_provided:
+            url_ext += "?"
+
+        if is_pool_id_filter_provided:
+            url_ext += f"IDs={pool_ids}"
+
+        if is_pool_id_filter_provided and is_min_liquidity_cap_filter_provided:
+            url_ext += "&"
+
+        if is_min_liquidity_cap_filter_provided:
+            url_ext += f"min_liquidity_cap={min_liquidity_cap}"
+
+        response = requests.get(self.url + url_ext, headers=self.headers)
 
         if response.status_code != 200:
             raise Exception(f"Error fetching pool: {response.text}")

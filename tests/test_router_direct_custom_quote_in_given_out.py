@@ -26,16 +26,28 @@ class TestExactAmountOutDirectCustomQuote:
         ("2353uion", "uosmo", "2"),
     ])
     def test_get_custom_direct_quote(self, environment_url, token_out, denom_in, pool_id):
+        # All tokens have the same default exponent, resulting in scaling factor of 1.
+        spot_price_scaling_factor = 1
+
+        coin = Coin("uion", "2353")
+
+        # Compute expected base out quote spot price
+        # First, get the USD price of each denom, and then divide to get the expected spot price
+        in_base_usd_quote_price = conftest.get_usd_price_scaled(denom_in)
+        out_base_usd_quote_price = conftest.get_usd_price_scaled(coin.denom)
+        expected_in_base_out_quote_price = out_base_usd_quote_price / in_base_usd_quote_price 
         quote = self.run_quote_test(environment_url, token_out, denom_in, pool_id, EXPECTED_LATENCY_UPPER_BOUND_MS)
+
+        # Compute expected token out
+        expected_token_in = int(coin.amount) * expected_in_base_out_quote_price
+
+        token_out_amount_usdc_value = in_base_usd_quote_price * coin.amount
+
+        # Chose the error tolerance based on amount in swapped.
+        error_tolerance = Quote.choose_error_tolerance(token_out_amount_usdc_value)
 
         # Validate that price impact is present.
         assert quote.price_impact is not None
-
-        # TODO
-        coin = Coin("uion", "2353")
-        amount = ExactAmountOutQuote.calculate_amount(coin, denom_in)
-
-        error_tolerance = Quote.choose_error_tolerance(amount)
 
         # Validate quote results
         ExactAmountOutQuote.validate_quote_test(quote, coin.amount, coin.denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance)
