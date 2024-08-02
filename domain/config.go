@@ -1,6 +1,10 @@
 package domain
 
-import "fmt"
+import (
+	"fmt"
+
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
+)
 
 // Config defines the config for the sidecar query server.
 type Config struct {
@@ -31,6 +35,9 @@ type Config struct {
 	Pools *PoolsConfig `mapstructure:"pools"`
 
 	Pricing *PricingConfig `mapstructure:"pricing"`
+
+	// Passthrough encapsulates the passthrough module config.
+	Passthrough *passthroughdomain.PassthroughConfig `mapstructure:"passthrough"`
 
 	// GRPC ingester server configuration.
 	GRPCIngester *GRPCIngesterConfig `mapstructure:"grpc-ingester"`

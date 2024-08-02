@@ -70,6 +70,11 @@ var (
 	// * quote - the quote asset symbol
 	SQSPricingFallbackCounterMetricName = "sqs_pricing_fallback_total"
 
+	// sqs_passthrough_numia_aprs_fetch_error_total
+	//
+	// counter that measures the number of errors when fetching APRs from Numia in a passthrough module.
+	SQSPassthroughNumiaAPRsFetchErrorCounterMetricName = "sqs_passthrough_numia_aprs_fetch_error_total"
+
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -137,6 +142,14 @@ var (
 		},
 		[]string{"base", "quote"},
 	)
+
+	SQSPassthroughNumiaAPRsFetchErrorCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSPassthroughNumiaAPRsFetchErrorCounterMetricName,
+			Help: "Total number of errors when fetching APRs from Numia in a passthrough module.",
+		},
+		[]string{"base", "quote"},
+	)
 )
 
 func init() {
@@ -149,4 +162,5 @@ func init() {
 	prometheus.MustRegister(SQSUpdateAssetsAtHeightIntervalErrorCounter)
 	prometheus.MustRegister(SQSPricingErrorCounter)
 	prometheus.MustRegister(SQSPricingFallbackCounter)
+	prometheus.MustRegister(SQSPassthroughNumiaAPRsFetchErrorCounter)
 }

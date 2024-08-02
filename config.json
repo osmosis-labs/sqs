@@ -72,6 +72,10 @@
         "coingecko-quote-currency": "usd",
         "worker-min-pool-liquidity-cap": 1
     },
+    "passthrough":{
+        "numia-url": "https://public-osmosis-api.numia.xyz",
+        "apr-fetch-interval-minutes": 5
+    },
     "grpc-ingester":{
         "enabled": true,
         "max-receive-msg-size-bytes": 16777216,

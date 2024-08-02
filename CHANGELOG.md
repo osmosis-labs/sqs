@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Numia Pools APR fetcher, associated configs and wiring
+
 ## 25.7.0
 
 - Fix bug with filters n /pools API
