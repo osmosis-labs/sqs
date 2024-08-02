@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+// Fetcher is an interface that provides a method to get a value.
+type Fetcher[T any] interface {
+	Get() (T, time.Time, error)
+}
+
 // IntervalFetcher is a struct that prefetches a value at a given interval
 // and provides a method to get the latest value.
 // NOTE: It may return stale data if the update function takes longer than the interval.
