@@ -179,8 +179,11 @@ class TestExactAmountInQuote:
         # Run the quote test
         quote = self.run_quote_test(environment_url, amount + denom_in, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
-        # Validate transmuter was in route
-        assert Quote.is_transmuter_in_single_route(quote.route) is True
+        # Transmuter is expected to be in the route only if the amount out is equal to the amount in
+        # in rare cases, CL pools can be picked up instead of transmuter, providing a higher amount out.
+        if quote.amount_out == quote.amount_in.amount:
+            # Validate transmuter was in route
+            assert Quote.is_transmuter_in_single_route(quote.route) is True
 
         # Validate the quote test
         self.validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
@@ -231,7 +234,7 @@ class TestExactAmountInQuote:
 
         # Compute expected token out
         expected_amount_out = amount_in_after_fee * expected_in_base_out_quote_price
-        error_tolerance = choose_error_tolerance(amount_in_after_fee)
+        error_tolerance = Quote.choose_error_tolerance(amount_in_after_fee)
 
         numia_sqs_price_diff = relative_error(expected_in_base_out_quote_price, in_base_out_quote_spot_price)
         assert numia_sqs_price_diff < error_tolerance, \
@@ -296,7 +299,7 @@ class TestExactAmountInQuote:
         assert quote.amount_in.denom == expected_denom_in
 
         # Validate that the fee is charged
-        Quote.validate_fee(quote)
+        ExactAmountInQuote.validate_fee(quote)
 
         # Validate that the route is valid
         self.validate_route(quote, expected_denom_in, denom_out)
@@ -323,7 +326,7 @@ class TestExactAmountInQuote:
          - The last token out is equal to denom out
         """
         for route in quote.route:
-            input = denom_in
+            cur_token_in_denom = denom_in
             for p in route.pools:
                 pool_id = p.id
                 pool = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
@@ -332,13 +335,10 @@ class TestExactAmountInQuote:
 
                 denoms = conftest.get_denoms_from_pool_tokens(pool.get("pool_tokens"))
 
-                # Pool denoms must contain input denom
-                assert input in denoms, f"Error: input {input} not found in pool {pool_id} denoms {denoms}"
+                # Validate route denoms are present in pool
+                Quote.validate_pool_denoms_in_route(cur_token_in_denom, p.token_out_denom, denoms, pool_id, denom_in, denom_out)
 
-                # Pool denoms must contain route output denom
-                assert p.token_out_denom in denoms, f"Error: pool token_out_denom {p.token_out_denom} not found in pool {pool_id} denoms {denoms}"
-
-                input = p.token_out_denom
+                cur_token_in_denom = p.token_out_denom
 
             # Last route token out must be equal to denom out
             assert denom_out == get_last_route_token_out(route), f"Error: denom out {denom_out} not equal to last token out {get_last_route_token_out(route)}"

@@ -43,6 +43,16 @@ For any minor bug fixes, non-breaking changes and small improvements, we increme
 
 Note that we will are tagging rc rather than the final tags for work that is still not ready for production and is being tested.
 
+Oftentimes, versions within the same major (e.g. v25.x) release line for node are incompatible with versions within v25.x release line of SQS.
+
+We leave the compatibility pairs in the CHANGELOG.
+
+Additionally, we aim to keep the tip of `osmosis` major release branch in sync with the tip of `sqs` major release branch.
+
+So, two cases for using the versioning:
+1. Compatibility versions from the changelog
+2. The latest commit tag of the major release branch of `osmosis` and the latest commit tag of the major release branch of `sqs`.
+
 ## Configuration
 
 ### General

@@ -91,10 +91,18 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 		}
 	}
 
+	filters := []domain.PoolsOption{
+		domain.WithMinPoolsLiquidityCap(minLiquidityCap),
+	}
+
+	// Only add pool ID filter if it is not empty.
+	if len(poolIDs) > 0 {
+		filters = append(filters, domain.WithPoolIDFilter(poolIDs))
+	}
+
 	// Get pools
 	pools, err = a.PUsecase.GetPools(
-		domain.WithMinPoolsLiquidityCap(minLiquidityCap),
-		domain.WithPoolIDFilter(poolIDs),
+		filters...,
 	)
 	if err != nil {
 		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})

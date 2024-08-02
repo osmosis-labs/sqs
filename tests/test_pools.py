@@ -11,6 +11,7 @@ from e2e_math import *
 # Min liquidity capitalization in USDC for a pool to be considered
 # in tests. Arbitrarily chosen as to avoid flakiness.
 min_pool_liquidity_cap_usdc = 50_000
+num_all_pools_expected = 1500
 
 def filter_pools(pools_data, min_pool_liquidity_cap_usdc):
 
@@ -50,7 +51,7 @@ class TestPools:
         if pool_id in skip_alloyed_pool_id:
             pytest.skip("Skipping alloyed pool since it has flakiness on Numia side")
 
-        sqs_pool = sqs_service.get_pool(pool_id)
+        sqs_pool = sqs_service.get_pools(pool_ids=pool_id)
 
         # Skip white whale pool since it has flakiness on Numia side
         code_id = pool_data.get("code_id")
@@ -97,3 +98,48 @@ class TestPools:
 
         # This may fail as we keep adding more orderbooks. If it does, we need to refactor this test.
         assert didFind, "Expected canonical orderbook was not found"
+
+    def test_pool_filters(self, environment_url):
+        """
+        Test the pool filters for the /pools endpoint.
+        - No filters
+        - Only pool ID filter
+        - Min Liquidity cap filter
+        - Both pool ID and min liquidity cap filter
+        """
+
+        sqs_service = SERVICE_MAP[environment_url]
+
+        # $100k
+        min_liquidity_cap = 100_000
+        #         # Pool 1 and 135 are major pools but 37 is junk.
+        pool_id_filter = "1,1135,37"
+
+        expected_num_filtered_pools = 3
+        # Filter pool id 37 which s junk
+        expected_num_pools_both_filters = expected_num_filtered_pools - 1
+
+        # 50 is chosen arbitrarily low to avoid flakiness
+        expected_num_min_liq_cap_pools = 50
+
+        # Test with all filters
+        all_pools = sqs_service.get_pools()
+        assert all_pools is not None, "All pools are None"
+        assert len(all_pools) > num_all_pools_expected, f"Number of all pools should be greater than {len(all_pools)}"
+
+
+        filtered_pools = sqs_service.get_pools(pool_ids=pool_id_filter)
+        assert filtered_pools is not None, "Fitlered pools are None"
+        assert len(filtered_pools) == expected_num_filtered_pools, f"Number of filtered pools should be {expected_num_filtered_pools}, actual {len(filtered_pools)}"
+
+        # Test with min liquidity cap filter
+        filtered_pools = sqs_service.get_pools(min_liquidity_cap=min_liquidity_cap)
+        assert filtered_pools is not None, "Fitlered pools are None"
+
+        assert len(filtered_pools) > expected_num_min_liq_cap_pools, f"Number of filtered pools should be greater than {expected_num_min_liq_cap_pools}"
+
+        # Test with both pool ID and min liquidity cap filter
+        filtered_pools = sqs_service.get_pools(pool_ids=pool_id_filter, min_liquidity_cap=min_liquidity_cap)
+        assert filtered_pools is not None, "Fitlered pools are None"
+
+        assert len(filtered_pools) == expected_num_pools_both_filters, f"Number of filtered pools should be {expected_num_pools_both_filters}, actual {len(filtered_pools)}"
