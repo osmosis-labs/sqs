@@ -16,11 +16,11 @@ jobs:
     steps:
       - id: set-matrix
         run: |
-          echo "matrix={\"include\":[{ \"server\":\"138.68.112.16:8888\", \"env\": \"production-fra1\"}, {\"server\":\"139.59.218.19:8888\", \"env\": \"production-sgp1\"}]}" >> "$GITHUB_OUTPUT"
+          echo "matrix={\"include\":[{ \"server\":\"138.68.112.16:8888\", \"env\": \"prod-fra1\"}, {\"server\":\"139.59.218.19:8888\", \"env\": \"prod-sgp1\"}]}" >> "$GITHUB_OUTPUT"
 
   sqs-quote-tests:
     timeout-minutes: 10
-    name: ${{ matrix.env }}-fe-quote-tests
+    name: ${{ matrix.env }}-sqs-quote-tests
     needs: setup-matrix
     runs-on: buildjet-4vcpu-ubuntu-2204
     strategy:
@@ -37,7 +37,7 @@ jobs:
           if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
       - name: Run Swap tests on ${{ matrix.env }}
         env:
-          SQS_ENVIRONMENTS: ${{ matrix.env }}
+          SQS_ENVIRONMENTS: "prod"
           SQS_API_KEY: ${{ secrets.SQS_API_KEY }}
           HTTP_PROXY: "http://${{secrets.TEST_PROXY_CRED}}@${{ matrix.server }}"
           HTTPS_PROXY: "http://${{secrets.TEST_PROXY_CRED}}@${{ matrix.server }}"
