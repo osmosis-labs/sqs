@@ -79,7 +79,7 @@ func (p *liquidityPricer) PriceBalances(balances sdk.Coins, prices domain.Prices
 			liquidityCapErrorStr += formatLiquidityCapErrorStr(denom)
 		}
 
-		totalCapitalization = totalCapitalization.Add(currentCapitalization.TruncateInt())
+		totalCapitalization = totalCapitalization.Add(currentCapitalization.Ceil().TruncateInt())
 	}
 
 	return totalCapitalization, liquidityCapErrorStr
