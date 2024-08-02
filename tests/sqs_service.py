@@ -145,6 +145,9 @@ class SQSService:
             "tokenOutDenom": denom_out,
             "poolID": pool_id,
         }
+
+        print(params)
+
         return requests.get(
             self.url + ROUTER_CUSTOM_DIRECT_QUOTE_URL,
             params=params,
@@ -165,6 +168,9 @@ class SQSService:
             "tokenInDenom": denom_in,
             "poolID": pool_id,
         }
+
+        print(params)
+
         return requests.get(
             self.url + ROUTER_CUSTOM_DIRECT_QUOTE_URL,
             params=params,

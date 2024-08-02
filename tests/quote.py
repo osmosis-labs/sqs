@@ -1,3 +1,4 @@
+import time
 import conftest
 from sqs_service import *
 from quote_response import *
@@ -96,6 +97,36 @@ class ExactAmountInQuote:
             assert quote.effective_fee > 0
 
 class ExactAmountOutQuote:
+    @staticmethod
+    def run_quote_test(environment_url, token_out, token_in, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountOutResponse:
+        """
+        Runs exact amount out test for the /router/quote endpoint with the given input parameters.
+
+        Does basic validation around response status code and latency
+
+        Returns quote for additional validation if needed by client
+
+        Validates:
+        - Response status code is as given or default 200
+        - Latency is under the given bound
+        """
+
+        sqs_service = conftest.SERVICE_MAP[environment_url]
+
+        start_time = time.time()
+        response = sqs_service.get_exact_amount_out_quote(token_out, token_in)
+        elapsed_time_ms = (time.time() - start_time) * 1000
+
+        assert response.status_code == expected_status_code, f"Error: {response.text}"
+        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
+
+        response_json = response.json()
+
+        print(response.text)
+
+        # Return route for more detailed validation
+        return QuoteExactAmountOutResponse(**response_json)
+
     @staticmethod
     def calculate_amount_transmuter(token_out: Coin, denom_in):
         # This is the max error tolerance of 5% that we allow.
@@ -211,7 +242,11 @@ class ExactAmountOutQuote:
                 cur_out_denom = p.token_in_denom
 
             # Last route token in must be equal to denom in
-            assert denom_in == get_last_route_token_in(route), f"Error: denom in {denom_in} not equal to last token in {get_last_route_token_in(route)}"
+            if len(quote.route) == 1:
+                assert denom_in == get_last_route_token_in(route), f"Error: denom in {denom_in} not equal to last token in {get_last_route_token_in(route)}"
+
+        if len(quote.route) > 1:
+            assert denom_in == get_last_route_token_in2(quote), f"Error: denom in {denom_in} not equal to last token in {get_last_route_token_in2(quote)}"
 
     @staticmethod
     def validate_fee(quote):
