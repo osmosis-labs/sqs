@@ -199,13 +199,21 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	passthroughConfig := config.Passthrough
 	numiaHTTPClient := passthroughdomain.NewNumiaHTTPClient(passthroughConfig.NumiaURL)
 
-	// Iniitialize data fetcher
-	fetchPoolAPRsCallback := datafetchers.GetFetchtPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
+	// Iniitialize data fetcher for pool APRs
+	fetchPoolAPRsCallback := datafetchers.GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
 	aprFetcher := datafetchers.NewIntervalFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes))
 	aprFetcher.WaitUntilFirstResult()
 
 	// Register the APR fetcher with the passthrough use case
 	passthroughUseCase.RegisterAPRFetcher(aprFetcher)
+
+	// Initialize data fetcher for pool fees
+	timeseriesHTTPClient := passthroughdomain.NewTimeSeriesHTTPClient(passthroughConfig.TimeseriesURL)
+	fetchPoolFeesCallback := datafetchers.GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient, logger)
+	poolFeesFetcher := datafetchers.NewIntervalFetcher(fetchPoolFeesCallback, time.Minute*time.Duration(passthroughConfig.PoolFeesFetchIntervalMinutes))
+
+	// Register the pool fees fetcher with the passthrough use case
+	passthroughUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
 
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester
