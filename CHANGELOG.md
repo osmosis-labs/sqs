@@ -35,6 +35,12 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## 25.7.0
+
+- Fix bug with filters n /pools API
+
+Chain compatibility: v25.x-c8140e68-1722532245
+
 ## 25.6.0
 
 - Mitigate the alloy rebalancing router breakage by invalidating route cache if all routes fail and ordering denoms by balances.
