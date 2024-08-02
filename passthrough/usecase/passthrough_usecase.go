@@ -27,6 +27,8 @@ type passthroughUseCase struct {
 
 	aprPrefetcher datafetchers.Fetcher[[]passthroughdomain.PoolAPR]
 
+	poolFeesPrefetcher datafetchers.Fetcher[map[string]passthroughdomain.PoolFee]
+
 	logger log.Logger
 }
 
@@ -353,8 +355,14 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	return finalResult, nil
 }
 
+// RegisterAPRFetcher registers the APR fetcher for the passthrough use case.
 func (p *passthroughUseCase) RegisterAPRFetcher(aprFetcher datafetchers.Fetcher[[]passthroughdomain.PoolAPR]) {
 	p.aprPrefetcher = aprFetcher
+}
+
+// RegisterPoolFeesFetcher registers the pool fees fetcher for the passthrough use case.
+func (p *passthroughUseCase) RegisterPoolFeesFetcher(poolFeesFetcher datafetchers.Fetcher[map[string]passthroughdomain.PoolFee]) {
+	p.poolFeesPrefetcher = poolFeesFetcher
 }
 
 // computeCapitalizationForCoins instruments the coins with their liquiditiy capitalization values.
