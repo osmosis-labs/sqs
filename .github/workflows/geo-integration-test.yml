@@ -6,8 +6,8 @@ on:
     - cron: "*/20 * * * *"
   push:
     branches:
-      - "SQS-295"
-      - "roman/sqs-295-cont"
+      - "main"
+      - "v[0-9]**"
 
 jobs:
   setup-matrix:
