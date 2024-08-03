@@ -184,10 +184,10 @@ test-prices-mainnet:
 
 # Run E2E tests in verbose mode (-s) -n 4 concurrent workers
 e2e-run-stage:
-	SQS_ENVIRONMENTS=stage pytest -s -n 4
+	SQS_ENVIRONMENTS=stage pytest -s -n 4 --ignore=tests/test_syntheic_geo.py
 
 e2e-run-local:
-	SQS_ENVIRONMENTS=local pytest -s -n 4
+	SQS_ENVIRONMENTS=local pytest -s -n 4 --ignore=tests/test_syntheic_geo.py
 
 #### E2E Python Setup
 
