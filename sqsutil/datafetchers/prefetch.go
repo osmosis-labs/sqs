@@ -9,6 +9,8 @@ import (
 // Fetcher is an interface that provides a method to get a value.
 type Fetcher[T any] interface {
 	Get() (T, time.Time, error)
+	GetRefetchInterval() time.Duration
+	WaitUntilFirstResult()
 }
 
 // IntervalFetcher is a struct that prefetches a value at a given interval
@@ -99,4 +101,8 @@ func (p *IntervalFetcher[T]) Close() {
 
 	p.hasClosed = true
 	p.timer.Stop()
+}
+
+func (p *IntervalFetcher[T]) GetRefetchInterval() time.Duration {
+	return p.interval
 }
