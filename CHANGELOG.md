@@ -37,6 +37,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+- Remove sqs_requests_total and sqs_request_duration_seconds metrics
 - Numia Pools APR fetcher, associated configs and wiring
 - Timeseries pool fees fetcher, associated configs and wiring
 
