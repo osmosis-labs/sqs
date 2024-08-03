@@ -85,8 +85,8 @@ class TestExactAmountInQuote:
         token_in_coin = amount_str + USDC
 
         # Run the quote test
-        quote = self.run_quote_test(environment_url, token_in_coin, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
-        self.validate_quote_test(quote, amount_str, USDC, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
+        quote = run_quote_test(environment_url, token_in_coin, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        validate_quote_test(quote, amount_str, USDC, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
 
     # - Constructs combinations between each from 10^6 to 10^9 amount input
     @pytest.mark.parametrize("swap_pair", conftest.create_coins_from_pairs(conftest.create_no_dupl_token_pairs(conftest.choose_tokens_liq_range(num_tokens=10, min_liq=500_000, exponent_filter=USDC_PRECISION)), USDC_PRECISION, USDC_PRECISION + 3), ids=id_from_swap_pair)
@@ -94,38 +94,10 @@ class TestExactAmountInQuote:
         token_in_obj = swap_pair['token_in']
         amount_str = token_in_obj['amount_str']
         token_in_denom = token_in_obj['denom']
-        token_in_coin = amount_str + token_in_denom
         denom_out = swap_pair['out_denom']
-        amount_in = int(amount_str)
 
-        # All tokens have the same default exponent, resulting in scaling factor of 1.
-        spot_price_scaling_factor = 1
+        run_exact_in_quote_test(environment_url, amount_str, token_in_denom, denom_out)
 
-        # Compute expected base out quote spot price
-        # First, get the USD price of each denom, and then divide to get the expected spot price
-        out_base_usd_quote_price = conftest.get_usd_price_scaled(denom_out)
-        in_base_usd_quote_price = conftest.get_usd_price_scaled(token_in_denom)
-        expected_in_base_out_quote_price = in_base_usd_quote_price / out_base_usd_quote_price 
-
-        # Compute expected token out
-        expected_token_out = int(amount_str) * expected_in_base_out_quote_price
-
-        token_in_amount_usdc_value = in_base_usd_quote_price * amount_in
-
-        # Choosse the error tolerance based on amount in swapped.
-        error_tolerance = Quote.choose_error_tolerance(token_in_amount_usdc_value)
-
-        # Run the quote test
-        quote = self.run_quote_test(environment_url, token_in_coin, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
-        # Validate that price impact is present.
-        assert quote.price_impact is not None
-
-        # If the token in amount value is less than $HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD, we expect the price impact to not exceed threshold
-        if token_in_amount_usdc_value < HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD:
-             quote.price_impact * -1 < HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD, f"Error: price impact is either None or greater than {HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD} {quote.price_impact}"
-
-        # Validate quote results
-        self.validate_quote_test(quote, amount_str, token_in_denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
 
     @pytest.mark.parametrize("amount", [str(10**(USDC_PRECISION + 3))])
 
@@ -177,7 +149,7 @@ class TestExactAmountInQuote:
         expected_token_out = int(amount) * expected_in_base_out_quote_price
 
         # Run the quote test
-        quote = self.run_quote_test(environment_url, amount + denom_in, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        quote = run_quote_test(environment_url, amount + denom_in, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
         # Transmuter is expected to be in the route only if the amount out is equal to the amount in
         # in rare cases, CL pools can be picked up instead of transmuter, providing a higher amount out.
@@ -186,7 +158,7 @@ class TestExactAmountInQuote:
             assert Quote.is_transmuter_in_single_route(quote.route) is True
 
         # Validate the quote test
-        self.validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
+        validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
     
 
     @pytest.mark.parametrize("amount", [1000])
@@ -244,101 +216,134 @@ class TestExactAmountInQuote:
         assert amount_out_diff < error_tolerance, \
             f"Error: difference between calculated and actual amount out is {amount_out_diff} which is greater than {error_tolerance}"
 
-    def run_quote_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountInResponse:
-        """
-        Runs a test for the /router/quote endpoint with the given input parameters.
+def run_exact_in_quote_test(environment_url, amount_str, token_in_denom, denom_out):
+    amount_in = int(amount_str)
+    token_in_coin = amount_str + token_in_denom
 
-        Does basic validation around response status code and latency
+    # All tokens have the same default exponent, resulting in scaling factor of 1.
+    spot_price_scaling_factor = 1
 
-        Returns quote for additional validation if needed by client
+    # Compute expected base out quote spot price
+    # First, get the USD price of each denom, and then divide to get the expected spot price
+    out_base_usd_quote_price = conftest.get_usd_price_scaled(denom_out)
+    in_base_usd_quote_price = conftest.get_usd_price_scaled(token_in_denom)
+    expected_in_base_out_quote_price = in_base_usd_quote_price / out_base_usd_quote_price 
 
-        Validates:
-        - Response status code is as given or default 200
-        - Latency is under the given bound
-        """
-        
-        sqs_service = conftest.SERVICE_MAP[environment_url]
+    # Compute expected token out
+    expected_token_out = int(amount_str) * expected_in_base_out_quote_price
 
-        start_time = time.time()
-        response = sqs_service.get_exact_amount_in_quote(token_in, token_out)
-        elapsed_time_ms = (time.time() - start_time) * 1000
+    token_in_amount_usdc_value = in_base_usd_quote_price * amount_in
 
-        assert response.status_code == expected_status_code, f"Error: {response.text}"
-        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
+    # Choosse the error tolerance based on amount in swapped.
+    error_tolerance = Quote.choose_error_tolerance(token_in_amount_usdc_value)
 
-        response_json = response.json()
+    # Run the quote test
+    quote = run_quote_test(environment_url, token_in_coin, denom_out, EXPECTED_LATENCY_UPPER_BOUND_MS)
+    # Validate that price impact is present.
+    assert quote.price_impact is not None
 
-        # Return route for more detailed validation
-        return QuoteExactAmountInResponse(**response_json)
+    # If the token in amount value is less than $HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD, we expect the price impact to not exceed threshold
+    if token_in_amount_usdc_value < HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD:
+            quote.price_impact * -1 < HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD, f"Error: price impact is either None or greater than {HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD} {quote.price_impact}"
 
-    def validate_quote_test(self, quote, expected_amount_in_str, expected_denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance):
-        """
-        Runs the following validations:
-        - Basic presence of fields
-        - Transmuter has no price impact. Otherwise, it is negative.
-        - Token out amount is within error tolerance from expected.
-        - Returned spot price is within error tolerance from expected.
-        """
-        
-        # Validate routes are generally present
-        assert len(quote.route) > 0
+    # Validate quote results
+    validate_quote_test(quote, amount_str, token_in_denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
 
-        # Check if the route is a single pool single transmuter route
-        # For such routes, the price impact is 0.
-        is_transmuter_route = Quote.is_transmuter_in_single_route(quote.route)
+def run_quote_test(environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountInResponse:
+    """
+    Runs a test for the /router/quote endpoint with the given input parameters.
 
-        # Validate price impact
-        # If it is a single pool single transmuter route, we expect the price impact to be 0
-        # Price impact is returned as a negative number for any other route.
-        assert quote.price_impact is not None
-        assert (not is_transmuter_route) and (quote.price_impact < 0) or (is_transmuter_route) and (quote.price_impact == 0), f"Error: price impact {quote.price_impact} is zero for non-transmuter route"
-        price_impact_positive = quote.price_impact * -1
+    Does basic validation around response status code and latency
 
-        # Validate amount in and denom are as input
-        assert quote.amount_in.amount == int(expected_amount_in_str)
-        assert quote.amount_in.denom == expected_denom_in
+    Returns quote for additional validation if needed by client
 
-        # Validate that the fee is charged
-        ExactAmountInQuote.validate_fee(quote)
+    Validates:
+    - Response status code is as given or default 200
+    - Latency is under the given bound
+    """
+    
+    sqs_service = conftest.SERVICE_MAP[environment_url]
 
-        # Validate that the route is valid
-        self.validate_route(quote, expected_denom_in, denom_out)
+    start_time = time.time()
+    response = sqs_service.get_exact_amount_in_quote(token_in, token_out)
+    elapsed_time_ms = (time.time() - start_time) * 1000
 
-        # Validate that the spot price is present
-        assert quote.in_base_out_quote_spot_price is not None
+    assert response.status_code == expected_status_code, f"Error: {response.text}"
+    assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
 
-        # Validate that the spot price is within the error tolerance
-        assert relative_error(quote.in_base_out_quote_spot_price * spot_price_scaling_factor, expected_in_base_out_quote_price) < error_tolerance, f"Error: in base out quote spot price {quote.in_base_out_quote_spot_price} is not within {error_tolerance} of expected {expected_in_base_out_quote_price}"
+    response_json = response.json()
 
-        # If there is a price impact greater than the provided error tolerance, we dynamically set the error tolerance to be
-        # the price impact * (1 + error_tolerance) to account for the price impact
-        if price_impact_positive > error_tolerance:
-            error_tolerance = price_impact_positive * Decimal(1 + error_tolerance)
+    # Return route for more detailed validation
+    return QuoteExactAmountInResponse(**response_json)
 
-        # Validate that the amount out is within the error tolerance
-        amount_out_scaled = quote.amount_out * spot_price_scaling_factor
-        assert relative_error(amount_out_scaled, expected_token_out) < error_tolerance, f"Error: amount out scaled {amount_out_scaled} is not within {error_tolerance} of expected {expected_token_out}"
+def validate_quote_test(quote, expected_amount_in_str, expected_denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance):
+    """
+    Runs the following validations:
+    - Basic presence of fields
+    - Transmuter has no price impact. Otherwise, it is negative.
+    - Token out amount is within error tolerance from expected.
+    - Returned spot price is within error tolerance from expected.
+    """
+    
+    # Validate routes are generally present
+    assert len(quote.route) > 0
 
-    def validate_route(self, quote, denom_in, denom_out):
-        """
-        Validates that the route is valid by checking the following:
-         - The input token is present in each pool denoms
-         - The last token out is equal to denom out
-        """
-        for route in quote.route:
-            cur_token_in_denom = denom_in
-            for p in route.pools:
-                pool_id = p.id
-                pool = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
+    # Check if the route is a single pool single transmuter route
+    # For such routes, the price impact is 0.
+    is_transmuter_route = Quote.is_transmuter_in_single_route(quote.route)
 
-                assert pool, f"Error: pool ID {pool_id} not found in test data"
+    # Validate price impact
+    # If it is a single pool single transmuter route, we expect the price impact to be 0
+    # Price impact is returned as a negative number for any other route.
+    assert quote.price_impact is not None
+    assert (not is_transmuter_route) and (quote.price_impact < 0) or (is_transmuter_route) and (quote.price_impact == 0), f"Error: price impact {quote.price_impact} is zero for non-transmuter route"
+    price_impact_positive = quote.price_impact * -1
 
-                denoms = conftest.get_denoms_from_pool_tokens(pool.get("pool_tokens"))
+    # Validate amount in and denom are as input
+    assert quote.amount_in.amount == int(expected_amount_in_str)
+    assert quote.amount_in.denom == expected_denom_in
 
-                # Validate route denoms are present in pool
-                Quote.validate_pool_denoms_in_route(cur_token_in_denom, p.token_out_denom, denoms, pool_id, denom_in, denom_out)
+    # Validate that the fee is charged
+    ExactAmountInQuote.validate_fee(quote)
 
-                cur_token_in_denom = p.token_out_denom
+    # Validate that the route is valid
+    validate_route(quote, expected_denom_in, denom_out)
 
-            # Last route token out must be equal to denom out
-            assert denom_out == get_last_route_token_out(route), f"Error: denom out {denom_out} not equal to last token out {get_last_route_token_out(route)}"
+    # Validate that the spot price is present
+    assert quote.in_base_out_quote_spot_price is not None
+
+    # Validate that the spot price is within the error tolerance
+    assert relative_error(quote.in_base_out_quote_spot_price * spot_price_scaling_factor, expected_in_base_out_quote_price) < error_tolerance, f"Error: in base out quote spot price {quote.in_base_out_quote_spot_price} is not within {error_tolerance} of expected {expected_in_base_out_quote_price}"
+
+    # If there is a price impact greater than the provided error tolerance, we dynamically set the error tolerance to be
+    # the price impact * (1 + error_tolerance) to account for the price impact
+    if price_impact_positive > error_tolerance:
+        error_tolerance = price_impact_positive * Decimal(1 + error_tolerance)
+
+    # Validate that the amount out is within the error tolerance
+    amount_out_scaled = quote.amount_out * spot_price_scaling_factor
+    assert relative_error(amount_out_scaled, expected_token_out) < error_tolerance, f"Error: amount out scaled {amount_out_scaled} is not within {error_tolerance} of expected {expected_token_out}"
+
+def validate_route(quote, denom_in, denom_out):
+    """
+    Validates that the route is valid by checking the following:
+        - The input token is present in each pool denoms
+        - The last token out is equal to denom out
+    """
+    for route in quote.route:
+        cur_token_in_denom = denom_in
+        for p in route.pools:
+            pool_id = p.id
+            pool = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
+
+            assert pool, f"Error: pool ID {pool_id} not found in test data"
+
+            denoms = conftest.get_denoms_from_pool_tokens(pool.get("pool_tokens"))
+
+            # Validate route denoms are present in pool
+            Quote.validate_pool_denoms_in_route(cur_token_in_denom, p.token_out_denom, denoms, pool_id, denom_in, denom_out)
+
+            cur_token_in_denom = p.token_out_denom
+
+        # Last route token out must be equal to denom out
+        assert denom_out == get_last_route_token_out(route), f"Error: denom out {denom_out} not equal to last token out {get_last_route_token_out(route)}"
