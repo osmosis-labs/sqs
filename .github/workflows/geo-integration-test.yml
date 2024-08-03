@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - "SQS-295"
+      - "roman/sqs-295-cont"
 
 jobs:
   setup-matrix:
