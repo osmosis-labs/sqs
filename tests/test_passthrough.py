@@ -24,42 +24,45 @@ total_assets_category_name  = "total-assets"
 class TestPassthrough:
 
     def test_poortfolio_assets(self, environment_url):
-        sqs_service = SERVICE_MAP[environment_url]
-        
-        # Arbitrary addresses
-        addresses = [
-            "osmo1044qatzg4a0wm63jchrfdnn2u8nwdgxxt6e524",
-            "osmo1aaa9rpq2m6tu6t0dvknqq2ps7zudxv7th209q4",
-            "osmo18sd2ujv24ual9c9pshtxys6j8knh6xaek9z83t",
-            "osmo140p7pef5hlkewuuramngaf5j6s8dlynth5zm06",
-        ]
+        run_test_portfolio_assets(environment_url)
 
-        for address in addresses:
-            response = sqs_service.get_portfolio_assets(address)
+def run_test_portfolio_assets(environment_url):
+    sqs_service = SERVICE_MAP[environment_url]
+    
+    # Arbitrary addresses
+    addresses = [
+        "osmo1044qatzg4a0wm63jchrfdnn2u8nwdgxxt6e524",
+        "osmo1aaa9rpq2m6tu6t0dvknqq2ps7zudxv7th209q4",
+        "osmo18sd2ujv24ual9c9pshtxys6j8knh6xaek9z83t",
+        "osmo140p7pef5hlkewuuramngaf5j6s8dlynth5zm06",
+    ]
 
-            categories = response.get('categories')
-            assert categories is not None
+    for address in addresses:
+        response = sqs_service.get_portfolio_assets(address)
 
-            user_balances = categories.get(user_balances_assets_category_name)
-            validate_category(user_balances, True)
+        categories = response.get('categories')
+        assert categories is not None
 
-            unstaking = categories.get(unstaking_assets_category_name)
-            validate_category(unstaking)
+        user_balances = categories.get(user_balances_assets_category_name)
+        validate_category(user_balances, True)
 
-            staked = categories.get(staked_assets_category_name)
-            validate_category(staked)
+        unstaking = categories.get(unstaking_assets_category_name)
+        validate_category(unstaking)
 
-            inLocks = categories.get(inLocks_assets_category_name)
-            validate_category(inLocks)
+        staked = categories.get(staked_assets_category_name)
+        validate_category(staked)
 
-            pooled = categories.get(pooled_assets_category_name)
-            validate_category(pooled)
+        inLocks = categories.get(inLocks_assets_category_name)
+        validate_category(inLocks)
 
-            unclaimed_rewards = categories.get(unclaimed_rewards_assets_category_name)
-            validate_category(unclaimed_rewards)
+        pooled = categories.get(pooled_assets_category_name)
+        validate_category(pooled)
 
-            total_assets = categories.get(total_assets_category_name)
-            validate_category(total_assets, True)
+        unclaimed_rewards = categories.get(unclaimed_rewards_assets_category_name)
+        validate_category(unclaimed_rewards)
+
+        total_assets = categories.get(total_assets_category_name)
+        validate_category(total_assets, True)
 
 def validate_category(category, should_have_breakdown=False):
     assert category is not None

@@ -6,7 +6,8 @@ on:
     - cron: "*/20 * * * *"
   push:
     branches:
-      - "SQS-295"
+      - "main"
+      - "v[0-9]**"
 
 jobs:
   setup-matrix:
@@ -42,7 +43,7 @@ jobs:
           HTTP_PROXY: "http://${{secrets.TEST_PROXY_CRED}}@${{ matrix.server }}"
           HTTPS_PROXY: "http://${{secrets.TEST_PROXY_CRED}}@${{ matrix.server }}"
         run: |
-          pytest -s -n auto
+          pytest -s -n auto tests/test_synthetic_geo.py -v
 
 
   delete-deployments:
