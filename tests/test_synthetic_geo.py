@@ -1,24 +1,15 @@
-import pytest
-import timeit
-import time
-import os
 import itertools
 
-from datetime import datetime
 from sqs_service import *
 from coingecko_service import *
 import conftest 
 from constants import *
 from conftest import SERVICE_MAP
-from filelock import FileLock
 from util import *
 
 from test_pools import run_pool_liquidity_cap_test, run_canonical_orderbook_test, run_pool_filters_test
 from test_passthrough import run_test_portfolio_assets
 from test_candidate_routes import run_candidate_routes_test
-
-counter_file = "/tmp/counter.txt"
-lock_file = "/tmp/counter.lock"
 
 expected_latency_upper_bound_ms = 2000
 
