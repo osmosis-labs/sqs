@@ -187,12 +187,16 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, route 
 		}
 	}
 
+	feecoin := sdk.NewCoin(Denom, sdk.NewInt(40000))
+
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
 		Sender:  o.keyring.GetAddress().String(),
 		Routes:  poolManagerRoute,
 		TokenIn: tokenIn,
 		// TODO: account for gas fees here
-		TokenOutMinAmount: tokenIn.Amount.Add(osmomath.OneInt()),
+		// TODO: we should do the check for the estimate at a higher level of abstraction
+		// even before attempting the swap.
+		TokenOutMinAmount: tokenIn.Amount.Add(feecoin.Amount.Add(osmomath.OneInt())),
 	}
 
 	msg := []sdk.Msg{swapMsg}
@@ -210,13 +214,13 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, route 
 	// }
 	// txSize := msg
 	// gasLimit := uint64((txSize * config.Bytes) + config.BaseGas)
-	gasLimit := uint64(1700000)
-	txBuilder.SetGasLimit(gasLimit)
+	// gasLimit := uint64(100000)
+	// txBuilder.SetGasLimit(gasLimit)
 
-	// Calculate fee based on gas limit and a fixed gas price
-	gasPrice := sdk.NewDecCoinFromDec(Denom, sdk.NewDecWithPrec(25, 4)) // 0.00051 token per gas unit
-	feeAmount := gasPrice.Amount.MulInt64(int64(gasLimit)).RoundInt()
-	feecoin := sdk.NewCoin(Denom, feeAmount)
+	// // Calculate fee based on gas limit and a fixed gas price
+	// gasPrice := sdk.NewDecCoinFromDec(Denom, sdk.NewDecWithPrec(25, 4)) // 0.00051 token per gas unit
+	// feeAmount := gasPrice.Amount.MulInt64(int64(gasLimit)).RoundInt()
+	txBuilder.SetGasLimit(400000)
 	txBuilder.SetFeeAmount(sdk.NewCoins(feecoin))
 	txBuilder.SetTimeoutHeight(0)
 
@@ -263,9 +267,18 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, route 
 		return nil, "", err
 	}
 
+	defer func() {
+		// Wait for block inclusion with buffer to avoid sequence mismatch
+		time.Sleep(5 * time.Second)
+	}()
+
 	resp, err := BroadcastTransaction(txJSONBytes, RPC)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to broadcast transaction: %w", err)
+	}
+
+	if resp.Code != 0 {
+		return nil, "", fmt.Errorf("failed to broadcast transaction: %s", resp.Log)
 	}
 
 	return resp, string(txJSONBytes), nil

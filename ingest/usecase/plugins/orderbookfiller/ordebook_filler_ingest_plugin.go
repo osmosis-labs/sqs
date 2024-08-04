@@ -71,7 +71,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 		select {
 		case err := <-resultChan:
 			if err != nil {
-				o.logger.Error("failed to process orderbook", zap.Error(err))
+				o.logger.Debug("failed to process orderbook", zap.Error(err))
 			}
 		case <-time.After(10 * time.Second):
 			o.logger.Error("timed out processing orderbook")
@@ -95,7 +95,7 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx context.Context, cano
 	baseDenomPrice := prices.GetPriceForDenom(baseDenom, o.defaultQuoteDenom)
 
 	// Calculate amount equivalent to $10 in USDC for baseDenom and quoteDenom
-	baseAmountInUSDC := osmomath.NewBigDec(10_000_000).Quo(baseDenomPrice) // Assuming prices are in USDC terms
+	baseAmountInUSDC := osmomath.NewBigDec(10).Quo(baseDenomPrice) // Assuming prices are in USDC terms
 
 	// Base scaling factor
 	scalingFactor, err := o.tokensUseCase.GetChainScalingFactorByDenomMut(baseDenom)
@@ -108,6 +108,9 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx context.Context, cano
 
 	// Make it $10 in USDC terms for baseDenom
 	baseInCoin := sdk.NewCoin(baseDenom, baseAmountInUSDC.Dec().TruncateInt())
+
+	o.logger.Info("estimating cyclic arb", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID), zap.Stringer("base_in", baseInCoin), zap.String("quote_denom_out", quoteDenom))
+
 	baseInOrderbookQuote, err := o.routerUseCase.GetCustomDirectQuote(ctx, baseInCoin, quoteDenom, canonicalOrderbookResult.PoolID)
 	if err != nil {
 		return err
