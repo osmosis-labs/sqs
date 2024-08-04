@@ -588,6 +588,10 @@ func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDe
 	return routablePool
 }
 
+func (s *PoolsUsecaseTestSuite) TestetPoolAPRAndFeeDataIfConfigured() {
+
+}
+
 func (s *PoolsUsecaseTestSuite) newDefaultPoolsUseCase() *usecase.PoolsUsecase {
 	routerRepo := routerrepo.New(&log.NoOpLogger{})
 	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})

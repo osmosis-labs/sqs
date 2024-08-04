@@ -67,6 +67,12 @@ const docTemplate = `{
                         "description": "Minimum pool liquidity cap",
                         "name": "min_liquidity_cap",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include market incentives data in the pool response",
+                        "name": "with_market_incentives",
+                        "in": "query"
                     }
                 ],
                 "responses": {

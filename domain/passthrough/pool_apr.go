@@ -16,7 +16,7 @@ type PoolDataRange struct {
 // PoolAPR represents the APR data of the pool.
 type PoolAPR struct {
 	// PoolID represents the pool ID.
-	PoolID uint64 `json:"pool_id"`
+	PoolID uint64 `json:"-"`
 	// Swap Fees represents the swap fees.
 	SwapFees PoolDataRange `json:"swap_fees"`
 	// Superfluid APR represents the superfluid APR.

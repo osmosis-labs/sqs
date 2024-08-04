@@ -7,6 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
@@ -34,6 +35,26 @@ type MockRoutablePool struct {
 
 	PoolLiquidityCap      osmomath.Int
 	PoolLiquidityCapError string
+}
+
+// GetAPRData implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) GetAPRData() passthroughdomain.PoolAPRDataStatusWrap {
+	panic("unimplemented")
+}
+
+// GetFeesData implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) GetFeesData() passthroughdomain.PoolFeesDataStatusWrap {
+	panic("unimplemented")
+}
+
+// SetAPRData implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) SetAPRData(aprData passthroughdomain.PoolAPRDataStatusWrap) {
+	panic("unimplemented")
+}
+
+// SetFeesData implements sqsdomain.PoolI.
+func (mp *MockRoutablePool) SetFeesData(feesData passthroughdomain.PoolFeesDataStatusWrap) {
+	panic("unimplemented")
 }
 
 // CalcSpotPrice implements domain.RoutablePool.
