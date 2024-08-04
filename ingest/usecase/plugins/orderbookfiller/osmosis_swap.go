@@ -23,14 +23,17 @@ import (
 	"github.com/cosmos/ibc-go/v7/testing/simapp"
 	poolmanager "github.com/osmosis-labs/osmosis/v25/x/poolmanager/module"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/sqs/domain"
 )
 
 // var cdc = codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 
 var (
-	RPC   = "http://127.0.0.1:26657"
-	LCD   = "http://127.0.0.1:1317"
-	Denom = "uosmo"
+	RPC                    = "http://127.0.0.1:26657"
+	LCD                    = "http://127.0.0.1:1317"
+	Denom                  = "uosmo"
+	NobleUSDC              = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+	minReqArbProfitForSwap = sdk.MustNewDecFromStr("0.005") // 0.5% profit
 )
 
 type AccountInfo struct {
@@ -108,12 +111,11 @@ func httpGet(url string) ([]byte, error) {
 	return body, nil
 }
 
-func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, route []poolmanagertypes.SwapAmountInRoute) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
-	sequence, accnum := getInitialSequence(o.keyring.GetAddress().String())
-
-	chainID := "osmosis-1"
+func (o *orderbookFillerIngestPlugin) swapExactAmountIn(ctx context.Context, tokenIn sdk.Coin, route []poolmanagertypes.SwapAmountInRoute) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
+	// TODO: Remove this atomic bool, just here for testing
 	o.swapDone.Store(true)
-
+	sequence, accnum := getInitialSequence(o.keyring.GetAddress().String())
+	chainID := "osmosis-1"
 	key := o.keyring.GetKey()
 	keyBytes := key.Bytes()
 
@@ -122,6 +124,41 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, route 
 	encodingConfig := simapp.MakeTestEncodingConfig()
 	// encodingConfig.Marshaler = cdc
 
+	price, err := o.tokensUseCase.GetPrices(ctx, []string{tokenIn.Denom}, []string{NobleUSDC}, domain.ChainPricingSourceType)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get prices: %w", err)
+	}
+	// TODO: Im not sure if this is actual USD price or if it needs to be normalized? Or actually maybe it does not matter.
+	tokenInPrice := price.GetPriceForDenom(tokenIn.Denom, NobleUSDC)
+	tokenInUSDC := tokenIn.Amount.ToLegacyDec().Mul(tokenInPrice.Dec())
+
+	poolIdsSwappingAcross := make([]uint64, len(route))
+	for i, r := range route {
+		poolIdsSwappingAcross[i] = r.PoolId
+	}
+
+	// Get the swap fee for each pool, and determine the total usdc value of fees to be paid
+	totalSwapFeeUSDC := sdk.ZeroDec()
+	for _, poolId := range poolIdsSwappingAcross {
+		tokenIn := tokenInUSDC.Sub(totalSwapFeeUSDC)
+		pool, err := o.poolsUseCase.GetPool(poolId)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to get pool: %w", err)
+		}
+
+		spreadFactor := pool.GetSQSPoolModel().SpreadFactor
+		spreadFactorUSDC := spreadFactor.Mul(tokenIn)
+
+		takerFeeForPair, err := o.routerUseCase.GetTakerFee(poolId)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to get taker fee: %w", err)
+		}
+		// TODO: Assumes we are using two denom pools every time
+		takerFee := takerFeeForPair[0].TakerFee
+		takerFeeUSDC := takerFee.Mul(tokenIn.Sub(spreadFactorUSDC))
+		totalSwapFeeUSDC = totalSwapFeeUSDC.Add(takerFeeUSDC).Add(spreadFactorUSDC)
+	}
+
 	// Register types
 	poolm := poolmanager.AppModuleBasic{}
 	poolm.RegisterInterfaces(encodingConfig.InterfaceRegistry)
@@ -129,11 +166,16 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, route 
 	// Create a new TxBuilder.
 	txBuilder := encodingConfig.TxConfig.NewTxBuilder()
 
+	// Calculate the minimum token out amount considering the required profit and total swap fees
+	// TODO: Maybe we need to consider the gas fees here as well, but rn we are coding for 0.5 percent profit,
+	// which should mean we don't need to consider gas fees
+	minTokenOutAmount := tokenIn.Amount.ToLegacyDec().Mul(minReqArbProfitForSwap).Sub(totalSwapFeeUSDC).TruncateInt()
+
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
 		Sender:            o.keyring.GetAddress().String(),
 		Routes:            route,
 		TokenIn:           tokenIn,
-		TokenOutMinAmount: sdk.OneInt(),
+		TokenOutMinAmount: minTokenOutAmount,
 	}
 
 	msg := []sdk.Msg{swapMsg}
