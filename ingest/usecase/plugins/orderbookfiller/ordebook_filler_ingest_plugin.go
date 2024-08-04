@@ -92,33 +92,49 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx context.Context, cano
 		return err
 	}
 
-	baseDenomPrice := prices.GetPriceForDenom(baseDenom, o.defaultQuoteDenom)
+	// Detect arb swapping from base to quote (to pick up orders in one direction)
+	err = o.detectArb(ctx, prices, baseDenom, quoteDenom, canonicalOrderbookResult.PoolID)
+	if err != nil {
+		return err
+	}
+
+	// Detect arb swapping from quote to base (to pick up orders in the other direction)
+	err = o.detectArb(ctx, prices, quoteDenom, baseDenom, canonicalOrderbookResult.PoolID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (o *orderbookFillerIngestPlugin) detectArb(ctx context.Context, prices domain.PricesResult, denomIn, denomOut string, canonicalOrderbookPoolId uint64) error {
+	denomInPrice := prices.GetPriceForDenom(denomIn, o.defaultQuoteDenom)
 
 	// Calculate amount equivalent to $10 in USDC for baseDenom and quoteDenom
-	baseAmountInUSDC := osmomath.NewBigDec(10).Quo(baseDenomPrice) // Assuming prices are in USDC terms
+	amountInUSDC := osmomath.NewBigDec(10).Quo(denomInPrice) // Assuming prices are in USDC terms
 
 	// Base scaling factor
-	scalingFactor, err := o.tokensUseCase.GetChainScalingFactorByDenomMut(baseDenom)
+	scalingFactor, err := o.tokensUseCase.GetChainScalingFactorByDenomMut(denomIn)
 	if err != nil {
 		return err
 	}
 
 	// Scale the base amount
-	baseAmountInUSDC = baseAmountInUSDC.Mul(osmomath.BigDecFromDec(scalingFactor))
+	amountInUSDC = amountInUSDC.Mul(osmomath.BigDecFromDec(scalingFactor))
 
 	// Make it $10 in USDC terms for baseDenom
-	baseInCoin := sdk.NewCoin(baseDenom, baseAmountInUSDC.Dec().TruncateInt())
+	baseInCoin := sdk.NewCoin(denomIn, amountInUSDC.Dec().TruncateInt())
 
-	o.logger.Info("estimating cyclic arb", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID), zap.Stringer("base_in", baseInCoin), zap.String("quote_denom_out", quoteDenom))
+	o.logger.Info("estimating cyclic arb", zap.Uint64("orderbook_id", canonicalOrderbookPoolId), zap.Stringer("denom_in", baseInCoin), zap.String("denom_out", denomOut))
 
-	baseInOrderbookQuote, err := o.routerUseCase.GetCustomDirectQuote(ctx, baseInCoin, quoteDenom, canonicalOrderbookResult.PoolID)
+	baseInOrderbookQuote, err := o.routerUseCase.GetCustomDirectQuote(ctx, baseInCoin, denomOut, canonicalOrderbookPoolId)
 	if err != nil {
 		return err
 	}
 
 	// Make it $10 in USDC terms for quoteDenom
-	quoteInCoin := sdk.NewCoin(quoteDenom, baseInOrderbookQuote.GetAmountOut())
-	cyclicArbQuote, err := o.routerUseCase.GetSimpleQuote(ctx, quoteInCoin, baseDenom, domain.WithDisableSplitRoutes())
+	quoteInCoin := sdk.NewCoin(denomOut, baseInOrderbookQuote.GetAmountOut())
+	cyclicArbQuote, err := o.routerUseCase.GetSimpleQuote(ctx, quoteInCoin, denomIn, domain.WithDisableSplitRoutes())
 	if err != nil {
 		return err
 	}
