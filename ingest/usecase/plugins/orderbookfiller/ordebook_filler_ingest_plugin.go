@@ -95,13 +95,13 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx context.Context, cano
 	// Detect arb swapping from base to quote (to pick up orders in one direction)
 	err = o.detectArb(ctx, prices, baseDenom, quoteDenom, canonicalOrderbookResult.PoolID)
 	if err != nil {
-		return err
+		o.logger.Debug("failed to detect arb", zap.Error(err), zap.String("denom_in", baseDenom), zap.String("denom_out", quoteDenom), zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID))
 	}
 
 	// Detect arb swapping from quote to base (to pick up orders in the other direction)
 	err = o.detectArb(ctx, prices, quoteDenom, baseDenom, canonicalOrderbookResult.PoolID)
 	if err != nil {
-		return err
+		o.logger.Debug("failed to detect arb", zap.Error(err), zap.String("denom_in", quoteDenom), zap.String("denom_out", baseDenom), zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID))
 	}
 
 	return nil
