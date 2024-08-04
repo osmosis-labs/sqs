@@ -226,7 +226,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 			logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
 
-			orderbookFillerPlugin := orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, keyring, logger)
+			orderbookFillerPlugin := orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, keyring, defaultQuoteDenom, logger)
 			ingestUseCase.RegisterEndBlockProcessPlugin(orderbookFillerPlugin)
 		}
 

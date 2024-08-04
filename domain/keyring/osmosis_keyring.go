@@ -38,7 +38,6 @@ const (
 var _ Keyring = &keyringImpl{}
 
 func New() (*keyringImpl, error) {
-
 	keyringConfig := keyring.Config{
 		ServiceName:              keyringServiceName,
 		FileDir:                  os.Getenv(osmosisKeyringPathEnvName),
@@ -73,7 +72,6 @@ func New() (*keyringImpl, error) {
 	privKey := secp256k1.PrivKey{}
 	if err := privKey.Unmarshal(localRecord.PrivKey.Value); err != nil {
 		return nil, err
-
 	}
 
 	return &keyringImpl{
