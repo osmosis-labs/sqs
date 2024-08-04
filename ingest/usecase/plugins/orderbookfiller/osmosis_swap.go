@@ -159,6 +159,9 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(ctx context.Context, tok
 		totalSwapFeeUSDC = totalSwapFeeUSDC.Add(takerFeeUSDC).Add(spreadFactorUSDC)
 	}
 
+	// Turn totalSwapFeeUSDC into the amount of tokenIn this represents
+	totalSwapFee := totalSwapFeeUSDC.Quo(tokenInPrice.Dec()).TruncateInt()
+
 	// Register types
 	poolm := poolmanager.AppModuleBasic{}
 	poolm.RegisterInterfaces(encodingConfig.InterfaceRegistry)
@@ -169,7 +172,8 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(ctx context.Context, tok
 	// Calculate the minimum token out amount considering the required profit and total swap fees
 	// TODO: Maybe we need to consider the gas fees here as well, but rn we are coding for 0.5 percent profit,
 	// which should mean we don't need to consider gas fees
-	minTokenOutAmount := tokenIn.Amount.ToLegacyDec().Mul(minReqArbProfitForSwap).Sub(totalSwapFeeUSDC).TruncateInt()
+	tokenInWithFees := tokenIn.Amount.Add(totalSwapFee)
+	minTokenOutAmount := tokenInWithFees.ToLegacyDec().Mul(sdk.OneDec().Sub(minReqArbProfitForSwap)).TruncateInt()
 
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
 		Sender:            o.keyring.GetAddress().String(),
