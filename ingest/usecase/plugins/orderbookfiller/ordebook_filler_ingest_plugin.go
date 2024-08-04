@@ -2,6 +2,8 @@ package orderbookfiller
 
 import (
 	"context"
+	"fmt"
+	"sync/atomic"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -19,6 +21,8 @@ type orderbookFillerIngestPlugin struct {
 	routerUseCase mvc.RouterUsecase
 	tokensUseCase mvc.TokensUsecase
 
+	atomicBool atomic.Bool
+
 	keyring           keyring.Keyring
 	defaultQuoteDenom string
 
@@ -32,6 +36,8 @@ func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensU
 		poolsUseCase:  poolsUseCase,
 		routerUseCase: routerUseCase,
 		tokensUseCase: tokensUseCase,
+
+		atomicBool: atomic.Bool{},
 
 		keyring:           keyring,
 		defaultQuoteDenom: defaultQuoteDenom,
@@ -76,7 +82,6 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 }
 
 func (o *orderbookFillerIngestPlugin) processOrderbook(ctx context.Context, canonicalOrderbookResult domain.CanonicalOrderBooksResult) error {
-
 	baseDenom := canonicalOrderbookResult.Base
 	quoteDenom := canonicalOrderbookResult.Quote
 
@@ -86,43 +91,56 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx context.Context, cano
 	}
 
 	baseDenomPrice := prices.GetPriceForDenom(baseDenom, o.defaultQuoteDenom)
-	quoteDenomPrice := prices.GetPriceForDenom(quoteDenom, o.defaultQuoteDenom)
 
-	// TODO: make it $10 in USDC terms by using prices above
-	baseInCoin := sdk.NewCoin(baseDenom, sdk.NewInt(10_000_000))
+	// Calculate amount equivalent to $10 in USDC for baseDenom and quoteDenom
+	baseAmountInUSDC := osmomath.NewBigDec(10_000_000).Quo(baseDenomPrice) // Assuming prices are in USDC terms
+
+	// Base scaling factor
+	scalingFactor, err := o.tokensUseCase.GetChainScalingFactorByDenomMut(baseDenom)
+	if err != nil {
+		return err
+	}
+
+	// Scale the base amount
+	baseAmountInUSDC = baseAmountInUSDC.Mul(osmomath.BigDecFromDec(scalingFactor))
+
+	// Make it $10 in USDC terms for baseDenom
+	baseInCoin := sdk.NewCoin(baseDenom, baseAmountInUSDC.Dec().TruncateInt())
 	baseInOrderbookQuote, err := o.routerUseCase.GetCustomDirectQuote(ctx, baseInCoin, quoteDenom, canonicalOrderbookResult.PoolID)
 	if err != nil {
 		return err
 	}
 
-	// Get execution price
-	baseOrderbookAmount := baseInOrderbookQuote.GetAmountIn()
-	quoteOrderbookAmount := baseInOrderbookQuote.GetAmountOut()
-
-	orderbookQuoteExecutionPrice := baseOrderbookAmount.Amount.ToLegacyDec().Quo(quoteOrderbookAmount.ToLegacyDec())
-
-	// TODO: make it $10 in USDC terms by using prices above
-	quoteInCoin := sdk.NewCoin(quoteDenom, sdk.NewInt(10_000_000))
-
-	quoteInOptimalQuote, err := o.routerUseCase.GetSimpleQuote(ctx, quoteInCoin, baseDenom)
+	// Make it $10 in USDC terms for quoteDenom
+	quoteInCoin := sdk.NewCoin(quoteDenom, baseInOrderbookQuote.GetAmountOut())
+	cyclicArbQuote, err := o.routerUseCase.GetSimpleQuote(ctx, quoteInCoin, baseDenom, domain.WithDisableSplitRoutes())
 	if err != nil {
 		return err
 	}
-	baseOptimalQuote := quoteInOptimalQuote.GetAmountOut()
-	quoteOptimalQuote := quoteInOptimalQuote.GetAmountIn()
-
-	// Get execution price
-	optimalQuoteExecutionPrice := baseOptimalQuote.ToLegacyDec().Quo(quoteOptimalQuote.Amount.ToLegacyDec())
 
 	errTolerance := osmomath.ErrTolerance{
 		MultiplicativeTolerance: sdk.NewDecWithPrec(5, 2),
 	}
 
-	difference := errTolerance.CompareDec(orderbookQuoteExecutionPrice, optimalQuoteExecutionPrice)
+	//
+	difference := errTolerance.Compare(baseInCoin.Amount, cyclicArbQuote.GetAmountOut())
 
-	// TODO:
-	// do one swap using keyring
-	// Have an atomic.Bool, check if we the swap was done
-	// Swap 2000uosmo to validate that everything works end-to-end
+	if difference < 0 {
+		// Profitable arbitrage opportunity exists
+
+		// Check if atomic operation is already in progress
+		if o.atomicBool.CompareAndSwap(false, true) {
+			defer o.atomicBool.Store(false)
+
+			// Execute the swap
+			// TODO:
+			fmt.Println("Profitable arbitrage opportunity exists")
+
+			// Construct the rotue and push it to message signing logic.
+
+			// Additional logic to verify swap, update state, etc.
+		}
+	}
+
 	return nil
 }
