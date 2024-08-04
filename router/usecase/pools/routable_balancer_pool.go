@@ -20,7 +20,8 @@ var _ domain.RoutablePool = &routableBalancerPoolImpl{}
 
 type routableBalancerPoolImpl struct {
 	ChainPool     *balancer.Pool "json:\"pool\""
-	TokenOutDenom string         "json:\"token_out_denom\""
+	TokenInDenom  string         "json:\"token_in_denom,omitempty\""
+	TokenOutDenom string         "json:\"token_out_denom,omitempty\""
 	TakerFee      osmomath.Dec   "json:\"taker_fee\""
 }
 
@@ -39,6 +40,11 @@ func (r *routableBalancerPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
+// GetTokenInDenom implements RoutablePool.
+func (r *routableBalancerPoolImpl) GetTokenInDenom() string {
+	return r.TokenInDenom
+}
+
 // String implements domain.RoutablePool.
 func (r *routableBalancerPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v), token out (%s)", r.ChainPool.Id, poolmanagertypes.Balancer, r.ChainPool.GetPoolDenoms(sdk.Context{}), r.TokenOutDenom)
@@ -54,6 +60,11 @@ func (r *routableBalancerPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (toke
 // GetTakerFee implements domain.RoutablePool.
 func (r *routableBalancerPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
+}
+
+// SetTokenInDenom implements domain.RoutablePool.
+func (r *routableBalancerPoolImpl) SetTokenInDenom(tokenInDenom string) {
+	r.TokenInDenom = tokenInDenom
 }
 
 // SetTokenOutDenom implements domain.RoutablePool.

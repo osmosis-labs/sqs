@@ -24,7 +24,8 @@ var _ domain.RoutablePool = &routableOrderbookPoolImpl{}
 type routableOrderbookPoolImpl struct {
 	ChainPool     *cwpoolmodel.CosmWasmPool   "json:\"pool\""
 	Balances      sdk.Coins                   "json:\"balances\""
-	TokenOutDenom string                      "json:\"token_out_denom\""
+	TokenInDenom  string                      "json:\"token_in_denom,omitempty\""
+	TokenOutDenom string                      "json:\"token_out_denom,omitempty\""
 	TakerFee      osmomath.Dec                "json:\"taker_fee\""
 	SpreadFactor  osmomath.Dec                "json:\"spread_factor\""
 	OrderbookData *cosmwasmpool.OrderbookData "json:\"orderbook_data\""
@@ -147,6 +148,11 @@ func (r *routableOrderbookPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
+// GetTokenInDenom implements RoutablePool.
+func (r *routableOrderbookPoolImpl) GetTokenInDenom() string {
+	return r.TokenInDenom
+}
+
 // String implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d) Orderbook, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
@@ -162,6 +168,11 @@ func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tok
 // GetTakerFee implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
+}
+
+// SetTokenInDenom implements domain.RoutablePool.
+func (r *routableOrderbookPoolImpl) SetTokenInDenom(tokenInDenom string) {
+	r.TokenInDenom = tokenInDenom
 }
 
 // SetTokenOutDenom implements domain.RoutablePool.

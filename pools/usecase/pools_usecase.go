@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -24,6 +26,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 )
 
@@ -55,8 +58,8 @@ const (
 // NewPoolsUsecase will create a new pools use case object
 func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb, logger log.Logger) (*poolsUseCase, error) {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
-	for _, codeId := range poolsConfig.TransmuterCodeIDs {
-		transmuterCodeIDsMap[codeId] = struct{}{}
+	for _, codeID := range poolsConfig.TransmuterCodeIDs {
+		transmuterCodeIDsMap[codeID] = struct{}{}
 	}
 
 	alloyedTransmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.AlloyedTransmuterCodeIDs))
@@ -70,8 +73,8 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint s
 	}
 
 	generalizedCosmWasmCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.GeneralCosmWasmCodeIDs))
-	for _, codeId := range poolsConfig.GeneralCosmWasmCodeIDs {
-		generalizedCosmWasmCodeIDsMap[codeId] = struct{}{}
+	for _, codeID := range poolsConfig.GeneralCosmWasmCodeIDs {
+		generalizedCosmWasmCodeIDsMap[codeID] = struct{}{}
 	}
 
 	wasmClient, err := initializeWasmClient(chainGRPCGatewayEndpoint)
@@ -289,16 +292,50 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 }
 
 // GetPools implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error) {
-	pools := make([]sqsdomain.PoolI, 0, len(poolIDs))
+func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error) {
+	options := domain.PoolsOptions{
+		MinPoolLiquidityCap: 0,
+		PoolIDFilter:        []uint64{},
+		HadEmptyFilter:      false,
+	}
 
-	for _, poolID := range poolIDs {
-		pool, err := p.GetPool(poolID)
-		if err != nil {
-			return nil, err
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	if options.HadEmptyFilter {
+		return nil, nil
+	}
+
+	var (
+		pools []sqsdomain.PoolI
+	)
+
+	if len(options.PoolIDFilter) > 0 {
+		// Get specific pools
+		pools = make([]sqsdomain.PoolI, 0, len(options.PoolIDFilter))
+		for _, poolID := range options.PoolIDFilter {
+			pool, err := p.GetPool(poolID)
+			if err != nil {
+				return nil, err
+			}
+
+			// Check filter is non-zero to avoid more expensive get liquidity cap check.
+			if options.MinPoolLiquidityCap == 0 || pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
+				pools = append(pools, pool)
+			}
 		}
-
-		pools = append(pools, pool)
+	} else {
+		// Pre-allocate 2000 since this is how many pools there are today.
+		pools = make([]sqsdomain.PoolI, 0, 2000)
+		p.pools.Range(func(key, value interface{}) bool {
+			pool, ok := value.(sqsdomain.PoolI)
+			// Check filter is non-zero to avoid more expensive get liquidity cap check.
+			if ok && (options.MinPoolLiquidityCap == 0 || pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap) {
+				pools = append(pools, pool)
+			}
+			return true
+		})
 	}
 
 	return pools, nil
@@ -314,7 +351,7 @@ func (p *poolsUseCase) StorePools(pools []sqsdomain.PoolI) error {
 		// If orderbook, update top liquidity pool for base and quote denom if it has higher liquidity capitalization.
 		sqsModel := pool.GetSQSPoolModel()
 		cosmWasmPoolModel := sqsModel.CosmWasmPoolModel
-		if cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook() {
+		if cosmWasmPoolModel != nil && cosmWasmPoolModel.Data.Orderbook != nil && cosmWasmPoolModel.IsOrderbook() {
 			baseDenom := cosmWasmPoolModel.Data.Orderbook.BaseDenom
 			quoteDenom := cosmWasmPoolModel.Data.Orderbook.QuoteDenom
 			poolLiquidityCapitalization := pool.GetLiquidityCap()
@@ -467,6 +504,27 @@ func (p *poolsUseCase) IsCanonicalOrderbookPool(poolID uint64) bool {
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return p.cosmWasmPoolsParams.Config
+}
+
+// CalcExitCFMMPool implements mvc.PoolsUsecase.
+func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+	sqsPool, err := p.GetPool(poolID)
+	if err != nil {
+		return nil, err
+	}
+
+	if sqsPool.GetType() != poolmanagertypes.Balancer && sqsPool.GetType() != poolmanagertypes.Stableswap {
+		return nil, fmt.Errorf("invalid pool type for pool ID %d, expected CFMM pool", poolID)
+	}
+
+	pool, ok := sqsPool.GetUnderlyingPool().(types.CFMMPoolI)
+	if !ok {
+		return nil, fmt.Errorf("failed to cast underlying pool to CFMMPoolI for ID: %d", poolID)
+	}
+
+	// fine to pass empty context as no data is mutated
+	exitFee := pool.GetExitFee(sdk.Context{})
+	return pool.CalcExitPoolCoinsFromShares(sdk.Context{}, exitingShares, exitFee)
 }
 
 // formatBaseQuoteDenom formats the base and quote denom into a single string with a separator.

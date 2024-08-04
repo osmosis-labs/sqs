@@ -195,7 +195,7 @@ type LiquidityPricer interface {
 	// using the total liquidity and the price.
 	// Returs zero if the price is zero or if there is any internal error.
 	// Otherwise, returns the computed liquidity capitalization from total liquidity and price.
-	PriceCoin(liquidity sdk.Coin, price osmomath.BigDec) osmomath.Int
+	PriceCoin(liquidity sdk.Coin, price osmomath.BigDec) osmomath.Dec
 }
 
 // PoolLiquidityComputeListener defines the interface for the pool liquidity compute listener.

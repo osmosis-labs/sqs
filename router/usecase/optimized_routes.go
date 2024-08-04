@@ -73,7 +73,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 
 	bestRoute := routesWithAmountOut[0]
 
-	finalQuote := &quoteImpl{
+	finalQuote := &quoteExactAmountIn{
 		AmountIn:  tokenIn,
 		AmountOut: bestRoute.OutAmount,
 		Route:     []domain.SplitRoute{&bestRoute},

@@ -1,6 +1,9 @@
 package mocks
 
 import (
+	"cosmossdk.io/math"
+	"github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
@@ -14,16 +17,33 @@ type PoolHandlerMock struct {
 var _ mvc.PoolHandler = &PoolHandlerMock{}
 
 // GetPools implements mvc.PoolHandler.
-func (p *PoolHandlerMock) GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error) {
+func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error) {
 	if p.ForceGetPoolsError != nil {
 		return nil, p.ForceGetPoolsError
 	}
 
-	result := make([]sqsdomain.PoolI, 0, len(poolIDs))
+	options := domain.PoolsOptions{
+		MinPoolLiquidityCap: 0,
+		PoolIDFilter:        []uint64{},
+	}
 
-	for _, pool := range p.Pools {
-		for _, id := range poolIDs {
-			if pool.GetId() == id {
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	result := make([]sqsdomain.PoolI, 0)
+
+	if len(options.PoolIDFilter) > 0 {
+		for _, id := range options.PoolIDFilter {
+			for _, pool := range p.Pools {
+				if pool.GetId() == id {
+					result = append(result, pool)
+				}
+			}
+		}
+	} else {
+		for _, pool := range p.Pools {
+			if pool.GetLiquidityCap().Uint64() > options.MinPoolLiquidityCap {
 				result = append(result, pool)
 			}
 		}
@@ -59,4 +79,9 @@ func (p *PoolHandlerMock) StorePools(pools []sqsdomain.PoolI) error {
 		}
 	}
 	return nil
+}
+
+// CalcExitCFMMPool implements mvc.PoolHandler.
+func (p *PoolHandlerMock) CalcExitCFMMPool(poolID uint64, exitingShares math.Int) (types.Coins, error) {
+	panic("unimplemented")
 }

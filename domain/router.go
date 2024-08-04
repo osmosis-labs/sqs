@@ -22,12 +22,20 @@ type Route interface {
 	// The reason for this is that making network requests to chain is expensive.
 	// As a result, we want to minimize the number of requests we make.
 	ContainsGeneralizedCosmWasmPool() bool
+
 	GetPools() []RoutablePool
+
 	// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount.
 	// Returns error if the calculation fails.
 	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
 
+	// Returns token out denom of the last pool in the route.
+	// If route is empty, returns empty string.
 	GetTokenOutDenom() string
+
+	// Returns token in denom of the last pool in the route.
+	// If route is empty, returns empty string.
+	GetTokenInDenom() string
 
 	// PrepareResultPools strips away unnecessary fields
 	// from each pool in the route,
@@ -54,6 +62,7 @@ type Quote interface {
 	GetRoute() []SplitRoute
 	GetEffectiveFee() osmomath.Dec
 	GetPriceImpact() osmomath.Dec
+	GetInBaseOutQuoteSpotPrice() osmomath.Dec
 
 	// PrepareResult mutates the quote to prepare
 	// it with the data formatted for output to the client.

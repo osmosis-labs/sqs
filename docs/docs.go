@@ -15,6 +15,38 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/passthrough/portfolio-assets/{address}": {
+            "get": {
+                "description": "The returned data represents the potfolio asset breakdown by category for the specified address.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Returns portfolio assets associated with the given address by category.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Wallet Address",
+                        "name": "address",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Portfolio assets by-category and capitalization of the entire account value",
+                        "schema": {
+                            "type": "struct"
+                        }
+                    },
+                    "500": {
+                        "description": "Response error",
+                        "schema": {
+                            "type": "struct"
+                        }
+                    }
+                }
+            }
+        },
         "/pools": {
             "get": {
                 "description": "Returns a list of pools if the IDs parameter is not given. Otherwise,\nit batch fetches specific pools by the given pool IDs parameter.",
@@ -28,6 +60,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Comma-separated list of pool IDs to fetch, e.g., '1,2,3'",
                         "name": "IDs",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum pool liquidity cap",
+                        "name": "min_liquidity_cap",
                         "in": "query"
                     }
                 ],
@@ -145,7 +183,7 @@ const docTemplate = `{
         },
         "/router/quote": {
             "get": {
-                "description": "returns the best quote it can compute for the given tokenIn and tokenOutDenom.",
+                "description": "Returns the best quote it can compute for the exact in or exact out token swap method.\n\nFor exact amount in swap method, the ` + "`" + `tokenIn` + "`" + ` and ` + "`" + `tokenOutDenom` + "`" + ` are required.\nFor exact amount out swap method, the ` + "`" + `tokenOut` + "`" + ` and ` + "`" + `tokenInDenom` + "`" + ` are required.\nMixing swap method parameters in other way than specified will result in an error.\n\nWhen ` + "`" + `singleRoute` + "`" + ` parameter is set to true, it gives the best single quote while excluding splits.",
                 "produces": [
                     "application/json"
                 ],
@@ -154,17 +192,27 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "String representation of the sdk.Coin for the token in.",
+                        "description": "String representation of the sdk.Coin denoting the input token for the exact amount in swap method.",
                         "name": "tokenIn",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "String representing the denom of the token out.",
+                        "description": "String representing the denomination of the output token for the exact amount in swap method.",
                         "name": "tokenOutDenom",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "String representation of the sdk.Coin denoting the output token for the exact amount out swap method.",
+                        "name": "tokenOut",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "String representing the denomination of the input token for the exact amount out swap method.",
+                        "name": "tokenInDenom",
+                        "in": "query"
                     },
                     {
                         "type": "boolean",
@@ -362,6 +410,10 @@ const docTemplate = `{
         "domain.Token": {
             "type": "object",
             "properties": {
+                "coinMinimalDenom": {
+                    "description": "Denom is the chain denom of the token, e.g. ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
+                    "type": "string"
+                },
                 "coingeckoId": {
                     "type": "string"
                 },
@@ -369,12 +421,16 @@ const docTemplate = `{
                     "description": "Precision is the precision of the token.",
                     "type": "integer"
                 },
+                "name": {
+                    "description": "Name",
+                    "type": "string"
+                },
                 "preview": {
                     "description": "IsUnlisted is true if the token is unlisted.",
                     "type": "boolean"
                 },
                 "symbol": {
-                    "description": "HumanDenom is the human readable denom.",
+                    "description": "HumanDenom is the human readable denom, e.g. atom",
                     "type": "string"
                 }
             }
@@ -393,6 +449,9 @@ const docTemplate = `{
         "sqsdomain.CandidateRoute": {
             "type": "object",
             "properties": {
+                "isCanonicalOrderboolRoute": {
+                    "type": "boolean"
+                },
                 "pools": {
                     "type": "array",
                     "items": {
@@ -404,6 +463,9 @@ const docTemplate = `{
         "sqsdomain.CandidateRoutes": {
             "type": "object",
             "properties": {
+                "containsCanonicalOrderbook": {
+                    "type": "boolean"
+                },
                 "routes": {
                     "type": "array",
                     "items": {

@@ -131,7 +131,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
+						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee),
 					},
 				},
 			},
@@ -151,7 +151,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
+						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee),
 					},
 				},
 			},
@@ -185,7 +185,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee, domain.CosmWasmPoolRouterConfig{}),
+						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee),
 					},
 				},
 			},
@@ -509,9 +509,78 @@ func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbooks_HappyPath() {
 
 }
 
-func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
+// Happy path test to vaidate that no panics/errors occur and coins are returned
+// as intended.
+// The correctness of math is ensured at a different layer of abstraction.
+func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
+
+	s.Setup()
+
+	// Create pool
+	poolID := s.PrepareBalancerPool()
+	cfmmPool, err := s.App.GAMMKeeper.GetCFMMPool(s.Ctx, poolID)
+	s.Require().NoError(err)
+
+	// Get balances
+	poolBalances := s.App.BankKeeper.GetAllBalances(s.Ctx, cfmmPool.GetAddress())
+	s.Require().NoError(err)
+
+	// Create sqs pool
+	sqsPool := sqsdomain.NewPool(cfmmPool, cfmmPool.GetSpreadFactor(s.Ctx), poolBalances)
+
+	// Create default use case
+	poolsUseCase := s.newDefaultPoolsUseCase()
+
+	// Store pool
+	poolsUseCase.StorePools([]sqsdomain.PoolI{sqsPool})
+
+	// Arbitrary large number.
+	numSharesExiting := osmomath.NewInt(1_000_000_000_000_000_000)
+
+	// System under test
+	actualCoins, err := poolsUseCase.CalcExitCFMMPool(poolID, numSharesExiting)
+
+	// Validate
+	s.Require().NoError(err)
+	s.Require().False(actualCoins.Empty())
+}
+
+func (s *PoolsUsecaseTestSuite) TestGetPools() {
+	mainnetState := s.SetupMainnetState()
+
+	usecase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+	// No filter
+	pools, err := usecase.Pools.GetPools()
+	s.Require().NoError(err)
+	s.Require().True(len(pools) > 1500)
+
+	// Pool 32 is garbage and has zero liq.
+	// Pools 1 and 1066 are major pools.
+	poolsFilter := []uint64{32, 1, 1066}
+
+	// Pool ID filter
+	pools, err = usecase.Pools.GetPools(domain.WithPoolIDFilter(poolsFilter))
+	s.Require().NoError(err)
+	s.Require().Len(pools, len(poolsFilter))
+
+	// Min liquidity cap filter
+	pools, err = usecase.Pools.GetPools(domain.WithMinPoolsLiquidityCap(1_000_000))
+	s.Require().NoError(err)
+	s.Require().True(len(pools) < 100)
+
+	pools, err = usecase.Pools.GetPools(domain.WithMinPoolsLiquidityCap(1), domain.WithPoolIDFilter(poolsFilter))
+	s.Require().NoError(err)
+	s.Require().Len(pools, 2)
+
+	// Empty filter signifies returning nothing and exiting early
+	pools, err = usecase.Pools.GetPools(domain.WithPoolIDFilter([]uint64{}))
+	s.Require().NoError(err)
+	s.Require().Empty(pools)
+}
+
+func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
-		Config:                cosmWasmConfig,
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)

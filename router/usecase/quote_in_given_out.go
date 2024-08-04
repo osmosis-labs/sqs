@@ -5,15 +5,36 @@ import (
 	"fmt"
 	"strings"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-type quoteImpl struct {
+var (
+	one = osmomath.OneDec()
+)
+
+var (
+	_ domain.Quote = &quoteExactAmountIn{}
+)
+
+// NOTE: This is because structs in alias declaration are not exported
+type (
+	QuoteExactAmountOut = quoteExactAmountOut
+	QuoteExactAmountIn  = quoteExactAmountIn
+)
+
+func NewQuoteExactAmountOut(q *QuoteExactAmountIn) *quoteExactAmountOut {
+	return &quoteExactAmountOut{
+		quoteExactAmountIn: q,
+	}
+}
+
+// quoteExactAmountIn is a quote implementation for token swap method exact in.
+type quoteExactAmountIn struct {
 	AmountIn                sdk.Coin            "json:\"amount_in\""
 	AmountOut               osmomath.Int        "json:\"amount_out\""
 	Route                   []domain.SplitRoute "json:\"route\""
@@ -21,12 +42,6 @@ type quoteImpl struct {
 	PriceImpact             osmomath.Dec        "json:\"price_impact\""
 	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
 }
-
-var (
-	one = osmomath.OneDec()
-)
-
-var _ domain.Quote = &quoteImpl{}
 
 // PrepareResult implements domain.Quote.
 // PrepareResult mutates the quote to prepare
@@ -36,7 +51,7 @@ var _ domain.Quote = &quoteImpl{}
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
@@ -94,27 +109,27 @@ func (q *quoteImpl) PrepareResult(ctx context.Context, scalingFactor osmomath.De
 }
 
 // GetAmountIn implements Quote.
-func (q *quoteImpl) GetAmountIn() sdk.Coin {
+func (q *quoteExactAmountIn) GetAmountIn() sdk.Coin {
 	return q.AmountIn
 }
 
 // GetAmountOut implements Quote.
-func (q *quoteImpl) GetAmountOut() osmomath.Int {
+func (q *quoteExactAmountIn) GetAmountOut() osmomath.Int {
 	return q.AmountOut
 }
 
 // GetRoute implements Quote.
-func (q *quoteImpl) GetRoute() []domain.SplitRoute {
+func (q *quoteExactAmountIn) GetRoute() []domain.SplitRoute {
 	return q.Route
 }
 
 // GetEffectiveFee implements Quote.
-func (q *quoteImpl) GetEffectiveFee() osmomath.Dec {
+func (q *quoteExactAmountIn) GetEffectiveFee() osmomath.Dec {
 	return q.EffectiveFee
 }
 
 // String implements domain.Quote.
-func (q *quoteImpl) String() string {
+func (q *quoteExactAmountIn) String() string {
 	var builder strings.Builder
 
 	builder.WriteString(fmt.Sprintf("Quote: %s in for %s out \n", q.AmountIn, q.AmountOut))
@@ -127,6 +142,11 @@ func (q *quoteImpl) String() string {
 }
 
 // GetPriceImpact implements domain.Quote.
-func (q *quoteImpl) GetPriceImpact() osmomath.Dec {
+func (q *quoteExactAmountIn) GetPriceImpact() osmomath.Dec {
 	return q.PriceImpact
+}
+
+// GetInBaseOutQuoteSpotPrice implements domain.Quote.
+func (q *quoteExactAmountIn) GetInBaseOutQuoteSpotPrice() osmomath.Dec {
+	return q.InBaseOutQuoteSpotPrice
 }

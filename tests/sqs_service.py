@@ -14,6 +14,8 @@ TOKENS_PRICES_URL = "/tokens/prices"
 POOLS_URL = "/pools"
 CANONICAL_ORDERBOOKS_URL = "/pools/canonical-orderbooks"
 
+PASSTHROUGH_PORTFOLIO_ASSETS = "/passthrough/portfolio-assets/"
+
 CONFIG_URL = "/config"
 
 ASSET_LIST_URL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json"
@@ -50,12 +52,28 @@ class SQSService:
 
         return self.config
     
-    def get_pool(self, pool_id):
+    def get_pools(self, pool_ids=None, min_liquidity_cap=None):
         """
         Fetches the pool from the specified endpoint and returns it.
         Raises error if non-200 is returned from the endpoint.
         """
-        response = requests.get(self.url + f"{POOLS_URL}?IDs={pool_id}", headers=self.headers)
+        url_ext = f"{POOLS_URL}"
+
+        is_pool_id_filter_provided = pool_ids is not None
+        is_min_liquidity_cap_filter_provided = min_liquidity_cap is not None 
+        if pool_ids is not None or is_min_liquidity_cap_filter_provided:
+            url_ext += "?"
+
+        if is_pool_id_filter_provided:
+            url_ext += f"IDs={pool_ids}"
+
+        if is_pool_id_filter_provided and is_min_liquidity_cap_filter_provided:
+            url_ext += "&"
+
+        if is_min_liquidity_cap_filter_provided:
+            url_ext += f"min_liquidity_cap={min_liquidity_cap}"
+
+        response = requests.get(self.url + url_ext, headers=self.headers)
 
         if response.status_code != 200:
             raise Exception(f"Error fetching pool: {response.text}")
@@ -73,9 +91,9 @@ class SQSService:
         # Send the GET request
         return requests.get(self.url + ROUTER_ROUTES_URL, params=params, headers=self.headers)
 
-    def get_quote(self, denom_in, denom_out, human_denoms="false", singleRoute="false"):
+    def get_exact_amount_in_quote(self, denom_in, denom_out, human_denoms="false", singleRoute="false"):
         """
-        Fetches quote from the specified endpoint and returns it.
+        Fetches exact amount in quote from the specified endpoint and returns it.
 
         Raises error if non-200 is returned from the endpoint.
         """
@@ -84,6 +102,26 @@ class SQSService:
         params = {
             "tokenIn": denom_in,
             "tokenOutDenom": denom_out,
+            "humanDenoms": human_denoms,
+            "singleRoute": singleRoute,
+        }
+
+        print(params)
+
+        # Send the GET request
+        return requests.get(self.url + ROUTER_QUOTE_URL, params=params, headers=self.headers)
+
+    def get_exact_amount_out_quote(self, token_out, denom_in, human_denoms="false", singleRoute="false"):
+        """
+        Fetches exact amount out quote from the specified endpoint and returns it.
+
+        Raises error if non-200 is returned from the endpoint.
+        """
+
+        # Set the query parameters
+        params = {
+            "tokenOut": token_out,
+            "tokenInDenom": denom_in,
             "humanDenoms": human_denoms,
             "singleRoute": singleRoute,
         }
@@ -172,5 +210,17 @@ class SQSService:
 
         if response.status_code != 200:
             raise Exception(f"Error fetching canonical orderbooks: {response.text}")
+
+        return response.json()
+
+    def get_portfolio_assets(self, address):
+        """
+        Fetches the portfolio assets from the specified endpoint and address and returns them.
+        """
+
+        response = requests.get(self.url + f"{PASSTHROUGH_PORTFOLIO_ASSETS}{address}", headers=self.headers)
+
+        if response.status_code != 200:
+            raise Exception(f"Error fetching portfolio assets: {response.text}")
 
         return response.json()

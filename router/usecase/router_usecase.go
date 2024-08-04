@@ -211,6 +211,24 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	return finalQuote, nil
 }
 
+// GetOptimalQuoteInGivenOut returns an optimal quote through the pools for the exact amount out token swap method.
+// Underlying implementation is the same as GetOptimalQuote, but the returned quote is wrapped in a quoteExactAmountOut.
+func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+	quote, err := r.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	q, ok := quote.(*quoteExactAmountIn)
+	if !ok {
+		return nil, errors.New("quote is not a quoteExactAmountIn")
+	}
+
+	return &quoteExactAmountOut{
+		quoteExactAmountIn: q,
+	}, nil
+}
+
 // GetSimpleQuote implements mvc.RouterUsecase.
 // TODO: cover with a simple test.
 func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
@@ -484,7 +502,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 	}
 
 	// AmountIn is the first token of the asset pair.
-	result := quoteImpl{AmountIn: tokenIn}
+	result := quoteExactAmountIn{AmountIn: tokenIn}
 	for i, v := range poolIDs {
 		tokenOutDenom := tokenOutDenom[i]
 

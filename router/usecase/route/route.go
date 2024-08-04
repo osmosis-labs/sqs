@@ -161,6 +161,17 @@ func (r *RouteImpl) GetTokenOutDenom() string {
 	return r.Pools[len(r.Pools)-1].GetTokenOutDenom()
 }
 
+// GetTokenInDenom implements domain.Route.
+// Returns token in denom of the last pool in the route.
+// If route is empty, returns empty string.
+func (r *RouteImpl) GetTokenInDenom() string {
+	if len(r.Pools) == 0 {
+		return ""
+	}
+
+	return r.Pools[len(r.Pools)-1].GetTokenInDenom()
+}
+
 // ContainsGeneralizedCosmWasmPool implements domain.Route.
 func (r *RouteImpl) ContainsGeneralizedCosmWasmPool() bool {
 	return r.HasGeneralizedCosmWasmPool

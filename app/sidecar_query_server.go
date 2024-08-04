@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	tenderminapi "cosmossdk.io/api/cosmos/base/tendermint/v1beta1"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -19,9 +20,12 @@ import (
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
 	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller"
+	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
+	passthroughHttpDelivery "github.com/osmosis-labs/sqs/passthrough/delivery/http"
+	passthroughUseCase "github.com/osmosis-labs/sqs/passthrough/usecase"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -35,6 +39,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
 
@@ -151,6 +156,27 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
+	// Get the default quote denom
+	defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get liquidity pricer
+	liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
+
+	// Initialize passthrough grpc client
+	passthroughGRPCClient, err := passthroughdomain.NewPassthroughGRPCClient(config.ChainGRPCGatewayEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize passthrough query use case
+	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, liquidityPricer, defaultQuoteDenom, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	// Use the same config to initialize coingecko pricing strategy
 	config.Pricing.DefaultSource = domain.CoinGeckoPricingSourceType
 	coingeckoPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, nil)
@@ -164,24 +190,37 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
+	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
 		return nil, err
 	}
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
 
+	// Create a Numia HTTP client
+	passthroughConfig := config.Passthrough
+	numiaHTTPClient := passthroughdomain.NewNumiaHTTPClient(passthroughConfig.NumiaURL)
+
+	// Iniitialize data fetcher for pool APRs
+	fetchPoolAPRsCallback := datafetchers.GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
+	aprFetcher := datafetchers.NewIntervalFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes))
+	aprFetcher.WaitUntilFirstResult()
+
+	// Register the APR fetcher with the passthrough use case
+	passthroughUseCase.RegisterAPRFetcher(aprFetcher)
+
+	// Initialize data fetcher for pool fees
+	timeseriesHTTPClient := passthroughdomain.NewTimeSeriesHTTPClient(passthroughConfig.TimeseriesURL)
+	fetchPoolFeesCallback := datafetchers.GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient, logger)
+	poolFeesFetcher := datafetchers.NewIntervalFetcher(fetchPoolFeesCallback, time.Minute*time.Duration(passthroughConfig.PoolFeesFetchIntervalMinutes))
+
+	// Register the pool fees fetcher with the passthrough use case
+	passthroughUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
+
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester
 	if grpcIngesterConfig.Enabled {
-		// Get the default quote denom
-		defaultQuoteDenom, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
-		if err != nil {
-			return nil, err
-		}
-
 		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, logger)
-
-		liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
 
 		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase, liquidityPricer, logger)
 

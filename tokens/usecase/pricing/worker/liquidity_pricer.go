@@ -28,17 +28,17 @@ func NewLiquidityPricer(defaultQuoteDenom string, chainScalingFactorGetterCb dom
 }
 
 // PriceCoin implements domain.PoolLiquidityPricerWorker.
-func (p *liquidityPricer) PriceCoin(coin sdk.Coin, price osmomath.BigDec) osmomath.Int {
+func (p *liquidityPricer) PriceCoin(coin sdk.Coin, price osmomath.BigDec) osmomath.Dec {
 	if price.IsZero() {
 		// If the price is zero, set the capitalization to zero.
-		return osmomath.ZeroInt()
+		return osmomath.ZeroDec()
 	}
 
 	// Get the scaling factor for the base denom.
 	baseScalingFactor, err := p.scalingFactorGetterCb(coin.Denom)
 	if err != nil {
 		// If there is an error, keep the total liquidity but set the capitalization to zero.
-		return osmomath.ZeroInt()
+		return osmomath.ZeroDec()
 	}
 
 	priceInfo := domain.DenomPriceInfo{
@@ -49,10 +49,10 @@ func (p *liquidityPricer) PriceCoin(coin sdk.Coin, price osmomath.BigDec) osmoma
 	liquidityCapitalization, err := ComputeCoinCap(coin, priceInfo)
 	if err != nil {
 		// If there is an error, keep the total liquidity but set the capitalization to zero.
-		return osmomath.ZeroInt()
+		return osmomath.ZeroDec()
 	}
 
-	return liquidityCapitalization.TruncateInt()
+	return liquidityCapitalization
 }
 
 // PriceBalances implements domain.PoolLiquidityPricerWorker.
@@ -79,7 +79,7 @@ func (p *liquidityPricer) PriceBalances(balances sdk.Coins, prices domain.Prices
 			liquidityCapErrorStr += formatLiquidityCapErrorStr(denom)
 		}
 
-		totalCapitalization = totalCapitalization.Add(currentCapitalization)
+		totalCapitalization = totalCapitalization.Add(currentCapitalization.Ceil().TruncateInt())
 	}
 
 	return totalCapitalization, liquidityCapErrorStr

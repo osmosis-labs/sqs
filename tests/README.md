@@ -108,3 +108,12 @@ Our `pytest` parses the following environment variables in `conftest.py`
 
 - `SQS_API_KEY` -> API Key to bypass rate limit. If not provided, the tests will run without API key set.
 - `SQS_ENVIRONMENTS` -> Comma separated list of environment names per "Supported Environments" to run the tests against. If not provided, the tests will run against stage.
+
+## Geo-Distributed Synthetic Monitoring
+
+We run a subset of the tests in a geo-distributed manner using Synthetic Monitoring.
+
+For that, we define a custom suite in `tests/test_synthetic_geo.py` that runs a small subset of deterministic tests against all production endpoints
+in various regions.
+
+This is controlled by the `.github/workflows/geo-integration-test.yml` GitHub Action.

@@ -20,7 +20,8 @@ var _ domain.RoutablePool = &routableTransmuterPoolImpl{}
 type routableTransmuterPoolImpl struct {
 	ChainPool     *cwpoolmodel.CosmWasmPool "json:\"pool\""
 	Balances      sdk.Coins                 "json:\"balances\""
-	TokenOutDenom string                    "json:\"token_out_denom\""
+	TokenInDenom  string                    "json:\"token_in_denom,omitempty\""
+	TokenOutDenom string                    "json:\"token_out_denom,omitempty\""
 	TakerFee      osmomath.Dec              "json:\"taker_fee\""
 	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
 }
@@ -77,6 +78,11 @@ func (r *routableTransmuterPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
+// GetTokenInDenom implements RoutablePool.
+func (r *routableTransmuterPoolImpl) GetTokenInDenom() string {
+	return r.TokenInDenom
+}
+
 // String implements domain.RoutablePool.
 func (r *routableTransmuterPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d) Transmuter, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
@@ -106,6 +112,11 @@ func validateTransmuterBalance(tokenInAmount osmomath.Int, balances sdk.Coins, d
 // GetTakerFee implements domain.RoutablePool.
 func (r *routableTransmuterPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
+}
+
+// SetTokenInDenom implements domain.RoutablePool.
+func (r *routableTransmuterPoolImpl) SetTokenInDenom(tokenInDenom string) {
+	r.TokenInDenom = tokenInDenom
 }
 
 // SetTokenOutDenom implements domain.RoutablePool.

@@ -6,8 +6,12 @@ import (
 
 // Token represents the token's domain model
 type Token struct {
-	// HumanDenom is the human readable denom.
+	// Name
+	Name string `json:"name"`
+	// HumanDenom is the human readable denom, e.g. atom
 	HumanDenom string `json:"symbol"`
+	// Denom is the chain denom of the token, e.g. ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2
+	CoinMinimalDenom string `json:"coinMinimalDenom"`
 	// Precision is the precision of the token.
 	Precision int `json:"decimals"`
 	// IsUnlisted is true if the token is unlisted.
@@ -52,3 +56,18 @@ type TokenRegistryLoader interface {
 	// FetchAndUpdateTokens fetches tokens from the chain registry and updates the token registry.
 	FetchAndUpdateTokens() error
 }
+
+// SwapMethod is the type of token swap method.
+type TokenSwapMethod int
+
+// SwapMethod constants represent specific type of swap method.
+const (
+	// Token swap method where the exact amount of token in is swapped for token out.
+	TokenSwapMethodExactIn TokenSwapMethod = iota
+
+	// Token swap method where the exact amount of token out is swapped for token in.
+	TokenSwapMethodExactOut
+
+	// Unknown swap method, used for error handling.
+	TokenSwapMethodInvalid
+)

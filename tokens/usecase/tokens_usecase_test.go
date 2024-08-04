@@ -9,13 +9,14 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
 type TokensUseCaseTestSuite struct {
@@ -96,6 +97,8 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, atomToken.Precision)
 	s.Require().NotEmpty(atomToken.CoingeckoID)
+	s.Require().NotEmpty(atomToken.Name)
+	s.Require().NotEmpty(atomToken.CoinMinimalDenom)
 
 	// ION is present
 	ionMainnetDenom := "uion"
@@ -103,6 +106,8 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, ionToken.Precision)
 	s.Require().NotEmpty(ionToken.CoingeckoID)
+	s.Require().NotEmpty(ionToken.Name)
+	s.Require().NotEmpty(ionToken.CoinMinimalDenom)
 
 	// IBCX is present
 	ibcxMainnetDenom := "factory/osmo14klwqgkmackvx2tqa0trtg69dmy0nrg4ntq4gjgw2za4734r5seqjqm4gm/uibcx"
@@ -110,12 +115,16 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().True(ok)
 	s.Require().Equal(defaultCosmosExponent, ibcxToken.Precision)
 	s.Require().NotEmpty(ibcxToken.CoingeckoID)
+	s.Require().NotEmpty(ibcxToken.Name)
+	s.Require().NotEmpty(ibcxToken.CoinMinimalDenom)
 
 	// DYSON is present, but doesn't have coingecko id
 	dysonMainnetDenom := "ibc/E27CD305D33F150369AB526AEB6646A76EC3FFB1A6CA58A663B5DE657A89D55D"
 	dysonToken, ok := tokensMap[dysonMainnetDenom]
 	s.Require().True(ok)
 	s.Require().Equal(0, dysonToken.Precision)
+	s.Require().NotEmpty(dysonToken.Name)
+	s.Require().NotEmpty(dysonToken.CoinMinimalDenom)
 
 	// ETH is present
 	ethToken, ok := tokensMap[ETH]
@@ -123,12 +132,16 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().Equal(ethExponent, ethToken.Precision)
 	s.Require().False(ethToken.IsUnlisted)
 	s.Require().NotEmpty(ethToken.CoingeckoID)
+	s.Require().NotEmpty(ethToken.Name)
+	s.Require().NotEmpty(ethToken.CoinMinimalDenom)
 
 	// AAVE is present but is unlisted
 	aaveToken, ok := tokensMap[AAVE_UNLISTED]
 	s.Require().True(ok)
 	s.Require().True(aaveToken.IsUnlisted)
 	s.Require().NotEmpty(aaveToken.CoingeckoID)
+	s.Require().NotEmpty(aaveToken.Name)
+	s.Require().NotEmpty(aaveToken.CoinMinimalDenom)
 }
 
 func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
@@ -742,7 +755,6 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 		name             string
 		denom            string
 		denomMetadataMap map[string]any
-		scalingFactorMap map[int]any
 		expectedResult   osmomath.Dec
 		expectedError    error
 	}{
@@ -751,9 +763,6 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 			denom: "validDenom",
 			denomMetadataMap: map[string]any{
 				"validDenom": domain.Token{Precision: 6},
-			},
-			scalingFactorMap: map[int]any{
-				6: osmomath.NewDec(1000000),
 			},
 			expectedResult: osmomath.NewDec(1000000),
 			expectedError:  nil,
@@ -764,9 +773,6 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 			denomMetadataMap: map[string]any{
 				"validDenom": domain.Token{Precision: 6},
 			},
-			scalingFactorMap: map[int]any{
-				6: osmomath.NewDec(1000000),
-			},
 			expectedResult: osmomath.Dec{},
 			expectedError:  tokensusecase.MetadataForChainDenomNotFoundError{ChainDenom: "invalidDenom"},
 		},
@@ -774,30 +780,12 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 			name:  "Invalid scaling factor - not found",
 			denom: "noScalingFactorDenom",
 			denomMetadataMap: map[string]any{
-				"noScalingFactorDenom": domain.Token{Precision: 8},
-			},
-			scalingFactorMap: map[int]any{
-				6: osmomath.NewDec(1000000),
+				"noScalingFactorDenom": domain.Token{Precision: 77},
 			},
 			expectedResult: osmomath.Dec{},
 			expectedError: tokensusecase.ScalingFactorForPrecisionNotFoundError{
-				Precision: 8,
+				Precision: 77,
 				Denom:     "noScalingFactorDenom",
-			},
-		},
-		{
-			name:  "Invalid scaling factor type",
-			denom: "invalidTypeScalingFactorDenom",
-			denomMetadataMap: map[string]any{
-				"invalidTypeScalingFactorDenom": domain.Token{Precision: 6},
-			},
-			scalingFactorMap: map[int]any{
-				6: "1000000",
-			},
-			expectedResult: osmomath.Dec{},
-			expectedError: tokensusecase.ScalingFactorForPrecisionNotFoundError{
-				Precision: 6,
-				Denom:     "invalidTypeScalingFactorDenom",
 			},
 		},
 	}
@@ -807,9 +795,6 @@ func (s *TokensUseCaseTestSuite) TestGetChainScalingFactorByDenomMut() {
 			usecase := tokensusecase.NewTokensUsecase(nil, 0, nil)
 			for k, v := range tt.denomMetadataMap {
 				usecase.SetTokenMetadataByChainDenom(k, v)
-			}
-			for k, v := range tt.scalingFactorMap {
-				usecase.SetPrecisionScalingFactorMap(k, v)
 			}
 
 			result, err := usecase.GetChainScalingFactorByDenomMut(tt.denom)

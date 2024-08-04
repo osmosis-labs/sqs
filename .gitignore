@@ -18,3 +18,11 @@ tests/*/report.txt
 
 # log files
 sqs.log
+
+# Vim backup, undo files
+*.orig
+*~
+
+# Vim swap files
+.*.swp
+.*.swo

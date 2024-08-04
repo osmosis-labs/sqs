@@ -53,6 +53,12 @@
         "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
         "coingecko-quote-currency": "usd"
     },
+    "passthrough":{
+        "numia-url": "https://public-osmosis-api.numia.xyz",
+        "timeseries-url": "https://stage-proxy-data-api.osmosis-labs.workers.dev",
+        "apr-fetch-interval-minutes": 5,
+        "pool-fees-fetch-interval-minutes": 5
+    },
     "grpc-ingester": {
         "enabled": false,
         "max-receive-msg-size-bytes": 16777216,

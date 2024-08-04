@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
@@ -18,13 +19,14 @@ var _ mvc.PoolsUsecase = &PoolsUsecaseMock{}
 
 type PoolsUsecaseMock struct {
 	GetAllPoolsFunc             func() ([]sqsdomain.PoolI, error)
-	GetPoolsFunc                func(poolIDs []uint64) ([]sqsdomain.PoolI, error)
+	GetPoolsFunc                func(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error)
 	StorePoolsFunc              func(pools []sqsdomain.PoolI) error
 	GetRoutesFromCandidatesFunc func(candidateRoutes sqsdomain.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error)
 	GetTickModelMapFunc         func(poolIDs []uint64) (map[uint64]*sqsdomain.TickModel, error)
 	GetPoolFunc                 func(poolID uint64) (sqsdomain.PoolI, error)
 	GetPoolSpotPriceFunc        func(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 	GetCosmWasmPoolConfigFunc   func() domain.CosmWasmPoolRouterConfig
+	CalcExitCFMMPoolFunc        func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)
 
 	Pools        []sqsdomain.PoolI
 	TickModelMap map[uint64]*sqsdomain.TickModel
@@ -66,9 +68,9 @@ func (pm *PoolsUsecaseMock) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterCon
 }
 
 // GetPools implements mvc.PoolsUsecase.
-func (pm *PoolsUsecaseMock) GetPools(poolIDs []uint64) ([]sqsdomain.PoolI, error) {
+func (pm *PoolsUsecaseMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error) {
 	if pm.GetPoolsFunc != nil {
-		return pm.GetPoolsFunc(poolIDs)
+		return pm.GetPoolsFunc(opts...)
 	}
 	panic("unimplemented")
 }
@@ -146,3 +148,13 @@ func (pm *PoolsUsecaseMock) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	}
 	panic("unimplemented")
 }
+
+// CalcExitCFMMPool implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+	if pm.CalcExitCFMMPoolFunc != nil {
+		return pm.CalcExitCFMMPoolFunc(poolID, exitingShares)
+	}
+	panic("unimplemented")
+}
+
+var _ mvc.PoolsUsecase = &PoolsUsecaseMock{}

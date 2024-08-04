@@ -26,7 +26,8 @@ var zeroBigDec = osmomath.ZeroBigDec()
 type routableConcentratedPoolImpl struct {
 	ChainPool     *concentratedmodel.Pool "json:\"cl_pool\""
 	TickModel     *sqsdomain.TickModel    "json:\"tick_model\""
-	TokenOutDenom string                  "json:\"token_out_denom\""
+	TokenInDenom  string                  "json:\"token_in_denom,omitempty\""
+	TokenOutDenom string                  "json:\"token_out_denom,omitempty\""
 	TakerFee      osmomath.Dec            "json:\"taker_fee\""
 }
 
@@ -197,6 +198,11 @@ func (r *routableConcentratedPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
 }
 
+// GetTokenInDenom implements RoutablePool.
+func (r *routableConcentratedPoolImpl) GetTokenInDenom() string {
+	return r.TokenInDenom
+}
+
 // String implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) String() string {
 	concentratedPool := r.ChainPool
@@ -208,6 +214,11 @@ func (r *routableConcentratedPoolImpl) String() string {
 func (r *routableConcentratedPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
+}
+
+// SetTokenInDenom implements domain.RoutablePool.
+func (r *routableConcentratedPoolImpl) SetTokenInDenom(tokenInDenom string) {
+	r.TokenInDenom = tokenInDenom
 }
 
 // SetTokenOutDenom implements domain.RoutablePool.

@@ -51,10 +51,15 @@ type RoutablePool interface {
 	GetPoolDenoms() []string
 
 	GetTokenOutDenom() string
+	SetTokenOutDenom(denom string)
+
+	GetTokenInDenom() string
+	SetTokenInDenom(denom string)
 
 	CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
 
 	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
+
 	ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin)
 
 	GetTakerFee() osmomath.Dec
