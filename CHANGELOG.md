@@ -44,6 +44,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## 25.7.0
 
 - Fix bug with filters n /pools API
+- Fix alloyed overflow bug
 
 Chain compatibility: v25.x-c8140e68-1722532245
 
