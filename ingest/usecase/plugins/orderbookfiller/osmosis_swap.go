@@ -112,7 +112,7 @@ func httpGet(url string) ([]byte, error) {
 	return body, nil
 }
 
-func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, tokenOutAmount osmomath.Int, route []domain.RoutablePool) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
+func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, route []domain.RoutablePool) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
 	// TODO: Remove this atomic bool, just here for testing
 	o.swapDone.Store(true)
 	sequence, accnum := getInitialSequence(o.keyring.GetAddress().String())
@@ -188,10 +188,11 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, tokenO
 	}
 
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
-		Sender:            o.keyring.GetAddress().String(),
-		Routes:            poolManagerRoute,
-		TokenIn:           tokenIn,
-		TokenOutMinAmount: tokenOutAmount,
+		Sender:  o.keyring.GetAddress().String(),
+		Routes:  poolManagerRoute,
+		TokenIn: tokenIn,
+		// TODO: account for gas fees here
+		TokenOutMinAmount: tokenIn.Amount.Add(osmomath.OneInt()),
 	}
 
 	msg := []sdk.Msg{swapMsg}

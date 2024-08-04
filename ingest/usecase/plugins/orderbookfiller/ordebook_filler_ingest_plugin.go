@@ -138,9 +138,22 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx context.Context, cano
 			// TODO:
 			fmt.Println("Profitable arbitrage opportunity exists")
 
-			// Construct the rotue and push it to message signing logic.
+			routeThere := baseInOrderbookQuote.GetRoute()
+			if len(routeThere) != 1 {
+				return fmt.Errorf("route there should have 1 route")
+			}
 
-			// Additional logic to verify swap, update state, etc.
+			routeBack := cyclicArbQuote.GetRoute()
+			if len(routeBack) != 1 {
+				return fmt.Errorf("route back should have 1 route")
+			}
+
+			fullCyclicArbRoute := append(routeThere[0].GetPools(), routeBack[0].GetPools()...)
+
+			_, _, err := o.swapExactAmountIn(baseInCoin, fullCyclicArbRoute)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
