@@ -7,6 +7,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/keyring"
@@ -27,6 +28,8 @@ type orderbookFillerIngestPlugin struct {
 	defaultQuoteDenom string
 
 	logger log.Logger
+
+	swapDone atomic.Bool
 }
 
 var _ domain.EndBlockProcessPlugin = &orderbookFillerIngestPlugin{}
