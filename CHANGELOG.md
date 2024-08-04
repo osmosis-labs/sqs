@@ -45,6 +45,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 - Fix bug with filters n /pools API
 - Fix alloyed overflow bug
+- Alloyed rate limiter boilerplate in sqsdomain
 
 Chain compatibility: v25.x-c8140e68-1722532245
 
