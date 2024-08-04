@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -43,8 +44,8 @@ func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensU
 // ProcessEndBlock implements domain.EndBlockProcessPlugin.
 func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) error {
 	if !o.swapDone.Load() {
-		sequence, accNum := getInitialSequence(o.keyring.GetAddress().String())
-		_, _, err := o.swapExactAmountIn(sdk.NewCoin("uosmo", sdk.NewInt(5000)), sequence, accNum, o.keyring)
+		// TODO: Pass in route here
+		_, _, err := o.swapExactAmountIn(sdk.NewCoin("uosmo", sdk.NewInt(5000)), []poolmanagertypes.SwapAmountInRoute{})
 		if err != nil {
 			o.logger.Error("Failed to swap", zap.Error(err))
 			return nil

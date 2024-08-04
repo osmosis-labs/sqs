@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	"github.com/osmosis-labs/sqs/domain/keyring"
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -109,11 +108,13 @@ func httpGet(url string) ([]byte, error) {
 	return body, nil
 }
 
-func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, sequence, accnum uint64, keyring keyring.Keyring) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
+func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, route []poolmanagertypes.SwapAmountInRoute) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
+	sequence, accnum := getInitialSequence(o.keyring.GetAddress().String())
+
 	chainID := "osmosis-1"
 	o.swapDone.Store(true)
 
-	key := keyring.GetKey()
+	key := o.keyring.GetKey()
 	keyBytes := key.Bytes()
 
 	privKey := &secp256k1.PrivKey{Key: keyBytes}
@@ -128,16 +129,8 @@ func (o *orderbookFillerIngestPlugin) swapExactAmountIn(tokenIn sdk.Coin, sequen
 	// Create a new TxBuilder.
 	txBuilder := encodingConfig.TxConfig.NewTxBuilder()
 
-	// TODO: Unhardcode route
-	route := []poolmanagertypes.SwapAmountInRoute{
-		{
-			PoolId:        1,
-			TokenOutDenom: "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2",
-		},
-	}
-
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
-		Sender:            keyring.GetAddress().String(),
+		Sender:            o.keyring.GetAddress().String(),
 		Routes:            route,
 		TokenIn:           tokenIn,
 		TokenOutMinAmount: sdk.OneInt(),
