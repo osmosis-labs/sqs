@@ -21,6 +21,11 @@ const (
 )
 
 func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, tokenOutDenom string, balances sdk.Coins, takerFee osmomath.Dec) domain.RoutablePool {
+	// Note: empty precomputed data and rate limiter config
+	return s.SetupRoutableAlloyTransmuterPoolCustom(tokenInDenom, tokenOutDenom, balances, takerFee, cosmwasmpool.AlloyedRateLimiter{}, cosmwasmpool.PrecomputedData{})
+}
+
+func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPoolCustom(tokenInDenom, tokenOutDenom string, balances sdk.Coins, takerFee osmomath.Dec, rateLimitConfig cosmwasmpool.AlloyedRateLimiter, preComputedData cosmwasmpool.PrecomputedData) domain.RoutablePool {
 	cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{tokenInDenom, tokenOutDenom})
 
 	poolType := cosmwasmPool.GetType()
@@ -41,6 +46,9 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, t
 						{Denom: NO_PRECISION_USD, NormalizationFactor: osmomath.ZeroInt()},
 						{Denom: ALLUSD, NormalizationFactor: osmomath.NewInt(10)},
 					},
+
+					RateLimiterConfig: rateLimitConfig,
+					PreComputedData:   preComputedData,
 				},
 			},
 		),
@@ -300,6 +308,117 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_AlloyTransmuter() {
 			tokenAfterFee := r.ChargeTakerFeeExactIn(tc.tokenIn)
 
 			s.Require().Equal(tc.expectedToken, tokenAfterFee)
+		})
+	}
+}
+
+func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
+	// Shared default variables
+	defaultScalingFactors := map[string]osmomath.Int{
+		USDC:               osmomath.NewInt(1),
+		USDT:               osmomath.NewInt(1),
+		OVERLY_PRECISE_USD: osmomath.NewInt(1),
+		NO_PRECISION_USD:   osmomath.NewInt(1),
+	}
+
+	oneInt := osmomath.NewInt(1)
+
+	defaultStandardNormFactor := osmomath.NewInt(1)
+
+	defaultInitialBalances := sdk.NewCoins(
+		sdk.NewCoin(USDC, osmomath.NewInt(1_000_000)),
+		sdk.NewCoin(USDT, osmomath.NewInt(2_000_000)),
+	)
+
+	defaultStaticLimiterConfig := map[string]cosmwasmpool.StaticLimiter{
+		USDC: {UpperLimit: "0.5"},
+	}
+
+	tests := map[string]struct {
+		tokenInCoin                 sdk.Coin
+		initialBalances             sdk.Coins
+		standardNormFactor          osmomath.Int
+		normalizationScalingFactors map[string]osmomath.Int
+		staticLimiterConfig         map[string]cosmwasmpool.StaticLimiter
+		expectError                 error
+	}{
+		"valid token in - below upper limit": {
+			tokenInCoin:                 sdk.NewCoin(USDC, osmomath.NewInt(100_000)),
+			initialBalances:             defaultInitialBalances,
+			standardNormFactor:          defaultStandardNormFactor,
+			normalizationScalingFactors: defaultScalingFactors,
+			staticLimiterConfig:         defaultStaticLimiterConfig,
+			expectError:                 nil,
+		},
+		"invalid token in - exceeds upper limit": {
+			tokenInCoin:                 sdk.NewCoin(USDC, osmomath.NewInt(2_000_000)),
+			initialBalances:             defaultInitialBalances,
+			standardNormFactor:          defaultStandardNormFactor,
+			normalizationScalingFactors: defaultScalingFactors,
+			staticLimiterConfig:         defaultStaticLimiterConfig,
+			expectError: domain.StaticRateLimiterInvalidUpperLimitError{
+				Denom:      USDC,
+				UpperLimit: "0.5",
+				Weight:     osmomath.MustNewDecFromStr("0.6").String(),
+			},
+		},
+		"no static limiter configured": {
+			tokenInCoin:                 sdk.NewCoin(USDC, osmomath.NewInt(1_000_000)),
+			initialBalances:             defaultInitialBalances,
+			standardNormFactor:          defaultStandardNormFactor,
+			normalizationScalingFactors: defaultScalingFactors,
+			staticLimiterConfig:         map[string]cosmwasmpool.StaticLimiter{},
+			expectError:                 nil,
+		},
+		"static limiter not set for token in denom": {
+			tokenInCoin:                 sdk.NewCoin(USDC, osmomath.NewInt(1_000_000)),
+			initialBalances:             defaultInitialBalances,
+			standardNormFactor:          defaultStandardNormFactor,
+			normalizationScalingFactors: defaultScalingFactors,
+			staticLimiterConfig:         defaultStaticLimiterConfig,
+			expectError:                 nil,
+		},
+		"different normalization factors": {
+			tokenInCoin: sdk.NewCoin(USDC, osmomath.NewInt(500_000)),
+			initialBalances: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(1_000_000)),
+				sdk.NewCoin(USDT, osmomath.NewInt(2_000_000)),
+			),
+			standardNormFactor: defaultStandardNormFactor,
+			normalizationScalingFactors: map[string]osmomath.Int{
+				USDC:               osmomath.NewInt(2),
+				USDT:               oneInt,
+				OVERLY_PRECISE_USD: oneInt,
+				NO_PRECISION_USD:   oneInt,
+			},
+			staticLimiterConfig: map[string]cosmwasmpool.StaticLimiter{
+				USDC: {UpperLimit: "0.7"},
+			},
+			expectError: nil,
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+			routablePool := s.SetupRoutableAlloyTransmuterPoolCustom(USDT, USDC, tc.initialBalances, osmomath.ZeroDec(), cosmwasmpool.AlloyedRateLimiter{
+				StaticLimiterByDenomMap: tc.staticLimiterConfig,
+			}, cosmwasmpool.PrecomputedData{
+				StdNormFactor:               tc.standardNormFactor,
+				NormalizationScalingFactors: tc.normalizationScalingFactors,
+			})
+
+			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
+
+			// System under test
+			err := r.CheckStaticRateLimiter(tc.tokenInCoin)
+
+			if tc.expectError != nil {
+				s.Require().Error(err)
+				s.Require().ErrorIs(err, tc.expectError)
+			} else {
+				s.Require().NoError(err)
+			}
 		})
 	}
 }

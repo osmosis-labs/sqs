@@ -35,17 +35,20 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## 25.8.0
 
 - Remove sqs_requests_total and sqs_request_duration_seconds metrics
 - Numia Pools APR fetcher, associated configs and wiring
 - Timeseries pool fees fetcher, associated configs and wiring
+- Fix alloyed overflow bug
+- Alloyed rate limiter boilerplate in sqsdomain
+- Add rate limiter to alloyed pools
+
+Chain compatibility: v25.x-c775cee7-1722825184
 
 ## 25.7.0
 
 - Fix bug with filters n /pools API
-- Fix alloyed overflow bug
-- Alloyed rate limiter boilerplate in sqsdomain
 
 Chain compatibility: v25.x-c8140e68-1722532245
 

@@ -452,6 +452,11 @@ func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 		alloyedDenom := cosmWasmModel.Data.AlloyTransmuter.AlloyedDenom
 
 		sqsModel.PoolDenoms = append(sqsModel.PoolDenoms, alloyedDenom)
+
+		// Process the alloyed pool
+		if err := processAlloyedPool(sqsModel); err != nil {
+			return err
+		}
 	}
 
 	// Remove gamm shares from balances

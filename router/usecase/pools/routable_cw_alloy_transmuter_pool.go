@@ -3,6 +3,7 @@ package pools
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -27,6 +28,10 @@ type routableAlloyTransmuterPoolImpl struct {
 	TakerFee            osmomath.Dec                      "json:\"taker_fee\""
 	SpreadFactor        osmomath.Dec                      "json:\"spread_factor\""
 }
+
+const (
+	alloyedLPShareDenomComponent = "all"
+)
 
 // GetId implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetId() uint64 {
@@ -181,10 +186,109 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
 	}
 
+	// Check static upper rate limiter
+	// We only need to check it for the token in coin since that is the only one that is increased by the current quote.
+	if err := r.checkStaticRateLimiter(tokenIn); err != nil {
+		return osmomath.BigDec{}, err
+	}
+
 	tokenInAmount := osmomath.BigDecFromSDKInt(tokenIn.Amount)
 
 	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())
 	tokenOutNormFactorBig := osmomath.NewBigIntFromBigInt(tokenOutNormFactor.BigInt())
 
-	return tokenInAmount.MulInt(tokenOutNormFactorBig).QuoInt(tokenInNormFactorBig), nil
+	tokenOutAmount := tokenInAmount.MulInt(tokenOutNormFactorBig).QuoInt(tokenInNormFactorBig)
+
+	return tokenOutAmount, nil
+}
+
+// checkStaticRateLimiter checks the static rate limiter for the token in coin.
+// Note: static rate limit only has an upper limit.
+// Therefore, we only need to validate the token in balance.
+// No-op if the static rate limiter is not set.
+// Returns error if the token in weight is greater than the upper limit.
+// Returns nil if the token in weight is less than or equal to the upper limit.
+func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk.Coin) error {
+	// If no static rate limiter is set, return
+	if len(r.AlloyTransmuterData.RateLimiterConfig.StaticLimiterByDenomMap) == 0 {
+		return nil
+	}
+
+	// Check if the static rate limiter exists for the token in denom updated balance.
+	tokeInStaticLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetStaticLimiter(tokenInCoin.Denom)
+	if !ok {
+		return nil
+	}
+
+	preComputedData := r.AlloyTransmuterData.PreComputedData
+	normalizationFactors := preComputedData.NormalizationScalingFactors
+
+	// Note: -1 for the LP share.
+	normalizedBalances := make(map[string]osmomath.Int, len(r.AlloyTransmuterData.AssetConfigs)-1)
+	normalizeTotal := osmomath.ZeroInt()
+
+	// Calculate normalized balances
+	for i := 0; i < len(r.AlloyTransmuterData.AssetConfigs); i++ {
+		assetConfig := r.AlloyTransmuterData.AssetConfigs[i]
+		assetDenom := assetConfig.Denom
+
+		// Skip if the asset is alloyed LP hsare
+		if strings.Contains(assetDenom, alloyedLPShareDenomComponent) {
+			continue
+		}
+
+		assetBalance := r.Balances.AmountOf(assetDenom)
+
+		// Add the token in balance to the asset balance
+		if assetDenom == tokenInCoin.Denom {
+			assetBalance = assetBalance.Add(tokenInCoin.Amount)
+		}
+
+		normalizationScalingFactor, ok := normalizationFactors[assetDenom]
+		if !ok {
+			return fmt.Errorf("normalization scaling factor not found for asset %s, pool id %d", assetDenom, r.GetId())
+		}
+
+		// Normalize balance
+		normalizedBalance := assetBalance.Mul(normalizationScalingFactor)
+
+		// Store normalized balance
+		normalizedBalances[assetDenom] = normalizedBalance
+
+		// Update total
+		normalizeTotal = normalizeTotal.Add(normalizedBalance)
+	}
+
+	// Calculate weights
+	// Note: -1 for the alloyed LP share.
+	weights := make(map[string]osmomath.Dec, len(r.AlloyTransmuterData.AssetConfigs)-1)
+	for i := 0; i < len(r.AlloyTransmuterData.AssetConfigs); i++ {
+		assetConfig := r.AlloyTransmuterData.AssetConfigs[i]
+		assetDenom := assetConfig.Denom
+
+		// Skip if the asset is alloyed LP hsare
+		if strings.Contains(assetDenom, alloyedLPShareDenomComponent) {
+			continue
+		}
+
+		// Calculate weight
+		weights[assetDenom] = normalizedBalances[assetDenom].ToLegacyDec().Quo(normalizeTotal.ToLegacyDec())
+	}
+
+	// Validate upper limit
+	upperLimitInt := osmomath.MustNewDecFromStr(tokeInStaticLimiter.UpperLimit)
+
+	// Token in weight
+	tokenInWeight := weights[tokenInCoin.Denom]
+
+	// Check the upper limit
+	if tokenInWeight.GT(upperLimitInt) {
+		return domain.StaticRateLimiterInvalidUpperLimitError{
+			UpperLimit: tokeInStaticLimiter.UpperLimit,
+			Weight:     tokenInWeight.String(),
+			Denom:      tokenInCoin.Denom,
+		}
+	}
+
+	return nil
 }

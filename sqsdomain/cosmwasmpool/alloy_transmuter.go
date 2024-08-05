@@ -23,6 +23,21 @@ type AlloyTransmuterData struct {
 	AlloyedDenom      string                  `json:"alloyed_denom"`
 	AssetConfigs      []TransmuterAssetConfig `json:"asset_configs"`
 	RateLimiterConfig AlloyedRateLimiter      `json:"rate_limiter"`
+
+	PreComputedData PrecomputedData `json:"precomputed_data"`
+}
+
+// PrecomputedData for the alloyed pool.
+type PrecomputedData struct {
+	// StdNormFactor is the standard normalization factor for the pool.
+	// It is computed as the LCM of all the normalization factors of the assets in the pool.
+	// This is used for computing asset weights for checking rate limiting.
+	StdNormFactor osmomath.Int `json:"std_norm_factor"`
+
+	// NormalizationScalingFactors is the scaling factor for each asset in the pool.
+	// Each index corresponds to the asset at the same index in the AssetConfigs.
+	// This is used for computing asset weights for checking rate limitin.
+	NormalizationScalingFactors map[string]osmomath.Int `json:"normalization_scaling_factors"`
 }
 
 // Configuration for each asset in the transmuter pool
