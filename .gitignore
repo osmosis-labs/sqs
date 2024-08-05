@@ -26,3 +26,6 @@ sqs.log
 # Vim swap files
 .*.swp
 .*.swo
+
+# rust
+target/

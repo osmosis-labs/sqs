@@ -67,6 +67,9 @@ build:
 	-ldflags "-w -s -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
 	-v -o /osmosis/build/sqsd app/*.go 
 
+build-rust-lib:
+	cargo build --release -p rustlib
+
 ###############################################################################
 ###                                Docker                                  ###
 ###############################################################################
