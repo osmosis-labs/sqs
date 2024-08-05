@@ -35,7 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## 25.8.0
+## v25.8.1
+
+- Bump sqsdomain
+
+## 25.8.0 (broken dependency)
 
 - Remove sqs_requests_total and sqs_request_duration_seconds metrics
 - Numia Pools APR fetcher, associated configs and wiring
