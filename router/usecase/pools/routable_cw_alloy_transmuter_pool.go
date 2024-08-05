@@ -201,9 +201,8 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 // Note: static rate limit only has an upper limit.
 // Therefore, we only need to validate the token in balance.
 func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk.Coin) error {
-
 	// If no static rate limiter is set, return
-	if len(r.AlloyTransmuterData.RateLimiterConfig.StaticLimiterByDenomMap) < 0 {
+	if len(r.AlloyTransmuterData.RateLimiterConfig.StaticLimiterByDenomMap) == 0 {
 		return nil
 	}
 

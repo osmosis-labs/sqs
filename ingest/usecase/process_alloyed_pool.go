@@ -33,7 +33,7 @@ func computeStandardNormalizationFactor(assetConfigs []cosmwasmpool.TransmuterAs
 	result := osmomath.OneInt().BigIntMut()
 	for i := 0; i < len(assetConfigs); i++ {
 		currentNormFactor := assetConfigs[i].NormalizationFactor.BigInt()
-		currentNormFactor = Lcm(result, currentNormFactor)
+		result = Lcm(result, currentNormFactor)
 	}
 	return osmomath.NewIntFromBigInt(result)
 }
