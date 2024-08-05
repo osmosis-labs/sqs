@@ -32,7 +32,7 @@ func ComputeStandardNormalizationFactor(assetConfigs []cosmwasmpool.TransmuterAs
 	return computeStandardNormalizationFactor(assetConfigs)
 }
 
-func ComputeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int, assetConfigs []cosmwasmpool.TransmuterAssetConfig) ([]osmomath.Int, error) {
+func ComputeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int, assetConfigs []cosmwasmpool.TransmuterAssetConfig) (map[string]osmomath.Int, error) {
 	return computeNormalizationScalingFactors(standardNormalizationFactor, assetConfigs)
 }
 

@@ -60,25 +60,26 @@ func computeStandardNormalizationFactor(assetConfigs []cosmwasmpool.TransmuterAs
 // Returns error if one of the asset normalization factors is nil or zero.
 // Returns error if the standard normalization factor is nil or zero.
 // Returns error if asset scaling factor truncates to zero.
-func computeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int, assetConfigs []cosmwasmpool.TransmuterAssetConfig) ([]osmomath.Int, error) {
+func computeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int, assetConfigs []cosmwasmpool.TransmuterAssetConfig) (map[string]osmomath.Int, error) {
 	if standardNormalizationFactor.IsNil() || standardNormalizationFactor.IsZero() {
 		return nil, fmt.Errorf("standard normalization factor is nil or zero")
 	}
 
-	scalingFactors := make([]osmomath.Int, len(assetConfigs))
+	scalingFactors := make(map[string]osmomath.Int, len(assetConfigs))
 	for i := 0; i < len(assetConfigs); i++ {
-		assetNormalizationFactor := assetConfigs[i].NormalizationFactor
+		assetConfig := assetConfigs[i]
+		assetNormalizationFactor := assetConfig.NormalizationFactor
 		if assetNormalizationFactor.IsNil() || assetNormalizationFactor.IsZero() {
-			return nil, fmt.Errorf("normalization factor is nil or zero for asset %s", assetConfigs[i].Denom)
+			return nil, fmt.Errorf("normalization factor is nil or zero for asset %s", assetConfig.Denom)
 		}
 
 		assetScalingFactor := standardNormalizationFactor.Quo(assetNormalizationFactor)
 
 		if assetScalingFactor.IsZero() {
-			return nil, fmt.Errorf("scaling factor truncated to zero for asset %s", assetConfigs[i].Denom)
+			return nil, fmt.Errorf("scaling factor truncated to zero for asset %s", assetConfig.Denom)
 		}
 
-		scalingFactors[i] = assetScalingFactor
+		scalingFactors[assetConfig.Denom] = assetScalingFactor
 	}
 	return scalingFactors, nil
 }

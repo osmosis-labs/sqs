@@ -205,6 +205,9 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 // checkStaticRateLimiter checks the static rate limiter for the token in coin.
 // Note: static rate limit only has an upper limit.
 // Therefore, we only need to validate the token in balance.
+// No-op if the static rate limiter is not set.
+// Returns error if the token in weight is greater than the upper limit.
+// Returns nil if the token in weight is less than or equal to the upper limit.
 func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk.Coin) error {
 	// If no static rate limiter is set, return
 	if len(r.AlloyTransmuterData.RateLimiterConfig.StaticLimiterByDenomMap) == 0 {
@@ -218,7 +221,6 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 	}
 
 	preComputedData := r.AlloyTransmuterData.PreComputedData
-
 	normalizationFactors := preComputedData.NormalizationScalingFactors
 
 	// Note: -1 for the LP share.
@@ -242,7 +244,10 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 			assetBalance = assetBalance.Add(tokenInCoin.Amount)
 		}
 
-		normalizationScalingFactor := normalizationFactors[i]
+		normalizationScalingFactor, ok := normalizationFactors[assetDenom]
+		if !ok {
+			return fmt.Errorf("normalization scaling factor not found for asset %s, pool id %d", assetDenom, r.GetId())
+		}
 
 		// Normalize balance
 		normalizedBalance := assetBalance.Mul(normalizationScalingFactor)

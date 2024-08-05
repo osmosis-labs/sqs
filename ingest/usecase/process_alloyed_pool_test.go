@@ -39,9 +39,9 @@ func (s *IngestUseCaseTestSuite) TestProcessAlloyedPool() {
 
 	expectedPreComputedData := cosmwasmpool.PrecomputedData{
 		StdNormFactor: tenE18,
-		NormalizationScalingFactors: []osmomath.Int{
-			oneInt,
-			tenE12,
+		NormalizationScalingFactors: map[string]osmomath.Int{
+			ALLUSDT: oneInt,
+			USDC:    tenE12,
 		},
 	}
 
@@ -143,7 +143,7 @@ func (s *IngestUseCaseTestSuite) TestComputeNormalizationScalingFactors() {
 		standardNormalizationFactor osmomath.Int
 		assetConfigs                []cosmwasmpool.TransmuterAssetConfig
 
-		expected      []osmomath.Int
+		expected      map[string]osmomath.Int
 		expectedError bool
 	}{
 		{
@@ -152,7 +152,7 @@ func (s *IngestUseCaseTestSuite) TestComputeNormalizationScalingFactors() {
 			standardNormalizationFactor: tenE6,
 			assetConfigs:                []cosmwasmpool.TransmuterAssetConfig{},
 
-			expected: []osmomath.Int{},
+			expected: map[string]osmomath.Int{},
 		},
 		{
 			name: "one asset",
@@ -165,8 +165,8 @@ func (s *IngestUseCaseTestSuite) TestComputeNormalizationScalingFactors() {
 				},
 			},
 
-			expected: []osmomath.Int{
-				oneInt,
+			expected: map[string]osmomath.Int{
+				ATOM: osmomath.OneInt(),
 			},
 		},
 		{
@@ -184,9 +184,9 @@ func (s *IngestUseCaseTestSuite) TestComputeNormalizationScalingFactors() {
 				},
 			},
 
-			expected: []osmomath.Int{
-				tenE12,
-				tenE10,
+			expected: map[string]osmomath.Int{
+				ATOM:   tenE12,
+				ALLBTC: tenE10,
 			},
 		},
 		{
@@ -232,8 +232,8 @@ func (s *IngestUseCaseTestSuite) TestComputeNormalizationScalingFactors() {
 			}
 
 			s.Require().Len(normalizationFactors, len(tc.expected))
-			for i := range normalizationFactors {
-				s.Require().Equal(tc.expected[i].String(), normalizationFactors[i].String())
+			for k, v := range tc.expected {
+				s.Require().Equal(v.String(), normalizationFactors[k].String())
 			}
 		})
 	}
