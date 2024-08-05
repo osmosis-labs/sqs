@@ -2,8 +2,10 @@ package usecase
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
 type (
@@ -24,4 +26,8 @@ func ProcessSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
 
 func UpdateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, poolID uint64, alloyedDenom string) domain.DenomPoolLiquidityMap {
 	return updateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap, poolID, alloyedDenom)
+}
+
+func ComputeStandardNormalizationFactor(assetConfigs []cosmwasmpool.TransmuterAssetConfig) (osmomath.Int, error) {
+	return computeStandardNormalizationFactor(assetConfigs)
 }

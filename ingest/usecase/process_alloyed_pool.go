@@ -17,7 +17,10 @@ func processAlloyedPool(sqsModel *sqsdomain.SQSPool) error {
 
 	cosmWasmModel := sqsModel.CosmWasmPoolModel
 
-	standardNormalizationFactor := computeStandardNormalizationFactor(cosmWasmModel.Data.AlloyTransmuter.AssetConfigs)
+	standardNormalizationFactor, err := computeStandardNormalizationFactor(cosmWasmModel.Data.AlloyTransmuter.AssetConfigs)
+	if err != nil {
+		return err
+	}
 
 	normalizationScalingFactors := computeNormalizationScalingFactors(standardNormalizationFactor, cosmWasmModel.Data.AlloyTransmuter.AssetConfigs)
 
@@ -29,13 +32,19 @@ func processAlloyedPool(sqsModel *sqsdomain.SQSPool) error {
 }
 
 // computeStandardNormalizationFactor computes the standard normalization factor for the pool.
-func computeStandardNormalizationFactor(assetConfigs []cosmwasmpool.TransmuterAssetConfig) osmomath.Int {
+// Returns error if one of the asset normalization factors is nil or zero.
+func computeStandardNormalizationFactor(assetConfigs []cosmwasmpool.TransmuterAssetConfig) (osmomath.Int, error) {
 	result := osmomath.OneInt().BigIntMut()
 	for i := 0; i < len(assetConfigs); i++ {
+		normFactor := assetConfigs[i].NormalizationFactor
+		if normFactor.IsNil() || normFactor.IsZero() {
+			return osmomath.Int{}, fmt.Errorf("normalization factor is nil or zero for asset %s", assetConfigs[i])
+		}
+
 		currentNormFactor := assetConfigs[i].NormalizationFactor.BigInt()
 		result = Lcm(result, currentNormFactor)
 	}
-	return osmomath.NewIntFromBigInt(result)
+	return osmomath.NewIntFromBigInt(result), nil
 }
 
 // computeNormalizationScalingFactors computes the normalization scaling factors for each denom in the asset config
