@@ -17,15 +17,20 @@ func processAlloyedPool(sqsModel *sqsdomain.SQSPool) error {
 
 	cosmWasmModel := sqsModel.CosmWasmPoolModel
 
+	// Compute the standard normalization factor
 	standardNormalizationFactor, err := computeStandardNormalizationFactor(cosmWasmModel.Data.AlloyTransmuter.AssetConfigs)
 	if err != nil {
 		return err
 	}
 
-	normalizationScalingFactors := computeNormalizationScalingFactors(standardNormalizationFactor, cosmWasmModel.Data.AlloyTransmuter.AssetConfigs)
+	// Compute the scaling factor normalization factors from the standard normalization factor for each asset
+	normalizationScalingFactors, err := computeNormalizationScalingFactors(standardNormalizationFactor, cosmWasmModel.Data.AlloyTransmuter.AssetConfigs)
+	if err != nil {
+		return err
+	}
 
+	// Update the precomputed data in the model
 	cosmWasmModel.Data.AlloyTransmuter.PreComputedData.StdNormFactor = standardNormalizationFactor
-
 	cosmWasmModel.Data.AlloyTransmuter.PreComputedData.NormalizationScalingFactors = normalizationScalingFactors
 
 	return nil
@@ -49,12 +54,30 @@ func computeStandardNormalizationFactor(assetConfigs []cosmwasmpool.TransmuterAs
 
 // computeNormalizationScalingFactors computes the normalization scaling factors for each denom in the asset config
 // using the standard normalization factor.
-func computeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int, assetConfigs []cosmwasmpool.TransmuterAssetConfig) []osmomath.Int {
+// Returns error if one of the asset normalization factors is nil or zero.
+// Returns error if the standard normalization factor is nil or zero.
+// Returns error if asset scaling factor truncates to zero.
+func computeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int, assetConfigs []cosmwasmpool.TransmuterAssetConfig) ([]osmomath.Int, error) {
+	if standardNormalizationFactor.IsNil() || standardNormalizationFactor.IsZero() {
+		return nil, fmt.Errorf("standard normalization factor is nil or zero")
+	}
+
 	scalingFactors := make([]osmomath.Int, len(assetConfigs))
 	for i := 0; i < len(assetConfigs); i++ {
-		scalingFactors[i] = standardNormalizationFactor.Quo(assetConfigs[i].NormalizationFactor)
+		assetNormalizationFactor := assetConfigs[i].NormalizationFactor
+		if assetNormalizationFactor.IsNil() || assetNormalizationFactor.IsZero() {
+			return nil, fmt.Errorf("normalization factor is nil or zero for asset %s", assetConfigs[i].Denom)
+		}
+
+		assetScalingFactor := standardNormalizationFactor.Quo(assetNormalizationFactor)
+
+		if assetScalingFactor.IsZero() {
+			return nil, fmt.Errorf("scaling factor truncated to zero for asset %s", assetConfigs[i].Denom)
+		}
+
+		scalingFactors[i] = assetScalingFactor
 	}
-	return scalingFactors
+	return scalingFactors, nil
 }
 
 // Lcm calculates the least common multiple of two big.Int values.

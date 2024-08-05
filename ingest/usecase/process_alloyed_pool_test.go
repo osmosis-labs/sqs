@@ -11,6 +11,7 @@ var (
 	tenE8  = osmomath.NewInt(10).ToLegacyDec().Power(8).TruncateInt()
 	tenE12 = osmomath.NewInt(10).ToLegacyDec().Power(12).TruncateInt()
 	tenE9  = osmomath.NewInt(10).ToLegacyDec().Power(9).TruncateInt()
+	tenE10 = osmomath.NewInt(10).ToLegacyDec().Power(10).TruncateInt()
 	tenE18 = osmomath.NewInt(10).ToLegacyDec().Power(18).TruncateInt()
 )
 
@@ -86,14 +87,117 @@ func (s *IngestUseCaseTestSuite) TestComputeStandardNormalizationFactor() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 
-			normalizetionFactor, error := usecase.ComputeStandardNormalizationFactor(tc.assetConfigs)
+			normalizationFactor, err := usecase.ComputeStandardNormalizationFactor(tc.assetConfigs)
 
 			if tc.expectedError {
-				s.Require().Error(error)
+				s.Require().Error(err)
 				return
 			}
 
-			s.Require().Equal(tc.expected, normalizetionFactor)
+			s.Require().Equal(tc.expected, normalizationFactor)
+		})
+	}
+}
+
+func (s *IngestUseCaseTestSuite) TestComputeNormalizationScalingFactors() {
+	testCases := []struct {
+		name string
+
+		standardNormalizationFactor osmomath.Int
+		assetConfigs                []cosmwasmpool.TransmuterAssetConfig
+
+		expected      []osmomath.Int
+		expectedError bool
+	}{
+		{
+			name: "empty",
+
+			standardNormalizationFactor: tenE6,
+			assetConfigs:                []cosmwasmpool.TransmuterAssetConfig{},
+
+			expected: []osmomath.Int{},
+		},
+		{
+			name: "one asset",
+
+			standardNormalizationFactor: tenE6,
+			assetConfigs: []cosmwasmpool.TransmuterAssetConfig{
+				{
+					Denom:               ATOM,
+					NormalizationFactor: tenE6,
+				},
+			},
+
+			expected: []osmomath.Int{
+				oneInt,
+			},
+		},
+		{
+			name: "two assets",
+
+			standardNormalizationFactor: tenE18,
+			assetConfigs: []cosmwasmpool.TransmuterAssetConfig{
+				{
+					Denom:               ATOM,
+					NormalizationFactor: tenE6,
+				},
+				{
+					Denom:               ALLBTC,
+					NormalizationFactor: tenE8,
+				},
+			},
+
+			expected: []osmomath.Int{
+				tenE12,
+				tenE10,
+			},
+		},
+		{
+			name:          "no standard normalization factor",
+			assetConfigs:  []cosmwasmpool.TransmuterAssetConfig{},
+			expectedError: true,
+		},
+		{
+			name:                        "no asset normalization factor",
+			standardNormalizationFactor: tenE6,
+			assetConfigs: []cosmwasmpool.TransmuterAssetConfig{
+				{
+					Denom: ATOM,
+				},
+			},
+
+			expectedError: true,
+		},
+
+		{
+			name: "truncates to zero",
+
+			standardNormalizationFactor: tenE6,
+			assetConfigs: []cosmwasmpool.TransmuterAssetConfig{
+				{
+					Denom:               ATOM,
+					NormalizationFactor: tenE10,
+				},
+			},
+
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+
+			normalizationFactors, err := usecase.ComputeNormalizationScalingFactors(tc.standardNormalizationFactor, tc.assetConfigs)
+
+			if tc.expectedError {
+				s.Require().Error(err)
+				return
+			}
+
+			s.Require().Len(normalizationFactors, len(tc.expected))
+			for i := range normalizationFactors {
+				s.Require().Equal(tc.expected[i].String(), normalizationFactors[i].String())
+			}
 		})
 	}
 }
