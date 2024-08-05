@@ -9,6 +9,9 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
+// processAlloyedPool processes the alloyed pool and computes the standard normalization factor and normalization scaling factors.
+// Mutates the model with the computed values.
+// Returns error if fails to computed either.
 // CONTRACT: the caller checked that this is an alloyed pool
 func processAlloyedPool(sqsModel *sqsdomain.SQSPool) error {
 	if len(sqsModel.CosmWasmPoolModel.Data.AlloyTransmuter.AssetConfigs) == 0 {

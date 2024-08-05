@@ -571,7 +571,12 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 			sqsModel: modelWithCWModelSet,
 
 			// Note: append wrangling is done to avoid mutation of defaultModel.
-			expectedSQSModel: withAssetConfigs(withPoolDenoms(modelWithCWModelSet, append(append([]string{}, reorderedDefaultDenoms...), routertesting.ALLUSDT)...), []cosmwasmpool.TransmuterAssetConfig{}),
+			expectedSQSModel: withAssetConfigs(withPoolDenoms(modelWithCWModelSet, append(append([]string{}, reorderedDefaultDenoms...), routertesting.ALLUSDT)...), []cosmwasmpool.TransmuterAssetConfig{
+				{
+					Denom:               ATOM,
+					NormalizationFactor: tenE6,
+				},
+			}),
 		},
 		{
 			name: "cosmwasm model not correctly set -> error",

@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/ingest/usecase"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
@@ -14,6 +15,42 @@ var (
 	tenE10 = osmomath.NewInt(10).ToLegacyDec().Power(10).TruncateInt()
 	tenE18 = osmomath.NewInt(10).ToLegacyDec().Power(18).TruncateInt()
 )
+
+func (s *IngestUseCaseTestSuite) TestProcessAlloyedPool() {
+	sqsModel := &sqsdomain.SQSPool{
+		CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+			Data: cosmwasmpool.CosmWasmPoolData{
+				AlloyTransmuter: &cosmwasmpool.AlloyTransmuterData{
+					AlloyedDenom: ALLBTC,
+					AssetConfigs: []cosmwasmpool.TransmuterAssetConfig{
+						{
+							Denom:               ALLUSDT,
+							NormalizationFactor: tenE18,
+						},
+						{
+							Denom:               USDC,
+							NormalizationFactor: tenE6,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	expectedPreComputedData := cosmwasmpool.PrecomputedData{
+		StdNormFactor: tenE18,
+		NormalizationScalingFactors: []osmomath.Int{
+			oneInt,
+			tenE12,
+		},
+	}
+
+	// System under test
+	err := usecase.ProcessAlloyedPool(sqsModel)
+	s.Require().NoError(err)
+
+	s.Require().Equal(expectedPreComputedData, sqsModel.CosmWasmPoolModel.Data.AlloyTransmuter.PreComputedData)
+}
 
 func (s *IngestUseCaseTestSuite) TestComputeStandardNormalizationFactor() {
 	testCases := []struct {

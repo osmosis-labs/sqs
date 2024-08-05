@@ -35,3 +35,7 @@ func ComputeStandardNormalizationFactor(assetConfigs []cosmwasmpool.TransmuterAs
 func ComputeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int, assetConfigs []cosmwasmpool.TransmuterAssetConfig) ([]osmomath.Int, error) {
 	return computeNormalizationScalingFactors(standardNormalizationFactor, assetConfigs)
 }
+
+func ProcessAlloyedPool(sqsModel *sqsdomain.SQSPool) error {
+	return processAlloyedPool(sqsModel)
+}
