@@ -44,6 +44,8 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Alloyed rate limiter boilerplate in sqsdomain
 - Add rate limiter to alloyed pools
 
+Chain compatibility: v25.x-c775cee7-1722825184
+
 ## 25.7.0
 
 - Fix bug with filters n /pools API
