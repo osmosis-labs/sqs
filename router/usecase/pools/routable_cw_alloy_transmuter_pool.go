@@ -3,6 +3,7 @@ package pools
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -27,6 +28,10 @@ type routableAlloyTransmuterPoolImpl struct {
 	TakerFee            osmomath.Dec                      "json:\"taker_fee\""
 	SpreadFactor        osmomath.Dec                      "json:\"spread_factor\""
 }
+
+const (
+	alloyedLPShareDenomComponent = "all"
+)
 
 // GetId implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetId() uint64 {
@@ -216,14 +221,19 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 
 	normalizationFactors := preComputedData.NormalizationScalingFactors
 
-	normalizedBalances := make(map[string]osmomath.Int, len(r.AlloyTransmuterData.AssetConfigs))
+	// Note: -1 for the LP share.
+	normalizedBalances := make(map[string]osmomath.Int, len(r.AlloyTransmuterData.AssetConfigs)-1)
 	normalizeTotal := osmomath.ZeroInt()
 
 	// Calculate normalized balances
 	for i := 0; i < len(r.AlloyTransmuterData.AssetConfigs); i++ {
 		assetConfig := r.AlloyTransmuterData.AssetConfigs[i]
-
 		assetDenom := assetConfig.Denom
+
+		// Skip if the asset is alloyed LP hsare
+		if strings.Contains(assetDenom, alloyedLPShareDenomComponent) {
+			continue
+		}
 
 		assetBalance := r.Balances.AmountOf(assetDenom)
 
@@ -245,11 +255,16 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 	}
 
 	// Calculate weights
-	weights := make(map[string]osmomath.Dec, len(r.AlloyTransmuterData.AssetConfigs))
+	// Note: -1 for the alloyed LP share.
+	weights := make(map[string]osmomath.Dec, len(r.AlloyTransmuterData.AssetConfigs)-1)
 	for i := 0; i < len(r.AlloyTransmuterData.AssetConfigs); i++ {
 		assetConfig := r.AlloyTransmuterData.AssetConfigs[i]
-
 		assetDenom := assetConfig.Denom
+
+		// Skip if the asset is alloyed LP hsare
+		if strings.Contains(assetDenom, alloyedLPShareDenomComponent) {
+			continue
+		}
 
 		// Calculate weight
 		weights[assetDenom] = normalizedBalances[assetDenom].ToLegacyDec().Quo(normalizeTotal.ToLegacyDec())
