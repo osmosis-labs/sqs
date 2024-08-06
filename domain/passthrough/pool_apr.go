@@ -9,7 +9,7 @@ import (
 
 // PoolDataRange represents the range of the pool APR data.
 type PoolDataRange struct {
-	Lower float64 `json:"lowe,omitempty"`
+	Lower float64 `json:"lower,omitempty"`
 	Upper float64 `json:"upper,omitempty"`
 }
 
