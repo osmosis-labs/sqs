@@ -546,9 +546,8 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.In
 // Returns the updated pools.
 // The input poolConsidered parameter is mutated with options if options specify to set APR and fee data.
 // The input poolsToUpdate parameter is mutated with the poolConsidered if it matches the options.
-func (p poolsUseCase) retainPoolIfMathesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
+func (p *poolsUseCase) retainPoolIfMathesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
 	if options.MinPoolLiquidityCap == 0 || poolConsidered.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
-
 		// Set APR and fee data if configured
 		p.setPoolAPRAndFeeDataIfConfigured(poolConsidered, options)
 
@@ -559,7 +558,7 @@ func (p poolsUseCase) retainPoolIfMathesOptions(poolsToUpdate []sqsdomain.PoolI,
 
 // setPoolAPRAndFeeDataIfConfigured sets the APR and fee data for the pool if the options are configured.
 // No-op otherwise.
-func (p poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
+func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
 	if options.WithMarketIncentives {
 		poolID := pool.GetId()
 
