@@ -583,44 +583,46 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 }
 
 func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
-	withIsAPRStale := func(aprData passthroughdomain.PoolAPRDataStatusWrap) passthroughdomain.PoolAPRDataStatusWrap {
-		aprData.IsStale = true
-		return aprData
-	}
+	var (
+		withIsAPRStale = func(aprData passthroughdomain.PoolAPRDataStatusWrap) passthroughdomain.PoolAPRDataStatusWrap {
+			aprData.IsStale = true
+			return aprData
+		}
 
-	withIsAPRError := func(aprData passthroughdomain.PoolAPRDataStatusWrap) passthroughdomain.PoolAPRDataStatusWrap {
-		aprData.IsError = true
-		return aprData
-	}
+		withIsAPRError = func(aprData passthroughdomain.PoolAPRDataStatusWrap) passthroughdomain.PoolAPRDataStatusWrap {
+			aprData.IsError = true
+			return aprData
+		}
 
-	withIsFeeStale := func(feeData passthroughdomain.PoolFeesDataStatusWrap) passthroughdomain.PoolFeesDataStatusWrap {
-		feeData.IsStale = true
-		return feeData
-	}
+		withIsFeeStale = func(feeData passthroughdomain.PoolFeesDataStatusWrap) passthroughdomain.PoolFeesDataStatusWrap {
+			feeData.IsStale = true
+			return feeData
+		}
 
-	withIsFeeError := func(feeData passthroughdomain.PoolFeesDataStatusWrap) passthroughdomain.PoolFeesDataStatusWrap {
-		feeData.IsError = true
-		return feeData
-	}
+		withIsFeeError = func(feeData passthroughdomain.PoolFeesDataStatusWrap) passthroughdomain.PoolFeesDataStatusWrap {
+			feeData.IsError = true
+			return feeData
+		}
 
-	defaultAPRData := passthroughdomain.PoolAPRDataStatusWrap{PoolAPR: passthroughdomain.PoolAPR{
-		PoolID: defaultPoolID,
-		SwapFees: passthroughdomain.PoolDataRange{
-			Lower: 0.01,
-			Upper: 0.02,
-		},
-	}}
-	defaultTime := time.Unix(0, 0)
-	defaultError := fmt.Errorf("forced error")
+		defaultAPRData = passthroughdomain.PoolAPRDataStatusWrap{PoolAPR: passthroughdomain.PoolAPR{
+			PoolID: defaultPoolID,
+			SwapFees: passthroughdomain.PoolDataRange{
+				Lower: 0.01,
+				Upper: 0.02,
+			},
+		}}
+		defaultTime  = time.Unix(0, 0)
+		defaultError = fmt.Errorf("forced error")
 
-	defaultFeeData := passthroughdomain.PoolFeesDataStatusWrap{
-		PoolFee: passthroughdomain.PoolFee{
-			PoolID: fmt.Sprintf("%d", defaultPoolID),
-		},
-	}
+		defaultFeeData = passthroughdomain.PoolFeesDataStatusWrap{
+			PoolFee: passthroughdomain.PoolFee{
+				PoolID: fmt.Sprintf("%d", defaultPoolID),
+			},
+		}
 
-	emptyAPRData := passthroughdomain.PoolAPRDataStatusWrap{}
-	emptyFeeData := passthroughdomain.PoolFeesDataStatusWrap{}
+		emptyAPRData = passthroughdomain.PoolAPRDataStatusWrap{}
+		emptyFeeData = passthroughdomain.PoolFeesDataStatusWrap{}
+	)
 
 	testCases := []struct {
 		name string
