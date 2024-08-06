@@ -26,7 +26,7 @@ type PoolAPR struct {
 	// Boost APR represents the boosted APR.
 	BoostAPR PoolDataRange `json:"boost,omitempty"`
 	// Total APR represents the total APR.
-	TotalAPR PoolDataRange `json:"total,omitempty"`
+	TotalAPR PoolDataRange `json:"total_apr,omitempty"`
 }
 
 // UnmarshalJSON custom unmarshal method to handle PoolID as uint64.
