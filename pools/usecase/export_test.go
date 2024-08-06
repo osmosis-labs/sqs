@@ -38,3 +38,7 @@ func (p *poolsUseCase) StoreInvalidOrderBookEntry(baseDenom, quoteDenom string) 
 func (p poolsUseCase) SetPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
 	p.setPoolAPRAndFeeDataIfConfigured(pool, options)
 }
+
+func (p *poolsUseCase) RetainPoolIfMatchesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
+	return p.retainPoolIfMatchesOptions(poolsToUpdate, poolConsidered, options)
+}

@@ -327,7 +327,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 			}
 
 			// Add the pool to pools if it matches the options
-			pools = p.retainPoolIfMathesOptions(pools, pool, options)
+			pools = p.retainPoolIfMatchesOptions(pools, pool, options)
 		}
 	} else {
 		// Pre-allocate 2000 since this is how many pools there are today.
@@ -337,7 +337,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 			// Check filter is non-zero to avoid more expensive get liquidity cap check.
 			if ok {
 				// Add the pool to pools if it matches the options
-				pools = p.retainPoolIfMathesOptions(pools, pool, options)
+				pools = p.retainPoolIfMatchesOptions(pools, pool, options)
 			}
 			return true
 		})
@@ -542,11 +542,11 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.In
 	return pool.CalcExitPoolCoinsFromShares(sdk.Context{}, exitingShares, exitFee)
 }
 
-// retainPoolIfMathesOptions retains the pool if it matches the options.
+// retainPoolIfMatchesOptions retains the pool if it matches the options.
 // Returns the updated pools.
 // The input poolConsidered parameter is mutated with options if options specify to set APR and fee data.
 // The input poolsToUpdate parameter is mutated with the poolConsidered if it matches the options.
-func (p *poolsUseCase) retainPoolIfMathesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
+func (p *poolsUseCase) retainPoolIfMatchesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
 	if options.MinPoolLiquidityCap == 0 || poolConsidered.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
 		// Set APR and fee data if configured
 		p.setPoolAPRAndFeeDataIfConfigured(poolConsidered, options)
