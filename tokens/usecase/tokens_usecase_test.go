@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -82,10 +83,10 @@ func (s *TokensUseCaseTestSuite) SetupDefaultRouterAndPoolsUsecase() routertesti
 }
 
 func (s *TokensUseCaseTestSuite) TestParseAssetList() {
-	// env := os.Getenv("CI_SQS_ASSETLIST_TEST")
-	// if env != "true" {
-	// 	s.T().Skip("skip the test that does network call and is used for debugging")
-	// }
+	env := os.Getenv("CI_SQS_ASSETLIST_TEST")
+	if env != "true" {
+		s.T().Skip("skip the test that does network call and is used for debugging")
+	}
 
 	tokensMap, _, err := tokensusecase.GetTokensFromChainRegistry(mainnetAssetListFileURL)
 	s.Require().NoError(err)
@@ -130,8 +131,6 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().True(ok)
 	s.Require().Equal(ethExponent, ethToken.Precision)
 	s.Require().False(ethToken.IsUnlisted)
-	// TODO: asset list broke. Temporarily commendted out
-	// s.Require().NotEmpty(ethToken.CoingeckoID)
 	s.Require().NotEmpty(ethToken.Name)
 	s.Require().NotEmpty(ethToken.CoinMinimalDenom)
 
