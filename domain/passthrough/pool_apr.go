@@ -9,8 +9,8 @@ import (
 
 // PoolDataRange represents the range of the pool APR data.
 type PoolDataRange struct {
-	Lower float64 `json:"lower"`
-	Upper float64 `json:"upper"`
+	Lower float64 `json:"lowe,omitempty"`
+	Upper float64 `json:"upper,omitempty"`
 }
 
 // PoolAPR represents the APR data of the pool.
@@ -18,15 +18,15 @@ type PoolAPR struct {
 	// PoolID represents the pool ID.
 	PoolID uint64 `json:"-"`
 	// Swap Fees represents the swap fees.
-	SwapFees PoolDataRange `json:"swap_fees"`
+	SwapFees PoolDataRange `json:"swap_fees,omitempty"`
 	// Superfluid APR represents the superfluid APR.
-	SuperfluidAPR PoolDataRange `json:"superfluid"`
+	SuperfluidAPR PoolDataRange `json:"superfluid,omitempty"`
 	// Osmosis APR represents the osmosis APR.
-	OsmosisAPR PoolDataRange `json:"osmosis"`
+	OsmosisAPR PoolDataRange `json:"osmosis,omitempty"`
 	// Boost APR represents the boosted APR.
-	BoostAPR PoolDataRange `json:"boost"`
+	BoostAPR PoolDataRange `json:"boost,omitempty"`
 	// Total APR represents the total APR.
-	TotalAPR PoolDataRange `json:"total"`
+	TotalAPR PoolDataRange `json:"total,omitempty"`
 }
 
 // UnmarshalJSON custom unmarshal method to handle PoolID as uint64.
