@@ -10,6 +10,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -37,6 +38,9 @@ type PoolResponse struct {
 	SpreadFactor      osmomath.Dec `json:"spread_factor"`
 	LiquidityCap      osmomath.Int `json:"liquidity_cap"`
 	LiquidityCapError string       `json:"liquidity_cap_error"`
+
+	APRData  passthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
+	FeesData passthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
 }
 
 const resourcePrefix = "/pools"
@@ -64,16 +68,20 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 // @Produce  json
 // @Param  IDs  query  string  false  "Comma-separated list of pool IDs to fetch, e.g., '1,2,3'"
 // @Param  min_liquidity_cap  query  int  false  "Minimum pool liquidity cap"
+// @Param  with_market_incentives  query  bool  false  "Include market incentives data in the pool response"
 // @Success 200  {array}  sqsdomain.PoolI  "List of pool(s) details"
 // @Router /pools [get]
 func (a *PoolsHandler) GetPools(c echo.Context) error {
 	// Get pool ID parameters as strings.
 	poolIDsStr := c.QueryParam("IDs")
 	minLiquidityCapStr := c.QueryParam("min_liquidity_cap")
+	withMarketIncentives, err := domain.ParseBooleanQueryParam(c, "with_market_incentives")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+	}
 
 	var (
 		pools []sqsdomain.PoolI
-		err   error
 	)
 
 	// Parse numbers
@@ -93,6 +101,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 
 	filters := []domain.PoolsOption{
 		domain.WithMinPoolsLiquidityCap(minLiquidityCap),
+		domain.WithMarketIncentives(withMarketIncentives),
 	}
 
 	// Only add pool ID filter if it is not empty.
@@ -208,6 +217,8 @@ func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
 		SpreadFactor:      pool.GetSQSPoolModel().SpreadFactor,
 		LiquidityCap:      pool.GetLiquidityCap(),
 		LiquidityCapError: pool.GetLiquidityCapError(),
+		APRData:           pool.GetAPRData(),
+		FeesData:          pool.GetFeesData(),
 	}
 }
 

@@ -152,3 +152,42 @@ def run_pool_filters_test(environment_url):
     assert filtered_pools is not None, "Fitlered pools are None"
 
     assert len(filtered_pools) == expected_num_pools_both_filters, f"Number of filtered pools should be {expected_num_pools_both_filters}, actual {len(filtered_pools)}"
+
+    # Test APR and fee data
+    filtered_apr_fee_pools = sqs_service.get_pools(pool_ids="1135", with_market_incentives=True)
+    assert filtered_apr_fee_pools is not None, "Fitlered pools are None"
+
+    assert len(filtered_apr_fee_pools) == 1, f"Number of filtered pools should be 1, actual {len(filtered_apr_fee_pools)}"
+    pool = filtered_apr_fee_pools[0]
+    # assert pool.get("pool_id") == 1135, "Pool ID is not correct"
+
+    # Validate swap fees APR data is present
+    apr_data = pool.get("apr_data")
+    assert apr_data is not None, "APR data is None"
+    swap_fees = apr_data.get("swap_fees").get("upper")
+    assert swap_fees is not None, "APR data is None"
+    assert swap_fees > 0, "Swap fees should be greater than 0"
+
+    # Validate fee volume data is present
+    fee_data = pool.get("fees_data")
+    assert fee_data is not None, "Fee data is None"
+
+    volume_24h = fee_data.get("volume_24h")
+    assert volume_24h is not None, "Volume 24h is None"
+    assert volume_24h > 0, "Volume 24h should be greater than 0"
+
+    volume_7d = fee_data.get("volume_7d")
+    assert volume_7d is not None, "Volume 7d is None"
+    assert volume_7d > 0, "Volume 7d should be greater than 0"
+
+    fees_spent_24h = fee_data.get("fees_spent_24h")
+    assert fees_spent_24h is not None, "Fees spent 24h is None"
+    assert fees_spent_24h > 0, "Fees spent 24h should be greater than 0"
+
+    fees_spent_7d = fee_data.get("fees_spent_7d")
+    assert fees_spent_7d is not None, "Fees spent 7d is None"
+    assert fees_spent_7d > 0, "Fees spent 7d should be greater than 0"
+
+    fees_percentage = fee_data.get("fees_percentage")
+    assert fees_percentage is not None, "Fees percentage 24h is None"
+    assert fees_percentage == "0.2%", "Fees percentage should be 0.2%"
