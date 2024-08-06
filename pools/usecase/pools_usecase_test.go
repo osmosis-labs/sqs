@@ -584,26 +584,25 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 
 func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 	var (
+		// Helper functions to modify the APR and fee data
 		withIsAPRStale = func(aprData passthroughdomain.PoolAPRDataStatusWrap) passthroughdomain.PoolAPRDataStatusWrap {
 			aprData.IsStale = true
 			return aprData
 		}
-
 		withIsAPRError = func(aprData passthroughdomain.PoolAPRDataStatusWrap) passthroughdomain.PoolAPRDataStatusWrap {
 			aprData.IsError = true
 			return aprData
 		}
-
 		withIsFeeStale = func(feeData passthroughdomain.PoolFeesDataStatusWrap) passthroughdomain.PoolFeesDataStatusWrap {
 			feeData.IsStale = true
 			return feeData
 		}
-
 		withIsFeeError = func(feeData passthroughdomain.PoolFeesDataStatusWrap) passthroughdomain.PoolFeesDataStatusWrap {
 			feeData.IsError = true
 			return feeData
 		}
 
+		// Default APR and fee data
 		defaultAPRData = passthroughdomain.PoolAPRDataStatusWrap{PoolAPR: passthroughdomain.PoolAPR{
 			PoolID: defaultPoolID,
 			SwapFees: passthroughdomain.PoolDataRange{
@@ -611,15 +610,17 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 				Upper: 0.02,
 			},
 		}}
-		defaultTime  = time.Unix(0, 0)
-		defaultError = fmt.Errorf("forced error")
-
 		defaultFeeData = passthroughdomain.PoolFeesDataStatusWrap{
 			PoolFee: passthroughdomain.PoolFee{
 				PoolID: fmt.Sprintf("%d", defaultPoolID),
 			},
 		}
 
+		// Default values
+		defaultTime  = time.Unix(0, 0)
+		defaultError = fmt.Errorf("forced error")
+
+		// Empty APR and fee data
 		emptyAPRData = passthroughdomain.PoolAPRDataStatusWrap{}
 		emptyFeeData = passthroughdomain.PoolFeesDataStatusWrap{}
 	)
@@ -745,6 +746,7 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 			// System under test
 			poolsUseCase.SetPoolAPRAndFeeDataIfConfigured(tc.pool, tc.opts)
 
+			// Validate mutations
 			s.Require().Equal(tc.expectedAPRData, tc.pool.GetAPRData())
 			s.Require().Equal(tc.expectedFeesData, tc.pool.GetFeesData())
 		})
