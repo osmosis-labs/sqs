@@ -558,26 +558,35 @@ func (p *poolsUseCase) retainPoolIfMathesOptions(poolsToUpdate []sqsdomain.PoolI
 
 // setPoolAPRAndFeeDataIfConfigured sets the APR and fee data for the pool if the options are configured.
 // No-op otherwise.
+// Logs an error if fails to get APR or pool fee data.
+// The input pool parameter is mutated.
+// The input options parameter is used to determine whether to set APR and fee data.
 func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
 	if options.WithMarketIncentives {
 		poolID := pool.GetId()
 
+		// Get APR data
 		poolAPRData, _, isStale, err := p.aprPrefetcher.GetByKey(poolID)
 		if err != nil {
+			// Log error if fails to get APR data
 			p.logger.Error("failed to get APR data", zap.Uint64("poolID", poolID), zap.Error(err))
 		}
 
+		// Set APR data
 		pool.SetAPRData(passthroughdomain.PoolAPRDataStatusWrap{
 			PoolAPR: poolAPRData,
 			IsStale: isStale,
 			IsError: err != nil,
 		})
 
+		// Get pool fee data
 		poolFeeData, _, isStale, err := p.poolFeesPrefetcher.GetByKey(poolID)
 		if err != nil {
+			// Log error if fails to get pool fee data
 			p.logger.Error("failed to get pool fee data", zap.Uint64("poolID", poolID), zap.Error(err))
 		}
 
+		// Set pool fee data
 		pool.SetFeesData(passthroughdomain.PoolFeesDataStatusWrap{
 			PoolFee: poolFeeData,
 			IsStale: isStale,

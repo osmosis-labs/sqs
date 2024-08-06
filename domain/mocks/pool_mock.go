@@ -33,28 +33,31 @@ type MockRoutablePool struct {
 	SpreadFactor      osmomath.Dec
 	mockedTokenOut    sdk.Coin
 
+	APRData  passthroughdomain.PoolAPRDataStatusWrap
+	FeesData passthroughdomain.PoolFeesDataStatusWrap
+
 	PoolLiquidityCap      osmomath.Int
 	PoolLiquidityCapError string
 }
 
 // GetAPRData implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) GetAPRData() passthroughdomain.PoolAPRDataStatusWrap {
-	panic("unimplemented")
+	return mp.APRData
 }
 
 // GetFeesData implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) GetFeesData() passthroughdomain.PoolFeesDataStatusWrap {
-	panic("unimplemented")
+	return mp.FeesData
 }
 
 // SetAPRData implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) SetAPRData(aprData passthroughdomain.PoolAPRDataStatusWrap) {
-	panic("unimplemented")
+	mp.APRData = aprData
 }
 
 // SetFeesData implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) SetFeesData(feesData passthroughdomain.PoolFeesDataStatusWrap) {
-	panic("unimplemented")
+	mp.FeesData = feesData
 }
 
 // CalcSpotPrice implements domain.RoutablePool.
