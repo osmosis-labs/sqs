@@ -2,7 +2,7 @@ package passthroughdomain
 
 // PoolFee represents the fees data of a pool.
 type PoolFee struct {
-	PoolID         string  `json:"pool_id"`
+	PoolID         string  `json:"-"`
 	Volume24h      float64 `json:"volume_24h"`
 	Volume7d       float64 `json:"volume_7d"`
 	FeesSpent24h   float64 `json:"fees_spent_24h"`
