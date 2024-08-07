@@ -11,9 +11,9 @@ def get_last_route_token_in(route):
     return token_in_denom
 
 
-def get_last_route_token_in2(quote):
+def get_last_quote_route_token_in(quote):
+    token_in_denom = ""
     for route in quote.route:
-        token_in_denom = ""
         for pool in route.pools:
             token_in_denom = pool.token_in_denom
-        return token_in_denom
+    return token_in_denom

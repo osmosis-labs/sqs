@@ -98,7 +98,7 @@ class ExactAmountInQuote:
 
 class ExactAmountOutQuote:
     @staticmethod
-    def run_quote_test(environment_url, token_out, token_in, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountOutResponse:
+    def run_quote_test(environment_url, token_out, token_in, human_denoms, single_route, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountOutResponse:
         """
         Runs exact amount out test for the /router/quote endpoint with the given input parameters.
 
@@ -114,7 +114,7 @@ class ExactAmountOutQuote:
         sqs_service = conftest.SERVICE_MAP[environment_url]
 
         start_time = time.time()
-        response = sqs_service.get_exact_amount_out_quote(token_out, token_in)
+        response = sqs_service.get_exact_amount_out_quote(token_out, token_in, human_denoms, single_route)
         elapsed_time_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == expected_status_code, f"Error: {response.text}"
@@ -172,7 +172,7 @@ class ExactAmountOutQuote:
         return in_base_usd_quote_price * amount_out
 
     @staticmethod
-    def validate_quote_test(quote, expected_amount_out_str, expected_denom_out, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance):
+    def validate_quote_test(quote, expected_amount_out_str, expected_denom_out, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance, direct_quote=False):
         """
         Runs the following validations:
         - Basic presence of fields
@@ -203,7 +203,7 @@ class ExactAmountOutQuote:
         ExactAmountOutQuote.validate_fee(quote)
 
         # Validate that the route is valid
-        ExactAmountOutQuote.validate_route(quote, denom_in, expected_denom_out,)
+        ExactAmountOutQuote.validate_route(quote, denom_in, expected_denom_out, direct_quote)
 
         # Validate that the spot price is present
         assert quote.in_base_out_quote_spot_price is not None
@@ -221,7 +221,7 @@ class ExactAmountOutQuote:
         assert relative_error(amount_in_scaled, expected_token_in) < error_tolerance, f"Error: amount out scaled {amount_in_scaled} is not within {error_tolerance} of expected {expected_token_out}"
 
     @staticmethod
-    def validate_route(quote, denom_in, denom_out):
+    def validate_route(quote, denom_in, denom_out, direct_quote=False):
         """
         Validates that the route is valid by checking the following:
          - The output token is present in each pool denoms
@@ -241,12 +241,13 @@ class ExactAmountOutQuote:
 
                 cur_out_denom = p.token_in_denom
 
-            # Last route token in must be equal to denom in
-            if len(quote.route) == 1:
+            if not direct_quote:
+                # Last route token in must be equal to denom in
                 assert denom_in == get_last_route_token_in(route), f"Error: denom in {denom_in} not equal to last token in {get_last_route_token_in(route)}"
 
-        if len(quote.route) > 1:
-            assert denom_in == get_last_route_token_in2(quote), f"Error: denom in {denom_in} not equal to last token in {get_last_route_token_in2(quote)}"
+        if direct_quote:
+            # For direct custom quotes response always is multi route
+            assert denom_in == get_last_quote_route_token_in(quote), f"Error: denom in {denom_in} not equal to last token in {get_last_quote_route_token_in(quote)}"
 
     @staticmethod
     def validate_fee(quote):

@@ -521,63 +521,9 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 	return &result, nil
 }
 
-
-func (r *routerUseCaseImpl) getCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64, attempt int) (domain.Quote, error) {
-	if len(poolIDs) == 0 {
-		return nil, fmt.Errorf("%w: at least one pool ID should be specified", types.ErrValidationFailed)
-	}
-
-	if len(tokenOutDenom) == 0 {
-		return nil, fmt.Errorf("%w: at least one token out denom should be specified", types.ErrValidationFailed)
-	}
-
-	// for each given pool we expect to have provided token out denom
-	if len(poolIDs) != len(tokenOutDenom) {
-		return nil, fmt.Errorf("%w: number of pool ID should match number of out denom", types.ErrValidationFailed)
-	}
-
-	tokenInOrig := tokenIn
-
-	// AmountIn is the first token of the asset pair.
-	result := quoteExactAmountIn{AmountIn: tokenIn}
-	for i, v := range poolIDs {
-		denom := tokenOutDenom[i]
-
-		quote, err := r.GetCustomDirectQuote(ctx, tokenIn, denom, v)
-		if err != nil {
-			// handle multi pool routes
-			if !errors.Is(err, ErrTokenInDenomPoolNotFound) && attempt > 0 {
-				return nil, err
-			}
-
-			quote, err =  r.getCustomDirectQuoteMultiPool(ctx, tokenInOrig, tokenOutDenom[i:], poolIDs[i:], 1)
-			if err != nil {
-				return nil, err
-			}
-
-			// the amountOut value is the amount out of last the denom
-			result.AmountOut = quote.GetAmountOut()
-
-			// append each pool to the route
-			result.Route = append(result.Route, quote.GetRoute()...)
-
-			return &result, nil
-		}
-
-		// the amountOut value is the amount out of last the denom
-		result.AmountOut = quote.GetAmountOut()
-
-		// append each pool to the route
-		result.Route = append(result.Route, quote.GetRoute()...)
-
-		tokenIn = sdk.NewCoin(denom, quote.GetAmountOut())
-	}
-	return &result, nil
-}
-
 // GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error) {
-	quote, err := r.getCustomDirectQuoteMultiPool(ctx, tokenOut, tokenInDenom, poolIDs, 0)
+	quote, err := r.GetCustomDirectQuoteMultiPool(ctx, tokenOut, tokenInDenom, poolIDs)
 	if err != nil {
 		return nil, err
 	}

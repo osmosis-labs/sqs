@@ -27,8 +27,8 @@ class TestExactAmountOutDirectCustomQuote:
         token_out  = pair['token_in']['amount_str'] + pair['token_in']['denom']
 
         # Get the optimal quote for the given token pair
-        optimal_quote = ExactAmountOutQuote.run_quote_test(environment_url, token_out, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
-
+        # Direct custom quote does not support multiple routes, so we request single/multi hop pool routes only
+        optimal_quote = ExactAmountOutQuote.run_quote_test(environment_url, token_out, denom_in, False, True, EXPECTED_LATENCY_UPPER_BOUND_MS)
         
         # Construct input parameters for the custom direct quote
         pools = []
@@ -40,13 +40,7 @@ class TestExactAmountOutDirectCustomQuote:
         pool_id = ','.join(pools)
         denoms_in = ','.join(denoms)
 
-        token_out = "3254257uosmo"
-        denoms_in = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4,ibc/D79E7D83AB399BFFF93433E54FAA480C191248FC556924A2A8351AE2638B3877"
-        pool_id = "1263,1247"
-
         quote = self.run_quote_test(environment_url, token_out, denoms_in, pool_id, EXPECTED_LATENCY_UPPER_BOUND_MS)
-        # quote = self.run_quote_test(environment_url, token_out, denoms_in, pool_id, EXPECTED_LATENCY_UPPER_BOUND_MS)
-        print(pool_id)
 
         # All tokens have the same default exponent, resulting in scaling factor of 1.
         spot_price_scaling_factor = 1
@@ -57,8 +51,9 @@ class TestExactAmountOutDirectCustomQuote:
         out_base_usd_quote_price = conftest.get_usd_price_scaled(coin.denom)
         expected_in_base_out_quote_price = out_base_usd_quote_price / in_base_usd_quote_price 
 
-        # TODO: fix this
-        quote.price_impact = -1
+        # TODO: fix me!
+        quote.price_impact = optimal_quote.price_impact
+        quote.in_base_out_quote_spot_price = optimal_quote.in_base_out_quote_spot_price
 
         # Compute expected token out
         expected_token_in = int(coin.amount) * expected_in_base_out_quote_price
@@ -72,7 +67,7 @@ class TestExactAmountOutDirectCustomQuote:
         assert quote.price_impact is not None
 
         # Validate quote results
-        ExactAmountOutQuote.validate_quote_test(quote, coin.amount, coin.denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance)
+        ExactAmountOutQuote.validate_quote_test(quote, coin.amount, coin.denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance, True)
 
     def run_quote_test(self, environment_url, token_out, denom_in, pool_id, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountOutResponse:
         """
@@ -94,7 +89,7 @@ class TestExactAmountOutDirectCustomQuote:
         elapsed_time_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == expected_status_code, f"Error: {response.text}"
-        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
+        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, denom in {denom_in} and token out {token_out}" 
 
         response_json = response.json()
         
