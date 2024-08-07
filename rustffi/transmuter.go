@@ -53,15 +53,9 @@ func NewFFIDivisions(divisions []struct {
 }
 
 func CompressedMovingAverage(latestRemovedDivision *C.struct_FFIDivision, divisions []C.struct_FFIDivision, divisionSize, windowSize, blockTime uint64) (osmomath.Dec, error) {
-	var divisionsPtr *C.struct_FFIDivision
-	if len(divisions) > 0 {
-		divisionsPtr = &divisions[0]
-	}
-
 	result := C.compressed_moving_average(
 		latestRemovedDivision,
-		divisionsPtr,
-		C.uintptr_t(len(divisions)),
+		newFFIDivisionSlice(divisions),
 		C.uint64_t(divisionSize),
 		C.uint64_t(windowSize),
 		C.uint64_t(blockTime),
@@ -78,4 +72,15 @@ func CompressedMovingAverage(latestRemovedDivision *C.struct_FFIDivision, divisi
 
 	// CONTRACT: result.ok must not be nil if result.err is nil
 	return FFIDecimalToDec(*result.ok), nil
+}
+
+func newFFIDivisionSlice(divisions []C.struct_FFIDivision) C.struct_FFISlice_FFIDivision {
+	var divisionsPtr *C.struct_FFIDivision
+	if len(divisions) > 0 {
+		divisionsPtr = &divisions[0]
+	}
+	return C.struct_FFISlice_FFIDivision{
+		ptr: divisionsPtr,
+		len: C.uintptr_t(len(divisions)),
+	}
 }

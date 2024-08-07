@@ -1,4 +1,6 @@
-use crate::{numbers::FFIDecimal, result::FFIResult};
+use crate::{
+    numbers::FFIDecimal, option::nullable_ptr_to_option, result::FFIResult, slice::FFISlice,
+};
 use transmuter_math::{Division, Timestamp, Uint64};
 
 #[repr(C)]
@@ -28,25 +30,16 @@ impl FFIDivision {
     }
 }
 
-fn ptr_to_option<T: Clone>(ptr: *const T) -> Option<T> {
-    if ptr.is_null() {
-        None
-    } else {
-        Some(unsafe { &*ptr }.clone())
-    }
-}
-
 #[no_mangle]
 pub extern "C" fn compressed_moving_average(
     latest_removed_division: *const FFIDivision,
-    divisions_ptr: *const FFIDivision,
-    divisions_len: usize,
+    divisions: FFISlice<FFIDivision>,
     division_size: u64,
     window_size: u64,
     block_time: u64, // timestamp nanos
 ) -> FFIResult<FFIDecimal> {
-    let latest_removed_division = ptr_to_option(latest_removed_division);
-    let divisions = unsafe { std::slice::from_raw_parts(divisions_ptr, divisions_len) }.to_vec();
+    let latest_removed_division = nullable_ptr_to_option(latest_removed_division);
+    let divisions = divisions.as_slice().to_vec();
 
     let res = transmuter_math::compressed_moving_average(
         latest_removed_division.map(|d| d.into_division()),
