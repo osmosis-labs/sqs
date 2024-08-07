@@ -15,6 +15,7 @@ type PassthroughGRPCClientMock struct {
 	MockDelegatorDelegationsCb          func(ctx context.Context, address string) (sdk.Coins, error)
 	MockDelegatorUnbondingDelegationsCb func(ctx context.Context, address string) (sdk.Coins, error)
 	MockUserPositionsBalancesCb         func(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error)
+	MockDelegationRewardsCb             func(ctx context.Context, address string) (sdk.Coins, error)
 }
 
 // AccountLockedCoins implements passthroughdomain.PassthroughGRPCClient.
@@ -69,6 +70,15 @@ func (p *PassthroughGRPCClientMock) AccountUnlockingCoins(ctx context.Context, a
 	}
 
 	return nil, errors.New("MockAccountLockedCoinsCb is not implemented")
+}
+
+// DelegationRewards implements passthroughdomain.PassthroughGRPCClient.
+func (p *PassthroughGRPCClientMock) DelegationRewards(ctx context.Context, address string) (sdk.Coins, error) {
+	if p.MockDelegationRewardsCb != nil {
+		return p.MockDelegationRewardsCb(ctx, address)
+	}
+
+	return nil, errors.New("MockDelegationRewardsCb is not implemented")
 }
 
 var _ passthroughdomain.PassthroughGRPCClient = &PassthroughGRPCClientMock{}
