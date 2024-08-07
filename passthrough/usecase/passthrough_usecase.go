@@ -100,6 +100,11 @@ const (
 	// 2. Concentrated positions
 	pooledBalancedNumJobs = 2
 
+	// Number of unclaimed rewards jobs to fetch concurrently.
+	// 1. Unclaimed rewards from concentrated positions
+	// 2. Unclaimed rewards from staking rewards
+	unclaimedRewardsNumJobs = 2
+
 	// locked + unlocking
 	numInLocksQueries = 2
 )
@@ -131,7 +136,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	defer close(pooledBalancesChan)
 
 	// Channel to fetch unclaimed rewards concurrently.
-	unclaimedRewardsChan := make(chan coinsResult)
+	unclaimedRewardsChan := make(chan coinsResult, unclaimedRewardsNumJobs)
 	defer close(unclaimedRewardsChan)
 
 	go func() {
@@ -164,6 +169,17 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		// Send unclaimed rewards to the unclaimed rewards channel
 		unclaimedRewardsChan <- coinsResult{
 			coins: unclaimedRewads,
+			err:   err,
+		}
+	}()
+
+	go func() {
+		// Fetch unclaimed staking rewards concurrently
+		unclaimedStakingRewards, err := p.passthroughGRPCClient.DelegationRewards(ctx, address)
+
+		// Send unclaimed rewards to the unclaimed rewards channel
+		unclaimedRewardsChan <- coinsResult{
+			coins: unclaimedStakingRewards,
 			err:   err,
 		}
 	}()
@@ -202,8 +218,29 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 
 	// Callback to fetch unclaimed rewards concurrently.
 	getUnclaimedRewards := func(ctx context.Context, address string) (sdk.Coins, error) {
-		unclaimedRewardsResult := <-unclaimedRewardsChan
-		return unclaimedRewardsResult.coins, unclaimedRewardsResult.err
+		unclaimedCoins := sdk.Coins{}
+
+		var finalErr error
+		for i := 0; i < unclaimedRewardsNumJobs; i++ {
+			unclaimedRewardsResult := <-unclaimedRewardsChan
+
+			if unclaimedRewardsResult.err != nil {
+				// Rather than returning the error, log it and continue
+				finalErr = unclaimedRewardsResult.err
+
+				// Ensure that coins are valid to be added and avoid panic.
+				if len(unclaimedRewardsResult.coins) > 0 && !unclaimedRewardsResult.coins.IsAnyNil() {
+					unclaimedCoins = unclaimedCoins.Add(unclaimedRewardsResult.coins...)
+				}
+
+				continue
+			}
+
+			unclaimedCoins = unclaimedCoins.Add(unclaimedRewardsResult.coins...)
+		}
+
+		// Return error and best-effort result
+		return unclaimedCoins, finalErr
 	}
 
 	// Fetch jobs to fetch the portfolio assets concurrently in separate gorooutines.

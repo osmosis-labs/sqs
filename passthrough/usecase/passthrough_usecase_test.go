@@ -166,6 +166,10 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 			// Return error to test the silent error handling.
 			return sdk.NewCoins(wbtcCoin), sdk.NewCoins(invalidCoin), miscError
 		},
+		MockDelegationRewardsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			// Return error to test the silent error handling.
+			return sdk.NewCoins(osmoCoin), miscError
+		},
 	}
 
 	// Initialize pools use case mock
@@ -213,11 +217,11 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 				IsBestEffort:   true,
 			},
 			usecase.UnclaimedRewardsAssetsCategoryName: {
-				Capitalization: zero,
+				Capitalization: osmoCapitalization,
 				IsBestEffort:   true,
 			},
 			usecase.TotalAssetsCategoryName: {
-				Capitalization: osmoCapitalization.Add(osmoCapitalization).Add(osmoCapitalization).Add(atomCapitalization).Add(wbtcCapitalization),
+				Capitalization: osmoCapitalization.Add(osmoCapitalization).Add(osmoCapitalization).Add(atomCapitalization).Add(wbtcCapitalization).Add(osmoCapitalization),
 				AccountCoinsResult: []passthroughdomain.AccountCoinsResult{
 					{
 						Coin:                atomCoin,
@@ -232,8 +236,8 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 						CapitalizationValue: zero,
 					},
 					{
-						Coin:                osmoCoin.Add(osmoCoin).Add(osmoCoin),
-						CapitalizationValue: osmoCapitalization.Add(osmoCapitalization).Add(osmoCapitalization),
+						Coin:                osmoCoin.Add(osmoCoin).Add(osmoCoin).Add(osmoCoin),
+						CapitalizationValue: osmoCapitalization.Add(osmoCapitalization).Add(osmoCapitalization).Add(osmoCapitalization),
 					},
 				},
 				IsBestEffort: true,
