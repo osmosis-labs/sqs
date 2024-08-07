@@ -12,7 +12,7 @@ fn main() {
         .join(format!("lib{}.h", create_name));
 
     let mut conf = cbindgen::Config::default();
-    conf.no_includes = true;
+    conf.language = cbindgen::Language::C;
 
     cbindgen::Builder::new()
         .with_crate(crate_dir)

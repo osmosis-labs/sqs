@@ -68,7 +68,7 @@ build:
 	-v -o /osmosis/build/sqsd app/*.go 
 
 build-rust-lib:
-	cargo build --release -p rustlib
+	cargo build --release -p sqs_ffi
 
 ###############################################################################
 ###                                Docker                                  ###

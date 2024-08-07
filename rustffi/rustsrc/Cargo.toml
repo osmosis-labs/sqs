@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "rustlib"
+name = "sqs_ffi"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,6 +8,8 @@ version = "0.1.0"
 crate-type = ["staticlib"]
 
 [dependencies]
+thiserror = "1.0.63"
+transmuter_math = {path = "../../../transmuter/packages/transmuter_math"}
 
 [build-dependencies]
 cbindgen = "0.26.0"
