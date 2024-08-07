@@ -185,10 +185,7 @@ func (p *passthroughGRPCClient) DelegationRewards(ctx context.Context, address s
 
 	var rewardCoins = sdk.Coins{}
 	for _, v := range response.GetTotal() {
-		rewardCoins = rewardCoins.Add(sdk.Coin{
-			Denom:  v.Denom,
-			Amount: v.Amount.TruncateInt(),
-		})
+		rewardCoins = append(rewardCoins, sdk.Coin{Denom: v.Denom, Amount: v.Amount.TruncateInt()})
 	}
 
 	return rewardCoins, nil
