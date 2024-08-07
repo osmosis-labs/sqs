@@ -7,7 +7,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/rustffi"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFFINewU128(t *testing.T) {
@@ -62,9 +62,9 @@ func TestFFINewU128(t *testing.T) {
 			result, err := rustffi.NewFFIU128(tc.input)
 
 			if tc.expectedError == nil {
-				assert.NilError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.ErrorContains(t, err, tc.expectedError.Error())
+				require.ErrorContains(t, err, tc.expectedError.Error())
 				return
 			}
 
@@ -116,7 +116,7 @@ func TestNewDecimal(t *testing.T) {
 			result, err := rustffi.NewFFIDecimal(&tc.input)
 
 			if tc.expectedError == nil {
-				assert.NilError(t, err)
+				require.NoError(t, err)
 
 				// Test conversion back to osmomath.Dec
 				backToDec := rustffi.FFIDecimalToDec(result)
@@ -124,7 +124,7 @@ func TestNewDecimal(t *testing.T) {
 					t.Errorf("FFIDecimalToDec(NewFFIDecimal(%v)) = %v, want %v", tc.input, backToDec, tc.input)
 				}
 			} else {
-				assert.ErrorContains(t, err, tc.expectedError.Error())
+				require.ErrorContains(t, err, tc.expectedError.Error())
 			}
 		})
 	}
