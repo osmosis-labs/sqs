@@ -35,8 +35,9 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v25.9.0
 
+- Add staking rewards to the unclaimed rewards and total assets categories of the /portfolio-assets query
 - Implement with_market_incentives query param for `/pools` that formats fees and APRs data on pools.
 
 ## v25.8.1
