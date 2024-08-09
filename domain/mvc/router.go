@@ -67,10 +67,10 @@ type RouterUsecase interface {
 	// This allows to bypass a min liquidity requirement in the router when attempting to swap over a specific pool.
 	GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error)
 	// GetCustomDirectQuoteMultiPool calculates direct custom quote for given tokenIn and tokenOutDenom over given poolID route.
-	// Otherwise it implements same rules as GetCustomDirectQuote.
+	// Underlying implementation uses GetCustomDirectQuote.
 	GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error)
 	// GetCustomDirectQuoteMultiPool calculates direct custom quote for given tokenOut and tokenInDenom over given poolID route.
-	// Otherwise it implements same rules as GetCustomDirectQuote.
+	// Underlying implementation uses GetCustomDirectQuote.
 	GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error)
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
 	GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
