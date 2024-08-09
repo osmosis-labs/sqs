@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -226,6 +227,60 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 			expectedStatusCode: http.StatusOK,
 			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_out_response.json"),
 			expectedError:      nil,
+		},
+		{
+			name: "valid exact out request: apply human denom",
+			queryParams: map[string]string{
+				"tokenOut":       "1000usdc",
+				"tokenInDenom":   "eth",
+				"poolID":         "10",
+				"applyExponents": "true",
+				"humanDenoms":    "true",
+			},
+			handler: &routerdelivery.RouterHandler{
+				TUsecase: &mocks.TokensUsecaseMock{
+					IsValidChainDenomFunc: func(chainDenom string) bool {
+						// because we are applying human denoms
+						// test will fail with humanDenoms set to false
+						return false
+					},
+				},
+				RUsecase: &mocks.RouterUsecaseMock{
+					GetCustomDirectQuoteMultiPoolInGivenOutFunc: func(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error) {
+						return s.NewExactAmountOutQuote(poolOne, poolTwo, poolThree), nil
+					},
+				},
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_out_response.json"),
+			expectedError:      nil,
+		},
+		{
+			name: "not valid exact out request: apply human denom",
+			queryParams: map[string]string{
+				"tokenOut":       "1000usdc",
+				"tokenInDenom":   "eth",
+				"poolID":         "10",
+				"applyExponents": "true",
+				"humanDenoms":    "false",
+			},
+			handler: &routerdelivery.RouterHandler{
+				TUsecase: &mocks.TokensUsecaseMock{
+					IsValidChainDenomFunc: func(chainDenom string) bool {
+						// because we are applying human denoms
+						// test will fail with humanDenoms set to false
+						return false
+					},
+				},
+				RUsecase: &mocks.RouterUsecaseMock{
+					GetCustomDirectQuoteMultiPoolInGivenOutFunc: func(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error) {
+						return s.NewExactAmountOutQuote(poolOne, poolTwo, poolThree), nil
+					},
+				},
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse:   `{"message":"denom is not a valid chain denom (usdc)"}`,
+			expectedError:      fmt.Errorf("denom is not a valid chain denom (%s)", "usdc"),
 		},
 		{
 			name: "invalid swap method request",

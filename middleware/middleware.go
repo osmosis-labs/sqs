@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -15,7 +14,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -28,33 +26,10 @@ type GoMiddleware struct {
 }
 
 var (
-	// total number of requests counter
-	requestsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_requests_total",
-			Help: "Total number of requests.",
-		},
-		[]string{"method", "endpoint"},
-	)
-
-	// request latency histogram
-	requestLatency = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "sqs_request_duration_seconds",
-			Help:    "Histogram of request latencies.",
-			Buckets: prometheus.DefBuckets,
-		},
-		[]string{"method", "endpoint"},
-	)
 
 	// flight recorder
 	recordFlightOnce sync.Once
 )
-
-func init() {
-	prometheus.MustRegister(requestsTotal)
-	prometheus.MustRegister(requestLatency)
-}
 
 // CORS will handle the CORS middleware
 func (m *GoMiddleware) CORS(next echo.HandlerFunc) echo.HandlerFunc {
@@ -90,27 +65,9 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 	return func(c echo.Context) error {
 		start := time.Now()
 
-		requestMethod := c.Request().Method
-		requestPath, err := domain.ParseURLPath(c)
-		if err != nil {
-			return err
-		}
-
-		// Increment the request counter
-		requestsTotal.WithLabelValues(requestMethod, requestPath).Inc()
-
-		// Insert the request path into the context
-		ctx := c.Request().Context()
-		ctx = context.WithValue(ctx, domain.RequestPathCtxKey, requestPath)
-		request := c.Request().WithContext(ctx)
-		c.SetRequest(request)
-
-		err = next(c)
+		err := next(c)
 
 		duration := time.Since(start)
-
-		// Observe the duration with the histogram
-		requestLatency.WithLabelValues(requestMethod, requestPath).Observe(duration.Seconds())
 
 		// Record outliers to the flight recorder for further analysis
 		if m.flightRecordConfig.Enabled && duration > time.Duration(m.flightRecordConfig.TraceThresholdMS)*time.Millisecond {

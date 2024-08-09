@@ -139,6 +139,9 @@ build-reproducible-arm64: go.sum
 load-test-ui:
 	$(DOCKER) compose -f locust/docker-compose.yml up --scale worker=4
 
+debug:
+	dlv --build-flags="-ldflags='-X github.com/osmosis-labs/sqs/version=${VERSION}'"  debug app/*.go -- --config ./config.json
+
 profile:
 	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/profile?seconds=60
 
@@ -184,10 +187,10 @@ test-prices-mainnet:
 
 # Run E2E tests in verbose mode (-s) -n 4 concurrent workers
 e2e-run-stage:
-	SQS_ENVIRONMENTS=stage pytest -s -n 4
+	SQS_ENVIRONMENTS=stage pytest -s -n 4 --ignore=tests/test_synthetic_geo.py
 
 e2e-run-local:
-	SQS_ENVIRONMENTS=local pytest -s -n 4
+	SQS_ENVIRONMENTS=local pytest -s -n 4 --ignore=tests/test_synthetic_geo.py
 
 #### E2E Python Setup
 
@@ -209,7 +212,7 @@ e2e-update-requirements:
 
 # Set DATADOG_API_KEY in the environment
 datadog-agent-start:
-	export DATADOG_API_KEY=your-key; \
+	export DATADOG_API_KEY=@@REDACTED@@; \
 	docker run --cgroupns host \
 				--pid host \
 				-v /var/run/docker.sock:/var/run/docker.sock:ro \

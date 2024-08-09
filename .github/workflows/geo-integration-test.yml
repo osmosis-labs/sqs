@@ -1,0 +1,79 @@
+name: Synthetic Geo Monitoring SQS tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/20 * * * *"
+  push:
+    branches:
+      - "main"
+      - "v[0-9]**"
+
+jobs:
+  setup-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          echo "matrix={\"include\":[{ \"server\":\"138.68.112.16:8888\", \"env\": \"prod-fra1\"}, {\"server\":\"139.59.218.19:8888\", \"env\": \"prod-sgp1\"}]}" >> "$GITHUB_OUTPUT"
+
+  sqs-quote-tests:
+    timeout-minutes: 15
+    name: ${{ matrix.env }}-sqs-quote-tests
+    needs: setup-matrix
+    runs-on: buildjet-4vcpu-ubuntu-2204
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.setup-matrix.outputs.matrix)}}
+    steps:
+      - name: Echo IP
+        run: curl -L "https://ipinfo.io" -s
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
+      - name: Run Swap tests on ${{ matrix.env }}
+        env:
+          SQS_ENVIRONMENTS: "prod"
+          SQS_API_KEY: ${{ secrets.SQS_API_KEY }}
+          HTTP_PROXY: "http://${{secrets.TEST_PROXY_CRED}}@${{ matrix.server }}"
+          HTTPS_PROXY: "http://${{secrets.TEST_PROXY_CRED}}@${{ matrix.server }}"
+        run: |
+          pytest -s -n auto tests/test_synthetic_geo.py -v
+
+
+  delete-deployments:
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      [sqs-quote-tests]
+    steps:
+      - name: Delete Previous deployments
+        uses: actions/github-script@v7
+        with:
+          debug: true
+          script: |
+            const deployments = await github.rest.repos.listDeployments({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               sha: context.sha
+             });
+             await Promise.all(
+               deployments.data.map(async (deployment) => {
+                 await github.rest.repos.createDeploymentStatus({ 
+                   owner: context.repo.owner, 
+                   repo: context.repo.repo, 
+                   deployment_id: deployment.id, 
+                   state: 'inactive' 
+                 });
+                 return github.rest.repos.deleteDeployment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  deployment_id: deployment.id
+                });
+               })
+             );

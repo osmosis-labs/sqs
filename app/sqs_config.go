@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/osmosis-labs/sqs/domain"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 )
 
 // DefaultConfig defines the default config for the sidecar query server.
@@ -44,5 +45,12 @@ var DefaultConfig = domain.Config{
 		MinPoolLiquidityCap:    50,
 		CoingeckoUrl:           "https://prices.osmosis.zone/api/v3/simple/price",
 		CoingeckoQuoteCurrency: "usd",
+	},
+
+	Passthrough: &passthroughdomain.PassthroughConfig{
+		NumiaURL:                     "https://public-osmosis-api.numia.xyz",
+		TimeseriesURL:                "https://stage-proxy-data-api.osmosis-labs.workers.dev",
+		APRFetchIntervalMinutes:      5,
+		PoolFeesFetchIntervalMinutes: 5,
 	},
 }

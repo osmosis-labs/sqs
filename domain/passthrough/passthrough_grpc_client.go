@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	query "github.com/cosmos/cosmos-sdk/types/query"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	distribution "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	concentratedLiquidity "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/client/queryproto"
 	lockup "github.com/osmosis-labs/osmosis/v25/x/lockup/types"
@@ -34,6 +35,9 @@ type PassthroughGRPCClient interface {
 	// UserPositionsBalances returns the user concentrated positions balances of the user with the given address.
 	// The first return is the pooled balance. The second return is the reward balance.
 	UserPositionsBalances(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error)
+
+	// DelegationTotalRewards returns the total unclaimed staking rewards accrued of the user with the given address.
+	DelegationRewards(ctx context.Context, address string) (sdk.Coins, error)
 }
 
 type PassthroughFetchFn func(context.Context, string) (sdk.Coins, error)
@@ -48,6 +52,7 @@ type passthroughGRPCClient struct {
 	stakingQueryClient               staking.QueryClient
 	lockupQueryClient                lockup.QueryClient
 	concentratedLiquidityQueryClient concentratedLiquidity.QueryClient
+	distributionClient               distribution.QueryClient
 }
 
 const (
@@ -72,6 +77,7 @@ func NewPassthroughGRPCClient(grpcURI string) (PassthroughGRPCClient, error) {
 		stakingQueryClient:               staking.NewQueryClient(grpcClient),
 		lockupQueryClient:                lockup.NewQueryClient(grpcClient),
 		concentratedLiquidityQueryClient: concentratedLiquidity.NewQueryClient(grpcClient),
+		distributionClient:               distribution.NewQueryClient(grpcClient),
 	}, nil
 }
 
@@ -166,6 +172,23 @@ func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, addre
 	}
 
 	return pooledCoins, rewardCoins, nil
+}
+
+func (p *passthroughGRPCClient) DelegationRewards(ctx context.Context, address string) (sdk.Coins, error) {
+	response, err := p.distributionClient.DelegationTotalRewards(
+		ctx,
+		&distribution.QueryDelegationTotalRewardsRequest{DelegatorAddress: address},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var rewardCoins = sdk.Coins{}
+	for _, v := range response.GetTotal() {
+		rewardCoins = append(rewardCoins, sdk.Coin{Denom: v.Denom, Amount: v.Amount.TruncateInt()})
+	}
+
+	return rewardCoins, nil
 }
 
 func paginateRequest(ctx context.Context, fetchCoinsFn func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error)) (sdk.Coins, error) {

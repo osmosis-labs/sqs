@@ -43,4 +43,4 @@ Unstaking value from delegator undelegating chain query.
 
 #### Unclaimed Rewards
 
-Unclaimed rewards from concentrated liquidity positions.
+Unclaimed rewards from concentrated liquidity positions and unclaimed rewards from staking rewards.

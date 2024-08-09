@@ -52,7 +52,7 @@ class SQSService:
 
         return self.config
     
-    def get_pools(self, pool_ids=None, min_liquidity_cap=None):
+    def get_pools(self, pool_ids=None, min_liquidity_cap=None, with_market_incentives=False):
         """
         Fetches the pool from the specified endpoint and returns it.
         Raises error if non-200 is returned from the endpoint.
@@ -72,6 +72,9 @@ class SQSService:
 
         if is_min_liquidity_cap_filter_provided:
             url_ext += f"min_liquidity_cap={min_liquidity_cap}"
+        
+        if with_market_incentives:
+            url_ext += "&with_market_incentives=true"
 
         response = requests.get(self.url + url_ext, headers=self.headers)
 

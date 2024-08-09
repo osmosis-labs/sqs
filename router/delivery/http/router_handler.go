@@ -159,7 +159,8 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 // @Param  tokenOutDenom   query  string  false  "String representing the list of the output token denominations separated by comma for the exact amount in swap method."    example(uion)
 // @Param  tokenOut        query  string  false  "String representation of the sdk.Coin denoting the output token for the exact amount out swap method."                     example(2353uion)
 // @Param  tokenInDenom    query  string  false  "String representing the list of the input token denominations separated by comma for the exact amount out swap method."    example(uosmo)
-// @Param  poolID          query  string  true  "String representing list of the pool ID."                                                                                   example(1100)
+// @Param  poolID          query  string  true   "String representing list of the pool ID."                                                                                  example(1100)
+// @Param  humanDenoms     query  bool    true   "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
 // @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/custom-direct-quote [get]
@@ -190,12 +191,24 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 		tokenOutDenom []string
 	)
 
+	// Determine the tokenIn and tokenOutDenom based on the swap method.
 	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
 		tokenIn, tokenOutDenom = req.TokenIn, req.TokenOutDenom
 	} else {
 		tokenIn, tokenOutDenom = req.TokenOut, req.TokenInDenom
 	}
 
+	// Apply human denoms conversion if required.
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, append([]string{tokenIn.Denom}, tokenOutDenom...))
+	if err != nil {
+		return err
+	}
+
+	// Update coins token in denom it case it was translated from human to chain.
+	tokenIn.Denom = chainDenoms[0]
+	tokenOutDenom = chainDenoms[1:]
+
+	// Get the quote based on the swap method.
 	var quote domain.Quote
 	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
 		quote, err = a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, *tokenIn, tokenOutDenom, req.PoolID)

@@ -11,6 +11,7 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -44,6 +46,9 @@ type poolsUseCase struct {
 	canonicalOrderbookPoolIDs           sync.Map
 
 	cosmWasmPoolsParams pools.CosmWasmPoolsParams
+
+	aprPrefetcher      datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR]
+	poolFeesPrefetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolFee]
 
 	logger log.Logger
 }
@@ -294,9 +299,10 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 // GetPools implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error) {
 	options := domain.PoolsOptions{
-		MinPoolLiquidityCap: 0,
-		PoolIDFilter:        []uint64{},
-		HadEmptyFilter:      false,
+		MinPoolLiquidityCap:  0,
+		PoolIDFilter:         []uint64{},
+		WithMarketIncentives: false,
+		HadEmptyFilter:       false,
 	}
 
 	for _, opt := range opts {
@@ -320,10 +326,8 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 				return nil, err
 			}
 
-			// Check filter is non-zero to avoid more expensive get liquidity cap check.
-			if options.MinPoolLiquidityCap == 0 || pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
-				pools = append(pools, pool)
-			}
+			// Add the pool to pools if it matches the options
+			pools = p.retainPoolIfMatchesOptions(pools, pool, options)
 		}
 	} else {
 		// Pre-allocate 2000 since this is how many pools there are today.
@@ -331,8 +335,9 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		p.pools.Range(func(key, value interface{}) bool {
 			pool, ok := value.(sqsdomain.PoolI)
 			// Check filter is non-zero to avoid more expensive get liquidity cap check.
-			if ok && (options.MinPoolLiquidityCap == 0 || pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap) {
-				pools = append(pools, pool)
+			if ok {
+				// Add the pool to pools if it matches the options
+				pools = p.retainPoolIfMatchesOptions(pools, pool, options)
 			}
 			return true
 		})
@@ -495,6 +500,16 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 	return results, err
 }
 
+// RegisterAPRFetcher registers the APR fetcher for the passthrough use case.
+func (p *poolsUseCase) RegisterAPRFetcher(aprFetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR]) {
+	p.aprPrefetcher = aprFetcher
+}
+
+// RegisterPoolFeesFetcher registers the pool fees fetcher for the passthrough use case.
+func (p *poolsUseCase) RegisterPoolFeesFetcher(poolFeesFetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolFee]) {
+	p.poolFeesPrefetcher = poolFeesFetcher
+}
+
 // IsCanonicalOrderbookPool implements mvc.PoolsUsecase.
 func (p *poolsUseCase) IsCanonicalOrderbookPool(poolID uint64) bool {
 	_, exists := p.canonicalOrderbookPoolIDs.Load(poolID)
@@ -525,6 +540,59 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.In
 	// fine to pass empty context as no data is mutated
 	exitFee := pool.GetExitFee(sdk.Context{})
 	return pool.CalcExitPoolCoinsFromShares(sdk.Context{}, exitingShares, exitFee)
+}
+
+// retainPoolIfMatchesOptions retains the pool if it matches the options.
+// Returns the updated pools.
+// The input poolConsidered parameter is mutated with options if options specify to set APR and fee data.
+// The input poolsToUpdate parameter is mutated with the poolConsidered if it matches the options.
+func (p *poolsUseCase) retainPoolIfMatchesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
+	if options.MinPoolLiquidityCap == 0 || poolConsidered.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
+		// Set APR and fee data if configured
+		p.setPoolAPRAndFeeDataIfConfigured(poolConsidered, options)
+
+		poolsToUpdate = append(poolsToUpdate, poolConsidered)
+	}
+	return poolsToUpdate
+}
+
+// setPoolAPRAndFeeDataIfConfigured sets the APR and fee data for the pool if the options are configured.
+// No-op otherwise.
+// Logs an error if fails to get APR or pool fee data.
+// The input pool parameter is mutated.
+// The input options parameter is used to determine whether to set APR and fee data.
+func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
+	if options.WithMarketIncentives {
+		poolID := pool.GetId()
+
+		// Get APR data
+		poolAPRData, _, isStale, err := p.aprPrefetcher.GetByKey(poolID)
+		if err != nil {
+			// Log error if fails to get APR data
+			p.logger.Error("failed to get APR data", zap.Uint64("poolID", poolID), zap.Error(err))
+		}
+
+		// Set APR data
+		pool.SetAPRData(passthroughdomain.PoolAPRDataStatusWrap{
+			PoolAPR: poolAPRData,
+			IsStale: isStale,
+			IsError: err != nil,
+		})
+
+		// Get pool fee data
+		poolFeeData, _, isStale, err := p.poolFeesPrefetcher.GetByKey(poolID)
+		if err != nil {
+			// Log error if fails to get pool fee data
+			p.logger.Error("failed to get pool fee data", zap.Uint64("poolID", poolID), zap.Error(err))
+		}
+
+		// Set pool fee data
+		pool.SetFeesData(passthroughdomain.PoolFeesDataStatusWrap{
+			PoolFee: poolFeeData,
+			IsStale: isStale,
+			IsError: err != nil,
+		})
+	}
 }
 
 // formatBaseQuoteDenom formats the base and quote denom into a single string with a separator.
