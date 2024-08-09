@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/rustffi"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -186,9 +188,12 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
 	}
 
-	// Check static upper rate limiter
+	// Check static & change upper rate limiter
 	// We only need to check it for the token in coin since that is the only one that is increased by the current quote.
 	if err := r.checkStaticRateLimiter(tokenIn); err != nil {
+		return osmomath.BigDec{}, err
+	}
+	if err := r.checkChangeRateLimiter(tokenIn, time.Now()); err != nil {
 		return osmomath.BigDec{}, err
 	}
 
@@ -215,11 +220,172 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 	}
 
 	// Check if the static rate limiter exists for the token in denom updated balance.
-	tokeInStaticLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetStaticLimiter(tokenInCoin.Denom)
+	tokenInStaticLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetStaticLimiter(tokenInCoin.Denom)
 	if !ok {
 		return nil
 	}
 
+	weights, err := r.computeResultedWeights(tokenInCoin)
+	if err != nil {
+		return err
+	}
+
+	// Validate upper limit
+	upperLimitInt := osmomath.MustNewDecFromStr(tokenInStaticLimiter.UpperLimit)
+
+	// Token in weight
+	tokenInWeight := weights[tokenInCoin.Denom]
+
+	// Check the upper limit
+	if tokenInWeight.GT(upperLimitInt) {
+		return domain.StaticRateLimiterInvalidUpperLimitError{
+			UpperLimit: tokenInStaticLimiter.UpperLimit,
+			Weight:     tokenInWeight.String(),
+			Denom:      tokenInCoin.Denom,
+		}
+	}
+
+	return nil
+}
+
+func (r *routableAlloyTransmuterPoolImpl) checkChangeRateLimiter(tokenInCoin sdk.Coin, time time.Time) error {
+	tokenInChangeLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetChangeLimiter(tokenInCoin.Denom)
+
+	// no error if rate limiter not found
+	if !ok {
+		return nil
+	}
+
+	latestRemovedDivision, updatedDivisions, err := cleanUpOutdatedDivision(tokenInChangeLimiter, time)
+	if err != nil {
+		return err
+	}
+
+	// Check for upper limit if there is any existing division or there is any removed divisions
+	hasAnyPrevDataPoints := latestRemovedDivision != nil || len(updatedDivisions) != 0
+
+	if hasAnyPrevDataPoints {
+		latestValue, err := osmomath.NewDecFromStr(latestRemovedDivision.LatestValue)
+		if err != nil {
+			return err
+		}
+		integral, err := osmomath.NewDecFromStr(latestRemovedDivision.Integral)
+		if err != nil {
+			return err
+		}
+		ffiLatestRemovedDivision, err := rustffi.NewFFIDivisionRaw(
+			latestRemovedDivision.StartedAt, latestRemovedDivision.UpdatedAt, latestValue, integral,
+		)
+		if err != nil {
+			return err
+		}
+
+		// TODO: Find a way to remove this interim type
+		type _division = struct {
+			StartedAt   uint64
+			UpdatedAt   uint64
+			LatestValue string
+			Integral    string
+		}
+
+		_updatedDivisions := make([]_division, len(updatedDivisions))
+		for _, division := range updatedDivisions {
+			_updatedDivisions = append(_updatedDivisions, _division(division))
+		}
+
+		ffiUpdatedDivisions, err := rustffi.NewFFIDivisionsRaw(_updatedDivisions)
+		if err != nil {
+			return err
+		}
+
+		divisionSize := tokenInChangeLimiter.WindowConfig.WindowSize / tokenInChangeLimiter.WindowConfig.DivisionCount
+
+		avg, err := rustffi.CompressedMovingAverage(&ffiLatestRemovedDivision, ffiUpdatedDivisions, divisionSize, tokenInChangeLimiter.WindowConfig.WindowSize, uint64(time.UnixNano()))
+		if err != nil {
+			return err
+		}
+
+		// Calculate upper limit using saturating addition
+		boundaryOffset, err := osmomath.NewDecFromStr(tokenInChangeLimiter.BoundaryOffset)
+		if err != nil {
+			return err
+		}
+
+		upperLimit := avg.Add(boundaryOffset)
+		weights, err := r.computeResultedWeights(tokenInCoin)
+		if err != nil {
+			return err
+		}
+
+		// Check if the value exceeds the upper limit
+		tokenInWeight := weights[tokenInCoin.Denom]
+		if tokenInWeight.GT(upperLimit) {
+			return domain.StaticRateLimiterInvalidUpperLimitError{
+				UpperLimit: upperLimit.String(),
+				Weight:     tokenInWeight.String(),
+				Denom:      tokenInCoin.Denom,
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// cleanUpOutdatedDivision checks if any divisions in the change limiter is out of the interested window given a specified time
+// returns (latestRemovedDivision, updatedDivisions, error)
+//
+// CONTRACT: Divisions must be ordered by `StartedAt`
+func cleanUpOutdatedDivision(changeLimier cosmwasmpool.ChangeLimiter, time time.Time) (*cosmwasmpool.Division, []cosmwasmpool.Division, error) {
+	divisions := changeLimier.Divisions
+	windowSize := changeLimier.WindowConfig.WindowSize
+	divisionSize := changeLimier.WindowConfig.WindowSize / changeLimier.WindowConfig.DivisionCount
+
+	var latestRemovedDivision *cosmwasmpool.Division
+	latestRemovedIndex := -1
+
+	for i, division := range divisions {
+		latestValue, err := osmomath.NewDecFromStr(division.LatestValue)
+		if err != nil {
+			return nil, []cosmwasmpool.Division{}, err
+		}
+		integral, err := osmomath.NewDecFromStr(division.Integral)
+		if err != nil {
+			return nil, []cosmwasmpool.Division{}, err
+		}
+
+		ffiDivision, err := rustffi.NewFFIDivisionRaw(division.StartedAt, division.UpdatedAt, latestValue, integral)
+		if err != nil {
+			return nil, []cosmwasmpool.Division{}, err
+		}
+		isDivisionOutdated, err := rustffi.IsDivisionOutdated(ffiDivision, uint64(time.UnixNano()), windowSize, divisionSize)
+		if err != nil {
+			return nil, []cosmwasmpool.Division{}, err
+		}
+
+		if isDivisionOutdated {
+			latestRemovedDivision = &division
+			latestRemovedIndex = i
+		} else {
+			break
+		}
+	}
+
+	// no division is outdated or no division at all
+	if latestRemovedDivision == nil || len(divisions) == 0 {
+		return nil, divisions, nil
+	}
+
+	// every division is outdated
+	if latestRemovedIndex == len(divisions)-1 {
+		return latestRemovedDivision, []cosmwasmpool.Division{}, nil
+	}
+
+	// some division before last division is outdated
+	return latestRemovedDivision, divisions[latestRemovedIndex+1:], nil
+}
+
+func (r *routableAlloyTransmuterPoolImpl) computeResultedWeights(tokenInCoin sdk.Coin) (map[string]osmomath.Dec, error) {
 	preComputedData := r.AlloyTransmuterData.PreComputedData
 	normalizationFactors := preComputedData.NormalizationScalingFactors
 
@@ -246,7 +412,7 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 
 		normalizationScalingFactor, ok := normalizationFactors[assetDenom]
 		if !ok {
-			return fmt.Errorf("normalization scaling factor not found for asset %s, pool id %d", assetDenom, r.GetId())
+			return nil, fmt.Errorf("normalization scaling factor not found for asset %s, pool id %d", assetDenom, r.GetId())
 		}
 
 		// Normalize balance
@@ -275,20 +441,5 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 		weights[assetDenom] = normalizedBalances[assetDenom].ToLegacyDec().Quo(normalizeTotal.ToLegacyDec())
 	}
 
-	// Validate upper limit
-	upperLimitInt := osmomath.MustNewDecFromStr(tokeInStaticLimiter.UpperLimit)
-
-	// Token in weight
-	tokenInWeight := weights[tokenInCoin.Denom]
-
-	// Check the upper limit
-	if tokenInWeight.GT(upperLimitInt) {
-		return domain.StaticRateLimiterInvalidUpperLimitError{
-			UpperLimit: tokeInStaticLimiter.UpperLimit,
-			Weight:     tokenInWeight.String(),
-			Denom:      tokenInCoin.Denom,
-		}
-	}
-
-	return nil
+	return weights, nil
 }

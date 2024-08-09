@@ -52,6 +52,33 @@ func NewFFIDivisions(divisions []struct {
 	return ffidivisions, nil
 }
 
+func NewFFIDivisionsRaw(divisions []struct {
+	StartedAt   uint64
+	UpdatedAt   uint64
+	LatestValue string
+	Integral    string
+}) ([]C.struct_FFIDivision, error) {
+	ffidivisions := make([]C.struct_FFIDivision, len(divisions))
+	for i, division := range divisions {
+		latestValue, err := osmomath.NewDecFromStr(division.LatestValue)
+		if err != nil {
+			return nil, err
+		}
+
+		integral, err := osmomath.NewDecFromStr(division.Integral)
+		if err != nil {
+			return nil, err
+		}
+
+		div, err := NewFFIDivisionRaw(division.StartedAt, division.UpdatedAt, latestValue, integral)
+		if err != nil {
+			return nil, err
+		}
+		ffidivisions[i] = div
+	}
+	return ffidivisions, nil
+}
+
 func CompressedMovingAverage(latestRemovedDivision *C.struct_FFIDivision, divisions []C.struct_FFIDivision, divisionSize, windowSize, blockTime uint64) (osmomath.Dec, error) {
 	result := C.compressed_moving_average(
 		latestRemovedDivision,

@@ -324,3 +324,13 @@ type StaticRateLimiterInvalidUpperLimitError struct {
 func (e StaticRateLimiterInvalidUpperLimitError) Error() string {
 	return fmt.Sprintf("invalid upper limit (%s) for weight (%s) and denom (%s)", e.UpperLimit, e.Weight, e.Denom)
 }
+
+type ChangeRateLimiterInvalidUpperLimitError struct {
+	UpperLimit string
+	Weight     string
+	Denom      string
+}
+
+func (e ChangeRateLimiterInvalidUpperLimitError) Error() string {
+	return fmt.Sprintf("invalid upper limit (%s) for weight (%s) and denom (%s)", e.UpperLimit, e.Weight, e.Denom)
+}

@@ -1,11 +1,14 @@
 package pools
 
 import (
+	"time"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
 type (
@@ -29,4 +32,8 @@ func NewRoutableCosmWasmPoolWithCustomModel(
 
 func (r *routableAlloyTransmuterPoolImpl) CheckStaticRateLimiter(tokenInCoin sdk.Coin) error {
 	return r.checkStaticRateLimiter(tokenInCoin)
+}
+
+func CleanUpOutdatedDivision(changeLimier cosmwasmpool.ChangeLimiter, time time.Time) (*cosmwasmpool.Division, []cosmwasmpool.Division, error) {
+	return cleanUpOutdatedDivision(changeLimier, time)
 }

@@ -82,10 +82,10 @@ type WindowConfig struct {
 // Division represents a time division with its associated values.
 type Division struct {
 	// StartedAt is the time when the division is marked as started (Unix timestamp).
-	StartedAt int64 `json:"started_at"`
+	StartedAt uint64 `json:"started_at"`
 
 	// UpdatedAt is the time when the division was last updated (Unix timestamp).
-	UpdatedAt int64 `json:"updated_at"`
+	UpdatedAt uint64 `json:"updated_at"`
 
 	// LatestValue is the latest value that gets updated (represented as a decimal string).
 	LatestValue string `json:"latest_value"`
