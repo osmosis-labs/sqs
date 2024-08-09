@@ -4,6 +4,10 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type (
@@ -41,4 +45,8 @@ func (p poolsUseCase) SetPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, opt
 
 func (p *poolsUseCase) RetainPoolIfMatchesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
 	return p.retainPoolIfMatchesOptions(poolsToUpdate, poolConsidered, options)
+}
+
+func (p *poolsUseCase) CalcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {
+	return calcExitPool(ctx, pool, exitingSharesIn, exitFee)
 }

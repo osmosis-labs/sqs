@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/stableswap"
+	gammtypes "github.com/osmosis-labs/osmosis/v25/x/gamm/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 
@@ -564,6 +567,135 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
 	// Validate
 	s.Require().NoError(err)
 	s.Require().False(actualCoins.Empty())
+}
+
+func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
+	emptyContext := sdk.Context{}
+
+	twoStablePoolAssets := sdk.NewCoins(
+		sdk.NewInt64Coin("foo", 1000000000),
+		sdk.NewInt64Coin("bar", 1000000000),
+	)
+
+	threeBalancerPoolAssets := []balancer.PoolAsset{
+		{Token: sdk.NewInt64Coin("foo", 2000000000), Weight: osmomath.NewIntFromUint64(5)},
+		{Token: sdk.NewInt64Coin("bar", 3000000000), Weight: osmomath.NewIntFromUint64(5)},
+		{Token: sdk.NewInt64Coin("baz", 4000000000), Weight: osmomath.NewIntFromUint64(5)},
+	}
+
+	// create these pools used for testing
+	twoAssetPool, err := stableswap.NewStableswapPool(
+		1,
+		stableswap.PoolParams{ExitFee: osmomath.ZeroDec()},
+		twoStablePoolAssets,
+		[]uint64{1, 1},
+		"",
+		"",
+	)
+	s.Assert().NoError(err)
+
+	threeAssetPool, err := balancer.NewBalancerPool(
+		1,
+		balancer.PoolParams{SwapFee: osmomath.ZeroDec(), ExitFee: osmomath.ZeroDec()},
+		threeBalancerPoolAssets,
+		"",
+		time.Now(),
+	)
+	s.Assert().NoError(err)
+
+	// twoAssetPoolWithExitFee, err := stableswap.NewStableswapPool(
+	// 	1,
+	// 	stableswap.PoolParams{ExitFee: osmomath.MustNewDecFromStr("0.0001")},
+	// 	twoStablePoolAssets,
+	// 	[]uint64{1, 1},
+	// 	"",
+	// 	"",
+	// )
+	// s.Assert().NoError(err)
+
+	// threeAssetPoolWithExitFee, err := balancer.NewBalancerPool(
+	// 	1,
+	// 	balancer.PoolParams{SwapFee: osmomath.ZeroDec(), ExitFee: osmomath.MustNewDecFromStr("0.0002")},
+	// 	threeBalancerPoolAssets,
+	// 	"",
+	// 	time.Now(),
+	// )
+	// s.Assert().NoError(err)
+
+	tests := []struct {
+		name          string
+		pool          gammtypes.CFMMPoolI
+		exitingShares osmomath.Int
+		expError      bool
+	}{
+		{
+			name:          "two-asset pool, exiting shares grater than total shares",
+			pool:          &twoAssetPool,
+			exitingShares: twoAssetPool.GetTotalShares().AddRaw(1),
+			expError:      true,
+		},
+		{
+			name:          "three-asset pool, exiting shares grater than total shares",
+			pool:          &threeAssetPool,
+			exitingShares: threeAssetPool.GetTotalShares().AddRaw(1),
+			expError:      true,
+		},
+		// {
+		// 	name:          "two-asset pool, valid exiting shares",
+		// 	pool:          &twoAssetPool,
+		// 	exitingShares: twoAssetPool.GetTotalShares().QuoRaw(2),
+		// 	expError:      false,
+		// },
+		// {
+		// 	name:          "three-asset pool, valid exiting shares",
+		// 	pool:          &threeAssetPool,
+		// 	exitingShares: osmomath.NewIntFromUint64(3000000000000),
+		// 	expError:      false,
+		// },
+		// {
+		// 	name:          "two-asset pool with exit fee, valid exiting shares",
+		// 	pool:          &twoAssetPoolWithExitFee,
+		// 	exitingShares: twoAssetPoolWithExitFee.GetTotalShares().QuoRaw(2),
+		// 	expError:      false,
+		// },
+		// {
+		// 	name:          "three-asset pool with exit fee, valid exiting shares",
+		// 	pool:          &threeAssetPoolWithExitFee,
+		// 	exitingShares: osmomath.NewIntFromUint64(7000000000000),
+		// 	expError:      false,
+		// },
+	}
+
+	// Create default use case
+	poolsUseCase := s.newDefaultPoolsUseCase()
+
+	for _, test := range tests {
+		// using empty context since, currently, the context is not used anyway. This might be changed in the future
+
+		exitFee := test.pool.GetExitFee(emptyContext)
+		exitCoins, err := poolsUseCase.CalcExitPool(emptyContext, test.pool, test.exitingShares, exitFee)
+		if test.expError {
+			s.Require().Error(err, "test: %v", test.name)
+		} else {
+			s.Require().Error(err, "test: %v", test.name)
+
+			// exitCoins = ( (1 - exitFee) * exitingShares / poolTotalShares ) * poolTotalLiquidity
+			expExitCoins := mulCoins(test.pool.GetTotalPoolLiquidity(emptyContext), (osmomath.OneDec().Sub(exitFee)).MulInt(test.exitingShares).QuoInt(test.pool.GetTotalShares()))
+			s.Assert().Equal(s.T, expExitCoins.Sort().String(), exitCoins.Sort().String(), "test: %v", test.name)
+		}
+	}
+}
+
+// a helper function used to multiply coins
+func mulCoins(coins sdk.Coins, multiplier osmomath.Dec) sdk.Coins {
+	outCoins := sdk.Coins{}
+	for _, coin := range coins {
+		outCoin := sdk.NewCoin(coin.Denom, multiplier.MulInt(coin.Amount).TruncateInt())
+		if !outCoin.Amount.IsZero() {
+			outCoins = append(outCoins, outCoin)
+		}
+	}
+	return outCoins
 }
 
 func (s *PoolsUsecaseTestSuite) TestGetPools() {

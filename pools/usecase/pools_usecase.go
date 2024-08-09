@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -30,6 +31,8 @@ import (
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/osmosis/v25/x/gamm/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+
+	errorsmod "cosmossdk.io/errors"
 )
 
 type orderBookEntry struct {
@@ -521,8 +524,10 @@ func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return p.cosmWasmPoolsParams.Config
 }
 
+const errMsgFormatSharesLargerThanMax = "cannot exit all shares in a pool. Attempted to exit %f shares, max allowed is %f"
+
 // CalcExitCFMMPool implements mvc.PoolsUsecase.
-func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingSharesIn osmomath.Int) (sdk.Coins, error) {
 	sqsPool, err := p.GetPool(poolID)
 	if err != nil {
 		return nil, err
@@ -539,7 +544,68 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingShares osmomath.In
 
 	// fine to pass empty context as no data is mutated
 	exitFee := pool.GetExitFee(sdk.Context{})
-	return pool.CalcExitPoolCoinsFromShares(sdk.Context{}, exitingShares, exitFee)
+
+	return calcExitPool(sdk.Context{}, pool, exitingSharesIn, exitFee)
+}
+
+// ported from: pool.CalcExitPoolCoinsFromShares
+func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {
+	totalShares, err := pool.GetTotalShares().ToLegacyDec().Float64()
+	if err != nil {
+		return sdk.Coins{}, err
+	}
+
+	exitingShares, err := exitingSharesIn.ToLegacyDec().Float64()
+	if err != nil {
+		return sdk.Coins{}, err
+	}
+
+	if exitingShares >= totalShares {
+		return sdk.Coins{}, errorsmod.Wrapf(types.ErrLimitMaxAmount, errMsgFormatSharesLargerThanMax, exitingShares, totalShares-float64(osmomath.OneInt().Int64()))
+	}
+
+	// refundedShares = exitingShares * (1 - exit fee)
+	// with 0 exit fee optimization
+	var refundedShares float64
+	if !exitFee.IsZero() {
+		f, err := exitFee.Float64()
+		if err != nil {
+			return sdk.Coins{}, err
+		}
+
+		// exitingShares * (1 - exit fee)
+		oneSubExitFee := 1.0 - f
+		refundedShares = exitingShares * oneSubExitFee
+	} else {
+		refundedShares = exitingShares
+	}
+
+	shareOutRatio := refundedShares / totalShares
+
+	// exitedCoins = shareOutRatio * pool liquidity
+	poolLiquidity := pool.GetTotalPoolLiquidity(ctx)
+	exitedCoins := make(sdk.Coins, 0, len(poolLiquidity))
+
+	for _, asset := range poolLiquidity {
+		// round down here, due to not wanting to over-exit
+		amount := asset.Amount.BigInt().Int64()
+
+		exitAmt := (shareOutRatio * float64(amount))
+		if exitAmt <= 0 {
+			continue
+		}
+
+		if exitAmt >= float64(amount) {
+			return sdk.Coins{}, errors.New("too many shares out")
+		}
+
+		exitedCoins = append(exitedCoins, sdk.Coin{
+			Denom:  asset.Denom,
+			Amount: osmomath.NewInt(int64(exitAmt)),
+		})
+	}
+
+	return exitedCoins, nil
 }
 
 // retainPoolIfMatchesOptions retains the pool if it matches the options.
