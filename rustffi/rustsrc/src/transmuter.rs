@@ -58,4 +58,19 @@ pub extern "C" fn compressed_moving_average(
     }
 }
 
-// TODO: expose `clean_up_outdated_divisions`
+#[no_mangle]
+pub extern "C" fn is_division_outdated(
+    division: FFIDivision,
+    block_time: u64,
+    window_size: u64,
+    division_size: u64,
+) -> FFIResult<bool> {
+    division
+        .into_division()
+        .is_outdated(
+            Timestamp::from_nanos(block_time),
+            Uint64::from(window_size),
+            Uint64::from(division_size),
+        )
+        .into()
+}

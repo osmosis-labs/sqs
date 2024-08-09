@@ -24,3 +24,12 @@ impl<T> FFIResult<T> {
         }
     }
 }
+
+impl<T, E: Display> From<Result<T, E>> for FFIResult<T> {
+    fn from(value: Result<T, E>) -> Self {
+        match value {
+            Ok(value) => Self::ok(value),
+            Err(value) => Self::err(value),
+        }
+    }
+}

@@ -1,6 +1,7 @@
 package rustffi
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -160,4 +161,45 @@ func TestCompressedMovingAverage(t *testing.T) {
 
 		require.Equal(t, expected, average)
 	})
+}
+
+func TestIsDivisionOutdated(t *testing.T) {
+	division, err := NewFFIDivisionRaw(
+		1000000000,
+		1000000022,
+		osmomath.NewDecWithPrec(10, 2),
+		osmomath.NewDecWithPrec(22, 2),
+	)
+	require.NoError(t, err)
+
+	windowSize := uint64(1000)
+	divisionSize := uint64(100)
+
+	testCases := []struct {
+		name          string
+		blockTime     uint64
+		expected      bool
+		expectedError error
+	}{
+		{name: "within window - start", blockTime: 1000000000, expected: false},
+		{name: "within window - near end", blockTime: 1000000999, expected: false},
+		{name: "within window - at end", blockTime: 1000001000, expected: false},
+		{name: "within window - last valid", blockTime: 1000001099, expected: false},
+		{name: "out of window - first invalid", blockTime: 1000001100, expected: true},
+		{name: "out of window - just after", blockTime: 1000001101, expected: true},
+		{name: "out of window - far after", blockTime: 1000001200, expected: true},
+		{name: "blocktime too old", blockTime: 1, expectedError: errors.New("Cannot Sub with 1 and 1000")},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := IsDivisionOutdated(division, tc.blockTime, windowSize, divisionSize)
+			if tc.expectedError != nil {
+				require.EqualError(t, err, tc.expectedError.Error())
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, result)
+		})
+	}
 }

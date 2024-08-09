@@ -74,6 +74,26 @@ func CompressedMovingAverage(latestRemovedDivision *C.struct_FFIDivision, divisi
 	return FFIDecimalToDec(*result.ok), nil
 }
 
+func IsDivisionOutdated(division C.struct_FFIDivision, blockTime, windowSize, divisionSize uint64) (bool, error) {
+	result := C.is_division_outdated(
+		division,
+		C.uint64_t(blockTime),
+		C.uint64_t(windowSize),
+		C.uint64_t(divisionSize),
+	)
+
+	errPtr := unsafe.Pointer(result.err)
+	okPtr := unsafe.Pointer(result.ok)
+	defer C.free(errPtr)
+	defer C.free(okPtr)
+
+	if result.err != nil {
+		return false, errors.New(C.GoString(result.err))
+	}
+
+	return bool(*result.ok), nil
+}
+
 func newFFIDivisionSlice(divisions []C.struct_FFIDivision) C.struct_FFISlice_FFIDivision {
 	var divisionsPtr *C.struct_FFIDivision
 	if len(divisions) > 0 {
