@@ -177,6 +177,78 @@
                     },
                     {
                         "type": "boolean",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "name": "humanDenoms",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether to apply exponents to the spot price. False by default.",
+                        "name": "applyExponents",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The computed best route quote",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/router/quote": {
+            "get": {
+                "description": "Returns the best quote it can compute for the exact in or exact out token swap method.\n\nFor exact amount in swap method, the `tokenIn` and `tokenOutDenom` are required.\nFor exact amount out swap method, the `tokenOut` and `tokenInDenom` are required.\nMixing swap method parameters in other way than specified will result in an error.\n\nWhen `singleRoute` parameter is set to true, it gives the best single quote while excluding splits.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Optimal Quote",
+                "operationId": "get-route-quote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "1000000uosmo",
+                        "description": "String representation of the sdk.Coin denoting the input token for the exact amount in swap method.",
+                        "name": "tokenIn",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "uion",
+                        "description": "String representing the denomination of the output token for the exact amount in swap method.",
+                        "name": "tokenOutDenom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2353uion",
+                        "description": "String representation of the sdk.Coin denoting the output token for the exact amount out swap method.",
+                        "name": "tokenOut",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "uosmo",
+                        "description": "String representing the denomination of the input token for the exact amount out swap method.",
+                        "name": "tokenInDenom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default.",
+                        "name": "singleRoute",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "name": "humanDenoms",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
                         "description": "Boolean flag indicating whether to apply exponents to the spot price. False by default.",
                         "name": "applyExponents",
                         "in": "query"
