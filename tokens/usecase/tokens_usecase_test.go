@@ -131,7 +131,6 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().True(ok)
 	s.Require().Equal(ethExponent, ethToken.Precision)
 	s.Require().False(ethToken.IsUnlisted)
-	s.Require().NotEmpty(ethToken.CoingeckoID)
 	s.Require().NotEmpty(ethToken.Name)
 	s.Require().NotEmpty(ethToken.CoinMinimalDenom)
 

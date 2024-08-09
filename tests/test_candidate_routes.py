@@ -24,7 +24,7 @@ class TestCandidateRoutes:
         config = sqs_service.get_config()
         expected_num_routes = config['Router']['MaxRoutes']
 
-        self.run_candidate_routes_test(environment_url, constants.USDC, constants.UOSMO, expected_latency_upper_bound_ms, expected_min_routes=expected_num_routes, expected_max_routes=expected_num_routes)
+        run_candidate_routes_test(environment_url, constants.USDC, constants.UOSMO, expected_latency_upper_bound_ms, expected_min_routes=expected_num_routes, expected_max_routes=expected_num_routes)
         
     # Switch token in and out denoms compared to test_usdc_uosmo
     def test_uosmo_usdc(self, environment_url):
@@ -33,7 +33,7 @@ class TestCandidateRoutes:
         config = sqs_service.get_config()
         expected_num_routes = config['Router']['MaxRoutes']
 
-        self.run_candidate_routes_test(environment_url, constants.UOSMO, constants.USDC, expected_latency_upper_bound_ms, expected_min_routes=expected_num_routes, expected_max_routes=expected_num_routes)
+        run_candidate_routes_test(environment_url, constants.UOSMO, constants.USDC, expected_latency_upper_bound_ms, expected_min_routes=expected_num_routes, expected_max_routes=expected_num_routes)
 
     # Test all valid listed tokens with appropriate liquidity with dynamic parameterization
     @pytest.mark.parametrize("denom", conftest.shared_test_state.valid_listed_tokens)
@@ -44,7 +44,7 @@ class TestCandidateRoutes:
         expected_num_routes = config['Router']['MaxRoutes']
 
 
-        self.run_candidate_routes_test(environment_url, denom, constants.USDC, expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
+        run_candidate_routes_test(environment_url, denom, constants.USDC, expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
 
     def test_transmuter_tokens(self, environment_url):
         sqs_service = SERVICE_MAP[environment_url]
@@ -58,7 +58,7 @@ class TestCandidateRoutes:
         config = sqs_service.get_config()
         expected_num_routes = config['Router']['MaxRoutes']
 
-        routes = self.run_candidate_routes_test(environment_url, tansmuter_token_pair[0], tansmuter_token_pair[1], expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
+        routes = run_candidate_routes_test(environment_url, tansmuter_token_pair[0], tansmuter_token_pair[1], expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
 
         validate_pool_id_in_route(routes, [transmuter_pool_id])
     
@@ -77,7 +77,7 @@ class TestCandidateRoutes:
         config = sqs_service.get_config()
         expected_num_routes = config['Router']['MaxRoutes']
 
-        routes = self.run_candidate_routes_test(environment_url, astroport_token_pair[0], astroport_token_pair[1], expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
+        routes = run_candidate_routes_test(environment_url, astroport_token_pair[0], astroport_token_pair[1], expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
 
         validate_pool_id_in_route(routes, [astroport_pool_id])
 
@@ -94,41 +94,41 @@ class TestCandidateRoutes:
         config = sqs_service.get_config()
         expected_num_routes = config['Router']['MaxRoutes']
 
-        self.run_candidate_routes_test(environment_url, pair[0], pair[1], expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
+        run_candidate_routes_test(environment_url, pair[0], pair[1], expected_latency_upper_bound_ms, expected_min_routes=1, expected_max_routes=expected_num_routes)
 
-    def run_candidate_routes_test(self, environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_min_routes, expected_max_routes):
-        """
-        Runs a test for the /router/routes endpoint with the given input parameters.
+def run_candidate_routes_test(environment_url, token_in, token_out, expected_latency_upper_bound_ms, expected_min_routes, expected_max_routes):
+    """
+    Runs a test for the /router/routes endpoint with the given input parameters.
 
-        Returns routes for additional validation if needed by client
+    Returns routes for additional validation if needed by client
 
-        Validates:
-        - The number of routes returned
-        - Following pools in each route, all tokens within these pools are present and valid
-        - The latency is under the given bound
-        """
-        
-        sqs_service = SERVICE_MAP[environment_url]
+    Validates:
+    - The number of routes returned
+    - Following pools in each route, all tokens within these pools are present and valid
+    - The latency is under the given bound
+    """
+    
+    sqs_service = SERVICE_MAP[environment_url]
 
-        start_time = time.time()
-        response = sqs_service.get_candidate_routes(token_in, token_out)
-        elapsed_time_ms = (time.time() - start_time) * 1000
+    start_time = time.time()
+    response = sqs_service.get_candidate_routes(token_in, token_out)
+    elapsed_time_ms = (time.time() - start_time) * 1000
 
-        # If denoms are equal, there can be no routes between them
-        if token_in == token_out:
-            assert response.status_code == 500, f"Error: {response.text}"
-            return
+    # If denoms are equal, there can be no routes between them
+    if token_in == token_out:
+        assert response.status_code == 500, f"Error: {response.text}"
+        return
 
-        assert response.status_code == 200, f"Error: {response.text}"
-        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
+    assert response.status_code == 200, f"Error: {response.text}"
+    assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
 
-        response_json = response.json()
-        routes = response_json['Routes']
+    response_json = response.json()
+    routes = response_json['Routes']
 
-        validate_candidate_routes(routes, token_in, token_out, expected_min_routes, expected_max_routes)
+    validate_candidate_routes(routes, token_in, token_out, expected_min_routes, expected_max_routes)
 
-        # Return routes in case additional validation is desired
-        return routes
+    # Return routes in case additional validation is desired
+    return routes
 
 def validate_candidate_routes(routes, token_in, token_out, expected_min_routes, expected_max_routes):
     """

@@ -68,8 +68,9 @@ type CanonicalOrderBooksResult struct {
 }
 
 type PoolsOptions struct {
-	MinPoolLiquidityCap uint64
-	PoolIDFilter        []uint64
+	MinPoolLiquidityCap  uint64
+	PoolIDFilter         []uint64
+	WithMarketIncentives bool
 	// HadEmptyFilter is true if the pool ID filter was empty.
 	// This signifies avoid getting all pools and rather exit early.
 	HadEmptyFilter bool
@@ -96,5 +97,11 @@ func WithPoolIDFilter(poolIDFilter []uint64) PoolsOption {
 		}
 
 		o.PoolIDFilter = poolIDFilter
+	}
+}
+
+func WithMarketIncentives(withMarketIncentives bool) PoolsOption {
+	return func(o *PoolsOptions) {
+		o.WithMarketIncentives = withMarketIncentives
 	}
 }

@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 type (
@@ -31,4 +33,12 @@ func (p *poolsUseCase) StoreValidOrdeBookEntry(baseDenom, quoteDenom string, poo
 func (p *poolsUseCase) StoreInvalidOrderBookEntry(baseDenom, quoteDenom string) {
 	const invalidEntryType = 1
 	p.canonicalOrderBookForBaseQuoteDenom.Store(formatBaseQuoteDenom(baseDenom, quoteDenom), invalidEntryType)
+}
+
+func (p poolsUseCase) SetPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
+	p.setPoolAPRAndFeeDataIfConfigured(pool, options)
+}
+
+func (p *poolsUseCase) RetainPoolIfMatchesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
+	return p.retainPoolIfMatchesOptions(poolsToUpdate, poolConsidered, options)
 }

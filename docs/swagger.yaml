@@ -102,6 +102,10 @@ paths:
         in: query
         name: min_liquidity_cap
         type: integer
+      - description: Include market incentives data in the pool response
+        in: query
+        name: with_market_incentives
+        type: boolean
       produces:
       - application/json
       responses:

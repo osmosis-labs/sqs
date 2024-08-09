@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	tenderminapi "cosmossdk.io/api/cosmos/base/tendermint/v1beta1"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -18,6 +19,7 @@ import (
 
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
+	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
@@ -192,6 +194,29 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
+
+	// Create a Numia HTTP client
+	passthroughConfig := config.Passthrough
+	numiaHTTPClient := passthroughdomain.NewNumiaHTTPClient(passthroughConfig.NumiaURL)
+
+	// Iniitialize data fetcher for pool APRs
+	fetchPoolAPRsCallback := datafetchers.GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
+	var aprFetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR] = datafetchers.NewMapFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes))
+	aprFetcher.WaitUntilFirstResult()
+
+	// Register the APR fetcher with the passthrough use case
+	passthroughUseCase.RegisterAPRFetcher(aprFetcher)
+	poolsUseCase.RegisterAPRFetcher(aprFetcher)
+
+	// Initialize data fetcher for pool fees
+	timeseriesHTTPClient := passthroughdomain.NewTimeSeriesHTTPClient(passthroughConfig.TimeseriesURL)
+	fetchPoolFeesCallback := datafetchers.GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient, logger)
+	poolFeesFetcher := datafetchers.NewMapFetcher(fetchPoolFeesCallback, time.Minute*time.Duration(passthroughConfig.PoolFeesFetchIntervalMinutes))
+	poolFeesFetcher.WaitUntilFirstResult()
+
+	// Register the pool fees fetcher with the passthrough use case
+	passthroughUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
+	poolsUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
 
 	// Start grpc ingest server if enabled
 	grpcIngesterConfig := config.GRPCIngester

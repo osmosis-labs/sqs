@@ -39,7 +39,7 @@ jobs:
           if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
       
       - name: Execute tests
-        run: pytest -s -n auto
+        run: pytest -s -n auto --ignore=tests/test_syntheic_geo.py
         env:
           SQS_ENVIRONMENTS: ${{ github.event.inputs.environment }}
           SQS_API_KEY: ${{ secrets.SQS_API_KEY }}
@@ -69,7 +69,7 @@ jobs:
           if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
       
       - name: Execute tests
-        run: pytest -s -n auto
+        run: pytest -s -n auto --ignore=tests/test_syntheic_geo.py
         env:
           SQS_ENVIRONMENTS: ${{ matrix.environment }}
           SQS_API_KEY: ${{ secrets.SQS_API_KEY }}

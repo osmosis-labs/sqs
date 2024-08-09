@@ -35,6 +35,26 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.9.0
+
+- Add staking rewards to the unclaimed rewards and total assets categories of the /portfolio-assets query
+- Implement with_market_incentives query param for `/pools` that formats fees and APRs data on pools.
+
+## v25.8.1
+
+- Bump sqsdomain
+
+## 25.8.0 (broken dependency)
+
+- Remove sqs_requests_total and sqs_request_duration_seconds metrics
+- Numia Pools APR fetcher, associated configs and wiring
+- Timeseries pool fees fetcher, associated configs and wiring
+- Fix alloyed overflow bug
+- Alloyed rate limiter boilerplate in sqsdomain
+- Add rate limiter to alloyed pools
+
+Chain compatibility: v25.x-c775cee7-1722825184
+
 ## 25.7.0
 
 - Fix bug with filters n /pools API

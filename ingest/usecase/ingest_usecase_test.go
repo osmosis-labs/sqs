@@ -524,6 +524,12 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 			return sqsPool
 		}
 
+		withAssetConfigs = func(sqsPool *sqsdomain.SQSPool, assetConfigs []cosmwasmpool.TransmuterAssetConfig) *sqsdomain.SQSPool {
+			sqsPool = deepCopy(sqsPool)
+			sqsPool.CosmWasmPoolModel.Data.AlloyTransmuter.AssetConfigs = assetConfigs
+			return sqsPool
+		}
+
 		reorderedDefaultModel = withPoolDenoms(defaultModel, reorderedDefaultDenoms...)
 
 		modelWithCWModelSet = withCosmWasmModel(defaultModel, defaultCosmWasmModel)
@@ -565,7 +571,12 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 			sqsModel: modelWithCWModelSet,
 
 			// Note: append wrangling is done to avoid mutation of defaultModel.
-			expectedSQSModel: withPoolDenoms(modelWithCWModelSet, append(append([]string{}, reorderedDefaultDenoms...), routertesting.ALLUSDT)...),
+			expectedSQSModel: withAssetConfigs(withPoolDenoms(modelWithCWModelSet, append(append([]string{}, reorderedDefaultDenoms...), routertesting.ALLUSDT)...), []cosmwasmpool.TransmuterAssetConfig{
+				{
+					Denom:               ATOM,
+					NormalizationFactor: tenE6,
+				},
+			}),
 		},
 		{
 			name: "cosmwasm model not correctly set -> error",

@@ -314,3 +314,13 @@ type FailCastCanonicalOrderbookKeyError struct {
 func (e FailCastCanonicalOrderbookKeyError) Error() string {
 	return fmt.Sprintf("failed to cast key with value %v, expected string", e.BaseQuoteKey)
 }
+
+type StaticRateLimiterInvalidUpperLimitError struct {
+	UpperLimit string
+	Weight     string
+	Denom      string
+}
+
+func (e StaticRateLimiterInvalidUpperLimitError) Error() string {
+	return fmt.Sprintf("invalid upper limit (%s) for weight (%s) and denom (%s)", e.UpperLimit, e.Weight, e.Denom)
+}
