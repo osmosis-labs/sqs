@@ -258,7 +258,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		}
 
 		// Iterate over the plugin configurations and register the enabled plugins.
-		for _, plugin := range config.Plugins {
+		for _, plugin := range grpcIngesterConfig.Plugins {
 			if plugin.IsEnabled() {
 
 				var currentPlugin domain.EndBlockProcessPlugin
@@ -276,7 +276,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					// wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
 					// cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
 					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, keyring, defaultQuoteDenom, logger)
-
 				}
 
 				// Register the plugin with the ingest use case

@@ -63,7 +63,13 @@
         "enabled": false,
         "max-receive-msg-size-bytes": 16777216,
         "server-address": ":50051",
-        "server-connection-timeout-seconds": 10
+        "server-connection-timeout-seconds": 10,
+        "plugins": [
+            {
+                "name": "orderbook",
+                "enabled": false
+            }
+        ]
     },
     "otel": {
         "enabled": true,
@@ -73,11 +79,5 @@
         "allowed-headers": "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
         "allowed-methods": "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
         "allowed-origins": "*"
-    },
-    "plugins": [
-        {
-            "name": "orderbook",
-            "enabled": false
-        }
-    ]
+    }
 }

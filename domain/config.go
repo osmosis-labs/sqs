@@ -58,9 +58,6 @@ type Config struct {
 
 	// SideCarQueryServer CORS configuration.
 	CORS *CORSConfig `mapstructure:"cors"`
-
-	// Plugins encapsulates the plugins config.
-	Plugins []Plugin `mapstructure:"plugins"`
 }
 
 // UnmarshalConfig handles the custom unmarshaling for the Config struct, particularly for Plugins.
