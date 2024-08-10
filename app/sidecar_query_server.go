@@ -19,6 +19,7 @@ import (
 
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
+	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
@@ -36,7 +37,9 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
+	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
@@ -252,6 +255,31 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		if err != nil {
 			return nil, err
+		}
+
+		// Iterate over the plugin configurations and register the enabled plugins.
+		for _, plugin := range grpcIngesterConfig.Plugins {
+			if plugin.IsEnabled() {
+				var currentPlugin domain.EndBlockProcessPlugin
+
+				if plugin.GetName() == orderbookplugindomain.OrderBookPluginName {
+					// Create keyring
+					keyring, err := keyring.New()
+					if err != nil {
+						return nil, err
+					}
+
+					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
+
+					// TODO: create and propagate
+					// wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
+					// cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
+					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, keyring, defaultQuoteDenom, logger)
+				}
+
+				// Register the plugin with the ingest use case
+				ingestUseCase.RegisterEndBlockProcessPlugin(currentPlugin)
+			}
 		}
 
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).

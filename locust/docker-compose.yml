@@ -9,10 +9,15 @@ services:
       - ./:/mnt/locust
     # 167.172.160.95:9092 Roman's personal set up
     # 174.138.102.174:80 stage set up
+    # host.docker.internal:9092 local set up, make sure host firewall accepts incoming connections
     command: -f /mnt/locust/locustfile.py --master -H http://159.89.14.212:9092
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   
   worker:
     image: locustio/locust
     volumes:
       - ./:/mnt/locust
     command: -f /mnt/locust/locustfile.py --worker --master-host master
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
+	"google.golang.org/grpc"
 )
 
 type PassthroughGRPCClientMock struct {
@@ -16,6 +17,11 @@ type PassthroughGRPCClientMock struct {
 	MockDelegatorUnbondingDelegationsCb func(ctx context.Context, address string) (sdk.Coins, error)
 	MockUserPositionsBalancesCb         func(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error)
 	MockDelegationRewardsCb             func(ctx context.Context, address string) (sdk.Coins, error)
+}
+
+// GetChainGRPCClient implements passthroughdomain.PassthroughGRPCClient.
+func (p *PassthroughGRPCClientMock) GetChainGRPCClient() *grpc.ClientConn {
+	panic("unimplemented")
 }
 
 // AccountLockedCoins implements passthroughdomain.PassthroughGRPCClient.

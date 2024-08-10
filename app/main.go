@@ -50,11 +50,10 @@ func main() {
 		panic(err)
 	}
 
-	// Unmarshal the config into your Config struct
-	var config domain.Config
-	if err := viper.Unmarshal(&config); err != nil {
-		fmt.Println("Error unmarshalling config:", err)
-		return
+	// Unmarshal the config into Config struct
+	config, err := domain.UnmarshalConfig()
+	if err != nil {
+		log.Fatalf("error unmarshalling config: %v", err)
 	}
 
 	// Validate config
@@ -118,7 +117,7 @@ func main() {
 	}
 	logger.Info("Starting sidecar query server")
 
-	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, config, logger)
+	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, *config, logger)
 	if err != nil {
 		panic(err)
 	}
