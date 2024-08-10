@@ -260,7 +260,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		// Iterate over the plugin configurations and register the enabled plugins.
 		for _, plugin := range grpcIngesterConfig.Plugins {
 			if plugin.IsEnabled() {
-
 				var currentPlugin domain.EndBlockProcessPlugin
 
 				if plugin.GetName() == orderbookplugindomain.OrderBookPluginName {
