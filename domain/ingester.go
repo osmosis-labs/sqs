@@ -1,5 +1,7 @@
 package domain
 
+import "context"
+
 type GRPCIngesterConfig struct {
 	// Flag to enable the GRPC ingester server
 	Enabled bool `mapstructure:"enabled"`
@@ -24,4 +26,10 @@ type BlockPoolMetadata struct {
 	UpdatedDenoms map[string]struct{}
 	// PoolIDs are the IDs of all pools updated within a block.
 	PoolIDs map[uint64]struct{}
+}
+
+// EndBlockProcessPlugin is a plugin that is called at the end of the block.
+type EndBlockProcessPlugin interface {
+	// ProcessEndBlock is called at the end of the block.
+	ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata BlockPoolMetadata) error
 }

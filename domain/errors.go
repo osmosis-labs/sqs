@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var (
@@ -258,7 +256,7 @@ func (e SpotPriceQuoteCalculatorTruncatedError) Error() string {
 
 type OrderbookNotEnoughLiquidityToCompleteSwapError struct {
 	PoolId   uint64
-	AmountIn sdk.Coin
+	AmountIn string
 }
 
 func (e OrderbookNotEnoughLiquidityToCompleteSwapError) Error() string {

@@ -110,7 +110,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
 				PoolId:   defaultPoolID,
-				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)),
+				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)).String(),
 			},
 		},
 		"BID: multi-tick/direction swap": {
@@ -149,7 +149,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
 				PoolId:   defaultPoolID,
-				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
+				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)).String(),
 			},
 		},
 		"ASK: simple swap": {
@@ -177,7 +177,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
 				PoolId:   defaultPoolID,
-				AmountIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
+				AmountIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)).String(),
 			},
 		},
 		"ASK: multi-tick/direction swap": {
@@ -216,7 +216,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
 				PoolId:   defaultPoolID,
-				AmountIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
+				AmountIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)).String(),
 			},
 		},
 		"invalid: duplicate denom": {

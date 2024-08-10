@@ -1217,7 +1217,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Order
 			poolID:        1904,
 			err: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
 				PoolId:   1904,
-				AmountIn: sdk.NewCoin(NATIVE_WBTC, osmomath.NewInt(999000000000)),
+				AmountIn: sdk.NewCoin(NATIVE_WBTC, osmomath.NewInt(999000000000)).String(),
 			},
 		},
 	}
