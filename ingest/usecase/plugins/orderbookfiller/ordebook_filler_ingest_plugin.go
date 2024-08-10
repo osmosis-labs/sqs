@@ -5,7 +5,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -36,14 +35,6 @@ type orderbookFillerIngestPlugin struct {
 }
 
 var _ domain.EndBlockProcessPlugin = &orderbookFillerIngestPlugin{}
-
-const (
-	baseDenom = "uosmo"
-)
-
-var (
-	minBalanceValueInUSDC = osmomath.NewInt(10)
-)
 
 func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, keyring keyring.Keyring, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
 	return &orderbookFillerIngestPlugin{
