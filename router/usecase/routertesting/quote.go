@@ -2,6 +2,7 @@ package routertesting
 
 import (
 	"github.com/osmosis-labs/sqs/domain"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -41,7 +42,7 @@ var (
 )
 
 func (s *RouterTestHelper) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
-	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)

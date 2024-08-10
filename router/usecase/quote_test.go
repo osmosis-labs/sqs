@@ -9,6 +9,7 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -291,7 +292,7 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 }
 
 func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
-	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		Config:                cosmWasmConfig,
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
