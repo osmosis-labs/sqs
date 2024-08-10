@@ -22,7 +22,8 @@ type orderbookFillerIngestPlugin struct {
 
 	passthroughGRPCClient passthroughdomain.PassthroughGRPCClient
 
-	orderbookCWAAPIClient OrderbookCWAPIClient
+	// TODO: set
+	// orderbookCWAAPIClient OrderbookCWAPIClient
 
 	atomicBool atomic.Bool
 
@@ -44,14 +45,15 @@ var (
 	minBalanceValueInUSDC = osmomath.NewInt(10)
 )
 
-func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, orderBookCWAPIClient OrderbookCWAPIClient, keyring keyring.Keyring, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
+func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, keyring keyring.Keyring, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
 	return &orderbookFillerIngestPlugin{
 		poolsUseCase:  poolsUseCase,
 		routerUseCase: routerUseCase,
 		tokensUseCase: tokensUseCase,
 
 		passthroughGRPCClient: passthroughGRPCClient,
-		orderbookCWAAPIClient: orderBookCWAPIClient,
+		// TODO: set
+		// orderbookCWAAPIClient: orderBookCWAPIClient,
 
 		atomicBool: atomic.Bool{},
 
@@ -66,7 +68,6 @@ func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensU
 
 // ProcessEndBlock implements domain.EndBlockProcessPlugin.
 func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) error {
-
 	o.logger.Info("Processing end block", zap.Uint64("blockHeight", blockHeight))
 
 	return nil

@@ -271,7 +271,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 			// TODO: create and propagate
 			// wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
 			// cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
-			orderbookFillerPlugin := orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, nil, keyring, defaultQuoteDenom, logger)
+			orderbookFillerPlugin := orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, keyring, defaultQuoteDenom, logger)
 			ingestUseCase.RegisterEndBlockProcessPlugin(orderbookFillerPlugin)
 		}
 

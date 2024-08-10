@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Orderbook plugin
+
 ## v25.9.0
 
 - Add staking rewards to the unclaimed rewards and total assets categories of the /portfolio-assets query
