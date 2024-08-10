@@ -16,7 +16,7 @@ type orderbookCWAPIClient struct {
 
 var _ orderbookplugindomain.OrderbookCWAPIClient = (*orderbookCWAPIClient)(nil)
 
-//ordersByTick is a struct that represents the request payload for the orders_by_tick query.
+// ordersByTick is a struct that represents the request payload for the orders_by_tick query.
 type ordersByTick struct {
 	Tick int64 `json:"tick_id"`
 }

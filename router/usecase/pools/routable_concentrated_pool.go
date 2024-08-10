@@ -21,7 +21,7 @@ import (
 )
 
 var _ domain.RoutablePool = &routableConcentratedPoolImpl{}
-var zeroBigDec = osmomath.ZeroBigDec()
+var smallestDec = osmomath.BigDecFromDec(osmomath.SmallestDec())
 
 type routableConcentratedPoolImpl struct {
 	ChainPool     *concentratedmodel.Pool "json:\"cl_pool\""
@@ -130,7 +130,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	}
 
 	// Initialize the swap strategy.
-	swapStrategy := swapstrategy.New(isZeroForOne, zeroBigDec, &storetypes.KVStoreKey{}, concentratedPool.SpreadFactor)
+	swapStrategy := swapstrategy.New(isZeroForOne, smallestDec, &storetypes.KVStoreKey{}, concentratedPool.SpreadFactor)
 
 	var (
 		// Swap state
