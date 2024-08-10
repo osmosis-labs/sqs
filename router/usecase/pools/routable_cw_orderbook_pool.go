@@ -89,20 +89,20 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 	amountOutTotal := osmomath.ZeroBigDec()
 	amountInRemaining := osmomath.BigDecFromSDKInt(tokenIn.Amount)
 
-	var amountInToExhaustLiquidity osmomath.BigDec
-	if *directionIn == cosmwasmpool.BID {
-		amountInToExhaustLiquidity = r.OrderbookData.BidAmountToExhaustAskLiquidity
-	} else {
-		amountInToExhaustLiquidity = r.OrderbookData.AskAmountToExhaustBidLiquidity
-	}
+	// var amountInToExhaustLiquidity osmomath.BigDec
+	// if *directionIn == cosmwasmpool.BID {
+	// 	amountInToExhaustLiquidity = r.OrderbookData.BidAmountToExhaustAskLiquidity
+	// } else {
+	// 	amountInToExhaustLiquidity = r.OrderbookData.AskAmountToExhaustBidLiquidity
+	// }
 
-	// check if amount in > amountInToExhaustLiquidity, if so this swap is not possible due to insufficient liquidity
-	if amountInRemaining.GT(amountInToExhaustLiquidity) {
-		return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn.String()}
-	}
+	// // check if amount in > amountInToExhaustLiquidity, if so this swap is not possible due to insufficient liquidity
+	// if amountInRemaining.GT(amountInToExhaustLiquidity) {
+	// 	return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn.String()}
+	// }
 
 	// ASSUMPTION: Ticks are ordered
-	for amountInRemaining.GT(zeroBigDec) {
+	for amountInRemaining.GT(smallestDec) {
 		// Order has run out of ticks to iterate
 		if tickIdx >= len(r.OrderbookData.Ticks) || tickIdx < 0 {
 			return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn.String()}
@@ -110,9 +110,6 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 
 		// According to the check on amountInToExhaustLiquidity above, we should never run out of ticks here
 		tick := r.OrderbookData.Ticks[tickIdx]
-
-		// Increment or decrement the current tick index depending on out order direction
-		tickIdx += iterationStep
 
 		// Calculate the price for the current tick
 		tickPrice, err := clmath.TickToPrice(tick.TickId)
@@ -123,20 +120,32 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		// Amount that should be filled given the current tick price and all the remaining amount of tokens in
 		// if the current tick has enough liquidity
 
-		outputAmount := cosmwasmpool.OrderbookValueInOppositeDirection(amountInRemaining, tickPrice, *directionIn)
+		outputAmount := cosmwasmpool.OrderbookValueInOppositeDirection(amountInRemaining, tickPrice, *directionIn, cosmwasmpool.ROUND_DOWN)
 
 		// Cap the output amount to the amount of tokens that can be filled in the current tick
 		outputFilled := tick.TickLiquidity.GetFillableAmount(outputAmount, directionOut)
 
 		// Convert the filled amount back to the input amount that should be deducted
 		// from the remaining amount of tokens in
-		inputFilled := cosmwasmpool.OrderbookValueInOppositeDirection(outputFilled, tickPrice, directionOut)
+		inputFilled := cosmwasmpool.OrderbookValueInOppositeDirection(outputFilled, tickPrice, directionOut, cosmwasmpool.ROUND_UP)
+
+		// fmt.Println("amountInRemaining", amountInRemaining)
+		// fmt.Println("tickPrice", tickPrice)
+		// fmt.Println("tickIdx", tickIdx)
+		// fmt.Println("tickId", tick.TickId)
+		// fmt.Println("outputFilled", outputFilled)
+		// fmt.Println("inputFilled", inputFilled)
+		// fmt.Println("ask liquidity", tick.TickLiquidity.AskLiquidity)
+		// fmt.Println("bid liquidity", tick.TickLiquidity.BidLiquidity)
 
 		// Add the filled amount to the order total
 		amountOutTotal.AddMut(outputFilled)
 
 		// Subtract the filled amount from the remaining amount of tokens in
 		amountInRemaining.SubMut(inputFilled)
+
+		// Increment or decrement the current tick index depending on out order direction
+		tickIdx += iterationStep
 	}
 
 	// Return total amount out
@@ -218,7 +227,7 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 		return osmomath.BigDec{}, err
 	}
 
-	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, *directionIn), nil
+	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, *directionIn, cosmwasmpool.ROUND_DOWN), nil
 }
 
 // IsGeneralizedCosmWasmPool implements domain.RoutablePool.
