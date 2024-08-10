@@ -5,12 +5,13 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
-	"go.uber.org/zap"
 )
 
 // orderbookFillerIngestPlugin is a plugin that fills the orderbook orders at the end of the block.
@@ -21,8 +22,7 @@ type orderbookFillerIngestPlugin struct {
 
 	passthroughGRPCClient passthroughdomain.PassthroughGRPCClient
 
-	// TODO: set
-	// orderbookCWAAPIClient OrderbookCWAPIClient
+	orderbookCWAAPIClient orderbookplugindomain.OrderbookCWAPIClient
 
 	atomicBool atomic.Bool
 
@@ -36,15 +36,25 @@ type orderbookFillerIngestPlugin struct {
 
 var _ domain.EndBlockProcessPlugin = &orderbookFillerIngestPlugin{}
 
-func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, keyring keyring.Keyring, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
+const (
+	// baseDenom is the base denom for the osmosis chain.
+	baseDenom = "uosmo"
+)
+
+var (
+	// minBalanceValueInUSDC is the minimum balance in USDC that has to be in the
+	// orderbook pool to be considered for orderbook filling.
+	minBalanceValueInUSDC = osmomath.NewInt(10)
+)
+
+func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, orderBookCWAPIClient orderbookplugindomain.OrderbookCWAPIClient, keyring keyring.Keyring, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
 	return &orderbookFillerIngestPlugin{
 		poolsUseCase:  poolsUseCase,
 		routerUseCase: routerUseCase,
 		tokensUseCase: tokensUseCase,
 
 		passthroughGRPCClient: passthroughGRPCClient,
-		// TODO: set
-		// orderbookCWAAPIClient: orderBookCWAPIClient,
+		orderbookCWAAPIClient: orderBookCWAPIClient,
 
 		atomicBool: atomic.Bool{},
 
@@ -59,7 +69,5 @@ func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensU
 
 // ProcessEndBlock implements domain.EndBlockProcessPlugin.
 func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) error {
-	o.logger.Info("Processing end block", zap.Uint64("blockHeight", blockHeight))
-
 	return nil
 }

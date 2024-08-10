@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/labstack/echo/v4"
 
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	// nolint: staticcheck
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -271,10 +272,9 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
 
-					// TODO: create and propagate
-					// wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
-					// cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
-					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, keyring, defaultQuoteDenom, logger)
+					wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
+					cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
+					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, cwAPIClient, keyring, defaultQuoteDenom, logger)
 				}
 
 				// Register the plugin with the ingest use case
