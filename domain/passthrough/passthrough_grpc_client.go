@@ -67,6 +67,8 @@ var (
 	zero = sdk.ZeroInt()
 )
 
+// /cosmos/tx/v1beta1/simulate
+
 func NewPassthroughGRPCClient(grpcURI string) (PassthroughGRPCClient, error) {
 	grpcClient, err := grpc.NewClient(grpcURI,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

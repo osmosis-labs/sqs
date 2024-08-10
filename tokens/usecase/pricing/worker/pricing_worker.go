@@ -22,7 +22,8 @@ type pricingWorker struct {
 }
 
 const (
-	priceUpdateTimeout = time.Minute * 2
+	// TODO: revert
+	priceUpdateTimeout = time.Minute * 30
 )
 
 func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, minLiquidityCap uint64, logger log.Logger) domain.PricingWorker {

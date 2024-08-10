@@ -2,8 +2,8 @@ package orderbookfiller
 
 import (
 	"context"
-	"errors"
 
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
@@ -40,5 +40,12 @@ func NewOrderbookCWAPIClient(wasmClient wasmtypes.QueryClient) *orderbookCWAPICl
 
 // GetOrdersByTick implements OrderbookCWAPIClient.
 func (o *orderbookCWAPIClient) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error) {
-	return nil, errors.New("not implemented")
+	ordersByTick := ordersByTick{Tick: tick}
+
+	var orders ordersByTickResponse
+	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, o.wasmClient, contractAddress, ordersByTickPayload{OrdersByTick: ordersByTick}, &orders); err != nil {
+		return nil, err
+	}
+
+	return orders.Orders, nil
 }

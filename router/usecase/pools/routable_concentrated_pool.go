@@ -21,6 +21,7 @@ import (
 )
 
 var _ domain.RoutablePool = &routableConcentratedPoolImpl{}
+
 var smallestDec = osmomath.BigDecFromDec(osmomath.SmallestDec())
 
 type routableConcentratedPoolImpl struct {
