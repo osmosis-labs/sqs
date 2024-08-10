@@ -15,6 +15,7 @@ import (
 
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -99,7 +100,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	brokenChainPool := *defaultPool
 	brokenChainPool.PoolType = poolmanagertypes.CosmWasm
 
-	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
 	_, err = pools.NewRoutablePool(&brokenChainPool, denomTwo, defaultTakerFee, cosmWasmPoolsParams)
@@ -810,7 +811,7 @@ func (s *PoolsUsecaseTestSuite) TestRetainPoolIfMatchesOptions() {
 }
 
 func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
-	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
 	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
