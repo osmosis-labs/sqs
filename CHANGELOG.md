@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Unreleased
 
 - Orderbook plugin
+- Change tick iteration exit condition in CL in orderbook from zero to smallest Dec (18 decimals).
 
 ## v25.9.0
 
