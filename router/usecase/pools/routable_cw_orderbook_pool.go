@@ -111,9 +111,6 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		// According to the check on amountInToExhaustLiquidity above, we should never run out of ticks here
 		tick := r.OrderbookData.Ticks[tickIdx]
 
-		// Increment or decrement the current tick index depending on out order direction
-		tickIdx += iterationStep
-
 		// Calculate the price for the current tick
 		tickPrice, err := clmath.TickToPrice(tick.TickId)
 		if err != nil {
@@ -123,20 +120,33 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		// Amount that should be filled given the current tick price and all the remaining amount of tokens in
 		// if the current tick has enough liquidity
 
-		outputAmount := cosmwasmpool.OrderbookValueInOppositeDirection(amountInRemaining, tickPrice, *directionIn)
+		outputAmount := cosmwasmpool.OrderbookValueInOppositeDirection(amountInRemaining, tickPrice, *directionIn, cosmwasmpool.ROUND_DOWN)
 
 		// Cap the output amount to the amount of tokens that can be filled in the current tick
 		outputFilled := tick.TickLiquidity.GetFillableAmount(outputAmount, directionOut)
 
 		// Convert the filled amount back to the input amount that should be deducted
 		// from the remaining amount of tokens in
-		inputFilled := cosmwasmpool.OrderbookValueInOppositeDirection(outputFilled, tickPrice, directionOut)
+		inputFilled := cosmwasmpool.OrderbookValueInOppositeDirection(outputFilled, tickPrice, directionOut, cosmwasmpool.ROUND_UP)
+
+		// Note: left for convinience for debugging
+		// fmt.Println("amountInRemaining", amountInRemaining)
+		// fmt.Println("tickPrice", tickPrice)
+		// fmt.Println("tickIdx", tickIdx)
+		// fmt.Println("tickId", tick.TickId)
+		// fmt.Println("outputFilled", outputFilled)
+		// fmt.Println("inputFilled", inputFilled)
+		// fmt.Println("ask liquidity", tick.TickLiquidity.AskLiquidity)
+		// fmt.Println("bid liquidity", tick.TickLiquidity.BidLiquidity)
 
 		// Add the filled amount to the order total
 		amountOutTotal.AddMut(outputFilled)
 
 		// Subtract the filled amount from the remaining amount of tokens in
 		amountInRemaining.SubMut(inputFilled)
+
+		// Increment or decrement the current tick index depending on out order direction
+		tickIdx += iterationStep
 	}
 
 	// Return total amount out
@@ -218,7 +228,7 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 		return osmomath.BigDec{}, err
 	}
 
-	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, *directionIn), nil
+	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, *directionIn, cosmwasmpool.ROUND_DOWN), nil
 }
 
 // IsGeneralizedCosmWasmPool implements domain.RoutablePool.
