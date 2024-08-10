@@ -92,5 +92,11 @@
         "allowed-origin": "*",
         "allowed-methods": "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
         "allowed-headers": "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage"
-    }
+    },
+    "plugins": [
+        {
+            "name": "orderbook",
+            "enabled": false
+        }
+    ]
 }

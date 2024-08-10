@@ -39,6 +39,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
@@ -256,23 +257,31 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 			return nil, err
 		}
 
-		// Register ingest block end process plugins
-		// TODO: move to config.
-		const isOrderBookFillerPluginEnabled = false
-		if isOrderBookFillerPluginEnabled {
-			// Create keyring
-			keyring, err := keyring.New()
-			if err != nil {
-				return nil, err
+		// Iterate over the plugin configurations and register the enabled plugins.
+		for _, plugin := range config.Plugins {
+			if plugin.IsEnabled() {
+
+				var currentPlugin domain.EndBlockProcessPlugin
+
+				if plugin.GetName() == orderbookplugindomain.OrderBookPluginName {
+					// Create keyring
+					keyring, err := keyring.New()
+					if err != nil {
+						return nil, err
+					}
+
+					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
+
+					// TODO: create and propagate
+					// wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
+					// cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
+					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, keyring, defaultQuoteDenom, logger)
+
+				}
+
+				// Register the plugin with the ingest use case
+				ingestUseCase.RegisterEndBlockProcessPlugin(currentPlugin)
 			}
-
-			logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
-
-			// TODO: create and propagate
-			// wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
-			// cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
-			orderbookFillerPlugin := orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, keyring, defaultQuoteDenom, logger)
-			ingestUseCase.RegisterEndBlockProcessPlugin(orderbookFillerPlugin)
 		}
 
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
