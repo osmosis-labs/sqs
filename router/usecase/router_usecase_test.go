@@ -721,8 +721,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 	s.Require().NoError(err)
 
 	// Unmarshal the config into your Config struct
-	var config domain.Config
-	err = viper.Unmarshal(&config)
+	config, err := domain.UnmarshalConfig()
 	s.Require().NoError(err)
 
 	// Set up mainnet mock state.
@@ -828,8 +827,7 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	s.Require().NoError(err)
 
 	// Unmarshal the config into your Config struct
-	var config domain.Config
-	err = viper.Unmarshal(&config)
+	config, err := domain.UnmarshalConfig()
 	s.Require().NoError(err)
 
 	// Set up mainnet mock state.

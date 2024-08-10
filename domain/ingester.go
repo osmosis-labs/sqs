@@ -14,6 +14,9 @@ type GRPCIngesterConfig struct {
 
 	// The number of seconds to wait for a connection to the server.
 	ServerConnectionTimeoutSeconds int `mapstructure:"server-connection-timeout-seconds"`
+
+	// Plugins encapsulates the plugins config.
+	Plugins []Plugin `mapstructure:"plugins"`
 }
 
 // BlockPoolMetadata contains the metadata about unique pools
