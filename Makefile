@@ -236,9 +236,13 @@ datadog-agent-start:
 # Use ./ingest/usecase/plugins/orderbookfiller/.env to configure the keyring.
 orderbook-filler-start:
 	./ingest/usecase/plugins/orderbookfiller/create_copy_config.sh
-	cd ./ingest/usecase/plugins/orderbookfiller
-	docker compose up -d
+	cd ./ingest/usecase/plugins/orderbookfiller && docker compose up -d
 	cd ../../../../
 	echo "Order Book Filler Bot Started"
-	osmosisd status
-	docker logs -f osmosis-sqs
+	sleep 10 && osmosisd status
+	sleep 10 && docker logs -f osmosis-sqs
+
+orderbook-filler-stop:
+	cd ./ingest/usecase/plugins/orderbookfiller && docker compose down
+	cd ../../../../
+	echo "Order Book Filler Bot Stopped"	
