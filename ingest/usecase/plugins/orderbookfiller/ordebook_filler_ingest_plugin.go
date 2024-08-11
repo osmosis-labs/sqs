@@ -194,19 +194,20 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx blockctx.BlockCtxI, c
 		return err
 	}
 
-	//
+	// Compute fillable amounts for the order book.
 	fillableAskAmountQuoteDenom, fillableBidAmountBaseDenom, err := o.getFillableOrders(ctx, canonicalOrderbookResult)
 	if err != nil {
 		return err
 	}
 
-	// Validate arb
+	// Validate arb trying to fill ask liquidity.
 	if err := o.validateArb(ctx, fillableAskAmountQuoteDenom, canonicalOrderbookResult.Quote, canonicalOrderbookResult.Base, canonicalOrderbookResult.PoolID); err != nil {
 		o.logger.Error("failed to fill asks", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID), zap.Error(err))
 	} else {
 		o.logger.Info("passed orderbook asks", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID))
 	}
 
+	// Validae arb trying to fill bid liquidity
 	if err := o.validateArb(ctx, fillableBidAmountBaseDenom, canonicalOrderbookResult.Base, canonicalOrderbookResult.Quote, canonicalOrderbookResult.PoolID); err != nil {
 		o.logger.Error("failed to fill bids", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID), zap.Error(err))
 	} else {

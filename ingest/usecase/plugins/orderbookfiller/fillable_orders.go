@@ -14,7 +14,26 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
+// getFillableOrders returns two amounts on success:
+// 1) fillable ask liquidity in quote denom
+// 2) fillable bid liquidity in base denom
+//
+// The strategy to determine fillable amounts:
+// - Get all order book orders
+// - Get base and quote denom market price
+// - Compute current tick from the market price
+// - Process active ask orders to compute the amount in quote denoms that can fill them all
+// - Process active bid orders to compute the amount in base denoms that can fill them all
+// - Return the computed amounts in
+//
+// Returns error if:
+// - Fails to load orer data
+// - Fails to get order book pool
+// - Fails to get market price for base and quote denoms
+// - Fails to compute the current tick from the markat price
+// - Fails to compute either of the fillable amounts.
 func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, canonicalOrderbookResult domain.CanonicalOrderBooksResult) (osmomath.Int, osmomath.Int, error) {
+	// Get orders for the given order book.
 	ordersData, ok := o.orderMapByPoolID.Load(canonicalOrderbookResult.PoolID)
 	if !ok {
 		return osmomath.Int{}, osmomath.Int{}, fmt.Errorf("orderbook orders not found %d", canonicalOrderbookResult.PoolID)
@@ -28,19 +47,20 @@ func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, 
 	askOrders := orders.AskOrders
 	bidOrders := orders.BidOrders
 
+	// Get order book pools
 	orderBookPool, err := o.poolsUseCase.GetPool(canonicalOrderbookResult.PoolID)
 	if err != nil {
 		return osmomath.Int{}, osmomath.Int{}, err
 	}
+
 	orderBookState := orderBookPool.GetSQSPoolModel().CosmWasmPoolModel.Data.Orderbook
 
-	pricesResult, err := o.tokensUseCase.GetPrices(ctx.AsGoCtx(), []string{orderBookState.BaseDenom}, []string{orderBookState.QuoteDenom}, domain.ChainPricingSourceType)
-	if err != nil {
-		o.logger.Error("failed to get prices", zap.Error(err))
-		return osmomath.Int{}, osmomath.Int{}, err
-	}
+	blockPrices := ctx.GetPrices()
 
-	price := pricesResult.GetPriceForDenom(orderBookState.BaseDenom, orderBookState.QuoteDenom)
+	baseQuoteMarketPrice := blockPrices.GetPriceForDenom(orderBookState.BaseDenom, orderBookState.QuoteDenom)
+	if baseQuoteMarketPrice.IsZero() {
+		return osmomath.Int{}, osmomath.Int{}, fmt.Errorf("zero price for order book (%d) with base (%s), quote (%s)", canonicalOrderbookResult.PoolID, orderBookState.BaseDenom, orderBookState.QuoteDenom)
+	}
 
 	spotPriceScalingFactor, err := o.tokensUseCase.GetSpotPriceScalingFactorByDenom(orderBookState.QuoteDenom, orderBookState.BaseDenom)
 	if err != nil {
@@ -49,7 +69,7 @@ func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, 
 	}
 
 	// Scale the price
-	price.MulMut(osmomath.BigDecFromDec(spotPriceScalingFactor))
+	baseQuoteMarketPrice.MulMut(osmomath.BigDecFromDec(spotPriceScalingFactor))
 
 	// Create a map from ticks to cumulative total
 	tickRemainingLiqMap := make(map[int64]cosmwasmpool.OrderbookTickLiquidity)
@@ -57,7 +77,7 @@ func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, 
 		tickRemainingLiqMap[tick.TickId] = tick.TickLiquidity
 	}
 
-	currentTick, err := clmath.CalculatePriceToTick(price)
+	currentTick, err := clmath.CalculatePriceToTick(baseQuoteMarketPrice)
 	if err != nil {
 		o.logger.Error("failed to calculate price to tick", zap.Error(err))
 		return osmomath.Int{}, osmomath.Int{}, err
