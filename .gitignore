@@ -29,3 +29,6 @@ sqs.log
 # Delve debug
 __debug_bin*
 debug.test*
+
+# Local env for the order book filler
+ingest/usecase/plugins/orderbookfiller/.env
