@@ -44,14 +44,12 @@ type orderbookFillerIngestPlugin struct {
 
 var _ domain.EndBlockProcessPlugin = &orderbookFillerIngestPlugin{}
 
-var (
-	// minBalanceValueInUSDC is the minimum balance in USDC that has to be in the
-	// orderbook pool to be considered for orderbook filling.
-	minBalanceValueInUSDC = osmomath.NewDec(10)
-)
+type orderBookProcessResult struct {
+	err    error
+	poolID uint64
+}
 
 func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, orderBookCWAPIClient orderbookplugindomain.OrderbookCWAPIClient, keyring keyring.Keyring, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
-
 	liquidityPricer := worker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
 
 	return &orderbookFillerIngestPlugin{
@@ -94,36 +92,33 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 		}
 	}
 
+	// For simplicity, we allow only one block to be processed at a time.
+	// This may be relaxed in the future.
 	if !o.atomicBool.CompareAndSwap(false, true) {
 		o.logger.Info("orderbook filler is already in progress", zap.Uint64("block_height", blockHeight))
 		return nil
 	}
 	defer o.atomicBool.Store(false)
 
-	// Get unique denoms
-	uniqueDenoms := o.getUniqueOrderbookDenoms(canonicalOrderbooks)
+	// Get unique orderbook denoms
+	uniqueOrderBookDenoms := o.getUniqueOrderbookDenoms(canonicalOrderbooks)
 
-	// Get balances
+	// Get bot balances
 	balances, err := o.passthroughGRPCClient.AllBalances(ctx, o.keyring.GetAddress().String())
 	if err != nil {
 		return err
 	}
 
 	// Get prices for all the unique denoms in the orderbook, including base denom.
-	orderBookDenomPrices, err := o.tokensUseCase.GetPrices(ctx, uniqueDenoms, []string{o.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	orderBookDenomPrices, err := o.tokensUseCase.GetPrices(ctx, uniqueOrderBookDenoms, []string{o.defaultQuoteDenom}, domain.ChainPricingSourceType)
 	if err != nil {
 		return err
 	}
 
 	// Configure block context
-	blockCtx, err := blockctx.New(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), uniqueDenoms, orderBookDenomPrices, balances, o.defaultQuoteDenom)
+	blockCtx, err := blockctx.New(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), uniqueOrderBookDenoms, orderBookDenomPrices, balances, o.defaultQuoteDenom)
 	if err != nil {
 		return err
-	}
-
-	type orderBookProcessResult struct {
-		err    error
-		poolID uint64
 	}
 
 	resultChan := make(chan orderBookProcessResult, len(canonicalOrderbooks))
@@ -169,7 +164,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 	return nil
 }
 
-// getUniqueOrderbookDenoms returns the unique denoms from the canonical orderbooks.
+// getUniqueOrderbookDenoms returns the unique denoms from the canonical orderbooks and the chain base denom.s
 func (*orderbookFillerIngestPlugin) getUniqueOrderbookDenoms(canonicalOrderbooks []domain.CanonicalOrderBooksResult) []string {
 	// Map of denoms
 	uniqueDenoms := make(map[string]struct{})
@@ -194,34 +189,18 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx blockctx.BlockCtxI, c
 	baseDenom := canonicalOrderbookResult.Base
 	quoteDenom := canonicalOrderbookResult.Quote
 
-	userBlockBalances := ctx.GetUserBalances()
-	blockPrices := ctx.GetPrices()
-
-	baseAmountBalance := userBlockBalances.AmountOf(baseDenom)
-	isBaseLowBalance, err := o.shouldSkipLowBalance(baseDenom, baseAmountBalance, blockPrices)
-	if err != nil {
+	// Validate user balances meeting minimum threshold.
+	if err := o.validateUserBalances(ctx, baseDenom, quoteDenom); err != nil {
 		return err
 	}
 
-	if isBaseLowBalance {
-		return nil
-	}
-
-	quoteAmountBalance := userBlockBalances.AmountOf(quoteDenom)
-	isQuoteLowBalance, err := o.shouldSkipLowBalance(quoteDenom, quoteAmountBalance, blockPrices)
-	if err != nil {
-		return err
-	}
-
-	if isQuoteLowBalance {
-		return nil
-	}
-
+	//
 	fillableAskAmountQuoteDenom, fillableBidAmountBaseDenom, err := o.getFillableOrders(ctx, canonicalOrderbookResult)
 	if err != nil {
 		return err
 	}
 
+	// Validate arb
 	if err := o.validateArb(ctx, fillableAskAmountQuoteDenom, canonicalOrderbookResult.Quote, canonicalOrderbookResult.Base, canonicalOrderbookResult.PoolID); err != nil {
 		o.logger.Error("failed to fill asks", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID), zap.Error(err))
 	} else {

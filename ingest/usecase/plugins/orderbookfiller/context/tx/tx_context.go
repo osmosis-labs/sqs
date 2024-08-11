@@ -10,7 +10,7 @@ import (
 	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/msg"
 )
 
-// TxContextI is an interface reponsible for abstracting transaction context
+// TxContextI is an interface responsible for abstracting transaction context
 // It contains all messages to be executed as a single transaction.
 // Total adjusted gas used after simulating the transaction and a max transaction
 // fee capitalization. The latter acts as a guardrail against the fee making transaction
