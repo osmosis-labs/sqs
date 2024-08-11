@@ -47,7 +47,7 @@ func (o *orderbookFillerIngestPlugin) estimateCyclicArb(ctx blockctx.BlockCtxI, 
 	return inverseAmountIn, fullCyclicArbRoute, nil
 }
 
-// validateArb validates the arb opportunity by constructing a route from SQS router and then simulating it against chain. 
+// validateArb validates the arb opportunity by constructing a route from SQS router and then simulating it against chain.
 func (o *orderbookFillerIngestPlugin) validateArb(ctx blockctx.BlockCtxI, amountIn osmomath.Int, denomIn, denomOut string, orderBookID uint64) error {
 	if amountIn.IsNil() || amountIn.IsZero() {
 		return fmt.Errorf("estimated amount in truncated to zero")

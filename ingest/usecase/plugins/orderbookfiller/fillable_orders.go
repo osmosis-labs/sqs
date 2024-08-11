@@ -106,7 +106,7 @@ func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, 
 
 // getFillableAskAmountInQuoteDenom returns the fillable ask amount in quote denom.
 // Iterates over all ask orders, identifying their ticks.
-// Compares the order tick to the curent tick. If ask order is below the market tick, it is fillable.
+// Compares the order tick to the current tick. If ask order is below the market tick, it is fillable.
 // In that case, we determine the remaining ask liquidity on that tick, applying the price to get its value in the quote denom.
 func (o *orderbookFillerIngestPlugin) getFillableAskAmountInQuoteDenom(askOrders []orderbookplugindomain.Order, currentTick int64, tickRemainingLiqMap map[int64]cosmwasmpool.OrderbookTickLiquidity) (osmomath.Int, error) {
 	fillableAskAmountInQuoteDenom := osmomath.ZeroBigDec()
@@ -152,7 +152,7 @@ func (o *orderbookFillerIngestPlugin) getFillableAskAmountInQuoteDenom(askOrders
 
 // getFillableBidAmountInBaseDenom returns the fillable bid amount in base denom.
 // Iterates over all bid orders, identifying their ticks.
-// Compares the order tick to the curent tick. If bid order is above the market tick, it is fillable.
+// Compares the order tick to the current tick. If bid order is above the market tick, it is fillable.
 // In that case, we determine the remaining bi liquidity on that tick, applying the price to get its value in the base denom.
 func (o *orderbookFillerIngestPlugin) getFillableBidAmountInBaseDenom(bidOrders []orderbookplugindomain.Order, currentTick int64, tickRemainingLiqMap map[int64]cosmwasmpool.OrderbookTickLiquidity) (osmomath.Int, error) {
 	fillableBidAmountInBaseDenom := osmomath.ZeroBigDec()
