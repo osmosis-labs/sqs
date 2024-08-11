@@ -25,7 +25,6 @@ services:
     image: osmolabs/osmosis-dev:v25.x-c775cee7-1722825184
     container_name: osmosis
     restart: always
-    user: 1000:1001
     ports:
       - 26657:26657
       - 1317:1317
@@ -34,7 +33,7 @@ services:
       - 26660:26660
       - 6060:6060
     volumes:
-      - /home/osmosis/.osmosisd/:/osmosis/.osmosisd/
+      - ${HOME}/.osmosisd/:/osmosis/.osmosisd/
     logging:
       driver: "json-file"
       options:
@@ -57,11 +56,9 @@ services:
       - /osmosis/config.json
       - --host
       - sqs-fill-bot
-
-    image: osmolabs/sqs:25.8.1
     build:
-      context: .
-      dockerfile: ../../../../Dockerfile
+      context: ../../../../
+      dockerfile: Dockerfile
     depends_on:
       - osmosis
     container_name: osmosis-sqs
@@ -69,7 +66,8 @@ services:
     ports:
       - 9092:9092
     volumes:
-      - /home/osmosis/sqs/config.json:/osmosis/config.json
+      - ../../../../config_orderbook_fill_plugin.json:/osmosis/config.json
+      - ${OSMOSIS_KEYRING_PATH}:${OSMOSIS_KEYRING_PATH}
     logging:
       driver: "json-file"
       options:
@@ -144,42 +142,3 @@ services:
       driver: "json-file"
       options:
         max-size: "512m"
-
-  promtail:
-    image: grafana/promtail:2.5.0
-    volumes:
-      - /var/log:/var/log
-      - /var/lib/docker/containers:/var/lib/docker/containers
-      - ./promtail/secrets/config.yaml:/etc/promtail/config.yml
-    command: -config.file=/etc/promtail/config.yml
-
-  prometheus:
-    image: prom/prometheus:v2.37.1
-    container_name: prometheus
-    restart: always
-    volumes:
-      - ./prometheus/secrets/prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--enable-feature=agent'
-      - '--storage.agent.retention.max-time=2h'
-    ports:
-      - 9999:9090
-
-  node-exporter:
-    image: prom/node-exporter:v1.4.0
-    container_name: node-exporter
-    depends_on:
-      - prometheus
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    restart: unless-stopped
-    expose:
-      - 9100
