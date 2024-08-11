@@ -2,13 +2,10 @@ package orderbookfiller
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -213,32 +210,6 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx blockctx.BlockCtxI, c
 	} else {
 		o.logger.Info("passed orderbook bids", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID))
 	}
-
-	return nil
-}
-
-// validateArb validates the arb opportunity.
-func (o *orderbookFillerIngestPlugin) validateArb(ctx blockctx.BlockCtxI, amountIn osmomath.Int, denomIn, denomOut string, orderBookID uint64) error {
-	if amountIn.IsNil() || amountIn.IsZero() {
-		return fmt.Errorf("estimated amount in truncated to zero")
-	}
-
-	coinIn := sdk.Coin{Denom: denomIn, Amount: amountIn}
-	_, _, route, err := o.estimateArb(ctx, coinIn, denomOut, orderBookID)
-	if err != nil {
-		o.logger.Debug("failed to estimate arb", zap.Error(err))
-		return err
-	}
-
-	// Simulate an individual swap
-	msgContext, err := o.simulateSwapExactAmountIn(ctx, coinIn, route)
-	if err != nil {
-		return err
-	}
-
-	// If profitable, execute add the message to the transaction context
-	txCtx := ctx.GetTxCtx()
-	txCtx.AddMsg(msgContext)
 
 	return nil
 }
