@@ -23,6 +23,21 @@ amount to execute it, including gas fees.
 
 ## Configuration
 
+### Node
+
+1. Initialize a fresh node with the `osmosisd` binary.
+```bash
+osmosisd init fill-bot --chain-id osmosis-1
+```
+
+2. Get latest snapshot from [here](https://snapshots.osmosis.zone/index.html)
+
+3. Go to `$HOME/.osmosisd/config/app.toml` and set `osmosis-sqs.is-enabled` to true
+
+4. Optionally, turn off any services from `app.toml` and `config.toml` that you don't need
+
+### SQS
+
 In `config.json`, set the plugin to enabled:
 
 ```json
