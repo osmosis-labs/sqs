@@ -132,7 +132,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 				}
 			}()
 
-			err = o.processOrderbook(blockCtx, canonicalOrderbook)
+			err = o.processOrderBook(blockCtx, canonicalOrderbook)
 		}(canonicalOrderbook)
 	}
 
@@ -182,7 +182,15 @@ func (*orderbookFillerIngestPlugin) getUniqueOrderbookDenoms(canonicalOrderbooks
 	return denoms
 }
 
-func (o *orderbookFillerIngestPlugin) processOrderbook(ctx blockctx.BlockCtxI, canonicalOrderbookResult domain.CanonicalOrderBooksResult) error {
+// processOrderBook processes the orderbook in the following sequence:
+// - Validate user balances meeting minimum threshold.
+// - Compute fillable amounts for the order book.
+// - Validate arb trying to fill ask liquidity.
+// - Validate arb trying to fill bid liquidity.
+// - Returns error if any of the steps fail.
+//
+// If validation/simulation passes, the message is added to the transaction context to be execute in batch at the end of the block.
+func (o *orderbookFillerIngestPlugin) processOrderBook(ctx blockctx.BlockCtxI, canonicalOrderbookResult domain.CanonicalOrderBooksResult) error {
 	baseDenom := canonicalOrderbookResult.Base
 	quoteDenom := canonicalOrderbookResult.Quote
 
@@ -214,6 +222,8 @@ func (o *orderbookFillerIngestPlugin) processOrderbook(ctx blockctx.BlockCtxI, c
 	return nil
 }
 
+// tryFill tries to fill the orderbook by executing the transaction.
+// It ranks and filters the pools, simulates the transaction messages, and executes the swap if the simulation passes.
 func (o *orderbookFillerIngestPlugin) tryFill(txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) error {
 	msgs := txCtx.GetSDKMsgs()
 
@@ -224,7 +234,7 @@ func (o *orderbookFillerIngestPlugin) tryFill(txCtx txctx.TxContextI, blockGasPr
 	// Rank and filter pools
 	txCtx.RankAndFilterMsgs()
 
-	// Simulate an individual swap
+	// Simulate transaction messages
 	sdkMsgs := txCtx.GetSDKMsgs()
 	_, adjustedGasAmount, err := o.simulateMsgs(sdkMsgs)
 	if err != nil {

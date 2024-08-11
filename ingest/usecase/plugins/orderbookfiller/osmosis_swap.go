@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"go.uber.org/zap"
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -117,6 +118,10 @@ func httpGet(url string) ([]byte, error) {
 	return body, nil
 }
 
+// executeTx executes a transaction with the given tx context and block gas price.
+// It returns the response, the transaction body and an error if any.
+// It waits for 5 seconds before returning.
+// It returns an error and avoids executing the transaction if the tx fee capitalization is greater than the max allowed.
 func (o *orderbookFillerIngestPlugin) executeTx(txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
 	key := o.keyring.GetKey()
 	keyBytes := key.Bytes()
@@ -200,7 +205,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(txCtx txctx.TxContextI, blockGas
 		time.Sleep(5 * time.Second)
 	}()
 
-	resp, err := BroadcastTransaction(txJSONBytes, RPC)
+	resp, err := broadcastTransaction(txJSONBytes, RPC)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
@@ -208,6 +213,8 @@ func (o *orderbookFillerIngestPlugin) executeTx(txCtx txctx.TxContextI, blockGas
 	if resp.Code != 0 {
 		return nil, "", fmt.Errorf("failed to broadcast transaction: %s", resp.Log)
 	}
+
+	o.logger.Info("executed transaction: ", zap.Uint32("code", resp.Code), zap.String("hash", string(resp.Hash)), zap.String("log", resp.Log), zap.String("codespace", resp.Codespace))
 
 	return resp, string(txJSONBytes), nil
 }
@@ -284,7 +291,9 @@ func (o *orderbookFillerIngestPlugin) simulateMsgs(msgs []sdk.Msg) (*txtypes.Sim
 	return gasResult, adjustedGasUsed, nil
 }
 
-func BroadcastTransaction(txBytes []byte, rpcEndpoint string) (*coretypes.ResultBroadcastTx, error) {
+// broadcastTransaction broadcasts a transaction to the chain.
+// Returning the result and error.
+func broadcastTransaction(txBytes []byte, rpcEndpoint string) (*coretypes.ResultBroadcastTx, error) {
 	cmtCli, err := cometrpc.New(rpcEndpoint, "/websocket")
 	if err != nil {
 		log.Fatal(err)
@@ -299,12 +308,6 @@ func BroadcastTransaction(txBytes []byte, rpcEndpoint string) (*coretypes.Result
 		fmt.Println("error at broadcast")
 		return nil, err
 	}
-
-	fmt.Println("other: ", res.Data)
-	fmt.Println("log: ", res.Log)
-	fmt.Println("code: ", res.Code)
-	fmt.Println("code: ", res.Codespace)
-	fmt.Println("txid: ", res.Hash)
 
 	return res, nil
 }
