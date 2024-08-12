@@ -23,7 +23,7 @@ type MapIntervalFetcher[K comparable, V any] struct {
 var _ MapFetcher[uint64, uint64] = (*MapIntervalFetcher[uint64, uint64])(nil)
 
 // NewMapFetcher returns a new MapIntervalFetcher.
-func NewMapFetcher[K comparable, V any](updateFn func() map[K]V, interval time.Duration) *MapIntervalFetcher[K, V] {
+func NewMapFetcher[K comparable, V any](updateFn func() (map[K]V, error), interval time.Duration) *MapIntervalFetcher[K, V] {
 	return &MapIntervalFetcher[K, V]{
 		IntervalFetcher: NewIntervalFetcher(updateFn, interval),
 	}

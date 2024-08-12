@@ -16,7 +16,7 @@ func TestMapIntervalFetcher_GetByKey(t *testing.T) {
 	didFetchOnce := atomic.Bool{}
 
 	// Define the update function
-	updateFn := func() map[int]string {
+	updateFn := func() (map[int]string, error) {
 		if didFetchOnce.Load() {
 			// Intentionally block the update function to simulate a slow update
 			time.Sleep(10 * time.Second)
@@ -28,7 +28,7 @@ func TestMapIntervalFetcher_GetByKey(t *testing.T) {
 			1: "one",
 			2: "two",
 			3: "three",
-		}
+		}, nil
 	}
 
 	// Create a new MapIntervalFetcher with a short interval
