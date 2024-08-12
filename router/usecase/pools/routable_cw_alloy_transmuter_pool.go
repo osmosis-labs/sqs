@@ -269,19 +269,23 @@ func (r *routableAlloyTransmuterPoolImpl) checkChangeRateLimiter(tokenInDenom st
 	hasAnyPrevDataPoints := latestRemovedDivision != nil || len(updatedDivisions) != 0
 
 	if hasAnyPrevDataPoints {
-		latestValue, err := osmomath.NewDecFromStr(latestRemovedDivision.LatestValue)
-		if err != nil {
-			return err
-		}
-		integral, err := osmomath.NewDecFromStr(latestRemovedDivision.Integral)
-		if err != nil {
-			return err
-		}
-		ffiLatestRemovedDivision, err := rustffi.NewFFIDivisionRaw(
-			latestRemovedDivision.StartedAt, latestRemovedDivision.UpdatedAt, latestValue, integral,
-		)
-		if err != nil {
-			return err
+		var ffiLatestRemovedDivisionPtr *rustffi.FFIDivision
+		if latestRemovedDivision != nil {
+			latestValue, err := osmomath.NewDecFromStr(latestRemovedDivision.LatestValue)
+			if err != nil {
+				return err
+			}
+			integral, err := osmomath.NewDecFromStr(latestRemovedDivision.Integral)
+			if err != nil {
+				return err
+			}
+			ffiLatestRemovedDivision, err := rustffi.NewFFIDivisionRaw(
+				latestRemovedDivision.StartedAt, latestRemovedDivision.UpdatedAt, latestValue, integral,
+			)
+			if err != nil {
+				return err
+			}
+			ffiLatestRemovedDivisionPtr = &ffiLatestRemovedDivision
 		}
 
 		ffiUpdatedDivisions := make([]rustffi.FFIDivision, len(updatedDivisions))
@@ -308,7 +312,7 @@ func (r *routableAlloyTransmuterPoolImpl) checkChangeRateLimiter(tokenInDenom st
 
 		divisionSize := tokenInChangeLimiter.WindowConfig.WindowSize / tokenInChangeLimiter.WindowConfig.DivisionCount
 
-		avg, err := rustffi.CompressedMovingAverage(&ffiLatestRemovedDivision, ffiUpdatedDivisions, divisionSize, tokenInChangeLimiter.WindowConfig.WindowSize, uint64(time.UnixNano()))
+		avg, err := rustffi.CompressedMovingAverage(ffiLatestRemovedDivisionPtr, ffiUpdatedDivisions, divisionSize, tokenInChangeLimiter.WindowConfig.WindowSize, uint64(time.UnixNano()))
 		if err != nil {
 			return err
 		}

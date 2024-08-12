@@ -34,6 +34,10 @@ func (r *routableAlloyTransmuterPoolImpl) CheckStaticRateLimiter(tokenInDenom st
 	return r.checkStaticRateLimiter(tokenInDenom, tokenInWeight)
 }
 
+func (r *routableAlloyTransmuterPoolImpl) CheckChangeRateLimiter(tokenInDenom string, tokenInWeight osmomath.Dec, currentTime time.Time) error {
+	return r.checkChangeRateLimiter(tokenInDenom, tokenInWeight, currentTime)
+}
+
 func (r *routableAlloyTransmuterPoolImpl) ComputeResultedWeights(tokenInCoin sdk.Coin) (map[string]osmomath.Dec, error) {
 	return r.computeResultedWeights(tokenInCoin)
 }

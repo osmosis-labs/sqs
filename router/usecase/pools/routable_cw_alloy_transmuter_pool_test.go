@@ -509,3 +509,114 @@ func (s *RoutablePoolTestSuite) TestCleanUpOutdatedDivision() {
 		})
 	}
 }
+
+func (s *RoutablePoolTestSuite) TestCheckChangeRateLimiter() {
+	testCases := []struct {
+		name          string
+		changeLimiter cosmwasmpool.ChangeLimiter
+		tokenInDenom  string
+		tokenInWeight osmomath.Dec
+		currentTime   time.Time
+		expectedError error
+	}{
+		{
+			name: "No clean up outdated - within limit",
+			changeLimiter: cosmwasmpool.ChangeLimiter{
+				WindowConfig: cosmwasmpool.WindowConfig{
+					WindowSize:    100,
+					DivisionCount: 2,
+				},
+				BoundaryOffset: "0.05",
+				Divisions: []cosmwasmpool.Division{
+					{StartedAt: 100, UpdatedAt: 20, LatestValue: "0.5", Integral: "0"},
+				},
+			},
+			tokenInDenom:  "denoma",
+			tokenInWeight: osmomath.MustNewDecFromStr("0.55"),
+			currentTime:   time.Unix(0, 121),
+			expectedError: nil,
+		},
+		{
+			name: "No clean up outdated - exceeds limit",
+			changeLimiter: cosmwasmpool.ChangeLimiter{
+				WindowConfig: cosmwasmpool.WindowConfig{
+					WindowSize:    100,
+					DivisionCount: 2,
+				},
+				BoundaryOffset: "0.05",
+				Divisions: []cosmwasmpool.Division{
+					{StartedAt: 100, UpdatedAt: 20, LatestValue: "0.5", Integral: "0"},
+				},
+			},
+			tokenInDenom:  "denoma",
+			tokenInWeight: osmomath.MustNewDecFromStr("0.555000000000000001"),
+			currentTime:   time.Unix(0, 121),
+			expectedError: domain.StaticRateLimiterInvalidUpperLimitError{
+				UpperLimit: "0.555000000000000000",
+				Weight:     "0.555000000000000001",
+				Denom:      "denoma",
+			},
+		},
+		{
+			name: "With clean up outdated - within limit",
+			changeLimiter: cosmwasmpool.ChangeLimiter{
+				WindowConfig: cosmwasmpool.WindowConfig{
+					WindowSize:    100,
+					DivisionCount: 4,
+				},
+				BoundaryOffset: "0.05",
+				Divisions: []cosmwasmpool.Division{
+					{StartedAt: 0, UpdatedAt: 10, LatestValue: "0.4", Integral: "0"},
+				},
+			},
+			tokenInDenom:  "denomb",
+			tokenInWeight: osmomath.MustNewDecFromStr("0.45"),
+			currentTime:   time.Unix(0, 125),
+			expectedError: nil,
+		},
+		{
+			name: "With clean up outdated - exceeds limit",
+			changeLimiter: cosmwasmpool.ChangeLimiter{
+				WindowConfig: cosmwasmpool.WindowConfig{
+					WindowSize:    100,
+					DivisionCount: 4,
+				},
+				BoundaryOffset: "0.05",
+				Divisions: []cosmwasmpool.Division{
+					{StartedAt: 0, UpdatedAt: 10, LatestValue: "0.4", Integral: "0"},
+				},
+			},
+			tokenInDenom:  "denomb",
+			tokenInWeight: osmomath.MustNewDecFromStr("0.450000000000000001"),
+			currentTime:   time.Unix(0, 125),
+			expectedError: domain.StaticRateLimiterInvalidUpperLimitError{
+				UpperLimit: "0.450000000000000000",
+				Weight:     "0.450000000000000001",
+				Denom:      "denomb",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			pool := &pools.RoutableAlloyTransmuterPoolImpl{
+				AlloyTransmuterData: &cosmwasmpool.AlloyTransmuterData{
+					RateLimiterConfig: cosmwasmpool.AlloyedRateLimiter{
+						ChangeLimiterByDenomMap: map[string]cosmwasmpool.ChangeLimiter{
+							tc.tokenInDenom: tc.changeLimiter,
+						},
+					},
+				},
+			}
+
+			err := pool.CheckChangeRateLimiter(tc.tokenInDenom, tc.tokenInWeight, tc.currentTime)
+
+			if tc.expectedError != nil {
+				s.Require().Error(err)
+				s.Require().Equal(tc.expectedError, err)
+			} else {
+				s.Require().NoError(err)
+			}
+		})
+	}
+}
