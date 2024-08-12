@@ -1,0 +1,146 @@
+version: "3"
+
+services:
+  osmosis:
+    labels:
+      com.datadoghq.ad.logs: >-
+        [{
+          "source": "osmosis",
+          "service": "osmosis",
+          "log_processing_rules": [{
+              "type": "exclude_at_match",
+              "name": "exclude_p2p_module",
+              "pattern": "\"module\":\\s*\".*p2p.*\""
+            }]
+        }] 
+    environment:
+      - DD_AGENT_HOST=dd-agent
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://dd-agent:4317
+      - DD_SERVICE=osmosis
+      - DD_ENV=prod
+      - DD_VERSION=25.0.0
+    command:
+      - start
+      - --home=/osmosis/.osmosisd
+    image: osmolabs/osmosis-dev:v25.x-c775cee7-1722825184
+    container_name: osmosis
+    restart: always
+    ports:
+      - 26657:26657
+      - 1317:1317
+      - 9191:9090
+      - 9091:9091
+      - 26660:26660
+      - 6060:6060
+    volumes:
+      - ${HOME}/.osmosisd/:/osmosis/.osmosisd/
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2048m"
+        max-file: "3"
+        tag: "{{.ImageName}}|{{.Name}}"
+
+  osmosis-sqs:
+    environment:
+      - DD_AGENT_HOST=dd-agent
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://dd-agent:4317
+      - DD_SERVICE=sqs
+      - DD_ENV=prod
+      - DD_VERSION=25.0.0
+      - OSMOSIS_KEYRING_PATH=${OSMOSIS_KEYRING_PATH}
+      - OSMOSIS_KEYRING_PASSWORD=${OSMOSIS_KEYRING_PASSWORD}
+      - OSMOSIS_KEYRING_KEY_NAME=${OSMOSIS_KEYRING_KEY_NAME}
+      - OSMOSIS_RPC_ENDPOINT=http://osmosis:26657
+      - OSMOSIS_LCD_ENDPOINT=http://osmosis:1317
+    command:
+      - --config
+      - /osmosis/config.json
+      - --host
+      - sqs-fill-bot
+    build:
+      context: ../../../../
+      dockerfile: Dockerfile
+    depends_on:
+      - osmosis
+    container_name: osmosis-sqs
+    restart: always
+    ports:
+      - 9092:9092
+    volumes:
+      - ../../../../config_orderbook_fill_plugin.json:/osmosis/config.json
+      - ${OSMOSIS_KEYRING_PATH}:${OSMOSIS_KEYRING_PATH}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2048m"
+        max-file: "3"
+        tag: "{{.ImageName}}|{{.Name}}"
+
+  dd-agent:
+    image: gcr.io/datadoghq/agent:7
+    container_name: dd-agent
+    labels:
+      com.datadoghq.ad.checks: |
+        {
+          "openmetrics": {
+            "init_configs": [{}],
+            "instances": [
+              {
+                "openmetrics_endpoint": "http://droid:8080/metrics",
+                "namespace": "osmosisd",
+                "metrics": 
+                  [
+                    {"osmosisd_info": "info"},
+                    {"osmosisd_cur_eip_base_fee": "cur_eip_base_fee"}
+                  ]
+              }#,
+              # {
+              #   "openmetrics_endpoint": "http://nginx/metrics",
+              #   "namespace": "sqs",
+              #   "metrics": [".*"]
+              # }
+            ]
+          }
+        }
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_SITE=us5.datadoghq.com
+      - DD_ENV=prod
+      - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT=0.0.0.0:4317
+      - DD_APM_ENABLED=true
+      - DD_LOGS_ENABLED=true 
+      - DD_LOGS_CONFIG_DOCKER_CONTAINER_FORCE_USE_FILE=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE_LOGS=image:.*agent.* image:.*droid.*
+      - DD_OTLP_CONFIG_LOGS_ENABLED=true
+      - DD_APM_PROBABILISTIC_SAMPLER_ENABLED=true
+      - DD_APM_PROBABILISTIC_SAMPLER_SAMPLING_PERCENTAGE=1
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /proc/:/host/proc/:rw
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:rw
+      - /var/lib/docker/containers:/var/lib/docker/containers:rw
+      - /opt/datadog/apm:/opt/datadog/apm
+    ports:
+      - 4317:4317
+      - 4318:4318
+      - 8126:8126
+
+  droid:
+    image: osmolabs/droid:0.0.3
+    container_name: droid
+    restart: unless-stopped
+    depends_on:
+      - osmosis
+    ports:
+      - "8080:8080"
+    environment:
+      RPC_ENDPOINT: "http://osmosis:26657"
+      LCD_ENDPOINT: "http://osmosis:1317"
+      EIP1559_ENABLED: "true" 
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "512m"

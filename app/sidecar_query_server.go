@@ -11,6 +11,8 @@ import (
 	"github.com/labstack/echo/v4"
 
 	// nolint: staticcheck
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	// nolint: staticcheck
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
@@ -205,20 +207,16 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Iniitialize data fetcher for pool APRs
 	fetchPoolAPRsCallback := datafetchers.GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
 	var aprFetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR] = datafetchers.NewMapFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes))
-	aprFetcher.WaitUntilFirstResult()
 
 	// Register the APR fetcher with the passthrough use case
-	passthroughUseCase.RegisterAPRFetcher(aprFetcher)
 	poolsUseCase.RegisterAPRFetcher(aprFetcher)
 
 	// Initialize data fetcher for pool fees
 	timeseriesHTTPClient := passthroughdomain.NewTimeSeriesHTTPClient(passthroughConfig.TimeseriesURL)
 	fetchPoolFeesCallback := datafetchers.GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient, logger)
 	poolFeesFetcher := datafetchers.NewMapFetcher(fetchPoolFeesCallback, time.Minute*time.Duration(passthroughConfig.PoolFeesFetchIntervalMinutes))
-	poolFeesFetcher.WaitUntilFirstResult()
 
 	// Register the pool fees fetcher with the passthrough use case
-	passthroughUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
 	poolsUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
 
 	// Start grpc ingest server if enabled
@@ -271,10 +269,9 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
 
-					// TODO: create and propagate
-					// wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
-					// cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
-					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, keyring, defaultQuoteDenom, logger)
+					wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
+					cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
+					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, cwAPIClient, keyring, defaultQuoteDenom, logger)
 				}
 
 				// Register the plugin with the ingest use case

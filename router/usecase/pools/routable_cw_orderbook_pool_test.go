@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
@@ -62,7 +63,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 		TakerFee: takerFee,
 	}
 
-	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		Config: domain.CosmWasmPoolRouterConfig{
 			OrderbookCodeIDs: map[uint64]struct{}{
 				cosmwasmPool.GetId(): {},

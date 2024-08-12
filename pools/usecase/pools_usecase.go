@@ -10,6 +10,7 @@ import (
 
 	"cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
@@ -48,7 +49,7 @@ type poolsUseCase struct {
 	canonicalOrderBookForBaseQuoteDenom sync.Map
 	canonicalOrderbookPoolIDs           sync.Map
 
-	cosmWasmPoolsParams pools.CosmWasmPoolsParams
+	cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams
 
 	aprPrefetcher      datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR]
 	poolFeesPrefetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolFee]
@@ -94,7 +95,7 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint s
 		pools:            sync.Map{},
 		routerRepository: routerRepository,
 
-		cosmWasmPoolsParams: pools.CosmWasmPoolsParams{
+		cosmWasmPoolsParams: cosmwasmdomain.CosmWasmPoolsParams{
 			Config: domain.CosmWasmPoolRouterConfig{
 				TransmuterCodeIDs:        transmuterCodeIDsMap,
 				AlloyedTransmuterCodeIDs: alloyedTransmuterCodeIDsMap,

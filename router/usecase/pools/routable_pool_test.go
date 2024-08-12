@@ -9,6 +9,7 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/suite"
 
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 
@@ -94,7 +95,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 			s.Require().NoError(err)
 
 			mock := &mocks.MockRoutablePool{ChainPoolModel: pool, PoolType: tc.poolType}
-			cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
 			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)

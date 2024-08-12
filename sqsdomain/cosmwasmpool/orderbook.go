@@ -25,6 +25,17 @@ const (
 	ASK OrderbookDirection = false
 )
 
+// RoundingDirection is used to determine the rounding direction when converting an amount of token in to the value of token out.
+// We aim to always round in pool's favor, rounding down token out and rounding up token in.
+type RoundingDirection bool
+
+const (
+	// ROUND_UP rounds up the result of the conversion.
+	ROUND_UP   RoundingDirection = true
+	// ROUND_DOWN rounds down the result of the conversion.
+	ROUND_DOWN RoundingDirection = false
+)
+
 func (d *OrderbookDirection) String() string {
 	if *d { // BID
 		return "BID"
@@ -55,12 +66,20 @@ func (d *OrderbookDirection) IterationStep() (int, error) {
 }
 
 // Converts an amount of token in to the value of token out given a tick price and target direction
-func OrderbookValueInOppositeDirection(sourceDirectionAmount osmomath.BigDec, tickPrice osmomath.BigDec, targetDirection OrderbookDirection) osmomath.BigDec {
+func OrderbookValueInOppositeDirection(sourceDirectionAmount osmomath.BigDec, tickPrice osmomath.BigDec, targetDirection OrderbookDirection, roundingDirection RoundingDirection) osmomath.BigDec {
 	switch targetDirection {
 	case ASK:
-		return sourceDirectionAmount.Mul(tickPrice)
+		if roundingDirection == ROUND_UP {
+			return sourceDirectionAmount.MulRoundUp(tickPrice)
+		} else {
+			return sourceDirectionAmount.MulTruncate(tickPrice)
+		}
 	case BID:
-		return sourceDirectionAmount.Quo(tickPrice)
+		if roundingDirection == ROUND_UP {
+			return sourceDirectionAmount.QuoRoundUp(tickPrice)
+		} else {
+			return sourceDirectionAmount.QuoTruncate(tickPrice)
+		}
 	default:
 		return osmomath.ZeroBigDec()
 	}
@@ -173,7 +192,7 @@ func CalcAmountInToExhaustOrderbookLiquidity(directionIn OrderbookDirection, sta
 		}
 
 		// convert current tick liquidity to value required in the order direction
-		tickRequiredAmountIn := OrderbookValueInOppositeDirection(tickLiquidity, tickPrice, directionOut)
+		tickRequiredAmountIn := OrderbookValueInOppositeDirection(tickLiquidity, tickPrice, directionOut, ROUND_UP)
 
 		// accumulate the required amount in
 		requiredAmountIn = requiredAmountIn.Add(tickRequiredAmountIn)
