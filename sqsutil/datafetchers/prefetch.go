@@ -56,6 +56,8 @@ func (p *IntervalFetcher[T]) startTimer() {
 func (p *IntervalFetcher[T]) prefetch() {
 	newValue, err := p.updateFn()
 	if err != nil {
+		// By silently skipping the error, the values would become stale,
+		// signaling that to the client.
 		return
 	}
 
