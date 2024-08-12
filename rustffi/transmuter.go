@@ -11,6 +11,15 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+type Division struct {
+	StartedAt   uint64
+	UpdatedAt   uint64
+	LatestValue osmomath.Dec
+	Integral    osmomath.Dec
+}
+
+type FFIDivision = C.struct_FFIDivision
+
 func NewFFIDivision(startedAt, updatedAt uint64, lastestValue, prevValue osmomath.Dec) (C.struct_FFIDivision, error) {
 	elapsedTime := updatedAt - startedAt
 	integral := prevValue.MulInt(osmomath.NewIntFromUint64(elapsedTime))
@@ -52,25 +61,10 @@ func NewFFIDivisions(divisions []struct {
 	return ffidivisions, nil
 }
 
-func NewFFIDivisionsRaw(divisions []struct {
-	StartedAt   uint64
-	UpdatedAt   uint64
-	LatestValue string
-	Integral    string
-}) ([]C.struct_FFIDivision, error) {
+func NewFFIDivisionsRaw(divisions []Division) ([]C.struct_FFIDivision, error) {
 	ffidivisions := make([]C.struct_FFIDivision, len(divisions))
 	for i, division := range divisions {
-		latestValue, err := osmomath.NewDecFromStr(division.LatestValue)
-		if err != nil {
-			return nil, err
-		}
-
-		integral, err := osmomath.NewDecFromStr(division.Integral)
-		if err != nil {
-			return nil, err
-		}
-
-		div, err := NewFFIDivisionRaw(division.StartedAt, division.UpdatedAt, latestValue, integral)
+		div, err := NewFFIDivisionRaw(division.StartedAt, division.UpdatedAt, division.LatestValue, division.Integral)
 		if err != nil {
 			return nil, err
 		}

@@ -280,22 +280,26 @@ func (r *routableAlloyTransmuterPoolImpl) checkChangeRateLimiter(tokenInCoin sdk
 			return err
 		}
 
-		// TODO: Find a way to remove this interim type
-		type _division = struct {
-			StartedAt   uint64
-			UpdatedAt   uint64
-			LatestValue string
-			Integral    string
-		}
-
-		_updatedDivisions := make([]_division, len(updatedDivisions))
+		ffiUpdatedDivisions := make([]rustffi.FFIDivision, len(updatedDivisions))
 		for _, division := range updatedDivisions {
-			_updatedDivisions = append(_updatedDivisions, _division(division))
-		}
-
-		ffiUpdatedDivisions, err := rustffi.NewFFIDivisionsRaw(_updatedDivisions)
-		if err != nil {
-			return err
+			latestValue, err := osmomath.NewDecFromStr(division.LatestValue)
+			if err != nil {
+				return err
+			}
+			integral, err := osmomath.NewDecFromStr(division.Integral)
+			if err != nil {
+				return err
+			}
+			d, err := rustffi.NewFFIDivisionRaw(
+				division.StartedAt,
+				division.UpdatedAt,
+				latestValue,
+				integral,
+			)
+			if err != nil {
+				return err
+			}
+			ffiUpdatedDivisions = append(ffiUpdatedDivisions, d)
 		}
 
 		divisionSize := tokenInChangeLimiter.WindowConfig.WindowSize / tokenInChangeLimiter.WindowConfig.DivisionCount
