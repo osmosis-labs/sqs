@@ -367,7 +367,8 @@ func cleanUpOutdatedDivision(changeLimier cosmwasmpool.ChangeLimiter, time time.
 		}
 
 		if isDivisionOutdated {
-			latestRemovedDivision = &division
+			divisionCpy := division // copy division to avoid pointer issue as division will be modified
+			latestRemovedDivision = &divisionCpy
 			latestRemovedIndex = i
 		} else {
 			break

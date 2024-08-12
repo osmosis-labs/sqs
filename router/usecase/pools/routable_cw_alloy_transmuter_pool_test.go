@@ -2,6 +2,7 @@ package pools_test
 
 import (
 	"context"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -422,6 +423,88 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 				s.Require().ErrorIs(err, tc.expectError)
 			} else {
 				s.Require().NoError(err)
+			}
+		})
+	}
+}
+
+func (s *RoutablePoolTestSuite) TestCleanUpOutdatedDivision() {
+	testCases := []struct {
+		name            string
+		changeLimiter   cosmwasmpool.ChangeLimiter
+		currentTime     time.Time
+		expectedRemoved *cosmwasmpool.Division
+		expectedUpdated []cosmwasmpool.Division
+		expectError     bool
+	}{
+		{
+			name: "No outdated divisions",
+			changeLimiter: cosmwasmpool.ChangeLimiter{
+				WindowConfig: cosmwasmpool.WindowConfig{
+					WindowSize:    100,
+					DivisionCount: 2,
+				},
+				Divisions: []cosmwasmpool.Division{
+					{StartedAt: 50, UpdatedAt: 75, LatestValue: "1.0", Integral: "25.0"},
+					{StartedAt: 75, UpdatedAt: 100, LatestValue: "2.0", Integral: "50.0"},
+				},
+			},
+			currentTime:     time.Unix(0, 110),
+			expectedRemoved: nil,
+			expectedUpdated: []cosmwasmpool.Division{
+				{StartedAt: 50, UpdatedAt: 75, LatestValue: "1.0", Integral: "25.0"},
+				{StartedAt: 75, UpdatedAt: 100, LatestValue: "2.0", Integral: "50.0"},
+			},
+			expectError: false,
+		},
+		{
+			name: "One outdated division",
+			changeLimiter: cosmwasmpool.ChangeLimiter{
+				WindowConfig: cosmwasmpool.WindowConfig{
+					WindowSize:    100,
+					DivisionCount: 2,
+				},
+				Divisions: []cosmwasmpool.Division{
+					{StartedAt: 0, UpdatedAt: 50, LatestValue: "1.0", Integral: "50.0"},
+					{StartedAt: 50, UpdatedAt: 51, LatestValue: "2.0", Integral: "100.0"},
+				},
+			},
+			currentTime:     time.Unix(0, 150),
+			expectedRemoved: &cosmwasmpool.Division{StartedAt: 0, UpdatedAt: 50, LatestValue: "1.0", Integral: "50.0"},
+			expectedUpdated: []cosmwasmpool.Division{
+				{StartedAt: 50, UpdatedAt: 51, LatestValue: "2.0", Integral: "100.0"},
+			},
+			expectError: false,
+		},
+		{
+			name: "All divisions outdated",
+			changeLimiter: cosmwasmpool.ChangeLimiter{
+				WindowConfig: cosmwasmpool.WindowConfig{
+					WindowSize:    100,
+					DivisionCount: 2,
+				},
+				Divisions: []cosmwasmpool.Division{
+					{StartedAt: 0, UpdatedAt: 25, LatestValue: "1.0", Integral: "25.0"},
+					{StartedAt: 50, UpdatedAt: 51, LatestValue: "2.0", Integral: "50.0"},
+				},
+			},
+			currentTime:     time.Unix(0, 200),
+			expectedRemoved: &cosmwasmpool.Division{StartedAt: 50, UpdatedAt: 51, LatestValue: "2.0", Integral: "50.0"},
+			expectedUpdated: []cosmwasmpool.Division{},
+			expectError:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			removed, updated, err := pools.CleanUpOutdatedDivision(tc.changeLimiter, tc.currentTime)
+
+			if tc.expectError {
+				s.Require().Error(err)
+			} else {
+				s.Require().NoError(err)
+				s.Require().Equal(tc.expectedRemoved, removed)
+				s.Require().Equal(tc.expectedUpdated, updated)
 			}
 		})
 	}
