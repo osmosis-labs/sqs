@@ -9,7 +9,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 thiserror = "1.0.63"
-transmuter_math = {path = "../../../transmuter/packages/transmuter_math"}
+transmuter_math = "1.0.0"
 
 [build-dependencies]
 cbindgen = "0.26.0"

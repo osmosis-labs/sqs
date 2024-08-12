@@ -850,7 +850,9 @@ dependencies = [
 
 [[package]]
 name = "transmuter_math"
-version = "0.1.0"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af2780103282f99c1750878bdac2c85e9cd070d2a6e0f38fdb0aff978437a985"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
