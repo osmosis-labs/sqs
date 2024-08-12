@@ -604,24 +604,24 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 	)
 	s.Assert().NoError(err)
 
-	// twoAssetPoolWithExitFee, err := stableswap.NewStableswapPool(
-	// 	1,
-	// 	stableswap.PoolParams{ExitFee: osmomath.MustNewDecFromStr("0.0001")},
-	// 	twoStablePoolAssets,
-	// 	[]uint64{1, 1},
-	// 	"",
-	// 	"",
-	// )
-	// s.Assert().NoError(err)
+	twoAssetPoolWithExitFee, err := stableswap.NewStableswapPool(
+		1,
+		stableswap.PoolParams{ExitFee: osmomath.MustNewDecFromStr("0.0001")},
+		twoStablePoolAssets,
+		[]uint64{1, 1},
+		"",
+		"",
+	)
+	s.Assert().NoError(err)
 
-	// threeAssetPoolWithExitFee, err := balancer.NewBalancerPool(
-	// 	1,
-	// 	balancer.PoolParams{SwapFee: osmomath.ZeroDec(), ExitFee: osmomath.MustNewDecFromStr("0.0002")},
-	// 	threeBalancerPoolAssets,
-	// 	"",
-	// 	time.Now(),
-	// )
-	// s.Assert().NoError(err)
+	threeAssetPoolWithExitFee, err := balancer.NewBalancerPool(
+		1,
+		balancer.PoolParams{SwapFee: osmomath.ZeroDec(), ExitFee: osmomath.MustNewDecFromStr("0.0002")},
+		threeBalancerPoolAssets,
+		"",
+		time.Now(),
+	)
+	s.Assert().NoError(err)
 
 	tests := []struct {
 		name          string
@@ -641,30 +641,30 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 			exitingShares: threeAssetPool.GetTotalShares().AddRaw(1),
 			expError:      true,
 		},
-		// {
-		// 	name:          "two-asset pool, valid exiting shares",
-		// 	pool:          &twoAssetPool,
-		// 	exitingShares: twoAssetPool.GetTotalShares().QuoRaw(2),
-		// 	expError:      false,
-		// },
-		// {
-		// 	name:          "three-asset pool, valid exiting shares",
-		// 	pool:          &threeAssetPool,
-		// 	exitingShares: osmomath.NewIntFromUint64(3000000000000),
-		// 	expError:      false,
-		// },
-		// {
-		// 	name:          "two-asset pool with exit fee, valid exiting shares",
-		// 	pool:          &twoAssetPoolWithExitFee,
-		// 	exitingShares: twoAssetPoolWithExitFee.GetTotalShares().QuoRaw(2),
-		// 	expError:      false,
-		// },
-		// {
-		// 	name:          "three-asset pool with exit fee, valid exiting shares",
-		// 	pool:          &threeAssetPoolWithExitFee,
-		// 	exitingShares: osmomath.NewIntFromUint64(7000000000000),
-		// 	expError:      false,
-		// },
+		{
+			name:          "two-asset pool, valid exiting shares",
+			pool:          &twoAssetPool,
+			exitingShares: twoAssetPool.GetTotalShares().QuoRaw(2),
+			expError:      false,
+		},
+		{
+			name:          "three-asset pool, valid exiting shares",
+			pool:          &threeAssetPool,
+			exitingShares: osmomath.NewIntFromUint64(3000000000000),
+			expError:      false,
+		},
+		{
+			name:          "two-asset pool with exit fee, valid exiting shares",
+			pool:          &twoAssetPoolWithExitFee,
+			exitingShares: twoAssetPoolWithExitFee.GetTotalShares().QuoRaw(2),
+			expError:      false,
+		},
+		{
+			name:          "three-asset pool with exit fee, valid exiting shares",
+			pool:          &threeAssetPoolWithExitFee,
+			exitingShares: osmomath.NewIntFromUint64(7000000000000),
+			expError:      false,
+		},
 	}
 
 	// Create default use case
@@ -678,11 +678,11 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 		if test.expError {
 			s.Require().Error(err, "test: %v", test.name)
 		} else {
-			s.Require().Error(err, "test: %v", test.name)
+			s.Require().NoError(err, "test: %v", test.name)
 
 			// exitCoins = ( (1 - exitFee) * exitingShares / poolTotalShares ) * poolTotalLiquidity
 			expExitCoins := mulCoins(test.pool.GetTotalPoolLiquidity(emptyContext), (osmomath.OneDec().Sub(exitFee)).MulInt(test.exitingShares).QuoInt(test.pool.GetTotalShares()))
-			s.Assert().Equal(s.T, expExitCoins.Sort().String(), exitCoins.Sort().String(), "test: %v", test.name)
+			s.Assert().Equal(expExitCoins.Sort().String(), exitCoins.Sort().String(), "test: %v", test.name)
 		}
 	}
 }

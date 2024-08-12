@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	sdkmath "math"
+
 	"cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
@@ -590,20 +592,25 @@ func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomat
 
 	for _, asset := range poolLiquidity {
 		// round down here, due to not wanting to over-exit
-		amount := asset.Amount.BigInt().Int64()
+		amount := float64(asset.Amount.BigInt().Int64())
 
-		exitAmt := (shareOutRatio * float64(amount))
+		exitAmt := shareOutRatio * amount
 		if exitAmt <= 0 {
 			continue
 		}
 
-		if exitAmt >= float64(amount) {
+		if exitAmt >= amount {
 			return sdk.Coins{}, errors.New("too many shares out")
+		}
+
+		// If the exit amount is within 1e-9 of an integer, round it to the nearest integer
+		if sdkmath.Abs(exitAmt-sdkmath.Round(exitAmt)) < 1e-9 {
+			exitAmt = (sdkmath.Round(exitAmt))
 		}
 
 		exitedCoins = append(exitedCoins, sdk.Coin{
 			Denom:  asset.Denom,
-			Amount: osmomath.NewInt(int64(exitAmt)),
+			Amount: math.NewInt(int64(exitAmt)),
 		})
 	}
 
