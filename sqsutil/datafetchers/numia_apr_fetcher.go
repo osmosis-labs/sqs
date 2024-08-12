@@ -45,6 +45,8 @@ func GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.T
 
 			// Increment the error counter
 			domain.SQSPassthroughTimeseriesPoolFeesFetchErrorCounter.Inc()
+
+			return nil
 		}
 
 		poolFeesMap := make(map[uint64]passthroughdomain.PoolFee, len(poolFees.Data))
