@@ -116,10 +116,10 @@ services:
       - DD_APM_PROBABILISTIC_SAMPLER_SAMPLING_PERCENTAGE=1
 
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /proc/:/host/proc/:ro
-      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /proc/:/host/proc/:rw
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:rw
+      - /var/lib/docker/containers:/var/lib/docker/containers:rw
       - /opt/datadog/apm:/opt/datadog/apm
     ports:
       - 4317:4317
