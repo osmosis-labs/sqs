@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/labstack/echo/v4"
 
+	// nolint: staticcheck
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	// nolint: staticcheck
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"

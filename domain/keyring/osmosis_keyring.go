@@ -1,6 +1,7 @@
 package keyring
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/99designs/keyring"
@@ -38,12 +39,28 @@ const (
 var _ Keyring = &keyringImpl{}
 
 func New() (*keyringImpl, error) {
+	// Validate required environment variables for the keyring
+	keyringPathEnv := os.Getenv(osmosisKeyringPathEnvName)
+	if len(keyringPathEnv) == 0 {
+		return nil, fmt.Errorf("keyring path is not set via %s", osmosisKeyringPathEnvName)
+	}
+
+	keyringPassword := os.Getenv(osmosisKeyringPasswordEnvName)
+	if len(keyringPassword) == 0 {
+		return nil, fmt.Errorf("keyring password is not set via %s", osmosisKeyringPasswordEnvName)
+	}
+
+	keyringKeyName := os.Getenv(osmosisKeyringKeyNameEnvName)
+	if len(keyringKeyName) == 0 {
+		return nil, fmt.Errorf("keyring key name not set via %s", osmosisKeyringKeyNameEnvName)
+	}
+
 	keyringConfig := keyring.Config{
 		ServiceName:              keyringServiceName,
-		FileDir:                  os.Getenv(osmosisKeyringPathEnvName),
+		FileDir:                  keyringPathEnv,
 		KeychainTrustApplication: true,
 		FilePasswordFunc: func(prompt string) (string, error) {
-			return os.Getenv(osmosisKeyringPasswordEnvName), nil
+			return keyringPassword, nil
 		},
 	}
 
@@ -54,7 +71,7 @@ func New() (*keyringImpl, error) {
 	}
 
 	// Get the keyring record
-	openRecord, err := openKeyring.Get(os.Getenv(osmosisKeyringKeyNameEnvName))
+	openRecord, err := openKeyring.Get(keyringKeyName)
 	if err != nil {
 		return nil, err
 	}
