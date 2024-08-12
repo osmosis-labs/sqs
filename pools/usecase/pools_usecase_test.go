@@ -570,6 +570,7 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
 	s.Require().False(actualCoins.Empty())
 }
 
+// TestCalcExitPool is a copy of node's TestCalcExitPool
 func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 	emptyContext := sdk.Context{}
 

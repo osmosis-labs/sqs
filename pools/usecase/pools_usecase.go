@@ -528,8 +528,6 @@ func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return p.cosmWasmPoolsParams.Config
 }
 
-const errMsgFormatSharesLargerThanMax = "cannot exit all shares in a pool. Attempted to exit %f shares, max allowed is %f"
-
 // CalcExitCFMMPool implements mvc.PoolsUsecase.
 func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingSharesIn osmomath.Int) (sdk.Coins, error) {
 	sqsPool, err := p.GetPool(poolID)
@@ -552,7 +550,12 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingSharesIn osmomath.
 	return calcExitPool(sdk.Context{}, pool, exitingSharesIn, exitFee)
 }
 
-// ported from: pool.CalcExitPoolCoinsFromShares
+// errMsgFormatSharesLargerThanMax is the error message format for when the exiting shares are larger than the max allowed.
+const errMsgFormatSharesLargerThanMax = "cannot exit all shares in a pool. Attempted to exit %f shares, max allowed is %f"
+
+// calcExitPool is a helper function to calculate the exit pool.
+// It is a direct port of the CalcExitPool function from the Gamm module with some modifications
+// to optimize the calculation for performance.
 func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {
 	totalShares, err := strconv.ParseFloat(pool.GetTotalShares().String(), 64)
 	if err != nil {
