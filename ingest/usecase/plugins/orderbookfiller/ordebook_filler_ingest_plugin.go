@@ -165,7 +165,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 	// Execute tx
 	txCtx := blockCtx.GetTxCtx()
 	blockGasPrice := blockCtx.GetGasPrice()
-	if err := o.tryFill(txCtx, blockGasPrice); err != nil {
+	if err := o.tryFill(ctx, txCtx, blockGasPrice); err != nil {
 		o.logger.Error("failed to fill", zap.Error(err))
 	}
 
@@ -236,7 +236,7 @@ func (o *orderbookFillerIngestPlugin) processOrderBook(ctx blockctx.BlockCtxI, c
 
 // tryFill tries to fill the orderbook by executing the transaction.
 // It ranks and filters the pools, simulates the transaction messages, and executes the swap if the simulation passes.
-func (o *orderbookFillerIngestPlugin) tryFill(txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) error {
+func (o *orderbookFillerIngestPlugin) tryFill(ctx context.Context, txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) error {
 	msgs := txCtx.GetSDKMsgs()
 
 	if len(msgs) == 0 {
@@ -248,7 +248,7 @@ func (o *orderbookFillerIngestPlugin) tryFill(txCtx txctx.TxContextI, blockGasPr
 
 	// Simulate transaction messages
 	sdkMsgs := txCtx.GetSDKMsgs()
-	_, adjustedGasAmount, err := o.simulateMsgs(sdkMsgs)
+	_, adjustedGasAmount, err := o.simulateMsgs(ctx, sdkMsgs)
 	if err != nil {
 		return err
 	}

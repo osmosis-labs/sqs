@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	gogogrpc "github.com/cosmos/gogoproto/grpc"
 	"go.uber.org/zap"
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
@@ -251,7 +252,7 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 	}
 
 	// Estimate transaction
-	gasResult, adjustedGasUsed, err := o.simulateMsgs([]sdk.Msg{swapMsg})
+	gasResult, adjustedGasUsed, err := o.simulateMsgs(ctx.AsGoCtx(), []sdk.Msg{swapMsg})
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +288,7 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 	return msgCtx, nil
 }
 
-func (o *orderbookFillerIngestPlugin) simulateMsgs(msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
+func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
 	accSeq, accNum := getInitialSequence(o.keyring.GetAddress().String())
 
 	txFactory := tx.Factory{}
@@ -298,12 +299,34 @@ func (o *orderbookFillerIngestPlugin) simulateMsgs(msgs []sdk.Msg) (*txtypes.Sim
 	txFactory = txFactory.WithGasAdjustment(1.05)
 
 	// Estimate transaction
-	gasResult, adjustedGasUsed, err := tx.CalculateGas(o.passthroughGRPCClient.GetChainGRPCClient(), txFactory, msgs...)
+	gasResult, adjustedGasUsed, err := CalculateGas(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), txFactory, msgs...)
 	if err != nil {
 		return nil, adjustedGasUsed, err
 	}
 
 	return gasResult, adjustedGasUsed, nil
+}
+
+// CalculateGas simulates the execution of a transaction and returns the
+// simulation response obtained by the query and the adjusted gas amount.
+func CalculateGas(
+	ctx context.Context,
+	clientCtx gogogrpc.ClientConn, txf tx.Factory, msgs ...sdk.Msg,
+) (*txtypes.SimulateResponse, uint64, error) {
+	txBytes, err := txf.BuildSimTx(msgs...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	txSvcClient := txtypes.NewServiceClient(clientCtx)
+	simRes, err := txSvcClient.Simulate(ctx, &txtypes.SimulateRequest{
+		TxBytes: txBytes,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return simRes, uint64(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed)), nil
 }
 
 // broadcastTransaction broadcasts a transaction to the chain.
