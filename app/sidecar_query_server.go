@@ -41,7 +41,8 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
+	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
@@ -270,8 +271,8 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
 
 					wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
-					cwAPIClient := orderbookfiller.NewOrderbookCWAPIClient(wasmQueryClient)
-					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, cwAPIClient, keyring, defaultQuoteDenom, logger)
+					orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)
+					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
 				}
 
 				// Register the plugin with the ingest use case

@@ -6,7 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/tx"
 	"google.golang.org/grpc"
 )

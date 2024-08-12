@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/sqs/domain"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 )
 
 func (o *orderbookFillerIngestPlugin) fetchTicksForOrderbook(ctx context.Context, orderbook domain.CanonicalOrderBooksResult) error {
