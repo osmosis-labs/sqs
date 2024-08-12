@@ -12,8 +12,8 @@ import (
 // GetFetchPoolAPRsFromNumiaCb returns a callback to fetch pool APRs from Numia.
 // It increments the error counter if the pool APRs fetching fails.
 // It returns a callback function that returns the pool APRs on success.
-func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClient, logger log.Logger) func() map[uint64]passthroughdomain.PoolAPR {
-	return func() map[uint64]passthroughdomain.PoolAPR {
+func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClient, logger log.Logger) func() (map[uint64]passthroughdomain.PoolAPR, error) {
+	return func() (map[uint64]passthroughdomain.PoolAPR, error) {
 		// Fetch pool APRs from the passthrough grpc client
 		poolAPRs, err := numiaHTTPClient.GetPoolAPRsRange()
 		if err != nil {
@@ -21,6 +21,7 @@ func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClie
 
 			// Increment the error counter
 			domain.SQSPassthroughNumiaAPRsFetchErrorCounter.Inc()
+			return nil, err
 		}
 
 		// Convert to map
@@ -29,15 +30,15 @@ func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClie
 			poolAPRsMap[poolAPR.PoolID] = poolAPR
 		}
 
-		return poolAPRsMap
+		return poolAPRsMap, nil
 	}
 }
 
 // GetFetchPoolPoolFeesFromTimeseries returns a callback to fetch pool fees from timeseries data stack.
 // It increments the error counter if the pool fees fetching fails.
 // It returns a callback function that returns the pool fees on success.
-func GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.TimeSeriesHTTPClient, logger log.Logger) func() map[uint64]passthroughdomain.PoolFee {
-	return func() map[uint64]passthroughdomain.PoolFee {
+func GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.TimeSeriesHTTPClient, logger log.Logger) func() (map[uint64]passthroughdomain.PoolFee, error) {
+	return func() (map[uint64]passthroughdomain.PoolFee, error) {
 		// Fetch pool APRs from the passthrough grpc client
 		poolFees, err := timeseriesHTTPClient.GetPoolFees()
 		if err != nil {
@@ -45,6 +46,8 @@ func GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.T
 
 			// Increment the error counter
 			domain.SQSPassthroughTimeseriesPoolFeesFetchErrorCounter.Inc()
+
+			return nil, err
 		}
 
 		poolFeesMap := make(map[uint64]passthroughdomain.PoolFee, len(poolFees.Data))
@@ -60,6 +63,6 @@ func GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.T
 			poolFeesMap[poolID] = poolFee
 		}
 
-		return poolFeesMap
+		return poolFeesMap, nil
 	}
 }
