@@ -16,6 +16,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
@@ -205,6 +206,10 @@ func (*orderbookFillerIngestPlugin) getUniqueOrderbookDenoms(canonicalOrderbooks
 func (o *orderbookFillerIngestPlugin) processOrderBook(ctx blockctx.BlockCtxI, canonicalOrderbookResult domain.CanonicalOrderBooksResult) error {
 	baseDenom := canonicalOrderbookResult.Base
 	quoteDenom := canonicalOrderbookResult.Quote
+	_, span := tracer.Start(ctx.AsGoCtx(), "orderbookFillerIngestPlugin.processOrderBook")
+	defer span.End()
+
+	span.SetAttributes(attribute.Int64("orderbook_id", int64(canonicalOrderbookResult.PoolID)))
 
 	// Validate user balances meeting minimum threshold.
 	if err := o.validateUserBalances(ctx, baseDenom, quoteDenom); err != nil {
