@@ -100,7 +100,8 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 
 		tokenMetadata, err := a.TUsecase.GetMetadataByChainDenom(denom)
 		if err == nil {
-			return c.JSON(http.StatusOK, tokenMetadata)
+			tokenMetadataResult[denom] = tokenMetadata
+			continue
 		}
 
 		// If we fail to get metadata by chain denom, assume we are given a human denom and try to translate it.
