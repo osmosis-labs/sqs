@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -72,6 +73,12 @@ const (
 	// Note that the first block might arrive later than subsequent due to network or
 	// data parsing delays.
 	firstBlockPoolCountThreshold = 499
+
+	tracerName = "sqs-ingest-usecase"
+)
+
+var (
+	tracer = otel.Tracer(tracerName)
 )
 
 var (
@@ -102,6 +109,9 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 }
 
 func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, takerFeesMap sqsdomain.TakerFeeMap, poolData []*types.PoolData) (err error) {
+	ctx, span := tracer.Start(ctx, "ingestUseCase.ProcessBlockData")
+	defer span.End()
+
 	if p.firstHeightAfterStartUp.Load() == 0 && len(poolData) > firstBlockPoolCountThreshold {
 		p.logger.Info("setting first block height", zap.Uint64("height", height))
 		p.firstHeightAfterStartUp.Store(height)

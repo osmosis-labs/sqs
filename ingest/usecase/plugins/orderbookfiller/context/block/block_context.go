@@ -33,6 +33,9 @@ type BlockCtxI interface {
 
 	// GetGasPrice returns block's gas price information.
 	GetGasPrice() BlockGasPrice
+
+	// SetGoCtx sets the Go context
+	SetGoCtx(ctx context.Context)
 }
 
 type blockContext struct {
@@ -99,6 +102,11 @@ func (b *blockContext) GetPrices() domain.PricesResult {
 // GetGasPrice implements BlockCtxI.
 func (b *blockContext) GetGasPrice() BlockGasPrice {
 	return b.gasPrice
+}
+
+// SetGoCtx implements BlockCtxI.
+func (b *blockContext) SetGoCtx(ctx context.Context) {
+	b.Context = ctx
 }
 
 // getGasPrice returns an estimate of the gas price.

@@ -15,6 +15,7 @@ import (
 	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/tx"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
@@ -46,6 +47,14 @@ type orderBookProcessResult struct {
 	poolID uint64
 }
 
+const (
+	tracerName = "sqs-orderbook-filler"
+)
+
+var (
+	tracer = otel.Tracer(tracerName)
+)
+
 func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, orderBookCWAPIClient orderbookplugindomain.OrderbookCWAPIClient, keyring keyring.Keyring, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
 	liquidityPricer := worker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
 
@@ -72,6 +81,9 @@ func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensU
 
 // ProcessEndBlock implements domain.EndBlockProcessPlugin.
 func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) error {
+	ctx, span := tracer.Start(ctx, "orderbookFillerIngestPlugin.ProcessEndBlock")
+	defer span.End()
+
 	canonicalOrderbooks, err := o.poolsUseCase.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {
 		o.logger.Error("failed to get all canonical orderbook pool IDs", zap.Error(err))
