@@ -257,7 +257,7 @@ func (o *orderbookFillerIngestPlugin) tryFill(ctx context.Context, txCtx txctx.T
 	txCtx.UpdateAdjustedGasTotal(adjustedGasAmount)
 
 	// Execute the swap
-	_, _, err = o.executeTx(txCtx, blockGasPrice)
+	_, _, err = o.executeTx(ctx, txCtx, blockGasPrice)
 	if err != nil {
 		return err
 	}
