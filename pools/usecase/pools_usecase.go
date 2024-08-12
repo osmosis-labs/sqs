@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -551,12 +552,12 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingSharesIn osmomath.
 
 // ported from: pool.CalcExitPoolCoinsFromShares
 func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {
-	totalShares, err := pool.GetTotalShares().ToLegacyDec().Float64()
+	totalShares, err := strconv.ParseFloat(pool.GetTotalShares().String(), 64)
 	if err != nil {
 		return sdk.Coins{}, err
 	}
 
-	exitingShares, err := exitingSharesIn.ToLegacyDec().Float64()
+	exitingShares, err := strconv.ParseFloat(exitingSharesIn.String(), 64)
 	if err != nil {
 		return sdk.Coins{}, err
 	}
