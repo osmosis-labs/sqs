@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -50,6 +51,20 @@ type AccountInfo struct {
 
 type AccountResult struct {
 	Account AccountInfo `json:"account"`
+}
+
+// init overrides LCD and RPC endpoints
+// from environment variables if those are set.
+func init() {
+	osmosisRPCOverwrite := os.Getenv("OSMOSIS_RPC_ENDPOINT")
+	if len(osmosisRPCOverwrite) > 0 {
+		RPC = osmosisRPCOverwrite
+	}
+
+	osmosisLCDOverwrite := os.Getenv("OSMOSIS_LCD_ENDPOINT")
+	if len(osmosisLCDOverwrite) > 0 {
+		LCD = osmosisLCDOverwrite
+	}
 }
 
 func getInitialSequence(address string) (uint64, uint64) {
