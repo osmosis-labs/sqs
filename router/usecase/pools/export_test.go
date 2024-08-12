@@ -30,8 +30,12 @@ func NewRoutableCosmWasmPoolWithCustomModel(
 	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmPoolsParams, tokenOutDenom, takerFee)
 }
 
-func (r *routableAlloyTransmuterPoolImpl) CheckStaticRateLimiter(tokenInCoin sdk.Coin) error {
-	return r.checkStaticRateLimiter(tokenInCoin)
+func (r *routableAlloyTransmuterPoolImpl) CheckStaticRateLimiter(tokenInDenom string, tokenInWeight osmomath.Dec) error {
+	return r.checkStaticRateLimiter(tokenInDenom, tokenInWeight)
+}
+
+func (r *routableAlloyTransmuterPoolImpl) ComputeResultedWeights(tokenInCoin sdk.Coin) (map[string]osmomath.Dec, error) {
+	return r.computeResultedWeights(tokenInCoin)
 }
 
 func CleanUpOutdatedDivision(changeLimier cosmwasmpool.ChangeLimiter, time time.Time) (*cosmwasmpool.Division, []cosmwasmpool.Division, error) {

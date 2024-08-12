@@ -188,13 +188,30 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
 	}
 
-	// Check static & change upper rate limiter
-	// We only need to check it for the token in coin since that is the only one that is increased by the current quote.
-	if err := r.checkStaticRateLimiter(tokenIn); err != nil {
-		return osmomath.BigDec{}, err
-	}
-	if err := r.checkChangeRateLimiter(tokenIn, time.Now()); err != nil {
-		return osmomath.BigDec{}, err
+	staticLimiterExists := len(r.AlloyTransmuterData.RateLimiterConfig.StaticLimiterByDenomMap) != 0
+	changeLimiterExists := len(r.AlloyTransmuterData.RateLimiterConfig.ChangeLimiterByDenomMap) != 0
+
+	if staticLimiterExists || changeLimiterExists {
+		weights, err := r.computeResultedWeights(tokenIn)
+		if err != nil {
+			return osmomath.BigDec{}, err
+		}
+
+		tokenInWeight := weights[tokenIn.Denom]
+
+		// Check static & change upper rate limiter
+		// We only need to check it for the token in coin since that is the only one that is increased by the current quote.
+		if staticLimiterExists {
+			if err := r.checkStaticRateLimiter(tokenIn.Denom, tokenInWeight); err != nil {
+				return osmomath.BigDec{}, err
+			}
+		}
+
+		if changeLimiterExists {
+			if err := r.checkChangeRateLimiter(tokenIn.Denom, tokenInWeight, time.Now()); err != nil {
+				return osmomath.BigDec{}, err
+			}
+		}
 	}
 
 	tokenInAmount := osmomath.BigDecFromSDKInt(tokenIn.Amount)
@@ -213,43 +230,30 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 // No-op if the static rate limiter is not set.
 // Returns error if the token in weight is greater than the upper limit.
 // Returns nil if the token in weight is less than or equal to the upper limit.
-func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk.Coin) error {
-	// If no static rate limiter is set, return
-	if len(r.AlloyTransmuterData.RateLimiterConfig.StaticLimiterByDenomMap) == 0 {
-		return nil
-	}
-
+func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInDenom string, tokenInWeight osmomath.Dec) error {
 	// Check if the static rate limiter exists for the token in denom updated balance.
-	tokenInStaticLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetStaticLimiter(tokenInCoin.Denom)
+	tokenInStaticLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetStaticLimiter(tokenInDenom)
 	if !ok {
 		return nil
 	}
 
-	weights, err := r.computeResultedWeights(tokenInCoin)
-	if err != nil {
-		return err
-	}
-
 	// Validate upper limit
 	upperLimitInt := osmomath.MustNewDecFromStr(tokenInStaticLimiter.UpperLimit)
-
-	// Token in weight
-	tokenInWeight := weights[tokenInCoin.Denom]
 
 	// Check the upper limit
 	if tokenInWeight.GT(upperLimitInt) {
 		return domain.StaticRateLimiterInvalidUpperLimitError{
 			UpperLimit: tokenInStaticLimiter.UpperLimit,
 			Weight:     tokenInWeight.String(),
-			Denom:      tokenInCoin.Denom,
+			Denom:      tokenInDenom,
 		}
 	}
 
 	return nil
 }
 
-func (r *routableAlloyTransmuterPoolImpl) checkChangeRateLimiter(tokenInCoin sdk.Coin, time time.Time) error {
-	tokenInChangeLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetChangeLimiter(tokenInCoin.Denom)
+func (r *routableAlloyTransmuterPoolImpl) checkChangeRateLimiter(tokenInDenom string, tokenInWeight osmomath.Dec, time time.Time) error {
+	tokenInChangeLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetChangeLimiter(tokenInDenom)
 
 	// no error if rate limiter not found
 	if !ok {
@@ -316,18 +320,13 @@ func (r *routableAlloyTransmuterPoolImpl) checkChangeRateLimiter(tokenInCoin sdk
 		}
 
 		upperLimit := avg.Add(boundaryOffset)
-		weights, err := r.computeResultedWeights(tokenInCoin)
-		if err != nil {
-			return err
-		}
 
 		// Check if the value exceeds the upper limit
-		tokenInWeight := weights[tokenInCoin.Denom]
 		if tokenInWeight.GT(upperLimit) {
 			return domain.StaticRateLimiterInvalidUpperLimitError{
 				UpperLimit: upperLimit.String(),
 				Weight:     tokenInWeight.String(),
-				Denom:      tokenInCoin.Denom,
+				Denom:      tokenInDenom,
 			}
 		}
 

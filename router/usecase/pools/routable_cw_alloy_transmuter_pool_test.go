@@ -410,8 +410,12 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 
 			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
 
+			weights, err := r.ComputeResultedWeights(tc.tokenInCoin)
+			s.Require().NoError(err)
+			tokenInWeight := weights[tc.tokenInCoin.Denom]
+
 			// System under test
-			err := r.CheckStaticRateLimiter(tc.tokenInCoin)
+			err = r.CheckStaticRateLimiter(tc.tokenInCoin.Denom, tokenInWeight)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)

@@ -62,7 +62,7 @@ test-unit:
 	@VERSION=$(VERSION) go test -mod=readonly $(PACKAGES_UNIT)
 
 build:
-	CGO_ENABLED=1 BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
+	BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
 	-tags "netgo,ledger,muslc" \
 	-ldflags "-w -s -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
 	-v -o /osmosis/build/sqsd app/*.go 
