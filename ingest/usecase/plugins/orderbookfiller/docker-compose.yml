@@ -51,6 +51,8 @@ services:
       - OSMOSIS_KEYRING_PATH=${OSMOSIS_KEYRING_PATH}
       - OSMOSIS_KEYRING_PASSWORD=${OSMOSIS_KEYRING_PASSWORD}
       - OSMOSIS_KEYRING_KEY_NAME=${OSMOSIS_KEYRING_KEY_NAME}
+      - OSMOSIS_RPC_ENDPOINT=http://osmosis:26657
+      - OSMOSIS_LCD_ENDPOINT=http://osmosis:1317
     command:
       - --config
       - /osmosis/config.json
