@@ -94,7 +94,7 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 		preferredPoolIDsMap[poolID] = struct{}{}
 	}
 
-	logger.Info("validated pools", zap.Int("num_pools", len(filteredPools)))
+	logger.Debug("validated pools", zap.Int("num_pools", len(filteredPools)))
 
 	return sortPools(filteredPools, cosmWasmPoolsConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger), orderbookPools
 }
