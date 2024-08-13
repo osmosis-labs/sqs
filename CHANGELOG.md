@@ -42,6 +42,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Add rounding direction to the order book
 - Fix bug in skipping Numia API response errors
 - Ingest tracing
+- Fix `/tokens/metadata` query for multiple `chainDenom`
 
 ## v25.9.0
 
