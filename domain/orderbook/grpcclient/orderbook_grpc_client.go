@@ -13,6 +13,9 @@ import (
 type OrderBookClient interface {
 	// GetOrdersByTick fetches orders by tick from the orderbook contract.
 	GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error)
+
+	// GetTickUnrealizedCancels fetches unrealized cancels by tick from the orderbook contract.
+	GetTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]unrealizedCancelsTickPayload, error)
 }
 
 // orderbookClientImpl is an implementation of OrderbookCWAPIClient.
@@ -34,9 +37,18 @@ func (o *orderbookClientImpl) GetOrdersByTick(ctx context.Context, contractAddre
 	ordersByTick := ordersByTick{Tick: tick}
 
 	var orders ordersByTickResponse
-	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, o.wasmClient, contractAddress, ordersByTickPayload{OrdersByTick: ordersByTick}, &orders); err != nil {
+	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, o.wasmClient, contractAddress, ordersByTickRequest{OrdersByTick: ordersByTick}, &orders); err != nil {
 		return nil, err
 	}
 
 	return orders.Orders, nil
+}
+
+// GetTickUnrealizedCancels implements OrderbookCWAPIClient.
+func (o *orderbookClientImpl) GetTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]unrealizedCancelsTickPayload, error) {
+	var unrealizedCancels unrealizedCancelsResponse
+	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, o.wasmClient, contractAddress, unrealizedCancelsByTickIdRequest{UnrealizedCancels: unrealizedCancelsRequestPayload{TickIds: tickIDs}}, &unrealizedCancels); err != nil {
+		return nil, err
+	}
+	return unrealizedCancels.Ticks, nil
 }

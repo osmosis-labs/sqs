@@ -22,6 +22,8 @@ import (
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
 	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller"
+	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
+	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
@@ -239,6 +241,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		// pool liquidity compute worker listens to the quote price update worker.
 		quotePriceUpdateWorker.RegisterListener(poolLiquidityComputeWorker)
 
+		wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
+		orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)
+
+		orderBookRepository := orderbookrepository.New()
+		orderBookUseCase := orderbookusecase.New(orderBookRepository, orderBookAPIClient, logger)
+
 		// Initialize ingest handler and usecase
 		ingestUseCase, err := ingestusecase.NewIngestUsecase(
 			poolsUseCase,
@@ -249,6 +257,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 			appCodec,
 			quotePriceUpdateWorker,
 			candidateRouteSearchDataWorker,
+			orderBookUseCase,
 			logger,
 		)
 
@@ -269,9 +278,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					}
 
 					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
-
-					wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
-					orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)
 					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
 				}
 

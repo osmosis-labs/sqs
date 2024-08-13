@@ -35,6 +35,7 @@ type ingestUseCase struct {
 	pricingRouterUsecase mvc.RouterUsecase
 	tokensUsecase        mvc.TokensUsecase
 	chainInfoUseCase     mvc.ChainInfoUsecase
+	orderBookUseCase     mvc.OrderBookUsecase
 
 	denomLiquidityMap domain.DenomPoolLiquidityMap
 
@@ -86,7 +87,7 @@ var (
 )
 
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, orderBookUseCase mvc.OrderBookUsecase, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
 		codec: codec,
 
@@ -101,6 +102,8 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 		logger: logger,
 
 		defaultQuotePriceUpdateWorker: quotePriceUpdateWorker,
+
+		orderBookUseCase: orderBookUseCase,
 
 		candidateRouteSearchWorker: candidateRouteSearchWorker,
 
@@ -291,6 +294,14 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				uniqueData.UpdatedDenoms[alloyedDenom] = struct{}{}
 
 				currentBlockLiquidityMap = updateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap, poolID, alloyedDenom)
+			}
+
+			// Process the orderbook pool.
+			if cosmWasmModel != nil && cosmWasmModel.IsOrderbook() {
+				// Process the orderbook pool.
+				if err := p.orderBookUseCase.ProcessPool(ctx, poolResult.pool); err != nil {
+					p.logger.Error("failed to process orderbook pool", zap.Error(err), zap.Uint64("pool_id", poolID))
+				}
 			}
 
 			// Update unique pools.
