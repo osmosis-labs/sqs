@@ -42,6 +42,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Add rounding direction to the order book
 - Fix bug in skipping Numia API response errors
 - Ingest tracing
+- Fix multi-hop /custom-direct-quote bug
 
 ## v25.9.0
 

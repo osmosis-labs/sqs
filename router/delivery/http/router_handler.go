@@ -368,7 +368,8 @@ func getValidTokenInTokenOutStr(c echo.Context) (tokenOutStr, tokenInStr string,
 
 func getValidPoolID(c echo.Context) ([]uint64, error) {
 	// We accept two poolIDs and poolID parameters, and require at least one of them to be filled
-	poolIDStr := strings.Split(c.QueryParam("poolID"), ",")
+	poolIDParam := c.QueryParam("poolID")
+	poolIDStr := strings.Split(poolIDParam, ",")
 	if len(poolIDStr) == 0 {
 		return nil, errors.New("poolID is required")
 	}
