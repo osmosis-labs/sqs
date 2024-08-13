@@ -42,6 +42,6 @@ func (r *routableAlloyTransmuterPoolImpl) ComputeResultedWeights(tokenInCoin sdk
 	return r.computeResultedWeights(tokenInCoin)
 }
 
-func CleanUpOutdatedDivision(changeLimier cosmwasmpool.ChangeLimiter, time time.Time) (*cosmwasmpool.Division, []cosmwasmpool.Division, error) {
-	return cleanUpOutdatedDivision(changeLimier, time)
+func CleanUpOutdatedDivision(changeLimiter cosmwasmpool.ChangeLimiter, time time.Time) (*cosmwasmpool.Division, []cosmwasmpool.Division, error) {
+	return cleanUpOutdatedDivision(changeLimiter, time)
 }

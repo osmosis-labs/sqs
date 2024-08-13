@@ -343,10 +343,10 @@ func (r *routableAlloyTransmuterPoolImpl) checkChangeRateLimiter(tokenInDenom st
 // returns (latestRemovedDivision, updatedDivisions, error)
 //
 // CONTRACT: Divisions must be ordered by `StartedAt`
-func cleanUpOutdatedDivision(changeLimier cosmwasmpool.ChangeLimiter, time time.Time) (*cosmwasmpool.Division, []cosmwasmpool.Division, error) {
-	divisions := changeLimier.Divisions
-	windowSize := changeLimier.WindowConfig.WindowSize
-	divisionSize := changeLimier.WindowConfig.WindowSize / changeLimier.WindowConfig.DivisionCount
+func cleanUpOutdatedDivision(changeLimiter cosmwasmpool.ChangeLimiter, time time.Time) (*cosmwasmpool.Division, []cosmwasmpool.Division, error) {
+	divisions := changeLimiter.Divisions
+	windowSize := changeLimiter.WindowConfig.WindowSize
+	divisionSize := changeLimiter.WindowConfig.WindowSize / changeLimiter.WindowConfig.DivisionCount
 
 	var latestRemovedDivision *cosmwasmpool.Division
 	latestRemovedIndex := -1
