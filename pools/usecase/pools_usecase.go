@@ -556,6 +556,7 @@ const errMsgFormatSharesLargerThanMax = "cannot exit all shares in a pool. Attem
 // calcExitPool is a helper function to calculate the exit pool.
 // It is a direct port of the CalcExitPool function from the Gamm module with some modifications
 // to optimize the calculation for performance.
+// @link https://github.com/osmosis-labs/osmosis/blob/fde1776476d9c2f849dcbfb30ca3ec64d0e12863/x/gamm/pool-models/internal/cfmm_common/lp.go#L18
 func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {
 	totalShares, err := strconv.ParseFloat(pool.GetTotalShares().String(), 64)
 	if err != nil {
@@ -595,7 +596,10 @@ func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomat
 
 	for _, asset := range poolLiquidity {
 		// round down here, due to not wanting to over-exit
-		amount := float64(asset.Amount.BigInt().Int64())
+		amount, err := strconv.ParseFloat(asset.Amount.String(), 64)
+		if err != nil {
+			return sdk.Coins{}, err
+		}
 
 		exitAmt := shareOutRatio * amount
 		if exitAmt <= 0 {

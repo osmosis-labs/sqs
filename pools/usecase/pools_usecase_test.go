@@ -571,6 +571,8 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
 }
 
 // TestCalcExitPool is a copy of node's TestCalcExitPool
+// This implementation includes several specific test cases to cover arithmetic on floats instead of sdk math data types.
+// @link https://github.com/osmosis-labs/osmosis/blob/fde1776476d9c2f849dcbfb30ca3ec64d0e12863/x/gamm/pool-models/internal/cfmm_common/lp_test.go#L31
 func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 	emptyContext := sdk.Context{}
 
@@ -580,9 +582,13 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 	)
 
 	threeBalancerPoolAssets := []balancer.PoolAsset{
-		{Token: sdk.NewInt64Coin("foo", 2000000000), Weight: osmomath.NewIntFromUint64(5)},
-		{Token: sdk.NewInt64Coin("bar", 3000000000), Weight: osmomath.NewIntFromUint64(5)},
-		{Token: sdk.NewInt64Coin("baz", 4000000000), Weight: osmomath.NewIntFromUint64(5)},
+		{Token: sdk.NewInt64Coin("foo", 20000000000000), Weight: osmomath.NewIntFromUint64(5)},
+		{Token: sdk.NewInt64Coin("bar", 30000000000000), Weight: osmomath.NewIntFromUint64(5)},
+		{Token: sdk.NewInt64Coin("baz", 40000000000000), Weight: osmomath.NewIntFromUint64(5)},
+	}
+
+	fourthBalancerPoolAssets := []balancer.PoolAsset{
+		{Token: sdk.NewInt64Coin("foo", 9000000000000000000).AddAmount(sdk.NewInt(9000000000000000000)), Weight: osmomath.NewIntFromUint64(5)},
 	}
 
 	// create these pools used for testing
@@ -619,6 +625,15 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 		1,
 		balancer.PoolParams{SwapFee: osmomath.ZeroDec(), ExitFee: osmomath.MustNewDecFromStr("0.0002")},
 		threeBalancerPoolAssets,
+		"",
+		time.Now(),
+	)
+	s.Assert().NoError(err)
+
+	fourthAssetPoolWithExitFee, err := balancer.NewBalancerPool(
+		1,
+		balancer.PoolParams{SwapFee: osmomath.ZeroDec(), ExitFee: osmomath.MustNewDecFromStr("0.0002")},
+		fourthBalancerPoolAssets,
 		"",
 		time.Now(),
 	)
@@ -663,6 +678,12 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 		{
 			name:          "three-asset pool with exit fee, valid exiting shares",
 			pool:          &threeAssetPoolWithExitFee,
+			exitingShares: osmomath.NewIntFromUint64(7000000000000),
+			expError:      false,
+		},
+		{
+			name:          "fourth-asset pool with exit fee, valid exiting shares, overflow amount",
+			pool:          &fourthAssetPoolWithExitFee,
 			exitingShares: osmomath.NewIntFromUint64(7000000000000),
 			expError:      false,
 		},
