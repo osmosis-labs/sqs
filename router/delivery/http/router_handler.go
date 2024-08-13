@@ -137,7 +137,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
 	}
 
-	_, _, err = quote.PrepareResult(ctx, scalingFactor)
+	_, _, err = quote.PrepareResult(ctx, scalingFactor, a.logger)
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) error {
 		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom[len(tokenOutDenom)-1])
 	}
 
-	_, _, err = quote.PrepareResult(ctx, scalingFactor)
+	_, _, err = quote.PrepareResult(ctx, scalingFactor, a.logger)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}

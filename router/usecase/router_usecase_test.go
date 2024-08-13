@@ -847,7 +847,7 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	s.Require().NoError(err)
 
 	// Prepare quote result.
-	_, _, err = quote.PrepareResult(context.Background(), osmomath.NewDec(int64(wbtcMetadata.Precision)))
+	_, _, err = quote.PrepareResult(context.Background(), osmomath.NewDec(int64(wbtcMetadata.Precision)), &log.NoOpLogger{})
 
 	priceImpact := quote.GetPriceImpact()
 

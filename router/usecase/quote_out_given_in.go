@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -51,7 +52,7 @@ type quoteExactAmountIn struct {
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
@@ -78,7 +79,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
 		amountInFraction := q.AmountIn.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction))
+		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}
