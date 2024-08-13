@@ -3,7 +3,7 @@
 ## Repository Layout
 
 We use a [Clean Architecture](https://hackernoon.com/golang-clean-archithecture-efd6d7c43047) design pattern
-to group the code by separate "Functional Components" .
+to group the code by separate "Functional Components".
 
 ## Functional Components
 
