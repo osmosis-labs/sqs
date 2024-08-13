@@ -14,7 +14,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 )
 
 type passthroughUseCase struct {
@@ -24,10 +23,6 @@ type passthroughUseCase struct {
 	defaultQuoteDenom     string
 	liquidityPricer       domain.LiquidityPricer
 	passthroughGRPCClient passthroughdomain.PassthroughGRPCClient
-
-	aprPrefetcher datafetchers.Fetcher[map[uint64]passthroughdomain.PoolAPR]
-
-	poolFeesPrefetcher datafetchers.Fetcher[map[uint64]passthroughdomain.PoolFee]
 
 	logger log.Logger
 }
@@ -390,16 +385,6 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	}
 
 	return finalResult, nil
-}
-
-// RegisterAPRFetcher registers the APR fetcher for the passthrough use case.
-func (p *passthroughUseCase) RegisterAPRFetcher(aprFetcher datafetchers.Fetcher[map[uint64]passthroughdomain.PoolAPR]) {
-	p.aprPrefetcher = aprFetcher
-}
-
-// RegisterPoolFeesFetcher registers the pool fees fetcher for the passthrough use case.
-func (p *passthroughUseCase) RegisterPoolFeesFetcher(poolFeesFetcher datafetchers.Fetcher[map[uint64]passthroughdomain.PoolFee]) {
-	p.poolFeesPrefetcher = poolFeesFetcher
 }
 
 // computeCapitalizationForCoins instruments the coins with their liquiditiy capitalization values.

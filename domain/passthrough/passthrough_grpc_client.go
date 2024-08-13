@@ -38,6 +38,8 @@ type PassthroughGRPCClient interface {
 
 	// DelegationTotalRewards returns the total unclaimed staking rewards accrued of the user with the given address.
 	DelegationRewards(ctx context.Context, address string) (sdk.Coins, error)
+
+	GetChainGRPCClient() *grpc.ClientConn
 }
 
 type PassthroughFetchFn func(context.Context, string) (sdk.Coins, error)
@@ -53,6 +55,8 @@ type passthroughGRPCClient struct {
 	lockupQueryClient                lockup.QueryClient
 	concentratedLiquidityQueryClient concentratedLiquidity.QueryClient
 	distributionClient               distribution.QueryClient
+
+	chainGRPCClient *grpc.ClientConn
 }
 
 const (
@@ -78,6 +82,8 @@ func NewPassthroughGRPCClient(grpcURI string) (PassthroughGRPCClient, error) {
 		lockupQueryClient:                lockup.NewQueryClient(grpcClient),
 		concentratedLiquidityQueryClient: concentratedLiquidity.NewQueryClient(grpcClient),
 		distributionClient:               distribution.NewQueryClient(grpcClient),
+
+		chainGRPCClient: grpcClient,
 	}, nil
 }
 
@@ -189,6 +195,11 @@ func (p *passthroughGRPCClient) DelegationRewards(ctx context.Context, address s
 	}
 
 	return rewardCoins, nil
+}
+
+// GetChainGRPCClient implements PassthroughGRPCClient.
+func (p *passthroughGRPCClient) GetChainGRPCClient() *grpc.ClientConn {
+	return p.chainGRPCClient
 }
 
 func paginateRequest(ctx context.Context, fetchCoinsFn func(ctx context.Context, pageRequest *query.PageRequest) (*query.PageResponse, sdk.Coins, error)) (sdk.Coins, error) {

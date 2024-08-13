@@ -13,9 +13,9 @@ import (
 // The test also checks that the WaitUntilFirstResult method blocks for the expected duration,
 // and does not block for too long.
 func TestWaitUntilFirstResult(t *testing.T) {
-	updateFn := func() int {
+	updateFn := func() (int, error) {
 		time.Sleep(2 * time.Second)
-		return 42
+		return 42, nil
 	}
 
 	start := time.Now()

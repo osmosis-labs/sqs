@@ -9,6 +9,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/require"
@@ -190,7 +191,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				Config: tt.cosmWasmConfig,
 			}
 			routablePool, err := pools.NewRoutableCosmWasmPoolWithCustomModel(tt.pool, tt.cosmwasmPool, cosmWasmPoolsParams, tt.tokenOutDenom, tt.takerFee)

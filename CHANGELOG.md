@@ -35,6 +35,14 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Orderbook plugin
+- Change tick iteration exit condition in CL in orderbook from zero to smallest Dec (18 decimals).
+- Add rounding direction to the order book
+- Fix bug in skipping Numia API response errors
+- Ingest tracing
+
 ## v25.9.0
 
 - Add staking rewards to the unclaimed rewards and total assets categories of the /portfolio-assets query

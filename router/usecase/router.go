@@ -94,7 +94,7 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 		preferredPoolIDsMap[poolID] = struct{}{}
 	}
 
-	logger.Info("validated pools", zap.Int("num_pools", len(filteredPools)))
+	logger.Debug("validated pools", zap.Int("num_pools", len(filteredPools)))
 
 	return sortPools(filteredPools, cosmWasmPoolsConfig.TransmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger), orderbookPools
 }
@@ -182,7 +182,7 @@ func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, t
 		return ratedPools[i].rating > ratedPools[j].rating
 	})
 
-	logger.Info("sorted pools", zap.Int("pool_count", len(ratedPools)))
+	logger.Debug("sorted pools", zap.Int("pool_count", len(ratedPools)))
 	// Convert back to pools
 	for i, ratedPool := range ratedPools {
 		pool := ratedPool.pool

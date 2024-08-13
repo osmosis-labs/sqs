@@ -8,6 +8,7 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/cosmwasm/msg"
@@ -39,7 +40,7 @@ type routableCosmWasmPoolImpl struct {
 }
 
 // NewRoutableCosmWasmPool returns a new routable cosmwasm pool with the given parameters.
-func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, cosmWasmPoolsParams CosmWasmPoolsParams) domain.RoutablePool {
+func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams) domain.RoutablePool {
 	// Initializa routable cosmwasm pool
 	routableCosmWasmPool := &routableCosmWasmPoolImpl{
 		ChainPool:     pool,
@@ -106,7 +107,7 @@ func (r *routableCosmWasmPoolImpl) calculateTokenOutByTokenIn(ctx context.Contex
 	calcMessage := msg.NewCalcOutAmtGivenInRequest(tokenIn, tokenOutDenom, r.SpreadFactor)
 
 	calcOutAmtGivenInResponse := msg.CalcOutAmtGivenInResponse{}
-	if err := queryCosmwasmContract(ctx, r.wasmClient, r.ChainPool.ContractAddress, &calcMessage, &calcOutAmtGivenInResponse); err != nil {
+	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, r.wasmClient, r.ChainPool.ContractAddress, &calcMessage, &calcOutAmtGivenInResponse); err != nil {
 		return sdk.Coin{}, err
 	}
 
@@ -180,7 +181,7 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 	}
 
 	response := &msg.SpotPriceQueryMsgResponse{}
-	if err := queryCosmwasmContract(ctx, r.wasmClient, r.ChainPool.ContractAddress, &request, response); err != nil {
+	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, r.wasmClient, r.ChainPool.ContractAddress, &request, response); err != nil {
 		return osmomath.BigDec{}, err
 	}
 

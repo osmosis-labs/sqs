@@ -11,6 +11,8 @@ import (
 	"github.com/labstack/echo/v4"
 
 	// nolint: staticcheck
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	// nolint: staticcheck
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
@@ -19,6 +21,7 @@ import (
 
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
+	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
@@ -36,7 +39,10 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
+	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
@@ -202,20 +208,16 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Iniitialize data fetcher for pool APRs
 	fetchPoolAPRsCallback := datafetchers.GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
 	var aprFetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR] = datafetchers.NewMapFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes))
-	aprFetcher.WaitUntilFirstResult()
 
 	// Register the APR fetcher with the passthrough use case
-	passthroughUseCase.RegisterAPRFetcher(aprFetcher)
 	poolsUseCase.RegisterAPRFetcher(aprFetcher)
 
 	// Initialize data fetcher for pool fees
 	timeseriesHTTPClient := passthroughdomain.NewTimeSeriesHTTPClient(passthroughConfig.TimeseriesURL)
 	fetchPoolFeesCallback := datafetchers.GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient, logger)
 	poolFeesFetcher := datafetchers.NewMapFetcher(fetchPoolFeesCallback, time.Minute*time.Duration(passthroughConfig.PoolFeesFetchIntervalMinutes))
-	poolFeesFetcher.WaitUntilFirstResult()
 
 	// Register the pool fees fetcher with the passthrough use case
-	passthroughUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
 	poolsUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
 
 	// Start grpc ingest server if enabled
@@ -252,6 +254,30 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		if err != nil {
 			return nil, err
+		}
+
+		// Iterate over the plugin configurations and register the enabled plugins.
+		for _, plugin := range grpcIngesterConfig.Plugins {
+			if plugin.IsEnabled() {
+				var currentPlugin domain.EndBlockProcessPlugin
+
+				if plugin.GetName() == orderbookplugindomain.OrderBookPluginName {
+					// Create keyring
+					keyring, err := keyring.New()
+					if err != nil {
+						return nil, err
+					}
+
+					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
+
+					wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
+					orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)
+					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
+				}
+
+				// Register the plugin with the ingest use case
+				ingestUseCase.RegisterEndBlockProcessPlugin(currentPlugin)
+			}
 		}
 
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
