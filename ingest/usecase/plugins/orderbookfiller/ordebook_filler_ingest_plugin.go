@@ -9,12 +9,14 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
 	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/tx"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
@@ -46,6 +48,14 @@ type orderBookProcessResult struct {
 	poolID uint64
 }
 
+const (
+	tracerName = "sqs-orderbook-filler"
+)
+
+var (
+	tracer = otel.Tracer(tracerName)
+)
+
 func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, orderBookCWAPIClient orderbookplugindomain.OrderbookCWAPIClient, keyring keyring.Keyring, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
 	liquidityPricer := worker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
 
@@ -72,6 +82,9 @@ func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensU
 
 // ProcessEndBlock implements domain.EndBlockProcessPlugin.
 func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) error {
+	ctx, span := tracer.Start(ctx, "orderbookFillerIngestPlugin.ProcessEndBlock")
+	defer span.End()
+
 	canonicalOrderbooks, err := o.poolsUseCase.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {
 		o.logger.Error("failed to get all canonical orderbook pool IDs", zap.Error(err))
@@ -153,7 +166,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 	// Execute tx
 	txCtx := blockCtx.GetTxCtx()
 	blockGasPrice := blockCtx.GetGasPrice()
-	if err := o.tryFill(txCtx, blockGasPrice); err != nil {
+	if err := o.tryFill(ctx, txCtx, blockGasPrice); err != nil {
 		o.logger.Error("failed to fill", zap.Error(err))
 	}
 
@@ -193,6 +206,10 @@ func (*orderbookFillerIngestPlugin) getUniqueOrderbookDenoms(canonicalOrderbooks
 func (o *orderbookFillerIngestPlugin) processOrderBook(ctx blockctx.BlockCtxI, canonicalOrderbookResult domain.CanonicalOrderBooksResult) error {
 	baseDenom := canonicalOrderbookResult.Base
 	quoteDenom := canonicalOrderbookResult.Quote
+	_, span := tracer.Start(ctx.AsGoCtx(), "orderbookFillerIngestPlugin.processOrderBook")
+	defer span.End()
+
+	span.SetAttributes(attribute.Int64("orderbook_id", int64(canonicalOrderbookResult.PoolID)))
 
 	// Validate user balances meeting minimum threshold.
 	if err := o.validateUserBalances(ctx, baseDenom, quoteDenom); err != nil {
@@ -224,7 +241,7 @@ func (o *orderbookFillerIngestPlugin) processOrderBook(ctx blockctx.BlockCtxI, c
 
 // tryFill tries to fill the orderbook by executing the transaction.
 // It ranks and filters the pools, simulates the transaction messages, and executes the swap if the simulation passes.
-func (o *orderbookFillerIngestPlugin) tryFill(txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) error {
+func (o *orderbookFillerIngestPlugin) tryFill(ctx context.Context, txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) error {
 	msgs := txCtx.GetSDKMsgs()
 
 	if len(msgs) == 0 {
@@ -236,7 +253,7 @@ func (o *orderbookFillerIngestPlugin) tryFill(txCtx txctx.TxContextI, blockGasPr
 
 	// Simulate transaction messages
 	sdkMsgs := txCtx.GetSDKMsgs()
-	_, adjustedGasAmount, err := o.simulateMsgs(sdkMsgs)
+	_, adjustedGasAmount, err := o.simulateMsgs(ctx, sdkMsgs)
 	if err != nil {
 		return err
 	}
@@ -245,7 +262,7 @@ func (o *orderbookFillerIngestPlugin) tryFill(txCtx txctx.TxContextI, blockGasPr
 	txCtx.UpdateAdjustedGasTotal(adjustedGasAmount)
 
 	// Execute the swap
-	_, _, err = o.executeTx(txCtx, blockGasPrice)
+	_, _, err = o.executeTx(ctx, txCtx, blockGasPrice)
 	if err != nil {
 		return err
 	}

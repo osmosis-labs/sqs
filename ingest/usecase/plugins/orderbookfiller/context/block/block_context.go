@@ -6,7 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/tx"
 	"google.golang.org/grpc"
 )
@@ -33,6 +33,9 @@ type BlockCtxI interface {
 
 	// GetGasPrice returns block's gas price information.
 	GetGasPrice() BlockGasPrice
+
+	// SetGoCtx sets the Go context
+	SetGoCtx(ctx context.Context)
 }
 
 type blockContext struct {
@@ -99,6 +102,11 @@ func (b *blockContext) GetPrices() domain.PricesResult {
 // GetGasPrice implements BlockCtxI.
 func (b *blockContext) GetGasPrice() BlockGasPrice {
 	return b.gasPrice
+}
+
+// SetGoCtx implements BlockCtxI.
+func (b *blockContext) SetGoCtx(ctx context.Context) {
+	b.Context = ctx
 }
 
 // getGasPrice returns an estimate of the gas price.

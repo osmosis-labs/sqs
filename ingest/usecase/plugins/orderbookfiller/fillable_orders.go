@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
