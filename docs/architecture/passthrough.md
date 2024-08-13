@@ -1,6 +1,6 @@
 # Passthrough Module
 
-Passtrhough module is the module that "passes through" the queries to the chain node via gRPC, aggregates results and returns to the client.
+Passthrough module is the module that "passes through" the queries to the chain node via gRPC, aggregates results and returns to the client.
 
 ## Context
 
