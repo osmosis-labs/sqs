@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 
@@ -61,7 +62,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
 
 			mock := &mocks.MockRoutablePool{ChainPoolModel: cosmwasmPool.AsSerializablePool(), Balances: tc.balances, PoolType: poolType}
 
-			cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				Config: domain.CosmWasmPoolRouterConfig{
 					TransmuterCodeIDs: map[uint64]struct{}{
 						cosmwasmPool.GetCodeId(): {},

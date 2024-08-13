@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
@@ -62,7 +63,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 		TakerFee: takerFee,
 	}
 
-	cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		Config: domain.CosmWasmPoolRouterConfig{
 			OrderbookCodeIDs: map[uint64]struct{}{
 				cosmwasmPool.GetId(): {},
@@ -110,7 +111,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
 				PoolId:   defaultPoolID,
-				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)),
+				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(150)).String(),
 			},
 		},
 		"BID: multi-tick/direction swap": {
@@ -149,7 +150,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
 				PoolId:   defaultPoolID,
-				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),
+				AmountIn: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)).String(),
 			},
 		},
 		"ASK: simple swap": {
@@ -177,7 +178,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
 				PoolId:   defaultPoolID,
-				AmountIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)),
+				AmountIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(150)).String(),
 			},
 		},
 		"ASK: multi-tick/direction swap": {
@@ -216,7 +217,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			},
 			expectError: domain.OrderbookNotEnoughLiquidityToCompleteSwapError{
 				PoolId:   defaultPoolID,
-				AmountIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
+				AmountIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)).String(),
 			},
 		},
 		"invalid: duplicate denom": {

@@ -17,7 +17,7 @@ type Fetcher[T any] interface {
 // and provides a method to get the latest value.
 // NOTE: It may return stale data if the update function takes longer than the interval.
 type IntervalFetcher[T any] struct {
-	updateFn  func() T
+	updateFn  func() (T, error)
 	interval  time.Duration
 	hasClosed bool
 
@@ -29,7 +29,7 @@ type IntervalFetcher[T any] struct {
 	mutex                 sync.RWMutex
 }
 
-func NewIntervalFetcher[T any](updateFn func() T, interval time.Duration) *IntervalFetcher[T] {
+func NewIntervalFetcher[T any](updateFn func() (T, error), interval time.Duration) *IntervalFetcher[T] {
 	if interval <= 0 {
 		panic("interval must be greater than 0")
 	}
@@ -54,7 +54,13 @@ func (p *IntervalFetcher[T]) startTimer() {
 }
 
 func (p *IntervalFetcher[T]) prefetch() {
-	newValue := p.updateFn()
+	newValue, err := p.updateFn()
+	if err != nil {
+		// By silently skipping the error, the values would become stale,
+		// signaling that to the client.
+		return
+	}
+
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 

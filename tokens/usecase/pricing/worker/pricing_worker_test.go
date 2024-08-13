@@ -137,8 +137,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	s.Require().NoError(err)
 
 	// Unmarshal the config into your Config struct
-	var config domain.Config
-	err = viper.Unmarshal(&config)
+	config, err := domain.UnmarshalConfig()
 	s.Require().NoError(err)
 
 	mainnetState := s.SetupMainnetState()

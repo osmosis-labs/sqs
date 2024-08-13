@@ -7,6 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
@@ -88,7 +89,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 					PoolDenoms:            []string{"foo", "bar"},
 				},
 			}
-			cosmWasmPoolsParams := pools.CosmWasmPoolsParams{
+			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
 			routablePool, err := pools.NewRoutablePool(poolWrapper, tc.TokenOutDenom, noTakerFee, cosmWasmPoolsParams)

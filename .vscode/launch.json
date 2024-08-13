@@ -10,6 +10,11 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/app",
+      "env": {
+        "OSMOSIS_KEYRING_PATH":"/root/.osmosisd/keyring-test",
+        "OSMOSIS_KEYRING_PASSWORD": "test",
+	    "OSMOSIS_KEYRING_KEY_NAME": "local.info"
+      },
       "args": [
         "--config",
         "config.json",
