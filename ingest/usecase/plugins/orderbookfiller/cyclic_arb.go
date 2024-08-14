@@ -7,6 +7,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
+	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/msg"
 	"go.uber.org/zap"
 )
 
@@ -48,27 +49,23 @@ func (o *orderbookFillerIngestPlugin) estimateCyclicArb(ctx blockctx.BlockCtxI, 
 }
 
 // validateArb validates the arb opportunity by constructing a route from SQS router and then simulating it against chain.
-func (o *orderbookFillerIngestPlugin) validateArb(ctx blockctx.BlockCtxI, amountIn osmomath.Int, denomIn, denomOut string, orderBookID uint64) error {
+func (o *orderbookFillerIngestPlugin) validateArb(ctx blockctx.BlockCtxI, amountIn osmomath.Int, denomIn, denomOut string, orderBookID uint64) (msgctx.MsgContextI, error) {
 	if amountIn.IsNil() || amountIn.IsZero() {
-		return fmt.Errorf("estimated amount in truncated to zero")
+		return nil, fmt.Errorf("estimated amount in truncated to zero")
 	}
 
 	coinIn := sdk.Coin{Denom: denomIn, Amount: amountIn}
 	_, route, err := o.estimateCyclicArb(ctx, coinIn, denomOut, orderBookID)
 	if err != nil {
 		o.logger.Debug("failed to estimate arb", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	// Simulate an individual swap
 	msgContext, err := o.simulateSwapExactAmountIn(ctx, coinIn, route)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// If profitable, execute add the message to the transaction context
-	txCtx := ctx.GetTxCtx()
-	txCtx.AddMsg(msgContext)
-
-	return nil
+	return msgContext, nil
 }

@@ -85,7 +85,7 @@ func (t *txContext) AddMsg(msg msgctx.MsgContextI) {
 
 	t.adjustedGasUsedTotal += msg.GetAdjustedGasUsed()
 
-	t.maxTxFeeCap.AddMut(msg.GetMaxFeeCap())
+	t.maxTxFeeCap = t.maxTxFeeCap.Add(msg.GetMaxFeeCap())
 }
 
 // UpdateAdjustedGasTotal implements TxContextI.
