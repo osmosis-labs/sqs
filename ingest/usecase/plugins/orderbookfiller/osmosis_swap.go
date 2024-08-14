@@ -244,7 +244,7 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		Sender:            o.keyring.GetAddress().String(),
 		Routes:            poolManagerRoute,
 		TokenIn:           tokenIn,
-		TokenOutMinAmount: tokenIn.Amount.Add(osmomath.OneInt()),
+		TokenOutMinAmount: tokenIn.Amount,
 	}
 
 	// Estimate transaction
@@ -292,7 +292,7 @@ func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []s
 	txFactory = txFactory.WithAccountNumber(accNum)
 	txFactory = txFactory.WithSequence(accSeq)
 	txFactory = txFactory.WithChainID(chainID)
-	txFactory = txFactory.WithGasAdjustment(1.05)
+	txFactory = txFactory.WithGasAdjustment(1.02)
 
 	// Estimate transaction
 	gasResult, adjustedGasUsed, err := CalculateGas(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), txFactory, msgs...)
