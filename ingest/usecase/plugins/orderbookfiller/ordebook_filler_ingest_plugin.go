@@ -128,7 +128,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 	}
 
 	// Configure block context
-	blockCtx, err := blockctx.New(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), uniqueOrderBookDenoms, orderBookDenomPrices, balances, o.defaultQuoteDenom)
+	blockCtx, err := blockctx.New(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), uniqueOrderBookDenoms, orderBookDenomPrices, balances, o.defaultQuoteDenom, blockHeight)
 	if err != nil {
 		return err
 	}
@@ -165,11 +165,8 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 		}
 	}
 
-	txCtx := blockCtx.GetTxCtx()
 	originalMsgs := blockCtx.GetTxCtx().GetMsgs()
-
-	blockGasPrice := blockCtx.GetGasPrice()
-	if err := o.tryFill(ctx, txCtx, blockGasPrice); err != nil {
+	if err := o.tryFill(blockCtx); err != nil {
 		if len(originalMsgs) == 1 {
 			o.logger.Error("failed to fill", zap.Error(err))
 			return err
@@ -185,7 +182,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 				curTxCtx.AddMsg(msg)
 
 				// Try to fill the message
-				if err := o.tryFill(ctx, curTxCtx, blockGasPrice); err != nil {
+				if err := o.tryFill(blockCtx); err != nil {
 					o.logger.Error("failed to fill individual msg tx", zap.Error(err))
 				}
 			}
@@ -333,7 +330,8 @@ func (o *orderbookFillerIngestPlugin) tryValidate(ctx blockctx.BlockCtxI, amount
 
 // tryFill tries to fill the orderbook by executing the transaction.
 // It ranks and filters the pools, simulates the transaction messages, and executes the swap if the simulation passes.
-func (o *orderbookFillerIngestPlugin) tryFill(ctx context.Context, txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) error {
+func (o *orderbookFillerIngestPlugin) tryFill(ctx blockctx.BlockCtxI) error {
+	txCtx := ctx.GetTxCtx()
 	msgs := txCtx.GetSDKMsgs()
 
 	if len(msgs) == 0 {
@@ -345,7 +343,7 @@ func (o *orderbookFillerIngestPlugin) tryFill(ctx context.Context, txCtx txctx.T
 
 	// Simulate transaction messages
 	sdkMsgs := txCtx.GetSDKMsgs()
-	_, adjustedGasAmount, err := o.simulateMsgs(ctx, sdkMsgs)
+	_, adjustedGasAmount, err := o.simulateMsgs(ctx.AsGoCtx(), sdkMsgs)
 	if err != nil {
 		return err
 	}
@@ -354,7 +352,7 @@ func (o *orderbookFillerIngestPlugin) tryFill(ctx context.Context, txCtx txctx.T
 	txCtx.UpdateAdjustedGasTotal(adjustedGasAmount)
 
 	// Execute the swap
-	_, _, err = o.executeTx(ctx, txCtx, blockGasPrice)
+	_, _, err = o.executeTx(ctx)
 	if err != nil {
 		return err
 	}

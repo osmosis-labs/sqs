@@ -36,6 +36,9 @@ type BlockCtxI interface {
 
 	// SetGoCtx sets the Go context
 	SetGoCtx(ctx context.Context)
+
+	// GetBlockHeight returns the block height
+	GetBlockHeight() uint64
 }
 
 type blockContext struct {
@@ -44,6 +47,7 @@ type blockContext struct {
 	userBlockBalances sdk.Coins
 	txContext         txctx.TxContextI
 	prices            domain.PricesResult
+	blockHeight       uint64
 }
 
 type BlockGasPrice struct {
@@ -54,10 +58,11 @@ type BlockGasPrice struct {
 var _ BlockCtxI = &blockContext{}
 
 // New creates a new block context.
-func New(ctx context.Context, chainGRPCClient *grpc.ClientConn, uniqueDenoms []string, orderBookDenomPrices domain.PricesResult, userBalances sdk.Coins, defaultQuoteDenom string) (*blockContext, error) {
+func New(ctx context.Context, chainGRPCClient *grpc.ClientConn, uniqueDenoms []string, orderBookDenomPrices domain.PricesResult, userBalances sdk.Coins, defaultQuoteDenom string, blockHeight uint64) (*blockContext, error) {
 	blockCtx := blockContext{
-		Context:   ctx,
-		txContext: txctx.New(),
+		Context:     ctx,
+		txContext:   txctx.New(),
+		blockHeight: blockHeight,
 	}
 
 	blockCtx.userBlockBalances = userBalances
@@ -107,6 +112,11 @@ func (b *blockContext) GetGasPrice() BlockGasPrice {
 // SetGoCtx implements BlockCtxI.
 func (b *blockContext) SetGoCtx(ctx context.Context) {
 	b.Context = ctx
+}
+
+// GetBlockHeight implements BlockCtxI.
+func (b *blockContext) GetBlockHeight() uint64 {
+	return b.blockHeight
 }
 
 // getGasPrice returns an estimate of the gas price.

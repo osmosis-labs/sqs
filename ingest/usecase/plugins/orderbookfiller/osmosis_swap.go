@@ -31,8 +31,11 @@ import (
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
 	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/msg"
-	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/tx"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+)
+
+const (
+	noTxFeeCheckHeightInterval = 40
 )
 
 var (
@@ -134,7 +137,7 @@ func httpGet(ctx context.Context, url string) ([]byte, error) {
 // It returns the response, the transaction body and an error if any.
 // It waits for 5 seconds before returning.
 // It returns an error and avoids executing the transaction if the tx fee capitalization is greater than the max allowed.
-func (o *orderbookFillerIngestPlugin) executeTx(ctx context.Context, txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
+func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
 	key := o.keyring.GetKey()
 	keyBytes := key.Bytes()
 
@@ -147,13 +150,23 @@ func (o *orderbookFillerIngestPlugin) executeTx(ctx context.Context, txCtx txctx
 		return nil, "", err
 	}
 
+	blockGasPrice := blockCtx.GetGasPrice()
+	txCtx := blockCtx.GetTxCtx()
 	adjustedTxGasUsedTotal := txCtx.GetAdjustedGasUsedTotal()
 
 	txFeeCap := osmomath.NewBigIntFromUint64(adjustedTxGasUsedTotal).ToDec().MulMut(blockGasPrice.GasPriceDefaultQuoteDenom).QuoMut(osmomath.BigDecFromDec(quoteScalingFactor))
 
-	maxTxFeeCap := txCtx.GetMaxTxFeeCap()
-	if txFeeCap.Dec().GT(maxTxFeeCap) {
-		return nil, "", fmt.Errorf("tx fee capitalization %s, is greater than max allowed %s", txFeeCap, maxTxFeeCap)
+	// We skip the fee check for every noTxFeeCheckHeightInterval blocks
+	// Every 40 blocks (roughly 1 minute), batch all off-market orders and execute them
+	// potentially at a loss. This is roughly 4 cents per minute assumming 3 swap messages at 0.1 uosmo per gas.
+	// Which is only $57 per day
+	if blockCtx.GetBlockHeight()%noTxFeeCheckHeightInterval != 0 {
+		maxTxFeeCap := txCtx.GetMaxTxFeeCap()
+		if txFeeCap.Dec().GT(maxTxFeeCap) {
+			return nil, "", fmt.Errorf("tx fee capitalization %s, is greater than max allowed %s", txFeeCap, maxTxFeeCap)
+		}
+	} else {
+		o.logger.Info("skipping tx fee check", zap.String("tx_fee_cap", txFeeCap.String()), zap.String("max_txf_fee_cap", txCtx.GetMaxTxFeeCap().String()), zap.Uint64("block_height", blockCtx.GetBlockHeight()))
 	}
 
 	txFeeUosmo := blockGasPrice.GasPrice.Mul(osmomath.NewIntFromUint64(adjustedTxGasUsedTotal).ToLegacyDec()).Ceil().TruncateInt()
@@ -170,7 +183,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(ctx context.Context, txCtx txctx
 
 	// First round: we gather all the signer infos. We use the "set empty
 	// signature" hack to do that.
-	accSequence, accNumber := getInitialSequence(ctx, o.keyring.GetAddress().String())
+	accSequence, accNumber := getInitialSequence(blockCtx.AsGoCtx(), o.keyring.GetAddress().String())
 	sigV2 := signing.SignatureV2{
 		PubKey: privKey.PubKey(),
 		Data: &signing.SingleSignatureData{
@@ -217,7 +230,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(ctx context.Context, txCtx txctx
 		time.Sleep(5 * time.Second)
 	}()
 
-	resp, err := broadcastTransaction(ctx, txJSONBytes, RPC)
+	resp, err := broadcastTransaction(blockCtx.AsGoCtx(), txJSONBytes, RPC)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
