@@ -124,8 +124,8 @@ func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, 
 // amount = amount / (1 - fee)
 func applyFee(amount osmomath.Int, fee osmomath.Dec) osmomath.Int {
 	amountDec := amount.ToLegacyDec()
-	amountDec.QuoMut(one.Sub(fee))
-	return amountDec.TruncateInt()
+	amountDec.QuoRoundupMut(one.Sub(fee))
+	return amountDec.Ceil().TruncateInt()
 }
 
 // getFillableAskAmountInQuoteDenom returns the fillable ask amount in quote denom.
@@ -161,7 +161,7 @@ func (o *orderbookFillerIngestPlugin) getFillableAskAmountInQuoteDenom(askOrders
 			}
 
 			// Apply the price to the remaining ask liquidity on the tick to get its value in the quote denom.
-			curFillableAskAmountInQuoteDenom := cosmwasmpool.OrderbookValueInOppositeDirection(orderAmountAsk, tickPrice, cosmwasmpool.ASK, cosmwasmpool.ROUND_DOWN).TruncateDec()
+			curFillableAskAmountInQuoteDenom := cosmwasmpool.OrderbookValueInOppositeDirection(orderAmountAsk, tickPrice, cosmwasmpool.ASK, cosmwasmpool.ROUND_UP).CeilMut()
 
 			fillableAskAmountInQuoteDenom.AddMut(curFillableAskAmountInQuoteDenom)
 
@@ -171,7 +171,7 @@ func (o *orderbookFillerIngestPlugin) getFillableAskAmountInQuoteDenom(askOrders
 	}
 
 	// Return the total fillable amount across all orders/ticks.
-	return fillableAskAmountInQuoteDenom.Dec().TruncateInt(), nil
+	return fillableAskAmountInQuoteDenom.Ceil().Dec().TruncateInt(), nil
 }
 
 // getFillableBidAmountInBaseDenom returns the fillable bid amount in base denom.
@@ -207,7 +207,7 @@ func (o *orderbookFillerIngestPlugin) getFillableBidAmountInBaseDenom(bidOrders 
 			}
 
 			// Apply the price to the remaining ask liquidity on the tick to get its value in the quote denom.
-			curFillableAskAmountInQuoteDenom := cosmwasmpool.OrderbookValueInOppositeDirection(orderAmountBid, tickPrice, cosmwasmpool.BID, cosmwasmpool.ROUND_DOWN).TruncateDec()
+			curFillableAskAmountInQuoteDenom := cosmwasmpool.OrderbookValueInOppositeDirection(orderAmountBid, tickPrice, cosmwasmpool.BID, cosmwasmpool.ROUND_UP).CeilMut()
 
 			fillableBidAmountInBaseDenom.AddMut(curFillableAskAmountInQuoteDenom)
 
@@ -216,5 +216,5 @@ func (o *orderbookFillerIngestPlugin) getFillableBidAmountInBaseDenom(bidOrders 
 		}
 	}
 
-	return fillableBidAmountInBaseDenom.Dec().TruncateInt(), nil
+	return fillableBidAmountInBaseDenom.Ceil().Dec().TruncateInt(), nil
 }
