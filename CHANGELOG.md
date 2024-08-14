@@ -44,6 +44,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Ingest tracing
 - Apply taker fee and spread factor for fill bot amount estimation
 - Reduce fill bot slippage bound by one ulp
+- Fallback to filling each message individually.
 
 ## v25.9.0
 

@@ -163,11 +163,33 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 		}
 	}
 
-	// Execute tx
 	txCtx := blockCtx.GetTxCtx()
+	originalMsgs := blockCtx.GetTxCtx().GetMsgs()
+
 	blockGasPrice := blockCtx.GetGasPrice()
 	if err := o.tryFill(ctx, txCtx, blockGasPrice); err != nil {
-		o.logger.Error("failed to fill", zap.Error(err))
+
+		if len(originalMsgs) == 1 {
+			o.logger.Error("failed to fill", zap.Error(err))
+			return err
+		} else {
+			o.logger.Error("failed to fill batch of arbs as one tx - falling back to executing each message as separate tx", zap.Error(err))
+
+			// Try to fill each message indivdually
+			for _, msg := range originalMsgs {
+
+				// Create a new transaction context for each message
+				curTxCtx := txctx.New()
+
+				// Add the message to the transaction context
+				curTxCtx.AddMsg(msg)
+
+				// Try to fill the message
+				if err := o.tryFill(ctx, txCtx, blockGasPrice); err != nil {
+					o.logger.Error("failed to fill individual msg tx", zap.Error(err))
+				}
+			}
+		}
 	}
 
 	o.logger.Info("processed end block in orderbook filler ingest plugin", zap.Uint64("block_height", blockHeight))
