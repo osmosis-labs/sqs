@@ -14,6 +14,8 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
+var one = osmomath.MustNewDecFromStr("1")
+
 // getFillableOrders returns two amounts on success:
 // 1) fillable ask liquidity in quote denom
 // 2) fillable bid liquidity in base denom
@@ -58,6 +60,20 @@ func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, 
 
 	orderBookState := orderBookPool.GetSQSPoolModel().CosmWasmPoolModel.Data.Orderbook
 
+	// Order book spread factor
+	spreadFactor := orderBookPool.GetSQSPoolModel().SpreadFactor
+	takerFee, err := o.routerUseCase.GetTakerFee(canonicalOrderbookResult.PoolID)
+	if err != nil {
+		return osmomath.Int{}, osmomath.Int{}, err
+	}
+
+	// Only one taker fee for an order book pair.
+	if len(takerFee) == 0 {
+		return osmomath.Int{}, osmomath.Int{}, fmt.Errorf("taker fee not found for order book %d", canonicalOrderbookResult.PoolID)
+	}
+
+	totalFee := spreadFactor.Add(takerFee[0].TakerFee)
+
 	blockPrices := ctx.GetPrices()
 
 	baseQuoteMarketPrice := blockPrices.GetPriceForDenom(orderBookState.BaseDenom, orderBookState.QuoteDenom)
@@ -101,7 +117,15 @@ func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, 
 		o.logger.Error("failed to get fillable bid amount in base denom", zap.Error(err), zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID))
 	}
 
-	return fillableAskAmountInQuoteDenom, fillableBidAmountInBaseDenom, nil
+	return applyFee(fillableAskAmountInQuoteDenom, totalFee), applyFee(fillableBidAmountInBaseDenom, totalFee), nil
+}
+
+// applyFee applies the fee to the amount, increasing it.
+// amount = amount / (1 - fee)
+func applyFee(amount osmomath.Int, fee osmomath.Dec) osmomath.Int {
+	amountDec := amount.ToLegacyDec()
+	amountDec.QuoMut(one.Sub(fee))
+	return amountDec.TruncateInt()
 }
 
 // getFillableAskAmountInQuoteDenom returns the fillable ask amount in quote denom.
