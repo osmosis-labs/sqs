@@ -253,11 +253,18 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		}
 	}
 
+	// Note that we lower the slippage bound, allowing losses.
+	// We still do profitability checks for all swaps > $5 of value down below.
+	// However, we allow for losses in the case of small swaps.
+	// This is to ensure proper filling. The losses are bounded by:
+	// $5 * (1 - 0.9995) = $0.002
+	slippageBound := tokenIn.Amount.ToLegacyDec().Mul(osmomath.MustNewDecFromStr("0.9995")).TruncateInt()
+
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
 		Sender:            o.keyring.GetAddress().String(),
 		Routes:            poolManagerRoute,
 		TokenIn:           tokenIn,
-		TokenOutMinAmount: tokenIn.Amount,
+		TokenOutMinAmount: slippageBound,
 	}
 
 	// Estimate transaction
@@ -276,12 +283,6 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		return nil, fmt.Errorf("token out amount is nil")
 	}
 
-	// Ensure that it is profitable without accounting for tx fees
-	diff := msgSwapExactAmountInResponse.TokenOutAmount.Sub(tokenIn.Amount)
-	if diff.IsNegative() {
-		return nil, fmt.Errorf("token out amount is less than or equal to token in amount")
-	}
-
 	// Base denom price
 	blockPrices := ctx.GetPrices()
 	price := blockPrices.GetPriceForDenom(tokenIn.Denom, o.defaultQuoteDenom)
@@ -289,8 +290,19 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		return nil, fmt.Errorf("price for %s is zero", tokenIn.Denom)
 	}
 
-	// Compute capitalization
-	diffCap := o.liquidityPricer.PriceCoin(sdk.Coin{Denom: orderbookplugindomain.BaseDenom, Amount: diff}, price)
+	// For small unprofitable fills, we allow for a small loss.
+	diffCap := osmomath.MustNewDecFromStr("0.005")
+	if o.liquidityPricer.PriceCoin(tokenIn, price).GTE(osmomath.MustNewDecFromStr("5")) {
+		// Otherwise, we compute the capitalization difference precisely.
+		// Ensure that it is profitable without accounting for tx fees
+		diff := msgSwapExactAmountInResponse.TokenOutAmount.Sub(tokenIn.Amount)
+		if diff.IsNegative() {
+			return nil, fmt.Errorf("token out amount is less than or equal to token in amount")
+		}
+
+		// Compute capitalization
+		diffCap = o.liquidityPricer.PriceCoin(sdk.Coin{Denom: orderbookplugindomain.BaseDenom, Amount: diff}, price)
+	}
 
 	msgCtx := msgctx.New(diffCap, adjustedGasUsed, swapMsg)
 
