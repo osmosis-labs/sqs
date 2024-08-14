@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -244,6 +245,14 @@ func (o *orderbookFillerIngestPlugin) processOrderBook(ctx blockctx.BlockCtxI, c
 		return err
 	}
 
+	// Choose max value between fillable amount and user balance
+	// This is so that we can at least partially fill if the user balance is less than the fillable amount.
+	userBalanceQuoteDenom := ctx.GetUserBalances().AmountOf(quoteDenom)
+	fillableAskAmountQuoteDenom = chooseMinValue(fillableAskAmountQuoteDenom, userBalanceQuoteDenom)
+
+	userBalanceBaseDenom := ctx.GetUserBalances().AmountOf(baseDenom)
+	fillableBidAmountBaseDenom = chooseMinValue(fillableBidAmountBaseDenom, userBalanceBaseDenom)
+
 	// Validate arb trying to fill ask liquidity.
 	if err := o.validateArb(ctx, fillableAskAmountQuoteDenom, canonicalOrderbookResult.Quote, canonicalOrderbookResult.Base, canonicalOrderbookResult.PoolID); err != nil {
 		o.logger.Error("failed to fill asks", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID), zap.Error(err))
@@ -290,4 +299,12 @@ func (o *orderbookFillerIngestPlugin) tryFill(ctx context.Context, txCtx txctx.T
 	}
 
 	return nil
+}
+
+// chooseMinValue returns the minimum value between two integers.
+func chooseMinValue(a, b osmomath.Int) osmomath.Int {
+	if a.LT(b) {
+		return a
+	}
+	return b
 }
