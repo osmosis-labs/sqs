@@ -168,7 +168,6 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 
 	blockGasPrice := blockCtx.GetGasPrice()
 	if err := o.tryFill(ctx, txCtx, blockGasPrice); err != nil {
-
 		if len(originalMsgs) == 1 {
 			o.logger.Error("failed to fill", zap.Error(err))
 			return err
@@ -177,7 +176,6 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 
 			// Try to fill each message indivdually
 			for _, msg := range originalMsgs {
-
 				// Create a new transaction context for each message
 				curTxCtx := txctx.New()
 
