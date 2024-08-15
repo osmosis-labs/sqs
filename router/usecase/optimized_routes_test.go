@@ -753,7 +753,7 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 			s.Require().NoError(err)
 
 			// TODO: update mainnet state and validate the quote for each test stricter.
-			routes, _, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0)) //  we are not checking the scaling factor
+			routes, _, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0), &log.NoOpLogger{}) //  we are not checking the scaling factor
 			s.Require().NoError(err)
 
 			s.Require().Len(routes, tc.expectedRoutesCountExactAmountOut)
@@ -1041,12 +1041,10 @@ func (s *RouterTestSuite) validateExpectedPoolIDOneRouteOneHopQuote(quote domain
 }
 
 // validates that the given quote has multi route with one hop and the expected pool IDs.
-func (s *RouterTestSuite) validateExpectedPoolIDMultiRouteOneHopQuote(quote domain.Quote, expectedPoolID []uint64) {
+func (s *RouterTestSuite) validateExpectedPoolIDsMultiHopRoute(actualPools []domain.RoutablePool, expectedPoolID []uint64) {
 	var pools []uint64
-	for _, v := range quote.GetRoute() {
-		for _, p := range v.GetPools() {
-			pools = append(pools, p.GetId())
-		}
+	for _, p := range actualPools {
+		pools = append(pools, p.GetId())
 	}
 
 	s.Require().Equal(expectedPoolID, pools)

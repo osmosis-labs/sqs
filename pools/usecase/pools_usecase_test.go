@@ -221,13 +221,13 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	for _, tc := range tests {
 		tc := tc
 		s.Run(tc.name, func() {
-
+			logger := &log.NoOpLogger{}
 			// Create router repository
 			routerRepo := routerrepo.New(&log.NoOpLogger{})
 			routerRepo.SetTakerFees(tc.takerFeeMap)
 
 			// Create pools use case
-			poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+			poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, logger)
 			s.Require().NoError(err)
 
 			poolsUsecase.StorePools(tc.pools)
@@ -252,9 +252,9 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 				// helper method for validation.
 				// Note token in is chosen arbitrarily since it is irrelevant for this test
 				tokenIn := sdk.NewCoin(tc.tokenInDenom, sdk.NewInt(100))
-				actualPools, _, _, err := actualRoute.PrepareResultPools(context.TODO(), tokenIn)
+				actualPools, _, _, err := actualRoute.PrepareResultPools(context.TODO(), tokenIn, logger)
 				s.Require().NoError(err)
-				expectedPools, _, _, err := expectedRoute.PrepareResultPools(context.TODO(), tokenIn)
+				expectedPools, _, _, err := expectedRoute.PrepareResultPools(context.TODO(), tokenIn, logger)
 				s.Require().NoError(err)
 
 				// Validates:
