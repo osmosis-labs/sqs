@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -181,7 +182,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
 			// System under test
-			routes, effectiveFee, err := tc.quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
+			routes, effectiveFee, err := tc.quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, &log.NoOpLogger{})
 			s.Require().NoError(err)
 
 			// Validate JSON representation, which is used for output to the client
@@ -264,7 +265,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	}
 
 	// System under test.
-	testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor)
+	testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, &log.NoOpLogger{})
 
 	// Validate price impact.
 	s.Require().Equal(expectedPriceImpact.String(), testQuote.GetPriceImpact().String())

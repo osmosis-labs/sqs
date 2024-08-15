@@ -9,9 +9,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+
+	"go.uber.org/zap"
 )
 
 var _ domain.Route = &RouteImpl{}
@@ -51,7 +54,7 @@ var (
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
 // with token in as base and token out as quote.
-func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
 		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()
@@ -63,13 +66,18 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]
 		// Compute spot price before swap.
 		spotPriceInBaseOutQuote, err := pool.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
 		if err != nil {
+			logger.Error("failed to calculate spot price for pool", zap.Error(err))
+
 			// We don't want to fail the entire quote if one pool fails to calculate spot price.
 			// This might cause miestimaions downsream but we a
 			spotPriceInBaseOutQuote = osmomath.ZeroBigDec()
 
 			// Increment the counter for the error
-			routeTokenOutDenom := r.Pools[len(r.Pools)-1].GetTokenOutDenom()
-			spotPriceErrorResultCounter.WithLabelValues(tokenIn.Denom, pool.GetTokenOutDenom(), routeTokenOutDenom).Inc()
+			spotPriceErrorResultCounter.WithLabelValues(
+				tokenIn.Denom,
+				pool.GetTokenOutDenom(),
+				r.Pools[len(r.Pools)-1].GetTokenOutDenom(),
+			).Inc()
 		}
 
 		// Charge taker fee
