@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -35,9 +36,9 @@ type quoteExactAmountOut struct {
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	// Prepare exact out in the quote for inputs inversion
-	if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor); err != nil {
+	if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, logger); err != nil {
 		return nil, osmomath.Dec{}, err
 	}
 

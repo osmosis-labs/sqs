@@ -1,6 +1,8 @@
 package orderbookplugindomain
 
-import "context"
+import (
+	"context"
+)
 
 // OrderbookCWAPIClient is an interface for fetching orders by tick from the orderbook contract.
 type OrderbookCWAPIClient interface {

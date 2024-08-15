@@ -98,9 +98,55 @@ class TestExactAmountInQuote:
 
         run_exact_in_quote_test(environment_url, amount_str, token_in_denom, denom_out)
 
+    def test_custom_direct_quote_single_hop(self, environment_url,):
+        """
+        This test validates that direct quotes work as expected for a single hop.
+        """
+        sqs_service = conftest.SERVICE_MAP[environment_url]
+
+        amount = 1000000
+        denom_in = constants.USDC
+        denom_out = constants.UOSMO
+
+        response = sqs_service.get_custom_direct_quote(str(amount) + denom_in, denom_out, constants.UOSMO_USDC_POOL_ID)
+        assert response.status_code == 200, f"Error: {response.text}"
+
+        res = response.json()
+
+        quote = QuoteExactAmountInResponse(**res)
+
+        # Basic sanity checks that the results are present
+        quote.amount_in.amount == amount
+        quote.amount_in.denom == denom_in
+        quote.amount_out > 0
+
+    def test_custom_direct_quote_multi_hop(self, environment_url,):
+        """
+        This test validates that custom direct quotes work as expected for a multi hop.
+
+        It attempts to swap over a hardcoded route with multiple hops.
+        """
+        sqs_service = conftest.SERVICE_MAP[environment_url]
+
+        amount = 1000000
+        denom_in = constants.USDC
+        wbtc = "factory/osmo1z0qrq605sjgcqpylfl4aa6s90x738j7m58wyatt0tdzflg2ha26q67k743/wbtc"
+        allBtc = "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC"
+
+        response = sqs_service.get_custom_direct_quote(str(amount) + denom_in, f"{wbtc},{allBtc}", "1436,1868")
+        assert response.status_code == 200, f"Error: {response.text}"
+
+        res = response.json()
+
+        quote = QuoteExactAmountInResponse(**res)
+
+        # Basic sanity checks that the results are present
+        quote.amount_in.amount == amount
+        quote.amount_in.denom == denom_in
+        quote.amount_out > 0
+
 
     @pytest.mark.parametrize("amount", [str(10**(USDC_PRECISION + 3))])
-
     def test_transmuter_tokens(self, environment_url, amount):
         """
         This test validates that swapping over a route with a transmuter pool works as expected.
@@ -159,7 +205,6 @@ class TestExactAmountInQuote:
 
         # Validate the quote test
         validate_quote_test(quote, amount, denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
-    
 
     @pytest.mark.parametrize("amount", [1000])
     @pytest.mark.parametrize("token_pair", orderbook_token_pairs())

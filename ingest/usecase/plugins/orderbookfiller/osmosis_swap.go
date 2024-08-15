@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	gogogrpc "github.com/cosmos/gogoproto/grpc"
 	"go.uber.org/zap"
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
@@ -27,10 +28,14 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
 	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/msg"
-	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/tx"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+)
+
+const (
+	noTxFeeCheckHeightInterval = 40
 )
 
 var (
@@ -67,8 +72,8 @@ func init() {
 	}
 }
 
-func getInitialSequence(address string) (uint64, uint64) {
-	resp, err := httpGet(LCD + "/cosmos/auth/v1beta1/accounts/" + address)
+func getInitialSequence(ctx context.Context, address string) (uint64, uint64) {
+	resp, err := httpGet(ctx, LCD+"/cosmos/auth/v1beta1/accounts/"+address)
 	if err != nil {
 		log.Printf("Failed to get initial sequence: %v", err)
 		return 0, 0
@@ -97,17 +102,12 @@ func getInitialSequence(address string) (uint64, uint64) {
 }
 
 var client = &http.Client{
-	Timeout: 10 * time.Second, // Adjusted timeout to 10 seconds
-	Transport: &http.Transport{
-		MaxIdleConns:        100,              // Increased maximum idle connections
-		MaxIdleConnsPerHost: 10,               // Increased maximum idle connections per host
-		IdleConnTimeout:     90 * time.Second, // Increased idle connection timeout
-		TLSHandshakeTimeout: 10 * time.Second, // Increased TLS handshake timeout
-	},
+	Timeout:   10 * time.Second, // Adjusted timeout to 10 seconds
+	Transport: otelhttp.NewTransport(http.DefaultTransport),
 }
 
-func httpGet(url string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func httpGet(ctx context.Context, url string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -137,7 +137,7 @@ func httpGet(url string) ([]byte, error) {
 // It returns the response, the transaction body and an error if any.
 // It waits for 5 seconds before returning.
 // It returns an error and avoids executing the transaction if the tx fee capitalization is greater than the max allowed.
-func (o *orderbookFillerIngestPlugin) executeTx(txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
+func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
 	key := o.keyring.GetKey()
 	keyBytes := key.Bytes()
 
@@ -150,13 +150,23 @@ func (o *orderbookFillerIngestPlugin) executeTx(txCtx txctx.TxContextI, blockGas
 		return nil, "", err
 	}
 
+	blockGasPrice := blockCtx.GetGasPrice()
+	txCtx := blockCtx.GetTxCtx()
 	adjustedTxGasUsedTotal := txCtx.GetAdjustedGasUsedTotal()
 
 	txFeeCap := osmomath.NewBigIntFromUint64(adjustedTxGasUsedTotal).ToDec().MulMut(blockGasPrice.GasPriceDefaultQuoteDenom).QuoMut(osmomath.BigDecFromDec(quoteScalingFactor))
 
-	maxTxFeeCap := txCtx.GetMaxTxFeeCap()
-	if txFeeCap.Dec().GT(maxTxFeeCap) {
-		return nil, "", fmt.Errorf("tx fee capitalization %s, is greater than max allowed %s", txFeeCap, maxTxFeeCap)
+	// We skip the fee check for every noTxFeeCheckHeightInterval blocks
+	// Every 40 blocks (roughly 1 minute), batch all off-market orders and execute them
+	// potentially at a loss. This is roughly 4 cents per minute assumming 3 swap messages at 0.1 uosmo per gas.
+	// Which is only $57 per day
+	if blockCtx.GetBlockHeight()%noTxFeeCheckHeightInterval != 0 {
+		maxTxFeeCap := txCtx.GetMaxTxFeeCap()
+		if txFeeCap.Dec().GT(maxTxFeeCap) {
+			return nil, "", fmt.Errorf("tx fee capitalization %s, is greater than max allowed %s", txFeeCap, maxTxFeeCap)
+		}
+	} else {
+		o.logger.Info("skipping tx fee check", zap.String("tx_fee_cap", txFeeCap.String()), zap.String("max_txf_fee_cap", txCtx.GetMaxTxFeeCap().String()), zap.Uint64("block_height", blockCtx.GetBlockHeight()))
 	}
 
 	txFeeUosmo := blockGasPrice.GasPrice.Mul(osmomath.NewIntFromUint64(adjustedTxGasUsedTotal).ToLegacyDec()).Ceil().TruncateInt()
@@ -173,7 +183,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(txCtx txctx.TxContextI, blockGas
 
 	// First round: we gather all the signer infos. We use the "set empty
 	// signature" hack to do that.
-	accSequence, accNumber := getInitialSequence(o.keyring.GetAddress().String())
+	accSequence, accNumber := getInitialSequence(blockCtx.AsGoCtx(), o.keyring.GetAddress().String())
 	sigV2 := signing.SignatureV2{
 		PubKey: privKey.PubKey(),
 		Data: &signing.SingleSignatureData{
@@ -220,7 +230,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(txCtx txctx.TxContextI, blockGas
 		time.Sleep(5 * time.Second)
 	}()
 
-	resp, err := broadcastTransaction(txJSONBytes, RPC)
+	resp, err := broadcastTransaction(blockCtx.AsGoCtx(), txJSONBytes, RPC)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
@@ -243,15 +253,22 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		}
 	}
 
+	// Note that we lower the slippage bound, allowing losses.
+	// We still do profitability checks for all swaps > $5 of value down below.
+	// However, we allow for losses in the case of small swaps.
+	// This is to ensure proper filling. The losses are bounded by:
+	// $5 * (1 - 0.9995) = $0.002
+	slippageBound := tokenIn.Amount.ToLegacyDec().Mul(osmomath.MustNewDecFromStr("0.9995")).TruncateInt()
+
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
 		Sender:            o.keyring.GetAddress().String(),
 		Routes:            poolManagerRoute,
 		TokenIn:           tokenIn,
-		TokenOutMinAmount: tokenIn.Amount.Add(osmomath.OneInt()),
+		TokenOutMinAmount: slippageBound,
 	}
 
 	// Estimate transaction
-	gasResult, adjustedGasUsed, err := o.simulateMsgs([]sdk.Msg{swapMsg})
+	gasResult, adjustedGasUsed, err := o.simulateMsgs(ctx.AsGoCtx(), []sdk.Msg{swapMsg})
 	if err != nil {
 		return nil, err
 	}
@@ -266,12 +283,6 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		return nil, fmt.Errorf("token out amount is nil")
 	}
 
-	// Ensure that it is profitable without accounting for tx fees
-	diff := msgSwapExactAmountInResponse.TokenOutAmount.Sub(tokenIn.Amount)
-	if diff.IsNegative() {
-		return nil, fmt.Errorf("token out amount is less than or equal to token in amount")
-	}
-
 	// Base denom price
 	blockPrices := ctx.GetPrices()
 	price := blockPrices.GetPriceForDenom(tokenIn.Denom, o.defaultQuoteDenom)
@@ -279,26 +290,37 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		return nil, fmt.Errorf("price for %s is zero", tokenIn.Denom)
 	}
 
-	// Compute capitalization
-	diffCap := o.liquidityPricer.PriceCoin(sdk.Coin{Denom: orderbookplugindomain.BaseDenom, Amount: diff}, price)
+	// For small unprofitable fills, we allow for a small loss.
+	diffCap := osmomath.MustNewDecFromStr("0.005")
+	if o.liquidityPricer.PriceCoin(tokenIn, price).GTE(osmomath.MustNewDecFromStr("5")) {
+		// Otherwise, we compute the capitalization difference precisely.
+		// Ensure that it is profitable without accounting for tx fees
+		diff := msgSwapExactAmountInResponse.TokenOutAmount.Sub(tokenIn.Amount)
+		if diff.IsNegative() {
+			return nil, fmt.Errorf("token out amount is less than or equal to token in amount")
+		}
+
+		// Compute capitalization
+		diffCap = o.liquidityPricer.PriceCoin(sdk.Coin{Denom: orderbookplugindomain.BaseDenom, Amount: diff}, price)
+	}
 
 	msgCtx := msgctx.New(diffCap, adjustedGasUsed, swapMsg)
 
 	return msgCtx, nil
 }
 
-func (o *orderbookFillerIngestPlugin) simulateMsgs(msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
-	accSeq, accNum := getInitialSequence(o.keyring.GetAddress().String())
+func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
+	accSeq, accNum := getInitialSequence(ctx, o.keyring.GetAddress().String())
 
 	txFactory := tx.Factory{}
 	txFactory = txFactory.WithTxConfig(encodingConfig.TxConfig)
 	txFactory = txFactory.WithAccountNumber(accNum)
 	txFactory = txFactory.WithSequence(accSeq)
 	txFactory = txFactory.WithChainID(chainID)
-	txFactory = txFactory.WithGasAdjustment(1.05)
+	txFactory = txFactory.WithGasAdjustment(1.02)
 
 	// Estimate transaction
-	gasResult, adjustedGasUsed, err := tx.CalculateGas(o.passthroughGRPCClient.GetChainGRPCClient(), txFactory, msgs...)
+	gasResult, adjustedGasUsed, err := CalculateGas(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), txFactory, msgs...)
 	if err != nil {
 		return nil, adjustedGasUsed, err
 	}
@@ -306,21 +328,40 @@ func (o *orderbookFillerIngestPlugin) simulateMsgs(msgs []sdk.Msg) (*txtypes.Sim
 	return gasResult, adjustedGasUsed, nil
 }
 
+// CalculateGas simulates the execution of a transaction and returns the
+// simulation response obtained by the query and the adjusted gas amount.
+func CalculateGas(
+	ctx context.Context,
+	clientCtx gogogrpc.ClientConn, txf tx.Factory, msgs ...sdk.Msg,
+) (*txtypes.SimulateResponse, uint64, error) {
+	txBytes, err := txf.BuildSimTx(msgs...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	txSvcClient := txtypes.NewServiceClient(clientCtx)
+	simRes, err := txSvcClient.Simulate(ctx, &txtypes.SimulateRequest{
+		TxBytes: txBytes,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return simRes, uint64(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed)), nil
+}
+
 // broadcastTransaction broadcasts a transaction to the chain.
 // Returning the result and error.
-func broadcastTransaction(txBytes []byte, rpcEndpoint string) (*coretypes.ResultBroadcastTx, error) {
+func broadcastTransaction(ctx context.Context, txBytes []byte, rpcEndpoint string) (*coretypes.ResultBroadcastTx, error) {
 	cmtCli, err := cometrpc.New(rpcEndpoint, "/websocket")
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	t := tmtypes.Tx(txBytes)
 
-	ctx := context.Background()
 	res, err := cmtCli.BroadcastTxSync(ctx, t)
 	if err != nil {
-		fmt.Println(err)
-		fmt.Println("error at broadcast")
 		return nil, err
 	}
 

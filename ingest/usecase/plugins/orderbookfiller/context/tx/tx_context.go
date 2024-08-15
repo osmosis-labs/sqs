@@ -19,6 +19,9 @@ type TxContextI interface {
 	// GetSDKMsgs returns chain messages associated with this transaction context as sdk.Msg.
 	GetSDKMsgs() []sdk.Msg
 
+	// GetMsgs returns message contexts
+	GetMsgs() []msgctx.MsgContextI
+
 	// GetAdjustedGasUsedTotal returns the gas used after simulating this transaction
 	// against chain and adjusting the gas by a constant pre-configured multiplier.
 	GetAdjustedGasUsedTotal() uint64
@@ -82,7 +85,7 @@ func (t *txContext) AddMsg(msg msgctx.MsgContextI) {
 
 	t.adjustedGasUsedTotal += msg.GetAdjustedGasUsed()
 
-	t.maxTxFeeCap.AddMut(msg.GetMaxFeeCap())
+	t.maxTxFeeCap = t.maxTxFeeCap.Add(msg.GetMaxFeeCap())
 }
 
 // UpdateAdjustedGasTotal implements TxContextI.
@@ -144,4 +147,9 @@ func (t *txContext) RankAndFilterMsgs() {
 // GetMaxTxFeeCap implements TxContextI.
 func (t *txContext) GetMaxTxFeeCap() osmomath.Dec {
 	return t.maxTxFeeCap
+}
+
+// GetMsgs implements TxContextI.
+func (t *txContext) GetMsgs() []msgctx.MsgContextI {
+	return t.msgs
 }

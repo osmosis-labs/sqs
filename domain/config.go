@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbookplugin"
+	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/spf13/viper"
 )

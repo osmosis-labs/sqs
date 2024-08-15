@@ -9,6 +9,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -206,7 +207,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 		s.Run(name, func() {
 
 			// Note: token in is chosen arbitrarily since it is irrelevant for this test
-			actualPools, spotPriceBeforeInBaseOutQuote, _, err := tc.route.PrepareResultPools(context.TODO(), tc.tokenIn)
+			actualPools, spotPriceBeforeInBaseOutQuote, _, err := tc.route.PrepareResultPools(context.TODO(), tc.tokenIn, &log.NoOpLogger{})
 			s.Require().NoError(err)
 
 			s.Require().Equal(tc.expectedSpotPriceInBaseOutQuote, spotPriceBeforeInBaseOutQuote)

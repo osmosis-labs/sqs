@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
@@ -45,7 +46,7 @@ type Route interface {
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
 	// The token in is the base token and the token out is the quote token.
-	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
@@ -69,7 +70,7 @@ type Quote interface {
 	// scalingFactor is the spot price scaling factor according to chain precision.
 	// scalingFactor of zero is a valid value. It might occur if we do not have precision information
 	// for the tokens. In that case, we invalidate spot price by setting it to zero.
-	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec) ([]SplitRoute, osmomath.Dec, error)
+	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]SplitRoute, osmomath.Dec, error)
 
 	String() string
 }
