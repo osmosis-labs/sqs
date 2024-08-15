@@ -6,6 +6,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/log"
 )
 
 type RouteMock struct {
@@ -14,7 +15,7 @@ type RouteMock struct {
 	GetPoolsFunc                        func() []domain.RoutablePool
 	GetTokenOutDenomFunc                func() string
 	GetTokenInDenomFunc                 func() string
-	PrepareResultPoolsFunc              func(ctx context.Context, tokenIn types.Coin) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
+	PrepareResultPoolsFunc              func(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
 	StringFunc                          func() string
 }
 
@@ -64,9 +65,9 @@ func (r *RouteMock) GetTokenInDenom() string {
 }
 
 // PrepareResultPools implements domain.Route.
-func (r *RouteMock) PrepareResultPools(ctx context.Context, tokenIn types.Coin) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
+func (r *RouteMock) PrepareResultPools(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
 	if r.PrepareResultPoolsFunc != nil {
-		return r.PrepareResultPoolsFunc(ctx, tokenIn)
+		return r.PrepareResultPoolsFunc(ctx, tokenIn, logger)
 	}
 
 	panic("unimplemented")

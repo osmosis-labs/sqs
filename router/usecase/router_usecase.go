@@ -502,6 +502,9 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 
 	// AmountIn is the first token of the asset pair.
 	result := quoteExactAmountIn{AmountIn: tokenIn}
+
+	pools := make([]domain.RoutablePool, 0, len(poolIDs))
+
 	for i, v := range poolIDs {
 		tokenOutDenom := tokenOutDenom[i]
 
@@ -510,14 +513,36 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 			return nil, err
 		}
 
+		route := quote.GetRoute()
+		if len(route) != 1 {
+			return nil, fmt.Errorf("custom direct quote must have 1 route, had: %d", len(route))
+		}
+
+		poolsInRoute := route[0].GetPools()
+		if len(poolsInRoute) != 1 {
+			return nil, fmt.Errorf("custom direct quote route must have 1 pool, had: %d", len(poolsInRoute))
+		}
+
 		// the amountOut value is the amount out of last the tokenOutDenom
 		result.AmountOut = quote.GetAmountOut()
 
 		// append each pool to the route
-		result.Route = append(result.Route, quote.GetRoute()...)
+		pools = append(pools, poolsInRoute...)
 
 		tokenIn = sdk.NewCoin(tokenOutDenom, quote.GetAmountOut())
 	}
+
+	// Construct the final multi-hop custom direct quote route.
+	result.Route = []domain.SplitRoute{
+		&RouteWithOutAmount{
+			RouteImpl: route.RouteImpl{
+				Pools: pools,
+			},
+			OutAmount: result.AmountOut,
+			InAmount:  result.AmountIn.Amount,
+		},
+	}
+
 	return &result, nil
 }
 

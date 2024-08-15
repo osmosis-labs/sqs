@@ -848,7 +848,7 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	s.Require().NoError(err)
 
 	// Prepare quote result.
-	_, _, err = quote.PrepareResult(context.Background(), osmomath.NewDec(int64(wbtcMetadata.Precision)))
+	_, _, err = quote.PrepareResult(context.Background(), osmomath.NewDec(int64(wbtcMetadata.Precision)), &log.NoOpLogger{})
 
 	priceImpact := quote.GetPriceImpact()
 
@@ -1118,7 +1118,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 				1093, // OSMO - AKT
 				1301, // AKT - USDC
 			},
-			expectedNumOfRoutes: 2,
+			expectedNumOfRoutes: 1,
 			expectedPoolID:      []uint64{1093, 1301},
 		},
 		{
@@ -1145,8 +1145,12 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 
 			// token in must match
 			s.Require().Equal(quotes.GetAmountIn().Denom, tc.tokenIn.Denom)
-			s.Require().Equal(tc.expectedNumOfRoutes, len(quotes.GetRoute()))
-			s.validateExpectedPoolIDMultiRouteOneHopQuote(quotes, tc.expectedPoolID)
+
+			// Custom direct quote should have only one route
+			routes := quotes.GetRoute()
+			s.Require().Len(routes, 1)
+
+			s.validateExpectedPoolIDsMultiHopRoute(routes[0].GetPools(), tc.expectedPoolID)
 		})
 	}
 }
@@ -1260,7 +1264,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mai
 				1093, // OSMO - AKT
 				1301, // AKT - USDC
 			},
-			expectedNumOfRoutes: 2,
+			expectedNumOfRoutes: 1,
 			expectedPoolID:      []uint64{1093, 1301},
 		},
 		{
@@ -1287,7 +1291,12 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mai
 
 			// token in must match
 			s.Require().Equal(tc.expectedNumOfRoutes, len(quotes.GetRoute()))
-			s.validateExpectedPoolIDMultiRouteOneHopQuote(quotes, tc.expectedPoolID)
+
+			// Custom direct quote should have only one route
+			routes := quotes.GetRoute()
+			s.Require().Len(routes, 1)
+
+			s.validateExpectedPoolIDsMultiHopRoute(routes[0].GetPools(), tc.expectedPoolID)
 		})
 	}
 }
