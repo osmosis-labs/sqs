@@ -283,6 +283,7 @@ var (
 
 // computePerfectArbAmountIfExists computes the perfect arb amount if it exists by performing binary search.
 // It tries to prefer a higher amount if it exists in order to fill all orders in-full while maximizing profit.
+// nolint: unparam
 func (o *orderbookFillerIngestPlugin) computePerfectArbAmountIfExists(ctx blockctx.BlockCtxI, proposedAmountIn osmomath.Int, denomIn, denomOut string, orderBookID uint64) (osmomath.Int, error) {
 	// If the initial proposed amount in is not valid, return error.
 	msgCtx, err := o.validateArb(ctx, proposedAmountIn, denomIn, denomOut, orderBookID)
