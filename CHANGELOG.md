@@ -43,6 +43,9 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Fix bug in skipping Numia API response errors
 - Ingest tracing
 - Fix multi-hop /custom-direct-quote bug
+- Apply taker fee and spread factor for fill bot amount estimation
+- Reduce fill bot slippage bound by one ulp
+- Fallback to filling each message individually.
 
 ## v25.9.0
 
