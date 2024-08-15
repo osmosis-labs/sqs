@@ -9,19 +9,19 @@ import (
 
 type orderbookRepositoryImpl struct {
 	tickMapByPoolIDLock sync.RWMutex
-	tickMapByPoolID     map[uint64]sync.Map
+	tickMapByPoolID     map[uint64]*sync.Map
 }
 
 var _ orderbookdomain.OrderBookRepository = &orderbookRepositoryImpl{}
 
 func New() *orderbookRepositoryImpl {
 	return &orderbookRepositoryImpl{
-		tickMapByPoolID:     map[uint64]sync.Map{},
+		tickMapByPoolID:     map[uint64]*sync.Map{},
 		tickMapByPoolIDLock: sync.RWMutex{},
 	}
 }
 
-// GetTicks implements orderbookdomain.OrderBookRepository.
+// GetAllTicks implements orderbookdomain.OrderBookRepository.
 func (o *orderbookRepositoryImpl) GetAllTicks(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
 	o.tickMapByPoolIDLock.RLock()
 	tickMap, ok := o.tickMapByPoolID[poolID]
@@ -33,8 +33,13 @@ func (o *orderbookRepositoryImpl) GetAllTicks(poolID uint64) (map[int64]orderboo
 
 	ticksMap := map[int64]orderbookdomain.OrderbookTick{}
 	tickMap.Range(func(key, value interface{}) bool {
-		ticksMap[key.(int64)] = value.(orderbookdomain.OrderbookTick)
-		return true
+		tickID, ok := key.(int64)
+		if !ok {
+			return false
+		}
+
+		ticksMap[tickID], ok = value.(orderbookdomain.OrderbookTick)
+		return ok
 	})
 
 	return ticksMap, true
@@ -47,7 +52,7 @@ func (o *orderbookRepositoryImpl) GetTicks(poolID uint64, tickIDs []int64) (map[
 	o.tickMapByPoolIDLock.RUnlock()
 
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("ticks for pool %d not found", poolID)
 	}
 
 	ticksMap := make(map[int64]orderbookdomain.OrderbookTick, len(tickIDs))
@@ -57,7 +62,10 @@ func (o *orderbookRepositoryImpl) GetTicks(poolID uint64, tickIDs []int64) (map[
 			return nil, fmt.Errorf("tick %d not found", tickID)
 		}
 
-		ticksMap[tickID] = tick.(orderbookdomain.OrderbookTick)
+		ticksMap[tickID], ok = tick.(orderbookdomain.OrderbookTick)
+		if !ok {
+			return nil, fmt.Errorf("tick %d not found", tickID)
+		}
 	}
 
 	return ticksMap, nil
@@ -73,12 +81,17 @@ func (o *orderbookRepositoryImpl) GetTickByID(poolID uint64, tickID int64) (orde
 		return orderbookdomain.OrderbookTick{}, false
 	}
 
-	tick, ok := tickMap.Load(tickID)
+	tickData, ok := tickMap.Load(tickID)
 	if !ok {
 		return orderbookdomain.OrderbookTick{}, false
 	}
 
-	return tick.(orderbookdomain.OrderbookTick), true
+	tick, ok := tickData.(orderbookdomain.OrderbookTick)
+	if !ok {
+		return orderbookdomain.OrderbookTick{}, false
+	}
+
+	return tick, true
 }
 
 // StoreTicks implements orderbookdomain.OrderBookRepository.
@@ -88,7 +101,7 @@ func (o *orderbookRepositoryImpl) StoreTicks(poolID uint64, ticksMap map[int64]o
 	o.tickMapByPoolIDLock.RUnlock()
 
 	if !ok {
-		tickMap = sync.Map{}
+		tickMap = &sync.Map{}
 	}
 
 	for tickID, tick := range ticksMap {
