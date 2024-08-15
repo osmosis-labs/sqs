@@ -134,7 +134,7 @@ class SQSService:
         # Send the GET request
         return requests.get(self.url + ROUTER_QUOTE_URL, params=params, headers=self.headers)
 
-    def get_custom_direct_quote(self, denom_in, denom_out, pool_id):
+    def get_exact_amount_in_custom_direct_quote(self, denom_in, denom_out, pool_id):
         """
         Fetches custom direct quote from the specified endpoint and returns it.
 

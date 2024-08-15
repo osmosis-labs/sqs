@@ -71,7 +71,7 @@ class TestExactAmountOutQuote:
         token_out_coin = amount_str + USDC
 
         # Run the quote test
-        quote = ExactAmountOutQuote.run_quote_test(environment_url, token_out_coin, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        quote = ExactAmountOutQuote.run_quote_test(environment_url, token_out_coin, denom_in, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
         ExactAmountOutQuote.validate_quote_test(quote, amount_str, USDC, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_in, error_tolerance)
 
@@ -103,7 +103,7 @@ class TestExactAmountOutQuote:
         error_tolerance = Quote.choose_error_tolerance(token_out_amount_usdc_value)
 
         # Run the quote test
-        quote = ExactAmountOutQuote.run_quote_test(environment_url, token_out_coin, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        quote = ExactAmountOutQuote.run_quote_test(environment_url, token_out_coin, denom_in, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
         # Validate that price impact is present.
         assert quote.price_impact is not None
 
@@ -163,7 +163,7 @@ class TestExactAmountOutQuote:
         expected_token_in = int(amount) * expected_in_base_out_quote_price
 
         # Run the quote test
-        quote = ExactAmountOutQuote.run_quote_test(environment_url, amount + denom_out, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        quote = ExactAmountOutQuote.run_quote_test(environment_url, amount + denom_out, denom_in, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
         # Transmuter is expected to be in the route only if the amount out is equal to the amount in
         # in rare cases, CL pools can be picked up instead of transmuter, providing a higher amount out.
