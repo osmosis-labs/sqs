@@ -31,8 +31,11 @@ import (
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
 	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/msg"
-	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/tx"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+)
+
+const (
+	noTxFeeCheckHeightInterval = 40
 )
 
 var (
@@ -134,7 +137,7 @@ func httpGet(ctx context.Context, url string) ([]byte, error) {
 // It returns the response, the transaction body and an error if any.
 // It waits for 5 seconds before returning.
 // It returns an error and avoids executing the transaction if the tx fee capitalization is greater than the max allowed.
-func (o *orderbookFillerIngestPlugin) executeTx(ctx context.Context, txCtx txctx.TxContextI, blockGasPrice blockctx.BlockGasPrice) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
+func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
 	key := o.keyring.GetKey()
 	keyBytes := key.Bytes()
 
@@ -147,13 +150,23 @@ func (o *orderbookFillerIngestPlugin) executeTx(ctx context.Context, txCtx txctx
 		return nil, "", err
 	}
 
+	blockGasPrice := blockCtx.GetGasPrice()
+	txCtx := blockCtx.GetTxCtx()
 	adjustedTxGasUsedTotal := txCtx.GetAdjustedGasUsedTotal()
 
 	txFeeCap := osmomath.NewBigIntFromUint64(adjustedTxGasUsedTotal).ToDec().MulMut(blockGasPrice.GasPriceDefaultQuoteDenom).QuoMut(osmomath.BigDecFromDec(quoteScalingFactor))
 
-	maxTxFeeCap := txCtx.GetMaxTxFeeCap()
-	if txFeeCap.Dec().GT(maxTxFeeCap) {
-		return nil, "", fmt.Errorf("tx fee capitalization %s, is greater than max allowed %s", txFeeCap, maxTxFeeCap)
+	// We skip the fee check for every noTxFeeCheckHeightInterval blocks
+	// Every 40 blocks (roughly 1 minute), batch all off-market orders and execute them
+	// potentially at a loss. This is roughly 4 cents per minute assumming 3 swap messages at 0.1 uosmo per gas.
+	// Which is only $57 per day
+	if blockCtx.GetBlockHeight()%noTxFeeCheckHeightInterval != 0 {
+		maxTxFeeCap := txCtx.GetMaxTxFeeCap()
+		if txFeeCap.Dec().GT(maxTxFeeCap) {
+			return nil, "", fmt.Errorf("tx fee capitalization %s, is greater than max allowed %s", txFeeCap, maxTxFeeCap)
+		}
+	} else {
+		o.logger.Info("skipping tx fee check", zap.String("tx_fee_cap", txFeeCap.String()), zap.String("max_txf_fee_cap", txCtx.GetMaxTxFeeCap().String()), zap.Uint64("block_height", blockCtx.GetBlockHeight()))
 	}
 
 	txFeeUosmo := blockGasPrice.GasPrice.Mul(osmomath.NewIntFromUint64(adjustedTxGasUsedTotal).ToLegacyDec()).Ceil().TruncateInt()
@@ -170,7 +183,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(ctx context.Context, txCtx txctx
 
 	// First round: we gather all the signer infos. We use the "set empty
 	// signature" hack to do that.
-	accSequence, accNumber := getInitialSequence(ctx, o.keyring.GetAddress().String())
+	accSequence, accNumber := getInitialSequence(blockCtx.AsGoCtx(), o.keyring.GetAddress().String())
 	sigV2 := signing.SignatureV2{
 		PubKey: privKey.PubKey(),
 		Data: &signing.SingleSignatureData{
@@ -217,7 +230,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(ctx context.Context, txCtx txctx
 		time.Sleep(5 * time.Second)
 	}()
 
-	resp, err := broadcastTransaction(ctx, txJSONBytes, RPC)
+	resp, err := broadcastTransaction(blockCtx.AsGoCtx(), txJSONBytes, RPC)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
@@ -240,11 +253,18 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		}
 	}
 
+	// Note that we lower the slippage bound, allowing losses.
+	// We still do profitability checks for all swaps > $5 of value down below.
+	// However, we allow for losses in the case of small swaps.
+	// This is to ensure proper filling. The losses are bounded by:
+	// $5 * (1 - 0.9995) = $0.002
+	slippageBound := tokenIn.Amount.ToLegacyDec().Mul(osmomath.MustNewDecFromStr("0.9995")).TruncateInt()
+
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
 		Sender:            o.keyring.GetAddress().String(),
 		Routes:            poolManagerRoute,
 		TokenIn:           tokenIn,
-		TokenOutMinAmount: tokenIn.Amount.Add(osmomath.OneInt()),
+		TokenOutMinAmount: slippageBound,
 	}
 
 	// Estimate transaction
@@ -263,12 +283,6 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		return nil, fmt.Errorf("token out amount is nil")
 	}
 
-	// Ensure that it is profitable without accounting for tx fees
-	diff := msgSwapExactAmountInResponse.TokenOutAmount.Sub(tokenIn.Amount)
-	if diff.IsNegative() {
-		return nil, fmt.Errorf("token out amount is less than or equal to token in amount")
-	}
-
 	// Base denom price
 	blockPrices := ctx.GetPrices()
 	price := blockPrices.GetPriceForDenom(tokenIn.Denom, o.defaultQuoteDenom)
@@ -276,8 +290,19 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		return nil, fmt.Errorf("price for %s is zero", tokenIn.Denom)
 	}
 
-	// Compute capitalization
-	diffCap := o.liquidityPricer.PriceCoin(sdk.Coin{Denom: orderbookplugindomain.BaseDenom, Amount: diff}, price)
+	// For small unprofitable fills, we allow for a small loss.
+	diffCap := osmomath.MustNewDecFromStr("0.005")
+	if o.liquidityPricer.PriceCoin(tokenIn, price).GTE(osmomath.MustNewDecFromStr("5")) {
+		// Otherwise, we compute the capitalization difference precisely.
+		// Ensure that it is profitable without accounting for tx fees
+		diff := msgSwapExactAmountInResponse.TokenOutAmount.Sub(tokenIn.Amount)
+		if diff.IsNegative() {
+			return nil, fmt.Errorf("token out amount is less than or equal to token in amount")
+		}
+
+		// Compute capitalization
+		diffCap = o.liquidityPricer.PriceCoin(sdk.Coin{Denom: orderbookplugindomain.BaseDenom, Amount: diff}, price)
+	}
 
 	msgCtx := msgctx.New(diffCap, adjustedGasUsed, swapMsg)
 
@@ -292,7 +317,7 @@ func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []s
 	txFactory = txFactory.WithAccountNumber(accNum)
 	txFactory = txFactory.WithSequence(accSeq)
 	txFactory = txFactory.WithChainID(chainID)
-	txFactory = txFactory.WithGasAdjustment(1.05)
+	txFactory = txFactory.WithGasAdjustment(1.02)
 
 	// Estimate transaction
 	gasResult, adjustedGasUsed, err := CalculateGas(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), txFactory, msgs...)

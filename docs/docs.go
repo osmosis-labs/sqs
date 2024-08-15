@@ -141,7 +141,7 @@ const docTemplate = `{
         },
         "/router/custom-direct-quote": {
             "get": {
-                "description": "Call does not search for the route rather directly computes the quote for the given poolID.\n\nFor exact amount in swap method, the ` + "`" + `tokenIn` + "`" + ` and ` + "`" + `tokenOutDenom` + "`" + ` are required.\nFor exact amount out swap method, the ` + "`" + `tokenOut` + "`" + ` and ` + "`" + `tokenInDenom` + "`" + ` are required.\nMixing swap method parameters in other way than specified will result in an error.\n",
+                "description": "Call does not search for the route rather directly computes the quote for the given poolID.\nNOTE: Endpoint only supports multi-hop routes, split routes are not supported.\n\nFor exact amount in swap method, the ` + "`" + `tokenIn` + "`" + ` and ` + "`" + `tokenOutDenom` + "`" + ` are required.\nFor exact amount out swap method, the ` + "`" + `tokenOut` + "`" + ` and ` + "`" + `tokenInDenom` + "`" + ` are required.\nMixing swap method parameters in other way than specified will result in an error.\n",
                 "produces": [
                     "application/json"
                 ],
