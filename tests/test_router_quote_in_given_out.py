@@ -86,6 +86,14 @@ class TestExactAmountOutQuote:
         amount_out = int(amount_str)
         coin = Coin(token_out_denom, amount_str)
 
+        TestExactAmountOutQuote.run_top_liq_combos_default_exponent(environment_url, amount_str, token_out_denom, denom_in)
+
+    @staticmethod
+    def run_top_liq_combos_default_exponent(environment_url, amount_str, token_out_denom, denom_in):
+        amount_out = int(amount_str)
+        token_out_coin = amount_str + token_out_denom
+        coin = Coin(token_out_denom, amount_str)
+
         # All tokens have the same default exponent, resulting in scaling factor of 1.
         spot_price_scaling_factor = 1
 

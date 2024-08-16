@@ -97,7 +97,33 @@ class TestExactAmountInQuote:
         token_in_denom = token_in_obj['denom']
         denom_out = swap_pair['out_denom']
 
-        run_exact_in_quote_test(environment_url, amount_str, token_in_denom, denom_out)
+        TestExactAmountInQuote.run_top_liq_combos_default_exponent(environment_url, amount_str, token_in_denom, denom_out)
+
+    @staticmethod
+    def run_top_liq_combos_default_exponent(environment_url, amount_str, token_in_denom, denom_out):
+        amount_in = int(amount_str)
+        token_in_coin = amount_str + token_in_denom
+        coin = Coin(token_in_denom, amount_str)
+
+        # All tokens have the same default exponent, resulting in scaling factor of 1.
+        spot_price_scaling_factor = 1
+
+        expected_in_base_out_quote_price, expected_token_out, token_in_amount_usdc_value = ExactAmountOutQuote.calculate_expected_base_out_quote_spot_price(denom_out, coin)
+
+        # Choosse the error tolerance based on amount in swapped.
+        error_tolerance = Quote.choose_error_tolerance(token_in_amount_usdc_value)
+
+        # Run the quote test
+        quote = ExactAmountInQuote.run_quote_test(environment_url, token_in_coin, denom_out, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        # Validate that price impact is present.
+        assert quote.price_impact is not None
+
+        # If the token in amount value is less than $HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD, we expect the price impact to not exceed threshold
+        if token_in_amount_usdc_value < HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD:
+                quote.price_impact * -1 < HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD, f"Error: price impact is either None or greater than {HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD} {quote.price_impact}"
+
+        # Validate quote results
+        ExactAmountInQuote.validate_quote_test(quote, amount_str, token_in_denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
 
     def test_custom_direct_quote_single_hop(self, environment_url,):
         """
@@ -261,28 +287,3 @@ class TestExactAmountInQuote:
         amount_out_diff = relative_error(expected_amount_out, amount_out)
         assert amount_out_diff < error_tolerance, \
             f"Error: difference between calculated and actual amount out is {amount_out_diff} which is greater than {error_tolerance}"
-
-def run_exact_in_quote_test(environment_url, amount_str, token_in_denom, denom_out):
-    amount_in = int(amount_str)
-    token_in_coin = amount_str + token_in_denom
-    coin = Coin(token_in_denom, amount_str)
-
-    # All tokens have the same default exponent, resulting in scaling factor of 1.
-    spot_price_scaling_factor = 1
-
-    expected_in_base_out_quote_price, expected_token_out, token_in_amount_usdc_value = ExactAmountOutQuote.calculate_expected_base_out_quote_spot_price(denom_out, coin)
-
-    # Choosse the error tolerance based on amount in swapped.
-    error_tolerance = Quote.choose_error_tolerance(token_in_amount_usdc_value)
-
-    # Run the quote test
-    quote = ExactAmountInQuote.run_quote_test(environment_url, token_in_coin, denom_out, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
-    # Validate that price impact is present.
-    assert quote.price_impact is not None
-
-    # If the token in amount value is less than $HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD, we expect the price impact to not exceed threshold
-    if token_in_amount_usdc_value < HIGH_LIQ_PRICE_IMPACT_CHECK_USD_AMOUNT_IN_THRESHOLD:
-            quote.price_impact * -1 < HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD, f"Error: price impact is either None or greater than {HIGH_LIQ_MAX_PRICE_IMPACT_THRESHOLD} {quote.price_impact}"
-
-    # Validate quote results
-    ExactAmountInQuote.validate_quote_test(quote, amount_str, token_in_denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)

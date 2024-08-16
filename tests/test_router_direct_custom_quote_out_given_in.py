@@ -20,9 +20,12 @@ EXPECTED_LATENCY_UPPER_BOUND_MS = 15000
 class TestExactAmountInDirectCustomQuote:
     @pytest.mark.parametrize("pair", conftest.create_coins_from_pairs(conftest.create_no_dupl_token_pairs(conftest.choose_tokens_liq_range(num_tokens=10, min_liq=500_000, exponent_filter=USDC_PRECISION)), USDC_PRECISION, USDC_PRECISION + 3), ids=id_from_swap_pair)
     def test_get_custom_direct_quote(self, environment_url, pair):
-        denom_out = pair['out_denom']
-        coin = Coin(pair['token_in']['denom'], pair['token_in']['amount_str'])
-        token_in  = pair['token_in']['amount_str'] + pair['token_in']['denom']
+        TestExactAmountInDirectCustomQuote.run_get_custom_direct_quote(environment_url, pair['token_in']['amount_str'], pair['token_in']['denom'], pair['out_denom'])
+
+    @staticmethod
+    def run_get_custom_direct_quote(environment_url, amount_str, token_in_denom, denom_out):
+        coin = Coin(token_in_denom, amount_str)
+        token_in  = amount_str + token_in_denom
 
         # Get the optimal quote for the given token pair
         # Direct custom quote does not support multiple routes, so we request single/multi hop pool routes only
@@ -31,7 +34,7 @@ class TestExactAmountInDirectCustomQuote:
         pool_id = ','.join(map(str, optimal_quote.get_pool_ids()))
         denoms_out = ','.join(map(str, optimal_quote.get_token_out_denoms()))
 
-        quote = self.run_quote_test(environment_url, token_in, denoms_out, pool_id, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        quote = TestExactAmountInDirectCustomQuote.run_quote_test(environment_url, token_in, denoms_out, pool_id, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
         # All tokens have the same default exponent, resulting in scaling factor of 1.
         spot_price_scaling_factor = 1
@@ -47,7 +50,8 @@ class TestExactAmountInDirectCustomQuote:
         # Validate quote results
         ExactAmountInQuote.validate_quote_test(quote, coin.amount, coin.denom, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_out, error_tolerance, True)
 
-    def run_quote_test(self, environment_url, token_in, denom_out, pool_id, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountInResponse:
+    @staticmethod
+    def run_quote_test(environment_url, token_in, denom_out, pool_id, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountInResponse:
         """
         Runs exact amount in test for the /router/custom-direct-quote endpoint with the given input parameters.
         """
