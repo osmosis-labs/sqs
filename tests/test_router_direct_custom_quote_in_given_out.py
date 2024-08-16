@@ -58,30 +58,13 @@ class TestExactAmountOutDirectCustomQuote:
 
     def run_quote_test(self, environment_url, token_out, denom_in, pool_id, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountOutResponse:
         """
-        Runs exact amount out test for the /router/quote endpoint with the given input parameters.
-
-        Does basic validation around response status code and latency
-
-        Returns quote for additional validation if needed by client
-
-        Validates:
-        - Response status code is as given or default 200
-        - Latency is under the given bound
+        Runs exact amount out test for the /router/custom-direct-quote endpoint with the given input parameters.
         """
 
-        sqs_service = conftest.SERVICE_MAP[environment_url]
+        service_call = lambda: conftest.SERVICE_MAP[environment_url].get_exact_amount_out_custom_direct_quote(token_out, denom_in, pool_id)
 
-        start_time = time.time()
-        response = sqs_service.get_exact_amount_out_custom_direct_quote(token_out, denom_in, pool_id)
-        elapsed_time_ms = (time.time() - start_time) * 1000
-
-        assert response.status_code == expected_status_code, f"Error: {response.text}"
-        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, denom in {denom_in} and token out {token_out}" 
-
-        response_json = response.json()
-        
-        print(response.text)
+        response = Quote.run_quote_test(service_call, expected_latency_upper_bound_ms, expected_status_code)
 
         # Return route for more detailed validation
-        return QuoteExactAmountOutResponse(**response_json)
+        return QuoteExactAmountOutResponse(**response)
 

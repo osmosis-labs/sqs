@@ -86,6 +86,7 @@ class TestExactAmountInQuote:
 
         # Run the quote test
         quote =  ExactAmountInQuote.run_quote_test(environment_url, token_in_coin, denom_out, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
+
         ExactAmountInQuote.validate_quote_test(quote, amount_str, USDC, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance)
 
     # - Constructs combinations between each from 10^6 to 10^9 amount input

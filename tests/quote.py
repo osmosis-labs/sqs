@@ -1,4 +1,5 @@
 import time
+from typing import Callable, Any
 import conftest
 from sqs_service import *
 from quote_response import *
@@ -10,6 +11,34 @@ from util import *
 from route import *
 
 class Quote:
+    @staticmethod
+    def run_quote_test(service_call: Callable[[], Any], expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountOutResponse:
+        """
+        Runs exact amount out test for the /router/quote endpoint with the given input parameters.
+
+        Does basic validation around response status code and latency.
+
+        Returns quote for additional validation if needed by client.
+
+        Validates:
+        - Response status code is as given or default 200.
+        - Latency is under the given bound.
+        """
+
+        start_time = time.time()
+        response = service_call()
+        elapsed_time_ms = (time.time() - start_time) * 1000
+
+        assert response.status_code == expected_status_code, f"Error: {response.text}"
+        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, denom in and token out"
+
+        response_json = response.json()
+        
+        print(response.text)
+
+        # Return the response for further processing
+        return response.json()
+
     @staticmethod
     def choose_error_tolerance(amount: int):
          # This is the max error tolerance of 7% that we allow.
@@ -84,19 +113,12 @@ class ExactAmountInQuote:
         - Latency is under the given bound
         """
         
-        sqs_service = conftest.SERVICE_MAP[environment_url]
+        service_call = lambda: conftest.SERVICE_MAP[environment_url].get_exact_amount_in_quote(token_in, token_out, human_denoms, single_route)        
 
-        start_time = time.time()
-        response = sqs_service.get_exact_amount_in_quote(token_in, token_out, human_denoms, single_route)
-        elapsed_time_ms = (time.time() - start_time) * 1000
-
-        assert response.status_code == expected_status_code, f"Error: {response.text}"
-        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
-
-        response_json = response.json()
+        response = Quote.run_quote_test(service_call, expected_latency_upper_bound_ms, expected_status_code)
 
         # Return route for more detailed validation
-        return QuoteExactAmountInResponse(**response_json)
+        return QuoteExactAmountInResponse(**response)
 
     @staticmethod
     def validate_quote_test(quote, expected_amount_in_str, expected_denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance, direct_quote=False):
@@ -217,21 +239,12 @@ class ExactAmountOutQuote:
         - Latency is under the given bound
         """
 
-        sqs_service = conftest.SERVICE_MAP[environment_url]
+        service_call = lambda: conftest.SERVICE_MAP[environment_url].get_exact_amount_out_quote(token_out, token_in, human_denoms, single_route)
 
-        start_time = time.time()
-        response = sqs_service.get_exact_amount_out_quote(token_out, token_in, human_denoms, single_route)
-        elapsed_time_ms = (time.time() - start_time) * 1000
-
-        assert response.status_code == expected_status_code, f"Error: {response.text}"
-        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
-
-        response_json = response.json()
-
-        print(response.text)
+        response = Quote.run_quote_test(service_call, expected_latency_upper_bound_ms, expected_status_code)
 
         # Return route for more detailed validation
-        return QuoteExactAmountOutResponse(**response_json)
+        return QuoteExactAmountOutResponse(**response)
 
     @staticmethod
     def calculate_amount_transmuter(token_out: Coin, denom_in):
