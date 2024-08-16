@@ -100,6 +100,27 @@ class Quote:
             assert token_in_denom, f"Error: token in {token_in_denom} not found in pool denoms {denoms}, pool ID {pool_id}, route in {route_denom_in}, route out {route_denom_out}"
 
 class ExactAmountInQuote:
+    @staticmethod
+    def calculate_expected_base_out_quote_spot_price(denom_out, coin):
+        """
+        Compute expected base out quote spot price
+
+        First, get the USD price of each denom, and then divide to get the expected spot price
+        """
+
+        # Compute expected base out quote spot price
+        # First, get the USD price of each denom, and then divide to get the expected spot price
+        in_base_usd_quote_price = conftest.get_usd_price_scaled(denom_out)
+        out_base_usd_quote_price = conftest.get_usd_price_scaled(coin.denom)
+        expected_in_base_out_quote_price = out_base_usd_quote_price / in_base_usd_quote_price 
+
+        # Compute expected token out
+        expected_token_in = int(coin.amount) * expected_in_base_out_quote_price
+
+        token_in_amount_usdc_value = in_base_usd_quote_price * coin.amount
+
+        return expected_in_base_out_quote_price, expected_token_in, token_in_amount_usdc_value
+
     def run_quote_test(environment_url, token_in, token_out, human_denoms, single_route, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountInResponse:
         """
         Runs a test for the /router/quote endpoint with the given input parameters.
@@ -226,6 +247,25 @@ class ExactAmountInQuote:
 
 class ExactAmountOutQuote:
     @staticmethod
+    def calculate_expected_base_out_quote_spot_price(denom_in, coin):
+        """
+        Compute expected base out quote spot price
+
+        First, get the USD price of each denom, and then divide to get the expected spot price
+        """
+
+        in_base_usd_quote_price = conftest.get_usd_price_scaled(denom_in)
+        out_base_usd_quote_price = conftest.get_usd_price_scaled(coin.denom)
+        expected_in_base_out_quote_price = out_base_usd_quote_price / in_base_usd_quote_price 
+
+        # Compute expected token out
+        expected_token_in = int(coin.amount) * expected_in_base_out_quote_price
+
+        token_out_amount_usdc_value = in_base_usd_quote_price * coin.amount
+
+        return expected_in_base_out_quote_price, expected_token_in, token_out_amount_usdc_value
+
+    @staticmethod
     def run_quote_test(environment_url, token_out, token_in, human_denoms, single_route, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountOutResponse:
         """
         Runs exact amount out test for the /router/quote endpoint with the given input parameters.
@@ -245,50 +285,6 @@ class ExactAmountOutQuote:
 
         # Return route for more detailed validation
         return QuoteExactAmountOutResponse(**response)
-
-    @staticmethod
-    def calculate_amount_transmuter(token_out: Coin, denom_in):
-        # This is the max error tolerance of 5% that we allow.
-        # Arbitrarily hand-picked to avoid flakiness.
-        error_tolerance = 0.05
-
-        # Get denom in precision.
-        denom_out_precision = conftest.get_denom_exponent(token_out.denom)
-
-        # Get denom out data to retrieve precision and price 
-        denom_in_data = conftest.shared_test_state.chain_denom_to_data_map.get(denom_in)
-        denom_in_precision = denom_in_data.get("exponent")
-
-        # Compute spot price scaling factor.
-        spot_price_scaling_factor = Decimal(10)**denom_out_precision / Decimal(10)**denom_in_precision
-
-        # Compute expected spot prices
-        out_base_in_quote_price = Decimal(denom_in_data.get("price"))
-        expected_in_base_out_quote_price = 1 / out_base_in_quote_price
-
-        # Compute expected token in
-        expected_token_in = int(token_out.amount) * expected_in_base_out_quote_price
-
-        return spot_price_scaling_factor, expected_token_in, error_tolerance
-
-    def calculate_amount(tokenOut: Coin, denom_in):
-        # All tokens have the same default exponent, resulting in scaling factor of 1.
-        spot_price_scaling_factor = 1
-
-        token_out_denom = tokenOut.denom
-        amount_str = tokenOut.amount
-        amount_out = int(amount_str)
-
-        # Compute expected base out quote spot price
-        # First, get the USD price of each denom, and then divide to get the expected spot price
-        in_base_usd_quote_price = conftest.get_usd_price_scaled(denom_in)
-        out_base_usd_quote_price = conftest.get_usd_price_scaled(token_out_denom)
-        expected_in_base_out_quote_price = out_base_usd_quote_price / in_base_usd_quote_price 
-
-        # Compute expected token out
-        expected_token_in = int(amount_str) * expected_in_base_out_quote_price
-
-        return in_base_usd_quote_price * amount_out
 
     @staticmethod
     def validate_quote_test(quote, expected_amount_out_str, expected_denom_out, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance, direct_quote=False):

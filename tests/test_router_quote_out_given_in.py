@@ -265,20 +265,12 @@ class TestExactAmountInQuote:
 def run_exact_in_quote_test(environment_url, amount_str, token_in_denom, denom_out):
     amount_in = int(amount_str)
     token_in_coin = amount_str + token_in_denom
+    coin = Coin(token_in_denom, amount_str)
 
     # All tokens have the same default exponent, resulting in scaling factor of 1.
     spot_price_scaling_factor = 1
 
-    # Compute expected base out quote spot price
-    # First, get the USD price of each denom, and then divide to get the expected spot price
-    out_base_usd_quote_price = conftest.get_usd_price_scaled(denom_out)
-    in_base_usd_quote_price = conftest.get_usd_price_scaled(token_in_denom)
-    expected_in_base_out_quote_price = in_base_usd_quote_price / out_base_usd_quote_price 
-
-    # Compute expected token out
-    expected_token_out = int(amount_str) * expected_in_base_out_quote_price
-
-    token_in_amount_usdc_value = in_base_usd_quote_price * amount_in
+    expected_in_base_out_quote_price, expected_token_out, token_in_amount_usdc_value = ExactAmountOutQuote.calculate_expected_base_out_quote_spot_price(denom_out, coin)
 
     # Choosse the error tolerance based on amount in swapped.
     error_tolerance = Quote.choose_error_tolerance(token_in_amount_usdc_value)
