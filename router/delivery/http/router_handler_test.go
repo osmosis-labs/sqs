@@ -144,6 +144,7 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 			err := tc.handler.GetOptimalQuote(c)
 
 			if tc.expectedError {
+				// Note: in case of error, we expect err to be nil but the status code to be non-200
 				s.Assert().Nil(err)
 				s.Assert().Equal(tc.expectedStatusCode, rec.Code)
 				s.Assert().JSONEq(tc.expectedResponse, rec.Body.String())
@@ -344,6 +345,7 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 			err := tc.handler.GetDirectCustomQuote(c)
 
 			if tc.expectedError {
+				// Note: in case of error, we expect err to be nil but the status code to be non-200
 				s.Assert().Nil(err)
 				s.Assert().Equal(tc.expectedStatusCode, rec.Code)
 				s.Assert().Equal(
