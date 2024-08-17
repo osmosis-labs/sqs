@@ -109,8 +109,6 @@ class SQSService:
             "singleRoute": singleRoute,
         }
 
-        print(params)
-
         # Send the GET request
         return requests.get(self.url + ROUTER_QUOTE_URL, params=params, headers=self.headers)
 
