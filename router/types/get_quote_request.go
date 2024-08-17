@@ -29,7 +29,7 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 
 	r.ApplyExponents, err = domain.ParseBooleanQueryParam(c, "applyExponents")
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return err
 	}
 
 	if tokenIn := c.QueryParam("tokenIn"); tokenIn != "" {
