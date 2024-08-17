@@ -10,7 +10,10 @@ from util import *
 from test_pools import run_pool_liquidity_cap_test, run_canonical_orderbook_test, run_pool_filters_test
 from test_passthrough import run_test_portfolio_assets
 from test_candidate_routes import run_candidate_routes_test
-from test_router_quote_out_given_in import run_exact_in_quote_test
+from test_router_quote_out_given_in import TestExactAmountInQuote
+from test_router_quote_in_given_out import TestExactAmountOutQuote
+from test_router_direct_custom_quote_out_given_in import TestExactAmountInDirectCustomQuote
+from test_router_direct_custom_quote_in_given_out import TestExactAmountOutDirectCustomQuote
 
 expected_latency_upper_bound_ms = 2000
 
@@ -61,4 +64,37 @@ class TestSyntheticMonitoringGeo:
         token_pairs = list(itertools.combinations(tokens_to_pair, 2))
 
         for token_pair in token_pairs:
-            run_exact_in_quote_test(environment_url, default_amount_in, token_pair[0], token_pair[1])
+            TestExactAmountInQuote.run_top_liq_combos_default_exponent(environment_url, default_amount_in, token_pair[0], token_pair[1])
+
+    # /router/quote exact out
+    def test_synth_router_quote_exact_out(self, environment_url):
+        tokens_to_pair = [constants.USDC, constants.UOSMO]
+        # TODO: make selection smarter
+        default_amount_in = "1000000"
+
+        token_pairs = list(itertools.combinations(tokens_to_pair, 2))
+
+        for token_pair in token_pairs:
+            TestExactAmountOutQuote.run_top_liq_combos_default_exponent(environment_url, default_amount_in, token_pair[0], token_pair[1])
+
+    # /router/custom-direct-quote exact in
+    def test_synth_router_direct_custom_quote_in(self, environment_url):
+        tokens_to_pair = [constants.USDC, constants.UOSMO]
+        # TODO: make selection smarter
+        default_amount_in = "1000000"
+
+        token_pairs = list(itertools.combinations(tokens_to_pair, 2))
+
+        for token_pair in token_pairs:
+            TestExactAmountInDirectCustomQuote.run_get_custom_direct_quote(environment_url, default_amount_in, token_pair[0], token_pair[1])
+
+    # /router/custom-direct-quote exact out
+    def test_synth_router_direct_custom_quote_out(self, environment_url):
+        tokens_to_pair = [constants.USDC, constants.UOSMO]
+        # TODO: make selection smarter
+        default_amount_in = "1000000"
+
+        token_pairs = list(itertools.combinations(tokens_to_pair, 2))
+
+        for token_pair in token_pairs:
+            TestExactAmountOutDirectCustomQuote.run_get_custom_direct_quote(environment_url, default_amount_in, token_pair[0], token_pair[1])

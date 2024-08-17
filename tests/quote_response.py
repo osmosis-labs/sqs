@@ -41,6 +41,20 @@ class QuoteExactAmountInResponse:
         self.price_impact = Decimal(price_impact)
         self.in_base_out_quote_spot_price = Decimal(in_base_out_quote_spot_price)
 
+    def get_pool_ids(self):
+        pool_ids = []
+        for route in self.route:
+            for pool in route.pools:
+                pool_ids.append(pool.id)
+        return pool_ids
+
+    def get_token_out_denoms(self):
+        token_out_denoms = []
+        for route in self.route:
+            for pool in route.pools:
+                token_out_denoms.append(pool.token_out_denom)
+        return token_out_denoms
+
 # QuoteExactAmountOutResponse represents the response format
 # of the /router/quote endpoint for Exact Amount Out Quote.
 class QuoteExactAmountOutResponse:
@@ -51,3 +65,17 @@ class QuoteExactAmountOutResponse:
         self.effective_fee = Decimal(effective_fee)
         self.price_impact = Decimal(price_impact)
         self.in_base_out_quote_spot_price = Decimal(in_base_out_quote_spot_price)
+
+    def get_pool_ids(self):
+        pool_ids = []
+        for route in self.route:
+            for pool in route.pools:
+                pool_ids.append(pool.id)
+        return pool_ids
+
+    def get_token_in_denoms(self):
+        token_in_denoms = []
+        for route in self.route:
+            for pool in route.pools:
+                token_in_denoms.append(pool.token_in_denom)
+        return token_in_denoms

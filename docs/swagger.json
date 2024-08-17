@@ -132,7 +132,7 @@
         },
         "/router/custom-direct-quote": {
             "get": {
-                "description": "Call does not search for the route rather directly computes the quote for the given poolID.",
+                "description": "Call does not search for the route rather directly computes the quote for the given poolID.\nNOTE: Endpoint only supports multi-hop routes, split routes are not supported.\n\nFor exact amount in swap method, the `tokenIn` and `tokenOutDenom` are required.\nFor exact amount out swap method, the `tokenOut` and `tokenInDenom` are required.\nMixing swap method parameters in other way than specified will result in an error.\n",
                 "produces": [
                     "application/json"
                 ],
@@ -141,25 +141,44 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "example": "5OSMO",
-                        "description": "String representation of the sdk.Coin for the token in.",
+                        "example": "1000000uosmo",
+                        "description": "String representation of the sdk.Coin denoting the input token for the exact amount in swap method.",
                         "name": "tokenIn",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
-                        "example": "ATOM,USDC",
-                        "description": "String representing the list of the token denom out separated by comma.",
+                        "example": "uion",
+                        "description": "String representing the list of the output token denominations separated by comma for the exact amount in swap method.",
                         "name": "tokenOutDenom",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
-                        "example": "1,2,3",
+                        "example": "2353uion",
+                        "description": "String representation of the sdk.Coin denoting the output token for the exact amount out swap method.",
+                        "name": "tokenOut",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "uosmo",
+                        "description": "String representing the list of the input token denominations separated by comma for the exact amount out swap method.",
+                        "name": "tokenInDenom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "1100",
                         "description": "String representing list of the pool ID.",
                         "name": "poolID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "name": "humanDenoms",
                         "in": "query",
                         "required": true
                     },
@@ -189,24 +208,28 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "1000000uosmo",
                         "description": "String representation of the sdk.Coin denoting the input token for the exact amount in swap method.",
                         "name": "tokenIn",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "uion",
                         "description": "String representing the denomination of the output token for the exact amount in swap method.",
                         "name": "tokenOutDenom",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "2353uion",
                         "description": "String representation of the sdk.Coin denoting the output token for the exact amount out swap method.",
                         "name": "tokenOut",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "uosmo",
                         "description": "String representing the denomination of the input token for the exact amount out swap method.",
                         "name": "tokenInDenom",
                         "in": "query"
