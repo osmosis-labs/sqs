@@ -71,7 +71,8 @@ class TestExactAmountOutQuote:
         token_out_coin = amount_str + USDC
 
         # Run the quote test
-        quote = self.run_quote_test(environment_url, token_out_coin, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        quote = ExactAmountOutQuote.run_quote_test(environment_url, token_out_coin, denom_in, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
+
         ExactAmountOutQuote.validate_quote_test(quote, amount_str, USDC, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_in, error_tolerance)
 
     # - Constructs combinations between each from 10^6 to 10^9 amount input
@@ -83,26 +84,26 @@ class TestExactAmountOutQuote:
         token_out_coin = amount_str + token_out_denom
         denom_in = swap_pair['out_denom']
         amount_out = int(amount_str)
+        coin = Coin(token_out_denom, amount_str)
+
+        TestExactAmountOutQuote.run_top_liq_combos_default_exponent(environment_url, amount_str, token_out_denom, denom_in)
+
+    @staticmethod
+    def run_top_liq_combos_default_exponent(environment_url, amount_str, token_out_denom, denom_in):
+        amount_out = int(amount_str)
+        token_out_coin = amount_str + token_out_denom
+        coin = Coin(token_out_denom, amount_str)
 
         # All tokens have the same default exponent, resulting in scaling factor of 1.
         spot_price_scaling_factor = 1
 
-        # Compute expected base out quote spot price
-        # First, get the USD price of each denom, and then divide to get the expected spot price
-        in_base_usd_quote_price = conftest.get_usd_price_scaled(denom_in)
-        out_base_usd_quote_price = conftest.get_usd_price_scaled(token_out_denom)
-        expected_in_base_out_quote_price = out_base_usd_quote_price / in_base_usd_quote_price 
-
-        # Compute expected token out
-        expected_token_in = int(amount_str) * expected_in_base_out_quote_price
-
-        token_out_amount_usdc_value = in_base_usd_quote_price * amount_out
+        expected_in_base_out_quote_price, expected_token_in, token_out_amount_usdc_value = ExactAmountOutQuote.calculate_expected_base_out_quote_spot_price(denom_in, coin)
 
         # Chose the error tolerance based on amount in swapped.
         error_tolerance = Quote.choose_error_tolerance(token_out_amount_usdc_value)
 
         # Run the quote test
-        quote = self.run_quote_test(environment_url, token_out_coin, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        quote = ExactAmountOutQuote.run_quote_test(environment_url, token_out_coin, denom_in, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
         # Validate that price impact is present.
         assert quote.price_impact is not None
 
@@ -162,7 +163,7 @@ class TestExactAmountOutQuote:
         expected_token_in = int(amount) * expected_in_base_out_quote_price
 
         # Run the quote test
-        quote = self.run_quote_test(environment_url, amount + denom_out, denom_in, EXPECTED_LATENCY_UPPER_BOUND_MS)
+        quote = ExactAmountOutQuote.run_quote_test(environment_url, amount + denom_out, denom_in, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
         # Transmuter is expected to be in the route only if the amount out is equal to the amount in
         # in rare cases, CL pools can be picked up instead of transmuter, providing a higher amount out.
@@ -172,30 +173,3 @@ class TestExactAmountOutQuote:
 
         # Validate the quote test
         ExactAmountOutQuote.validate_quote_test(quote, amount, denom_out, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance)
-
-    def run_quote_test(self, environment_url, token_out, token_in, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountOutResponse:
-        """
-        Runs exact amount out test for the /router/quote endpoint with the given input parameters.
-
-        Does basic validation around response status code and latency
-
-        Returns quote for additional validation if needed by client
-
-        Validates:
-        - Response status code is as given or default 200
-        - Latency is under the given bound
-        """
-
-        sqs_service = conftest.SERVICE_MAP[environment_url]
-
-        start_time = time.time()
-        response = sqs_service.get_exact_amount_out_quote(token_out, token_in)
-        elapsed_time_ms = (time.time() - start_time) * 1000
-
-        assert response.status_code == expected_status_code, f"Error: {response.text}"
-        assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, token in {token_in} and token out {token_out}" 
-
-        response_json = response.json()
-
-        # Return route for more detailed validation
-        return QuoteExactAmountOutResponse(**response_json)
