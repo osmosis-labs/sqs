@@ -47,6 +47,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Apply taker fee and spread factor for fill bot amount estimation
 - Reduce fill bot slippage bound by one ulp
 - Fallback to filling each message individually.
+- Add router and candidate route search options to disable route cache
 
 ## v25.9.0
 

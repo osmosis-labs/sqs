@@ -13,6 +13,9 @@ type CandidateRouteSearchOptions struct {
 	MaxPoolsPerRoute int
 	// MinPoolLiquidityCap is the minimum liquidity cap for a pool to be considered.
 	MinPoolLiquidityCap uint64
+	// DisableCache specifies if route cache should be disbled.
+	// If true, the candidate route cache is neither read nor written to.
+	DisableCache bool
 }
 
 // CandidateRouteSearcher is the interface for finding candidate routes.
