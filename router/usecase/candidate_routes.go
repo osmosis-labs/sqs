@@ -109,6 +109,13 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 				continue
 			}
 
+			// If the option is configured to skip a given pool
+			// We mark it as visited and continue.
+			if options.ShouldSkipPool(pool) {
+				visited[poolID] = struct{}{}
+				continue
+			}
+
 			if pool.GetLiquidityCap().Uint64() < options.MinPoolLiquidityCap {
 				visited[poolID] = struct{}{}
 				// Skip pools that have less liquidity than the minimum required.
