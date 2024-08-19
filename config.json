@@ -1,5 +1,4 @@
 {
-    "debug": true,
     "server-address": ":9092",
     "logger-filename": "sqs.log",
     "logger-is-production": true,

@@ -33,11 +33,6 @@ func main() {
 
 	hostName := flag.String("host", "sqs", "the name of the host")
 
-	isDebug := flag.Bool("debug", false, "debug mode")
-	if *isDebug {
-		log.Println("Service RUN on DEBUG mode")
-	}
-
 	// Parse the command-line arguments
 	flag.Parse()
 
