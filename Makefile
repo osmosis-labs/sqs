@@ -1,4 +1,5 @@
 # Exporting bin folder to the path for makefile
+PWD := $(shell pwd)
 export PATH   := $(PWD)/bin:$(PATH)
 # Default Shell
 export SHELL  := bash
@@ -41,7 +42,7 @@ run:
 
 run-docker:
 	$(DOCKER) rm -f sqs
-	$(DOCKER) run -d --name sqs -p 9092:9092 -p 26657:26657 -v /root/sqs/config-testnet.json/:/osmosis/config.json --net host osmolabs/sqs:local "--config /osmosis/config.json"
+	$(DOCKER) run -d --name sqs -p 9092:9092 -p 26657:26657 -v $(PWD)/config.json:/osmosis/config.json:ro --net host osmolabs/sqs:local --config /osmosis/config.json
 	$(DOCKER) logs -f sqs
 
 osmosis-start:
