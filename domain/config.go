@@ -60,16 +60,126 @@ type Config struct {
 	CORS *CORSConfig `mapstructure:"cors"`
 }
 
+var (
+	DefaultConfig = Config{
+		ServerAddress:              ":9092",
+		LoggerFilename:             "sqs.log",
+		LoggerIsProduction:         false,
+		LoggerLevel:                "info",
+		ChainTendermingRPCEndpoint: "http://localhost:26657",
+		ChainGRPCGatewayEndpoint:   "localhost:9090",
+		ChainID:                    "osmosis-1",
+		ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+		UpdateAssetsHeightInterval: 200,
+		FlightRecord: &FlightRecordConfig{
+			Enabled:          true,
+			TraceThresholdMS: 1000,
+			TraceFileName:    "/tmp/sqs-flight-record.trace",
+		},
+		Pools: &PoolsConfig{
+			TransmuterCodeIDs: []uint64{
+				148,
+				254,
+			},
+			AlloyedTransmuterCodeIDs: []uint64{
+				814,
+				867,
+			},
+			OrderbookCodeIDs: []uint64{
+				885,
+			},
+			GeneralCosmWasmCodeIDs: []uint64{
+				503,
+				572,
+				773,
+				641,
+				842,
+			},
+		},
+		Router: &RouterConfig{
+			PreferredPoolIDs:                 []uint64{},
+			MaxPoolsPerRoute:                 4,
+			MaxRoutes:                        20,
+			MaxSplitRoutes:                   3,
+			MinPoolLiquidityCap:              0,
+			RouteCacheEnabled:                true,
+			CandidateRouteCacheExpirySeconds: 1200,
+			RankedRouteCacheExpirySeconds:    45,
+			DynamicMinLiquidityCapFiltersDesc: []DynamicMinLiquidityCapFilterEntry{
+				{
+					MinTokensCap: 1000000,
+					FilterValue:  75000,
+				},
+				{
+					MinTokensCap: 250000,
+					FilterValue:  15000,
+				},
+				{
+					MinTokensCap: 10000,
+					FilterValue:  1000,
+				},
+				{
+					MinTokensCap: 1000,
+					FilterValue:  10,
+				},
+				{
+					MinTokensCap: 1,
+					FilterValue:  1,
+				},
+			},
+		},
+		Pricing: &PricingConfig{
+			CacheExpiryMs:             2000,
+			DefaultSource:             0,
+			DefaultQuoteHumanDenom:    "usdc",
+			MaxPoolsPerRoute:          4,
+			MaxRoutes:                 3,
+			MinPoolLiquidityCap:       1000,
+			CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
+			CoingeckoQuoteCurrency:    "usd",
+			WorkerMinPoolLiquidityCap: 1,
+		},
+		Passthrough: &passthroughdomain.PassthroughConfig{
+			NumiaURL:                     "https://public-osmosis-api.numia.dev",
+			TimeseriesURL:                "https://stage-proxy-data-api.osmosis-labs.workers.dev",
+			APRFetchIntervalMinutes:      5,
+			PoolFeesFetchIntervalMinutes: 5,
+		},
+		GRPCIngester: &GRPCIngesterConfig{
+			Enabled:                        true,
+			MaxReceiveMsgSizeBytes:         16777216,
+			ServerAddress:                  ":50051",
+			ServerConnectionTimeoutSeconds: 10,
+			Plugins: []Plugin{
+				&OrderBookPluginConfig{
+					Enabled: false,
+					Name:    orderbookplugindomain.OrderBookPluginName,
+				},
+			},
+		},
+		OTEL: &OTELConfig{
+			Enabled:     true,
+			Environment: "sqs-dev",
+		},
+		CORS: &CORSConfig{
+			AllowedHeaders: "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
+			AllowedMethods: "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
+			AllowedOrigin:  "*",
+		},
+	}
+)
+
 // UnmarshalConfig handles the custom unmarshaling for the Config struct, particularly for Plugins.
 func UnmarshalConfig() (*Config, error) {
-	var config Config
+	config := DefaultConfig
 
 	// Use Viper's Unmarshal method to decode the configuration, except for the Plugins field
 	if err := viper.Unmarshal(&config, viper.DecodeHook(
 		mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToSliceHookFunc(","),
 			viperDecodeHookFunc(),
-		))); err != nil {
+		)),
+	); err != nil {
 		return nil, err
 	}
 

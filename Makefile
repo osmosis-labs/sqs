@@ -140,7 +140,7 @@ load-test-ui:
 	$(DOCKER) compose -f locust/docker-compose.yml up --scale worker=4
 
 debug:
-	dlv --build-flags="-ldflags='-X github.com/osmosis-labs/sqs/version=${VERSION}'"  debug app/*.go -- --config ./config.json
+	dlv --build-flags="-ldflags='-X github.com/osmosis-labs/sqs/version=${VERSION}'"  debug app/*.go
 
 profile:
 	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/profile?seconds=60

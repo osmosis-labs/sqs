@@ -20,8 +20,6 @@
         "config.json",
         "--host",
         "sqs-dev",
-        "--debug",
-        "true"
       ],
       "cwd": "${workspaceFolder}"
     },

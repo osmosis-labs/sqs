@@ -310,7 +310,6 @@ paths:
       description: |-
         returns token metadata with chain denom, human denom, and precision.
         For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
-        See `config.json` and `config-testnet.json` in root for details.
       operationId: get-token-metadata
       parameters:
       - description: List of denoms where each can either be a human denom or a chain
@@ -333,7 +332,6 @@ paths:
       description: |-
         returns pool denom metadata. As of today, this metadata is represented by the local market cap of the token computed over all Osmosis pools.
         For testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.
-        See `config.json` and `config-testnet.json` in root for details.
       operationId: get-pool-denom-metadata
       parameters:
       - description: List of denoms where each can either be a human denom or a chain

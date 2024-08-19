@@ -26,23 +26,31 @@ import (
 	"github.com/osmosis-labs/osmosis/v25/app"
 )
 
+const (
+	emptyValuePlaceholder = ""
+)
+
 // @title           Osmosis Sidecar Query Server Example API
 // @version         1.0
 func main() {
-	configPath := flag.String("config", "config.json", "config file location")
+	configPath := flag.String("config", emptyValuePlaceholder, "config file location")
 
 	hostName := flag.String("host", "sqs", "the name of the host")
 
 	// Parse the command-line arguments
 	flag.Parse()
 
-	fmt.Println("configPath", *configPath)
-	fmt.Println("hostName", *hostName)
+	if len(*configPath) == len(emptyValuePlaceholder) {
+		fmt.Println("using default config. See domain/config.go for more details")
+	} else {
+		fmt.Println("configPath", *configPath)
+		fmt.Println("hostName", *hostName)
 
-	viper.SetConfigFile(*configPath)
-	err := viper.ReadInConfig()
-	if err != nil {
-		panic(err)
+		viper.SetConfigFile(*configPath)
+		err := viper.ReadInConfig()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// Unmarshal the config into Config struct
