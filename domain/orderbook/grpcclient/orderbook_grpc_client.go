@@ -14,8 +14,11 @@ type OrderBookClient interface {
 	// GetOrdersByTick fetches orders by tick from the orderbook contract.
 	GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error)
 
+	// GetActiveOrders fetches active orders by owner from the orderbook contract.
+	GetActiveOrders(ctx context.Context, contractAddress string, ownerAddress string) ([]orderbookplugindomain.Order, uint64, error)
+
 	// GetTickUnrealizedCancels fetches unrealized cancels by tick from the orderbook contract.
-	GetTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]unrealizedCancelsTickPayload, error)
+	GetTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookplugindomain.UnrealizedTickCancels, error)
 }
 
 // orderbookClientImpl is an implementation of OrderbookCWAPIClient.
@@ -44,8 +47,18 @@ func (o *orderbookClientImpl) GetOrdersByTick(ctx context.Context, contractAddre
 	return orders.Orders, nil
 }
 
+// GetActiveOrders implements OrderbookCWAPIClient.
+func (o *orderbookClientImpl) GetActiveOrders(ctx context.Context, contractAddress string, ownerAddress string) ([]orderbookplugindomain.Order, uint64, error) {
+	var orders activeOrdersResponse
+	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, o.wasmClient, contractAddress, activeOrdersRequest{OrdersByOwner: ordersByOwner{Owner: ownerAddress}}, &orders); err != nil {
+		return nil, 0, err
+	}
+
+	return orders.Orders, orders.Count, nil
+}
+
 // GetTickUnrealizedCancels implements OrderbookCWAPIClient.
-func (o *orderbookClientImpl) GetTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]unrealizedCancelsTickPayload, error) {
+func (o *orderbookClientImpl) GetTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookplugindomain.UnrealizedTickCancels, error) {
 	var unrealizedCancels unrealizedCancelsResponse
 	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, o.wasmClient, contractAddress, unrealizedCancelsByTickIdRequest{UnrealizedCancels: unrealizedCancelsRequestPayload{TickIds: tickIDs}}, &unrealizedCancels); err != nil {
 		return nil, err

@@ -1,7 +1,6 @@
 package orderbookgrpcclientdomain
 
 import (
-	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 )
 
@@ -30,13 +29,23 @@ type unrealizedCancelsByTickIdRequest struct {
 	UnrealizedCancels unrealizedCancelsRequestPayload `json:"get_unrealized_cancels"`
 }
 
-// unrealizedCancelsTickPayload is a struct that represents the response payload for an individual tick of the unrealized_cancels query.
-type unrealizedCancelsTickPayload struct {
-	TickID                 int64                             `json:"tick_id"`
-	UnrealizedCancelsState orderbookdomain.UnrealizedCancels `json:"unrealized_cancels"`
-}
-
 // unrealizedCancelsResponse is a struct that represents the response payload for the get_unrealized_cancels query.
 type unrealizedCancelsResponse struct {
-	Ticks []unrealizedCancelsTickPayload `json:"ticks"`
+	Ticks []orderbookplugindomain.UnrealizedTickCancels `json:"ticks"`
+}
+
+// ordersByOwner is a struct that represents the request payload for the active_orders query.
+type ordersByOwner struct {
+	Owner string `json:"owner"`
+}
+
+// activeOrdersRequest is a struct that represents the payload for the active_orders query.
+type activeOrdersRequest struct {
+	OrdersByOwner ordersByOwner `json:"orders_by_owner"`
+}
+
+// activeOrdersResponse is a struct that represents the response payload for the active_orders query.
+type activeOrdersResponse struct {
+	Orders []orderbookplugindomain.Order `json:"orders"`
+	Count  uint64                        `json:"count"`
 }
