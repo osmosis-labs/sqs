@@ -154,6 +154,11 @@ type RouterOptions struct {
 	// DisableCache flag controlling whether candidate route and ranked route caches should be disabled.
 	// If true, neither of the caches is read or written to.
 	DisableCache bool
+	// CandidateRoutesPoolFiltersAnyOf are the callbacks that take in a pool, returning
+	// true if the candidate route algorithm should ignore a pool matching a certain condition.
+	// If at least one of the callbacks in-slice returns true, the ShouldSkipPool function will
+	// also return true.
+	CandidateRoutesPoolFiltersAnyOf []CandidateRoutePoolFiltrerCb
 }
 
 // DefaultRouterOptions defines the default options for the router
@@ -200,6 +205,15 @@ func WithMaxSplitRoutes(maxSplitRoutes int) RouterOption {
 func WithDisableCache() RouterOption {
 	return func(o *RouterOptions) {
 		o.DisableCache = true
+	}
+}
+
+// WithCandidateRoutesPoolFiltersAnyOf configures the router options with the candidate routes pool filters.
+// If at least one of the callbacks in-slice returns true, for a specific pool, that pool would be ignored
+// in the candidate route search.
+func WithCandidateRoutesPoolFiltersAnyOf(filters ...CandidateRoutePoolFiltrerCb) RouterOption {
+	return func(o *RouterOptions) {
+		o.CandidateRoutesPoolFiltersAnyOf = filters
 	}
 }
 

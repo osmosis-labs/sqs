@@ -223,6 +223,17 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 // GetOptimalQuoteInGivenOut returns an optimal quote through the pools for the exact amount out token swap method.
 // Underlying implementation is the same as GetOptimalQuote, but the returned quote is wrapped in a quoteExactAmountOut.
 func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+
+	// Disable cache and add orderbook pool filter
+	// So that order-book pools are not used in the candidate route search.
+	// The reason is that order-book contract does not implement the MsgSwapExactAmountOut API.
+	// The reason we disable cache is so that the exluded candidate routes do not interfere with the main
+	// "out given in" API.
+	opts = append(opts,
+		domain.WithDisableCache(),
+		domain.WithCandidateRoutesPoolFiltersAnyOf(domain.ShouldSkipOrderbookPool),
+	)
+
 	quote, err := r.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, opts...)
 	if err != nil {
 		return nil, err
