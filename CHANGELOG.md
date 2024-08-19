@@ -48,6 +48,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Reduce fill bot slippage bound by one ulp
 - Fallback to filling each message individually.
 - Define sane config defaults, allowing the ability to override them via a config file (backwards compatible).
+- Remove unused `debug` config and flag.
 
 ## v25.9.0
 
