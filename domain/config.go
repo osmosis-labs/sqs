@@ -176,17 +176,13 @@ var (
 // Additionally, it sets up environment variable mappings using reflection.
 // It also handles the Plugins field by decoding it using a custom decode hook.
 // It uses Viper to handle environment variables and reflection to automatically generate environment variable mappings.
+// CONTRACT: viper.ReadInConfig() is called before this function.
 func UnmarshalConfig() (*Config, error) {
 	config := DefaultConfig
 
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
-
-	// Load config file (assuming you're already doing this somewhere)
-	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("error reading config file: %w", err)
-	}
 
 	// Set up environment variable mappings using reflection
 	bindEnvRecursive(reflect.ValueOf(&config), "")
