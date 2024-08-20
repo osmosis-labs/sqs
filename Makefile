@@ -210,6 +210,9 @@ e2e-install-requirements:
 e2e-update-requirements:
 	pip freeze > tests/requirements.txt
 
+e2e-run-chainsimulate:
+	SQS_TOKEN_OUT=1000uion SQS_TOKEN_IN_DENOM=uosmo SQS_CHAIN_ADDRESS=osmo1q8709l2656zjtg567xnrxjr6j35a2pvwhxxms2 go run tests/chainsimulate/*.go
+
 # Set DATADOG_API_KEY in the environment
 datadog-agent-start:
 	export DATADOG_API_KEY=@@REDACTED@@; \

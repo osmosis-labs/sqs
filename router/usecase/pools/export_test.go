@@ -13,7 +13,6 @@ type (
 	RoutableCFMMPoolImpl            = routableBalancerPoolImpl
 	RoutableConcentratedPoolImpl    = routableConcentratedPoolImpl
 	RoutableTransmuterPoolImpl      = routableTransmuterPoolImpl
-	RoutableResultPoolImpl          = routableResultPoolImpl
 	RoutableAlloyTransmuterPoolImpl = routableAlloyTransmuterPoolImpl
 	RoutableOrderbookPoolImpl       = routableOrderbookPoolImpl
 )

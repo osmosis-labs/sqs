@@ -73,7 +73,7 @@
         "worker-min-pool-liquidity-cap": 1
     },
     "passthrough":{
-        "numia-url": "https://public-osmosis-api.numia.xyz",
+        "numia-url": "https://public-osmosis-api.numia.dev",
         "timeseries-url": "https://stage-proxy-data-api.osmosis-labs.workers.dev",
         "apr-fetch-interval-minutes": 5,
         "pool-fees-fetch-interval-minutes": 5

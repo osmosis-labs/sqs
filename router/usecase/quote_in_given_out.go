@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
@@ -69,4 +71,41 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	}
 
 	return q.Route, q.EffectiveFee, nil
+}
+
+func (q *quoteExactAmountOut) GetRoute() []domain.SplitRoute {
+	return q.Route
+}
+
+func (q *quoteExactAmountOut) UnmarshalJSON(data []byte) error {
+	type Alias quoteExactAmountOut
+	aux := &struct {
+		Route json.RawMessage `json:"route"`
+		*Alias
+	}{
+		Alias: (*Alias)(q),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Parse Route
+	var routes []json.RawMessage
+	if err := json.Unmarshal(aux.Route, &routes); err != nil {
+		return fmt.Errorf("failed to parse Route: %w", err)
+	}
+
+	q.Route = make([]domain.SplitRoute, len(routes))
+	for i, routeData := range routes {
+		// Parse RouteImpl
+		var routeWithAmounts RouteWithOutAmount
+		if err := json.Unmarshal(routeData, &routeWithAmounts); err != nil {
+			return fmt.Errorf("failed to parse routeWithAmounts: %w", err)
+		}
+
+		q.Route[i] = &routeWithAmounts
+	}
+
+	return nil
 }

@@ -2,6 +2,7 @@ package route
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -183,4 +184,32 @@ func (r *RouteImpl) GetTokenInDenom() string {
 // ContainsGeneralizedCosmWasmPool implements domain.Route.
 func (r *RouteImpl) ContainsGeneralizedCosmWasmPool() bool {
 	return r.HasGeneralizedCosmWasmPool
+}
+
+func (r *RouteImpl) UnmarshalJSON(data []byte) error {
+	type Alias RouteImpl
+	aux := &struct {
+		Pools []json.RawMessage `json:"pools"`
+		*Alias
+	}{
+		Alias: (*Alias)(r),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	r.Pools = make([]domain.RoutablePool, len(aux.Pools))
+	for i, poolData := range aux.Pools {
+		var resultPool pools.RoutableResultPoolImpl
+
+		err := json.Unmarshal(poolData, &resultPool)
+		if err != nil {
+			return err
+		}
+
+		r.Pools[i] = &resultPool
+	}
+
+	return nil
 }

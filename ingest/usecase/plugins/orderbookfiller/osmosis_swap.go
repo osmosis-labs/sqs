@@ -2,18 +2,15 @@ package orderbookfiller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	gogogrpc "github.com/cosmos/gogoproto/grpc"
 	"go.uber.org/zap"
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
@@ -21,13 +18,13 @@ import (
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/cosmos/ibc-go/v7/testing/simapp"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
+	chainsimulatedomain "github.com/osmosis-labs/sqs/domain/chainsimulate"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
 	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/msg"
@@ -70,35 +67,6 @@ func init() {
 	if len(osmosisLCDOverwrite) > 0 {
 		LCD = osmosisLCDOverwrite
 	}
-}
-
-func getInitialSequence(ctx context.Context, address string) (uint64, uint64) {
-	resp, err := httpGet(ctx, LCD+"/cosmos/auth/v1beta1/accounts/"+address)
-	if err != nil {
-		log.Printf("Failed to get initial sequence: %v", err)
-		return 0, 0
-	}
-
-	var accountRes AccountResult
-	err = json.Unmarshal(resp, &accountRes)
-	if err != nil {
-		log.Printf("Failed to unmarshal account result: %v", err)
-		return 0, 0
-	}
-
-	seqint, err := strconv.ParseUint(accountRes.Account.Sequence, 10, 64)
-	if err != nil {
-		log.Printf("Failed to convert sequence to int: %v", err)
-		return 0, 0
-	}
-
-	accnum, err := strconv.ParseUint(accountRes.Account.AccountNumber, 10, 64)
-	if err != nil {
-		log.Printf("Failed to convert account number to int: %v", err)
-		return 0, 0
-	}
-
-	return seqint, accnum
 }
 
 var client = &http.Client{
@@ -183,7 +151,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (re
 
 	// First round: we gather all the signer infos. We use the "set empty
 	// signature" hack to do that.
-	accSequence, accNumber := getInitialSequence(blockCtx.AsGoCtx(), o.keyring.GetAddress().String())
+	accSequence, accNumber := chainsimulatedomain.GetInitialSequence(blockCtx.AsGoCtx(), LCD, o.keyring.GetAddress().String())
 	sigV2 := signing.SignatureV2{
 		PubKey: privKey.PubKey(),
 		Data: &signing.SingleSignatureData{
@@ -268,7 +236,7 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 	}
 
 	// Estimate transaction
-	gasResult, adjustedGasUsed, err := o.simulateMsgs(ctx.AsGoCtx(), []sdk.Msg{swapMsg})
+	gasResult, adjustedGasUsed, err := chainsimulatedomain.SimulateMsgs(ctx.AsGoCtx(), o.passthroughGRPCClient.GetChainGRPCClient(), LCD, o.keyring.GetAddress().String(), []sdk.Msg{swapMsg})
 	if err != nil {
 		return nil, err
 	}
@@ -307,47 +275,6 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 	msgCtx := msgctx.New(diffCap, adjustedGasUsed, swapMsg)
 
 	return msgCtx, nil
-}
-
-func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
-	accSeq, accNum := getInitialSequence(ctx, o.keyring.GetAddress().String())
-
-	txFactory := tx.Factory{}
-	txFactory = txFactory.WithTxConfig(encodingConfig.TxConfig)
-	txFactory = txFactory.WithAccountNumber(accNum)
-	txFactory = txFactory.WithSequence(accSeq)
-	txFactory = txFactory.WithChainID(chainID)
-	txFactory = txFactory.WithGasAdjustment(1.02)
-
-	// Estimate transaction
-	gasResult, adjustedGasUsed, err := CalculateGas(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), txFactory, msgs...)
-	if err != nil {
-		return nil, adjustedGasUsed, err
-	}
-
-	return gasResult, adjustedGasUsed, nil
-}
-
-// CalculateGas simulates the execution of a transaction and returns the
-// simulation response obtained by the query and the adjusted gas amount.
-func CalculateGas(
-	ctx context.Context,
-	clientCtx gogogrpc.ClientConn, txf tx.Factory, msgs ...sdk.Msg,
-) (*txtypes.SimulateResponse, uint64, error) {
-	txBytes, err := txf.BuildSimTx(msgs...)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	txSvcClient := txtypes.NewServiceClient(clientCtx)
-	simRes, err := txSvcClient.Simulate(ctx, &txtypes.SimulateRequest{
-		TxBytes: txBytes,
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return simRes, uint64(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed)), nil
 }
 
 // broadcastTransaction broadcasts a transaction to the chain.
