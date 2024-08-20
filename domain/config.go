@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
@@ -59,6 +60,8 @@ type Config struct {
 	// SideCarQueryServer CORS configuration.
 	CORS *CORSConfig `mapstructure:"cors"`
 }
+
+const envPrefix = "SQS"
 
 var (
 	DefaultConfig = Config{
@@ -169,9 +172,24 @@ var (
 	}
 )
 
-// UnmarshalConfig handles the custom unmarshaling for the Config struct, particularly for Plugins.
+// UnmarshalConfig handles the custom unmarshaling for the Config struct.
+// Additionally, it sets up environment variable mappings using reflection.
+// It also handles the Plugins field by decoding it using a custom decode hook.
+// It uses Viper to handle environment variables and reflection to automatically generate environment variable mappings.
 func UnmarshalConfig() (*Config, error) {
 	config := DefaultConfig
+
+	viper.SetEnvPrefix(envPrefix)
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
+
+	// Load config file (assuming you're already doing this somewhere)
+	if err := viper.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("error reading config file: %w", err)
+	}
+
+	// Set up environment variable mappings using reflection
+	bindEnvRecursive(reflect.ValueOf(&config), "")
 
 	// Use Viper's Unmarshal method to decode the configuration, except for the Plugins field
 	if err := viper.Unmarshal(&config, viper.DecodeHook(
@@ -228,6 +246,46 @@ func viperDecodeHookFunc() mapstructure.DecodeHookFunc {
 		}
 
 		return plugins, nil
+	}
+}
+
+// Automatically generate environment variable mappings for all fields,
+// including nested structs, without having to manually specify each binding.
+// For example, if a mapstructure tag is "foo", the environment variable will be "SQS_FOO".
+// If nested structs are present such as "foo.bar", the environment variable will be "SQS_FOO_BAR".
+func bindEnvRecursive(v reflect.Value, prefix string) {
+	t := v.Type()
+
+	// Assume pointer to struct
+	if t.Kind() == reflect.Ptr {
+		v = v.Elem()
+		t = v.Type()
+	}
+
+	// If not a struct after dereferencing, return
+	if t.Kind() != reflect.Struct {
+		return
+	}
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+
+		// Get the mapstructure tag, if any
+		tag := field.Tag.Get("mapstructure")
+		if tag == "" {
+			tag = strings.ToLower(field.Name)
+		}
+
+		envName := prefix + tag
+
+		// For nested structs, recurse
+		if value.Kind() == reflect.Struct || (value.Kind() == reflect.Ptr && value.Elem().Kind() == reflect.Struct) {
+			bindEnvRecursive(value, envName+".")
+		} else {
+			// Bind the environment variable
+			viper.BindEnv(envName)
+		}
 	}
 }
 
