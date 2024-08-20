@@ -308,7 +308,7 @@
         },
         "/tokens/metadata": {
             "get": {
-                "description": "returns token metadata with chain denom, human denom, and precision.\nFor testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.",
+                "description": "returns token metadata with chain denom, human denom, and precision.\nFor testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.\nSee `config.json` and `config-testnet.json` in root for details.",
                 "produces": [
                     "application/json"
                 ],
@@ -337,7 +337,7 @@
         },
         "/tokens/pool-metadata": {
             "get": {
-                "description": "returns pool denom metadata. As of today, this metadata is represented by the local market cap of the token computed over all Osmosis pools.\nFor testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.",
+                "description": "returns pool denom metadata. As of today, this metadata is represented by the local market cap of the token computed over all Osmosis pools.\nFor testnet, uses osmo-test-5 asset list. For mainnet, uses osmosis-1 asset list.\nSee `config.json` and `config-testnet.json` in root for details.",
                 "produces": [
                     "application/json"
                 ],
