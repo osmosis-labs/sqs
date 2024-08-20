@@ -41,7 +41,7 @@ func main() {
 	flag.Parse()
 
 	if len(*configPath) == len(emptyValuePlaceholder) {
-		fmt.Println("using default config. See domain/config.go for more details")
+		fmt.Println("config file is not detected. Using default config with possible overrides via environment variables. See docs/architecture/config.md for more details")
 	} else {
 		fmt.Println("configPath", *configPath)
 		fmt.Println("hostName", *hostName)
