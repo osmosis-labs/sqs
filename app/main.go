@@ -27,6 +27,7 @@ import (
 )
 
 const (
+	// emptyValuePlaceholder is used to check if the config file is provided.
 	emptyValuePlaceholder = ""
 )
 
@@ -40,6 +41,7 @@ func main() {
 	// Parse the command-line arguments
 	flag.Parse()
 
+	// If config file is not provided, use default config with possible overrides via environment variables.
 	if len(*configPath) == len(emptyValuePlaceholder) {
 		fmt.Println("config file is not detected. Using default config with possible overrides via environment variables. See docs/architecture/config.md for more details")
 	} else {
