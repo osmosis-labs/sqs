@@ -87,8 +87,8 @@ func main() {
 	fmt.Println("simulation successful")
 
 	fmt.Printf("\n\n\nResults:\n")
-	fmt.Println("sqs simulate amount out", quote.AmountIn)
-	fmt.Printf("chain amount out: %s\n", actualIn)
+	fmt.Println("sqs simulate amount in", quote.AmountIn)
+	fmt.Printf("chain amount in: %s\n", actualIn)
 
 	percentDiff := actualIn.Sub(quote.AmountIn).Abs().ToLegacyDec().Quo(quote.AmountIn.ToLegacyDec()).Abs()
 
