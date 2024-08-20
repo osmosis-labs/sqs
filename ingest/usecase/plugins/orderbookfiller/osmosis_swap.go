@@ -3,10 +3,6 @@ package orderbookfiller
 import (
 	"context"
 	"fmt"
-	"io"
-	"log"
-	"net"
-	"net/http"
 	"os"
 	"time"
 
@@ -28,7 +24,6 @@ import (
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
 	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/msg"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const (
@@ -67,38 +62,6 @@ func init() {
 	if len(osmosisLCDOverwrite) > 0 {
 		LCD = osmosisLCDOverwrite
 	}
-}
-
-var client = &http.Client{
-	Timeout:   10 * time.Second, // Adjusted timeout to 10 seconds
-	Transport: otelhttp.NewTransport(http.DefaultTransport),
-}
-
-func httpGet(ctx context.Context, url string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		netErr, ok := err.(net.Error)
-		if ok && netErr.Timeout() {
-			log.Printf("Request to %s timed out, continuing...", url)
-			return nil, nil
-		}
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return body, nil
 }
 
 // executeTx executes a transaction with the given tx context and block gas price.
