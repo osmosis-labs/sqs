@@ -284,7 +284,9 @@ func bindEnvRecursive(v reflect.Value, prefix string) {
 			bindEnvRecursive(value, envName+".")
 		} else {
 			// Bind the environment variable
-			viper.BindEnv(envName)
+			if err := viper.BindEnv(envName); err != nil {
+				panic(err)
+			}
 		}
 	}
 }

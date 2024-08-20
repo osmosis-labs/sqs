@@ -533,10 +533,7 @@ the routes for longer while allowing for manual updates and invalidation.
 
 ### Configuration
 
-The router has a default configuration set in `domain/config.go:DefaultConfig`.
-
-The default values can be overridden by using the `config.json` and `config-testnet.json` files,
-similar to the ones in the root of this repository.
+See `docs/architecture/config.md` for details.
 
 ## Debugging
 
