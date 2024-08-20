@@ -17,6 +17,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
+	"github.com/osmosis-labs/sqs/router/types"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -1065,21 +1066,21 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 			poolID: []uint64{
 				1, // OSMO - ATOM
 			},
-			err: usecase.ErrValidationFailed,
+			err: types.ErrValidationFailed,
 		},
 		{
 			name:          "Fail: empty poolID",
 			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
 			tokenOutDenom: []string{ATOM},
 			poolID:        []uint64{},
-			err:           usecase.ErrValidationFailed,
+			err:           types.ErrValidationFailed,
 		},
 		{
 			name:          "Fail: mismatch poolID and tokenOutDenom",
 			tokenIn:       sdk.NewCoin(UOSMO, amountIn),
 			tokenOutDenom: []string{ATOM},
 			poolID:        []uint64{1, 2},
-			err:           usecase.ErrValidationFailed,
+			err:           types.ErrValidationFailed,
 		},
 		{
 			name:          "Single pool: OSMO-ATOM - happy case",
@@ -1144,6 +1145,152 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 
 			// token in must match
 			s.Require().Equal(quotes.GetAmountIn().Denom, tc.tokenIn.Denom)
+
+			// Custom direct quote should have only one route
+			routes := quotes.GetRoute()
+			s.Require().Len(routes, 1)
+
+			s.validateExpectedPoolIDsMultiHopRoute(routes[0].GetPools(), tc.expectedPoolID)
+		})
+	}
+}
+
+// This test runs tests against GetCustomDirectQuotes to ensure that the method correctly calculates
+// quote across multi pool route.
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mainnet_UOSMOUSDC() {
+	config := routertesting.DefaultRouterConfig
+	config.MaxPoolsPerRoute = 5
+	config.MaxRoutes = 10
+
+	var (
+		amountOut = osmomath.NewInt(5000000)
+	)
+
+	mainnetState := s.SetupMainnetState()
+
+	// Setup router repository mock
+	routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
+	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+
+	// Setup pools usecase mock.
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	poolsUsecase.StorePools(mainnetState.Pools)
+
+	tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
+	candidateRouteFinderMock := mocks.CandidateRouteFinderMock{}
+
+	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinderMock, &tokenMetaDataHolder, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+
+	// Test cases
+	testCases := []struct {
+		// test name
+		name string
+
+		// token being swapped
+		tokenOut sdk.Coin
+
+		// token to be received
+		tokenInDenom []string
+
+		// pools route path for swap
+		poolID []uint64
+
+		// usually it's the number of pools given,
+		// unless any of those pools does not have given asset pair.
+		expectedNumOfRoutes int
+
+		// for single-hop it matches poolID slice
+		expectedPoolID []uint64
+
+		err error
+	}{
+		{
+			name:         "Fail: empty tokenOutDenom",
+			tokenOut:     sdk.NewCoin(UOSMO, amountOut),
+			tokenInDenom: []string{},
+			poolID: []uint64{
+				1, // OSMO - ATOM
+			},
+			err: types.ErrValidationFailed,
+		},
+		{
+			name:         "Fail: empty poolID",
+			tokenOut:     sdk.NewCoin(UOSMO, amountOut),
+			tokenInDenom: []string{ATOM},
+			poolID:       []uint64{},
+			err:          types.ErrValidationFailed,
+		},
+		{
+			name:         "Fail: mismatch poolID and tokenOutDenom",
+			tokenOut:     sdk.NewCoin(UOSMO, amountOut),
+			tokenInDenom: []string{ATOM},
+			poolID:       []uint64{1, 2},
+			err:          types.ErrValidationFailed,
+		},
+		{
+			name:         "Single pool: OSMO-ATOM - happy case",
+			tokenOut:     sdk.NewCoin(UOSMO, amountOut),
+			tokenInDenom: []string{ATOM},
+			poolID: []uint64{
+				1, // OSMO - ATOM
+			},
+			expectedNumOfRoutes: 1,
+			expectedPoolID:      []uint64{1},
+		},
+		{
+			name:         "Single pool: OSMO-ATOM - fail case: out denom not found",
+			tokenOut:     sdk.NewCoin(UOSMO, amountOut),
+			tokenInDenom: []string{ATOM},
+			poolID: []uint64{
+				1093, // OSMO - AKT
+			},
+			err: usecase.ErrTokenOutDenomPoolNotFound,
+		},
+		{
+			name:         "Single pool: ATOM-OSMO - fail case: in denom not found",
+			tokenOut:     sdk.NewCoin(ATOM, amountOut),
+			tokenInDenom: []string{UOSMO},
+			poolID: []uint64{
+				1480, // AKT - USDC
+			},
+			err: usecase.ErrTokenInDenomPoolNotFound,
+		},
+		{
+			name:         "Multi pool: OSMO-USDC - happy case",
+			tokenOut:     sdk.NewCoin(UOSMO, amountOut),
+			tokenInDenom: []string{AKT, USDC},
+			poolID: []uint64{
+				1093, // OSMO - AKT
+				1301, // AKT - USDC
+			},
+			expectedNumOfRoutes: 1,
+			expectedPoolID:      []uint64{1093, 1301},
+		},
+		{
+			name:         "Multi pool: OSMO-USDC - fail case",
+			tokenOut:     sdk.NewCoin(UOSMO, amountOut),
+			tokenInDenom: []string{ATOM, USDT},
+			poolID: []uint64{
+				1,    // OSMO - ATOM
+				1301, // AKT - USDC
+			},
+			expectedNumOfRoutes: 2,
+			expectedPoolID:      []uint64{1093, 1301},
+			err:                 usecase.ErrTokenInDenomPoolNotFound,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			quotes, err := routerUsecase.GetCustomDirectQuoteMultiPoolInGivenOut(context.Background(), tc.tokenOut, tc.tokenInDenom, tc.poolID)
+			s.Require().ErrorIs(err, tc.err)
+			if err != nil {
+				return // nothing else to do
+			}
+
+			// token in must match
+			s.Require().Equal(tc.expectedNumOfRoutes, len(quotes.GetRoute()))
 
 			// Custom direct quote should have only one route
 			routes := quotes.GetRoute()

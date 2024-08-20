@@ -109,8 +109,6 @@ class SQSService:
             "singleRoute": singleRoute,
         }
 
-        print(params)
-
         # Send the GET request
         return requests.get(self.url + ROUTER_QUOTE_URL, params=params, headers=self.headers)
 
@@ -134,7 +132,7 @@ class SQSService:
         # Send the GET request
         return requests.get(self.url + ROUTER_QUOTE_URL, params=params, headers=self.headers)
 
-    def get_custom_direct_quote(self, denom_in, denom_out, pool_id):
+    def get_exact_amount_in_custom_direct_quote(self, denom_in, denom_out, pool_id):
         """
         Fetches custom direct quote from the specified endpoint and returns it.
 
@@ -148,6 +146,32 @@ class SQSService:
             "tokenOutDenom": denom_out,
             "poolID": pool_id,
         }
+
+        print(params)
+
+        return requests.get(
+            self.url + ROUTER_CUSTOM_DIRECT_QUOTE_URL,
+            params=params,
+            headers=self.headers,
+        )
+
+    def get_exact_amount_out_custom_direct_quote(self, token_out, denom_in, pool_id):
+        """
+        Fetches custom direct quote from the specified endpoint and returns it.
+
+        Similar to get_quote, instead of path finding, specific pool is enforced.
+
+        Raises error if non-200 is returned from the endpoint.
+        """
+
+        params = {
+            "tokenOut": token_out,
+            "tokenInDenom": denom_in,
+            "poolID": pool_id,
+        }
+
+        print(params)
+
         return requests.get(
             self.url + ROUTER_CUSTOM_DIRECT_QUOTE_URL,
             params=params,
