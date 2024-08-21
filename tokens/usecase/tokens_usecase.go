@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -284,9 +283,6 @@ func (t *tokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 						err = fmt.Errorf("panic in GetPrices: %v", r)
 					}
 				}()
-
-				ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-				defer cancel()
 
 				prices, err := t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
 				if err != nil {
