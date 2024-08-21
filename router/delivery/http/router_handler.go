@@ -86,12 +86,12 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	var req types.GetQuoteRequest
 	if err := UnmarshalRequest(c, &req); err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	// Validate the request
 	if err := req.Validate(); err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	var (
@@ -107,7 +107,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn.Denom, tokenOutDenom})
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	// Update coins token in denom it case it was translated from human to chain.
@@ -127,7 +127,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	}
 
 	if err != nil {
-		return err
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	scalingFactor := oneDec
@@ -137,7 +137,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	_, _, err = quote.PrepareResult(ctx, scalingFactor, a.logger)
 	if err != nil {
-		return err
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	span.SetAttributes(attribute.Stringer("token_out", quote.GetAmountOut()))
@@ -179,12 +179,12 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 
 	var req types.GetDirectCustomQuoteRequest
 	if err := UnmarshalRequest(c, &req); err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	// Validate the request
 	if err := req.Validate(); err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	var (
@@ -202,7 +202,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 	// Apply human denoms conversion if required.
 	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, append([]string{tokenIn.Denom}, tokenOutDenom...))
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	// Update coins token in denom it case it was translated from human to chain.

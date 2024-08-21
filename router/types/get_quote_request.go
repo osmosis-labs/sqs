@@ -20,18 +20,16 @@ type GetQuoteRequest struct {
 
 // UnmarshalHTTPRequest unmarshals the HTTP request to GetQuoteRequest.
 // It returns an error if the request is invalid.
-// NOTE: Currently method for some cases returns an error, while for others
-// it returns a response error. This is not consistent and should be fixed.
 func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	var err error
 	r.SingleRoute, err = domain.ParseBooleanQueryParam(c, "singleRoute")
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return err
 	}
 
 	r.ApplyExponents, err = domain.ParseBooleanQueryParam(c, "applyExponents")
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return err
 	}
 
 	if tokenIn := c.QueryParam("tokenIn"); tokenIn != "" {

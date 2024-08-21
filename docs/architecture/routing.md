@@ -34,6 +34,25 @@ is consumed by a single route as opposed to performing partial split routing ove
 4. Keep "Max Splittable Routes" and attempt to determine an optimal quote split across them
     - If the split quote is more optimal, return that. Otherwise, return the best single direct quote.
 
+## Route Cache
+
+We perform caching of routes to avoid having to recompute them on every request.
+
+The caches are configured via TTL in the config. There is also a boolean config to enable it.
+
+We have two types of route caches:
+
+1. **Candidate route**
+
+This cache aims to contain `router.max-routes` number of unranked routes between token in and token out denom.
+
+2. **Ranked route**
+
+This cache aims to contain top `router.max-split-routes` that are ranked by token out amount across all top candidate routes. Only the top `router.max-split-routes` are written to cache.
+
+For a given token in and out denom, this cache is written with the granularity of order of magnitude of token in because
+the top routes can drastically vary as the token in amount changes due to varying pool liquidities.
+
 ## Pool Filtering - Min Liquidity Capitalization
 
 Osmosis chain consists of many pools where some of them are low liquidity.
