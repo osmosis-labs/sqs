@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.12.0
+
+- Add router and candidate route search options to disable route cache
+
 ## v25.11.0
 
 - Fix concurrency bug in data fetcher prefetching.
@@ -52,8 +56,6 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Apply taker fee and spread factor for fill bot amount estimation
 - Reduce fill bot slippage bound by one ulp
 - Fallback to filling each message individually.
-- "in given out" for /custom-direct-quote
-- Fix response status codes in /quote and /custom-direct-quote
 
 ## v25.9.0
 

@@ -520,17 +520,6 @@ Unless specified by using the parameter `pricingSource`, the [GET /tokens/prices
 
 Internally, the Coingecko pricing source looks for the price quote in the its pricing cache and return it if it exists. Otherwise, it fetches the price from the Coingecko API endpoint and store it in the cache with an expiration time specified in the config.json file.
 
-### Caching
-
-We perform caching of routes to avoid having to recompute them on every request.
-
-There is a configuration parameter that enables the route cache to be updated every X blocks.
-However, that is an experimental feature. See the configuration section for details.
-
-The router also caches the routes when it computes it for the first time for a given token in and token out denom.
-As of now, the cache is cleared at the end of very block. We should investigate only clearing pool data but persisting
-the routes for longer while allowing for manual updates and invalidation.
-
 ### Configuration
 
 The router has several configuration parameters that are set via `app.toml`.

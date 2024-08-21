@@ -170,10 +170,14 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	testCases := []struct {
 		name string
 
-		repositoryRoutes     sqsdomain.CandidateRoutes
-		takerFeeMap          sqsdomain.TakerFeeMap
-		isCacheDisabled      bool
-		shouldSkipAddToCache bool
+		repositoryRoutes sqsdomain.CandidateRoutes
+		takerFeeMap      sqsdomain.TakerFeeMap
+		// specifies if the config applying to all requests disables
+		// the cache.
+		isCacheConfigDisabled bool
+		// specifies if request-specific option disables the cache.
+		isCacheOptionDisabled bool
+		shouldSkipAddToCache  bool
 
 		expectedCandidateRoutes sqsdomain.CandidateRoutes
 
@@ -189,13 +193,32 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			expectedIsCached:        true,
 		},
 		{
-			name: "cache is disabled in config -> recomputes routes despite having available in cache",
+			name: "routes in cache but cache is disabled via options -> use them",
 
 			repositoryRoutes: singleDefaultRoutes,
-			isCacheDisabled:  true,
+
+			isCacheOptionDisabled: true,
+
+			expectedCandidateRoutes: emptyRoutes,
+		},
+		{
+			name: "cache is disabled in config -> recomputes routes despite having available in cache",
+
+			repositoryRoutes:      singleDefaultRoutes,
+			isCacheConfigDisabled: true,
 
 			expectedCandidateRoutes: singeldRecomputedRoutes,
 			expectedIsCached:        false,
+		},
+		{
+			name: "cache is disabled in config but option turns it back on -> get routes",
+
+			repositoryRoutes: singleDefaultRoutes,
+
+			isCacheOptionDisabled: false,
+
+			expectedCandidateRoutes: singleDefaultRoutes,
+			expectedIsCached:        true,
 		},
 		{
 			name: "no routes in cache -> recomputes routes & caches them",
@@ -207,6 +230,17 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			expectedIsCached:        true,
 		},
 		{
+			name: "no routes in cache -> recomputes routes & but does not cache them due to option disablement",
+
+			repositoryRoutes:     emptyRoutes,
+			shouldSkipAddToCache: true,
+
+			isCacheOptionDisabled: true,
+
+			expectedCandidateRoutes: singeldRecomputedRoutes,
+			expectedIsCached:        false,
+		},
+		{
 			name: "empty routes in cache-> does not recompute routes",
 
 			repositoryRoutes: emptyRoutes,
@@ -215,12 +249,21 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			expectedIsCached:        true,
 		},
 		{
-			name: "no routes in cache and -> returns no routes & caches them",
+			name: "no routes in cache and fails to recompute -> returns no routes & caches them",
 
 			repositoryRoutes: emptyRoutes,
 
 			expectedCandidateRoutes: emptyRoutes,
 			expectedIsCached:        true,
+		},
+		{
+			name: "no routes in cache and fails to recompute but option disables cache -> returns no routes and does not cache",
+
+			repositoryRoutes:      emptyRoutes,
+			isCacheOptionDisabled: true,
+
+			expectedCandidateRoutes: emptyRoutes,
+			expectedIsCached:        false,
 		},
 
 		// TODO:
@@ -251,7 +294,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			}
 
 			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, candidateRouteFinderMock, &tokenMetaDataHolder, domain.RouterConfig{
-				RouteCacheEnabled: !tc.isCacheDisabled,
+				RouteCacheEnabled: !tc.isCacheConfigDisabled,
 			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
@@ -263,6 +306,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				MinPoolLiquidityCap: minPoolLiquidityCap,
 				MaxRoutes:           defaultRouterConfig.MaxRoutes,
 				MaxPoolsPerRoute:    defaultRouterConfig.MaxPoolsPerRoute,
+				DisableCache:        tc.isCacheOptionDisabled,
 			}
 
 			// System under test
@@ -283,9 +327,14 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				s.Require().Equal(tc.expectedCandidateRoutes.Routes[i], route)
 			}
 
+			// If cache option is being tested, getting the cached candidate routes is ineligible for the test by-design.
+			if tc.isCacheOptionDisabled {
+				return
+			}
+
 			cachedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
 
-			if tc.isCacheDisabled {
+			if tc.isCacheConfigDisabled {
 				s.Require().NoError(err)
 				s.Require().Empty(cachedCandidateRoutes.Routes)
 				s.Require().False(isCached)
@@ -620,8 +669,11 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 	tests := map[string]struct {
 		preCachedCandidateRoutes sqsdomain.CandidateRoutes
+		preCachedRankedRoutes    sqsdomain.CandidateRoutes
 
 		cacheExpiryDuration time.Duration
+
+		isCacheOptionDisabled bool
 
 		amountIn osmomath.Int
 
@@ -634,7 +686,16 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			// See test description above for details.
 			expectedRoutePoolID: poolID1400Concentrated,
 		},
-		"cache is set to balancer - overwrites computed": {
+		"cache is not set and is disabled via option, computes routes but does not cache": {
+			amountIn: defaultAmountInCache,
+
+			isCacheOptionDisabled: true,
+
+			// For the default amount in, we expect this pool to be returned.
+			// See test description above for details.
+			expectedRoutePoolID: poolID1400Concentrated,
+		},
+		"candidate route cache is set to balancer - use cached": {
 			amountIn: defaultAmountInCache,
 
 			preCachedCandidateRoutes: poolIDOneRoute,
@@ -644,7 +705,19 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			// We expect balancer because it is cached.
 			expectedRoutePoolID: poolIDOneBalancer,
 		},
-		"cache is expired - overwrites computed": {
+		"candidate route cache is set to balancer but disabled via option -> recomputes and does not cache": {
+			amountIn: defaultAmountInCache,
+
+			preCachedCandidateRoutes: poolIDOneRoute,
+
+			cacheExpiryDuration: time.Hour,
+
+			isCacheOptionDisabled: true,
+
+			// We expect balancer because it is cached.
+			expectedRoutePoolID: poolID1400Concentrated,
+		},
+		"candidate route cache is expired - overwrites computed": {
 			amountIn: defaultAmountInCache,
 
 			preCachedCandidateRoutes: poolIDOneRoute,
@@ -654,6 +727,52 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
+			expectedRoutePoolID: poolID1400Concentrated,
+		},
+		"ranked route cache is set to balancer - use cached": {
+			amountIn: defaultAmountInCache,
+
+			preCachedRankedRoutes: poolIDOneRoute,
+
+			cacheExpiryDuration: time.Hour,
+
+			// We expect balancer because it is cached.
+			expectedRoutePoolID: poolIDOneBalancer,
+		},
+		"ranked route cache is set to balancer but disabled via options - recomputes and does not cache": {
+			amountIn: defaultAmountInCache,
+
+			preCachedRankedRoutes: poolIDOneRoute,
+
+			isCacheOptionDisabled: true,
+
+			cacheExpiryDuration: time.Hour,
+
+			// Recomputed pool
+			expectedRoutePoolID: poolID1400Concentrated,
+		},
+		"ranked route cache is set to pool A but candidate to pool B  - use ranked route choice": {
+			amountIn: defaultAmountInCache,
+
+			preCachedRankedRoutes:    poolID1135Route,
+			preCachedCandidateRoutes: poolIDOneRoute,
+
+			cacheExpiryDuration: time.Hour,
+
+			// Ranked route choice
+			expectedRoutePoolID: poolID1135Concentrated,
+		},
+		"ranked route cache is set to pool A but candidate to pool B and cache is disabled via option  - recompute route": {
+			amountIn: defaultAmountInCache,
+
+			preCachedRankedRoutes:    poolID1135Route,
+			preCachedCandidateRoutes: poolIDOneRoute,
+
+			isCacheOptionDisabled: true,
+
+			cacheExpiryDuration: time.Hour,
+
+			// Recomputed
 			expectedRoutePoolID: poolID1400Concentrated,
 		},
 	}
@@ -667,15 +786,27 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			rankedRouteCache := cache.New()
 			candidateRouteCache := cache.New()
 
+			// Pre-set candidate route cache
 			if len(tc.preCachedCandidateRoutes.Routes) > 0 {
 				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(defaultTokenInDenom, defaultTokenOutDenom), tc.preCachedCandidateRoutes, tc.cacheExpiryDuration)
+			}
+
+			// Pre-set ranked route cache
+			if len(tc.preCachedRankedRoutes.Routes) > 0 {
+				tokeInOrderOfMagnitude := usecase.GetPrecomputeOrderOfMagnitude(tc.amountIn)
+				rankedRouteCache.Set(usecase.FormatRankedRouteCacheKey(defaultTokenInDenom, defaultTokenOutDenom, tokeInOrderOfMagnitude), tc.preCachedRankedRoutes, tc.cacheExpiryDuration)
 			}
 
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRankedRoutesCache(rankedRouteCache), routertesting.WithCandidateRoutesCache(candidateRouteCache))
 
+			var options []domain.RouterOption
+			if tc.isCacheOptionDisabled {
+				options = append(options, domain.WithDisableCache())
+			}
+
 			// System under test
-			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom)
+			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom, options...)
 
 			// We only validate that error does not occur without actually validating the quote.
 			s.Require().NoError(err)
@@ -694,6 +825,11 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			// Validate that the quote is not nil
 			s.Require().NotNil(quote.GetAmountOut())
 
+			// Validate cache size is the same as before the update
+			if tc.isCacheOptionDisabled {
+				s.Require().Equal(len(tc.preCachedCandidateRoutes.Routes), candidateRouteCache.Len())
+				s.Require().Equal(len(tc.preCachedRankedRoutes.Routes), rankedRouteCache.Len())
+			}
 		})
 	}
 }

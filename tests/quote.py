@@ -12,7 +12,7 @@ from route import *
 
 class Quote:
     @staticmethod
-    def run_quote_test(service_call: Callable[[], Any], expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountOutResponse:
+    def run_quote_test(service_call: Callable[[], Any], expected_latency_upper_bound_ms, expected_status_code=200, orderbook_map=None) -> QuoteExactAmountOutResponse:
         """
         Runs exact amount out test for the /router/quote endpoint with the given input parameters.
 
@@ -31,10 +31,6 @@ class Quote:
 
         assert response.status_code == expected_status_code, f"Error: {response.text}"
         assert expected_latency_upper_bound_ms > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms, denom in and token out"
-
-        response_json = response.json()
-        
-        print(response.text)
 
         # Return the response for further processing
         return response.json()
@@ -279,7 +275,8 @@ class ExactAmountOutQuote:
         - Latency is under the given bound
         """
 
-        service_call = lambda: conftest.SERVICE_MAP[environment_url].get_exact_amount_out_quote(token_out, token_in, human_denoms, single_route)
+        sqs = conftest.SERVICE_MAP[environment_url]
+        service_call = lambda: sqs.get_exact_amount_out_quote(token_out, token_in, human_denoms, single_route)
 
         response = Quote.run_quote_test(service_call, expected_latency_upper_bound_ms, expected_status_code)
 
@@ -287,7 +284,7 @@ class ExactAmountOutQuote:
         return QuoteExactAmountOutResponse(**response)
 
     @staticmethod
-    def validate_quote_test(quote, expected_amount_out_str, expected_denom_out, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance, direct_quote=False):
+    def validate_quote_test(quote, expected_amount_out_str, expected_denom_out, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_in, denom_in, error_tolerance, direct_quote=False, orderbook_map=None):
         """
         Runs the following validations:
         - Basic presence of fields
@@ -318,7 +315,7 @@ class ExactAmountOutQuote:
         ExactAmountOutQuote.validate_fee(quote)
 
         # Validate that the route is valid
-        ExactAmountOutQuote.validate_route(quote, denom_in, expected_denom_out, direct_quote)
+        ExactAmountOutQuote.validate_route(quote, denom_in, expected_denom_out, direct_quote, orderbook_map)
 
         # Validate that the spot price is present
         assert quote.in_base_out_quote_spot_price is not None
@@ -336,11 +333,12 @@ class ExactAmountOutQuote:
         assert relative_error(amount_in_scaled, expected_token_in) < error_tolerance, f"Error: amount out scaled {amount_in_scaled} is not within {error_tolerance} of expected {expected_token_in}"
 
     @staticmethod
-    def validate_route(quote, denom_in, denom_out, direct_quote=False):
+    def validate_route(quote, denom_in, denom_out, direct_quote=False, orderbook_map=None):
         """
         Validates that the route is valid by checking the following:
          - The output token is present in each pool denoms
          - The last token in is equal to denom in
+         - Order books are not present in the route
         """
         for route in quote.route:
             cur_out_denom = denom_out
@@ -349,6 +347,10 @@ class ExactAmountOutQuote:
                 pool = conftest.shared_test_state.pool_by_id_map.get(str(pool_id))
 
                 assert pool, f"Error: pool ID {pool_id} not found in test data"
+
+                if orderbook_map:
+                    is_orderbook = orderbook_map.get(pool_id) is not None
+                    assert not is_orderbook, f"Error: orderbook {pool_id} is present in route {denom_in} -> {denom_out}"
 
                 denoms = conftest.get_denoms_from_pool_tokens(pool.get("pool_tokens"))
 
