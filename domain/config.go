@@ -87,6 +87,7 @@ var (
 			AlloyedTransmuterCodeIDs: []uint64{
 				814,
 				867,
+				996,
 			},
 			OrderbookCodeIDs: []uint64{
 				885,
@@ -111,7 +112,7 @@ var (
 			DynamicMinLiquidityCapFiltersDesc: []DynamicMinLiquidityCapFilterEntry{
 				{
 					MinTokensCap: 1000000,
-					FilterValue:  75000,
+					FilterValue:  40000,
 				},
 				{
 					MinTokensCap: 250000,
