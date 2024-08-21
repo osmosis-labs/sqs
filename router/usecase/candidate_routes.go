@@ -58,19 +58,34 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 	if len(denomData.CanonicalOrderbooks) > 0 {
 		canonicalOrderbook, ok := denomData.CanonicalOrderbooks[tokenOutDenom]
 		if ok {
-			// Add the canonical orderbook as a route.
-			routes = append(routes, candidateRouteWrapper{
-				IsCanonicalOrderboolRoute: true,
-				Pools: []candidatePoolWrapper{
-					{
-						CandidatePool: sqsdomain.CandidatePool{
-							ID:            canonicalOrderbook.GetId(),
-							TokenOutDenom: tokenOutDenom,
+
+			shouldSkipCanonicalOrderbook := false
+			// Filter the canonical orderbook pool using the pool filters.
+			for _, filter := range options.PoolFiltersAnyOf {
+				// nolint: forcetypeassert
+				canonicalOrderbookPoolWrapper := (canonicalOrderbook).(*sqsdomain.PoolWrapper)
+				if filter(canonicalOrderbookPoolWrapper) {
+					shouldSkipCanonicalOrderbook = true
+					break
+				}
+			}
+
+			if !shouldSkipCanonicalOrderbook {
+				// Add the canonical orderbook as a route.
+				routes = append(routes, candidateRouteWrapper{
+					IsCanonicalOrderboolRoute: true,
+					Pools: []candidatePoolWrapper{
+						{
+							CandidatePool: sqsdomain.CandidatePool{
+								ID:            canonicalOrderbook.GetId(),
+								TokenOutDenom: tokenOutDenom,
+							},
+							PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
 						},
-						PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
 					},
-				},
-			})
+				})
+			}
+
 			visited[canonicalOrderbook.GetId()] = struct{}{}
 		}
 	}

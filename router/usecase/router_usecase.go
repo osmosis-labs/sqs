@@ -129,6 +129,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
 		MaxSplitRoutes:                   r.defaultConfig.MaxSplitRoutes,
 		DisableCache:                     !r.defaultConfig.RouteCacheEnabled,
+		CandidateRoutesPoolFiltersAnyOf:  []domain.CandidateRoutePoolFiltrerCb{},
 	}
 	// Apply options
 	for _, opt := range opts {
@@ -392,6 +393,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		MaxPoolsPerRoute:    routingOptions.MaxPoolsPerRoute,
 		MinPoolLiquidityCap: routingOptions.MinPoolLiquidityCap,
 		DisableCache:        routingOptions.DisableCache,
+		PoolFiltersAnyOf:    routingOptions.CandidateRoutesPoolFiltersAnyOf,
 	}
 
 	// If top routes are not present in cache, retrieve unranked candidate routes
