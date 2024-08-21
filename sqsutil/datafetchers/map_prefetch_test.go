@@ -19,7 +19,7 @@ func TestMapIntervalFetcher_GetByKey(t *testing.T) {
 	updateFn := func() (map[int]string, error) {
 		if didFetchOnce.Load() {
 			// Intentionally block the update function to simulate a slow update
-			time.Sleep(10 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 
 		didFetchOnce.Store(true)
@@ -32,11 +32,10 @@ func TestMapIntervalFetcher_GetByKey(t *testing.T) {
 	}
 
 	// Create a new MapIntervalFetcher with a short interval
-	interval := 50 * time.Millisecond
+	interval := 2 * time.Second
 	fetcher := datafetchers.NewMapFetcher(updateFn, interval)
 
-	// Wait until the first result is fetched
-	fetcher.WaitUntilFirstResult()
+	time.Sleep(1 * time.Second)
 
 	// Test getting a valid key
 	value, lastFetch, isStale, err := fetcher.GetByKey(1)
@@ -52,8 +51,8 @@ func TestMapIntervalFetcher_GetByKey(t *testing.T) {
 	assert.False(t, isStale)
 	assert.NotZero(t, lastFetch)
 
-	// Wait for more than 2x the interval to ensure data becomes stale
-	time.Sleep(200 * time.Millisecond)
+	// Wait for more than the interval to ensure data becomes stale
+	time.Sleep(3 * time.Second)
 
 	// Test getting a key after data should be stale
 	value, lastFetch, isStale, err = fetcher.GetByKey(2)

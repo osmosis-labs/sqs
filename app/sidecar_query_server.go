@@ -208,7 +208,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Iniitialize data fetcher for pool APRs
 	fetchPoolAPRsCallback := datafetchers.GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
 	var aprFetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR] = datafetchers.NewMapFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes))
-
 	// Register the APR fetcher with the passthrough use case
 	poolsUseCase.RegisterAPRFetcher(aprFetcher)
 

@@ -10,7 +10,6 @@ import (
 type Fetcher[T any] interface {
 	Get() (T, time.Time, error)
 	GetRefetchInterval() time.Duration
-	WaitUntilFirstResult()
 }
 
 // IntervalFetcher is a struct that prefetches a value at a given interval
@@ -21,12 +20,10 @@ type IntervalFetcher[T any] struct {
 	interval  time.Duration
 	hasClosed bool
 
-	hasSuccesfullyFetched bool
-	firstFetchChan        chan struct{}
-	lastRetrievedTime     time.Time
-	cache                 T
-	timer                 *time.Ticker
-	mutex                 sync.RWMutex
+	lastRetrievedTime time.Time
+	cache             T
+	timer             *time.Ticker
+	mutex             sync.RWMutex
 }
 
 func NewIntervalFetcher[T any](updateFn func() (T, error), interval time.Duration) *IntervalFetcher[T] {
@@ -34,9 +31,8 @@ func NewIntervalFetcher[T any](updateFn func() (T, error), interval time.Duratio
 		panic("interval must be greater than 0")
 	}
 	prefetcher := &IntervalFetcher[T]{
-		updateFn:       updateFn,
-		interval:       interval,
-		firstFetchChan: make(chan struct{}),
+		updateFn: updateFn,
+		interval: interval,
 	}
 
 	go prefetcher.startTimer()
@@ -63,26 +59,8 @@ func (p *IntervalFetcher[T]) prefetch() {
 
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-
-	if !p.hasSuccesfullyFetched {
-		p.hasSuccesfullyFetched = true
-		p.firstFetchChan <- struct{}{}
-	}
 	p.lastRetrievedTime = time.Now()
 	p.cache = newValue
-}
-
-// WaitUntilFirstResult blocks until the first value is fetched.
-// This function cannot be called concurrently multiple times.
-func (p *IntervalFetcher[T]) WaitUntilFirstResult() {
-	p.mutex.RLock()
-	hasFetched := p.hasSuccesfullyFetched
-	p.mutex.RUnlock()
-	if hasFetched {
-		return
-	}
-	<-p.firstFetchChan
-	close(p.firstFetchChan)
 }
 
 // Returns the latest value and the time it was last retrieved.

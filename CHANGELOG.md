@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.11.0
+
+- Fix concurrency bug in data fetcher prefetching.
+
 ## v25.10.0
 
 - Orderbook plugin
