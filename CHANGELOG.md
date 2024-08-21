@@ -35,7 +35,13 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v25.11.0
+
+- Fix concurrency bug in data fetcher prefetching.
+- Fix error response status codes in /quote and /custom-direct-quote
+- Add router and candidate route search options to disable route cache
+
+## v25.10.0
 
 - Orderbook plugin
 - Change tick iteration exit condition in CL in orderbook from zero to smallest Dec (18 decimals).
@@ -47,7 +53,6 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - Apply taker fee and spread factor for fill bot amount estimation
 - Reduce fill bot slippage bound by one ulp
 - Fallback to filling each message individually.
-- Add router and candidate route search options to disable route cache
 
 ## v25.9.0
 

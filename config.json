@@ -21,7 +21,7 @@
       "dynamic-min-liquidity-cap-filters-desc": [
         {
             "min-tokens-capitalization": 1000000,
-            "filter-value": 75000
+            "filter-value": 40000
         },
         {
             "min-tokens-capitalization": 250000,
@@ -51,7 +51,7 @@
             148,
             254
         ],
-        "alloyed-transmuter-code-ids": [814, 867],
+        "alloyed-transmuter-code-ids": [814, 86, 996],
         "orderbook-code-ids": [885],
         "general-cosmwasm-code-ids": [
             503,
@@ -73,7 +73,7 @@
         "worker-min-pool-liquidity-cap": 1
     },
     "passthrough":{
-        "numia-url": "https://public-osmosis-api.numia.xyz",
+        "numia-url": "https://public-osmosis-api.numia.dev",
         "timeseries-url": "https://stage-proxy-data-api.osmosis-labs.workers.dev",
         "apr-fetch-interval-minutes": 5,
         "pool-fees-fetch-interval-minutes": 5

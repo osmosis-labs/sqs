@@ -2,7 +2,6 @@ package http_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	routerdelivery "github.com/osmosis-labs/sqs/router/delivery/http"
-	routertypes "github.com/osmosis-labs/sqs/router/types"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/stretchr/testify/suite"
 )
@@ -45,7 +43,7 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 		handler            *routerdelivery.RouterHandler
 		expectedStatusCode int
 		expectedResponse   string
-		expectedError      error
+		expectedError      bool
 	}{
 		{
 			name: "valid exact in request",
@@ -69,7 +67,6 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_in_response.json"),
-			expectedError:      nil,
 		},
 		{
 			name: "valid exact out request",
@@ -93,7 +90,6 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_out_response.json"),
-			expectedError:      nil,
 		},
 		{
 			name: "invalid swap method request",
@@ -103,9 +99,9 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 				"singleRoute":    "true",
 				"applyExponents": "true",
 			},
-			expectedStatusCode: http.StatusInternalServerError,
+			expectedStatusCode: http.StatusBadRequest,
 			expectedResponse:   `{"message": "swap method is invalid - must be either swap exact amount in or swap exact amount out"}`,
-			expectedError:      routertypes.ErrSwapMethodNotValid,
+			expectedError:      true,
 		},
 		{
 			name: "invalid tokenIn format",
@@ -115,9 +111,9 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 				"singleRoute":    "true",
 				"applyExponents": "true",
 			},
-			expectedStatusCode: http.StatusInternalServerError,
+			expectedStatusCode: http.StatusBadRequest,
 			expectedResponse:   `{"message": "tokenIn is invalid - must be in the format amountDenom"}`,
-			expectedError:      routertypes.ErrTokenInNotValid,
+			expectedError:      true,
 		},
 		{
 			name: "invalid tokenOut format",
@@ -127,9 +123,9 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 				"singleRoute":    "true",
 				"applyExponents": "true",
 			},
-			expectedStatusCode: http.StatusInternalServerError,
+			expectedStatusCode: http.StatusBadRequest,
 			expectedResponse:   `{"message": "tokenOut is invalid - must be in the format amountDenom"}`,
-			expectedError:      routertypes.ErrTokenOutNotValid,
+			expectedError:      true,
 		},
 	}
 	for _, tc := range testcases {
@@ -147,9 +143,9 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 
 			err := tc.handler.GetOptimalQuote(c)
 
-			if tc.expectedError != nil {
-				s.Assert().Error(err)
-				s.Assert().Equal(tc.expectedError, err)
+			if tc.expectedError {
+				// Note: in case of error, we expect err to be nil but the status code to be non-200
+				s.Assert().Nil(err)
 				s.Assert().Equal(tc.expectedStatusCode, rec.Code)
 				s.Assert().JSONEq(tc.expectedResponse, rec.Body.String())
 				return
@@ -178,7 +174,7 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 		handler            *routerdelivery.RouterHandler
 		expectedStatusCode int
 		expectedResponse   string
-		expectedError      error
+		expectedError      bool
 	}{
 		{
 			name: "valid exact in request",
@@ -202,7 +198,6 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_in_response.json"),
-			expectedError:      nil,
 		},
 		{
 			name: "valid exact out request",
@@ -226,7 +221,6 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_out_response.json"),
-			expectedError:      nil,
 		},
 		{
 			name: "valid exact out request: apply human denom",
@@ -253,7 +247,6 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_out_response.json"),
-			expectedError:      nil,
 		},
 		{
 			name: "not valid exact out request: apply human denom",
@@ -278,9 +271,9 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 					},
 				},
 			},
-			expectedStatusCode: http.StatusInternalServerError,
+			expectedStatusCode: http.StatusBadRequest,
 			expectedResponse:   `{"message":"denom is not a valid chain denom (usdc)"}`,
-			expectedError:      fmt.Errorf("denom is not a valid chain denom (%s)", "usdc"),
+			expectedError:      true,
 		},
 		{
 			name: "invalid swap method request",
@@ -292,9 +285,9 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 				"poolID":         "10",
 				"applyExponents": "true",
 			},
-			expectedStatusCode: http.StatusInternalServerError,
+			expectedStatusCode: http.StatusBadRequest,
 			expectedResponse:   `{"message":"swap method is invalid - must be either swap exact amount in or swap exact amount out"}`,
-			expectedError:      routertypes.ErrSwapMethodNotValid,
+			expectedError:      true,
 		},
 		{
 			name: "invalid pools request",
@@ -306,9 +299,9 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 				"poolID":         "string,5",
 				"applyExponents": "true",
 			},
-			expectedStatusCode: http.StatusInternalServerError,
+			expectedStatusCode: http.StatusBadRequest,
 			expectedResponse:   `{"message":"pool ID must be integer"}`,
-			expectedError:      routertypes.ErrPoolIDNotValid,
+			expectedError:      true,
 		},
 		{
 			name: "invalid tokenIn format",
@@ -318,9 +311,9 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 				"singleRoute":    "true",
 				"applyExponents": "true",
 			},
-			expectedStatusCode: http.StatusInternalServerError,
+			expectedStatusCode: http.StatusBadRequest,
 			expectedResponse:   `{"message":"tokenIn is invalid - must be in the format amountDenom"}`,
-			expectedError:      routertypes.ErrTokenInNotValid,
+			expectedError:      true,
 		},
 		{
 			name: "invalid tokenOut format",
@@ -330,9 +323,9 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 				"singleRoute":    "true",
 				"applyExponents": "true",
 			},
-			expectedStatusCode: http.StatusInternalServerError,
+			expectedStatusCode: http.StatusBadRequest,
 			expectedResponse:   `{"message":"tokenOut is invalid - must be in the format amountDenom"}`,
-			expectedError:      routertypes.ErrTokenOutNotValid,
+			expectedError:      true,
 		},
 	}
 
@@ -351,9 +344,9 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 
 			err := tc.handler.GetDirectCustomQuote(c)
 
-			if tc.expectedError != nil {
-				s.Assert().Error(err)
-				s.Assert().Equal(tc.expectedError, err)
+			if tc.expectedError {
+				// Note: in case of error, we expect err to be nil but the status code to be non-200
+				s.Assert().Nil(err)
 				s.Assert().Equal(tc.expectedStatusCode, rec.Code)
 				s.Assert().Equal(
 					strings.TrimSpace(tc.expectedResponse),
