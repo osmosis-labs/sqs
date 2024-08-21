@@ -21,7 +21,7 @@
       "dynamic-min-liquidity-cap-filters-desc": [
         {
             "min-tokens-capitalization": 1000000,
-            "filter-value": 75000
+            "filter-value": 40000
         },
         {
             "min-tokens-capitalization": 250000,
