@@ -58,7 +58,6 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 	if len(denomData.CanonicalOrderbooks) > 0 {
 		canonicalOrderbook, ok := denomData.CanonicalOrderbooks[tokenOutDenom]
 		if ok {
-
 			shouldSkipCanonicalOrderbook := false
 			// Filter the canonical orderbook pool using the pool filters.
 			for _, filter := range options.PoolFiltersAnyOf {
