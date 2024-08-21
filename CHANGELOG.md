@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## v25.11.0
 
 - Fix concurrency bug in data fetcher prefetching.
+- Fix error response status codes in /quote and /custom-direct-quote
 
 ## v25.10.0
 
