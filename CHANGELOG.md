@@ -35,11 +35,14 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.12.0
+
+- Add router and candidate route search options to disable route cache
+
 ## v25.11.0
 
 - Fix concurrency bug in data fetcher prefetching.
 - Fix error response status codes in /quote and /custom-direct-quote
-- Add router and candidate route search options to disable route cache
 
 ## v25.10.0
 
