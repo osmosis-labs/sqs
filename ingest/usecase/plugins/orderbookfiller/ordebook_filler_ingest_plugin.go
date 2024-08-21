@@ -8,6 +8,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	chainsimulatedomain "github.com/osmosis-labs/sqs/domain/chainsimulate"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
@@ -344,7 +345,7 @@ func (o *orderbookFillerIngestPlugin) tryFill(ctx blockctx.BlockCtxI) error {
 
 	// Simulate transaction messages
 	sdkMsgs := txCtx.GetSDKMsgs()
-	_, adjustedGasAmount, err := o.simulateMsgs(ctx.AsGoCtx(), sdkMsgs)
+	_, adjustedGasAmount, err := chainsimulatedomain.SimulateMsgs(ctx.AsGoCtx(), o.passthroughGRPCClient.GetChainGRPCClient(), LCD, o.keyring.GetAddress().String(), sdkMsgs)
 	if err != nil {
 		return err
 	}

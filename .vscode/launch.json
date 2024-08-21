@@ -161,6 +161,19 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "python": "${workspaceFolder}/tests/venv/bin/python3"
-    }
+    },
+    {
+        "name": "Launch Simulate",
+        "type": "go",
+        "request": "launch",
+        "mode": "auto",
+        "program": "${workspaceFolder}/tests/chainsimulate",
+        "env": {
+            "SQS_TOKEN_OUT": "1000uion",
+            "SQS_TOKEN_IN_DENOM": "uosmo",
+            "SQS_CHAIN_ADDRESS": "osmo1q8709l2656zjtg567xnrxjr6j35a2pvwhxxms2",
+        },
+        "cwd": "${workspaceFolder}"
+      },
   ]
 }
