@@ -1,34 +1,8 @@
 {
-    "debug": true,
-    "server-address": ":9092",
-    "logger-filename": "sqs.log",
-    "logger-is-production": true,
-    "logger-level": "info",
-    "grpc-tendermint-rpc-endpoint": "http://localhost:26657",
-    "grpc-gateway-endpoint": "http://localhost:9090",
-    "chain-id": "osmosis-1",
+    "chain-id": "osmo-test-5",
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmo-test-5/osmo-test-5.assetlist.json",
-    "update-assets-height-interval": 200,
     "flight-recording": {
-        "enabled": false,
-        "trace-threshold-ms": 1000,
-        "trace-file-name": "/tmp/sqs-flight-record.trace"
-    },
-    "router": {
-      "preferred-pool-ids": [],
-      "max-pools-per-route": 4,
-      "max-routes": 20,
-      "max-split-routes": 3,
-      "min-pool-liquidity-cap": 10,
-      "route-cache-enabled": true,
-      "candidate-route-cache-expiry-seconds": 1200,
-      "ranked-route-cache-expiry-seconds": 600,
-      "dynamic-min-liquidity-cap-filters-desc": [
-        {
-            "min-tokens-capitalization": 1000000,
-            "filter-value": 75000
-        }
-      ]
+        "enabled": false
     },
     "pools": {
         "transmuter-code-ids": [
@@ -42,42 +16,7 @@
             6688
         ]
     },
-    "pricing": {
-        "cache-expiry-ms": 2000,
-        "default-source": 0,
-        "default-quote-human-denom": "usdc",
-        "max-pools-per-route": 4,
-        "max-routes": 5,
-        "min-pool-liquidity-cap": 0,
-        "worker-min-pool-liquidity-cap": 1,
-        "coingecko-url": "https://prices.osmosis.zone/api/v3/simple/price",
-        "coingecko-quote-currency": "usd"
-    },
-    "passthrough":{
-        "numia-url": "https://public-osmosis-api.numia.xyz",
-        "timeseries-url": "https://stage-proxy-data-api.osmosis-labs.workers.dev",
-        "apr-fetch-interval-minutes": 5,
-        "pool-fees-fetch-interval-minutes": 5
-    },
-    "grpc-ingester": {
-        "enabled": false,
-        "max-receive-msg-size-bytes": 16777216,
-        "server-address": ":50051",
-        "server-connection-timeout-seconds": 10,
-        "plugins": [
-            {
-                "name": "orderbook",
-                "enabled": false
-            }
-        ]
-    },
     "otel": {
-        "enabled": true,
-        "environment": "production"
-    },
-    "cors": {
-        "allowed-headers": "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
-        "allowed-methods": "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
-        "allowed-origins": "*"
+        "enabled": false
     }
 }

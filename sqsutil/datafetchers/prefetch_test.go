@@ -13,8 +13,10 @@ import (
 // The test also checks that the WaitUntilFirstResult method blocks for the expected duration,
 // and does not block for too long.
 func TestWaitUntilFirstResult(t *testing.T) {
+	t.Parallel()
+
 	updateFn := func() (int, error) {
-		time.Sleep(2 * time.Second)
+		time.Sleep(3 * time.Second)
 		return 42, nil
 	}
 
@@ -24,7 +26,7 @@ func TestWaitUntilFirstResult(t *testing.T) {
 	require.Equal(t, 0, v)
 	require.Equal(t, time.Time{}, timestamp)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	v, timestamp, err = p.Get()
 	require.NoError(t, err)
