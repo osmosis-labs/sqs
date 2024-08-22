@@ -29,4 +29,45 @@ jobs:
       run: go build -v ./...
     -
       name: Test
-      run: go test -v ./...
+      run: go test -v ./... -coverprofile=coverage.out -covermode=count -json > report.json;
+
+    - name: Archive code coverage results
+      uses: actions/upload-artifact@v4
+      with:          
+        name: code-coverage-report
+        path: |
+          coverage.out   
+          report.json   
+
+  sonarCloudTrigger:
+    needs: build
+    name: SonarCloud Trigger
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@master
+        with:
+          fetch-depth: 0
+      - name: Download code coverage results
+        uses: actions/download-artifact@v4
+        with:
+          name: code-coverage-report
+#          path: app
+      - name: Analyze with SonarCloud
+        uses: sonarsource/sonarcloud-github-action@master
+        with:
+          projectBaseDir: app
+          args: >
+            -Dsonar.projectKey=osmosis-labs-sqs
+            -Dsonar.organization=osmosis-labs-polaris
+            -Dsonar.host.url=https://sonarcloud.io            
+            -Dsonar.go.coverage.reportPaths=coverage.out            
+            -Dsonar.go.tests.reportPaths=report.json
+            -Dsonar.sources=.
+            -Dsonar.tests=.
+            -Dsonar.test.inclusions=**/*_test.go,**/testdata/**
+            -Dsonar.language=go                        
+            -Dsonar.go.exclusions=**/vendor/**,**/*_mock.go
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
