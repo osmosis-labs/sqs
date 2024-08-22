@@ -33,3 +33,5 @@ debug.test*
 # Local env for the order book filler
 ingest/usecase/plugins/orderbookfiller/.env
 config_orderbook_fill_plugin.json
+
+.envrc
