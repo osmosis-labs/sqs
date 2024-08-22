@@ -46,7 +46,7 @@ run-docker:
 	$(DOCKER) logs -f sqs
 
 osmosis-start:
-	$(DOCKER) run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -p 50051:50051 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:v24.x-4c99a57e-1712870916 "start"
+	$(DOCKER) run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -p 50051:50051 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:v25.x-5b3e7918-1724274941 "start"
 
 osmosis-stop:
 	$(DOCKER) container rm -f osmosis
