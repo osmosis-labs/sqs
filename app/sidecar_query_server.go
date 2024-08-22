@@ -282,7 +282,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
 		poolLiquidityComputeWorker.RegisterListener(chainInfoUseCase)
 
-		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig)
+		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig, logger)
 		if err != nil {
 			panic(err)
 		}

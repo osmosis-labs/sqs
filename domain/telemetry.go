@@ -87,28 +87,25 @@ var (
 		},
 	)
 
-	SQSIngestHandlerProcessBlockErrorCounter = prometheus.NewCounterVec(
+	SQSIngestHandlerProcessBlockErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSIngestUsecaseProcessBlockErrorMetricName,
 			Help: "counter that measures the number of errors that occur during processing a block in ingest usecase",
 		},
-		[]string{"err", "height"},
 	)
 
-	SQSIngestHandlerPoolParseErrorCounter = prometheus.NewCounterVec(
+	SQSIngestHandlerPoolParseErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSIngestUsecaseParsePoolErrorMetricName,
 			Help: "counter that measures the number of errors that occur during pool parsing in ingest usecase",
 		},
-		[]string{"err"},
 	)
 
-	SQSPricingWorkerComputeErrorCounter = prometheus.NewCounterVec(
+	SQSPricingWorkerComputeErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSPricingWorkerComputeErrorCounterMetricName,
 			Help: "counter that measures the number of errors that occur during pricing worker computation",
 		},
-		[]string{"height"},
 	)
 
 	SQSPricingWorkerComputeDurationGauge = prometheus.NewGauge(
@@ -125,27 +122,24 @@ var (
 		},
 	)
 
-	SQSUpdateAssetsAtHeightIntervalErrorCounter = prometheus.NewCounterVec(
+	SQSUpdateAssetsAtHeightIntervalErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSUpdateAssetsAtHeightIntervalMetricName,
 			Help: "Update assets at block height interval error when processing block data",
 		},
-		[]string{"err", "height"},
 	)
 
-	SQSPricingErrorCounter = prometheus.NewCounterVec(
+	SQSPricingErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSPricingErrorCounterMetricName,
 			Help: "Total number of pricing errors",
 		},
-		[]string{"base", "quote", "err"},
 	)
-	SQSPricingFallbackCounter = prometheus.NewCounterVec(
+	SQSPricingFallbackCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSPricingFallbackCounterMetricName,
 			Help: "Total number of fallback from chain pricing source to coingecko",
 		},
-		[]string{"base", "quote"},
 	)
 
 	SQSPassthroughNumiaAPRsFetchErrorCounter = prometheus.NewCounter(

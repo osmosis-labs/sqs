@@ -211,7 +211,8 @@ func (p *ingestUseCase) RegisterEndBlockProcessPlugin(plugin domain.EndBlockProc
 func (p *ingestUseCase) updateAssetsAtHeightIntervalAsync(height uint64) {
 	go func() {
 		if err := p.tokensUsecase.UpdateAssetsAtHeightIntervalSync(height); err != nil {
-			domain.SQSUpdateAssetsAtHeightIntervalErrorCounter.WithLabelValues(err.Error(), fmt.Sprint(height)).Inc()
+			p.logger.Error(domain.SQSUpdateAssetsAtHeightIntervalMetricName, zap.Uint64("height", height), zap.Error(err))
+			domain.SQSUpdateAssetsAtHeightIntervalErrorCounter.Inc()
 		}
 	}()
 }
@@ -260,8 +261,8 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 		case poolResult := <-poolResultChan:
 			if poolResult.err != nil {
 				// Increment parse pool error counter
-				domain.SQSIngestHandlerPoolParseErrorCounter.WithLabelValues(poolResult.err.Error()).Inc()
-
+				p.logger.Error(domain.SQSIngestUsecaseParsePoolErrorMetricName, zap.Error(poolResult.err))
+				domain.SQSIngestHandlerPoolParseErrorCounter.Inc()
 				continue
 			}
 
