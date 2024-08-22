@@ -56,7 +56,7 @@ jobs:
       - name: Analyze with SonarCloud
         uses: sonarsource/sonarcloud-github-action@master
         with:
-          projectBaseDir: app
+#          projectBaseDir: app
           args: >
             -Dsonar.projectKey=osmosis-labs-sqs
             -Dsonar.organization=osmosis-labs-polaris
