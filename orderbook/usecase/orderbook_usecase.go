@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
@@ -118,96 +119,104 @@ func TransformOrder(
 		}
 	}
 
-	// Parse quantities with error handling
-	quantity, err := strconv.Atoi(order.Quantity)
+	// Parse quantity as int64
+	quantity, err := strconv.ParseInt(order.Quantity, 10, 64)
 	if err != nil {
 		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing quantity: %w", err)
 	}
 
-	placedQuantity, err := strconv.Atoi(order.PlacedQuantity)
+	// Convert quantity to decimal for the calculations
+	quantityDec := osmomath.NewDec(quantity)
+
+	placedQuantity, err := strconv.ParseInt(order.PlacedQuantity, 10, 64)
+	if err != nil {
+		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
+	}
+
+	placedQuantityDec, err := osmomath.NewDecFromStr(order.PlacedQuantity)
 	if err != nil {
 		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
 	}
 
 	// Calculate percent claimed
-	percentClaimed := float64(placedQuantity-quantity) / float64(placedQuantity)
+	percentClaimed := placedQuantityDec.Sub(quantityDec).Quo(placedQuantityDec)
 
 	// Calculate normalization factor for price
-	normalizationFactor := math.Pow(10, float64(quoteAsset.Decimals-baseAsset.Decimals))
+	normalizationFactor := osmomath.NewDec(10).Power(uint64(quoteAsset.Decimals - baseAsset.Decimals))
 
 	// Determine tick values and unrealized cancels based on order direction
-	var tickEtas, tickUnrealizedCancelled int
+	var tickEtas, tickUnrealizedCancelled int64
 	if order.OrderDirection == "bid" {
-		tickEtas, err = strconv.Atoi(orderTickState.TickState.BidValues.EffectiveTotalAmountSwapped)
+		tickEtas, err = strconv.ParseInt(orderTickState.TickState.BidValues.EffectiveTotalAmountSwapped, 10, 64)
 		if err != nil {
 			return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing bid effective total amount swapped: %w", err)
 		}
 
-		tickUnrealizedCancelledFloat, err := strconv.ParseFloat(orderUnrealizedCancels.UnrealizedCancelsState.BidUnrealizedCancels.String(), 64)
+		tickUnrealizedCancelled, err = strconv.ParseInt(orderUnrealizedCancels.UnrealizedCancelsState.BidUnrealizedCancels.String(), 10, 64)
 		if err != nil {
 			return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing bid unrealized cancels: %w", err)
 		}
-		tickUnrealizedCancelled = int(tickUnrealizedCancelledFloat)
 	} else {
-		tickEtas, err = strconv.Atoi(orderTickState.TickState.AskValues.EffectiveTotalAmountSwapped)
+		tickEtas, err = strconv.ParseInt(orderTickState.TickState.AskValues.EffectiveTotalAmountSwapped, 10, 64)
 		if err != nil {
 			return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing ask effective total amount swapped: %w", err)
 		}
 
-		tickUnrealizedCancelledFloat, err := strconv.ParseFloat(orderUnrealizedCancels.UnrealizedCancelsState.AskUnrealizedCancels.String(), 64)
+		tickUnrealizedCancelled, err = strconv.ParseInt(orderUnrealizedCancels.UnrealizedCancelsState.AskUnrealizedCancels.String(), 10, 64)
 		if err != nil {
 			return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing ask unrealized cancels: %w", err)
 		}
-		tickUnrealizedCancelled = int(tickUnrealizedCancelledFloat)
 	}
 
 	// Calculate total ETAs and total filled
-	tickTotalEtas := tickEtas + tickUnrealizedCancelled
-	etas, err := strconv.Atoi(order.Etas)
+
+	etas, err := strconv.ParseInt(order.Etas, 10, 64)
 	if err != nil {
 		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing etas: %w", err)
 	}
 
-	totalFilled := int(math.Max(float64(tickTotalEtas-(etas-(placedQuantity-quantity))), 0))
+	tickTotalEtas := tickEtas + tickUnrealizedCancelled
 
-	// Calculate percent filled
-	percentFilled := math.Min(float64(totalFilled)/float64(placedQuantity), 1)
+	totalFilled := int64(math.Max(
+		float64(tickTotalEtas-(etas-(placedQuantity-quantity))),
+		0,
+	))
+
+	// Calculate percent filled using
+	percentFilled, err := osmomath.NewDecFromStr(strconv.FormatFloat(math.Min(float64(totalFilled)/float64(placedQuantity), 1), 'f', -1, 64))
+	if err != nil {
+		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error calculating percent filled: %w", err)
+	}
 
 	// Determine order status based on percent filled
-	status, err := order.Status(percentFilled)
+	status, err := order.Status(percentFilled.MustFloat64())
 	if err != nil {
 		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("mapping order status: %w", err)
 	}
 
 	// Calculate price based on tick ID
-	priceBigDec, err := clmath.TickToPrice(order.TickId)
+	price, err := clmath.TickToPrice(order.TickId)
 	if err != nil {
 		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("converting tick to price: %w", err)
 	}
 
-	// Convert price to float64
-	price, err := priceBigDec.Float64()
-	if err != nil {
-		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("converting price to float64: %w", err)
-	}
-
 	// Calculate output based on order direction
-	var output float64
+	var output osmomath.Dec
 	if order.OrderDirection == "bid" {
-		output = float64(placedQuantity) / price
+		output = placedQuantityDec.Quo(price.Dec())
 	} else {
-		output = float64(placedQuantity) * price
+		output = placedQuantityDec.Mul(price.Dec())
 	}
 
 	// Calculate normalized price
-	normalizedPrice := price / normalizationFactor
+	normalizedPrice := price.Dec().Quo(normalizationFactor)
 
-	// Convert placed_at to a UNIX timestamp
+	// Convert placed_at to a nano second timestamp
 	placedAt, err := strconv.ParseInt(order.PlacedAt, 10, 64)
 	if err != nil {
 		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing placed_at: %w", err)
 	}
-	placedAt = time.Unix(placedAt/1000, 0).Unix()
+	placedAt = time.Unix(0, placedAt).Unix()
 
 	// Return the mapped limit order
 	return orderbookdomain.MappedLimitOrder{
@@ -216,16 +225,16 @@ func TransformOrder(
 		OrderDirection:   order.OrderDirection,
 		Owner:            order.Owner,
 		Quantity:         quantity,
-		Etas:             strconv.Itoa(etas),
+		Etas:             order.Etas,
 		ClaimBounty:      order.ClaimBounty,
 		PlacedQuantity:   placedQuantity,
-		PercentClaimed:   strconv.FormatFloat(percentClaimed, 'f', 18, 64),
+		PercentClaimed:   percentClaimed.String(),
 		TotalFilled:      totalFilled,
-		PercentFilled:    strconv.FormatFloat(percentFilled, 'f', 18, 64),
+		PercentFilled:    percentFilled.String(),
 		OrderbookAddress: orderbookAddress,
-		Price:            strconv.FormatFloat(normalizedPrice, 'f', 18, 64),
+		Price:            normalizedPrice.String(),
 		Status:           status,
-		Output:           strconv.FormatFloat(output, 'f', 18, 64),
+		Output:           output.String(),
 		QuoteAsset:       quoteAsset,
 		BaseAsset:        baseAsset,
 		PlacedAt:         placedAt,
