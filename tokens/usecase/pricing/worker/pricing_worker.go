@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -60,10 +59,9 @@ func (p *pricingWorker) UpdatePricesSync(height uint64, uniqueBlockPoolMetaData 
 	// For example, BRNCH / STRDST (1288). As a result, they are incorrectly excluded despite having appropriate liquidity.
 	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.minLiquidityCap))
 	if err != nil {
-		p.logger.Error("failed to pre-compute prices", zap.Error(err))
-
 		// Increase error counter
-		domain.SQSPricingWorkerComputeErrorCounter.WithLabelValues(strconv.FormatUint(height, 10)).Inc()
+		p.logger.Error(domain.SQSPricingWorkerComputeDurationMetricName, zap.Error(err), zap.Uint64("height", height))
+		domain.SQSPricingWorkerComputeErrorCounter.Inc()
 	}
 
 	// Update listeners

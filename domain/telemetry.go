@@ -80,6 +80,50 @@ var (
 	// counter that measures the number of errors when fetching fees from timeseries data stack in a passthrough module.
 	SQSPassthroughTimeseriesPoolFeesFetchErrorCounterMetricName = "sqs_passthrough_timeseries_pool_fees_fetch_error_total"
 
+	// sqs_routes_cache_hits_total
+	//
+	// counter that measures the number of cache hits
+	// Has the following labels:
+	// * route - the route being processed
+	// * cache_type - the type of cache being used
+	SQSRoutesCacheHitsCounterMetricName = "sqs_routes_cache_hits_total"
+
+	// sqs_routes_cache_misses_total
+	//
+	// counter that measures the number of cache misses
+	// Has the following labels:
+	// * route - the route being processed
+	// * cache_type - the type of cache being used
+	SQSRoutesCacheMissesCounterMetricName = "sqs_routes_cache_misses_total"
+
+	// sqs_routes_cache_write_total
+	//
+	// counter that measures the number of cache writes
+	// Has the following labels:
+	// * route - the route being processed
+	// * cache_type - the type of cache being used
+	SQSRoutesCacheWritesCounterMetricName = "sqs_routes_cache_write_total"
+
+	// sqs_pricing_cache_hits_total
+	//
+	// counter that measures the number of pricing cache hits
+	SQSPricingCacheHitsCounterMetricName = "sqs_pricing_cache_hits_total"
+
+	// sqs_pricing_cache_misses_total
+	//
+	// counter that measures the number of pricing cache misses
+	SQSPricingCacheMissesCounterMetricName = "sqs_pricing_cache_misses_total"
+
+	// sqs_pricing_truncation_total
+	//
+	// counter that measures the number of pricing truncation
+	SQSPricingTruncationCounterMetricName = "sqs_pricing_truncation_total"
+
+	// sqs_pricing_spot_price_error_total
+	//
+	// counter that measures the number of spot price errors
+	SQSPricingSpotPriceErrorMetricName = "sqs_pricing_spot_price_error_total"
+
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -87,28 +131,25 @@ var (
 		},
 	)
 
-	SQSIngestHandlerProcessBlockErrorCounter = prometheus.NewCounterVec(
+	SQSIngestHandlerProcessBlockErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSIngestUsecaseProcessBlockErrorMetricName,
 			Help: "counter that measures the number of errors that occur during processing a block in ingest usecase",
 		},
-		[]string{"err", "height"},
 	)
 
-	SQSIngestHandlerPoolParseErrorCounter = prometheus.NewCounterVec(
+	SQSIngestHandlerPoolParseErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSIngestUsecaseParsePoolErrorMetricName,
 			Help: "counter that measures the number of errors that occur during pool parsing in ingest usecase",
 		},
-		[]string{"err"},
 	)
 
-	SQSPricingWorkerComputeErrorCounter = prometheus.NewCounterVec(
+	SQSPricingWorkerComputeErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSPricingWorkerComputeErrorCounterMetricName,
 			Help: "counter that measures the number of errors that occur during pricing worker computation",
 		},
-		[]string{"height"},
 	)
 
 	SQSPricingWorkerComputeDurationGauge = prometheus.NewGauge(
@@ -125,27 +166,24 @@ var (
 		},
 	)
 
-	SQSUpdateAssetsAtHeightIntervalErrorCounter = prometheus.NewCounterVec(
+	SQSUpdateAssetsAtHeightIntervalErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSUpdateAssetsAtHeightIntervalMetricName,
 			Help: "Update assets at block height interval error when processing block data",
 		},
-		[]string{"err", "height"},
 	)
 
-	SQSPricingErrorCounter = prometheus.NewCounterVec(
+	SQSPricingErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSPricingErrorCounterMetricName,
 			Help: "Total number of pricing errors",
 		},
-		[]string{"base", "quote", "err"},
 	)
-	SQSPricingFallbackCounter = prometheus.NewCounterVec(
+	SQSPricingFallbackCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSPricingFallbackCounterMetricName,
 			Help: "Total number of fallback from chain pricing source to coingecko",
 		},
-		[]string{"base", "quote"},
 	)
 
 	SQSPassthroughNumiaAPRsFetchErrorCounter = prometheus.NewCounter(
@@ -159,6 +197,57 @@ var (
 		prometheus.CounterOpts{
 			Name: SQSPassthroughTimeseriesPoolFeesFetchErrorCounterMetricName,
 			Help: "Total number of errors when fetching pool fees from timeseries in a passthrough module.",
+		},
+	)
+
+	SQSRoutesCacheHitsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSRoutesCacheHitsCounterMetricName,
+			Help: "Total number of cache hits",
+		},
+		[]string{"route", "cache_type"},
+	)
+
+	SQSRoutesCacheMissesCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSRoutesCacheMissesCounterMetricName,
+			Help: "Total number of cache misses",
+		},
+		[]string{"route", "cache_type"},
+	)
+
+	SQSRoutesCacheWritesCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSRoutesCacheWritesCounterMetricName,
+			Help: "Total number of cache writes",
+		},
+		[]string{"route", "cache_type"},
+	)
+
+	SQSPricingCacheHitsCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingCacheHitsCounterMetricName,
+			Help: "Total number of pricing cache hits",
+		},
+	)
+	SQSPricingCacheMissesCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingCacheMissesCounterMetricName,
+			Help: "Total number of pricing cache misses",
+		},
+	)
+
+	SQSPricingTruncationCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingTruncationCounterMetricName,
+			Help: "Total number of price truncations in intermediary calculations",
+		},
+	)
+
+	SQSPricingSpotPriceError = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingSpotPriceErrorMetricName,
+			Help: "Total number of spot price errors in pricing",
 		},
 	)
 )
@@ -175,4 +264,11 @@ func init() {
 	prometheus.MustRegister(SQSPricingFallbackCounter)
 	prometheus.MustRegister(SQSPassthroughNumiaAPRsFetchErrorCounter)
 	prometheus.MustRegister(SQSPassthroughTimeseriesPoolFeesFetchErrorCounter)
+	prometheus.MustRegister(SQSRoutesCacheHitsCounter)
+	prometheus.MustRegister(SQSRoutesCacheMissesCounter)
+	prometheus.MustRegister(SQSRoutesCacheWritesCounter)
+	prometheus.MustRegister(SQSPricingCacheHitsCounter)
+	prometheus.MustRegister(SQSPricingCacheMissesCounter)
+	prometheus.MustRegister(SQSPricingTruncationCounter)
+	prometheus.MustRegister(SQSPricingSpotPriceError)
 }
