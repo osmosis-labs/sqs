@@ -439,6 +439,7 @@ func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalSync() {
 					},
 				},
 				&mocks.CandidateRouteSearchDataWorkerMock{},
+				nil,
 				noOpLogger,
 			)
 			s.Require().NoError(err)

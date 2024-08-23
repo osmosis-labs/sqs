@@ -31,7 +31,7 @@ type RoundingDirection bool
 
 const (
 	// ROUND_UP rounds up the result of the conversion.
-	ROUND_UP   RoundingDirection = true
+	ROUND_UP RoundingDirection = true
 	// ROUND_DOWN rounds down the result of the conversion.
 	ROUND_DOWN RoundingDirection = false
 )

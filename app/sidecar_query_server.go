@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+
 	"time"
 
 	tenderminapi "cosmossdk.io/api/cosmos/base/tendermint/v1beta1"
@@ -22,6 +23,8 @@ import (
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
 	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller"
+	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
+	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
@@ -46,6 +49,7 @@ import (
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
+	orderbookHttpDelivery "github.com/osmosis-labs/sqs/orderbook/delivery/http"
 
 	routerHttpDelivery "github.com/osmosis-labs/sqs/router/delivery/http"
 	routerUseCase "github.com/osmosis-labs/sqs/router/usecase"
@@ -193,6 +197,11 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	tokensUseCase.RegisterPricingStrategy(domain.ChainPricingSourceType, chainPricingSource)
 	tokensUseCase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
 
+	wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
+	orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)
+	orderBookRepository := orderbookrepository.New()
+	orderBookUseCase := orderbookusecase.New(orderBookRepository, orderBookAPIClient, poolsUseCase, tokensUseCase, logger)
+
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase)
@@ -201,6 +210,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
+	orderbookHttpDelivery.NewOrderbookHandler(e, orderBookUseCase, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough
@@ -249,6 +259,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 			appCodec,
 			quotePriceUpdateWorker,
 			candidateRouteSearchDataWorker,
+			orderBookUseCase,
 			logger,
 		)
 
@@ -269,9 +280,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					}
 
 					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
-
-					wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
-					orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)
 					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
 				}
 
