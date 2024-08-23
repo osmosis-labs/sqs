@@ -12,24 +12,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	"github.com/prometheus/client_golang/prometheus"
-)
-
-var (
-	cacheHitsCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_pricing_coingecko_cache_hits_total",
-			Help: "Total number of pricing coingecko cache hits",
-		},
-		[]string{"base", "quote"},
-	)
-	cacheMissesCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_pricing_coingecko_cache_misses_total",
-			Help: "Total number of pricing coingecko cache misses",
-		},
-		[]string{"base", "quote"},
-	)
 )
 
 const USDC_DENOM = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
@@ -51,15 +33,6 @@ type coingeckoPricing struct {
 
 	// We monkey-patch this function for testing purposes.
 	priceGetterFn CoingeckoPriceGetterFn
-}
-
-func init() {
-	if err := prometheus.Register(cacheHitsCounter); err != nil {
-		panic(err)
-	}
-	if err := prometheus.Register(cacheMissesCounter); err != nil {
-		panic(err)
-	}
 }
 
 // New creates a new Coingecko pricing source.
@@ -106,11 +79,11 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 			return osmomath.BigDec{}, fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
 		}
 		// Increase cache hits
-		cacheHitsCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+		domain.SQSPricingCoingeckoCacheHitsCounter.Inc()
 		return cachedBigDecPrice, nil
 	} else if !found {
 		// Increase cache misses
-		cacheMissesCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+		domain.SQSPricingCoingeckoCacheMissesCounter.Inc()
 	}
 
 	price, err := c.priceGetterFn(ctx, baseDenom, coingeckoId)

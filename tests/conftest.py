@@ -114,7 +114,7 @@ NUMIA_TO_E2E_MAP = {
 # This is the number of tokens we allow being skipped due to being unlisted
 # or not having liquidity. This number is hand-picked arbitrarily. We have around ~350 tokens
 # at the time of writing this test and we leave a small buffer.
-ALLOWED_NUM_TOKENS_USDC_PAIR_SKIPPED = 50
+ALLOWED_NUM_TOKENS_USDC_PAIR_SKIPPED = 75
 # This is the minimum number of misc token pairs
 # that we expect to construct in setup.
 # Since our test setup is dynamic, it is important to

@@ -2,17 +2,18 @@ package grpc
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	prototypes "github.com/osmosis-labs/sqs/sqsdomain/proto/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -20,6 +21,8 @@ import (
 )
 
 type IngestGRPCHandler struct {
+	logger log.Logger
+
 	ingestUseCase mvc.IngestUsecase
 
 	prototypes.UnimplementedSQSIngesterServer
@@ -46,10 +49,10 @@ var (
 var _ prototypes.SQSIngesterServer = &IngestGRPCHandler{}
 
 // NewIngestHandler will initialize the ingest/ resources endpoint
-func NewIngestGRPCHandler(us mvc.IngestUsecase, grpcIngesterConfig domain.GRPCIngesterConfig) (*grpc.Server, error) {
+func NewIngestGRPCHandler(us mvc.IngestUsecase, grpcIngesterConfig domain.GRPCIngesterConfig, logger log.Logger) (*grpc.Server, error) {
 	ingestHandler := &IngestGRPCHandler{
-		ingestUseCase: us,
-
+		ingestUseCase:          us,
+		logger:                 logger,
 		blockProcessDispatcher: workerpool.NewDispatcher[uint64](numBlockProcessWorkers),
 	}
 
@@ -104,7 +107,8 @@ func (i *IngestGRPCHandler) ProcessBlock(ctx context.Context, req *prototypes.Pr
 
 			if err := i.ingestUseCase.ProcessBlockData(ctx, req.BlockHeight, takerFeeMap, req.Pools); err != nil {
 				// Increment error counter
-				domain.SQSIngestHandlerProcessBlockErrorCounter.WithLabelValues(err.Error(), strconv.FormatUint(req.BlockHeight, 10)).Inc()
+				i.logger.Error(domain.SQSIngestUsecaseProcessBlockErrorMetricName, zap.Uint64("height", req.BlockHeight), zap.Error(err))
+				domain.SQSIngestHandlerProcessBlockErrorCounter.Inc()
 
 				return req.BlockHeight, err
 			}
@@ -126,8 +130,9 @@ func (i *IngestGRPCHandler) emptyResults() error {
 		// to trigger the fallback mechanism, reingesting all data.
 		case prevResult := <-i.blockProcessDispatcher.ResultQueue:
 			if prevResult.Err != nil {
+				i.logger.Error(domain.SQSIngestUsecaseProcessBlockErrorMetricName, zap.Uint64("height", prevResult.Result), zap.Error(prevResult.Err))
 				// Increment error counter
-				domain.SQSIngestHandlerProcessBlockErrorCounter.WithLabelValues(prevResult.Err.Error(), strconv.FormatUint(prevResult.Result, 10)).Inc()
+				domain.SQSIngestHandlerProcessBlockErrorCounter.Inc()
 
 				return prevResult.Err
 			}

@@ -26,28 +26,33 @@ import (
 	"github.com/osmosis-labs/osmosis/v25/app"
 )
 
+const (
+	// emptyValuePlaceholder is used to check if the config file is provided.
+	emptyValuePlaceholder = ""
+)
+
 // @title           Osmosis Sidecar Query Server Example API
 // @version         1.0
 func main() {
-	configPath := flag.String("config", "config.json", "config file location")
+	configPath := flag.String("config", emptyValuePlaceholder, "config file location")
 
 	hostName := flag.String("host", "sqs", "the name of the host")
-
-	isDebug := flag.Bool("debug", false, "debug mode")
-	if *isDebug {
-		log.Println("Service RUN on DEBUG mode")
-	}
 
 	// Parse the command-line arguments
 	flag.Parse()
 
-	fmt.Println("configPath", *configPath)
-	fmt.Println("hostName", *hostName)
+	// If config file is not provided, use default config with possible overrides via environment variables.
+	if len(*configPath) == len(emptyValuePlaceholder) {
+		fmt.Println("config file is not detected. Using default config with possible overrides via environment variables. See docs/architecture/config.md for more details")
+	} else {
+		fmt.Println("configPath", *configPath)
+		fmt.Println("hostName", *hostName)
 
-	viper.SetConfigFile(*configPath)
-	err := viper.ReadInConfig()
-	if err != nil {
-		panic(err)
+		viper.SetConfigFile(*configPath)
+		err := viper.ReadInConfig()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// Unmarshal the config into Config struct

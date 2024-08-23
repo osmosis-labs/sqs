@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
@@ -60,16 +61,140 @@ type Config struct {
 	CORS *CORSConfig `mapstructure:"cors"`
 }
 
-// UnmarshalConfig handles the custom unmarshaling for the Config struct, particularly for Plugins.
+const envPrefix = "SQS"
+
+var (
+	DefaultConfig = Config{
+		ServerAddress:              ":9092",
+		LoggerFilename:             "sqs.log",
+		LoggerIsProduction:         false,
+		LoggerLevel:                "info",
+		ChainTendermingRPCEndpoint: "http://localhost:26657",
+		ChainGRPCGatewayEndpoint:   "localhost:9090",
+		ChainID:                    "osmosis-1",
+		ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+		UpdateAssetsHeightInterval: 200,
+		FlightRecord: &FlightRecordConfig{
+			Enabled:          true,
+			TraceThresholdMS: 1000,
+			TraceFileName:    "/tmp/sqs-flight-record.trace",
+		},
+		Pools: &PoolsConfig{
+			TransmuterCodeIDs: []uint64{
+				148,
+				254,
+			},
+			AlloyedTransmuterCodeIDs: []uint64{
+				814,
+				867,
+				996,
+			},
+			OrderbookCodeIDs: []uint64{
+				885,
+			},
+			GeneralCosmWasmCodeIDs: []uint64{
+				503,
+				572,
+				773,
+				641,
+				842,
+			},
+		},
+		Router: &RouterConfig{
+			PreferredPoolIDs:                 []uint64{},
+			MaxPoolsPerRoute:                 4,
+			MaxRoutes:                        20,
+			MaxSplitRoutes:                   3,
+			MinPoolLiquidityCap:              0,
+			RouteCacheEnabled:                true,
+			CandidateRouteCacheExpirySeconds: 1200,
+			RankedRouteCacheExpirySeconds:    45,
+			DynamicMinLiquidityCapFiltersDesc: []DynamicMinLiquidityCapFilterEntry{
+				{
+					MinTokensCap: 1000000,
+					FilterValue:  40000,
+				},
+				{
+					MinTokensCap: 250000,
+					FilterValue:  15000,
+				},
+				{
+					MinTokensCap: 10000,
+					FilterValue:  1000,
+				},
+				{
+					MinTokensCap: 1000,
+					FilterValue:  10,
+				},
+				{
+					MinTokensCap: 1,
+					FilterValue:  1,
+				},
+			},
+		},
+		Pricing: &PricingConfig{
+			CacheExpiryMs:             2000,
+			DefaultSource:             0,
+			DefaultQuoteHumanDenom:    "usdc",
+			MaxPoolsPerRoute:          4,
+			MaxRoutes:                 3,
+			MinPoolLiquidityCap:       1000,
+			CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
+			CoingeckoQuoteCurrency:    "usd",
+			WorkerMinPoolLiquidityCap: 1,
+		},
+		Passthrough: &passthroughdomain.PassthroughConfig{
+			NumiaURL:                     "https://public-osmosis-api.numia.dev",
+			TimeseriesURL:                "https://stage-proxy-data-api.osmosis-labs.workers.dev",
+			APRFetchIntervalMinutes:      5,
+			PoolFeesFetchIntervalMinutes: 5,
+		},
+		GRPCIngester: &GRPCIngesterConfig{
+			Enabled:                        true,
+			MaxReceiveMsgSizeBytes:         16777216,
+			ServerAddress:                  ":50051",
+			ServerConnectionTimeoutSeconds: 10,
+			Plugins: []Plugin{
+				&OrderBookPluginConfig{
+					Enabled: false,
+					Name:    orderbookplugindomain.OrderBookPluginName,
+				},
+			},
+		},
+		OTEL: &OTELConfig{
+			Enabled:     true,
+			Environment: "sqs-dev",
+		},
+		CORS: &CORSConfig{
+			AllowedHeaders: "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
+			AllowedMethods: "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
+			AllowedOrigin:  "*",
+		},
+	}
+)
+
+// UnmarshalConfig handles the custom unmarshaling for the Config struct.
+// Additionally, it sets up environment variable mappings using reflection.
+// It also handles the Plugins field by decoding it using a custom decode hook.
+// It uses Viper to handle environment variables and reflection to automatically generate environment variable mappings.
+// CONTRACT: viper.ReadInConfig() is called before this function.
 func UnmarshalConfig() (*Config, error) {
-	var config Config
+	config := DefaultConfig
+
+	viper.SetEnvPrefix(envPrefix)
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
+
+	// Set up environment variable mappings using reflection
+	bindEnvRecursive(reflect.ValueOf(&config), "")
 
 	// Use Viper's Unmarshal method to decode the configuration, except for the Plugins field
 	if err := viper.Unmarshal(&config, viper.DecodeHook(
 		mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToSliceHookFunc(","),
 			viperDecodeHookFunc(),
-		))); err != nil {
+		)),
+	); err != nil {
 		return nil, err
 	}
 
@@ -118,6 +243,48 @@ func viperDecodeHookFunc() mapstructure.DecodeHookFunc {
 		}
 
 		return plugins, nil
+	}
+}
+
+// Automatically generate environment variable mappings for all fields,
+// including nested structs, without having to manually specify each binding.
+// For example, if a mapstructure tag is "foo", the environment variable will be "SQS_FOO".
+// If nested structs are present such as "foo.bar", the environment variable will be "SQS_FOO_BAR".
+func bindEnvRecursive(v reflect.Value, prefix string) {
+	t := v.Type()
+
+	// Assume pointer to struct
+	if t.Kind() == reflect.Ptr {
+		v = v.Elem()
+		t = v.Type()
+	}
+
+	// If not a struct after dereferencing, return
+	if t.Kind() != reflect.Struct {
+		return
+	}
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+
+		// Get the mapstructure tag, if any
+		tag := field.Tag.Get("mapstructure")
+		if tag == "" {
+			tag = strings.ToLower(field.Name)
+		}
+
+		envName := prefix + tag
+
+		// For nested structs, recurse
+		if value.Kind() == reflect.Struct || (value.Kind() == reflect.Ptr && value.Elem().Kind() == reflect.Struct) {
+			bindEnvRecursive(value, envName+".")
+		} else {
+			// Bind the environment variable
+			if err := viper.BindEnv(envName); err != nil {
+				panic(err)
+			}
+		}
 	}
 }
 

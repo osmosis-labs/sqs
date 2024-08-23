@@ -35,6 +35,34 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.14.0
+
+- Fix bug withe duplicate metrics registration.
+
+## v25.13.2
+
+- Reduce metrics cardinality, removing labels for coingecko cache metrics.
+
+## v25.13.1
+
+- Fix `/config` query bug for chain handler use case returning the default that is overriden by CoinGecko pricing source.
+
+## v25.13.0
+
+- Reduce metrics cardinality, removing labels for most cases.
+- Define sane config defaults, allowing the ability to override them via a config file or environment variables (backwards compatible).
+- Remove unused `debug` config and flag.
+
+
+## v25.12.0
+
+- Add router and candidate route search options to disable route cache
+
+## v25.11.0
+
+- Fix concurrency bug in data fetcher prefetching.
+- Fix error response status codes in /quote and /custom-direct-quote
+
 ## v25.10.0
 
 - Orderbook plugin

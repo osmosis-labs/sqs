@@ -73,7 +73,13 @@ class TestExactAmountOutQuote:
         # Run the quote test
         quote = ExactAmountOutQuote.run_quote_test(environment_url, token_out_coin, denom_in, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
-        ExactAmountOutQuote.validate_quote_test(quote, amount_str, USDC, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_in, error_tolerance)
+        # We skip order book pools from in given out due to
+        # message not being implemented: https://github.com/osmosis-labs/sqs/pull/458
+        sqs = conftest.SERVICE_MAP[environment_url]
+        orderbook_list = sqs.get_canonical_orderbooks()
+        orderbook_map = {orderbook.get("pool_id"): orderbook for orderbook in orderbook_list}
+
+        ExactAmountOutQuote.validate_quote_test(quote, amount_str, USDC, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_in, error_tolerance, orderbook_map=orderbook_map)
 
     # - Constructs combinations between each from 10^6 to 10^9 amount input
     @pytest.mark.parametrize("swap_pair", conftest.create_coins_from_pairs(conftest.create_no_dupl_token_pairs(conftest.choose_tokens_liq_range(num_tokens=10, min_liq=500_000, exponent_filter=USDC_PRECISION)), USDC_PRECISION, USDC_PRECISION + 3), ids=id_from_swap_pair)

@@ -51,4 +51,4 @@ RUN apt-get update && \
 ENTRYPOINT ["/bin/sqsd"]
 
 # Default CMD
-CMD ["--config", "/osmosis/config.json", "--host", "sqs--default-host"]
+CMD ["--host", "sqs-default-host"]

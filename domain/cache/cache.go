@@ -74,3 +74,10 @@ func (c *Cache) Delete(key string) {
 
 	delete(c.data, key)
 }
+
+// Len returns the number of entries in the cache
+func (c *Cache) Len() int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return len(c.data)
+}

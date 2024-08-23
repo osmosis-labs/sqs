@@ -219,7 +219,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	// 6 more tokens were found to be unsupported on May 29th.
 	// 1 more was found on June 10 when adding alloyed code id to config.
 	//
-	// On July 20, 2024: 23 unsupported tokens - likely added liquidity to some pools with the tokens.
+	// On August 21, 2024: 23 unsupported tokens - likely added liquidity to some pools with the tokens.
 	s.Require().Equal(23, zeroPriceCounter)
 }
 
