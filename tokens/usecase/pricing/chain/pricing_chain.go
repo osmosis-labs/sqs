@@ -6,7 +6,6 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
@@ -46,44 +45,6 @@ const (
 	// The default is SpotPriceComputeMethod.
 	defaultIsSpotPriceComputeMethod bool = true
 )
-
-var (
-	cacheHitsCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_pricing_cache_hits_total",
-			Help: "Total number of pricing cache hits",
-		},
-		[]string{"base", "quote"},
-	)
-	cacheMissesCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_pricing_cache_misses_total",
-			Help: "Total number of pricing cache misses",
-		},
-		[]string{"base", "quote"},
-	)
-
-	pricesTruncationCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_pricing_truncation_total",
-			Help: "Total number of price truncations in intermediary calculations",
-		},
-		[]string{"base", "quote"},
-	)
-
-	pricesSpotPriceError = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_pricing_spot_price_error_total",
-			Help: "Total number of spot price errors in pricing",
-		},
-		[]string{"base", "quote"},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(cacheHitsCounter)
-	prometheus.MustRegister(cacheMissesCounter)
-}
 
 func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
 	chainDefaultHumanDenom, err := tokenUseCase.GetChainDenom(config.DefaultQuoteHumanDenom)
@@ -138,11 +99,11 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		}
 
 		// Increase cache hits
-		cacheHitsCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+		domain.SQSPricingCacheHitsCounter.Inc()
 		return cachedBigDecPrice, nil
 	} else if !found {
 		// Increase cache misses
-		cacheMissesCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+		domain.SQSPricingCacheMissesCounter.Inc()
 	}
 
 	// If cache miss occurs, we compute the price.
@@ -221,7 +182,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 			poolSpotPrice, err := c.RUsecase.GetPoolSpotPrice(ctx, pool.GetId(), tempQuoteDenom, tempBaseDenom)
 			if err != nil || poolSpotPrice.IsNil() || poolSpotPrice.IsZero() {
 				// Increase price truncation counter
-				pricesSpotPriceError.WithLabelValues(baseDenom, quoteDenom).Inc()
+				domain.SQSPricingSpotPriceError.Inc()
 
 				// Error in spot price, use quote-based compute method.
 				isSpotPriceComputeMethod = false
@@ -244,7 +205,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 
 	if chainPrice.IsZero() {
 		// Increase price truncation counter
-		pricesTruncationCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+		domain.SQSPricingTruncationCounter.Inc()
 	}
 
 	// Compute precision scaling factor.

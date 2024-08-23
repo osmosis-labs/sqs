@@ -104,6 +104,26 @@ var (
 	// * cache_type - the type of cache being used
 	SQSRoutesCacheWritesCounterMetricName = "sqs_routes_cache_write_total"
 
+	// sqs_pricing_cache_hits_total
+	//
+	// counter that measures the number of pricing cache hits
+	SQSPricingCacheHitsCounterMetricName = "sqs_pricing_cache_hits_total"
+
+	// sqs_pricing_cache_misses_total
+	//
+	// counter that measures the number of pricing cache misses
+	SQSPricingCacheMissesCounterMetricName = "sqs_pricing_cache_misses_total"
+
+	// sqs_pricing_truncation_total
+	//
+	// counter that measures the number of pricing truncation
+	SQSPricingTruncationCounterMetricName = "sqs_pricing_truncation_total"
+
+	// sqs_pricing_spot_price_error_total
+	//
+	// counter that measures the number of spot price errors
+	SQSPricingSpotPriceErrorMetricName = "sqs_pricing_spot_price_error_total"
+
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -203,6 +223,33 @@ var (
 		},
 		[]string{"route", "cache_type"},
 	)
+
+	SQSPricingCacheHitsCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingCacheHitsCounterMetricName,
+			Help: "Total number of pricing cache hits",
+		},
+	)
+	SQSPricingCacheMissesCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingCacheMissesCounterMetricName,
+			Help: "Total number of pricing cache misses",
+		},
+	)
+
+	SQSPricingTruncationCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingTruncationCounterMetricName,
+			Help: "Total number of price truncations in intermediary calculations",
+		},
+	)
+
+	SQSPricingSpotPriceError = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingSpotPriceErrorMetricName,
+			Help: "Total number of spot price errors in pricing",
+		},
+	)
 )
 
 func init() {
@@ -220,4 +267,8 @@ func init() {
 	prometheus.MustRegister(SQSRoutesCacheHitsCounter)
 	prometheus.MustRegister(SQSRoutesCacheMissesCounter)
 	prometheus.MustRegister(SQSRoutesCacheWritesCounter)
+	prometheus.MustRegister(SQSPricingCacheHitsCounter)
+	prometheus.MustRegister(SQSPricingCacheMissesCounter)
+	prometheus.MustRegister(SQSPricingTruncationCounter)
+	prometheus.MustRegister(SQSPricingSpotPriceError)
 }
