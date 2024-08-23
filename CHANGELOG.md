@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.13.2
+
+- Reduce metrics cardinality, removing labels for coingecko cache metrics.
+
 ## v25.13.1
 
 - Fix `/config` query bug for chain handler use case returning the default that is overriden by CoinGecko pricing source.

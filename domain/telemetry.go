@@ -124,6 +124,16 @@ var (
 	// counter that measures the number of spot price errors
 	SQSPricingSpotPriceErrorMetricName = "sqs_pricing_spot_price_error_total"
 
+	// sqs_pricing_coingecko_cache_hits_total
+	//
+	// counter that measures the number of pricing coingecko cache hits
+	SQSPricingCoingeckoCacheHitsCounterMetricName = "sqs_pricing_coingecko_cache_hits_total"
+
+	// sqs_pricing_coingecko_cache_misses_total
+	//
+	// counter that measures the number of pricing coingecko cache misses
+	SQSPricingCoingeckoCacheMissesCounterMetricName = "sqs_pricing_coingecko_cache_misses_total"
+
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -250,6 +260,20 @@ var (
 			Help: "Total number of spot price errors in pricing",
 		},
 	)
+
+	SQSPricingCoingeckoCacheHitsCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingCoingeckoCacheHitsCounterMetricName,
+			Help: "Total number of pricing coingecko cache hits",
+		},
+	)
+
+	SQSPricingCoingeckoCacheMissesCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingCoingeckoCacheMissesCounterMetricName,
+			Help: "Total number of pricing coingecko cache misses",
+		},
+	)
 )
 
 func init() {
@@ -271,4 +295,6 @@ func init() {
 	prometheus.MustRegister(SQSPricingCacheMissesCounter)
 	prometheus.MustRegister(SQSPricingTruncationCounter)
 	prometheus.MustRegister(SQSPricingSpotPriceError)
+	prometheus.MustRegister(SQSPricingCoingeckoCacheHitsCounter)
+	prometheus.MustRegister(SQSPricingCoingeckoCacheMissesCounter)
 }
