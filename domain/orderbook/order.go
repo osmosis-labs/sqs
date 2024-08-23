@@ -10,9 +10,11 @@ type OrderStatus string
 
 // Order status types.
 const (
-	StatusFilled          OrderStatus = "filled"
 	StatusOpen            OrderStatus = "open"
 	StatusPartiallyFilled OrderStatus = "partiallyFilled"
+	StatusFilled          OrderStatus = "filled"
+	StatusFullyClaimed    OrderStatus = "fullyClaimed"
+	StatusCancelled       OrderStatus = "cancelled"
 )
 
 // Order represents an order in the orderbook returned by the orderbook contract.
@@ -62,9 +64,10 @@ func (o Orders) TickID() []int64 {
 	return tickIDs
 }
 
+// Asset represents orderbook asset returned by the orderbook contract.
 type Asset struct {
 	Symbol   string `json:"symbol"`
-	Decimals int    `json:"decimals"`
+	Decimals int    `json:"-"`
 }
 
 type LimitOrder struct {
