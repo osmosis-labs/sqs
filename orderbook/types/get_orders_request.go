@@ -93,6 +93,12 @@ func NewGetAllOrderResponse(orders []orderbookdomain.LimitOrder) *GetActiveOrder
 		return defaultSortOrder(orders[i], orders[j]) < 0
 	})
 
+	// make a orders object in response empty array if there are no orders
+	// instead of null
+	if len(orders) == 0 {
+		orders = []orderbookdomain.LimitOrder{}
+	}
+
 	return &GetActiveOrdersResponse{
 		Orders: orders,
 	}
