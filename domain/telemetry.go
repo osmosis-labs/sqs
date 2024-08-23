@@ -80,6 +80,30 @@ var (
 	// counter that measures the number of errors when fetching fees from timeseries data stack in a passthrough module.
 	SQSPassthroughTimeseriesPoolFeesFetchErrorCounterMetricName = "sqs_passthrough_timeseries_pool_fees_fetch_error_total"
 
+	// sqs_routes_cache_hits_total
+	//
+	// counter that measures the number of cache hits
+	// Has the following labels:
+	// * route - the route being processed
+	// * cache_type - the type of cache being used
+	SQSRoutesCacheHitsCounterMetricName = "sqs_routes_cache_hits_total"
+
+	// sqs_routes_cache_misses_total
+	//
+	// counter that measures the number of cache misses
+	// Has the following labels:
+	// * route - the route being processed
+	// * cache_type - the type of cache being used
+	SQSRoutesCacheMissesCounterMetricName = "sqs_routes_cache_misses_total"
+
+	// sqs_routes_cache_write_total
+	//
+	// counter that measures the number of cache writes
+	// Has the following labels:
+	// * route - the route being processed
+	// * cache_type - the type of cache being used
+	SQSRoutesCacheWritesCounterMetricName = "sqs_routes_cache_write_total"
+
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockDurationMetricName,
@@ -155,6 +179,30 @@ var (
 			Help: "Total number of errors when fetching pool fees from timeseries in a passthrough module.",
 		},
 	)
+
+	SQSRoutesCacheHitsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSRoutesCacheHitsCounterMetricName,
+			Help: "Total number of cache hits",
+		},
+		[]string{"route", "cache_type"},
+	)
+
+	SQSRoutesCacheMissesCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSRoutesCacheMissesCounterMetricName,
+			Help: "Total number of cache misses",
+		},
+		[]string{"route", "cache_type"},
+	)
+
+	SQSRoutesCacheWritesCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSRoutesCacheWritesCounterMetricName,
+			Help: "Total number of cache writes",
+		},
+		[]string{"route", "cache_type"},
+	)
 )
 
 func init() {
@@ -169,4 +217,7 @@ func init() {
 	prometheus.MustRegister(SQSPricingFallbackCounter)
 	prometheus.MustRegister(SQSPassthroughNumiaAPRsFetchErrorCounter)
 	prometheus.MustRegister(SQSPassthroughTimeseriesPoolFeesFetchErrorCounter)
+	prometheus.MustRegister(SQSRoutesCacheHitsCounter)
+	prometheus.MustRegister(SQSRoutesCacheMissesCounter)
+	prometheus.MustRegister(SQSRoutesCacheWritesCounter)
 }

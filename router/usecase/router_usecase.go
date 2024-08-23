@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -59,35 +57,8 @@ const (
 )
 
 var (
-	cacheHits = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_routes_cache_hits_total",
-			Help: "Total number of cache hits",
-		},
-		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
-	)
-	cacheMisses = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_routes_cache_misses_total",
-			Help: "Total number of cache misses",
-		},
-		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
-	)
-	cacheWrite = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_routes_cache_write_total",
-			Help: "Total number of cache writes",
-		},
-		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
-	)
-
 	zero = sdk.ZeroInt()
 )
-
-func init() {
-	prometheus.MustRegister(cacheHits)
-	prometheus.MustRegister(cacheMisses)
-}
 
 // NewRouterUsecase will create a new pools use case object
 func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, candidateRouteSearcher domain.CandidateRouteSearcher, tokenMetadataHolder mvc.TokenMetadataHolder, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
@@ -411,7 +382,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 
 	if !routingOptions.DisableCache {
 		if len(candidateRoutes.Routes) > 0 {
-			cacheWrite.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenIn.Denom, tokenOutDenom, noOrderOfMagnitude).Inc()
+			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
 
 			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds)*time.Second)
 		} else {
@@ -452,7 +423,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		}
 
 		if !routingOptions.DisableCache {
-			cacheWrite.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
+			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
 			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
 		}
 	}
@@ -658,7 +629,7 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenI
 	cachedCandidateRoutes, found := r.candidateRouteCache.Get(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom))
 	if !found {
 		// Increase cache misses
-		cacheMisses.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom, noOrderOfMagnitude).Inc()
+		domain.SQSRoutesCacheMissesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
 
 		return sqsdomain.CandidateRoutes{
 			Routes:        []sqsdomain.CandidateRoute{},
@@ -666,7 +637,7 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenI
 		}, false, nil
 	}
 
-	cacheHits.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom, noOrderOfMagnitude).Inc()
+	domain.SQSRoutesCacheHitsCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
 
 	candidateRoutes, ok := cachedCandidateRoutes.(sqsdomain.CandidateRoutes)
 	if !ok {
@@ -691,12 +662,12 @@ func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, tokenInDe
 	cachedRankedRoutes, found := r.rankedRouteCache.Get(formatRankedRouteCacheKey(tokenInDenom, tokenOutDenom, tokenInOrderOfMagnitude))
 	if !found {
 		// Increase cache misses
-		cacheMisses.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenInDenom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
+		domain.SQSRoutesCacheMissesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
 
 		return sqsdomain.CandidateRoutes{}, nil
 	}
 
-	cacheHits.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenInDenom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
+	domain.SQSRoutesCacheHitsCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
 
 	rankedRoutes, ok := cachedRankedRoutes.(sqsdomain.CandidateRoutes)
 	if !ok {
