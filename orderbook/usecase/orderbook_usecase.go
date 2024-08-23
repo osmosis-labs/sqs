@@ -122,16 +122,17 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 }
 
 // GetActiveOrders implements mvc.OrderBookUsecase.
-func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, error) {
+func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
 	orderbooks, err := o.poolsUsecease.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get all canonical orderbook pool IDs: %w", err)
+		return nil, false, fmt.Errorf("failed to get all canonical orderbook pool IDs: %w", err)
 	}
 
 	type orderbookResult struct {
-		orderbookID uint64
-		limitOrders []orderbookdomain.LimitOrder
-		err         error
+		isBestEffort bool
+		orderbookID  uint64
+		limitOrders  []orderbookdomain.LimitOrder
+		err          error
 	}
 
 	results := make(chan orderbookResult, len(orderbooks))
@@ -140,18 +141,21 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	// Process orderbooks concurrently
 	for _, orderbook := range orderbooks {
 		go func(orderbook domain.CanonicalOrderBooksResult) {
-			limitOrders, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
+			limitOrders, isBestEffort, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
 
 			results <- orderbookResult{
-				orderbookID: orderbook.PoolID,
-				limitOrders: limitOrders,
-				err:         err,
+				isBestEffort: isBestEffort,
+				orderbookID:  orderbook.PoolID,
+				limitOrders:  limitOrders,
+				err:          err,
 			}
 		}(orderbook)
 	}
 
 	// Collect results
 	finalResults := []orderbookdomain.LimitOrder{}
+	isBestEffort := false
+
 	for i := 0; i < len(orderbooks); i++ {
 		select {
 		case result := <-results:
@@ -160,15 +164,18 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 				// Prometheus metric counter and alert
 
 				o.logger.Error("failed to process orderbook active orders", zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
-				return nil, result.err
+				return nil, false, result.err
 			}
+
+			isBestEffort = isBestEffort || result.isBestEffort
+
 			finalResults = append(finalResults, result.limitOrders...)
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, false, ctx.Err()
 		}
 	}
 
-	return finalResults, nil
+	return finalResults, isBestEffort, nil
 }
 
 // processOrderBookActiveOrders fetches and processes the active orders for a given orderbook.
@@ -180,49 +187,42 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 //
 // For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
 // This is a best-effort process.
-func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, error) {
+func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
 	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderBook.ContractAddress, ownerAddress)
 	if err != nil {
 		// TODO: (alert) if failed to fetch active orders, add an alert
 		// Prometheus metric counter and alert
 
-		return nil, err
+		return nil, false, err
 	}
 
 	// There are orders to process for given orderbook
 	if count == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	quoteToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Quote)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	baseToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Base)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Create a slice to store the results
 	results := make([]orderbookdomain.LimitOrder, 0, len(orders))
 
+	// If we encounter
+	isBestEffort := false
+
+	// For each order, create a formatted limit order
 	for _, order := range orders {
-		tickForOrder, ok := o.orderbookRepository.GetTickByID(orderBook.PoolID, order.TickId)
-		if !ok {
-			// Do not return error, just log and continue for faul
-
-			o.logger.Error("tick not found", zap.Any("contract", orderBook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
-
-			// Note: initialize empty tick for fault-
-			tickForOrder = orderbookdomain.OrderbookTick{}
-		}
-
 		// create limit order
-		result, err := o.createLimitOrder(
+		result, err := o.createFormattedLimitOrder(
+			orderBook.PoolID,
 			order,
-			tickForOrder.TickState,
-			tickForOrder.UnrealizedCancels,
 			orderbookdomain.Asset{
 				Symbol:   quoteToken.CoinMinimalDenom,
 				Decimals: quoteToken.Precision,
@@ -239,24 +239,33 @@ func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 			// TODO: (alert) if failed to create limit order, add an alert
 			// Prometheus metric counter and alert
 
+			isBestEffort = true
+
 			continue
 		}
 
 		results = append(results, result)
 	}
 
-	return results, nil
+	return results, isBestEffort, nil
 }
 
-// createLimitOrder creates a limit order from the orderbook order.
-func (o *orderbookUseCaseImpl) createLimitOrder(
+// createFormattedLimitOrder creates a limit order from the orderbook order.
+func (o *orderbookUseCaseImpl) createFormattedLimitOrder(
+	poolID uint64,
 	order orderbookdomain.Order,
-	tickState orderbookdomain.TickState,
-	unrealizedCancels orderbookdomain.UnrealizedCancels,
 	quoteAsset orderbookdomain.Asset,
 	baseAsset orderbookdomain.Asset,
 	orderbookAddress string,
 ) (orderbookdomain.LimitOrder, error) {
+	tickForOrder, ok := o.orderbookRepository.GetTickByID(poolID, order.TickId)
+	if !ok {
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("tick not found %s, %d", orderbookAddress, order.TickId)
+	}
+
+	tickState := tickForOrder.TickState
+	unrealizedCancels := tickForOrder.UnrealizedCancels
+
 	// Parse quantity as int64
 	quantity, err := strconv.ParseInt(order.Quantity, 10, 64)
 	if err != nil {

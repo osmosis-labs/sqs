@@ -84,11 +84,12 @@ func defaultSortOrder(orderA, orderB orderbookdomain.LimitOrder) int {
 
 // GetActiveOrdersResponse represents the response for the /pools/all-orders endpoint.
 type GetActiveOrdersResponse struct {
-	Orders []orderbookdomain.LimitOrder `json:"orders"`
+	Orders       []orderbookdomain.LimitOrder `json:"orders"`
+	IsBestEffort bool                         `json:"is_best_effort"`
 }
 
 // NewGetAllOrderResponse creates a new GetActiveOrdersResponse.
-func NewGetAllOrderResponse(orders []orderbookdomain.LimitOrder) *GetActiveOrdersResponse {
+func NewGetAllOrderResponse(orders []orderbookdomain.LimitOrder, isBestEffort bool) *GetActiveOrdersResponse {
 	sort.Slice(orders, func(i, j int) bool {
 		return defaultSortOrder(orders[i], orders[j]) < 0
 	})
@@ -100,6 +101,7 @@ func NewGetAllOrderResponse(orders []orderbookdomain.LimitOrder) *GetActiveOrder
 	}
 
 	return &GetActiveOrdersResponse{
-		Orders: orders,
+		Orders:       orders,
+		IsBestEffort: isBestEffort,
 	}
 }
