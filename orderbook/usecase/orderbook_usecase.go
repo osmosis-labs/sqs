@@ -131,7 +131,11 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	for _, orderbook := range orderbooks {
 		orders, count, err := o.orderBookClient.GetActiveOrders(context.TODO(), orderbook.ContractAddress, address)
 		if err != nil {
-			o.logger.Info("failed to fetch active orders", zap.Any("contract", orderbook.ContractAddress), zap.Any("contract", address), zap.Any("err", err))
+			o.logger.Error("failed to fetch active orders", zap.Any("contract", orderbook.ContractAddress), zap.Any("contract", address), zap.Any("err", err))
+
+			// TODO: (alert) if failed to fetch active orders, add an alert
+			// Prometheus metric counter and alert
+
 			continue
 		}
 
@@ -159,7 +163,7 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 			if !ok {
 				o.logger.Info("tick not found", zap.Any("contract", orderbook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
 
-				// TODO: if tick not found, add an alert
+				// TODO: (alert) if tick not found, add an alert
 				// Prometheus metric counter and alert
 			}
 
@@ -178,7 +182,11 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 				orderbook.ContractAddress,
 			)
 			if err != nil {
-				o.logger.Info("failed to create limit order", zap.Any("order", order), zap.Any("err", err))
+				o.logger.Error("failed to create limit order", zap.Any("order", order), zap.Any("err", err))
+
+				// TODO: (alert) if failed to create limit order, add an alert
+				// Prometheus metric counter and alert
+
 				continue
 			}
 
