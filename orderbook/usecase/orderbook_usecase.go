@@ -97,32 +97,16 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 // TransformOrder transforms an order into a mapped limit order.
 func TransformOrder(
 	order orderbookdomain.Order,
-	tickStates []orderbookdomain.Tick,
-	unrealizedCancels []orderbookgrpcclientdomain.UnrealizedTickCancels,
+	tickState orderbookdomain.TickState,
+	unrealizedCancels orderbookdomain.UnrealizedCancels,
 	quoteAsset orderbookdomain.Asset,
 	baseAsset orderbookdomain.Asset,
 	orderbookAddress string,
-) (orderbookdomain.MappedLimitOrder, error) {
-	var orderTickState orderbookdomain.Tick
-	for _, tick := range tickStates {
-		if tick.TickID == order.TickId {
-			orderTickState = tick
-			break
-		}
-	}
-
-	var orderUnrealizedCancels orderbookgrpcclientdomain.UnrealizedTickCancels
-	for _, unrealizedCancel := range unrealizedCancels {
-		if unrealizedCancel.TickID == order.TickId {
-			orderUnrealizedCancels = unrealizedCancel
-			break
-		}
-	}
-
+) (orderbookdomain.LimitOrder, error) {
 	// Parse quantity as int64
 	quantity, err := strconv.ParseInt(order.Quantity, 10, 64)
 	if err != nil {
-		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing quantity: %w", err)
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing quantity: %w", err)
 	}
 
 	// Convert quantity to decimal for the calculations
@@ -130,12 +114,12 @@ func TransformOrder(
 
 	placedQuantity, err := strconv.ParseInt(order.PlacedQuantity, 10, 64)
 	if err != nil {
-		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
 	}
 
 	placedQuantityDec, err := osmomath.NewDecFromStr(order.PlacedQuantity)
 	if err != nil {
-		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
 	}
 
 	// Calculate percent claimed
@@ -147,24 +131,24 @@ func TransformOrder(
 	// Determine tick values and unrealized cancels based on order direction
 	var tickEtas, tickUnrealizedCancelled int64
 	if order.OrderDirection == "bid" {
-		tickEtas, err = strconv.ParseInt(orderTickState.TickState.BidValues.EffectiveTotalAmountSwapped, 10, 64)
+		tickEtas, err = strconv.ParseInt(tickState.BidValues.EffectiveTotalAmountSwapped, 10, 64)
 		if err != nil {
-			return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing bid effective total amount swapped: %w", err)
+			return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing bid effective total amount swapped: %w", err)
 		}
 
-		tickUnrealizedCancelled, err = strconv.ParseInt(orderUnrealizedCancels.UnrealizedCancelsState.BidUnrealizedCancels.String(), 10, 64)
+		tickUnrealizedCancelled, err = strconv.ParseInt(unrealizedCancels.BidUnrealizedCancels.String(), 10, 64)
 		if err != nil {
-			return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing bid unrealized cancels: %w", err)
+			return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing bid unrealized cancels: %w", err)
 		}
 	} else {
-		tickEtas, err = strconv.ParseInt(orderTickState.TickState.AskValues.EffectiveTotalAmountSwapped, 10, 64)
+		tickEtas, err = strconv.ParseInt(tickState.AskValues.EffectiveTotalAmountSwapped, 10, 64)
 		if err != nil {
-			return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing ask effective total amount swapped: %w", err)
+			return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing ask effective total amount swapped: %w", err)
 		}
 
-		tickUnrealizedCancelled, err = strconv.ParseInt(orderUnrealizedCancels.UnrealizedCancelsState.AskUnrealizedCancels.String(), 10, 64)
+		tickUnrealizedCancelled, err = strconv.ParseInt(unrealizedCancels.AskUnrealizedCancels.String(), 10, 64)
 		if err != nil {
-			return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing ask unrealized cancels: %w", err)
+			return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing ask unrealized cancels: %w", err)
 		}
 	}
 
@@ -172,7 +156,7 @@ func TransformOrder(
 
 	etas, err := strconv.ParseInt(order.Etas, 10, 64)
 	if err != nil {
-		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing etas: %w", err)
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing etas: %w", err)
 	}
 
 	tickTotalEtas := tickEtas + tickUnrealizedCancelled
@@ -185,19 +169,19 @@ func TransformOrder(
 	// Calculate percent filled using
 	percentFilled, err := osmomath.NewDecFromStr(strconv.FormatFloat(math.Min(float64(totalFilled)/float64(placedQuantity), 1), 'f', -1, 64))
 	if err != nil {
-		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error calculating percent filled: %w", err)
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("error calculating percent filled: %w", err)
 	}
 
 	// Determine order status based on percent filled
 	status, err := order.Status(percentFilled.MustFloat64())
 	if err != nil {
-		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("mapping order status: %w", err)
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("mapping order status: %w", err)
 	}
 
 	// Calculate price based on tick ID
 	price, err := clmath.TickToPrice(order.TickId)
 	if err != nil {
-		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("converting tick to price: %w", err)
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("converting tick to price: %w", err)
 	}
 
 	// Calculate output based on order direction
@@ -214,12 +198,12 @@ func TransformOrder(
 	// Convert placed_at to a nano second timestamp
 	placedAt, err := strconv.ParseInt(order.PlacedAt, 10, 64)
 	if err != nil {
-		return orderbookdomain.MappedLimitOrder{}, fmt.Errorf("error parsing placed_at: %w", err)
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing placed_at: %w", err)
 	}
 	placedAt = time.Unix(0, placedAt).Unix()
 
 	// Return the mapped limit order
-	return orderbookdomain.MappedLimitOrder{
+	return orderbookdomain.LimitOrder{
 		TickId:           order.TickId,
 		OrderId:          order.OrderId,
 		OrderDirection:   order.OrderDirection,

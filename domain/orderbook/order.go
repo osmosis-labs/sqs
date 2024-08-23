@@ -67,7 +67,7 @@ type Asset struct {
 	Decimals int    `json:"decimals"`
 }
 
-type MappedLimitOrder struct {
+type LimitOrder struct {
 	TickId           int64       `json:"tick_id"`
 	OrderId          int64       `json:"order_id"`
 	OrderDirection   string      `json:"order_direction"`
