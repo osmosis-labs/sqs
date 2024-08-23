@@ -50,9 +50,6 @@ const (
 	candidateRouteCacheLabel = "candidate_route"
 	rankedRouteCacheLabel    = "ranked_route"
 
-	// for candidate route cache, there is no order of magnitude
-	noOrderOfMagnitude = ""
-
 	denomSeparatorChar = "|"
 )
 
