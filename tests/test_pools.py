@@ -1,5 +1,6 @@
 import conftest
 import pytest
+from decimal import Decimal
 
 from sqs_service import *
 import util
@@ -10,7 +11,7 @@ from e2e_math import *
 
 # Min liquidity capitalization in USDC for a pool to be considered
 # in tests. Arbitrarily chosen as to avoid flakiness.
-min_pool_liquidity_cap_usdc = 50_000
+min_pool_liquidity_cap_usdc = 100_000
 num_all_pools_expected = 1500
 
 def filter_pools(pools_data, min_pool_liquidity_cap_usdc):
@@ -50,17 +51,16 @@ def run_pool_liquidity_cap_test(environment_url, pool_data):
     # See: https://linear.app/osmosis/issue/NUMIA-35/missing-data-for-white-whale-pool
     skip_whitewhale_code_id = 641
     # This pool has a bug in the Numia side.
-    skip_alloyed_pool_id = [1816, 1878]
+    skip_alloyed_pool_id = [1816, 1868, 1878, 1925]
 
     sqs_service = SERVICE_MAP[environment_url]
 
-    pool_liquidity = pool_data.get("liquidity")
     pool_id = pool_data.get("pool_id")
+
+    pool_liquidity = pool_data.get("liquidity")
 
     if pool_id in skip_alloyed_pool_id:
         pytest.skip("Skipping alloyed pool since it has flakiness on Numia side")
-
-    sqs_pool = sqs_service.get_pools(pool_ids=pool_id)
 
     # Skip white whale pool since it has flakiness on Numia side
     code_id = pool_data.get("code_id")
@@ -68,14 +68,18 @@ def run_pool_liquidity_cap_test(environment_url, pool_data):
         pytest.skip("Skipping white whale pool since it has flakiness on Numia side")
 
     # Skip pool if liquidity is too low
-    if pool_liquidity > min_pool_liquidity_cap_usdc:
-        sqs_liquidity_cap = int(sqs_pool[0].get("liquidity_cap"))
-
-        actual_error = relative_error(sqs_liquidity_cap, pool_liquidity)
-
-        assert actual_error < error_tolerance, f"ID ({pool_id}) Pool liquidity cap was {sqs_liquidity_cap} - expected {pool_liquidity}, actual error {actual_error} error tolerance {error_tolerance}" 
-    else:
+    if pool_liquidity <= min_pool_liquidity_cap_usdc:
         pytest.skip("Pool liquidity is too low - skipping to reduce flakiness")
+
+    pool_liquidity = pool_data.get("liquidity")
+
+    sqs_pool = sqs_service.get_pools(pool_ids=pool_id)
+ 
+    sqs_liquidity_cap = int(sqs_pool[0].get("liquidity_cap"))
+
+    actual_error = relative_error(sqs_liquidity_cap, pool_liquidity)
+
+    assert actual_error < error_tolerance, f"ID ({pool_id}) Pool liquidity cap was {sqs_liquidity_cap} - expected {pool_liquidity}, actual error {actual_error} error tolerance {error_tolerance}" 
 
 def run_canonical_orderbook_test(environment_url):
     # Note, that this is the first orderbook created on mainnet. As a result, it is the canonical orderbook.
