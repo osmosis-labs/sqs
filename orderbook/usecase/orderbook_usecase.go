@@ -158,46 +158,19 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 			continue
 		}
 
-		// TODO: remove once orderbookRepository.GetTickByID is fixed
-		orderTickStates, err := o.orderBookClient.QueryTicks(context.TODO(), orderbook.ContractAddress, orders.TickID())
-		if err != nil {
-			o.logger.Info("failed to fetch ticks", zap.Any("tickStates", orderTickStates), zap.Any("tick id", orders.TickID()), zap.Any("err", err))
-			continue
-		}
-
-		// TODO: remove once orderbookRepository.GetTickByID is fixed
-		orderUnrealizedTickCancels, err := o.orderBookClient.GetTickUnrealizedCancels(context.TODO(), orderbook.ContractAddress, orders.TickID())
-		if err != nil {
-			o.logger.Info("failed to fetch unrealized cancels", zap.Any("unrealized cancels", orderUnrealizedTickCancels), zap.Any("err", err))
-			continue
-		}
-
 		for _, order := range orders {
-			var tickState orderbookdomain.Tick
-			for _, tick := range orderTickStates {
-				if tick.TickID == order.TickId {
-					tickState = tick
-					break
-				}
-			}
-
-			var unrealizedCancels orderbookgrpcclientdomain.UnrealizedTickCancels
-			for _, unrealizedCancel := range orderUnrealizedTickCancels {
-				if unrealizedCancel.TickID == order.TickId {
-					unrealizedCancels = unrealizedCancel
-					break
-				}
-			}
-
-			_, ok := o.orderbookRepository.GetTickByID(orderbook.PoolID, order.TickId)
+			repositoryTick, ok := o.orderbookRepository.GetTickByID(orderbook.PoolID, order.TickId)
 			if !ok {
 				o.logger.Info("tick not found", zap.Any("contract", orderbook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
+
+				// TODO: if tick not found, add an alert
+				// Prometheus metric counter and alert
 			}
 
 			result, err := o.createLimitOrder(
 				order,
-				tickState.TickState,
-				unrealizedCancels.UnrealizedCancelsState,
+				repositoryTick.TickState,
+				repositoryTick.UnrealizedCancels,
 				orderbookdomain.Asset{
 					Symbol:   quoteToken.CoinMinimalDenom,
 					Decimals: quoteToken.Precision,
