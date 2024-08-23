@@ -9,6 +9,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
@@ -127,77 +128,127 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 		return nil, fmt.Errorf("failed to get all canonical orderbook pool IDs: %w", err)
 	}
 
-	var results []orderbookdomain.LimitOrder
-	for _, orderbook := range orderbooks {
-		orders, count, err := o.orderBookClient.GetActiveOrders(context.TODO(), orderbook.ContractAddress, address)
-		if err != nil {
-			o.logger.Error("failed to fetch active orders", zap.Any("contract", orderbook.ContractAddress), zap.Any("contract", address), zap.Any("err", err))
+	type orderbookResult struct {
+		orderbookID uint64
+		limitOrders []orderbookdomain.LimitOrder
+		err         error
+	}
 
-			// TODO: (alert) if failed to fetch active orders, add an alert
+	results := make(chan orderbookResult, len(orderbooks))
+	defer close(results)
+
+	// Process orderbooks concurrently
+	for _, orderbook := range orderbooks {
+		go func(orderbook domain.CanonicalOrderBooksResult) {
+			limitOrders, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
+
+			results <- orderbookResult{
+				orderbookID: orderbook.PoolID,
+				limitOrders: limitOrders,
+				err:         err,
+			}
+		}(orderbook)
+	}
+
+	// Collect results
+	finalResults := []orderbookdomain.LimitOrder{}
+	for i := 0; i < len(orderbooks); i++ {
+		select {
+		case result := <-results:
+			if result.err != nil {
+				// TODO: (alert) if failed to process orderbook active orders, add an alert
+				// Prometheus metric counter and alert
+
+				o.logger.Error("failed to process orderbook active orders", zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
+				return nil, result.err
+			}
+			finalResults = append(finalResults, result.limitOrders...)
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	return finalResults, nil
+}
+
+// processOrderBookActiveOrders fetches and processes the active orders for a given orderbook.
+// It returns the active formatted limit orders and an error if any.
+// Errors if:
+// - failed to fetch active orders
+// - failed to fetch metadata by chain denom
+// - failed to create limit order
+//
+// For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
+// This is a best-effort process.
+func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, error) {
+	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderBook.ContractAddress, ownerAddress)
+	if err != nil {
+		// TODO: (alert) if failed to fetch active orders, add an alert
+		// Prometheus metric counter and alert
+
+		return nil, err
+	}
+
+	// There are orders to process for given orderbook
+	if count == 0 {
+		return nil, nil
+	}
+
+	quoteToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Quote)
+	if err != nil {
+		return nil, err
+	}
+
+	baseToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Base)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a slice to store the results
+	results := make([]orderbookdomain.LimitOrder, 0, len(orders))
+
+	for _, order := range orders {
+		tickForOrder, ok := o.orderbookRepository.GetTickByID(orderBook.PoolID, order.TickId)
+		if !ok {
+			// Do not return error, just log and continue for faul
+
+			o.logger.Error("tick not found", zap.Any("contract", orderBook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
+
+			// Note: initialize empty tick for fault-
+			tickForOrder = orderbookdomain.OrderbookTick{}
+		}
+
+		// create limit order
+		result, err := o.createLimitOrder(
+			order,
+			tickForOrder.TickState,
+			tickForOrder.UnrealizedCancels,
+			orderbookdomain.Asset{
+				Symbol:   quoteToken.CoinMinimalDenom,
+				Decimals: quoteToken.Precision,
+			},
+			orderbookdomain.Asset{
+				Symbol:   baseToken.CoinMinimalDenom,
+				Decimals: baseToken.Precision,
+			},
+			orderBook.ContractAddress,
+		)
+		if err != nil {
+			o.logger.Error("failed to create limit order", zap.Any("order", order), zap.Any("err", err))
+
+			// TODO: (alert) if failed to create limit order, add an alert
 			// Prometheus metric counter and alert
 
 			continue
 		}
 
-		// There are orders to process for given orderbook
-		if count == 0 {
-			continue
-		}
-
-		o.logger.Info("Active orders", zap.Any("orders", orders), zap.Any("count", count), zap.Any("err", err))
-
-		quoteToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderbook.Quote)
-		if err != nil {
-			o.logger.Error("failed to get token metadata for quote", zap.Any("quote", orderbook.Quote), zap.Error(err))
-			continue
-		}
-
-		baseToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderbook.Base)
-		if err != nil {
-			o.logger.Error("failed to get token metadata for base", zap.Any("base", orderbook.Base), zap.Error(err))
-			continue
-		}
-
-		for _, order := range orders {
-			repositoryTick, ok := o.orderbookRepository.GetTickByID(orderbook.PoolID, order.TickId)
-			if !ok {
-				o.logger.Info("tick not found", zap.Any("contract", orderbook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
-
-				// TODO: (alert) if tick not found, add an alert
-				// Prometheus metric counter and alert
-			}
-
-			result, err := o.createLimitOrder(
-				order,
-				repositoryTick.TickState,
-				repositoryTick.UnrealizedCancels,
-				orderbookdomain.Asset{
-					Symbol:   quoteToken.CoinMinimalDenom,
-					Decimals: quoteToken.Precision,
-				},
-				orderbookdomain.Asset{
-					Symbol:   baseToken.CoinMinimalDenom,
-					Decimals: baseToken.Precision,
-				},
-				orderbook.ContractAddress,
-			)
-			if err != nil {
-				o.logger.Error("failed to create limit order", zap.Any("order", order), zap.Any("err", err))
-
-				// TODO: (alert) if failed to create limit order, add an alert
-				// Prometheus metric counter and alert
-
-				continue
-			}
-
-			results = append(results, result)
-		}
+		results = append(results, result)
 	}
 
 	return results, nil
 }
 
-// TransformOrder transforms an order into a mapped limit order.
+// createLimitOrder creates a limit order from the orderbook order.
 func (o *orderbookUseCaseImpl) createLimitOrder(
 	order orderbookdomain.Order,
 	tickState orderbookdomain.TickState,
