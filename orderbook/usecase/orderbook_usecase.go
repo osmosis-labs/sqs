@@ -86,14 +86,10 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 		return fmt.Errorf("failed to fetch ticks for pool %s: %w", cwModel.ContractAddress, err)
 	}
 
-	// Validate the number of ticks fetched is equal to what we have already ingested
-	if len(tickStates) != len(ticks) {
-		return fmt.Errorf("mismatch in number of ticks fetched: expected %d, got %d", len(ticks), len(tickStates))
-	}
-
-	unrealizedCancels, err := o.orderBookClient.GetTickUnrealizedCancels(ctx, cwModel.ContractAddress, tickIDs)
+	// Fetch unrealized cancels
+	unrealizedCancels, err := o.fetchTickUnrealizedCancels(ctx, cwModel.ContractAddress, tickIDs)
 	if err != nil {
-		return fmt.Errorf("failed to fetch unrealized cancels for ticks %v: %w", tickIDs, err)
+		return fmt.Errorf("failed to fetch unrealized cancels for pool %s: %w", cwModel.ContractAddress, err)
 	}
 
 	tickDataMap := make(map[int64]orderbookdomain.OrderbookTick, len(ticks))
@@ -350,4 +346,32 @@ func (o *orderbookUseCaseImpl) fetchTicksForOrderbook(ctx context.Context, contr
 	}
 
 	return finalTickStates, nil
+}
+
+const maxQueryTicksCancels = 100
+
+func (o *orderbookUseCaseImpl) fetchTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error) {
+	allUnrealizedCancels := make([]orderbookgrpcclientdomain.UnrealizedTickCancels, 0, len(tickIDs))
+
+	for i := 0; i < len(tickIDs); i += maxQueryTicksCancels {
+		end := i + maxQueryTicksCancels
+		if end > len(tickIDs) {
+			end = len(tickIDs)
+		}
+
+		currentTickIDs := tickIDs[i:end]
+
+		unrealizedCancels, err := o.orderBookClient.GetTickUnrealizedCancels(ctx, contractAddress, currentTickIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch unrealized cancels for ticks %v: %w", currentTickIDs, err)
+		}
+
+		allUnrealizedCancels = append(allUnrealizedCancels, unrealizedCancels...)
+	}
+
+	if len(allUnrealizedCancels) != len(tickIDs) {
+		return nil, fmt.Errorf("mismatch in number of unrealized cancels fetched: expected %d, got %d", len(tickIDs), len(allUnrealizedCancels))
+	}
+
+	return allUnrealizedCancels, nil
 }
