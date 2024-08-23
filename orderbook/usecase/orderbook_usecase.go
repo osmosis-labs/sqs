@@ -80,11 +80,15 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 		tickIDs = append(tickIDs, tick.TickId)
 	}
 
-	// TODO: This one is failing at the moment with: code = Unknown desc = codespace sdk code 11: out of gas: out of gas in location: Wasm engine function execution; gasWanted: 3000000,
-	// use: https://github.com/osmosis-labs/orderbook/blob/main/contracts/sumtree-orderbook/src/msg.rs#L92 in the source func to fetch ticks?
-	tickStates, err := o.orderBookClient.QueryTicks(context.TODO(), cwModel.ContractAddress, tickIDs)
+	// Fetch tick states
+	tickStates, err := o.fetchTicksForOrderbook(ctx, cwModel.ContractAddress, tickIDs)
 	if err != nil {
-		return fmt.Errorf("failed to fetch ticks for pool %d: %w", poolID, err)
+		return fmt.Errorf("failed to fetch ticks for pool %s: %w", cwModel.ContractAddress, err)
+	}
+
+	// Validate the number of ticks fetched is equal to what we have already ingested
+	if len(tickStates) != len(ticks) {
+		return fmt.Errorf("mismatch in number of ticks fetched: expected %d, got %d", len(ticks), len(tickStates))
 	}
 
 	unrealizedCancels, err := o.orderBookClient.GetTickUnrealizedCancels(ctx, cwModel.ContractAddress, tickIDs)
@@ -345,4 +349,32 @@ func (o *orderbookUseCaseImpl) createLimitOrder(
 		BaseAsset:        baseAsset,
 		PlacedAt:         placedAt,
 	}, nil
+}
+
+const maxQueryTicks = 500
+
+func (o *orderbookUseCaseImpl) fetchTicksForOrderbook(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
+	finalTickStates := make([]orderbookdomain.Tick, 0, len(tickIDs))
+
+	for i := 0; i < len(tickIDs); i += maxQueryTicks {
+		end := i + maxQueryTicks
+		if end > len(tickIDs) {
+			end = len(tickIDs)
+		}
+
+		currentTickIDs := tickIDs[i:end]
+
+		tickStates, err := o.orderBookClient.QueryTicks(ctx, contractAddress, currentTickIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch ticks for pool %s: %w", contractAddress, err)
+		}
+
+		finalTickStates = append(finalTickStates, tickStates...)
+	}
+
+	if len(finalTickStates) != len(tickIDs) {
+		return nil, fmt.Errorf("mismatch in number of ticks fetched: expected %d, got %d", len(tickIDs), len(finalTickStates))
+	}
+
+	return finalTickStates, nil
 }
