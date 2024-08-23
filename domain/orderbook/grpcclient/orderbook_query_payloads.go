@@ -53,6 +53,21 @@ type activeOrdersRequest struct {
 
 // activeOrdersResponse is a struct that represents the response payload for the active_orders query.
 type activeOrdersResponse struct {
-	Orders []orderbookplugindomain.Order `json:"orders"`
-	Count  uint64                        `json:"count"`
+	Orders orderbookdomain.Orders `json:"orders"`
+	Count  uint64                 `json:"count"`
+}
+
+// ticksByID is a struct that represents the request payload for the queryTicksRequest query.
+type ticksByID struct {
+	TickIDs []int64 `json:"tick_ids"`
+}
+
+// queryTicksRequest is a struct that represents the payload for the QueryTicks query.
+type queryTicksRequest struct {
+	TicksByID ticksByID `json:"ticks_by_id"`
+}
+
+// queryTicksResponse is a struct that represents the response payload for the QueryTicks query.
+type queryTicksResponse struct {
+	Ticks []orderbookdomain.Tick `json:"ticks"`
 }

@@ -299,10 +299,13 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 
 			// Process the orderbook pool.
 			if cosmWasmModel != nil && cosmWasmModel.IsOrderbook() {
-				// Process the orderbook pool.
-				if err := p.orderBookUseCase.ProcessPool(ctx, poolResult.pool); err != nil {
-					p.logger.Error("failed to process orderbook pool", zap.Error(err), zap.Uint64("pool_id", poolID))
-				}
+				// Process the orderbook pool asynchronously as to avoid blocking the main ingest goroutine
+				// and to avoid potential deadlock.
+				go func() {
+					if err := p.orderBookUseCase.ProcessPool(ctx, poolResult.pool); err != nil {
+						p.logger.Error("failed to process orderbook pool", zap.Error(err), zap.Uint64("pool_id", poolID))
+					}
+				}()
 			}
 
 			// Update unique pools.
