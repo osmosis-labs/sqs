@@ -12,7 +12,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const USDC_DENOM = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
@@ -34,15 +33,6 @@ type coingeckoPricing struct {
 
 	// We monkey-patch this function for testing purposes.
 	priceGetterFn CoingeckoPriceGetterFn
-}
-
-func init() {
-	if err := prometheus.Register(domain.SQSPricingCoingeckoCacheHitsCounter); err != nil {
-		panic(err)
-	}
-	if err := prometheus.Register(domain.SQSPricingCoingeckoCacheMissesCounter); err != nil {
-		panic(err)
-	}
 }
 
 // New creates a new Coingecko pricing source.

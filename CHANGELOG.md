@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.4.0
+
+- Fix bug withe duplicate metrics registration.
+
 ## v25.13.2
 
 - Reduce metrics cardinality, removing labels for coingecko cache metrics.
