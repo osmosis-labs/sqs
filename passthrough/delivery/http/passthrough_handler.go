@@ -3,8 +3,13 @@ package http
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/orderbook/types"
+
+	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // ResponseError represent the response error struct
@@ -15,21 +20,24 @@ type ResponseError struct {
 // PassthroughHandler is the http handler for passthrough use case
 type PassthroughHandler struct {
 	PUsecase mvc.PassthroughUsecase
+	OUsecase mvc.OrderBookUsecase
 }
 
 const resourcePrefix = "/passthrough"
 
-func formatPoolsResource(resource string) string {
+func formatPassthroughResource(resource string) string {
 	return resourcePrefix + resource
 }
 
 // NewPassthroughHandler will initialize the pools/ resources endpoint
-func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase) {
+func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase, ou mvc.OrderBookUsecase) {
 	handler := &PassthroughHandler{
 		PUsecase: ptu,
+		OUsecase: ou,
 	}
 
-	e.GET(formatPoolsResource("/portfolio-assets/:address"), handler.GetPortfolioAssetsByAddress)
+	e.GET(formatPassthroughResource("/portfolio-assets/:address"), handler.GetPortfolioAssetsByAddress)
+	e.GET(formatPassthroughResource("/active-orders"), handler.GetActiveOrders)
 }
 
 // @Summary Returns portfolio assets associated with the given address by category.
@@ -55,4 +63,38 @@ func (a *PassthroughHandler) GetPortfolioAssetsByAddress(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, portfolioAssetsResult)
+}
+
+func (a *PassthroughHandler) GetActiveOrders(c echo.Context) (err error) {
+	ctx := c.Request().Context()
+
+	span := trace.SpanFromContext(ctx)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			// nolint:errcheck // ignore error
+			c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		}
+
+		// Note: we do not end the span here as it is ended in the middleware.
+	}()
+
+	var req types.GetActiveOrdersRequest
+	if err := deliveryhttp.UnmarshalRequest(c, &req); err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
+
+	// Validate the request
+	if err := req.Validate(); err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
+
+	orders, err := a.OUsecase.GetActiveOrders(ctx, req.UserOsmoAddress)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
+	}
+
+	resp := types.NewGetAllOrderResponse(orders)
+
+	return c.JSON(http.StatusOK, resp)
 }

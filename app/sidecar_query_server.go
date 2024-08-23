@@ -49,7 +49,6 @@ import (
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
-	orderbookHttpDelivery "github.com/osmosis-labs/sqs/orderbook/delivery/http"
 
 	routerHttpDelivery "github.com/osmosis-labs/sqs/router/delivery/http"
 	routerUseCase "github.com/osmosis-labs/sqs/router/usecase"
@@ -204,13 +203,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
-	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase)
+	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
 		return nil, err
 	}
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
-	orderbookHttpDelivery.NewOrderbookHandler(e, orderBookUseCase, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough

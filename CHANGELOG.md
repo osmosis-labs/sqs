@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v25.16.0
+
+- Move active orders query to the passthrough use case
+
 ## v25.15.0
 
 - Add query for active orders in the orderbook
