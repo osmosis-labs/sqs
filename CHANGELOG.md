@@ -35,7 +35,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## v25.4.0
+## v25.14.0
 
 - Fix bug withe duplicate metrics registration.
 
