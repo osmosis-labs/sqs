@@ -186,8 +186,9 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}
 
 	// Use the same config to initialize coingecko pricing strategy
-	config.Pricing.DefaultSource = domain.CoinGeckoPricingSourceType
-	coingeckoPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, nil)
+	coingeckPricingConfig := *config.Pricing
+	coingeckPricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
+	coingeckoPricingSource, err := pricing.NewPricingStrategy(coingeckPricingConfig, tokensUseCase, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +219,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Iniitialize data fetcher for pool APRs
 	fetchPoolAPRsCallback := datafetchers.GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
 	var aprFetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR] = datafetchers.NewMapFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes))
-
 	// Register the APR fetcher with the passthrough use case
 	poolsUseCase.RegisterAPRFetcher(aprFetcher)
 
@@ -291,7 +291,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
 		poolLiquidityComputeWorker.RegisterListener(chainInfoUseCase)
 
-		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig)
+		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig, logger)
 		if err != nil {
 			panic(err)
 		}

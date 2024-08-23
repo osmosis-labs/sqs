@@ -53,4 +53,4 @@ RUN CGO_ENABLED=0 go install -ldflags "-s -w -extldflags '-static'" github.com/g
 
 # Use JSON array format for ENTRYPOINT
 # If array is not used, the command arguments to docker run are ignored.
-CMD ["/go/bin/dlv", "--listen=:4000", "--headless=true", "--log=true", "--accept-multiclient", "--api-version=2", "exec", "/bin/sqsd", "--", "--config", "/osmosis/config.json", "--host", "sqs-default-host"]
+CMD ["/go/bin/dlv", "--listen=:4000", "--headless=true", "--log=true", "--accept-multiclient", "--api-version=2", "exec", "/bin/sqsd", "--", "--host", "sqs-default-host"]

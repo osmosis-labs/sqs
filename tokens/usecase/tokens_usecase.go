@@ -10,6 +10,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
 	"github.com/osmosis-labs/sqs/log"
+	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -352,7 +353,8 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 		if err != nil { // Check if we should fallback to another pricing source
 			fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
 			if fallbackSourceType != domain.NoneSourceType {
-				domain.SQSPricingFallbackCounter.WithLabelValues(baseDenom, quoteDenom).Inc()
+				t.logger.Info(domain.SQSPricingFallbackCounterMetricName, zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom))
+				domain.SQSPricingFallbackCounter.Inc()
 				fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
 				if ok {
 					price, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
@@ -362,9 +364,9 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 
 		if err != nil {
 			price = osmomath.ZeroBigDec()
-
 			// Increase prometheus counter
-			domain.SQSPricingErrorCounter.WithLabelValues(baseDenom, quoteDenom, err.Error()).Inc()
+			t.logger.Error(domain.SQSPricingErrorCounterMetricName, zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom))
+			domain.SQSPricingErrorCounter.Inc()
 		}
 
 		byQuoteDenomForGivenBaseResult[quoteDenom] = price

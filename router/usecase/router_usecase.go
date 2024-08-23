@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -52,42 +50,12 @@ const (
 	candidateRouteCacheLabel = "candidate_route"
 	rankedRouteCacheLabel    = "ranked_route"
 
-	// for candidate route cache, there is no order of magnitude
-	noOrderOfMagnitude = ""
-
 	denomSeparatorChar = "|"
 )
 
 var (
-	cacheHits = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_routes_cache_hits_total",
-			Help: "Total number of cache hits",
-		},
-		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
-	)
-	cacheMisses = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_routes_cache_misses_total",
-			Help: "Total number of cache misses",
-		},
-		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
-	)
-	cacheWrite = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_routes_cache_write_total",
-			Help: "Total number of cache writes",
-		},
-		[]string{"route", "cache_type", "token_in", "token_out", "token_in_order_of_magnitude"},
-	)
-
 	zero = sdk.ZeroInt()
 )
-
-func init() {
-	prometheus.MustRegister(cacheHits)
-	prometheus.MustRegister(cacheMisses)
-}
 
 // NewRouterUsecase will create a new pools use case object
 func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, candidateRouteSearcher domain.CandidateRouteSearcher, tokenMetadataHolder mvc.TokenMetadataHolder, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
@@ -128,19 +96,28 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		CandidateRouteCacheExpirySeconds: r.defaultConfig.CandidateRouteCacheExpirySeconds,
 		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
 		MaxSplitRoutes:                   r.defaultConfig.MaxSplitRoutes,
+		DisableCache:                     !r.defaultConfig.RouteCacheEnabled,
+		CandidateRoutesPoolFiltersAnyOf:  []domain.CandidateRoutePoolFiltrerCb{},
 	}
 	// Apply options
 	for _, opt := range opts {
 		opt(&options)
 	}
 
-	// Get an order of magnitude for the token in amount
-	// This is used for caching ranked routes as these might differ depending on the amount swapped in.
-	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
+	var (
+		candidateRankedRoutes sqsdomain.CandidateRoutes
+		err                   error
+	)
 
-	candidateRankedRoutes, err := r.GetCachedRankedRoutes(ctx, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
-	if err != nil {
-		return nil, err
+	if !options.DisableCache {
+		// Get an order of magnitude for the token in amount
+		// This is used for caching ranked routes as these might differ depending on the amount swapped in.
+		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
+
+		candidateRankedRoutes, err = r.GetCachedRankedRoutes(ctx, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var (
@@ -215,6 +192,16 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 // GetOptimalQuoteInGivenOut returns an optimal quote through the pools for the exact amount out token swap method.
 // Underlying implementation is the same as GetOptimalQuote, but the returned quote is wrapped in a quoteExactAmountOut.
 func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+	// Disable cache and add orderbook pool filter
+	// So that order-book pools are not used in the candidate route search.
+	// The reason is that order-book contract does not implement the MsgSwapExactAmountOut API.
+	// The reason we disable cache is so that the exluded candidate routes do not interfere with the main
+	// "out given in" API.
+	opts = append(opts,
+		domain.WithDisableCache(),
+		domain.WithCandidateRoutesPoolFiltersAnyOf(domain.ShouldSkipOrderbookPool),
+	)
+
 	quote, err := r.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, opts...)
 	if err != nil {
 		return nil, err
@@ -373,6 +360,8 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		MaxRoutes:           routingOptions.MaxRoutes,
 		MaxPoolsPerRoute:    routingOptions.MaxPoolsPerRoute,
 		MinPoolLiquidityCap: routingOptions.MinPoolLiquidityCap,
+		DisableCache:        routingOptions.DisableCache,
+		PoolFiltersAnyOf:    routingOptions.CandidateRoutesPoolFiltersAnyOf,
 	}
 
 	// If top routes are not present in cache, retrieve unranked candidate routes
@@ -388,17 +377,19 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		return nil, nil, err
 	}
 
-	if len(candidateRoutes.Routes) > 0 {
-		cacheWrite.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenIn.Denom, tokenOutDenom, noOrderOfMagnitude).Inc()
+	if !routingOptions.DisableCache {
+		if len(candidateRoutes.Routes) > 0 {
+			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
 
-		r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds)*time.Second)
-	} else {
-		// If no candidate routes found, cache them for quarter of the duration
-		r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds/4)*time.Second)
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds)*time.Second)
+		} else {
+			// If no candidate routes found, cache them for quarter of the duration
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds/4)*time.Second)
 
-		r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
 
-		return nil, nil, fmt.Errorf("no candidate routes found")
+			return nil, nil, fmt.Errorf("no candidate routes found")
+		}
 	}
 
 	// Rank candidate routes by estimating direct quotes
@@ -428,9 +419,10 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 			}
 		}
 
-		cacheWrite.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenIn.Denom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
-
-		r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
+		if !routingOptions.DisableCache {
+			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
+		}
 	}
 
 	return topSingleRouteQuote, rankedRoutes, nil
@@ -634,7 +626,7 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenI
 	cachedCandidateRoutes, found := r.candidateRouteCache.Get(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom))
 	if !found {
 		// Increase cache misses
-		cacheMisses.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom, noOrderOfMagnitude).Inc()
+		domain.SQSRoutesCacheMissesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
 
 		return sqsdomain.CandidateRoutes{
 			Routes:        []sqsdomain.CandidateRoute{},
@@ -642,7 +634,7 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenI
 		}, false, nil
 	}
 
-	cacheHits.WithLabelValues(requestURLPath, candidateRouteCacheLabel, tokenInDenom, tokenOutDenom, noOrderOfMagnitude).Inc()
+	domain.SQSRoutesCacheHitsCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
 
 	candidateRoutes, ok := cachedCandidateRoutes.(sqsdomain.CandidateRoutes)
 	if !ok {
@@ -667,12 +659,12 @@ func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, tokenInDe
 	cachedRankedRoutes, found := r.rankedRouteCache.Get(formatRankedRouteCacheKey(tokenInDenom, tokenOutDenom, tokenInOrderOfMagnitude))
 	if !found {
 		// Increase cache misses
-		cacheMisses.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenInDenom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
+		domain.SQSRoutesCacheMissesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
 
 		return sqsdomain.CandidateRoutes{}, nil
 	}
 
-	cacheHits.WithLabelValues(requestURLPath, rankedRouteCacheLabel, tokenInDenom, tokenOutDenom, strconv.FormatInt(int64(tokenInOrderOfMagnitude), 10)).Inc()
+	domain.SQSRoutesCacheHitsCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
 
 	rankedRoutes, ok := cachedRankedRoutes.(sqsdomain.CandidateRoutes)
 	if !ok {
@@ -694,7 +686,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 
 	// Check cache for routes if enabled
 	var isFoundCached bool
-	if r.defaultConfig.RouteCacheEnabled {
+	if !candidateRouteSearchOptions.DisableCache {
 		candidateRoutes, isFoundCached, err = r.GetCachedCandidateRoutes(ctx, tokenIn.Denom, tokenOutDenom)
 		if err != nil {
 			return sqsdomain.CandidateRoutes{}, err
@@ -716,7 +708,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
 
 		// Persist routes
-		if r.defaultConfig.RouteCacheEnabled {
+		if !candidateRouteSearchOptions.DisableCache {
 			cacheDurationSeconds := r.defaultConfig.CandidateRouteCacheExpirySeconds
 			if len(candidateRoutes.Routes) == 0 {
 				// If there are no routes, we want to cache the result for a shorter duration

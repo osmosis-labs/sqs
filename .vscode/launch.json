@@ -13,15 +13,14 @@
       "env": {
         "OSMOSIS_KEYRING_PATH":"/root/.osmosisd/keyring-test",
         "OSMOSIS_KEYRING_PASSWORD": "test",
-	    "OSMOSIS_KEYRING_KEY_NAME": "local.info"
+	    "OSMOSIS_KEYRING_KEY_NAME": "local.info",
+        "SQS_OTEL_ENVIRONMENT": "sqs-local-debugger"
       },
       "args": [
         "--config",
         "config.json",
         "--host",
         "sqs-dev",
-        "--debug",
-        "true"
       ],
       "cwd": "${workspaceFolder}"
     },

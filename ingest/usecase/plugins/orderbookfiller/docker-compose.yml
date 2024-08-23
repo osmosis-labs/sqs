@@ -53,9 +53,11 @@ services:
       - OSMOSIS_KEYRING_KEY_NAME=${OSMOSIS_KEYRING_KEY_NAME}
       - OSMOSIS_RPC_ENDPOINT=http://osmosis:26657
       - OSMOSIS_LCD_ENDPOINT=http://osmosis:1317
+      - SQS_GRPC_TENDERMINT_RPC_ENDPOINT=http://osmosis:26657
+      - SQS_GRPC_GATEWAY_ENDPOINT=osmosis:9090
+      - SQS_OTEL_ENVIRONMENT=sqs-fill-bot
+      - SQS_GRPC_INGESTER_PLUGINS_ORDERBOOK_ENABLED=true
     command:
-      - --config
-      - /osmosis/config.json
       - --host
       - sqs-fill-bot
     build:
@@ -68,7 +70,6 @@ services:
     ports:
       - 9092:9092
     volumes:
-      - ../../../../config_orderbook_fill_plugin.json:/osmosis/config.json
       - ${OSMOSIS_KEYRING_PATH}:${OSMOSIS_KEYRING_PATH}
     logging:
       driver: "json-file"

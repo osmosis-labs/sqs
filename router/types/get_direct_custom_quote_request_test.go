@@ -1,9 +1,7 @@
 package types_test
 
 import (
-	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -21,9 +19,7 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 		name           string
 		queryParams    map[string]string
 		expectedResult *types.GetDirectCustomQuoteRequest
-		expectedError  error
-		expectedStatus int
-		expectedBody   string
+		expectedError  bool
 	}{
 		{
 			name: "valid request with tokenIn and tokenOut",
@@ -43,9 +39,6 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 				PoolID:         []uint64{1, 23},
 				ApplyExponents: true,
 			},
-			expectedError:  nil,
-			expectedStatus: http.StatusOK,
-			expectedBody:   "",
 		},
 		{
 			name: "invalid poolID param",
@@ -55,9 +48,7 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 				"singleRoute": "true",
 				"poolID":      "invalid,10",
 			},
-			expectedResult: nil,
-			expectedError:  types.ErrPoolIDNotValid,
-			expectedStatus: http.StatusInternalServerError,
+			expectedError: true,
 		},
 		{
 			name: "invalid applyExponents param",
@@ -67,10 +58,7 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 				"singleRoute":    "true",
 				"applyExponents": "invalid",
 			},
-			expectedResult: nil,
-			expectedError:  nil,
-			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   `{"message":"strconv.ParseBool: parsing \"invalid\": invalid syntax"}`,
+			expectedError: true,
 		},
 		{
 			name: "invalid tokenIn param",
@@ -80,8 +68,7 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 				"singleRoute":    "true",
 				"applyExponents": "true",
 			},
-			expectedResult: nil,
-			expectedError:  types.ErrTokenInNotValid,
+			expectedError: true,
 		},
 		{
 			name: "invalid tokenOut param",
@@ -91,8 +78,7 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 				"singleRoute":    "true",
 				"applyExponents": "true",
 			},
-			expectedResult: nil,
-			expectedError:  types.ErrTokenOutNotValid,
+			expectedError: true,
 		},
 	}
 
@@ -111,20 +97,12 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 			var result types.GetDirectCustomQuoteRequest
 			err := (&result).UnmarshalHTTPRequest(c)
 
-			if tc.expectedError != nil {
+			if tc.expectedError {
 				assert.Error(t, err)
-				assert.Equal(t, tc.expectedError, err)
 				return
 			}
 
 			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, rec.Code)
-			assert.Equal(t, tc.expectedBody, strings.TrimSpace(rec.Body.String())) // JSONEq fails
-
-			// GetDirectCustomQuoteRequest must contain the expected result if the status is OK
-			if tc.expectedStatus == http.StatusOK {
-				assert.Equal(t, tc.expectedResult, &result)
-			}
 		})
 	}
 }

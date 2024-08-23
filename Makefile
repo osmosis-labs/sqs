@@ -1,4 +1,5 @@
 # Exporting bin folder to the path for makefile
+PWD := $(shell pwd)
 export PATH   := $(PWD)/bin:$(PATH)
 # Default Shell
 export SHELL  := bash
@@ -41,11 +42,11 @@ run:
 
 run-docker:
 	$(DOCKER) rm -f sqs
-	$(DOCKER) run -d --name sqs -p 9092:9092 -p 26657:26657 -v /root/sqs/config-testnet.json/:/osmosis/config.json --net host osmolabs/sqs:local "--config /osmosis/config.json"
+	$(DOCKER) run -d --name sqs -p 9092:9092 -p 26657:26657 -v $(PWD)/config.json:/osmosis/config.json:ro --net host osmolabs/sqs:local --config /osmosis/config.json
 	$(DOCKER) logs -f sqs
 
 osmosis-start:
-	$(DOCKER) run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -p 50051:50051 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:v24.x-4c99a57e-1712870916 "start"
+	$(DOCKER) run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -p 50051:50051 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:v25.x-5b3e7918-1724274941 "start"
 
 osmosis-stop:
 	$(DOCKER) container rm -f osmosis
@@ -74,6 +75,7 @@ build:
 docker-build:
 	@DOCKER_BUILDKIT=1 $(DOCKER) build \
 	-t osmolabs/sqs:$(VERSION) \
+	-t osmolabs/sqs:local \
 	--build-arg GO_VERSION=$(GO_VERSION) \
 	--build-arg GIT_VERSION=$(VERSION) \
 	--build-arg GIT_COMMIT=$(COMMIT) \
@@ -140,7 +142,7 @@ load-test-ui:
 	$(DOCKER) compose -f locust/docker-compose.yml up --scale worker=4
 
 debug:
-	dlv --build-flags="-ldflags='-X github.com/osmosis-labs/sqs/version=${VERSION}'"  debug app/*.go -- --config ./config.json
+	dlv --build-flags="-ldflags='-X github.com/osmosis-labs/sqs/version=${VERSION}'"  debug app/*.go
 
 profile:
 	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/profile?seconds=60
