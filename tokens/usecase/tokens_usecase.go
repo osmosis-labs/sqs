@@ -52,17 +52,12 @@ type tokensUseCase struct {
 type AssetList struct {
 	ChainName string `json:"chainName"`
 	Assets    []struct {
-		SourceDenom      string `json:"sourceDenom"`
+		Name             string `json:"name"`
 		CoinMinimalDenom string `json:"coinMinimalDenom"`
 		Symbol           string `json:"symbol"`
+		Decimals         int    `json:"decimals"`
 		CoingeckoID      string `json:"coingeckoId"`
-		PriceInfo        struct {
-			PoolID string `json:"poolId"`
-			Denom  string `json:"denom"`
-		} `json:"price"`
-		Decimals int    `json:"decimals"`
-		Preview  bool   `json:"preview"`
-		Name     string `json:"name"`
+		Preview          bool   `json:"preview"`
 	} `json:"assets"`
 }
 
