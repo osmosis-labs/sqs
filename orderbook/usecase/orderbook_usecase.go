@@ -30,6 +30,13 @@ type orderbookUseCaseImpl struct {
 
 var _ mvc.OrderBookUsecase = &orderbookUseCaseImpl{}
 
+const (
+	// Max number of ticks to query at a time
+	maxQueryTicks = 500
+	// Max number of ticks cancels to query at a time
+	maxQueryTicksCancels = 100
+)
+
 // New creates a new orderbook use case.
 func New(
 	orderbookRepository orderbookdomain.OrderBookRepository,
@@ -391,8 +398,11 @@ func (o *orderbookUseCaseImpl) createFormattedLimitOrder(
 	}, nil
 }
 
-const maxQueryTicks = 500
-
+// fetchTicksForOrderbook fetches the ticks for a given tick ID and contract address.
+// It returns the ticks and an error if any.
+// Errors if:
+// - failed to fetch ticks
+// - mismatch in number of ticks fetched
 func (o *orderbookUseCaseImpl) fetchTicksForOrderbook(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 	finalTickStates := make([]orderbookdomain.Tick, 0, len(tickIDs))
 
@@ -419,8 +429,11 @@ func (o *orderbookUseCaseImpl) fetchTicksForOrderbook(ctx context.Context, contr
 	return finalTickStates, nil
 }
 
-const maxQueryTicksCancels = 100
-
+// fetchTickUnrealizedCancels fetches the unrealized cancels for a given tick ID and contract address.
+// It returns the unrealized cancels and an error if any.
+// Errors if:
+// - failed to fetch unrealized cancels
+// - mismatch in number of unrealized cancels fetched
 func (o *orderbookUseCaseImpl) fetchTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error) {
 	allUnrealizedCancels := make([]orderbookgrpcclientdomain.UnrealizedTickCancels, 0, len(tickIDs))
 
