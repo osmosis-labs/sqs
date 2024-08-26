@@ -13,6 +13,7 @@ import (
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/orderbook/telemetry"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 
@@ -131,11 +132,8 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	for _, orderbook := range orderbooks {
 		orders, count, err := o.orderBookClient.GetActiveOrders(context.TODO(), orderbook.ContractAddress, address)
 		if err != nil {
-			o.logger.Error("failed to fetch active orders", zap.Any("contract", orderbook.ContractAddress), zap.Any("contract", address), zap.Any("err", err))
-
-			// TODO: (alert) if failed to fetch active orders, add an alert
-			// Prometheus metric counter and alert
-
+			telemetry.GetActiveOrdersErrorCounter.Inc()
+			o.logger.Error(telemetry.GetActiveOrdersErrorMetricName, zap.Any("contract", orderbook.ContractAddress), zap.Any("contract", address), zap.Any("err", err))
 			continue
 		}
 
@@ -161,10 +159,8 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 		for _, order := range orders {
 			repositoryTick, ok := o.orderbookRepository.GetTickByID(orderbook.PoolID, order.TickId)
 			if !ok {
-				o.logger.Info("tick not found", zap.Any("contract", orderbook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
-
-				// TODO: (alert) if tick not found, add an alert
-				// Prometheus metric counter and alert
+				telemetry.GetTickByIDNotFoundCounter.Inc()
+				o.logger.Info(telemetry.GetTickByIDNotFoundMetricName, zap.Any("contract", orderbook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
 			}
 
 			result, err := o.createLimitOrder(
@@ -182,11 +178,8 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 				orderbook.ContractAddress,
 			)
 			if err != nil {
-				o.logger.Error("failed to create limit order", zap.Any("order", order), zap.Any("err", err))
-
-				// TODO: (alert) if failed to create limit order, add an alert
-				// Prometheus metric counter and alert
-
+				telemetry.CreateLimitOrderErrorCounter.Inc()
+				o.logger.Error(telemetry.CreateLimitOrderErrorMetricName, zap.Any("order", order), zap.Any("err", err))
 				continue
 			}
 
