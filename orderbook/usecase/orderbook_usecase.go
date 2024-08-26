@@ -221,7 +221,10 @@ func (o *orderbookUseCaseImpl) createLimitOrder(
 	percentClaimed := placedQuantityDec.Sub(quantityDec).Quo(placedQuantityDec)
 
 	// Calculate normalization factor for price
-	normalizationFactor := osmomath.NewDec(10).Power(uint64(quoteAsset.Decimals - baseAsset.Decimals))
+	normalizationFactor, err := o.tokensUsecease.GetSpotPriceScalingFactorByDenom(baseAsset.Symbol, quoteAsset.Symbol)
+	if err != nil {
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("error getting spot price scaling factor: %w", err)
+	}
 
 	// Determine tick values and unrealized cancels based on order direction
 	var tickEtas, tickUnrealizedCancelled int64
@@ -288,7 +291,7 @@ func (o *orderbookUseCaseImpl) createLimitOrder(
 	}
 
 	// Calculate normalized price
-	normalizedPrice := price.Dec().Quo(normalizationFactor)
+	normalizedPrice := price.Dec().Mul(normalizationFactor)
 
 	// Convert placed_at to a nano second timestamp
 	placedAt, err := strconv.ParseInt(order.PlacedAt, 10, 64)
