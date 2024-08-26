@@ -14,6 +14,7 @@ import (
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/orderbook/telemetry"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 
@@ -156,10 +157,8 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 		select {
 		case result := <-results:
 			if result.err != nil {
-				// TODO: (alert) if failed to process orderbook active orders, add an alert
-				// Prometheus metric counter and alert
-
-				o.logger.Error("failed to process orderbook active orders", zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
+				telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
+				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
 				return nil, result.err
 			}
 			finalResults = append(finalResults, result.limitOrders...)
@@ -183,9 +182,6 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, error) {
 	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderBook.ContractAddress, ownerAddress)
 	if err != nil {
-		// TODO: (alert) if failed to fetch active orders, add an alert
-		// Prometheus metric counter and alert
-
 		return nil, err
 	}
 
@@ -210,9 +206,9 @@ func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 	for _, order := range orders {
 		tickForOrder, ok := o.orderbookRepository.GetTickByID(orderBook.PoolID, order.TickId)
 		if !ok {
-			// Do not return error, just log and continue for faul
-
-			o.logger.Error("tick not found", zap.Any("contract", orderBook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
+			// Do not return error, just log and continue for fault tolerance
+			telemetry.GetTickByIDNotFoundCounter.Inc()
+			o.logger.Info(telemetry.GetTickByIDNotFoundMetricName, zap.Any("contract", orderBook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
 
 			// Note: initialize empty tick for fault-
 			tickForOrder = orderbookdomain.OrderbookTick{}
@@ -235,10 +231,8 @@ func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 		)
 		if err != nil {
 			o.logger.Error("failed to create limit order", zap.Any("order", order), zap.Any("err", err))
-
-			// TODO: (alert) if failed to create limit order, add an alert
-			// Prometheus metric counter and alert
-
+			telemetry.CreateLimitOrderErrorCounter.Inc()
+			o.logger.Error(telemetry.CreateLimitOrderErrorMetricName, zap.Any("order", order), zap.Any("err", err))
 			continue
 		}
 
