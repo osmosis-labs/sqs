@@ -24,9 +24,9 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
-	"github.com/cosmos/ibc-go/v7/testing/simapp"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v26/app"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
@@ -46,7 +46,7 @@ var (
 	Denom     = "uosmo"
 	NobleUSDC = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
 
-	encodingConfig = simapp.MakeTestEncodingConfig()
+	encodingConfig = app.MakeEncodingConfig()
 )
 
 type AccountInfo struct {
@@ -184,10 +184,13 @@ func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (re
 	// First round: we gather all the signer infos. We use the "set empty
 	// signature" hack to do that.
 	accSequence, accNumber := getInitialSequence(blockCtx.AsGoCtx(), o.keyring.GetAddress().String())
+	signMode := encodingConfig.TxConfig.SignModeHandler().DefaultMode()
+	protoSignMode, _ := authsigning.APISignModeToInternal(signMode)
+
 	sigV2 := signing.SignatureV2{
 		PubKey: privKey.PubKey(),
 		Data: &signing.SingleSignatureData{
-			SignMode:  encodingConfig.TxConfig.SignModeHandler().DefaultMode(),
+			SignMode:  protoSignMode,
 			Signature: nil,
 		},
 		Sequence: accSequence,
@@ -206,7 +209,8 @@ func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (re
 	}
 
 	signed, err := tx.SignWithPrivKey(
-		encodingConfig.TxConfig.SignModeHandler().DefaultMode(), signerData,
+		blockCtx.AsGoCtx(),
+		protoSignMode, signerData,
 		txBuilder, privKey, encodingConfig.TxConfig, accSequence)
 	if err != nil {
 		fmt.Println("couldn't sign")

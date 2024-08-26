@@ -131,7 +131,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 
 		currentRouteAmtOut := computeAndCacheOutAmountCb(i, currentRouteIncrement)
 
-		currentRouteSplit := sdk.NewDec(int64(currentRouteIncrement)).QuoInt64Mut(int64(totalIncrements))
+		currentRouteSplit := osmomath.NewDec(int64(currentRouteIncrement)).QuoInt64Mut(int64(totalIncrements))
 
 		inAmount := currentRouteSplit.MulMut(tokenAmountDec).TruncateInt()
 		outAmount := currentRouteAmtOut
@@ -191,7 +191,7 @@ func getComputeAndCacheInAmountIncrementCb(totalInAmountDec osmomath.Dec) func(p
 			return currentIncrement
 		}
 
-		currentIncrement = sdk.NewDec(int64(p)).QuoInt64Mut(int64(totalIncrements)).MulMut(totalInAmountDec).TruncateInt()
+		currentIncrement = osmomath.NewDec(int64(p)).QuoInt64Mut(int64(totalIncrements)).MulMut(totalInAmountDec).TruncateInt()
 		inAmountIncrements[p] = currentIncrement
 
 		return currentIncrement

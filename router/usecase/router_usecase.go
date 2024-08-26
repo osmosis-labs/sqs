@@ -12,7 +12,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -54,7 +54,7 @@ const (
 )
 
 var (
-	zero = sdk.ZeroInt()
+	zero = osmomath.ZeroInt()
 )
 
 // NewRouterUsecase will create a new pools use case object

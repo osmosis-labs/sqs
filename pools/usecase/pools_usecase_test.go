@@ -13,11 +13,11 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/suite"
 
-	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/stableswap"
-	gammtypes "github.com/osmosis-labs/osmosis/v25/x/gamm/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v26/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v26/x/gamm/pool-models/stableswap"
+	gammtypes "github.com/osmosis-labs/osmosis/v26/x/gamm/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 
@@ -254,7 +254,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 				// Note: this is only done to be able to use the ValidateRoutePools
 				// helper method for validation.
 				// Note token in is chosen arbitrarily since it is irrelevant for this test
-				tokenIn := sdk.NewCoin(tc.tokenInDenom, sdk.NewInt(100))
+				tokenIn := sdk.NewCoin(tc.tokenInDenom, osmomath.NewInt(100))
 				actualPools, _, _, err := actualRoute.PrepareResultPools(context.TODO(), tokenIn, logger)
 				s.Require().NoError(err)
 				expectedPools, _, _, err := expectedRoute.PrepareResultPools(context.TODO(), tokenIn, logger)
@@ -588,7 +588,7 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 	}
 
 	fourthBalancerPoolAssets := []balancer.PoolAsset{
-		{Token: sdk.NewInt64Coin("foo", 9000000000000000000).AddAmount(sdk.NewInt(9000000000000000000)), Weight: osmomath.NewIntFromUint64(5)},
+		{Token: sdk.NewInt64Coin("foo", 9000000000000000000).AddAmount(osmomath.NewInt(9000000000000000000)), Weight: osmomath.NewIntFromUint64(5)},
 	}
 
 	// create these pools used for testing

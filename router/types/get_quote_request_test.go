@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/types"
 
@@ -32,9 +33,9 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 				"applyExponents": "true",
 			},
 			expectedResult: &types.GetQuoteRequest{
-				TokenIn:        &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenIn:        &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
 				TokenOutDenom:  "usdc",
-				TokenOut:       &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOut:       &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom:   "atom",
 				SingleRoute:    true,
 				ApplyExponents: true,
@@ -124,7 +125,7 @@ func TestGetQuoteRequestSwapMethod(t *testing.T) {
 		{
 			name: "valid exact in swap method",
 			request: &types.GetQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
 				TokenOutDenom: "usdc",
 			},
 			expectedMethod: domain.TokenSwapMethodExactIn,
@@ -132,7 +133,7 @@ func TestGetQuoteRequestSwapMethod(t *testing.T) {
 		{
 			name: "valid exact out swap method",
 			request: &types.GetQuoteRequest{
-				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom: "ust",
 			},
 			expectedMethod: domain.TokenSwapMethodExactOut,
@@ -140,8 +141,8 @@ func TestGetQuoteRequestSwapMethod(t *testing.T) {
 		{
 			name: "invalid swap method with both tokenIn and tokenOut",
 			request: &types.GetQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
-				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
+				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom:  "ust",
 				TokenOutDenom: "usdc",
 			},
@@ -150,14 +151,14 @@ func TestGetQuoteRequestSwapMethod(t *testing.T) {
 		{
 			name: "invalid swap method with only tokenIn",
 			request: &types.GetQuoteRequest{
-				TokenIn: &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenIn: &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
 			},
 			expectedMethod: domain.TokenSwapMethodInvalid,
 		},
 		{
 			name: "invalid swap method with only tokenOut",
 			request: &types.GetQuoteRequest{
-				TokenOut: &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOut: &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 			},
 			expectedMethod: domain.TokenSwapMethodInvalid,
 		},
@@ -186,7 +187,7 @@ func TestGetQuoteRequestValidate(t *testing.T) {
 		{
 			name: "valid exact in request",
 			request: &types.GetQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
 				TokenOutDenom: "usdc",
 			},
 			expectedError: nil,
@@ -194,7 +195,7 @@ func TestGetQuoteRequestValidate(t *testing.T) {
 		{
 			name: "valid exact out request",
 			request: &types.GetQuoteRequest{
-				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom: "ust",
 			},
 			expectedError: nil,
@@ -202,8 +203,8 @@ func TestGetQuoteRequestValidate(t *testing.T) {
 		{
 			name: "invalid request with both tokenIn and tokenOut",
 			request: &types.GetQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
-				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
+				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom:  "ust",
 				TokenOutDenom: "usdc",
 			},
@@ -212,7 +213,7 @@ func TestGetQuoteRequestValidate(t *testing.T) {
 		{
 			name: "invalid exact in request with invalid denoms",
 			request: &types.GetQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenOutDenom: "usdc",
 			},
 			expectedError: domain.SameDenomError{
@@ -223,7 +224,7 @@ func TestGetQuoteRequestValidate(t *testing.T) {
 		{
 			name: "invalid exact out request with invalid denoms",
 			request: &types.GetQuoteRequest{
-				TokenOut:     &sdk.Coin{Denom: "usdt", Amount: sdk.NewInt(1000)},
+				TokenOut:     &sdk.Coin{Denom: "usdt", Amount: osmomath.NewInt(1000)},
 				TokenInDenom: "usdt",
 			},
 			expectedError: domain.SameDenomError{

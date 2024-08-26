@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"cosmossdk.io/math"
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -13,11 +13,11 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
-	concentratedmodel "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/model"
-	"github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/swapstrategy"
-	"github.com/osmosis-labs/osmosis/v25/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	clmath "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/math"
+	concentratedmodel "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/swapstrategy"
+	"github.com/osmosis-labs/osmosis/v26/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 )
 
 var _ domain.RoutablePool = &routableConcentratedPoolImpl{}

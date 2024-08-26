@@ -23,9 +23,9 @@ import (
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v25/app"
-	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v26/app"
+	"github.com/osmosis-labs/osmosis/v26/app/apptesting"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	coingeckopricing "github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingecko"
 )

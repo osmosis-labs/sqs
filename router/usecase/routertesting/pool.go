@@ -3,8 +3,8 @@ package routertesting
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v26/x/gamm/pool-models/balancer"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 )
 
 // Pool USDT / ETH -> 0.01 spread factor & 5 USDTfor 1 ETH
@@ -12,14 +12,14 @@ func (s *RouterTestHelper) PoolOne() (uint64, poolmanagertypes.PoolI) {
 	poolIDOne := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
 			Token:  sdk.NewCoin(USDT, defaultAmount.MulRaw(5)),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 		{
 			Token:  sdk.NewCoin(ETH, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(1, 2),
+		SwapFee: osmomath.NewDecWithPrec(1, 2),
 		ExitFee: osmomath.ZeroDec(),
 	})
 
@@ -34,14 +34,14 @@ func (s *RouterTestHelper) PoolTwo() (uint64, poolmanagertypes.PoolI) {
 	poolIDTwo := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
 			Token:  sdk.NewCoin(USDC, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 		{
 			Token:  sdk.NewCoin(USDT, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(3, 2),
+		SwapFee: osmomath.NewDecWithPrec(3, 2),
 		ExitFee: osmomath.ZeroDec(),
 	})
 
@@ -56,14 +56,14 @@ func (s *RouterTestHelper) PoolThree() (uint64, poolmanagertypes.PoolI) {
 	poolIDThree := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
 			Token:  sdk.NewCoin(ETH, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 		{
 			Token:  sdk.NewCoin(USDC, defaultAmount.MulRaw(4)),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(5, 3),
+		SwapFee: osmomath.NewDecWithPrec(5, 3),
 		ExitFee: osmomath.ZeroDec(),
 	})
 

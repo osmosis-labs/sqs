@@ -11,11 +11,11 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 )
 
 var (
-	defaultAmount  = sdk.NewInt(100_000_00)
+	defaultAmount  = osmomath.NewInt(100_000_00)
 	totalInAmount  = defaultAmount
 	totalOutAmount = defaultAmount.MulRaw(4)
 )

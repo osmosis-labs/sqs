@@ -17,13 +17,13 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v25/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v26/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v26/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 )
 
 var (
-	defaultAmount                 = sdk.NewInt(100_000_00)
+	defaultAmount                 = osmomath.NewInt(100_000_00)
 	totalInAmount                 = defaultAmount
 	totalOutAmount                = defaultAmount.MulRaw(4)
 	defaultSpotPriceScalingFactor = osmomath.OneDec()
@@ -210,14 +210,14 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	poolID := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
 		{
 			Token:  sdk.NewCoin(ETH, defaultAmount),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 		{
 			Token:  sdk.NewCoin(USDC, defaultAmount.MulRaw(4)),
-			Weight: sdk.NewInt(100),
+			Weight: osmomath.NewInt(100),
 		},
 	}, balancer.PoolParams{
-		SwapFee: sdk.NewDecWithPrec(5, 3),
+		SwapFee: osmomath.NewDecWithPrec(5, 3),
 		ExitFee: osmomath.ZeroDec(),
 	})
 
