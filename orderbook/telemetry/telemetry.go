@@ -3,15 +3,15 @@ package telemetry
 import "github.com/prometheus/client_golang/prometheus"
 
 var (
-	// sqs_orderbook_usecase_get_active_orders_error_total
+	// sqs_orderbook_usecase_processing_orderbook_active_orders_error_total
 	//
-	// counter that measures the number of errors that occur during getting active orders in orderbook usecase
+	// counter that measures the number of errors that occur during processing active orders in orderbook usecase
 	//
 	// Has the following labels:
 	// * contract - the address of the orderbook contract
 	// * address - address of the user wallet
 	// * err - the error message occurred
-	GetActiveOrdersErrorMetricName = "sqs_orderbook_usecase_get_active_orders_error_total"
+	ProcessingOrderbookActiveOrdersErrorMetricName = "sqs_orderbook_usecase_processing_orderbook_active_orders_error_total"
 
 	// sqs_orderbook_usecase_get_tick_by_id_not_found_total
 	//
@@ -27,10 +27,10 @@ var (
 	// * err - the error message occurred
 	CreateLimitOrderErrorMetricName = "sqs_orderbook_usecase_create_limit_order_error_total"
 
-	GetActiveOrdersErrorCounter = prometheus.NewCounter(
+	ProcessingOrderbookActiveOrdersErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: GetActiveOrdersErrorMetricName,
-			Help: "counter that measures the number of errors that occur during retrieving active orders from orderbook contract",
+			Name: ProcessingOrderbookActiveOrdersErrorMetricName,
+			Help: "counter that measures the number of errors that occur during processing active orders of from orderbook contract",
 		},
 	)
 
@@ -50,7 +50,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(GetActiveOrdersErrorCounter)
+	prometheus.MustRegister(ProcessingOrderbookActiveOrdersErrorCounter)
 	prometheus.MustRegister(GetTickByIDNotFoundCounter)
 	prometheus.MustRegister(CreateLimitOrderErrorCounter)
 }
