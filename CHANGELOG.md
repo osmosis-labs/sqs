@@ -35,10 +35,6 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 ## v25.17.0
-- f1b7756d fix: no routes for this trade (#480)
-- e6d44b60 perf: add load test for active orders (#472)
-- bc570d66 active order fault tolerance via "best-effort" boolean return  (#471)
-- 37f4424d add concurrency to the order book processing in active orders (#470)
 - 4f5b8b81 chore: active orders observability TODOs (#469)
 - b63ca05f fix: active orders overflow bug (#468)
 
