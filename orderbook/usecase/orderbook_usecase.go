@@ -14,6 +14,7 @@ import (
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/orderbook/telemetry"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 
@@ -139,40 +140,6 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 
 	// Process orderbooks concurrently
 	for _, orderbook := range orderbooks {
-<<<<<<< HEAD
-		orders, count, err := o.orderBookClient.GetActiveOrders(context.TODO(), orderbook.ContractAddress, address)
-		if err != nil {
-			o.logger.Info("failed to fetch active orders", zap.Any("contract", orderbook.ContractAddress), zap.Any("contract", address), zap.Any("err", err))
-			continue
-		}
-
-		// There are orders to process for given orderbook
-		if count == 0 {
-			continue
-		}
-
-		o.logger.Info("Active orders", zap.Any("orders", orders), zap.Any("count", count), zap.Any("err", err))
-
-		quoteToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderbook.Quote)
-		if err != nil {
-			o.logger.Error("failed to get token metadata for quote", zap.Any("quote", orderbook.Quote), zap.Error(err))
-			continue
-		}
-
-		baseToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderbook.Base)
-		if err != nil {
-			o.logger.Error("failed to get token metadata for base", zap.Any("base", orderbook.Base), zap.Error(err))
-			continue
-		}
-
-		for _, order := range orders {
-			repositoryTick, ok := o.orderbookRepository.GetTickByID(orderbook.PoolID, order.TickId)
-			if !ok {
-				o.logger.Info("tick not found", zap.Any("contract", orderbook.ContractAddress), zap.Any("ticks", order.TickId), zap.Any("ok", ok))
-
-				// TODO: if tick not found, add an alert
-				// Prometheus metric counter and alert
-=======
 		go func(orderbook domain.CanonicalOrderBooksResult) {
 			limitOrders, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
 
@@ -180,30 +147,10 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 				orderbookID: orderbook.PoolID,
 				limitOrders: limitOrders,
 				err:         err,
->>>>>>> 37f4424 (add concurrency to the order book processing in active orders (#470))
 			}
 		}(orderbook)
 	}
 
-<<<<<<< HEAD
-			result, err := o.createLimitOrder(
-				order,
-				repositoryTick.TickState,
-				repositoryTick.UnrealizedCancels,
-				orderbookdomain.Asset{
-					Symbol:   quoteToken.CoinMinimalDenom,
-					Decimals: quoteToken.Precision,
-				},
-				orderbookdomain.Asset{
-					Symbol:   baseToken.CoinMinimalDenom,
-					Decimals: baseToken.Precision,
-				},
-				orderbook.ContractAddress,
-			)
-			if err != nil {
-				o.logger.Info("failed to create limit order", zap.Any("order", order), zap.Any("err", err))
-				continue
-=======
 	// Collect results
 	finalResults := []orderbookdomain.LimitOrder{}
 	for i := 0; i < len(orderbooks); i++ {
@@ -213,7 +160,6 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 				telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
 				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
 				return nil, result.err
->>>>>>> 37f4424 (add concurrency to the order book processing in active orders (#470))
 			}
 			finalResults = append(finalResults, result.limitOrders...)
 		case <-ctx.Done():
