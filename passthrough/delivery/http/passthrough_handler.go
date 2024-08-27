@@ -89,12 +89,12 @@ func (a *PassthroughHandler) GetActiveOrders(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	orders, err := a.OUsecase.GetActiveOrders(ctx, req.UserOsmoAddress)
+	orders, isBestEffort, err := a.OUsecase.GetActiveOrders(ctx, req.UserOsmoAddress)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
 
-	resp := types.NewGetAllOrderResponse(orders)
+	resp := types.NewGetAllOrderResponse(orders, isBestEffort)
 
 	return c.JSON(http.StatusOK, resp)
 }
