@@ -11,6 +11,15 @@ var (
 	// * height - the height of the block being processed
 	SQSIngestUsecaseProcessBlockDurationMetricName = "sqs_ingest_usecase_process_block_duration"
 
+	// sqs_ingest_usecase_process_orderbook_pool_error_total
+	//
+	// counter that measures the number of errors that occur during processing an orderbook pool in ingest usecase
+	//
+	// Has the following labels:
+	// * err - the error message occurred
+	// * pool_id - the indentifier of the pool being processed
+	SQSIngestUsecaseProcessOrderbookPoolErrorMetricName = "sqs_ingest_usecase_process_orderbook_pool_error_total"
+
 	// sqs_ingest_usecase_process_block_error
 	//
 	// counter that measures the number of errors that occur during processing a block in ingest usecase
@@ -148,6 +157,13 @@ var (
 		},
 	)
 
+	SQSIngestHandlerProcessOrderbookPoolErrorCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSIngestUsecaseProcessOrderbookPoolErrorMetricName,
+			Help: "counter that measures the number of errors that occur during processing an orderbook pool in ingest usecase",
+		},
+	)
+
 	SQSIngestHandlerPoolParseErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSIngestUsecaseParsePoolErrorMetricName,
@@ -279,6 +295,7 @@ var (
 func init() {
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockErrorCounter)
+	prometheus.MustRegister(SQSIngestHandlerProcessOrderbookPoolErrorCounter)
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
 	prometheus.MustRegister(SQSPricingWorkerComputeDurationGauge)
 	prometheus.MustRegister(SQSPricingWorkerComputeErrorCounter)
