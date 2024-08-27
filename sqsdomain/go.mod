@@ -11,7 +11,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/v26 v26.0.0-20240825083448-87db4447a1ff
-	github.com/osmosis-labs/sqs v0.0.0-00010101000000-000000000000
+	github.com/osmosis-labs/sqs v0.19.2-rc2.0.20240826173240-e5733bb3700d
 	github.com/stretchr/testify v1.9.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
@@ -209,8 +209,6 @@ replace (
 	github.com/osmosis-labs/osmosis/v26 => github.com/osmosis-labs/osmosis/v26 v26.0.0-20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
-
-	github.com/osmosis-labs/sqs => ../
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
