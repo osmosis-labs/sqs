@@ -36,7 +36,6 @@ Ref: https://keepachangelog.com/en/1.0.0/
 # Changelog
 ## v25.17.0
 - 4f5b8b81 chore: active orders observability TODOs (#469)
-- b63ca05f fix: active orders overflow bug (#468)
 
 ## v25.16.0
 
