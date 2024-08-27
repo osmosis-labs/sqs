@@ -303,10 +303,8 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				// and to avoid potential deadlock.
 				go func() {
 					if err := p.orderBookUseCase.ProcessPool(ctx, poolResult.pool); err != nil {
-						// TODO: (alert) if failed to process orderbook pool, add an alert
-						// Prometheus metric counter and alert
-
-						p.logger.Error("failed to process orderbook pool", zap.Error(err), zap.Uint64("pool_id", poolID))
+						domain.SQSIngestHandlerProcessOrderbookPoolErrorCounter.Inc()
+						p.logger.Error(domain.SQSIngestUsecaseProcessOrderbookPoolErrorMetricName, zap.Error(err), zap.Uint64("pool_id", poolID))
 					}
 				}()
 			}
