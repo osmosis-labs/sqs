@@ -40,7 +40,6 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - bc570d66 active order fault tolerance via "best-effort" boolean return  (#471)
 - 37f4424d add concurrency to the order book processing in active orders (#470)
 - 4f5b8b81 chore: active orders observability TODOs (#469)
-- 7a285026 chore: add mergify backport on tag action (#473)
 - b63ca05f fix: active orders overflow bug (#468)
 
 ## v25.16.0
