@@ -206,7 +206,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240825083448-87db4447a1ff
-	github.com/osmosis-labs/osmosis/v26 => github.com/osmosis-labs/osmosis/v26 v26.0.0-20240825083448-87db4447a1ff
+	github.com/osmosis-labs/osmosis/v26 => github.com/osmosis-labs/osmosis/v26 v26.0.0-20240827120025-dd5be6c09d02
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
 
