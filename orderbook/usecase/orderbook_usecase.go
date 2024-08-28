@@ -45,7 +45,7 @@ func New(
 	poolsUsecease mvc.PoolsUsecase,
 	tokensUsecease mvc.TokensUsecase,
 	logger log.Logger,
-) mvc.OrderBookUsecase {
+) *orderbookUseCaseImpl {
 	return &orderbookUseCaseImpl{
 		orderbookRepository: orderbookRepository,
 		orderBookClient:     orderBookClient,
