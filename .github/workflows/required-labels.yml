@@ -5,9 +5,6 @@ on:
     types: [opened, labeled, unlabeled, synchronize]
     branches:
       - "v25.x"
-  push:
-    branches:
-      - "**"
 
 jobs:
   backport_labels:
@@ -32,3 +29,8 @@ jobs:
           mode: exactly
           count: 1
           labels: "A:backport/v26.x"
+    
+      - name: Fail if label is missing
+        if: failure()
+        run: exit 1
+
