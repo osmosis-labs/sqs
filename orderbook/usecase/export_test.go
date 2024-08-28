@@ -5,7 +5,7 @@ import (
 )
 
 // OrderBookEntry is an alias of orderBookEntry for testing purposes
-func (o *orderbookUseCaseImpl) CreateFormattedLimitOrder(
+func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(
 	poolID uint64,
 	order orderbookdomain.Order,
 	quoteAsset orderbookdomain.Asset,

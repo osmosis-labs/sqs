@@ -21,7 +21,7 @@ import (
 	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
 )
 
-type orderbookUseCaseImpl struct {
+type OrderbookUseCaseImpl struct {
 	orderbookRepository orderbookdomain.OrderBookRepository
 	orderBookClient     orderbookgrpcclientdomain.OrderBookClient
 	poolsUsecease       mvc.PoolsUsecase
@@ -29,7 +29,7 @@ type orderbookUseCaseImpl struct {
 	logger              log.Logger
 }
 
-var _ mvc.OrderBookUsecase = &orderbookUseCaseImpl{}
+var _ mvc.OrderBookUsecase = &OrderbookUseCaseImpl{}
 
 const (
 	// Max number of ticks to query at a time
@@ -45,8 +45,8 @@ func New(
 	poolsUsecease mvc.PoolsUsecase,
 	tokensUsecease mvc.TokensUsecase,
 	logger log.Logger,
-) *orderbookUseCaseImpl {
-	return &orderbookUseCaseImpl{
+) *OrderbookUseCaseImpl {
+	return &OrderbookUseCaseImpl{
 		orderbookRepository: orderbookRepository,
 		orderBookClient:     orderBookClient,
 		poolsUsecease:       poolsUsecease,
@@ -56,12 +56,16 @@ func New(
 }
 
 // GetTicks implements mvc.OrderBookUsecase.
-func (o *orderbookUseCaseImpl) GetAllTicks(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
+func (o *OrderbookUseCaseImpl) GetAllTicks(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
 	return o.orderbookRepository.GetAllTicks(poolID)
 }
 
 // StoreTicks implements mvc.OrderBookUsecase.
-func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.PoolI) error {
+func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.PoolI) error {
+	if pool == nil {
+		return fmt.Errorf("pool is nil when processing order book")
+	}
+
 	cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
 	if cosmWasmPoolModel == nil {
 		return fmt.Errorf("cw pool model is nil when processing order book")
@@ -90,13 +94,13 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 	}
 
 	// Fetch tick states
-	tickStates, err := o.fetchTicksForOrderbook(ctx, cwModel.ContractAddress, tickIDs)
+	tickStates, err := o.orderBookClient.FetchTicks(ctx, maxQueryTicks, cwModel.ContractAddress, tickIDs)
 	if err != nil {
 		return fmt.Errorf("failed to fetch ticks for pool %s: %w", cwModel.ContractAddress, err)
 	}
 
 	// Fetch unrealized cancels
-	unrealizedCancels, err := o.fetchTickUnrealizedCancels(ctx, cwModel.ContractAddress, tickIDs)
+	unrealizedCancels, err := o.orderBookClient.FetchTickUnrealizedCancels(ctx, maxQueryTicksCancels, cwModel.ContractAddress, tickIDs)
 	if err != nil {
 		return fmt.Errorf("failed to fetch unrealized cancels for pool %s: %w", cwModel.ContractAddress, err)
 	}
@@ -130,7 +134,7 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 }
 
 // GetActiveOrders implements mvc.OrderBookUsecase.
-func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
+func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
 	orderbooks, err := o.poolsUsecease.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get all canonical orderbook pool IDs: %w", err)
@@ -193,7 +197,7 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 //
 // For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
 // This is a best-effort process.
-func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
 	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderBook.ContractAddress, ownerAddress)
 	if err != nil {
 		return nil, false, err
@@ -252,7 +256,7 @@ func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 }
 
 // createFormattedLimitOrder creates a limit order from the orderbook order.
-func (o *orderbookUseCaseImpl) createFormattedLimitOrder(
+func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 	poolID uint64,
 	order orderbookdomain.Order,
 	quoteAsset orderbookdomain.Asset,
@@ -391,66 +395,4 @@ func (o *orderbookUseCaseImpl) createFormattedLimitOrder(
 		BaseAsset:        baseAsset,
 		PlacedAt:         placedAt,
 	}, nil
-}
-
-// fetchTicksForOrderbook fetches the ticks for a given tick ID and contract address.
-// It returns the ticks and an error if any.
-// Errors if:
-// - failed to fetch ticks
-// - mismatch in number of ticks fetched
-func (o *orderbookUseCaseImpl) fetchTicksForOrderbook(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
-	finalTickStates := make([]orderbookdomain.Tick, 0, len(tickIDs))
-
-	for i := 0; i < len(tickIDs); i += maxQueryTicks {
-		end := i + maxQueryTicks
-		if end > len(tickIDs) {
-			end = len(tickIDs)
-		}
-
-		currentTickIDs := tickIDs[i:end]
-
-		tickStates, err := o.orderBookClient.QueryTicks(ctx, contractAddress, currentTickIDs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch ticks for pool %s: %w", contractAddress, err)
-		}
-
-		finalTickStates = append(finalTickStates, tickStates...)
-	}
-
-	if len(finalTickStates) != len(tickIDs) {
-		return nil, fmt.Errorf("mismatch in number of ticks fetched: expected %d, got %d", len(tickIDs), len(finalTickStates))
-	}
-
-	return finalTickStates, nil
-}
-
-// fetchTickUnrealizedCancels fetches the unrealized cancels for a given tick ID and contract address.
-// It returns the unrealized cancels and an error if any.
-// Errors if:
-// - failed to fetch unrealized cancels
-// - mismatch in number of unrealized cancels fetched
-func (o *orderbookUseCaseImpl) fetchTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error) {
-	allUnrealizedCancels := make([]orderbookgrpcclientdomain.UnrealizedTickCancels, 0, len(tickIDs))
-
-	for i := 0; i < len(tickIDs); i += maxQueryTicksCancels {
-		end := i + maxQueryTicksCancels
-		if end > len(tickIDs) {
-			end = len(tickIDs)
-		}
-
-		currentTickIDs := tickIDs[i:end]
-
-		unrealizedCancels, err := o.orderBookClient.GetTickUnrealizedCancels(ctx, contractAddress, currentTickIDs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch unrealized cancels for ticks %v: %w", currentTickIDs, err)
-		}
-
-		allUnrealizedCancels = append(allUnrealizedCancels, unrealizedCancels...)
-	}
-
-	if len(allUnrealizedCancels) != len(tickIDs) {
-		return nil, fmt.Errorf("mismatch in number of unrealized cancels fetched: expected %d, got %d", len(tickIDs), len(allUnrealizedCancels))
-	}
-
-	return allUnrealizedCancels, nil
 }
