@@ -103,7 +103,7 @@ func main() {
 		}()
 	}
 
-	chainClient, err := client.NewClient(config.ChainID, config.ChainTendermingRPCEndpoint)
+	chainClient, err := client.NewClient(config.ChainID, config.ChainTendermintRPCEndpoint)
 	if err != nil {
 		panic(err)
 	}
