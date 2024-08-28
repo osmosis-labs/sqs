@@ -43,24 +43,24 @@ var (
 	}
 
 	validGammShareDenom  = formatValidGammShare(validGammSharePoolID)
-	validGammShareAmount = sdk.NewInt(3_000_000)
+	validGammShareAmount = osmomath.NewInt(3_000_000)
 
 	nonShareDefaultBalances = sdk.NewCoins(
-		sdk.NewCoin(UOSMO, sdk.NewInt(1_000_000)),
-		sdk.NewCoin(ATOM, sdk.NewInt(2_000_000)),
+		sdk.NewCoin(UOSMO, osmomath.NewInt(1_000_000)),
+		sdk.NewCoin(ATOM, osmomath.NewInt(2_000_000)),
 	)
 
 	defaultGammShareCoin = sdk.NewCoin(validGammShareDenom, validGammShareAmount)
 	defaultBalances      = nonShareDefaultBalances.Add(defaultGammShareCoin)
 
 	defaultExitPoolCoins = sdk.NewCoins(
-		sdk.NewCoin(WBTC, sdk.NewInt(1_000_000)),
-		sdk.NewCoin(ETH, sdk.NewInt(500_000)),
+		sdk.NewCoin(WBTC, osmomath.NewInt(1_000_000)),
+		sdk.NewCoin(ETH, osmomath.NewInt(500_000)),
 	)
 
-	defaultConcentratedCoin = sdk.NewCoin(USDC, sdk.NewInt(1_000_000))
+	defaultConcentratedCoin = sdk.NewCoin(USDC, osmomath.NewInt(1_000_000))
 
-	defaultConcentratedShareCoin = sdk.NewCoin(usecase.ConcentratedSharePrefix+"/pool", sdk.NewInt(1_000_000))
+	defaultConcentratedShareCoin = sdk.NewCoin(usecase.ConcentratedSharePrefix+"/pool", osmomath.NewInt(1_000_000))
 
 	emptyCoins = sdk.Coins{}
 
@@ -82,7 +82,7 @@ var (
 		},
 	}
 
-	defaultAmount = sdk.NewInt(1_000_000)
+	defaultAmount = osmomath.NewInt(1_000_000)
 
 	osmoCoin = sdk.NewCoin(UOSMO, defaultAmount)
 	atomCoin = sdk.NewCoin(ATOM, defaultAmount.MulRaw(2))

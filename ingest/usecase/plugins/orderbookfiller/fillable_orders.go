@@ -8,7 +8,7 @@ import (
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
 	"go.uber.org/zap"
 
-	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
+	clmath "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/math"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"

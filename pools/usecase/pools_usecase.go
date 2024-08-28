@@ -32,9 +32,9 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v25/x/gamm/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v26/x/gamm/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 
 	errorsmod "cosmossdk.io/errors"
 )

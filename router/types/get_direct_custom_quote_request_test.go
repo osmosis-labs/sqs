@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/types"
 
@@ -32,9 +33,9 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 				"applyExponents": "true",
 			},
 			expectedResult: &types.GetDirectCustomQuoteRequest{
-				TokenIn:        &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenIn:        &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
 				TokenOutDenom:  []string{"usdc", "ion"},
-				TokenOut:       &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOut:       &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom:   []string{"atom", "uosmo"},
 				PoolID:         []uint64{1, 23},
 				ApplyExponents: true,
@@ -117,7 +118,7 @@ func TestGetDirectCustomQuoteRequestSwapMethod(t *testing.T) {
 		{
 			name: "valid exact in swap method",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
 				TokenOutDenom: []string{"usdc"},
 				PoolID:        []uint64{1},
 			},
@@ -126,7 +127,7 @@ func TestGetDirectCustomQuoteRequestSwapMethod(t *testing.T) {
 		{
 			name: "valid exact out swap method",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom: []string{"ust"},
 				PoolID:       []uint64{1},
 			},
@@ -135,8 +136,8 @@ func TestGetDirectCustomQuoteRequestSwapMethod(t *testing.T) {
 		{
 			name: "invalid swap method with both tokenIn and tokenOut",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
-				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
+				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom:  []string{"ust"},
 				TokenOutDenom: []string{"usdc"},
 				PoolID:        []uint64{1},
@@ -146,14 +147,14 @@ func TestGetDirectCustomQuoteRequestSwapMethod(t *testing.T) {
 		{
 			name: "invalid swap method with only tokenIn",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenIn: &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenIn: &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
 			},
 			expectedMethod: domain.TokenSwapMethodInvalid,
 		},
 		{
 			name: "invalid swap method with only tokenOut",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenOut: &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOut: &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 			},
 			expectedMethod: domain.TokenSwapMethodInvalid,
 		},
@@ -182,7 +183,7 @@ func TestGetDirectCustomQuoteRequestValidate(t *testing.T) {
 		{
 			name: "valid exact in request",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
 				TokenOutDenom: []string{"usdc"},
 				PoolID:        []uint64{1},
 			},
@@ -191,7 +192,7 @@ func TestGetDirectCustomQuoteRequestValidate(t *testing.T) {
 		{
 			name: "exact in request pool id and token out denom mismatch",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
 				TokenOutDenom: []string{"usdc", "usdt", "uusd"},
 				PoolID:        []uint64{1, 2},
 			},
@@ -200,7 +201,7 @@ func TestGetDirectCustomQuoteRequestValidate(t *testing.T) {
 		{
 			name: "valid exact out request",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom: []string{"ust"},
 				PoolID:       []uint64{1},
 			},
@@ -209,7 +210,7 @@ func TestGetDirectCustomQuoteRequestValidate(t *testing.T) {
 		{
 			name: "exact out request pool id and token in denom mismatch",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenOut:     &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom: []string{"usdc", "usdt", "uusd"},
 				PoolID:       []uint64{1},
 			},
@@ -218,8 +219,8 @@ func TestGetDirectCustomQuoteRequestValidate(t *testing.T) {
 		{
 			name: "invalid request: contains both tokenIn and tokenOut",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "ust", Amount: sdk.NewInt(1000)},
-				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
+				TokenOut:      &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenInDenom:  []string{"ust"},
 				TokenOutDenom: []string{"usdc"},
 			},
@@ -228,7 +229,7 @@ func TestGetDirectCustomQuoteRequestValidate(t *testing.T) {
 		{
 			name: "invalid exact in request with invalid denoms",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenIn:       &sdk.Coin{Denom: "usdc", Amount: sdk.NewInt(1000)},
+				TokenIn:       &sdk.Coin{Denom: "usdc", Amount: osmomath.NewInt(1000)},
 				TokenOutDenom: []string{"usdc"},
 				PoolID:        []uint64{1},
 			},
@@ -240,7 +241,7 @@ func TestGetDirectCustomQuoteRequestValidate(t *testing.T) {
 		{
 			name: "invalid exact out request with invalid denoms",
 			request: &types.GetDirectCustomQuoteRequest{
-				TokenOut:     &sdk.Coin{Denom: "usdt", Amount: sdk.NewInt(1000)},
+				TokenOut:     &sdk.Coin{Denom: "usdt", Amount: osmomath.NewInt(1000)},
 				TokenInDenom: []string{"usdt"},
 				PoolID:       []uint64{1},
 			},

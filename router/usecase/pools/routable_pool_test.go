@@ -14,9 +14,9 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
-	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v26/app/apptesting"
+	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 )
 
 type RoutablePoolTestSuite struct {
@@ -75,12 +75,12 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 		expectError      error
 	}{
 		"balancer pool - valid calculation": {
-			tokenIn:       sdk.NewCoin("foo", sdk.NewInt(100)),
+			tokenIn:       sdk.NewCoin("foo", osmomath.NewInt(100)),
 			tokenOutDenom: "bar",
 			poolType:      poolmanagertypes.Balancer,
 		},
 		"stableswap pool - valid calculation": {
-			tokenIn:       sdk.NewCoin("foo", sdk.NewInt(100)),
+			tokenIn:       sdk.NewCoin("foo", osmomath.NewInt(100)),
 			tokenOutDenom: "bar",
 			poolType:      poolmanagertypes.Stableswap,
 		},

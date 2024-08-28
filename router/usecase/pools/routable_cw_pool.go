@@ -11,10 +11,10 @@ import (
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/cosmwasm/msg"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v25/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/cosmwasm/msg"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v26/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 )
 
 const (

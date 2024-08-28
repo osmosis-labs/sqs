@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
@@ -18,7 +18,7 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 
-	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
+	clmath "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/math"
 )
 
 type orderbookUseCaseImpl struct {

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	math "github.com/osmosis-labs/osmosis/osmomath"
 )
 
 func baseFloatCoinsMap() *FloatCoinsMap {
@@ -55,9 +56,9 @@ func TestFloatCoinsMap_ToSdkCoins(t *testing.T) {
 			name:     "Round down",
 			coinsMap: baseFloatCoinsMap(),
 			expectedCoins: []sdk.Coin{
-				{Denom: "BTC", Amount: sdk.NewInt(1)},
-				{Denom: "ETH", Amount: sdk.NewInt(2)},
-				{Denom: "SOL", Amount: sdk.NewInt(3)},
+				{Denom: "BTC", Amount: math.NewInt(1)},
+				{Denom: "ETH", Amount: math.NewInt(2)},
+				{Denom: "SOL", Amount: math.NewInt(3)},
 			},
 			rounding: RoundDown,
 		},
@@ -65,10 +66,10 @@ func TestFloatCoinsMap_ToSdkCoins(t *testing.T) {
 			name:     "Round up",
 			coinsMap: baseFloatCoinsMap(),
 			expectedCoins: []sdk.Coin{
-				{Denom: "BTC", Amount: sdk.NewInt(2)},
-				{Denom: "ETH", Amount: sdk.NewInt(3)},
-				{Denom: "SOL", Amount: sdk.NewInt(3)},
-				{Denom: "XRP", Amount: sdk.NewInt(1)},
+				{Denom: "BTC", Amount: math.NewInt(2)},
+				{Denom: "ETH", Amount: math.NewInt(3)},
+				{Denom: "SOL", Amount: math.NewInt(3)},
+				{Denom: "XRP", Amount: math.NewInt(1)},
 			},
 			rounding: RoundUp,
 		}}

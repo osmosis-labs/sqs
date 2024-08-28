@@ -354,7 +354,7 @@ func (a *RouterHandler) getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom st
 	if err != nil {
 		// Note that we do not fail the quote if scaling factor fetching fails.
 		// Instead, we simply set it to zero to validate future calculations downstream.
-		scalingFactor = sdk.ZeroDec()
+		scalingFactor = osmomath.ZeroDec()
 	}
 
 	return scalingFactor

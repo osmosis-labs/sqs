@@ -5,7 +5,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
@@ -32,7 +32,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 			},
 		},
 	}
-	alloyTransmuterBalances := types.NewCoins(types.NewCoin("nbtc", types.NewInt(100000000)))
+	alloyTransmuterBalances := types.NewCoins(types.NewCoin("nbtc", osmomath.NewInt(100000000)))
 	alloyTransmuterSpreadFactor := osmomath.NewDec(0)
 	alloyTransmuterTakerFee := osmomath.NewDecWithPrec(1, 2)
 
@@ -55,7 +55,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 			},
 		},
 	}
-	orderbookBalances := types.NewCoins(types.NewCoin("base", types.NewInt(100000000)))
+	orderbookBalances := types.NewCoins(types.NewCoin("base", osmomath.NewInt(100000000)))
 	orderbookSpreadFactor := osmomath.NewDecWithPrec(1, 2)
 	orderbookTakerFee := osmomath.NewDecWithPrec(2, 2)
 

@@ -8,8 +8,9 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distribution "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
-	concentratedLiquidity "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/client/queryproto"
-	lockup "github.com/osmosis-labs/osmosis/v25/x/lockup/types"
+	math "github.com/osmosis-labs/osmosis/osmomath"
+	concentratedLiquidity "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/client/queryproto"
+	lockup "github.com/osmosis-labs/osmosis/v26/x/lockup/types"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -64,7 +65,7 @@ const (
 )
 
 var (
-	zero = sdk.ZeroInt()
+	zero = math.ZeroInt()
 )
 
 func NewPassthroughGRPCClient(grpcURI string) (PassthroughGRPCClient, error) {

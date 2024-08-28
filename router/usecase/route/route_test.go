@@ -15,8 +15,8 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v25/x/gamm/pool-models/balancer"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v26/x/gamm/pool-models/balancer"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 )
 
 type RouterTestSuite struct {
@@ -94,8 +94,8 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 	)
 
 	balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoins(
-		sdk.NewCoin(DenomOne, sdk.NewInt(2_000_000_000)),
-		sdk.NewCoin(DenomTwo, sdk.NewInt(1_000_000_000)),
+		sdk.NewCoin(DenomOne, osmomath.NewInt(2_000_000_000)),
+		sdk.NewCoin(DenomTwo, osmomath.NewInt(1_000_000_000)),
 	)...)
 
 	pool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
