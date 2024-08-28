@@ -27,6 +27,13 @@ jobs:
           mode: exactly
           count: 1
           labels: "A:backport/v26.x"
+      
+      - name: Debug changed files
+        run: |
+          echo "Any changed: ${{ steps.changed-files.outputs.any_changed }}"
+          echo "Any deleted: ${{ steps.changed-files.outputs.any_deleted }}"
+          echo "Any modified: ${{ steps.changed-files.outputs.any_modified }}"
+          echo "All changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
     
       - name: Fail if label is missing
         if: failure()
