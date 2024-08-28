@@ -1,0 +1,31 @@
+name: required labels
+
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize]
+    branches:
+      - "v25.x"
+
+jobs:
+  backport_labels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41.0.0
+
+      - name: Check required labels
+        # Skip this step and return success result for markdown only changes
+        if: |
+          steps.changed-files.outputs.any_changed == 'true' ||
+          steps.changed-files.outputs.any_deleted == 'true' ||
+          steps.changed-files.outputs.any_modified == 'true'
+        uses: mheap/github-action-required-labels@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}
+        with: #Require one of the following labels
+          mode: exactly
+          count: 1
+          labels: "A:backport/v26.x"
