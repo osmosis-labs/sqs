@@ -5,6 +5,9 @@ on:
     types: [opened, labeled, unlabeled, synchronize]
     branches:
       - "v25.x"
+  push:
+    branches:
+      - "**"
 
 jobs:
   backport_labels:
