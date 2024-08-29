@@ -15,6 +15,7 @@ from constants import *
 from chain_service import ChainService
 from util import *
 from decimal import *
+from asset_list_service import AssetListService
 
 
 
@@ -31,10 +32,23 @@ def parse_api_key():
 
 api_key = parse_api_key()
 
+def parse_coingecko_api_key():
+    """
+    Parse the COINGECKO_API_KEY environment variable and return it
+
+    If the environment variable is not set, the default API key is ""
+    """
+    coingecko_api_key = os.getenv('COINGECKO_API_KEY', None)
+    
+    return coingecko_api_key
+
+coingecko_api_key = parse_coingecko_api_key()
+
 SERVICE_SQS_STAGE = SQSService(SQS_STAGE, api_key)
 SERVICE_SQS_PROD = SQSService(SQS_PROD, api_key)
 SERVICE_SQS_LOCAL = SQSService(SQS_LOCAL, api_key)
-SERVICE_COINGECKO = CoingeckoService()
+SERVICE_COINGECKO = CoingeckoService(coingecko_api_key)
+SERVICE_ASSET_LIST = AssetListService()
 
 STAGE_INPUT_NAME = "stage"
 PROD_INPUT_NAME = "prod"
@@ -556,6 +570,11 @@ def pytest_sessionstart(session):
     See tests/README.md for details.
     """
     print("Session is starting. Worker ID:", getattr(session.config, 'workerinput', {}).get('workerid', 'master'))
+
+    if conftest.SERVICE_COINGECKO.isServiceAvailable():
+        print("Using Coingecko to calculate pool liquidity capitalization")
+    else:
+        print("Using Numia to calculate pool liquidity capitalization")
 
     global shared_test_state
 
