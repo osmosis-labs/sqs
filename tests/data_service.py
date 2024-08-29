@@ -33,6 +33,28 @@ def get_token_cap(denom, amount_str):
         return None
     return Decimal(amount_str) * Decimal(token_price) 
 
+# Helper function to update the pool liquidity cap using Coingecko
+# abort the update if any token cap is not available
+def update_pool_liquidity_cap(pool):
+    try:
+        total_pool_cap = Decimal(0)
+        all_token_cap_captured = True # flag to check if all token cap is captured, if not, no update will be made
+        tokens = pool.get('pool_tokens', []) 
+        if not isinstance(tokens, list): # tokens from numia can be a dict or a list
+            tokens = tokens.values()
+        for token in tokens:
+            denom = token.get('denom')
+            token_cap = get_token_cap(denom, token['amount'])
+            if token_cap is None:
+                all_token_cap_captured = False
+                break
+            total_pool_cap += token_cap
+        if all_token_cap_captured:
+            pool.update({'liquidity': float(total_pool_cap)})
+    except Exception as e:
+        print(f"warning: error processing pool data (pool id {pool.get('pool_id')}) using Coingecko: {e}. fallback to numia data")
+        return
+
 def fetch_pools():
     """Fetches all pools by iterating through paginated results."""
     url = NUMIA_API_URL + POOLS_ENDPOINT
@@ -54,24 +76,7 @@ def fetch_pools():
                 # Iterate through the pools and update the **existing** pool liquidity cap data with a more accurate value from Coingecko
                 for pool in pools:
                     for pool in pools:
-                        try:
-                            total_pool_cap = Decimal(0)
-                            all_token_cap_captured = True # flag to check if all token cap is captured, if not, no update will be made
-                            tokens = pool.get('pool_tokens', []) 
-                            if not isinstance(tokens, list): # tokens from numia can be a dict or a list
-                                tokens = tokens.values()
-                            for token in tokens:
-                                denom = token.get('denom')
-                                token_cap = get_token_cap(denom, token['amount'])
-                                if token_cap is None:
-                                    all_token_cap_captured = False
-                                    break
-                                total_pool_cap += token_cap
-                            if all_token_cap_captured:
-                                pool.update({'liquidity': float(total_pool_cap)})
-                        except Exception as e:
-                            print(f"warning: error processing pool data (pool id {pool.get('pool_id')}) using Coingecko: {e}. fallback to numia data")
-                            continue
+                        update_pool_liquidity_cap(pool)
 
             # Add this batch to the accumulated pool data
             all_pools.extend(pools)
