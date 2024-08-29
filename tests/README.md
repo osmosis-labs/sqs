@@ -107,6 +107,7 @@ There are 3 possible triggers:
 Our `pytest` parses the following environment variables in `conftest.py`
 
 - `SQS_API_KEY` -> API Key to bypass rate limit. If not provided, the tests will run without API key set.
+- `COINGECKO_API_KEY` -> API key to Coingecko pricing service. If specified, token price will be fetched from Coingecko when calculating pool liquidity capitalization value during test executions
 - `SQS_ENVIRONMENTS` -> Comma separated list of environment names per "Supported Environments" to run the tests against. If not provided, the tests will run against stage.
 
 ## Geo-Distributed Synthetic Monitoring
