@@ -12,8 +12,8 @@ import (
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
 
-	"github.com/osmosis-labs/sqs/domain"
 	cltypes "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
@@ -222,73 +222,73 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 }
 
 func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
-    testCases := []struct {
-        name          string
-		setupContext  func() context.Context
-        setupMocks    func(usecase *orderbookusecase.OrderbookUseCaseImpl, poolsUsecase *mocks.PoolsUsecaseMock)
-        expectedError string
-        expectedOrders []orderbookdomain.LimitOrder
-        expectedIsBestEffort bool
-    }{
-        {
-            name: "failed to get all canonical orderbook pool IDs",
-			setupContext:  func() context.Context {
+	testCases := []struct {
+		name                 string
+		setupContext         func() context.Context
+		setupMocks           func(usecase *orderbookusecase.OrderbookUseCaseImpl, poolsUsecase *mocks.PoolsUsecaseMock)
+		expectedError        string
+		expectedOrders       []orderbookdomain.LimitOrder
+		expectedIsBestEffort bool
+	}{
+		{
+			name: "failed to get all canonical orderbook pool IDs",
+			setupContext: func() context.Context {
 				return context.Background()
 			},
-            setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, poolsUsecase *mocks.PoolsUsecaseMock) {
-                poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
-                    return nil, assert.AnError
-                }
-            },
-            expectedError: "failed to get all canonical orderbook pool IDs",
-        },
-        {
-			setupContext:  func() context.Context {
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, poolsUsecase *mocks.PoolsUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+					return nil, assert.AnError
+				}
+			},
+			expectedError: "failed to get all canonical orderbook pool IDs",
+		},
+		{
+			setupContext: func() context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				return ctx
 			},
-            name: "context is done before processing all orderbooks",
-            setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, poolsUsecase *mocks.PoolsUsecaseMock) {
-                poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
-                    return []domain.CanonicalOrderBooksResult{
-                        {PoolID: 1},
-                    }, nil
-                }
-            },
-            expectedError: context.Canceled.Error(),
-        },
-    }
+			name: "context is done before processing all orderbooks",
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, poolsUsecase *mocks.PoolsUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+					return []domain.CanonicalOrderBooksResult{
+						{PoolID: 1},
+					}, nil
+				}
+			},
+			expectedError: context.Canceled.Error(),
+		},
+	}
 
-    for _, tc := range testCases {
-        s.Run(tc.name, func() {
-            // Create instances of the mocks
-            poolsUsecase := mocks.PoolsUsecaseMock{}
-            orderbookRepo := mocks.OrderbookRepositoryMock{}
-            client := mocks.OrderbookGRPCClientMock{}
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// Create instances of the mocks
+			poolsUsecase := mocks.PoolsUsecaseMock{}
+			orderbookRepo := mocks.OrderbookRepositoryMock{}
+			client := mocks.OrderbookGRPCClientMock{}
 
-            // Setup the mocks according to the test case
-            usecase := orderbookusecase.New(&orderbookRepo, &client, &poolsUsecase, nil, nil)
-            if tc.setupMocks != nil {
-                tc.setupMocks(usecase, &poolsUsecase)
-            }
+			// Setup the mocks according to the test case
+			usecase := orderbookusecase.New(&orderbookRepo, &client, &poolsUsecase, nil, nil)
+			if tc.setupMocks != nil {
+				tc.setupMocks(usecase, &poolsUsecase)
+			}
 
 			ctx := tc.setupContext()
 
-            // Call the method under test
-            orders, isBestEffort, err := usecase.GetActiveOrders(ctx, "address")
+			// Call the method under test
+			orders, isBestEffort, err := usecase.GetActiveOrders(ctx, "address")
 
-            // Assert the results
-            if tc.expectedError != "" {
-                s.Assert().Error(err)
-                s.Assert().Contains(err.Error(), tc.expectedError)
-            } else {
-                s.Assert().NoError(err)
-                s.Assert().Equal(tc.expectedOrders, orders)
-                s.Assert().Equal(tc.expectedIsBestEffort, isBestEffort)
-            }
-        })
-    }
+			// Assert the results
+			if tc.expectedError != "" {
+				s.Assert().Error(err)
+				s.Assert().Contains(err.Error(), tc.expectedError)
+			} else {
+				s.Assert().NoError(err)
+				s.Assert().Equal(tc.expectedOrders, orders)
+				s.Assert().Equal(tc.expectedIsBestEffort, isBestEffort)
+			}
+		})
+	}
 }
 func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 	getTickByIDFunc := func(effectiveTotalAmountSwapped string, unrealizedCancels int64, direction string) func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {

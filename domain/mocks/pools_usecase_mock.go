@@ -19,17 +19,16 @@ import (
 var _ mvc.PoolsUsecase = &PoolsUsecaseMock{}
 
 type PoolsUsecaseMock struct {
-	GetAllPoolsFunc             func() ([]sqsdomain.PoolI, error)
-	GetPoolsFunc                func(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error)
-	StorePoolsFunc              func(pools []sqsdomain.PoolI) error
-	GetRoutesFromCandidatesFunc func(candidateRoutes sqsdomain.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error)
-	GetTickModelMapFunc         func(poolIDs []uint64) (map[uint64]*sqsdomain.TickModel, error)
-	GetPoolFunc                 func(poolID uint64) (sqsdomain.PoolI, error)
-	GetPoolSpotPriceFunc        func(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
-	GetCosmWasmPoolConfigFunc   func() domain.CosmWasmPoolRouterConfig
-	CalcExitCFMMPoolFunc        func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)
+	GetAllPoolsFunc                     func() ([]sqsdomain.PoolI, error)
+	GetPoolsFunc                        func(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error)
+	StorePoolsFunc                      func(pools []sqsdomain.PoolI) error
+	GetRoutesFromCandidatesFunc         func(candidateRoutes sqsdomain.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error)
+	GetTickModelMapFunc                 func(poolIDs []uint64) (map[uint64]*sqsdomain.TickModel, error)
+	GetPoolFunc                         func(poolID uint64) (sqsdomain.PoolI, error)
+	GetPoolSpotPriceFunc                func(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
+	GetCosmWasmPoolConfigFunc           func() domain.CosmWasmPoolRouterConfig
+	CalcExitCFMMPoolFunc                func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)
 	GetAllCanonicalOrderbookPoolIDsFunc func() ([]domain.CanonicalOrderBooksResult, error)
-
 
 	Pools        []sqsdomain.PoolI
 	TickModelMap map[uint64]*sqsdomain.TickModel
