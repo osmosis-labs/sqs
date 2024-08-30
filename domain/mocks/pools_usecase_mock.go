@@ -28,6 +28,8 @@ type PoolsUsecaseMock struct {
 	GetPoolSpotPriceFunc        func(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 	GetCosmWasmPoolConfigFunc   func() domain.CosmWasmPoolRouterConfig
 	CalcExitCFMMPoolFunc        func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)
+	GetAllCanonicalOrderbookPoolIDsFunc func() ([]domain.CanonicalOrderBooksResult, error)
+
 
 	Pools        []sqsdomain.PoolI
 	TickModelMap map[uint64]*sqsdomain.TickModel
@@ -40,6 +42,9 @@ func (pm *PoolsUsecaseMock) IsCanonicalOrderbookPool(poolID uint64) bool {
 
 // GetAllCanonicalOrderbookPoolIDs implements mvc.PoolsUsecase.
 func (pm *PoolsUsecaseMock) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error) {
+	if pm.GetAllCanonicalOrderbookPoolIDsFunc != nil {
+		return pm.GetAllCanonicalOrderbookPoolIDsFunc()
+	}
 	panic("unimplemented")
 }
 

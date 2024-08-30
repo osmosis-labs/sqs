@@ -27,6 +27,8 @@ type OrderbookUseCaseImpl struct {
 	poolsUsecease       mvc.PoolsUsecase
 	tokensUsecease      mvc.TokensUsecase
 	logger              log.Logger
+
+	processOrderBookActiveOrdersFunc func(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error)
 }
 
 var _ mvc.OrderBookUsecase = &OrderbookUseCaseImpl{}
@@ -46,13 +48,17 @@ func New(
 	tokensUsecease mvc.TokensUsecase,
 	logger log.Logger,
 ) *OrderbookUseCaseImpl {
-	return &OrderbookUseCaseImpl{
+	res := OrderbookUseCaseImpl{
 		orderbookRepository: orderbookRepository,
 		orderBookClient:     orderBookClient,
 		poolsUsecease:       poolsUsecease,
 		tokensUsecease:      tokensUsecease,
 		logger:              logger,
 	}
+
+	res.processOrderBookActiveOrdersFunc = res.processOrderBookActiveOrders
+
+	return &res
 }
 
 // GetTicks implements mvc.OrderBookUsecase.
@@ -148,12 +154,11 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	}
 
 	results := make(chan orderbookResult, len(orderbooks))
-	defer close(results)
 
 	// Process orderbooks concurrently
 	for _, orderbook := range orderbooks {
 		go func(orderbook domain.CanonicalOrderBooksResult) {
-			limitOrders, isBestEffort, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
+			limitOrders, isBestEffort, err := o.processOrderBookActiveOrdersFunc(ctx, orderbook, address)
 
 			results <- orderbookResult{
 				isBestEffort: isBestEffort,
