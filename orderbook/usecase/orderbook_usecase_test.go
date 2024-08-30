@@ -18,7 +18,6 @@ import (
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
@@ -33,6 +32,43 @@ func TestOrderbookUsecaseTestSuite(t *testing.T) {
 }
 
 func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
+	withContractInfo := func(pool *mocks.MockRoutablePool) *mocks.MockRoutablePool {
+		pool.CosmWasmPoolModel.ContractInfo = cosmwasmpool.ContractInfo{
+			Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+			Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+		}
+		return pool
+	}
+
+	withTicks := func(pool *mocks.MockRoutablePool, ticks []cosmwasmpool.OrderbookTick) *mocks.MockRoutablePool {
+		pool.CosmWasmPoolModel.Data = cosmwasmpool.CosmWasmPoolData{
+			Orderbook: &cosmwasmpool.OrderbookData{
+				Ticks: ticks,
+			},
+		}
+
+		return pool
+	}
+
+	withChainModel := func(pool *mocks.MockRoutablePool, chainPoolModel poolmanagertypes.PoolI) *mocks.MockRoutablePool {
+		pool.ChainPoolModel = chainPoolModel
+		return pool
+	}
+
+	pool := func() *mocks.MockRoutablePool {
+		return &mocks.MockRoutablePool{
+			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{},
+		}
+	}
+
+	poolWithTicks := func() *mocks.MockRoutablePool {
+		return withTicks(withContractInfo(pool()), []cosmwasmpool.OrderbookTick{{TickId: 1}})
+	}
+
+	poolWithChainModel := func() *mocks.MockRoutablePool {
+		return withChainModel(poolWithTicks(), &cwpoolmodel.CosmWasmPool{})
+	}
+
 	testCases := []struct {
 		name          string
 		pool          sqsdomain.PoolI
@@ -60,63 +96,21 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 			expectedError: "pool is not an orderbook pool 1",
 		},
 		{
-			name: "orderbook pool has no ticks, nothing to process",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{},
-						},
-					},
-				},
-			},
+			name:          "orderbook pool has no ticks, nothing to process",
+			pool:          withTicks(withContractInfo(pool()), []cosmwasmpool.OrderbookTick{}),
 			expectedError: "",
 		},
 		{
 			name: "failed to cast pool model to CosmWasmPool",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &mocks.ChainPoolMock{
-					ID:   1,
-					Type: poolmanagertypes.Balancer,
-				},
-			},
+			pool: withChainModel(poolWithTicks(), &mocks.ChainPoolMock{
+				ID:   1,
+				Type: poolmanagertypes.Balancer,
+			}),
 			expectedError: "failed to cast pool model to CosmWasmPool",
 		},
 		{
 			name: "failed to fetch ticks for pool",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTicksCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 					return nil, assert.AnError
@@ -126,22 +120,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		},
 		{
 			name: "failed to fetch unrealized cancels for pool",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTickUnrealizedCancelsCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error) {
 					return nil, assert.AnError
@@ -151,22 +130,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		},
 		{
 			name: "tick ID mismatch when fetching unrealized ticks",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTicksCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 					return []orderbookdomain.Tick{
@@ -183,22 +147,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		},
 		{
 			name: "tick ID mismatch when fetching tick states",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTicksCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 					return []orderbookdomain.Tick{
@@ -215,23 +164,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		},
 		{
 			name: "successful pool processing",
-			pool: &mocks.MockRoutablePool{
-				ID: 1,
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTicksCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 					return []orderbookdomain.Tick{
@@ -357,8 +290,36 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
     }
 }
 func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
+	getTickByIDFunc := func(effectiveTotalAmountSwapped string, unrealizedCancels int64, direction string) func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
+		return func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
+			tickValues := orderbookdomain.TickValues{
+				EffectiveTotalAmountSwapped: effectiveTotalAmountSwapped,
+			}
+
+			tick := orderbookdomain.OrderbookTick{
+				TickState:         orderbookdomain.TickState{},
+				UnrealizedCancels: orderbookdomain.UnrealizedCancels{},
+			}
+
+			if direction == "bid" {
+				tick.TickState.BidValues = tickValues
+				if unrealizedCancels != 0 {
+					tick.UnrealizedCancels.BidUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
+				}
+			} else {
+				tick.TickState.AskValues = tickValues
+				if unrealizedCancels != 0 {
+					tick.UnrealizedCancels.AskUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
+				}
+			}
+
+			return tick, true
+		}
+	}
+
 	testCases := []struct {
 		name          string
+		poolID        uint64
 		order         orderbookdomain.Order
 		quoteAsset    orderbookdomain.Asset
 		baseAsset     orderbookdomain.Asset
@@ -374,11 +335,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			expectedError: "tick not found",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						Tick: &cosmwasmpool.OrderbookTick{
-							TickId: tickID,
-						},
-					}, false
+					return orderbookdomain.OrderbookTick{}, false
 				}
 			},
 		},
@@ -389,13 +346,20 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			},
 			expectedError: "error parsing quantity",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
-				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						Tick: &cosmwasmpool.OrderbookTick{
-							TickId: tickID,
-						},
-					}, true
-				}
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("6431", 935, "ask")
+			},
+		},
+		{
+			name: "overflow in quantity",
+			order: orderbookdomain.Order{
+				Quantity:       "9223372036854775808", // overflow value for int64
+				PlacedQuantity: "1500",
+				Etas:           "500",
+				ClaimBounty:    "10",
+			},
+			expectedError: "error parsing quantity",
+			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("500", 100, "bid")
 			},
 		},
 		{
@@ -406,30 +370,42 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			},
 			expectedError: "error parsing placed quantity",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
-				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						Tick: &cosmwasmpool.OrderbookTick{
-							TickId: tickID,
-						},
-					}, true
-				}
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("813", 1331, "bid")
+			},
+		},
+		{
+			name: "overflow in placed quantity",
+			order: orderbookdomain.Order{
+				Quantity:       "1000",
+				PlacedQuantity: "9223372036854775808", // overflow value for int64
+				Etas:           "500",
+				ClaimBounty:    "10",
+			},
+			expectedError: "error parsing placed quantity",
+			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("500", 100, "bid")
+			},
+		},
+		{
+			name: "placed quantity is zero",
+			order: orderbookdomain.Order{
+				Quantity:       "1000",
+				PlacedQuantity: "0", // division by zero
+			},
+			expectedError: "placed quantity is 0 or negative",
+			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("813", 1331, "bid")
 			},
 		},
 		{
 			name: "error getting spot price scaling factor",
 			order: orderbookdomain.Order{
-				Quantity:       "1000",
-				PlacedQuantity: "1500",
+				Quantity:       "931",
+				PlacedQuantity: "183",
 			},
 			expectedError: "error getting spot price scaling factor",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
-				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						Tick: &cosmwasmpool.OrderbookTick{
-							TickId: tickID,
-						},
-					}, true
-				}
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("130", 13, "ask")
 				tokensUsecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
 					return osmomath.Dec{}, assert.AnError // Simulate an error
 				}
@@ -438,44 +414,49 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 		{
 			name: "error parsing bid effective total amount swapped",
 			order: orderbookdomain.Order{
-				Quantity:       "1000",
-				PlacedQuantity: "1500",
+				Quantity:       "136",
+				PlacedQuantity: "131",
 				OrderDirection: "bid",
 			},
 			expectedError: "error parsing bid effective total amount swapped",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
-				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						TickState: orderbookdomain.TickState{
-							BidValues: orderbookdomain.TickValues{
-								EffectiveTotalAmountSwapped: "invalid", // Invalid value
-							},
-						},
-					}, true
-				}
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("invalid", 13, "bid")
+			},
+		},
+		{
+			name: "error parsing ask effective total amount swapped",
+			order: orderbookdomain.Order{
+				Quantity:       "136",
+				PlacedQuantity: "131",
+				OrderDirection: "ask",
+			},
+			expectedError: "error parsing ask effective total amount swapped",
+			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("invalid", 1, "ask")
 			},
 		},
 		{
 			name: "error parsing bid unrealized cancels",
 			order: orderbookdomain.Order{
-				Quantity:       "1000",
-				PlacedQuantity: "1500",
+				Quantity:       "103",
+				PlacedQuantity: "153",
 				OrderDirection: "bid",
 			},
 			expectedError: "error parsing bid unrealized cancels",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
-				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						TickState: orderbookdomain.TickState{
-							BidValues: orderbookdomain.TickValues{
-								EffectiveTotalAmountSwapped: "100",
-							},
-						},
-						UnrealizedCancels: orderbookdomain.UnrealizedCancels{
-							// Empty is invalid value
-						},
-					}, true
-				}
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("15", 0, "bid")
+			},
+		},
+		{
+			name: "error parsing ask unrealized cancels",
+			order: orderbookdomain.Order{
+				Quantity:       "133",
+				PlacedQuantity: "313",
+				OrderDirection: "ask",
+			},
+			expectedError: "error parsing ask unrealized cancels",
+			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("13", 0, "ask")
 			},
 		},
 		{
@@ -488,18 +469,21 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			},
 			expectedError: "error parsing etas",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
-				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						TickState: orderbookdomain.TickState{
-							BidValues: orderbookdomain.TickValues{
-								EffectiveTotalAmountSwapped: "100",
-							},
-						},
-						UnrealizedCancels: orderbookdomain.UnrealizedCancels{
-							BidUnrealizedCancels: osmomath.NewInt(100),
-						},
-					}, true
-				}
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("386", 830, "bid")
+			},
+		},
+		{
+			name: "overflow in etas",
+			order: orderbookdomain.Order{
+				Quantity:       "13500",
+				PlacedQuantity: "33500",
+				OrderDirection: "bid",
+				Etas:           "9223372036854775808", // overflow value for int64
+				ClaimBounty:    "10",
+			},
+			expectedError: "error parsing etas",
+			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("500", 100, "bid")
 			},
 		},
 		{
@@ -513,18 +497,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			},
 			expectedError: "converting tick to price",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
-				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						TickState: orderbookdomain.TickState{
-							AskValues: orderbookdomain.TickValues{
-								EffectiveTotalAmountSwapped: "100",
-							},
-						},
-						UnrealizedCancels: orderbookdomain.UnrealizedCancels{
-							AskUnrealizedCancels: osmomath.NewInt(100),
-						},
-					}, true
-				}
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("190", 150, "ask")
 			},
 		},
 		{
@@ -539,18 +512,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			},
 			expectedError: "error parsing placed_at",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
-				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						TickState: orderbookdomain.TickState{
-							AskValues: orderbookdomain.TickValues{
-								EffectiveTotalAmountSwapped: "100",
-							},
-						},
-						UnrealizedCancels: orderbookdomain.UnrealizedCancels{
-							AskUnrealizedCancels: osmomath.NewInt(100),
-						},
-					}, true
-				}
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("100", 100, "ask")
 				tokensUsecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
 					return osmomath.NewDec(10), nil
 				}
@@ -572,18 +534,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			quoteAsset: orderbookdomain.Asset{Symbol: "ATOM", Decimals: 6},
 			baseAsset:  orderbookdomain.Asset{Symbol: "OSMO", Decimals: 6},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
-				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						TickState: orderbookdomain.TickState{
-							BidValues: orderbookdomain.TickValues{
-								EffectiveTotalAmountSwapped: "500",
-							},
-						},
-						UnrealizedCancels: orderbookdomain.UnrealizedCancels{
-							BidUnrealizedCancels: osmomath.NewInt(100),
-						},
-					}, true
-				}
+				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("500", 100, "bid")
 				tokensUsecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
 					return osmomath.NewDec(1), nil
 				}
@@ -631,7 +582,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			)
 
 			// Call the method under test
-			result, err := usecase.CreateFormattedLimitOrder(1, tc.order, tc.quoteAsset, tc.baseAsset, "someOrderbookAddress")
+			result, err := usecase.CreateFormattedLimitOrder(tc.poolID, tc.order, tc.quoteAsset, tc.baseAsset, "someOrderbookAddress")
 
 			// Assert the results
 			if tc.expectedError != "" {
