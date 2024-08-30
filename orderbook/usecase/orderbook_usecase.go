@@ -286,6 +286,10 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
 	}
 
+	if placedQuantity == 0 || placedQuantity < 0 {
+		return orderbookdomain.LimitOrder{}, fmt.Errorf("placed quantity is 0 or negative")
+	}
+
 	placedQuantityDec, err := osmomath.NewDecFromStr(order.PlacedQuantity)
 	if err != nil {
 		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
