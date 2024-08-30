@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/osmosis-labs/sqs/sqsdomain"
-
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v25/x/cosmwasmpool/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v25/x/poolmanager/types"
+	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	cltypes "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/types"
 	"github.com/osmosis-labs/sqs/domain"
@@ -258,6 +258,73 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			},
 			expectedError: context.Canceled.Error(),
 		},
+		{
+			name: "processOrderBookActiveOrders returns an error",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, poolsUsecase *mocks.PoolsUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+					return []domain.CanonicalOrderBooksResult{
+						{PoolID: 1},
+					}, nil
+				}
+				usecase.SetProcessOrderBookActiveOrdersFunc(func(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, address string) ([]orderbookdomain.LimitOrder, bool, error) {
+					return nil, false, assert.AnError
+				})
+			},
+			expectedError:        "failed to process orderbook active orders",
+			expectedOrders:       nil,
+			expectedIsBestEffort: false,
+		},
+		{
+			name: "isBestEffort set to true when one orderbook is processed with best effort",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, poolsUsecase *mocks.PoolsUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+					return []domain.CanonicalOrderBooksResult{
+						{PoolID: 1},
+					}, nil
+				}
+				usecase.SetProcessOrderBookActiveOrdersFunc(func(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, address string) ([]orderbookdomain.LimitOrder, bool, error) {
+					return []orderbookdomain.LimitOrder{
+						{OrderId: 1, Owner: "owner1"},
+					}, true, nil
+				})
+			},
+			expectedError: "",
+			expectedOrders: []orderbookdomain.LimitOrder{
+				{OrderId: 1, Owner: "owner1"},
+			},
+			expectedIsBestEffort: true,
+		},
+		{
+			name: "successful retrieval of active orders",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, poolsUsecase *mocks.PoolsUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+					return []domain.CanonicalOrderBooksResult{
+						{PoolID: 1},
+					}, nil
+				}
+				usecase.SetProcessOrderBookActiveOrdersFunc(func(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, address string) ([]orderbookdomain.LimitOrder, bool, error) {
+					return []orderbookdomain.LimitOrder{
+						{OrderId: 1, Owner: "owner1"},
+						{OrderId: 2, Owner: "owner2"},
+					}, false, nil
+				})
+			},
+			expectedError: "",
+			expectedOrders: []orderbookdomain.LimitOrder{
+				{OrderId: 1, Owner: "owner1"},
+				{OrderId: 2, Owner: "owner2"},
+			},
+			expectedIsBestEffort: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -268,7 +335,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			client := mocks.OrderbookGRPCClientMock{}
 
 			// Setup the mocks according to the test case
-			usecase := orderbookusecase.New(&orderbookRepo, &client, &poolsUsecase, nil, nil)
+			usecase := orderbookusecase.New(&orderbookRepo, &client, &poolsUsecase, nil, &log.NoOpLogger{})
 			if tc.setupMocks != nil {
 				tc.setupMocks(usecase, &poolsUsecase)
 			}

@@ -179,7 +179,7 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 			if result.err != nil {
 				telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
 				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
-				return nil, false, result.err
+				return nil, false, fmt.Errorf("failed to process orderbook active orders: %w", result.err)
 			}
 
 			isBestEffort = isBestEffort || result.isBestEffort
