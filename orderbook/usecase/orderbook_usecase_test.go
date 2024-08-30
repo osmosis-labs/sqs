@@ -32,6 +32,43 @@ func TestOrderbookUsecaseTestSuite(t *testing.T) {
 }
 
 func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
+	withContractInfo := func(pool *mocks.MockRoutablePool) *mocks.MockRoutablePool {
+		pool.CosmWasmPoolModel.ContractInfo = cosmwasmpool.ContractInfo{
+			Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+			Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+		}
+		return pool
+	}
+
+	withTicks := func(pool *mocks.MockRoutablePool, ticks []cosmwasmpool.OrderbookTick) *mocks.MockRoutablePool {
+		pool.CosmWasmPoolModel.Data = cosmwasmpool.CosmWasmPoolData{
+			Orderbook: &cosmwasmpool.OrderbookData{
+				Ticks: ticks,
+			},
+		}
+
+		return pool
+	}
+
+	withChainModel := func(pool *mocks.MockRoutablePool, chainPoolModel poolmanagertypes.PoolI) *mocks.MockRoutablePool {
+		pool.ChainPoolModel = chainPoolModel
+		return pool
+	}
+
+	pool := func() *mocks.MockRoutablePool {
+		return &mocks.MockRoutablePool{
+			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{},
+		}
+	}
+
+	poolWithTicks := func() *mocks.MockRoutablePool {
+		return withTicks(withContractInfo(pool()), []cosmwasmpool.OrderbookTick{{TickId: 1}})
+	}
+
+	poolWithChainModel := func() *mocks.MockRoutablePool {
+		return withChainModel(poolWithTicks(), &cwpoolmodel.CosmWasmPool{})
+	}
+
 	testCases := []struct {
 		name          string
 		pool          sqsdomain.PoolI
@@ -59,63 +96,21 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 			expectedError: "pool is not an orderbook pool 1",
 		},
 		{
-			name: "orderbook pool has no ticks, nothing to process",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{},
-						},
-					},
-				},
-			},
+			name:          "orderbook pool has no ticks, nothing to process",
+			pool:          withTicks(withContractInfo(pool()), []cosmwasmpool.OrderbookTick{}),
 			expectedError: "",
 		},
 		{
 			name: "failed to cast pool model to CosmWasmPool",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &mocks.ChainPoolMock{
-					ID:   1,
-					Type: poolmanagertypes.Balancer,
-				},
-			},
+			pool: withChainModel(poolWithTicks(), &mocks.ChainPoolMock{
+				ID:   1,
+				Type: poolmanagertypes.Balancer,
+			}),
 			expectedError: "failed to cast pool model to CosmWasmPool",
 		},
 		{
 			name: "failed to fetch ticks for pool",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTicksCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 					return nil, assert.AnError
@@ -125,22 +120,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		},
 		{
 			name: "failed to fetch unrealized cancels for pool",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTickUnrealizedCancelsCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error) {
 					return nil, assert.AnError
@@ -150,22 +130,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		},
 		{
 			name: "tick ID mismatch when fetching unrealized ticks",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTicksCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 					return []orderbookdomain.Tick{
@@ -182,22 +147,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		},
 		{
 			name: "tick ID mismatch when fetching tick states",
-			pool: &mocks.MockRoutablePool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTicksCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 					return []orderbookdomain.Tick{
@@ -214,23 +164,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		},
 		{
 			name: "successful pool processing",
-			pool: &mocks.MockRoutablePool{
-				ID: 1,
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{
-							Ticks: []cosmwasmpool.OrderbookTick{
-								{TickId: 1},
-							},
-						},
-					},
-				},
-				ChainPoolModel: &cwpoolmodel.CosmWasmPool{},
-			},
+			pool: poolWithChainModel(),
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
 				client.FetchTicksCb = func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 					return []orderbookdomain.Tick{
