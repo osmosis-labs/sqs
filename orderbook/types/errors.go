@@ -131,3 +131,63 @@ type ParsingPlacedAtError struct {
 func (e ParsingPlacedAtError) Error() string {
 	return fmt.Sprintf("error parsing placed_at %s: %v", e.PlacedAt, e.Err)
 }
+
+// PoolNilError represents an error when the pool is nil.
+type PoolNilError struct{}
+
+func (e PoolNilError) Error() string {
+	return "pool is nil when processing order book"
+}
+
+// CosmWasmPoolModelNilError represents an error when the CosmWasmPoolModel is nil.
+type CosmWasmPoolModelNilError struct{}
+
+func (e CosmWasmPoolModelNilError) Error() string {
+	return "cw pool model is nil when processing order book"
+}
+
+// NotAnOrderbookPoolError represents an error when the pool is not an orderbook pool.
+type NotAnOrderbookPoolError struct {
+	PoolID uint64
+}
+
+func (e NotAnOrderbookPoolError) Error() string {
+	return fmt.Sprintf("pool is not an orderbook pool %d", e.PoolID)
+}
+
+// FailedToCastPoolModelError represents an error when the pool model cannot be cast to a CosmWasmPool.
+type FailedToCastPoolModelError struct{}
+
+func (e FailedToCastPoolModelError) Error() string {
+	return "failed to cast pool model to CosmWasmPool"
+}
+
+// FetchTicksError represents an error when fetching ticks fails.
+type FetchTicksError struct {
+	ContractAddress string
+	Err             error
+}
+
+func (e FetchTicksError) Error() string {
+	return fmt.Sprintf("failed to fetch ticks for pool %s: %v", e.ContractAddress, e.Err)
+}
+
+// FetchUnrealizedCancelsError represents an error when fetching unrealized cancels fails.
+type FetchUnrealizedCancelsError struct {
+	ContractAddress string
+	Err             error
+}
+
+func (e FetchUnrealizedCancelsError) Error() string {
+	return fmt.Sprintf("failed to fetch unrealized cancels for pool %s: %v", e.ContractAddress, e.Err)
+}
+
+// TickIDMismatchError represents an error when there is a mismatch between tick IDs.
+type TickIDMismatchError struct {
+	ExpectedID int64
+	ActualID   int64
+}
+
+func (e TickIDMismatchError) Error() string {
+	return fmt.Sprintf("tick id mismatch when fetching tick states %d %d", e.ExpectedID, e.ActualID)
+}

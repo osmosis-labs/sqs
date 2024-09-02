@@ -74,19 +74,19 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		name          string
 		pool          sqsdomain.PoolI
 		setupMocks    func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock)
-		expectedError string
+		expectedError error
 	}{
 		{
 			name:          "pool is nil",
 			pool:          nil,
-			expectedError: "pool is nil when processing order book",
+			expectedError: &types.PoolNilError{},
 		},
 		{
 			name: "cosmWasmPoolModel is nil",
 			pool: &mocks.MockRoutablePool{
 				CosmWasmPoolModel: nil,
 			},
-			expectedError: "cw pool model is nil when processing order book",
+			expectedError: &types.CosmWasmPoolModelNilError{},
 		},
 		{
 			name: "pool is not an orderbook pool",
@@ -94,12 +94,12 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 				ID:                1,
 				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{},
 			},
-			expectedError: "pool is not an orderbook pool 1",
+			expectedError: &types.NotAnOrderbookPoolError{},
 		},
 		{
 			name:          "orderbook pool has no ticks, nothing to process",
 			pool:          withTicks(withContractInfo(pool()), []cosmwasmpool.OrderbookTick{}),
-			expectedError: "",
+			expectedError: nil,
 		},
 		{
 			name: "failed to cast pool model to CosmWasmPool",
@@ -107,7 +107,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 				ID:   1,
 				Type: poolmanagertypes.Balancer,
 			}),
-			expectedError: "failed to cast pool model to CosmWasmPool",
+			expectedError: &types.FailedToCastPoolModelError{},
 		},
 		{
 			name: "failed to fetch ticks for pool",
@@ -117,7 +117,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 					return nil, assert.AnError
 				}
 			},
-			expectedError: "failed to fetch ticks for pool",
+			expectedError: &types.FetchTicksError{},
 		},
 		{
 			name: "failed to fetch unrealized cancels for pool",
@@ -127,7 +127,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 					return nil, assert.AnError
 				}
 			},
-			expectedError: "failed to fetch unrealized cancels for pool",
+			expectedError: &types.FetchUnrealizedCancelsError{},
 		},
 		{
 			name: "tick ID mismatch when fetching unrealized ticks",
@@ -144,7 +144,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 					}, nil
 				}
 			},
-			expectedError: "tick id mismatch when fetching unrealized ticks 2 1",
+			expectedError: &types.TickIDMismatchError{},
 		},
 		{
 			name: "tick ID mismatch when fetching tick states",
@@ -161,7 +161,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 					}, nil
 				}
 			},
-			expectedError: "tick id mismatch when fetching tick states 2 1",
+			expectedError: &types.TickIDMismatchError{},
 		},
 		{
 			name: "successful pool processing",
@@ -190,7 +190,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 					// Assume ticks are correctly stored, no need for implementation here
 				}
 			},
-			expectedError: "",
+			expectedError: nil,
 		},
 	}
 
@@ -211,9 +211,9 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 			err := usecase.ProcessPool(context.Background(), tc.pool)
 
 			// Assert the results
-			if tc.expectedError != "" {
+			if tc.expectedError != nil {
 				s.Assert().Error(err)
-				s.Assert().Contains(err.Error(), tc.expectedError)
+				s.Assert().ErrorAs(err, tc.expectedError)
 			} else {
 				s.Assert().NoError(err)
 			}

@@ -56,25 +56,25 @@ func New(
 	}
 }
 
-// GetTicks implements mvc.OrderBookUsecase.
+// GetAllTicks implements mvc.OrderBookUsecase.
 func (o *OrderbookUseCaseImpl) GetAllTicks(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
 	return o.orderbookRepository.GetAllTicks(poolID)
 }
 
-// StoreTicks implements mvc.OrderBookUsecase.
+// ProcessPool implements mvc.OrderBookUsecase.
 func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.PoolI) error {
 	if pool == nil {
-		return fmt.Errorf("pool is nil when processing order book")
+		return types.PoolNilError{}
 	}
 
 	cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
 	if cosmWasmPoolModel == nil {
-		return fmt.Errorf("cw pool model is nil when processing order book")
+		return types.CosmWasmPoolModelNilError{}
 	}
 
 	poolID := pool.GetId()
 	if !cosmWasmPoolModel.IsOrderbook() {
-		return fmt.Errorf("pool is not an orderbook pool %d", poolID)
+		return types.NotAnOrderbookPoolError{PoolID: poolID}
 	}
 
 	// Update the orderbook client with the orderbook pool ID.
@@ -85,7 +85,7 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 
 	cwModel, ok := pool.GetUnderlyingPool().(*cwpoolmodel.CosmWasmPool)
 	if !ok {
-		return fmt.Errorf("failed to cast pool model to CosmWasmPool")
+		return types.FailedToCastPoolModelError{}
 	}
 
 	// Get tick IDs
@@ -97,13 +97,13 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 	// Fetch tick states
 	tickStates, err := o.orderBookClient.FetchTicks(ctx, maxQueryTicks, cwModel.ContractAddress, tickIDs)
 	if err != nil {
-		return fmt.Errorf("failed to fetch ticks for pool %s: %w", cwModel.ContractAddress, err)
+		return types.FetchTicksError{ContractAddress: cwModel.ContractAddress, Err: err}
 	}
 
 	// Fetch unrealized cancels
 	unrealizedCancels, err := o.orderBookClient.FetchTickUnrealizedCancels(ctx, maxQueryTicksCancels, cwModel.ContractAddress, tickIDs)
 	if err != nil {
-		return fmt.Errorf("failed to fetch unrealized cancels for pool %s: %w", cwModel.ContractAddress, err)
+		return types.FetchUnrealizedCancelsError{ContractAddress: cwModel.ContractAddress, Err: err}
 	}
 
 	tickDataMap := make(map[int64]orderbookdomain.OrderbookTick, len(ticks))
@@ -112,12 +112,12 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 
 		// Validate the tick IDs match between the tick and the unrealized cancel
 		if unrealizedCancel.TickID != tick.TickId {
-			return fmt.Errorf("tick id mismatch when fetching unrealized ticks %d %d", unrealizedCancel.TickID, tick.TickId)
+			return types.TickIDMismatchError{ExpectedID: tick.TickId, ActualID: unrealizedCancel.TickID}
 		}
 
 		tickState := tickStates[i]
 		if tickState.TickID != tick.TickId {
-			return fmt.Errorf("tick id mismatch when fetching tick states %d %d", tickState.TickID, tick.TickId)
+			return types.TickIDMismatchError{ExpectedID: tick.TickId, ActualID: tickState.TickID}
 		}
 
 		// Update tick map for the pool
