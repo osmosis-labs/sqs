@@ -10,7 +10,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.50.9
 	github.com/json-iterator/go v1.1.12
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
-	github.com/osmosis-labs/osmosis/v26 v26.0.0-20240825083448-87db4447a1ff
+	github.com/osmosis-labs/osmosis/v26 v26.0.0-rc1
 	github.com/osmosis-labs/sqs v0.19.2-rc2.0.20240826173240-e5733bb3700d
 	github.com/stretchr/testify v1.9.0
 	google.golang.org/grpc v1.65.0
