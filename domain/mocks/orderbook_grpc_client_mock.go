@@ -15,7 +15,9 @@ type OrderbookGRPCClientMock struct {
 	MockGetOrdersByTickCb          func(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error)
 	MockGetActiveOrdersCb          func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error)
 	MockGetTickUnrealizedCancelsCb func(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error)
+	FetchTickUnrealizedCancelsCb   func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error)
 	MockQueryTicksCb               func(ctx context.Context, contractAddress string, ticks []int64) ([]orderbookdomain.Tick, error)
+	FetchTicksCb                   func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error)
 }
 
 func (o *OrderbookGRPCClientMock) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error) {
@@ -42,9 +44,25 @@ func (o *OrderbookGRPCClientMock) GetTickUnrealizedCancels(ctx context.Context, 
 	return nil, nil
 }
 
+func (o *OrderbookGRPCClientMock) FetchTickUnrealizedCancels(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error) {
+	if o.FetchTickUnrealizedCancelsCb != nil {
+		return o.FetchTickUnrealizedCancelsCb(ctx, chunkSize, contractAddress, tickIDs)
+	}
+
+	return nil, nil
+}
+
 func (o *OrderbookGRPCClientMock) QueryTicks(ctx context.Context, contractAddress string, ticks []int64) ([]orderbookdomain.Tick, error) {
 	if o.MockQueryTicksCb != nil {
 		return o.MockQueryTicksCb(ctx, contractAddress, ticks)
+	}
+
+	return nil, nil
+}
+
+func (o *OrderbookGRPCClientMock) FetchTicks(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
+	if o.FetchTicksCb != nil {
+		return o.FetchTicksCb(ctx, chunkSize, contractAddress, tickIDs)
 	}
 
 	return nil, nil
