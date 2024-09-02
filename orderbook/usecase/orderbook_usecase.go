@@ -2,7 +2,6 @@ package orderbookusecase
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 	"time"
@@ -28,8 +27,6 @@ type OrderbookUseCaseImpl struct {
 	poolsUsecease       mvc.PoolsUsecase
 	tokensUsecease      mvc.TokensUsecase
 	logger              log.Logger
-
-	processOrderBookActiveOrdersFunc func(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error)
 }
 
 var _ mvc.OrderBookUsecase = &OrderbookUseCaseImpl{}
@@ -49,17 +46,13 @@ func New(
 	tokensUsecease mvc.TokensUsecase,
 	logger log.Logger,
 ) *OrderbookUseCaseImpl {
-	res := OrderbookUseCaseImpl{
+	return &OrderbookUseCaseImpl{
 		orderbookRepository: orderbookRepository,
 		orderBookClient:     orderBookClient,
 		poolsUsecease:       poolsUsecease,
 		tokensUsecease:      tokensUsecease,
 		logger:              logger,
 	}
-
-	res.processOrderBookActiveOrdersFunc = res.processOrderBookActiveOrders
-
-	return &res
 }
 
 // GetAllTicks implements mvc.OrderBookUsecase.
@@ -144,7 +137,7 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
 	orderbooks, err := o.poolsUsecease.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to get all canonical orderbook pool IDs: %w", err)
+		return nil, false, types.FailedGetAllCanonicalOrderbookPoolIDsError{Err: err}
 	}
 
 	type orderbookResult struct {
@@ -159,7 +152,7 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	// Process orderbooks concurrently
 	for _, orderbook := range orderbooks {
 		go func(orderbook domain.CanonicalOrderBooksResult) {
-			limitOrders, isBestEffort, err := o.processOrderBookActiveOrdersFunc(ctx, orderbook, address)
+			limitOrders, isBestEffort, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
 
 			results <- orderbookResult{
 				isBestEffort: isBestEffort,
@@ -180,7 +173,7 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 			if result.err != nil {
 				telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
 				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
-				return nil, false, fmt.Errorf("failed to process orderbook active orders: %w", result.err)
+				return nil, false, types.FailedProcessingOrderbookActiveOrdersError{Err: result.err}
 			}
 
 			isBestEffort = isBestEffort || result.isBestEffort

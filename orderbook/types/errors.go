@@ -191,3 +191,23 @@ type TickIDMismatchError struct {
 func (e TickIDMismatchError) Error() string {
 	return fmt.Sprintf("tick id mismatch when fetching tick states %d %d", e.ExpectedID, e.ActualID)
 }
+
+// FailedGetAllCanonicalOrderbookPoolIDsError represents an error when failing to get all canonical orderbook pool IDs.
+type FailedGetAllCanonicalOrderbookPoolIDsError struct {
+	Err error
+}
+
+// Error implements the error interface.
+func (e FailedGetAllCanonicalOrderbookPoolIDsError) Error() string {
+	return fmt.Sprintf("failed to get all canonical orderbook pool IDs: %v", e.Err)
+}
+
+// FailedProcessingOrderbookActiveOrdersError represents an error when failing to process orderbook active orders.
+type FailedProcessingOrderbookActiveOrdersError struct {
+	Err error
+}
+
+// Error implements the error interface.
+func (e FailedProcessingOrderbookActiveOrdersError) Error() string {
+	return fmt.Sprintf("failed to process orderbook active orders: %v", e.Err)
+}
