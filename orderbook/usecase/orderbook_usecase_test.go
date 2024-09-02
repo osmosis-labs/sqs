@@ -16,6 +16,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
+	"github.com/osmosis-labs/sqs/orderbook/types"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
@@ -254,7 +255,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 		quoteAsset    orderbookdomain.Asset
 		baseAsset     orderbookdomain.Asset
 		setupMocks    func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock)
-		expectedError string
+		expectedError error
 		expectedOrder orderbookdomain.LimitOrder
 	}{
 		{
@@ -262,7 +263,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			order: orderbookdomain.Order{
 				TickId: 99, // Non-existent tick ID
 			},
-			expectedError: "tick not found",
+			expectedError: &types.TickForOrderbookNotFoundError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
 					return orderbookdomain.OrderbookTick{}, false
@@ -274,7 +275,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			order: orderbookdomain.Order{
 				Quantity: "invalid", // Invalid quantity
 			},
-			expectedError: "error parsing quantity",
+			expectedError: &types.ParsingQuantityError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("6431", 935, "ask")
 			},
@@ -287,7 +288,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Etas:           "500",
 				ClaimBounty:    "10",
 			},
-			expectedError: "error parsing quantity",
+			expectedError: &types.ParsingQuantityError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("500", 100, "bid")
 			},
@@ -298,7 +299,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Quantity:       "1000",
 				PlacedQuantity: "invalid", // Invalid placed quantity
 			},
-			expectedError: "error parsing placed quantity",
+			expectedError: &types.ParsingPlacedQuantityError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("813", 1331, "bid")
 			},
@@ -311,7 +312,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Etas:           "500",
 				ClaimBounty:    "10",
 			},
-			expectedError: "error parsing placed quantity",
+			expectedError: &types.ParsingPlacedQuantityError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("500", 100, "bid")
 			},
@@ -322,7 +323,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Quantity:       "1000",
 				PlacedQuantity: "0", // division by zero
 			},
-			expectedError: "placed quantity is 0 or negative",
+			expectedError: &types.InvalidPlacedQuantityError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("813", 1331, "bid")
 			},
@@ -333,7 +334,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Quantity:       "931",
 				PlacedQuantity: "183",
 			},
-			expectedError: "error getting spot price scaling factor",
+			expectedError: &types.GettingSpotPriceScalingFactorError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("130", 13, "ask")
 				tokensUsecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
@@ -348,7 +349,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				PlacedQuantity: "131",
 				OrderDirection: "bid",
 			},
-			expectedError: "error parsing bid effective total amount swapped",
+			expectedError: &types.ParsingTickValuesError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("invalid", 13, "bid")
 			},
@@ -360,7 +361,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				PlacedQuantity: "131",
 				OrderDirection: "ask",
 			},
-			expectedError: "error parsing ask effective total amount swapped",
+			expectedError: &types.ParsingTickValuesError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("invalid", 1, "ask")
 			},
@@ -372,7 +373,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				PlacedQuantity: "153",
 				OrderDirection: "bid",
 			},
-			expectedError: "error parsing bid unrealized cancels",
+			expectedError: &types.ParsingUnrealizedCancelsError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("15", 0, "bid")
 			},
@@ -384,7 +385,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				PlacedQuantity: "313",
 				OrderDirection: "ask",
 			},
-			expectedError: "error parsing ask unrealized cancels",
+			expectedError: &types.ParsingUnrealizedCancelsError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("13", 0, "ask")
 			},
@@ -397,7 +398,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				OrderDirection: "bid",
 				Etas:           "invalid", // Invalid ETAs
 			},
-			expectedError: "error parsing etas",
+			expectedError: &types.ParsingEtasError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("386", 830, "bid")
 			},
@@ -411,7 +412,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Etas:           "9223372036854775808", // overflow value for int64
 				ClaimBounty:    "10",
 			},
-			expectedError: "error parsing etas",
+			expectedError: &types.ParsingEtasError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("500", 100, "bid")
 			},
@@ -425,7 +426,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				OrderDirection: "ask",
 				Etas:           "100",
 			},
-			expectedError: "converting tick to price",
+			expectedError: &types.ConvertingTickToPriceError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("190", 150, "ask")
 			},
@@ -440,7 +441,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Etas:           "100",
 				PlacedAt:       "invalid", // Invalid timestamp
 			},
-			expectedError: "error parsing placed_at",
+			expectedError: &types.ParsingPlacedAtError{},
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, tokensUsecase *mocks.TokensUsecaseMock) {
 				orderbookRepo.GetTickByIDFunc = getTickByIDFunc("100", 100, "ask")
 				tokensUsecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
@@ -469,7 +470,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 					return osmomath.NewDec(1), nil
 				}
 			},
-			expectedError: "",
+			expectedError: nil,
 			expectedOrder: orderbookdomain.LimitOrder{
 				TickId:           1,
 				OrderId:          1,
@@ -515,9 +516,9 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			result, err := usecase.CreateFormattedLimitOrder(tc.poolID, tc.order, tc.quoteAsset, tc.baseAsset, "someOrderbookAddress")
 
 			// Assert the results
-			if tc.expectedError != "" {
+			if tc.expectedError != nil {
 				s.Assert().Error(err)
-				s.Assert().Contains(err.Error(), tc.expectedError)
+				s.Assert().ErrorAs(err, tc.expectedError)
 			} else {
 				s.Assert().NoError(err)
 				s.Assert().Equal(tc.expectedOrder, result)
