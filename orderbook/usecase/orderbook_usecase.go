@@ -72,6 +72,10 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 		return fmt.Errorf("pool is not an orderbook pool %d", poolID)
 	}
 
+	if cosmWasmPoolModel.Data.Orderbook == nil {
+		return fmt.Errorf("pool has no orderbook data %d", poolID)
+	}
+
 	// Update the orderbook client with the orderbook pool ID.
 	ticks := cosmWasmPoolModel.Data.Orderbook.Ticks
 	if len(ticks) == 0 {
