@@ -12,33 +12,33 @@ var _ orderbookgrpcclientdomain.OrderBookClient = (*OrderbookGRPCClientMock)(nil
 
 // OrderbookGRPCClientMock is a mock struct that implements orderbookplugindomain.OrderbookGRPCClient.
 type OrderbookGRPCClientMock struct {
-	MockGetOrdersByTickCb          func(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error)
-	MockGetActiveOrdersCb          func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error)
-	MockGetTickUnrealizedCancelsCb func(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error)
-	FetchTickUnrealizedCancelsCb   func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error)
-	MockQueryTicksCb               func(ctx context.Context, contractAddress string, ticks []int64) ([]orderbookdomain.Tick, error)
-	FetchTicksCb                   func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error)
+	GetOrdersByTickCb            func(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error)
+	GetActiveOrdersCb            func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error)
+	GetTickUnrealizedCancelsCb   func(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error)
+	FetchTickUnrealizedCancelsCb func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error)
+	MockQueryTicksCb             func(ctx context.Context, contractAddress string, ticks []int64) ([]orderbookdomain.Tick, error)
+	FetchTicksCb                 func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error)
 }
 
 func (o *OrderbookGRPCClientMock) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error) {
-	if o.MockGetOrdersByTickCb != nil {
-		return o.MockGetOrdersByTickCb(ctx, contractAddress, tick)
+	if o.GetOrdersByTickCb != nil {
+		return o.GetOrdersByTickCb(ctx, contractAddress, tick)
 	}
 
 	return nil, nil
 }
 
 func (o *OrderbookGRPCClientMock) GetActiveOrders(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
-	if o.MockGetActiveOrdersCb != nil {
-		return o.MockGetActiveOrdersCb(ctx, contractAddress, ownerAddress)
+	if o.GetActiveOrdersCb != nil {
+		return o.GetActiveOrdersCb(ctx, contractAddress, ownerAddress)
 	}
 
 	return nil, 0, nil
 }
 
 func (o *OrderbookGRPCClientMock) GetTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error) {
-	if o.MockGetTickUnrealizedCancelsCb != nil {
-		return o.MockGetTickUnrealizedCancelsCb(ctx, contractAddress, tickIDs)
+	if o.GetTickUnrealizedCancelsCb != nil {
+		return o.GetTickUnrealizedCancelsCb(ctx, contractAddress, tickIDs)
 	}
 
 	return nil, nil

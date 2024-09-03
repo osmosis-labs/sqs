@@ -205,3 +205,26 @@ type FailedProcessingOrderbookActiveOrdersError struct {
 func (e FailedProcessingOrderbookActiveOrdersError) Error() string {
 	return fmt.Sprintf("failed to process orderbook active orders: %v", e.Err)
 }
+
+// FailedToGetActiveOrdersError is returned when the retrieval of active orders fails.
+type FailedToGetActiveOrdersError struct {
+	ContractAddress string
+	OwnerAddress    string
+	Err             error
+}
+
+// Error implements the error interface.
+func (e FailedToGetActiveOrdersError) Error() string {
+	return fmt.Sprintf("failed to get active orders for contract: %s and owner: %s: %v", e.ContractAddress, e.OwnerAddress, e.Err)
+}
+
+// FailedToGetMetadataError is returned when getting token metadata fails.
+type FailedToGetMetadataError struct {
+	TokenDenom string
+	Err        error
+}
+
+// Error implements the error interface.
+func (e FailedToGetMetadataError) Error() string {
+	return fmt.Sprintf("failed to get metadata for token denom: %s: %v", e.TokenDenom, e.Err)
+}

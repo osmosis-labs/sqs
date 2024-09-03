@@ -1,10 +1,12 @@
 package orderbookusecase
 
 import (
+	"context"
+	"github.com/osmosis-labs/sqs/domain"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 )
 
-// OrderBookEntry is an alias of orderBookEntry for testing purposes
+// CreateFormattedLimitOrder is an alias of createFormattedLimitOrder for testing purposes
 func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(
 	poolID uint64,
 	order orderbookdomain.Order,
@@ -13,4 +15,9 @@ func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(
 	orderbookAddress string,
 ) (orderbookdomain.LimitOrder, error) {
 	return o.createFormattedLimitOrder(poolID, order, quoteAsset, baseAsset, orderbookAddress)
+}
+
+// ProcessOrderBookActiveOrders is an alias of processOrderBookActiveOrders for testing purposes
+func (o *OrderbookUseCaseImpl) ProcessOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+	return o.processOrderBookActiveOrders(ctx, orderBook, ownerAddress)
 }

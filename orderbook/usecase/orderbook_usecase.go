@@ -198,7 +198,11 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
 	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderBook.ContractAddress, ownerAddress)
 	if err != nil {
-		return nil, false, err
+		return nil, false, types.FailedToGetActiveOrdersError{
+			ContractAddress: orderBook.ContractAddress,
+			OwnerAddress:    ownerAddress,
+			Err:             err,
+		}
 	}
 
 	// There are orders to process for given orderbook
@@ -208,12 +212,18 @@ func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 
 	quoteToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Quote)
 	if err != nil {
-		return nil, false, err
+		return nil, false, types.FailedToGetMetadataError{
+			TokenDenom: orderBook.Quote,
+			Err:        err,
+		}
 	}
 
 	baseToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Base)
 	if err != nil {
-		return nil, false, err
+		return nil, false, types.FailedToGetMetadataError{
+			TokenDenom: orderBook.Base,
+			Err:        err,
+		}
 	}
 
 	// Create a slice to store the results
