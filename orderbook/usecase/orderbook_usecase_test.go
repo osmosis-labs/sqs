@@ -2,6 +2,7 @@ package orderbookusecase_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -248,6 +249,19 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 		}
 	}
 
+	// Creates a new osmomath.Dec from a string
+	// Panics if the string is invalid
+	newDecFromStr := func(str string) osmomath.Dec {
+		dec, err := osmomath.NewDecFromStr(str)
+		s.Require().NoError(err)
+		return dec
+	}
+
+	// Generates a string that overflows when converting to osmomath.Dec
+	overflowDecStr := func() string {
+		return "9223372036854775808" + strings.Repeat("0", 100000)
+	}
+
 	testCases := []struct {
 		name          string
 		poolID        uint64
@@ -283,7 +297,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 		{
 			name: "overflow in quantity",
 			order: orderbookdomain.Order{
-				Quantity:       "9223372036854775808", // overflow value for int64
+				Quantity:       overflowDecStr(),
 				PlacedQuantity: "1500",
 				Etas:           "500",
 				ClaimBounty:    "10",
@@ -308,7 +322,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			name: "overflow in placed quantity",
 			order: orderbookdomain.Order{
 				Quantity:       "1000",
-				PlacedQuantity: "9223372036854775808", // overflow value for int64
+				PlacedQuantity: overflowDecStr(),
 				Etas:           "500",
 				ClaimBounty:    "10",
 			},
@@ -476,18 +490,18 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				OrderId:          1,
 				OrderDirection:   "bid",
 				Owner:            "owner1",
-				Quantity:         1000,
+				Quantity:         osmomath.NewDec(1000),
 				Etas:             "500",
 				ClaimBounty:      "10",
-				PlacedQuantity:   1500,
+				PlacedQuantity:   osmomath.NewDec(1500),
 				PlacedAt:         1634,
-				Price:            "1.000001000000000000",
-				PercentClaimed:   "0.333333333333333333",
-				TotalFilled:      600,
-				PercentFilled:    "0.400000000000000000",
+				Price:            newDecFromStr("1.000001000000000000"),
+				PercentClaimed:   newDecFromStr("0.333333333333333333"),
+				TotalFilled:      newDecFromStr("600"),
+				PercentFilled:    newDecFromStr("0.400000000000000000"),
 				OrderbookAddress: "someOrderbookAddress",
 				Status:           "partiallyFilled",
-				Output:           "1499.998500001499998500",
+				Output:           newDecFromStr("1499.998500001499998500"),
 				QuoteAsset:       orderbookdomain.Asset{Symbol: "ATOM", Decimals: 6},
 				BaseAsset:        orderbookdomain.Asset{Symbol: "OSMO", Decimals: 6},
 			},

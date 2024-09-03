@@ -1,6 +1,10 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
+)
 
 // TickForOrderbookNotFoundError represents an error when a tick is not found for a given orderbook.
 type TickForOrderbookNotFoundError struct {
@@ -37,7 +41,7 @@ func (e ParsingPlacedQuantityError) Error() string {
 
 // InvalidPlacedQuantityError represents an error when the placed quantity is invalid.
 type InvalidPlacedQuantityError struct {
-	PlacedQuantity int64
+	PlacedQuantity osmomath.Dec
 }
 
 // Error implements the error interface.
@@ -88,16 +92,6 @@ type ParsingEtasError struct {
 // Error implements the error interface.
 func (e ParsingEtasError) Error() string {
 	return fmt.Sprintf("error parsing etas %s: %v", e.Etas, e.Err)
-}
-
-// CalculatingPercentFilledError represents an error that occurs while calculating the percent filled.
-type CalculatingPercentFilledError struct {
-	Err error
-}
-
-// Error implements the error interface.
-func (e CalculatingPercentFilledError) Error() string {
-	return fmt.Sprintf("error calculating percent filled: %v", e.Err)
 }
 
 // MappingOrderStatusError represents an error that occurs while mapping the order status.

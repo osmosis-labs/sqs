@@ -3,7 +3,6 @@ package orderbookusecase
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
@@ -276,7 +275,7 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 	tickState := tickForOrder.TickState
 	unrealizedCancels := tickForOrder.UnrealizedCancels
 
-	quantity, err := strconv.ParseInt(order.Quantity, 10, 64)
+	quantity, err := osmomath.NewDecFromStr(order.Quantity)
 	if err != nil {
 		return orderbookdomain.LimitOrder{}, types.ParsingQuantityError{
 			Quantity: order.Quantity,
@@ -284,10 +283,7 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 		}
 	}
 
-	// Convert quantity to decimal for the calculations
-	quantityDec := osmomath.NewDec(quantity)
-
-	placedQuantity, err := strconv.ParseInt(order.PlacedQuantity, 10, 64)
+	placedQuantity, err := osmomath.NewDecFromStr(order.PlacedQuantity)
 	if err != nil {
 		return orderbookdomain.LimitOrder{}, types.ParsingPlacedQuantityError{
 			PlacedQuantity: order.PlacedQuantity,
@@ -295,7 +291,7 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 		}
 	}
 
-	if placedQuantity == 0 || placedQuantity < 0 {
+	if zero := osmomath.NewDec(0); placedQuantity.Equal(zero) || placedQuantity.LT(zero) {
 		return orderbookdomain.LimitOrder{}, types.InvalidPlacedQuantityError{PlacedQuantity: placedQuantity}
 	}
 
@@ -308,7 +304,7 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 	}
 
 	// Calculate percent claimed
-	percentClaimed := placedQuantityDec.Sub(quantityDec).Quo(placedQuantityDec)
+	percentClaimed := placedQuantityDec.Sub(quantity).Quo(placedQuantityDec)
 
 	// Calculate normalization factor for price
 	normalizationFactor, err := o.tokensUsecease.GetSpotPriceScalingFactorByDenom(baseAsset.Symbol, quoteAsset.Symbol)
@@ -367,16 +363,16 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 
 	tickTotalEtas := tickEtas + tickUnrealizedCancelled
 
-	totalFilled := int64(math.Max(
-		float64(tickTotalEtas-(etas-(placedQuantity-quantity))),
-		0,
-	))
+	totalFilled := osmomath.MaxDec(
+		osmomath.NewDec(tickTotalEtas).Sub(osmomath.NewDec(etas).Sub(placedQuantity.Sub(quantity))),
+		osmomath.ZeroDec(),
+	)
 
 	// Calculate percent filled using
-	percentFilled, err := osmomath.NewDecFromStr(strconv.FormatFloat(math.Min(float64(totalFilled)/float64(placedQuantity), 1), 'f', -1, 64))
-	if err != nil {
-		return orderbookdomain.LimitOrder{}, types.CalculatingPercentFilledError{Err: err}
-	}
+	percentFilled := osmomath.MinDec(
+		totalFilled.Quo(placedQuantity),
+		osmomath.OneDec(),
+	)
 
 	// Determine order status based on percent filled
 	status, err := order.Status(percentFilled.MustFloat64())
@@ -421,13 +417,13 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 		Etas:             order.Etas,
 		ClaimBounty:      order.ClaimBounty,
 		PlacedQuantity:   placedQuantity,
-		PercentClaimed:   percentClaimed.String(),
+		PercentClaimed:   percentClaimed,
 		TotalFilled:      totalFilled,
-		PercentFilled:    percentFilled.String(),
+		PercentFilled:    percentFilled,
 		OrderbookAddress: orderbookAddress,
-		Price:            normalizedPrice.String(),
+		Price:            normalizedPrice,
 		Status:           status,
-		Output:           output.String(),
+		Output:           output,
 		QuoteAsset:       quoteAsset,
 		BaseAsset:        baseAsset,
 		PlacedAt:         placedAt,
