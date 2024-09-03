@@ -28,7 +28,7 @@ type Config struct {
 	LoggerIsProduction bool   `mapstructure:"logger-is-production"`
 	LoggerLevel        string `mapstructure:"logger-level"`
 
-	ChainTendermingRPCEndpoint string `mapstructure:"grpc-tendermint-rpc-endpoint"`
+	ChainTendermintRPCEndpoint string `mapstructure:"grpc-tendermint-rpc-endpoint"`
 	ChainGRPCGatewayEndpoint   string `mapstructure:"grpc-gateway-endpoint"`
 	ChainID                    string `mapstructure:"chain-id"`
 
@@ -69,7 +69,7 @@ var (
 		LoggerFilename:             "sqs.log",
 		LoggerIsProduction:         false,
 		LoggerLevel:                "info",
-		ChainTendermingRPCEndpoint: "http://localhost:26657",
+		ChainTendermintRPCEndpoint: "http://localhost:26657",
 		ChainGRPCGatewayEndpoint:   "localhost:9090",
 		ChainID:                    "osmosis-1",
 		ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
