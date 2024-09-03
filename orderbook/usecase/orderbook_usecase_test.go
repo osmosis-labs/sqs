@@ -262,12 +262,12 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			expectedError: &types.FailedGetAllCanonicalOrderbookPoolIDsError{},
 		},
 		{
+			name: "context is done before processing all orderbooks",
 			setupContext: func() context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				return ctx
 			},
-			name: "context is done before processing all orderbooks",
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
 				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
 			},
