@@ -20,7 +20,7 @@ func (t *tokensUseCase) SetCoingeckoIDs(key string, value any) {
 	t.coingeckoIds.Store(key, value)
 }
 
-// SetLastFetchHash is a test helper to set last fetch hash
+// SetLastFetchHash is a test helper to set last fetch hash.
 func (f *ChainRegistryHTTPFetcher) SetLastFetchHash(value string) {
 	f.lastFetchHash = value
 }

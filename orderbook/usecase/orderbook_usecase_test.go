@@ -603,7 +603,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Quantity:       "13500",
 				PlacedQuantity: "33500",
 				OrderDirection: "bid",
-				Etas:           "9223372036854775808", // overflow value for int64
+				Etas:           overflowDecStr(), // overflow value for ETAs
 				ClaimBounty:    "10",
 			},
 			expectedError: &types.ParsingEtasError{},

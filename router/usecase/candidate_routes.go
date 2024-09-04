@@ -110,7 +110,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 		rankedPools := denomData.SortedPools
 
 		if len(rankedPools) == 0 {
-			return sqsdomain.CandidateRoutes{}, nil
+			c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", currenTokenInDenom))
 		}
 
 		for i := 0; i < len(rankedPools) && len(routes) < options.MaxRoutes; i++ {
