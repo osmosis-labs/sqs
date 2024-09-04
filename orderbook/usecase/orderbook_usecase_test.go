@@ -187,6 +187,13 @@ func (s *OrderbookTestHelper) getActiveOrdersFunc(orders orderbookdomain.Orders,
 	}
 }
 
+// getMetadataByChainDenomFuncEmptyToken returns a function that returns an empty token useful for mocking the tokensUsecase.GetMetadataByChainDenomFunc
+func (s *OrderbookTestHelper) getMetadataByChainDenomFuncEmptyToken() func(denom string) (domain.Token, error) {
+	return func(denom string) (domain.Token, error) {
+		return domain.Token{}, nil
+	}
+}
+
 // getMetadataByChainDenomFunc returns a function that returns a token by chain denom useful for mocking the tokensUsecase.GetMetadataByChainDenomFunc
 // If errIfNotDenom is not empty, it will return an error if the denom passed to GetMetadataByChainDenomFunc is not equal to errIfNotDenom.
 // If the denom passed to GetMetadataByChainDenomFunc is empty, it will return an empty token.
@@ -430,23 +437,6 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 }
 
 func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
-	withGetAllCanonicalOrderbookPoolIDs := func(poolsUsecase *mocks.PoolsUsecaseMock) *mocks.PoolsUsecaseMock {
-		poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
-			return []domain.CanonicalOrderBooksResult{
-				{PoolID: 1},
-			}, nil
-		}
-
-		return poolsUsecase
-	}
-
-	withGetMetadataByChainDenom := func(tokensusecase *mocks.TokensUsecaseMock) *mocks.TokensUsecaseMock {
-		tokensusecase.GetMetadataByChainDenomFunc = func(chainDenom string) (domain.Token, error) {
-			return domain.Token{}, nil
-		}
-		return tokensusecase
-	}
-
 	testCases := []struct {
 		name                 string
 		setupContext         func() context.Context
@@ -477,7 +467,11 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return ctx
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+					return []domain.CanonicalOrderBooksResult{
+						{PoolID: 1},
+					}, nil
+				}
 			},
 			address:       "osmo1glq2duq5f4x3m88fqwecfrfcuauy8343amy5fm",
 			expectedError: context.Canceled,
@@ -492,7 +486,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 
 				grpcclient.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder().Order}, 1, nil)
 
-				withGetMetadataByChainDenom(tokensusecase)
+				tokensusecase.GetMetadataByChainDenomFunc = s.getMetadataByChainDenomFuncEmptyToken()
 
 				// Set is best effort to true
 				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(orderbookdomain.OrderbookTick{}, false)
@@ -512,7 +506,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 
 				grpcclient.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder().Order}, 1, nil)
 
-				withGetMetadataByChainDenom(tokensusecase)
+				tokensusecase.GetMetadataByChainDenomFunc = s.getMetadataByChainDenomFuncEmptyToken()
 
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.getSpotPriceScalingFactorByDenomFunc(1, nil)
 
@@ -549,7 +543,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 					}, 2, nil
 				}
 
-				withGetMetadataByChainDenom(tokensusecase)
+				tokensusecase.GetMetadataByChainDenomFunc = s.getMetadataByChainDenomFuncEmptyToken()
 
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
 					return osmomath.NewDec(1), nil
@@ -589,7 +583,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 					}, 2, nil
 				}
 
-				withGetMetadataByChainDenom(tokensusecase)
+				tokensusecase.GetMetadataByChainDenomFunc = s.getMetadataByChainDenomFuncEmptyToken()
 
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
 					return osmomath.NewDec(1), nil
