@@ -2,8 +2,8 @@ package orderbookusecase_test
 
 import (
 	"context"
+	"sort"
 	"strings"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,14 +21,131 @@ import (
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	"github.com/osmosis-labs/sqs/orderbook/types"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
 )
 
+var defaultOrder = orderbookdomain.Order{
+	TickId:         1,
+	OrderId:        1,
+	OrderDirection: "bid",
+	Owner:          "owner1",
+	Quantity:       "1000",
+	PlacedQuantity: "1500",
+	Etas:           "500",
+	ClaimBounty:    "10",
+	PlacedAt:       "1634764800000",
+}
+
+var defaultLimitOrder = orderbookdomain.LimitOrder{
+	TickId:           1,
+	OrderId:          1,
+	OrderDirection:   "bid",
+	Owner:            "owner1",
+	Quantity:         osmomath.NewDec(1000),
+	Etas:             "500",
+	ClaimBounty:      "10",
+	PlacedQuantity:   osmomath.NewDec(1500),
+	PlacedAt:         1634,
+	Price:            osmomath.MustNewDecFromStr("1.000001000000000000"),
+	PercentClaimed:   osmomath.MustNewDecFromStr("0.333333333333333333"),
+	TotalFilled:      osmomath.MustNewDecFromStr("600"),
+	PercentFilled:    osmomath.MustNewDecFromStr("0.400000000000000000"),
+	OrderbookAddress: "someOrderbookAddress",
+	Status:           "partiallyFilled",
+	Output:           osmomath.MustNewDecFromStr("1499.998500001499998500"),
+	// QuoteAsset:       orderbookdomain.Asset{Symbol: "ATOM", Decimals: 6},
+	// BaseAsset:        orderbookdomain.Asset{Symbol: "OSMO", Decimals: 6},
+}
+
+type OrderbookTestHelper struct {
+	routertesting.RouterTestHelper
+}
+
+type Order struct {
+	orderbookdomain.Order
+}
+
+func (o Order) withOrderID(id int64) Order {
+	o.OrderId = id
+	return o
+}
+
+type LimitOrder struct {
+	orderbookdomain.LimitOrder
+}
+
+func (o LimitOrder) withOrderID(id int64) LimitOrder {
+	o.OrderId = id
+	return o
+}
+
+func (o LimitOrder) withOrderbookAddress(address string) LimitOrder {
+	o.OrderbookAddress = address
+	return o
+}
+
+func (s *OrderbookTestHelper) newOrder() Order {
+	return Order{defaultOrder}
+}
+
+func (s *OrderbookTestHelper) newLimitOrder() LimitOrder {
+	return LimitOrder{defaultLimitOrder}
+}
+
+func (s *OrderbookTestHelper) newTick(effectiveTotalAmountSwapped string, unrealizedCancels int64, direction string) orderbookdomain.OrderbookTick {
+	s.T().Helper()
+
+	tickValues := orderbookdomain.TickValues{
+		EffectiveTotalAmountSwapped: effectiveTotalAmountSwapped,
+	}
+
+	tick := orderbookdomain.OrderbookTick{
+		TickState:         orderbookdomain.TickState{},
+		UnrealizedCancels: orderbookdomain.UnrealizedCancels{},
+	}
+
+	if direction == "bid" {
+		tick.TickState.BidValues = tickValues
+		if unrealizedCancels != 0 {
+			tick.UnrealizedCancels.BidUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
+		}
+	} else {
+		tick.TickState.AskValues = tickValues
+		if unrealizedCancels != 0 {
+			tick.UnrealizedCancels.AskUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
+		}
+	}
+
+	return tick
+}
+
+func (s *OrderbookTestHelper) getTickByIDFunc(tick orderbookdomain.OrderbookTick, ok bool) func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
+	return func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
+		return tick, ok
+	}
+}
+
+func (s *OrderbookTestHelper) newCanonicalOrderBooksResult(poolID uint64, contractAddress string) domain.CanonicalOrderBooksResult {
+	return domain.CanonicalOrderBooksResult{
+		Base:            "OSMO",
+		Quote:           "ATOM",
+		PoolID:          poolID,
+		ContractAddress: contractAddress,
+	}
+
+}
+
+func (s *OrderbookTestHelper) getAllCanonicalOrderbookPoolIDsFunc(err error, orderbooks ...domain.CanonicalOrderBooksResult) func() ([]domain.CanonicalOrderBooksResult, error) {
+	return func() ([]domain.CanonicalOrderBooksResult, error) {
+		return orderbooks, err
+	}
+}
+
 type OrderbookUsecaseTestSuite struct {
-	apptesting.ConcentratedKeeperTestHelper
+	OrderbookTestHelper
 }
 
 func TestOrderbookUsecaseTestSuite(t *testing.T) {
@@ -246,7 +363,9 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 		name                 string
 		setupContext         func() context.Context
 		setupMocks           func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock)
+		address              string
 		expectedError        error
+		expectedOrders       []orderbookdomain.LimitOrder
 		expectedIsBestEffort bool
 	}{
 		{
@@ -259,6 +378,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 					return nil, assert.AnError
 				}
 			},
+			address:       "osmo1npsku4qlqav6udkvgfk9eran4s4edzu69vzdm6",
 			expectedError: &types.FailedGetAllCanonicalOrderbookPoolIDsError{},
 		},
 		{
@@ -271,22 +391,8 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
 				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
 			},
+			address:       "osmo1glq2duq5f4x3m88fqwecfrfcuauy8343amy5fm",
 			expectedError: context.Canceled,
-		},
-		{
-			name: "processOrderBookActiveOrders returns an error",
-			setupContext: func() context.Context {
-				return context.Background()
-			},
-			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
-
-				grpcclient.MockGetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
-					return nil, 0, assert.AnError
-				}
-			},
-			expectedError:        &types.FailedProcessingOrderbookActiveOrdersError{},
-			expectedIsBestEffort: false,
 		},
 		{
 			name: "isBestEffort set to true when one orderbook is processed with best effort",
@@ -294,13 +400,11 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.getAllCanonicalOrderbookPoolIDsFunc(nil, s.newCanonicalOrderBooksResult(1, "A"))
 
 				grpcclient.MockGetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
 					return orderbookdomain.Orders{
-						{
-							OrderId: 1,
-						},
+						s.newOrder().Order,
 					}, 1, nil
 
 				}
@@ -312,7 +416,9 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 					return orderbookdomain.OrderbookTick{}, false
 				}
 			},
+			address:              "osmo1777xu9gw22pham4yzssuywmxvel5wdyqkyacdw",
 			expectedError:        nil,
+			expectedOrders:       []orderbookdomain.LimitOrder{},
 			expectedIsBestEffort: true,
 		},
 		{
@@ -321,23 +427,12 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.getAllCanonicalOrderbookPoolIDsFunc(nil, s.newCanonicalOrderBooksResult(1, "A"))
 
 				grpcclient.MockGetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
 					return orderbookdomain.Orders{
-						{
-							TickId:         cltypes.MaxTick,
-							OrderId:        1,
-							OrderDirection: "bid",
-							Owner:          "owner1",
-							Quantity:       "1000",
-							PlacedQuantity: "1500",
-							Etas:           "500",
-							ClaimBounty:    "10",
-							PlacedAt:       "1634764800000",
-						},
+						s.newOrder().Order,
 					}, 1, nil
-
 				}
 
 				withGetMetadataByChainDenom(tokensusecase)
@@ -346,20 +441,92 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 					return osmomath.NewDec(1), nil
 				}
 
-				orderbookrepository.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-					return orderbookdomain.OrderbookTick{
-						TickState: orderbookdomain.TickState{
-							BidValues: orderbookdomain.TickValues{
-								EffectiveTotalAmountSwapped: "100",
-							},
-						},
-						UnrealizedCancels: orderbookdomain.UnrealizedCancels{
-							BidUnrealizedCancels: osmomath.NewInt(100),
-						},
-					}, true
-				}
+				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(s.newTick("500", 100, "bid"), true)
 			},
-			expectedError:        nil,
+			address:       "osmo1p2pq3dt5xkj39p0420p4mm9l45394xecr00299",
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.LimitOrder{
+				s.newLimitOrder().withOrderbookAddress("A").LimitOrder,
+			},
+			expectedIsBestEffort: false,
+		},
+		{
+			name: "successful retrieval of active orders: 3 orders returned. 1 from orderbook A, 2 from orderbook B -> 3 orders are returned as intended",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.getAllCanonicalOrderbookPoolIDsFunc(
+					nil,
+					s.newCanonicalOrderBooksResult(1, "A"),
+					s.newCanonicalOrderBooksResult(1, "B"),
+				)
+
+				grpcclient.MockGetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
+					if contractAddress == "A" {
+						return orderbookdomain.Orders{
+							s.newOrder().withOrderID(3).Order,
+						}, 1, nil
+					}
+					return orderbookdomain.Orders{
+						s.newOrder().withOrderID(1).Order,
+						s.newOrder().withOrderID(2).Order,
+					}, 2, nil
+				}
+
+				withGetMetadataByChainDenom(tokensusecase)
+
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
+					return osmomath.NewDec(1), nil
+				}
+
+				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(s.newTick("500", 100, "bid"), true)
+			},
+			address:       "osmo1p2pq3dt5xkj39p0420p4mm9l45394xecr00299",
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.LimitOrder{
+				s.newLimitOrder().withOrderID(1).withOrderbookAddress("B").LimitOrder,
+				s.newLimitOrder().withOrderID(2).withOrderbookAddress("B").LimitOrder,
+				s.newLimitOrder().withOrderID(3).withOrderbookAddress("A").LimitOrder,
+			},
+			expectedIsBestEffort: false,
+		},
+		{
+			name: "successful retrieval of active orders: 2 orders returned. 1 from orderbook A, 1 from order book B. Orderbook B is not canonical -> only 1 order is returned",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.getAllCanonicalOrderbookPoolIDsFunc(
+					nil,
+					s.newCanonicalOrderBooksResult(1, "A"),
+					s.newCanonicalOrderBooksResult(0, "B"), // Not canonical
+				)
+
+				grpcclient.MockGetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
+					if contractAddress == "B" {
+						return orderbookdomain.Orders{
+							s.newOrder().withOrderID(2).Order,
+						}, 1, nil
+					}
+					return orderbookdomain.Orders{
+						s.newOrder().withOrderID(1).Order,
+					}, 2, nil
+				}
+
+				withGetMetadataByChainDenom(tokensusecase)
+
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
+					return osmomath.NewDec(1), nil
+				}
+
+				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(s.newTick("500", 100, "bid"), true)
+			},
+			address:       "osmo1p2pq3dt5xkj39p0420p4mm9l45394xecr00299",
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.LimitOrder{
+				s.newLimitOrder().withOrderID(1).withOrderbookAddress("A").LimitOrder,
+			},
 			expectedIsBestEffort: false,
 		},
 	}
@@ -383,19 +550,21 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			// Call the method under test
 			// We are not interested in the orders returned, it's tested
 			// in the TestCreateFormattedLimitOrder.
-			_, isBestEffort, err := usecase.GetActiveOrders(ctx, "address")
+			orders, isBestEffort, err := usecase.GetActiveOrders(ctx, tc.address)
+
+			// Sort the results by order ID to make the output more deterministic
+			sort.SliceStable(orders, func(i, j int) bool {
+				return orders[i].OrderId < orders[j].OrderId
+			})
 
 			// Assert the results
 			if tc.expectedError != nil {
 				s.Assert().Error(err)
-				if errors.Is(err, tc.expectedError) {
-					s.Assert().ErrorIs(err, tc.expectedError)
-				} else {
-					s.Assert().ErrorAs(err, tc.expectedError)
-				}
+				s.ErrorIsAs(err, tc.expectedError)
 			} else {
 				s.Assert().NoError(err)
 				s.Assert().Equal(tc.expectedIsBestEffort, isBestEffort)
+				s.Assert().Equal(tc.expectedOrders, orders)
 			}
 		})
 	}

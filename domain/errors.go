@@ -17,6 +17,13 @@ var (
 	ErrBadParamInput = errors.New("given Param is not valid")
 )
 
+var (
+	ErrBaseDenomNotValid       = errors.New("base denom is empty")
+	ErrQuoteDenomNotValid      = errors.New("quote denom is empty")
+	ErrPoolIDNotValid          = errors.New("pool ID is zero")
+	ErrContractAddressNotValid = errors.New("contract address is empty")
+)
+
 // GetStatusCode returbs status code given error
 func GetStatusCode(err error) int {
 	if err == nil {

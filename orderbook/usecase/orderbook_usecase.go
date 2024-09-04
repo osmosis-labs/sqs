@@ -2,6 +2,7 @@ package orderbookusecase
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -172,7 +173,6 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 			if result.err != nil {
 				telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
 				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
-				return nil, false, types.FailedProcessingOrderbookActiveOrdersError{Err: result.err}
 			}
 
 			isBestEffort = isBestEffort || result.isBestEffort
@@ -196,6 +196,10 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 // For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
 // This is a best-effort process.
 func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+	if err := orderBook.Validate(); err != nil {
+		return nil, false, err
+	}
+
 	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderBook.ContractAddress, ownerAddress)
 	if err != nil {
 		return nil, false, err
