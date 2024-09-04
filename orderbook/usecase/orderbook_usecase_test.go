@@ -114,12 +114,12 @@ type OrderbookTestHelper struct {
 	routertesting.RouterTestHelper
 }
 
-// newOrder creates a new order
+// newOrder creates a new order based on the defaultOrder.
 func (s *OrderbookTestHelper) newOrder() Order {
 	return Order{defaultOrder}
 }
 
-// newLimitOrder creates a new limit order
+// newLimitOrder creates a new limit order based on the defaultLimitOrder.
 func (s *OrderbookTestHelper) newLimitOrder() LimitOrder {
 	return LimitOrder{defaultLimitOrder}
 }
@@ -187,7 +187,10 @@ func (s *OrderbookTestHelper) getActiveOrdersFunc(orders orderbookdomain.Orders,
 	}
 }
 
-// getMetadataByChainDenomFunc returns a function that returns a token by chain denom
+// getMetadataByChainDenomFunc returns a function that returns a token by chain denom useful for mocking the tokensUsecase.GetMetadataByChainDenomFunc
+// If errIfNotDenom is not empty, it will return an error if the denom passed to GetMetadataByChainDenomFunc is not equal to errIfNotDenom.
+// If the denom passed to GetMetadataByChainDenomFunc is empty, it will return an empty token.
+// If the denom passed to GetMetadataByChainDenomFunc is equal to the quote/base asset symbol, it will return a token with the quote/base asset symbol and decimals.
 func (s *OrderbookTestHelper) getMetadataByChainDenomFunc(order LimitOrder, errIfNotDenom string) func(denom string) (domain.Token, error) {
 	return func(denom string) (domain.Token, error) {
 		if errIfNotDenom != "" && errIfNotDenom != denom {
