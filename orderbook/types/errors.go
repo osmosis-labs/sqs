@@ -196,16 +196,6 @@ func (e FailedGetAllCanonicalOrderbookPoolIDsError) Error() string {
 	return fmt.Sprintf("failed to get all canonical orderbook pool IDs: %v", e.Err)
 }
 
-// FailedProcessingOrderbookActiveOrdersError represents an error when failing to process orderbook active orders.
-type FailedProcessingOrderbookActiveOrdersError struct {
-	Err error
-}
-
-// Error implements the error interface.
-func (e FailedProcessingOrderbookActiveOrdersError) Error() string {
-	return fmt.Sprintf("failed to process orderbook active orders: %v", e.Err)
-}
-
 // FailedToGetActiveOrdersError is returned when the retrieval of active orders fails.
 type FailedToGetActiveOrdersError struct {
 	ContractAddress string

@@ -3,6 +3,7 @@ package orderbookusecase_test
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 	"testing"
 
@@ -21,71 +22,98 @@ import (
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	"github.com/osmosis-labs/sqs/orderbook/types"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v25/app/apptesting"
 )
 
-type OrderbookUsecaseTestSuite struct {
-	apptesting.ConcentratedKeeperTestHelper
+// defaultOrder is a default order used for testing
+var defaultOrder = orderbookdomain.Order{
+	TickId:         1,
+	OrderId:        1,
+	OrderDirection: "bid",
+	Owner:          "owner1",
+	Quantity:       "1000",
+	PlacedQuantity: "1500",
+	Etas:           "500",
+	ClaimBounty:    "10",
+	PlacedAt:       "1634764800000",
 }
 
-func TestOrderbookUsecaseTestSuite(t *testing.T) {
-	suite.Run(t, new(OrderbookUsecaseTestSuite))
+// defaultLimitOrder is a default limit order used for testing
+var defaultLimitOrder = orderbookdomain.LimitOrder{
+	TickId:           1,
+	OrderId:          1,
+	OrderDirection:   "bid",
+	Owner:            "owner1",
+	Quantity:         osmomath.NewDec(1000),
+	Etas:             "500",
+	ClaimBounty:      "10",
+	PlacedQuantity:   osmomath.NewDec(1500),
+	PlacedAt:         1634,
+	Price:            osmomath.MustNewDecFromStr("1.000001000000000000"),
+	PercentClaimed:   osmomath.MustNewDecFromStr("0.333333333333333333"),
+	TotalFilled:      osmomath.MustNewDecFromStr("600"),
+	PercentFilled:    osmomath.MustNewDecFromStr("0.400000000000000000"),
+	OrderbookAddress: "someOrderbookAddress",
+	Status:           "partiallyFilled",
+	Output:           osmomath.MustNewDecFromStr("1499.998500001499998500"),
 }
 
-// Creates a new osmomath.Dec from a string
-// Panics if the string is invalid
-func (s *OrderbookUsecaseTestSuite) newDecFromStr(str string) osmomath.Dec {
-	s.T().Helper()
-	dec, err := osmomath.NewDecFromStr(str)
-	s.Require().NoError(err)
-	return dec
+// Order is a wrapper around orderbookdomain.Order
+// it wraps additional helper methods for testing
+type Order struct {
+	orderbookdomain.Order
 }
 
-func (s *OrderbookUsecaseTestSuite) newOrder() orderbookdomain.Order {
-	s.T().Helper()
-
-	return orderbookdomain.Order{
-		TickId:         1,
-		OrderId:        1,
-		OrderDirection: "bid",
-		Owner:          "owner1",
-		Quantity:       "1000",
-		PlacedQuantity: "1500",
-		Etas:           "500",
-		ClaimBounty:    "10",
-		PlacedAt:       "1634764800000",
-	}
+// withOrderID sets the order ID for the order
+func (o Order) withOrderID(id int64) Order {
+	o.OrderId = id
+	return o
 }
 
-func (s *OrderbookUsecaseTestSuite) newLimitOrder() orderbookdomain.LimitOrder {
-	s.T().Helper()
-
-	return orderbookdomain.LimitOrder{
-		TickId:           1,
-		OrderId:          1,
-		OrderDirection:   "bid",
-		Owner:            "owner1",
-		Quantity:         osmomath.NewDec(1000),
-		Etas:             "500",
-		ClaimBounty:      "10",
-		PlacedQuantity:   osmomath.NewDec(1500),
-		PlacedAt:         1634,
-		Price:            s.newDecFromStr("1.000001000000000000"),
-		PercentClaimed:   s.newDecFromStr("0.333333333333333333"),
-		TotalFilled:      s.newDecFromStr("600"),
-		PercentFilled:    s.newDecFromStr("0.400000000000000000"),
-		OrderbookAddress: "someOrderbookAddress",
-		Status:           "partiallyFilled",
-		Output:           s.newDecFromStr("1499.998500001499998500"),
-		QuoteAsset:       orderbookdomain.Asset{Symbol: "ATOM", Decimals: 6},
-		BaseAsset:        orderbookdomain.Asset{Symbol: "OSMO", Decimals: 6},
-	}
+// withTickID sets the tick ID for the order
+func (o Order) withTickID(id int64) Order {
+	o.TickId = id
+	return o
 }
 
-func (s *OrderbookUsecaseTestSuite) newTick(effectiveTotalAmountSwapped string, unrealizedCancels int64, direction string) orderbookdomain.OrderbookTick {
+// withOrderbookAddress sets the orderbook address for the order
+// it wraps additional helper methods for testing
+type LimitOrder struct {
+	orderbookdomain.LimitOrder
+}
+
+// withOrderID sets the order ID for the order
+func (o LimitOrder) withOrderID(id int64) LimitOrder {
+	o.OrderId = id
+	return o
+}
+
+// withOrderbookAddress sets the orderbook address for the order
+func (o LimitOrder) withOrderbookAddress(address string) LimitOrder {
+	o.OrderbookAddress = address
+	return o
+}
+
+// OrderbookTestHelper is a helper struct for the orderbook usecase tests
+type OrderbookTestHelper struct {
+	routertesting.RouterTestHelper
+}
+
+// newOrder creates a new order
+func (s *OrderbookTestHelper) newOrder() Order {
+	return Order{defaultOrder}
+}
+
+// newLimitOrder creates a new limit order
+func (s *OrderbookTestHelper) newLimitOrder() LimitOrder {
+	return LimitOrder{defaultLimitOrder}
+}
+
+// newTick creates a new orderbook tick
+func (s *OrderbookTestHelper) newTick(effectiveTotalAmountSwapped string, unrealizedCancels int64, direction string) orderbookdomain.OrderbookTick {
 	s.T().Helper()
 
 	tickValues := orderbookdomain.TickValues{
@@ -112,10 +140,76 @@ func (s *OrderbookUsecaseTestSuite) newTick(effectiveTotalAmountSwapped string, 
 	return tick
 }
 
-func (s *OrderbookUsecaseTestSuite) getActiveOrdersFunc(orders orderbookdomain.Orders, total uint64, err error) func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
+// getTickByIDFunc returns a function that returns a tick by ID
+// it is useful for mocking the repository.GetTickByIDFunc.
+func (s *OrderbookTestHelper) getTickByIDFunc(tick orderbookdomain.OrderbookTick, ok bool) func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
+	return func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
+		return tick, ok
+	}
+}
+
+// newCanonicalOrderBooksResult creates a new canonical orderbooks result
+func (s *OrderbookTestHelper) newCanonicalOrderBooksResult(poolID uint64, contractAddress string) domain.CanonicalOrderBooksResult {
+	return domain.CanonicalOrderBooksResult{
+		Base:            "OSMO",
+		Quote:           "ATOM",
+		PoolID:          poolID,
+		ContractAddress: contractAddress,
+	}
+
+}
+
+// getAllCanonicalOrderbookPoolIDsFunc returns a function that returns all canonical orderbook pool IDs
+// it is useful for mocking the poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc.
+func (s *OrderbookTestHelper) getAllCanonicalOrderbookPoolIDsFunc(err error, orderbooks ...domain.CanonicalOrderBooksResult) func() ([]domain.CanonicalOrderBooksResult, error) {
+	return func() ([]domain.CanonicalOrderBooksResult, error) {
+		return orderbooks, err
+	}
+}
+
+// getActiveOrdersFunc returns a function that returns active orders
+func (s *OrderbookTestHelper) getActiveOrdersFunc(orders orderbookdomain.Orders, total uint64, err error) func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
 	return func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
 		return orders, total, err
 	}
+}
+
+// getMetadataByChainDenomFunc returns a function that returns a token by chain denom
+func (s *OrderbookTestHelper) getMetadataByChainDenomFunc(order LimitOrder, errIfNotDenom string) func(denom string) (domain.Token, error) {
+	return func(denom string) (domain.Token, error) {
+		if errIfNotDenom != "" && errIfNotDenom != denom {
+			return domain.Token{}, assert.AnError
+		}
+		if denom == "" {
+			return domain.Token{}, nil
+		}
+
+		if denom == order.QuoteAsset.Symbol {
+			return domain.Token{
+				CoinMinimalDenom: order.QuoteAsset.Symbol,
+				Precision:        order.QuoteAsset.Decimals,
+			}, nil
+		}
+
+		if denom == order.BaseAsset.Symbol {
+			return domain.Token{
+				CoinMinimalDenom: order.BaseAsset.Symbol,
+				Precision:        order.BaseAsset.Decimals,
+			}, nil
+		}
+
+		return domain.Token{}, assert.AnError
+	}
+}
+
+// OrderbookUsecaseTestSuite is a test suite for the orderbook usecase
+type OrderbookUsecaseTestSuite struct {
+	OrderbookTestHelper
+}
+
+// SetupTest sets up the test suite
+func TestOrderbookUsecaseTestSuite(t *testing.T) {
+	suite.Run(t, new(OrderbookUsecaseTestSuite))
 }
 
 func (s *OrderbookUsecaseTestSuite) getSpotPriceScalingFactorByDenomFunc(v int64, err error) func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
@@ -341,7 +435,9 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 		name                 string
 		setupContext         func() context.Context
 		setupMocks           func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock)
+		address              string
 		expectedError        error
+		expectedOrders       []orderbookdomain.LimitOrder
 		expectedIsBestEffort bool
 	}{
 		{
@@ -354,6 +450,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 					return nil, assert.AnError
 				}
 			},
+			address:       "osmo1npsku4qlqav6udkvgfk9eran4s4edzu69vzdm6",
 			expectedError: &types.FailedGetAllCanonicalOrderbookPoolIDsError{},
 		},
 		{
@@ -366,20 +463,8 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
 				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
 			},
+			address:       "osmo1glq2duq5f4x3m88fqwecfrfcuauy8343amy5fm",
 			expectedError: context.Canceled,
-		},
-		{
-			name: "processOrderBookActiveOrders returns an error",
-			setupContext: func() context.Context {
-				return context.Background()
-			},
-			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
-
-				grpcclient.GetActiveOrdersCb = s.getActiveOrdersFunc(nil, 0, assert.AnError)
-			},
-			expectedError:        &types.FailedProcessingOrderbookActiveOrdersError{},
-			expectedIsBestEffort: false,
 		},
 		{
 			name: "isBestEffort set to true when one orderbook is processed with best effort",
@@ -387,16 +472,18 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.getAllCanonicalOrderbookPoolIDsFunc(nil, s.newCanonicalOrderBooksResult(1, "A"))
 
-				grpcclient.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder()}, 1, nil)
+				grpcclient.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder().Order}, 1, nil)
 
 				withGetMetadataByChainDenom(tokensusecase)
 
 				// Set is best effort to true
 				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(orderbookdomain.OrderbookTick{}, false)
 			},
+			address:              "osmo1777xu9gw22pham4yzssuywmxvel5wdyqkyacdw",
 			expectedError:        nil,
+			expectedOrders:       []orderbookdomain.LimitOrder{},
 			expectedIsBestEffort: true,
 		},
 		{
@@ -405,17 +492,100 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				withGetAllCanonicalOrderbookPoolIDs(poolsUsecase)
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.getAllCanonicalOrderbookPoolIDsFunc(nil, s.newCanonicalOrderBooksResult(1, "A"))
 
-				grpcclient.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder()}, 1, nil)
+				grpcclient.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder().Order}, 1, nil)
 
 				withGetMetadataByChainDenom(tokensusecase)
 
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.getSpotPriceScalingFactorByDenomFunc(1, nil)
 
-				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(s.newTick("100", 100, "bid"), true)
+				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(s.newTick("500", 100, "bid"), true)
 			},
-			expectedError:        nil,
+			address:       "osmo1p2pq3dt5xkj39p0420p4mm9l45394xecr00299",
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.LimitOrder{
+				s.newLimitOrder().withOrderbookAddress("A").LimitOrder,
+			},
+			expectedIsBestEffort: false,
+		},
+		{
+			name: "successful retrieval of active orders: 3 orders returned. 1 from orderbook A, 2 from orderbook B -> 3 orders are returned as intended",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.getAllCanonicalOrderbookPoolIDsFunc(
+					nil,
+					s.newCanonicalOrderBooksResult(1, "A"),
+					s.newCanonicalOrderBooksResult(1, "B"),
+				)
+
+				grpcclient.GetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
+					if contractAddress == "A" {
+						return orderbookdomain.Orders{
+							s.newOrder().withOrderID(3).Order,
+						}, 1, nil
+					}
+					return orderbookdomain.Orders{
+						s.newOrder().withOrderID(1).Order,
+						s.newOrder().withOrderID(2).Order,
+					}, 2, nil
+				}
+
+				withGetMetadataByChainDenom(tokensusecase)
+
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
+					return osmomath.NewDec(1), nil
+				}
+
+				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(s.newTick("500", 100, "bid"), true)
+			},
+			address:       "osmo1p2pq3dt5xkj39p0420p4mm9l45394xecr00299",
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.LimitOrder{
+				s.newLimitOrder().withOrderID(1).withOrderbookAddress("B").LimitOrder,
+				s.newLimitOrder().withOrderID(2).withOrderbookAddress("B").LimitOrder,
+				s.newLimitOrder().withOrderID(3).withOrderbookAddress("A").LimitOrder,
+			},
+			expectedIsBestEffort: false,
+		},
+		{
+			name: "successful retrieval of active orders: 2 orders returned. 1 from orderbook A, 1 from order book B. Orderbook B is not canonical -> only 1 order is returned",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.getAllCanonicalOrderbookPoolIDsFunc(
+					nil,
+					s.newCanonicalOrderBooksResult(1, "A"),
+					s.newCanonicalOrderBooksResult(0, "B"), // Not canonical
+				)
+
+				grpcclient.GetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
+					if contractAddress == "B" {
+						return orderbookdomain.Orders{
+							s.newOrder().withOrderID(2).Order,
+						}, 1, nil
+					}
+					return orderbookdomain.Orders{
+						s.newOrder().withOrderID(1).Order,
+					}, 2, nil
+				}
+
+				withGetMetadataByChainDenom(tokensusecase)
+
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = func(baseDenom, quoteDenom string) (osmomath.Dec, error) {
+					return osmomath.NewDec(1), nil
+				}
+
+				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(s.newTick("500", 100, "bid"), true)
+			},
+			address:       "osmo1p2pq3dt5xkj39p0420p4mm9l45394xecr00299",
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.LimitOrder{
+				s.newLimitOrder().withOrderID(1).withOrderbookAddress("A").LimitOrder,
+			},
 			expectedIsBestEffort: false,
 		},
 	}
@@ -439,53 +609,32 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			// Call the method under test
 			// We are not interested in the orders returned, it's tested
 			// in the TestCreateFormattedLimitOrder.
-			_, isBestEffort, err := usecase.GetActiveOrders(ctx, "address")
+			orders, isBestEffort, err := usecase.GetActiveOrders(ctx, tc.address)
+
+			// Sort the results by order ID to make the output more deterministic
+			sort.SliceStable(orders, func(i, j int) bool {
+				return orders[i].OrderId < orders[j].OrderId
+			})
 
 			// Assert the results
 			if tc.expectedError != nil {
 				s.Assert().Error(err)
-				if errors.Is(err, tc.expectedError) {
-					s.Assert().ErrorIs(err, tc.expectedError)
-				} else {
-					s.Assert().ErrorAs(err, tc.expectedError)
-				}
+				s.ErrorIsAs(err, tc.expectedError)
 			} else {
 				s.Assert().NoError(err)
 				s.Assert().Equal(tc.expectedIsBestEffort, isBestEffort)
+				s.Assert().Equal(tc.expectedOrders, orders)
 			}
 		})
 	}
 }
 
 func (s *OrderbookUsecaseTestSuite) TestProcessOrderBookActiveOrders() {
-	withGetMetadataByChainDenom := func(tokensusecase *mocks.TokensUsecaseMock, errIfNotDenom string) *mocks.TokensUsecaseMock {
-		tokensusecase.GetMetadataByChainDenomFunc = func(denom string) (domain.Token, error) {
-			order := s.newLimitOrder()
-
-			if errIfNotDenom != "" && errIfNotDenom != denom {
-				return domain.Token{}, assert.AnError
-			}
-			if denom == "" {
-				return domain.Token{}, nil
-			}
-
-			if denom == order.QuoteAsset.Symbol {
-				return domain.Token{
-					CoinMinimalDenom: order.QuoteAsset.Symbol,
-					Precision:        order.QuoteAsset.Decimals,
-				}, nil
-			}
-
-			if denom == order.BaseAsset.Symbol {
-				return domain.Token{
-					CoinMinimalDenom: order.BaseAsset.Symbol,
-					Precision:        order.BaseAsset.Decimals,
-				}, nil
-			}
-
-			return domain.Token{}, assert.AnError
-		}
-		return tokensusecase
+	newLimitOrder := func() LimitOrder {
+		order := s.newLimitOrder()
+		order.QuoteAsset = orderbookdomain.Asset{Symbol: "ATOM", Decimals: 6}
+		order.BaseAsset = orderbookdomain.Asset{Symbol: "OSMO", Decimals: 6}
+		return order
 	}
 
 	testCases := []struct {
@@ -514,41 +663,53 @@ func (s *OrderbookUsecaseTestSuite) TestProcessOrderBookActiveOrders() {
 		{
 			name: "failed to get quote token metadata",
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
-				client.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder()}, 1, nil)
-				withGetMetadataByChainDenom(tokensusecase, "quoteToken")
+				client.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder().Order}, 1, nil)
+				tokensusecase.GetMetadataByChainDenomFunc = s.getMetadataByChainDenomFunc(newLimitOrder(), "quoteToken")
 			},
 			expectedError: &types.FailedToGetMetadataError{},
 		},
 		{
 			name: "failed to get base token metadata",
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
-				client.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder()}, 1, nil)
-				withGetMetadataByChainDenom(tokensusecase, "quoteToken")
+				client.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder().Order}, 1, nil)
+				tokensusecase.GetMetadataByChainDenomFunc = s.getMetadataByChainDenomFunc(newLimitOrder(), "quoteToken")
 			},
 			expectedError: &types.FailedToGetMetadataError{},
 		},
 		{
 			name: "error on creating formatted limit order ( no error - best effort )",
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
-				client.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder()}, 1, nil)
-				withGetMetadataByChainDenom(tokensusecase, "")
-				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(orderbookdomain.OrderbookTick{}, false)
+				client.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{
+					s.newOrder().withOrderID(1).withTickID(1).Order,
+					s.newOrder().withOrderID(2).withTickID(2).Order,
+				}, 1, nil)
+				tokensusecase.GetMetadataByChainDenomFunc = s.getMetadataByChainDenomFunc(newLimitOrder(), "")
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.getSpotPriceScalingFactorByDenomFunc(1, nil)
+				orderbookrepository.GetTickByIDFunc = func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
+					tick := s.newTick("500", 100, "bid")
+					if tickID == 1 {
+						return tick, true
+					}
+					return tick, false
+				}
 			},
-			expectedOrders:       []orderbookdomain.LimitOrder{},
-			expectedError:        nil,
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.LimitOrder{
+				newLimitOrder().LimitOrder,
+			},
 			expectedIsBestEffort: true,
 		},
 		{
 			name: "successful processing of active orders",
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
-				client.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder()}, 1, nil)
-				withGetMetadataByChainDenom(tokensusecase, "")
+				client.GetActiveOrdersCb = s.getActiveOrdersFunc(orderbookdomain.Orders{s.newOrder().Order}, 1, nil)
+				tokensusecase.GetMetadataByChainDenomFunc = s.getMetadataByChainDenomFunc(newLimitOrder(), "")
 				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(s.newTick("500", 100, "bid"), true)
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.getSpotPriceScalingFactorByDenomFunc(1, nil)
 			},
 			expectedError: nil,
 			expectedOrders: []orderbookdomain.LimitOrder{
-				s.newLimitOrder(),
+				newLimitOrder().LimitOrder,
 			},
 			expectedIsBestEffort: false,
 		},
@@ -567,7 +728,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessOrderBookActiveOrders() {
 				tc.setupMocks(usecase, &orderbookrepository, &client, &tokensusecase)
 			}
 
-			order := s.newLimitOrder()
+			order := newLimitOrder()
 
 			// Call the method under test
 			orders, isBestEffort, err := usecase.ProcessOrderBookActiveOrders(context.Background(), domain.CanonicalOrderBooksResult{
@@ -757,7 +918,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Quantity:       "13500",
 				PlacedQuantity: "33500",
 				OrderDirection: "bid",
-				Etas:           "9223372036854775808", // overflow value for int64
+				Etas:           overflowDecStr(), // overflow value for ETAs
 				ClaimBounty:    "10",
 			},
 			expectedError: &types.ParsingEtasError{},
@@ -796,16 +957,14 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			},
 		},
 		{
-			name:       "successful order processing",
-			order:      s.newOrder(),
-			quoteAsset: orderbookdomain.Asset{Symbol: "ATOM", Decimals: 6},
-			baseAsset:  orderbookdomain.Asset{Symbol: "OSMO", Decimals: 6},
+			name:  "successful order processing",
+			order: s.newOrder().Order,
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.getTickByIDFunc(s.newTick("500", 100, "bid"), true)
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.getSpotPriceScalingFactorByDenomFunc(1, nil)
 			},
 			expectedError: nil,
-			expectedOrder: s.newLimitOrder(),
+			expectedOrder: s.newLimitOrder().LimitOrder,
 		},
 	}
 

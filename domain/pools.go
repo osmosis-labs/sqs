@@ -67,6 +67,23 @@ type CanonicalOrderBooksResult struct {
 	ContractAddress string `json:"contract_address"`
 }
 
+// Validate validates the canonical orderbook result.
+func (c CanonicalOrderBooksResult) Validate() error {
+	if c.Base == "" {
+		return ErrBaseDenomNotValid
+	}
+	if c.Quote == "" {
+		return ErrQuoteDenomNotValid
+	}
+	if c.PoolID == 0 {
+		return ErrPoolIDNotValid
+	}
+	if c.ContractAddress == "" {
+		return ErrContractAddressNotValid
+	}
+	return nil
+}
+
 type PoolsOptions struct {
 	MinPoolLiquidityCap  uint64
 	PoolIDFilter         []uint64
