@@ -255,6 +255,10 @@ func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 	return results, isBestEffort, nil
 }
 
+// ZeroDec is a zero decimal value.
+// It is defined in a global space to avoid creating a new instance every time.
+var zeroDec = osmomath.ZeroDec()
+
 // createFormattedLimitOrder creates a limit order from the orderbook order.
 func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 	poolID uint64,
@@ -291,20 +295,12 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 		}
 	}
 
-	if zero := osmomath.NewDec(0); placedQuantity.Equal(zero) || placedQuantity.LT(zero) {
+	if placedQuantity.Equal(zeroDec) || placedQuantity.LT(zeroDec) {
 		return orderbookdomain.LimitOrder{}, types.InvalidPlacedQuantityError{PlacedQuantity: placedQuantity}
 	}
 
-	placedQuantityDec, err := osmomath.NewDecFromStr(order.PlacedQuantity)
-	if err != nil {
-		return orderbookdomain.LimitOrder{}, types.ParsingPlacedQuantityError{
-			PlacedQuantity: order.PlacedQuantity,
-			Err:            err,
-		}
-	}
-
 	// Calculate percent claimed
-	percentClaimed := placedQuantityDec.Sub(quantity).Quo(placedQuantityDec)
+	percentClaimed := placedQuantity.Sub(quantity).Quo(placedQuantity)
 
 	// Calculate normalization factor for price
 	normalizationFactor, err := o.tokensUsecease.GetSpotPriceScalingFactorByDenom(baseAsset.Symbol, quoteAsset.Symbol)
@@ -317,9 +313,9 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 	}
 
 	// Determine tick values and unrealized cancels based on order direction
-	var tickEtas, tickUnrealizedCancelled int64
+	var tickEtas, tickUnrealizedCancelled osmomath.Dec
 	if order.OrderDirection == "bid" {
-		tickEtas, err = strconv.ParseInt(tickState.BidValues.EffectiveTotalAmountSwapped, 10, 64)
+		tickEtas, err = osmomath.NewDecFromStr(tickState.BidValues.EffectiveTotalAmountSwapped)
 		if err != nil {
 			return orderbookdomain.LimitOrder{}, types.ParsingTickValuesError{
 				Field: "EffectiveTotalAmountSwapped (bid)",
@@ -327,15 +323,16 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 			}
 		}
 
-		tickUnrealizedCancelled, err = strconv.ParseInt(unrealizedCancels.BidUnrealizedCancels.String(), 10, 64)
-		if err != nil {
+		if unrealizedCancels.BidUnrealizedCancels.IsNil() {
 			return orderbookdomain.LimitOrder{}, types.ParsingUnrealizedCancelsError{
 				Field: "BidUnrealizedCancels",
-				Err:   err,
+				Err:   fmt.Errorf("nil value for bid unrealized cancels"),
 			}
 		}
+
+		tickUnrealizedCancelled = osmomath.NewDecFromInt(unrealizedCancels.BidUnrealizedCancels)
 	} else {
-		tickEtas, err = strconv.ParseInt(tickState.AskValues.EffectiveTotalAmountSwapped, 10, 64)
+		tickEtas, err = osmomath.NewDecFromStr(tickState.AskValues.EffectiveTotalAmountSwapped)
 		if err != nil {
 			return orderbookdomain.LimitOrder{}, types.ParsingTickValuesError{
 				Field: "EffectiveTotalAmountSwapped (ask)",
@@ -343,17 +340,18 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 			}
 		}
 
-		tickUnrealizedCancelled, err = strconv.ParseInt(unrealizedCancels.AskUnrealizedCancels.String(), 10, 64)
-		if err != nil {
+		if unrealizedCancels.AskUnrealizedCancels.IsNil() {
 			return orderbookdomain.LimitOrder{}, types.ParsingUnrealizedCancelsError{
 				Field: "AskUnrealizedCancels",
-				Err:   err,
+				Err:   fmt.Errorf("nil value for ask unrealized cancels"),
 			}
 		}
+
+		tickUnrealizedCancelled = osmomath.NewDecFromInt(unrealizedCancels.AskUnrealizedCancels)
 	}
 
 	// Calculate total ETAs and total filled
-	etas, err := strconv.ParseInt(order.Etas, 10, 64)
+	etas, err := osmomath.NewDecFromStr(order.Etas)
 	if err != nil {
 		return orderbookdomain.LimitOrder{}, types.ParsingEtasError{
 			Etas: order.Etas,
@@ -361,10 +359,10 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 		}
 	}
 
-	tickTotalEtas := tickEtas + tickUnrealizedCancelled
+	tickTotalEtas := tickEtas.Add(tickUnrealizedCancelled)
 
 	totalFilled := osmomath.MaxDec(
-		osmomath.NewDec(tickTotalEtas).Sub(osmomath.NewDec(etas).Sub(placedQuantity.Sub(quantity))),
+		tickTotalEtas.Sub(etas.Sub(placedQuantity.Sub(quantity))),
 		osmomath.ZeroDec(),
 	)
 
@@ -389,9 +387,9 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 	// Calculate output based on order direction
 	var output osmomath.Dec
 	if order.OrderDirection == "bid" {
-		output = placedQuantityDec.Quo(price.Dec())
+		output = placedQuantity.Quo(price.Dec())
 	} else {
-		output = placedQuantityDec.Mul(price.Dec())
+		output = placedQuantity.Mul(price.Dec())
 	}
 
 	// Calculate normalized price
