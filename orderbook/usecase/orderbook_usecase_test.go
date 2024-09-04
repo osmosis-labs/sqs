@@ -27,6 +27,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+// defaultOrder is a default order used for testing
 var defaultOrder = orderbookdomain.Order{
 	TickId:         1,
 	OrderId:        1,
@@ -39,6 +40,8 @@ var defaultOrder = orderbookdomain.Order{
 	PlacedAt:       "1634764800000",
 }
 
+
+// defaultLimitOrder is a default limit order used for testing
 var defaultLimitOrder = orderbookdomain.LimitOrder{
 	TickId:           1,
 	OrderId:          1,
@@ -56,45 +59,54 @@ var defaultLimitOrder = orderbookdomain.LimitOrder{
 	OrderbookAddress: "someOrderbookAddress",
 	Status:           "partiallyFilled",
 	Output:           osmomath.MustNewDecFromStr("1499.998500001499998500"),
-	// QuoteAsset:       orderbookdomain.Asset{Symbol: "ATOM", Decimals: 6},
-	// BaseAsset:        orderbookdomain.Asset{Symbol: "OSMO", Decimals: 6},
 }
 
-type OrderbookTestHelper struct {
-	routertesting.RouterTestHelper
-}
-
+// Order is a wrapper around orderbookdomain.Order
+// it wraps additional helper methods for testing
 type Order struct {
 	orderbookdomain.Order
 }
 
+// withOrderID sets the order ID for the order
 func (o Order) withOrderID(id int64) Order {
 	o.OrderId = id
 	return o
 }
 
+// withOrderbookAddress sets the orderbook address for the order
+// it wraps additional helper methods for testing
 type LimitOrder struct {
 	orderbookdomain.LimitOrder
 }
 
+// withOrderID sets the order ID for the order
 func (o LimitOrder) withOrderID(id int64) LimitOrder {
 	o.OrderId = id
 	return o
 }
 
+// withOrderbookAddress sets the orderbook address for the order
 func (o LimitOrder) withOrderbookAddress(address string) LimitOrder {
 	o.OrderbookAddress = address
 	return o
 }
 
+// OrderbookTestHelper is a helper struct for the orderbook usecase tests
+type OrderbookTestHelper struct {
+	routertesting.RouterTestHelper
+}
+
+// newOrder creates a new order
 func (s *OrderbookTestHelper) newOrder() Order {
 	return Order{defaultOrder}
 }
 
+// newLimitOrder creates a new limit order
 func (s *OrderbookTestHelper) newLimitOrder() LimitOrder {
 	return LimitOrder{defaultLimitOrder}
 }
 
+// newTick creates a new orderbook tick
 func (s *OrderbookTestHelper) newTick(effectiveTotalAmountSwapped string, unrealizedCancels int64, direction string) orderbookdomain.OrderbookTick {
 	s.T().Helper()
 
@@ -122,12 +134,15 @@ func (s *OrderbookTestHelper) newTick(effectiveTotalAmountSwapped string, unreal
 	return tick
 }
 
+// getTickByIDFunc returns a function that returns a tick by ID
+// it is useful for mocking the repository.GetTickByIDFunc.
 func (s *OrderbookTestHelper) getTickByIDFunc(tick orderbookdomain.OrderbookTick, ok bool) func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
 	return func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
 		return tick, ok
 	}
 }
 
+// newCanonicalOrderBooksResult creates a new canonical orderbooks result
 func (s *OrderbookTestHelper) newCanonicalOrderBooksResult(poolID uint64, contractAddress string) domain.CanonicalOrderBooksResult {
 	return domain.CanonicalOrderBooksResult{
 		Base:            "OSMO",
@@ -138,16 +153,20 @@ func (s *OrderbookTestHelper) newCanonicalOrderBooksResult(poolID uint64, contra
 
 }
 
+// getAllCanonicalOrderbookPoolIDsFunc returns a function that returns all canonical orderbook pool IDs
+// it is useful for mocking the poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc.
 func (s *OrderbookTestHelper) getAllCanonicalOrderbookPoolIDsFunc(err error, orderbooks ...domain.CanonicalOrderBooksResult) func() ([]domain.CanonicalOrderBooksResult, error) {
 	return func() ([]domain.CanonicalOrderBooksResult, error) {
 		return orderbooks, err
 	}
 }
 
+// OrderbookUsecaseTestSuite is a test suite for the orderbook usecase
 type OrderbookUsecaseTestSuite struct {
 	OrderbookTestHelper
 }
 
+// SetupTest sets up the test suite
 func TestOrderbookUsecaseTestSuite(t *testing.T) {
 	suite.Run(t, new(OrderbookUsecaseTestSuite))
 }
