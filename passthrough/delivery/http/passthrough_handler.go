@@ -65,6 +65,17 @@ func (a *PassthroughHandler) GetPortfolioAssetsByAddress(c echo.Context) error {
 	return c.JSON(http.StatusOK, portfolioAssetsResult)
 }
 
+// @Summary Returns all active orderbook orders associated with the given address.
+// @Description The returned data represents all active orders for all orderbooks available for the specified address.
+//
+// The is_best_effort flag indicates whether the error occurred while processing the orders due which not all orders were returned in the response.
+//
+// @Produce  json
+// @Success 200           struct  []orderbookdomain.LimitOrder  "List of active orders for all available orderboooks for the given address"
+// @Failure 400           struct  ResponseError                 "Response error"
+// @Failure 500           struct  ResponseError                 "Response error"
+// @Param  userOsmoAddress  query  string  true  "Osmo wallet address"
+// @Router /passthrough/active-orders [get]
 func (a *PassthroughHandler) GetActiveOrders(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 
@@ -91,7 +102,7 @@ func (a *PassthroughHandler) GetActiveOrders(c echo.Context) (err error) {
 
 	orders, isBestEffort, err := a.OUsecase.GetActiveOrders(ctx, req.UserOsmoAddress)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: types.ErrInternalError.Error()})
 	}
 
 	resp := types.NewGetAllOrderResponse(orders, isBestEffort)

@@ -1,47 +1,40 @@
 package types
 
 import (
+	"fmt"
 	"sort"
-	"strconv"
 
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/labstack/echo/v4"
+)
+
+var (
+	// ErrUserOsmoAddressInvalid is generic error returned when the user address is invalid.
+	ErrUserOsmoAddressInvalid = fmt.Errorf("userOsmoAddress is not valid osmo address")
+
+	ErrInternalError = fmt.Errorf("internal error")
 )
 
 // GetActiveOrdersRequest represents get orders request for the /pools/all-orders endpoint.
 type GetActiveOrdersRequest struct {
 	UserOsmoAddress string
-	Limit           int
-	Cursor          int
 }
 
 // UnmarshalHTTPRequest unmarshals the HTTP request to GetActiveOrdersRequest.
 func (r *GetActiveOrdersRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	r.UserOsmoAddress = c.QueryParam("userOsmoAddress")
-
-	if limit := c.QueryParam("limit"); limit != "" {
-		i, err := strconv.Atoi(limit)
-		if err != nil {
-			return err
-		}
-		r.Limit = i
-	}
-
-	if cursor := c.QueryParam("cursor"); cursor != "" {
-		i, err := strconv.Atoi(cursor)
-		if err != nil {
-			return err
-		}
-		r.Cursor = i
-	}
-
 	return nil
 }
 
 // Validate validates the GetActiveOrdersRequest.
-// TODO: implement validation rules
 func (r *GetActiveOrdersRequest) Validate() error {
+	_, err := sdk.AccAddressFromBech32(r.UserOsmoAddress)
+	if err != nil {
+		return ErrUserOsmoAddressInvalid
+	}
 	return nil
 }
 

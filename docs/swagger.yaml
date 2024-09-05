@@ -64,6 +64,33 @@ info:
   title: Osmosis Sidecar Query Server Example API
   version: "1.0"
 paths:
+  /passthrough/active-orders:
+    get:
+      description: The returned data represents all active orders for all orderbooks
+        available for the specified address.
+      parameters:
+      - description: Osmo wallet address
+        in: query
+        name: userOsmoAddress
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of active orders for all available orderboooks for the
+            given address
+          schema:
+            type: struct
+        "400":
+          description: Response error
+          schema:
+            type: struct
+        "500":
+          description: Response error
+          schema:
+            type: struct
+      summary: Returns all active orderbook orders associated with the given address.
   /passthrough/portfolio-assets/{address}:
     get:
       description: The returned data represents the potfolio asset breakdown by category

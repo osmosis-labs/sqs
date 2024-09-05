@@ -15,6 +15,44 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/passthrough/active-orders": {
+            "get": {
+                "description": "The returned data represents all active orders for all orderbooks available for the specified address.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Returns all active orderbook orders associated with the given address.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Osmo wallet address",
+                        "name": "userOsmoAddress",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of active orders for all available orderboooks for the given address",
+                        "schema": {
+                            "type": "struct"
+                        }
+                    },
+                    "400": {
+                        "description": "Response error",
+                        "schema": {
+                            "type": "struct"
+                        }
+                    },
+                    "500": {
+                        "description": "Response error",
+                        "schema": {
+                            "type": "struct"
+                        }
+                    }
+                }
+            }
+        },
         "/passthrough/portfolio-assets/{address}": {
             "get": {
                 "description": "The returned data represents the potfolio asset breakdown by category for the specified address.",
