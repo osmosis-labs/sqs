@@ -41,6 +41,11 @@ class TestSyntheticMonitoringGeo:
     def test_synth_passthrough_portfolio_assets(self, environment_url):
         run_test_portfolio_assets(environment_url)
 
+
+    # /passthrough/active--orders endpoint
+    def test_synth_passthrough_portfolio_assets(self, environment_url):
+        run_test_portfolio_assets(environment_url)
+
     # /router/routes endpoint
     def test_synth_candidate_routes(self, environment_url):
         tokens_to_pair = [constants.USDC, constants.UOSMO]
