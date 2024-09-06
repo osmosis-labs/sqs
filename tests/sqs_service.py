@@ -15,6 +15,7 @@ POOLS_URL = "/pools"
 CANONICAL_ORDERBOOKS_URL = "/pools/canonical-orderbooks"
 
 PASSTHROUGH_PORTFOLIO_ASSETS = "/passthrough/portfolio-assets/"
+PASSTHROUGH_ACTIVE_ORDERBOOK_ORDERS = "/passthrough/active-orders"
 
 CONFIG_URL = "/config"
 
@@ -237,6 +238,19 @@ class SQSService:
 
         if response.status_code != 200:
             raise Exception(f"Error fetching canonical orderbooks: {response.text}")
+
+        return response.json()
+
+
+    def get_active_orderbook_orders(self, address):
+        """
+        Fetches active orderbook orders from the specified endpoint and address and returns them.
+        """
+
+        response = requests.get(self.url + f"{PASSTHROUGH_ACTIVE_ORDERBOOK_ORDERS}?userOsmoAddress={address}", headers=self.headers)
+
+        if response.status_code != 200:
+            raise Exception(f"Error fetching active orderbook orders: {response.text}")
 
         return response.json()
 
