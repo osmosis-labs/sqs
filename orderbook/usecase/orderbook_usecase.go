@@ -3,7 +3,6 @@ package orderbookusecase
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
@@ -15,13 +14,14 @@ import (
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/orderbook/telemetry"
+	"github.com/osmosis-labs/sqs/orderbook/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 
 	clmath "github.com/osmosis-labs/osmosis/v25/x/concentrated-liquidity/math"
 )
 
-type orderbookUseCaseImpl struct {
+type OrderbookUseCaseImpl struct {
 	orderbookRepository orderbookdomain.OrderBookRepository
 	orderBookClient     orderbookgrpcclientdomain.OrderBookClient
 	poolsUsecease       mvc.PoolsUsecase
@@ -29,7 +29,7 @@ type orderbookUseCaseImpl struct {
 	logger              log.Logger
 }
 
-var _ mvc.OrderBookUsecase = &orderbookUseCaseImpl{}
+var _ mvc.OrderBookUsecase = &OrderbookUseCaseImpl{}
 
 const (
 	// Max number of ticks to query at a time
@@ -45,8 +45,8 @@ func New(
 	poolsUsecease mvc.PoolsUsecase,
 	tokensUsecease mvc.TokensUsecase,
 	logger log.Logger,
-) mvc.OrderBookUsecase {
-	return &orderbookUseCaseImpl{
+) *OrderbookUseCaseImpl {
+	return &OrderbookUseCaseImpl{
 		orderbookRepository: orderbookRepository,
 		orderBookClient:     orderBookClient,
 		poolsUsecease:       poolsUsecease,
@@ -55,21 +55,25 @@ func New(
 	}
 }
 
-// GetTicks implements mvc.OrderBookUsecase.
-func (o *orderbookUseCaseImpl) GetAllTicks(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
+// GetAllTicks implements mvc.OrderBookUsecase.
+func (o *OrderbookUseCaseImpl) GetAllTicks(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
 	return o.orderbookRepository.GetAllTicks(poolID)
 }
 
-// StoreTicks implements mvc.OrderBookUsecase.
-func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.PoolI) error {
+// ProcessPool implements mvc.OrderBookUsecase.
+func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.PoolI) error {
+	if pool == nil {
+		return types.PoolNilError{}
+	}
+
 	cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
 	if cosmWasmPoolModel == nil {
-		return fmt.Errorf("cw pool model is nil when processing order book")
+		return types.CosmWasmPoolModelNilError{}
 	}
 
 	poolID := pool.GetId()
 	if !cosmWasmPoolModel.IsOrderbook() {
-		return fmt.Errorf("pool is not an orderbook pool %d", poolID)
+		return types.NotAnOrderbookPoolError{PoolID: poolID}
 	}
 
 	if cosmWasmPoolModel.Data.Orderbook == nil {
@@ -84,7 +88,7 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 
 	cwModel, ok := pool.GetUnderlyingPool().(*cwpoolmodel.CosmWasmPool)
 	if !ok {
-		return fmt.Errorf("failed to cast pool model to CosmWasmPool")
+		return types.FailedToCastPoolModelError{}
 	}
 
 	// Get tick IDs
@@ -94,15 +98,15 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 	}
 
 	// Fetch tick states
-	tickStates, err := o.fetchTicksForOrderbook(ctx, cwModel.ContractAddress, tickIDs)
+	tickStates, err := o.orderBookClient.FetchTicks(ctx, maxQueryTicks, cwModel.ContractAddress, tickIDs)
 	if err != nil {
-		return fmt.Errorf("failed to fetch ticks for pool %s: %w", cwModel.ContractAddress, err)
+		return types.FetchTicksError{ContractAddress: cwModel.ContractAddress, Err: err}
 	}
 
 	// Fetch unrealized cancels
-	unrealizedCancels, err := o.fetchTickUnrealizedCancels(ctx, cwModel.ContractAddress, tickIDs)
+	unrealizedCancels, err := o.orderBookClient.FetchTickUnrealizedCancels(ctx, maxQueryTicksCancels, cwModel.ContractAddress, tickIDs)
 	if err != nil {
-		return fmt.Errorf("failed to fetch unrealized cancels for pool %s: %w", cwModel.ContractAddress, err)
+		return types.FetchUnrealizedCancelsError{ContractAddress: cwModel.ContractAddress, Err: err}
 	}
 
 	tickDataMap := make(map[int64]orderbookdomain.OrderbookTick, len(ticks))
@@ -111,12 +115,12 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 
 		// Validate the tick IDs match between the tick and the unrealized cancel
 		if unrealizedCancel.TickID != tick.TickId {
-			return fmt.Errorf("tick id mismatch when fetching unrealized ticks %d %d", unrealizedCancel.TickID, tick.TickId)
+			return types.TickIDMismatchError{ExpectedID: tick.TickId, ActualID: unrealizedCancel.TickID}
 		}
 
 		tickState := tickStates[i]
 		if tickState.TickID != tick.TickId {
-			return fmt.Errorf("tick id mismatch when fetching tick states %d %d", tickState.TickID, tick.TickId)
+			return types.TickIDMismatchError{ExpectedID: tick.TickId, ActualID: tickState.TickID}
 		}
 
 		// Update tick map for the pool
@@ -134,10 +138,10 @@ func (o *orderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 }
 
 // GetActiveOrders implements mvc.OrderBookUsecase.
-func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
+func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
 	orderbooks, err := o.poolsUsecease.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to get all canonical orderbook pool IDs: %w", err)
+		return nil, false, types.FailedGetAllCanonicalOrderbookPoolIDsError{Err: err}
 	}
 
 	type orderbookResult struct {
@@ -148,7 +152,6 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	}
 
 	results := make(chan orderbookResult, len(orderbooks))
-	defer close(results)
 
 	// Process orderbooks concurrently
 	for _, orderbook := range orderbooks {
@@ -174,7 +177,6 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 			if result.err != nil {
 				telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
 				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
-				return nil, false, result.err
 			}
 
 			isBestEffort = isBestEffort || result.isBestEffort
@@ -197,10 +199,18 @@ func (o *orderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 //
 // For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
 // This is a best-effort process.
-func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+	if err := orderBook.Validate(); err != nil {
+		return nil, false, err
+	}
+
 	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderBook.ContractAddress, ownerAddress)
 	if err != nil {
-		return nil, false, err
+		return nil, false, types.FailedToGetActiveOrdersError{
+			ContractAddress: orderBook.ContractAddress,
+			OwnerAddress:    ownerAddress,
+			Err:             err,
+		}
 	}
 
 	// There are orders to process for given orderbook
@@ -210,12 +220,18 @@ func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 
 	quoteToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Quote)
 	if err != nil {
-		return nil, false, err
+		return nil, false, types.FailedToGetMetadataError{
+			TokenDenom: orderBook.Quote,
+			Err:        err,
+		}
 	}
 
 	baseToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Base)
 	if err != nil {
-		return nil, false, err
+		return nil, false, types.FailedToGetMetadataError{
+			TokenDenom: orderBook.Base,
+			Err:        err,
+		}
 	}
 
 	// Create a slice to store the results
@@ -255,8 +271,12 @@ func (o *orderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 	return results, isBestEffort, nil
 }
 
+// ZeroDec is a zero decimal value.
+// It is defined in a global space to avoid creating a new instance every time.
+var zeroDec = osmomath.ZeroDec()
+
 // createFormattedLimitOrder creates a limit order from the orderbook order.
-func (o *orderbookUseCaseImpl) createFormattedLimitOrder(
+func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 	poolID uint64,
 	order orderbookdomain.Order,
 	quoteAsset orderbookdomain.Asset,
@@ -266,102 +286,126 @@ func (o *orderbookUseCaseImpl) createFormattedLimitOrder(
 	tickForOrder, ok := o.orderbookRepository.GetTickByID(poolID, order.TickId)
 	if !ok {
 		telemetry.GetTickByIDNotFoundCounter.Inc()
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("tick not found %s, %d", orderbookAddress, order.TickId)
+		return orderbookdomain.LimitOrder{}, types.TickForOrderbookNotFoundError{
+			OrderbookAddress: orderbookAddress,
+			TickID:           order.TickId,
+		}
 	}
 
 	tickState := tickForOrder.TickState
 	unrealizedCancels := tickForOrder.UnrealizedCancels
 
-	// Parse quantity as int64
-	quantity, err := strconv.ParseInt(order.Quantity, 10, 64)
+	quantity, err := osmomath.NewDecFromStr(order.Quantity)
 	if err != nil {
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing quantity: %w", err)
+		return orderbookdomain.LimitOrder{}, types.ParsingQuantityError{
+			Quantity: order.Quantity,
+			Err:      err,
+		}
 	}
 
-	// Convert quantity to decimal for the calculations
-	quantityDec := osmomath.NewDec(quantity)
-
-	placedQuantity, err := strconv.ParseInt(order.PlacedQuantity, 10, 64)
+	placedQuantity, err := osmomath.NewDecFromStr(order.PlacedQuantity)
 	if err != nil {
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
+		return orderbookdomain.LimitOrder{}, types.ParsingPlacedQuantityError{
+			PlacedQuantity: order.PlacedQuantity,
+			Err:            err,
+		}
 	}
 
-	placedQuantityDec, err := osmomath.NewDecFromStr(order.PlacedQuantity)
-	if err != nil {
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing placed quantity: %w", err)
+	if placedQuantity.Equal(zeroDec) || placedQuantity.LT(zeroDec) {
+		return orderbookdomain.LimitOrder{}, types.InvalidPlacedQuantityError{PlacedQuantity: placedQuantity}
 	}
 
 	// Calculate percent claimed
-	percentClaimed := placedQuantityDec.Sub(quantityDec).Quo(placedQuantityDec)
+	percentClaimed := placedQuantity.Sub(quantity).Quo(placedQuantity)
 
 	// Calculate normalization factor for price
 	normalizationFactor, err := o.tokensUsecease.GetSpotPriceScalingFactorByDenom(baseAsset.Symbol, quoteAsset.Symbol)
 	if err != nil {
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("error getting spot price scaling factor: %w", err)
+		return orderbookdomain.LimitOrder{}, types.GettingSpotPriceScalingFactorError{
+			BaseDenom:  baseAsset.Symbol,
+			QuoteDenom: quoteAsset.Symbol,
+			Err:        err,
+		}
 	}
 
 	// Determine tick values and unrealized cancels based on order direction
-	var tickEtas, tickUnrealizedCancelled int64
+	var tickEtas, tickUnrealizedCancelled osmomath.Dec
 	if order.OrderDirection == "bid" {
-		tickEtas, err = strconv.ParseInt(tickState.BidValues.EffectiveTotalAmountSwapped, 10, 64)
+		tickEtas, err = osmomath.NewDecFromStr(tickState.BidValues.EffectiveTotalAmountSwapped)
 		if err != nil {
-			return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing bid effective total amount swapped: %w", err)
+			return orderbookdomain.LimitOrder{}, types.ParsingTickValuesError{
+				Field: "EffectiveTotalAmountSwapped (bid)",
+				Err:   err,
+			}
 		}
 
-		tickUnrealizedCancelled, err = strconv.ParseInt(unrealizedCancels.BidUnrealizedCancels.String(), 10, 64)
-		if err != nil {
-			return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing bid unrealized cancels: %w", err)
+		if unrealizedCancels.BidUnrealizedCancels.IsNil() {
+			return orderbookdomain.LimitOrder{}, types.ParsingUnrealizedCancelsError{
+				Field: "BidUnrealizedCancels",
+				Err:   fmt.Errorf("nil value for bid unrealized cancels"),
+			}
 		}
+
+		tickUnrealizedCancelled = osmomath.NewDecFromInt(unrealizedCancels.BidUnrealizedCancels)
 	} else {
-		tickEtas, err = strconv.ParseInt(tickState.AskValues.EffectiveTotalAmountSwapped, 10, 64)
+		tickEtas, err = osmomath.NewDecFromStr(tickState.AskValues.EffectiveTotalAmountSwapped)
 		if err != nil {
-			return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing ask effective total amount swapped: %w", err)
+			return orderbookdomain.LimitOrder{}, types.ParsingTickValuesError{
+				Field: "EffectiveTotalAmountSwapped (ask)",
+				Err:   err,
+			}
 		}
 
-		tickUnrealizedCancelled, err = strconv.ParseInt(unrealizedCancels.AskUnrealizedCancels.String(), 10, 64)
-		if err != nil {
-			return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing ask unrealized cancels: %w", err)
+		if unrealizedCancels.AskUnrealizedCancels.IsNil() {
+			return orderbookdomain.LimitOrder{}, types.ParsingUnrealizedCancelsError{
+				Field: "AskUnrealizedCancels",
+				Err:   fmt.Errorf("nil value for ask unrealized cancels"),
+			}
 		}
+
+		tickUnrealizedCancelled = osmomath.NewDecFromInt(unrealizedCancels.AskUnrealizedCancels)
 	}
 
 	// Calculate total ETAs and total filled
-
-	etas, err := strconv.ParseInt(order.Etas, 10, 64)
+	etas, err := osmomath.NewDecFromStr(order.Etas)
 	if err != nil {
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing etas: %w", err)
+		return orderbookdomain.LimitOrder{}, types.ParsingEtasError{
+			Etas: order.Etas,
+			Err:  err,
+		}
 	}
 
-	tickTotalEtas := tickEtas + tickUnrealizedCancelled
+	tickTotalEtas := tickEtas.Add(tickUnrealizedCancelled)
 
-	totalFilled := int64(math.Max(
-		float64(tickTotalEtas-(etas-(placedQuantity-quantity))),
-		0,
-	))
+	totalFilled := osmomath.MaxDec(
+		tickTotalEtas.Sub(etas.Sub(placedQuantity.Sub(quantity))),
+		osmomath.ZeroDec(),
+	)
 
 	// Calculate percent filled using
-	percentFilled, err := osmomath.NewDecFromStr(strconv.FormatFloat(math.Min(float64(totalFilled)/float64(placedQuantity), 1), 'f', -1, 64))
-	if err != nil {
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("error calculating percent filled: %w", err)
-	}
+	percentFilled := osmomath.MinDec(
+		totalFilled.Quo(placedQuantity),
+		osmomath.OneDec(),
+	)
 
 	// Determine order status based on percent filled
 	status, err := order.Status(percentFilled.MustFloat64())
 	if err != nil {
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("mapping order status: %w", err)
+		return orderbookdomain.LimitOrder{}, types.MappingOrderStatusError{Err: err}
 	}
 
 	// Calculate price based on tick ID
 	price, err := clmath.TickToPrice(order.TickId)
 	if err != nil {
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("converting tick to price: %w", err)
+		return orderbookdomain.LimitOrder{}, types.ConvertingTickToPriceError{TickID: order.TickId, Err: err}
 	}
 
 	// Calculate output based on order direction
 	var output osmomath.Dec
 	if order.OrderDirection == "bid" {
-		output = placedQuantityDec.Quo(price.Dec())
+		output = placedQuantity.Quo(price.Dec())
 	} else {
-		output = placedQuantityDec.Mul(price.Dec())
+		output = placedQuantity.Mul(price.Dec())
 	}
 
 	// Calculate normalized price
@@ -370,7 +414,10 @@ func (o *orderbookUseCaseImpl) createFormattedLimitOrder(
 	// Convert placed_at to a nano second timestamp
 	placedAt, err := strconv.ParseInt(order.PlacedAt, 10, 64)
 	if err != nil {
-		return orderbookdomain.LimitOrder{}, fmt.Errorf("error parsing placed_at: %w", err)
+		return orderbookdomain.LimitOrder{}, types.ParsingPlacedAtError{
+			PlacedAt: order.PlacedAt,
+			Err:      err,
+		}
 	}
 	placedAt = time.Unix(0, placedAt).Unix()
 
@@ -384,77 +431,15 @@ func (o *orderbookUseCaseImpl) createFormattedLimitOrder(
 		Etas:             order.Etas,
 		ClaimBounty:      order.ClaimBounty,
 		PlacedQuantity:   placedQuantity,
-		PercentClaimed:   percentClaimed.String(),
+		PercentClaimed:   percentClaimed,
 		TotalFilled:      totalFilled,
-		PercentFilled:    percentFilled.String(),
+		PercentFilled:    percentFilled,
 		OrderbookAddress: orderbookAddress,
-		Price:            normalizedPrice.String(),
+		Price:            normalizedPrice,
 		Status:           status,
-		Output:           output.String(),
+		Output:           output,
 		QuoteAsset:       quoteAsset,
 		BaseAsset:        baseAsset,
 		PlacedAt:         placedAt,
 	}, nil
-}
-
-// fetchTicksForOrderbook fetches the ticks for a given tick ID and contract address.
-// It returns the ticks and an error if any.
-// Errors if:
-// - failed to fetch ticks
-// - mismatch in number of ticks fetched
-func (o *orderbookUseCaseImpl) fetchTicksForOrderbook(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
-	finalTickStates := make([]orderbookdomain.Tick, 0, len(tickIDs))
-
-	for i := 0; i < len(tickIDs); i += maxQueryTicks {
-		end := i + maxQueryTicks
-		if end > len(tickIDs) {
-			end = len(tickIDs)
-		}
-
-		currentTickIDs := tickIDs[i:end]
-
-		tickStates, err := o.orderBookClient.QueryTicks(ctx, contractAddress, currentTickIDs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch ticks for pool %s: %w", contractAddress, err)
-		}
-
-		finalTickStates = append(finalTickStates, tickStates...)
-	}
-
-	if len(finalTickStates) != len(tickIDs) {
-		return nil, fmt.Errorf("mismatch in number of ticks fetched: expected %d, got %d", len(tickIDs), len(finalTickStates))
-	}
-
-	return finalTickStates, nil
-}
-
-// fetchTickUnrealizedCancels fetches the unrealized cancels for a given tick ID and contract address.
-// It returns the unrealized cancels and an error if any.
-// Errors if:
-// - failed to fetch unrealized cancels
-// - mismatch in number of unrealized cancels fetched
-func (o *orderbookUseCaseImpl) fetchTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error) {
-	allUnrealizedCancels := make([]orderbookgrpcclientdomain.UnrealizedTickCancels, 0, len(tickIDs))
-
-	for i := 0; i < len(tickIDs); i += maxQueryTicksCancels {
-		end := i + maxQueryTicksCancels
-		if end > len(tickIDs) {
-			end = len(tickIDs)
-		}
-
-		currentTickIDs := tickIDs[i:end]
-
-		unrealizedCancels, err := o.orderBookClient.GetTickUnrealizedCancels(ctx, contractAddress, currentTickIDs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch unrealized cancels for ticks %v: %w", currentTickIDs, err)
-		}
-
-		allUnrealizedCancels = append(allUnrealizedCancels, unrealizedCancels...)
-	}
-
-	if len(allUnrealizedCancels) != len(tickIDs) {
-		return nil, fmt.Errorf("mismatch in number of unrealized cancels fetched: expected %d, got %d", len(tickIDs), len(allUnrealizedCancels))
-	}
-
-	return allUnrealizedCancels, nil
 }

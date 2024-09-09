@@ -1,6 +1,7 @@
 package routertesting
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -456,4 +457,14 @@ func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap 
 	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)
 
 	return poolsAboveMinLiquidity
+}
+
+// ErrorIsAs first checks whether target error is equal to expectedError, if not, it checks whether
+// at least one of the errors in target's chain matches expectedError.
+func (s *RouterTestHelper) ErrorIsAs(target error, expectedError error) {
+	if errors.Is(target, expectedError) {
+		s.Assert().ErrorIs(target, expectedError)
+	} else {
+		s.Assert().ErrorAs(target, expectedError)
+	}
 }
