@@ -10,6 +10,11 @@ definitions:
       quote:
         type: string
     type: object
+  domain.ResponseError:
+    properties:
+      message:
+        type: string
+    type: object
   domain.Token:
     properties:
       coinMinimalDenom:
@@ -29,6 +34,113 @@ definitions:
       symbol:
         description: HumanDenom is the human readable denom, e.g. atom
         type: string
+    type: object
+  github_com_cosmos_cosmos-sdk_types.Coin:
+    properties:
+      amount:
+        $ref: '#/definitions/types.Int'
+      denom:
+        type: string
+    type: object
+  github_com_osmosis-labs_sqs_domain_orderbook.Asset:
+    properties:
+      symbol:
+        type: string
+    type: object
+  github_com_osmosis-labs_sqs_domain_orderbook.LimitOrder:
+    properties:
+      base_asset:
+        $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.Asset'
+      claim_bounty:
+        type: string
+      etas:
+        type: string
+      order_direction:
+        type: string
+      order_id:
+        type: integer
+      orderbookAddress:
+        type: string
+      output:
+        type: string
+      owner:
+        type: string
+      percentClaimed:
+        type: string
+      percentFilled:
+        type: string
+      placed_at:
+        type: integer
+      placed_quantity:
+        type: string
+      placed_tx:
+        type: string
+      price:
+        type: string
+      quantity:
+        type: string
+      quote_asset:
+        $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.Asset'
+      status:
+        $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.OrderStatus'
+      tick_id:
+        type: integer
+      totalFilled:
+        type: string
+    type: object
+  github_com_osmosis-labs_sqs_domain_orderbook.OrderStatus:
+    enum:
+    - open
+    - partiallyFilled
+    - filled
+    - fullyClaimed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - StatusOpen
+    - StatusPartiallyFilled
+    - StatusFilled
+    - StatusFullyClaimed
+    - StatusCancelled
+  github_com_osmosis-labs_sqs_domain_passthrough.AccountCoinsResult:
+    properties:
+      cap_value:
+        type: string
+      coin:
+        $ref: '#/definitions/github_com_cosmos_cosmos-sdk_types.Coin'
+    type: object
+  github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsCategoryResult:
+    properties:
+      account_coins_result:
+        description: AccountCoinsResult represents coins only from user balances (contrary
+          to TotalValueCap).
+        items:
+          $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_passthrough.AccountCoinsResult'
+        type: array
+      capitalization:
+        description: |-
+          Capitalization represents the total value of the assets in the portfolio.
+          includes capitalization of user balances, value in locks, bonding or unbonding
+          as well as the concentrated positions.
+        type: string
+      is_best_effort:
+        type: boolean
+    type: object
+  github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsResult:
+    properties:
+      categories:
+        additionalProperties:
+          $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsCategoryResult'
+        type: object
+    type: object
+  github_com_osmosis-labs_sqs_orderbook_types.GetActiveOrdersResponse:
+    properties:
+      is_best_effort:
+        type: boolean
+      orders:
+        items:
+          $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.LimitOrder'
+        type: array
     type: object
   sqsdomain.CandidatePool:
     properties:
@@ -59,11 +171,40 @@ definitions:
           type: object
         type: object
     type: object
+  types.Int:
+    type: object
 info:
   contact: {}
   title: Osmosis Sidecar Query Server Example API
   version: "1.0"
 paths:
+  /passthrough/active-orders:
+    get:
+      description: The returned data represents all active orders for all orderbooks
+        available for the specified address.
+      parameters:
+      - description: Osmo wallet address
+        in: query
+        name: userOsmoAddress
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of active orders for all available orderboooks for the
+            given address
+          schema:
+            $ref: '#/definitions/github_com_osmosis-labs_sqs_orderbook_types.GetActiveOrdersResponse'
+        "400":
+          description: Response error
+          schema:
+            $ref: '#/definitions/domain.ResponseError'
+        "500":
+          description: Response error
+          schema:
+            $ref: '#/definitions/domain.ResponseError'
+      summary: Returns all active orderbook orders associated with the given address.
   /passthrough/portfolio-assets/{address}:
     get:
       description: The returned data represents the potfolio asset breakdown by category
@@ -81,11 +222,11 @@ paths:
           description: Portfolio assets by-category and capitalization of the entire
             account value
           schema:
-            type: struct
+            $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsResult'
         "500":
           description: Response error
           schema:
-            type: struct
+            $ref: '#/definitions/domain.ResponseError'
       summary: Returns portfolio assets associated with the given address by category.
   /pools:
     get:
@@ -138,7 +279,7 @@ paths:
         "200":
           description: Canonical Orderbook Pool ID for the given base and quote
           schema:
-            type: struct
+            $ref: '#/definitions/domain.CanonicalOrderBooksResult'
       summary: Get canonical orderbook pool ID for the given base and quote.
   /pools/canonical-orderbooks:
     get:

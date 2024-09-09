@@ -6,16 +6,12 @@ import (
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	_ "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/orderbook/types"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/trace"
 )
-
-// ResponseError represent the response error struct
-type ResponseError struct {
-	Message string `json:"message"`
-}
 
 // PassthroughHandler is the http handler for passthrough use case
 type PassthroughHandler struct {
@@ -46,25 +42,36 @@ func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase, ou mvc.Orde
 // The user balances and total assets are brokend down by-coin with the capitalization of the entire account value.
 //
 // @Produce  json
-// @Success 200  struct  passthroughdomain.PortfolioAssetsResult  "Portfolio assets by-category and capitalization of the entire account value"
-// @Failure 500  struct  ResponseError  "Response error"
+// @Success 200  {object}  passthroughdomain.PortfolioAssetsResult  "Portfolio assets by-category and capitalization of the entire account value"
+// @Failure 500  {object}  domain.ResponseError  "Response error"
 // @Param address path string true "Wallet Address"
 // @Router /passthrough/portfolio-assets/{address} [get]
 func (a *PassthroughHandler) GetPortfolioAssetsByAddress(c echo.Context) error {
 	address := c.Param("address")
 
 	if address == "" {
-		return c.JSON(http.StatusInternalServerError, ResponseError{Message: "invalid address: cannot be empty"})
+		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: "invalid address: cannot be empty"})
 	}
 
 	portfolioAssetsResult, err := a.PUsecase.GetPortfolioAssets(c.Request().Context(), address)
 	if err != nil {
-		return c.JSON(http.StatusPartialContent, ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusPartialContent, domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, portfolioAssetsResult)
 }
 
+// @Summary Returns all active orderbook orders associated with the given address.
+// @Description The returned data represents all active orders for all orderbooks available for the specified address.
+//
+// The is_best_effort flag indicates whether the error occurred while processing the orders due which not all orders were returned in the response.
+//
+// @Produce  json
+// @Success 200           {object}  types.GetActiveOrdersResponse  "List of active orders for all available orderboooks for the given address"
+// @Failure 400           {object}  domain.ResponseError                 "Response error"
+// @Failure 500           {object}  domain.ResponseError                 "Response error"
+// @Param  userOsmoAddress  query  string  true  "Osmo wallet address"
+// @Router /passthrough/active-orders [get]
 func (a *PassthroughHandler) GetActiveOrders(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 
@@ -91,7 +98,7 @@ func (a *PassthroughHandler) GetActiveOrders(c echo.Context) (err error) {
 
 	orders, isBestEffort, err := a.OUsecase.GetActiveOrders(ctx, req.UserOsmoAddress)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: types.ErrInternalError.Error()})
 	}
 
 	resp := types.NewGetAllOrderResponse(orders, isBestEffort)

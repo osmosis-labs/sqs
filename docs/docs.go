@@ -15,6 +15,44 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/passthrough/active-orders": {
+            "get": {
+                "description": "The returned data represents all active orders for all orderbooks available for the specified address.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Returns all active orderbook orders associated with the given address.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Osmo wallet address",
+                        "name": "userOsmoAddress",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of active orders for all available orderboooks for the given address",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_osmosis-labs_sqs_orderbook_types.GetActiveOrdersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Response error",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ResponseError"
+                        }
+                    },
+                    "500": {
+                        "description": "Response error",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ResponseError"
+                        }
+                    }
+                }
+            }
+        },
         "/passthrough/portfolio-assets/{address}": {
             "get": {
                 "description": "The returned data represents the potfolio asset breakdown by category for the specified address.",
@@ -35,13 +73,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Portfolio assets by-category and capitalization of the entire account value",
                         "schema": {
-                            "type": "struct"
+                            "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsResult"
                         }
                     },
                     "500": {
                         "description": "Response error",
                         "schema": {
-                            "type": "struct"
+                            "$ref": "#/definitions/domain.ResponseError"
                         }
                     }
                 }
@@ -113,7 +151,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Canonical Orderbook Pool ID for the given base and quote",
                         "schema": {
-                            "type": "struct"
+                            "$ref": "#/definitions/domain.CanonicalOrderBooksResult"
                         }
                     }
                 }
@@ -436,6 +474,14 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ResponseError": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Token": {
             "type": "object",
             "properties": {
@@ -461,6 +507,159 @@ const docTemplate = `{
                 "symbol": {
                     "description": "HumanDenom is the human readable denom, e.g. atom",
                     "type": "string"
+                }
+            }
+        },
+        "github_com_cosmos_cosmos-sdk_types.Coin": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "$ref": "#/definitions/types.Int"
+                },
+                "denom": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_osmosis-labs_sqs_domain_orderbook.Asset": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_osmosis-labs_sqs_domain_orderbook.LimitOrder": {
+            "type": "object",
+            "properties": {
+                "base_asset": {
+                    "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.Asset"
+                },
+                "claim_bounty": {
+                    "type": "string"
+                },
+                "etas": {
+                    "type": "string"
+                },
+                "order_direction": {
+                    "type": "string"
+                },
+                "order_id": {
+                    "type": "integer"
+                },
+                "orderbookAddress": {
+                    "type": "string"
+                },
+                "output": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "percentClaimed": {
+                    "type": "string"
+                },
+                "percentFilled": {
+                    "type": "string"
+                },
+                "placed_at": {
+                    "type": "integer"
+                },
+                "placed_quantity": {
+                    "type": "string"
+                },
+                "placed_tx": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "quote_asset": {
+                    "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.Asset"
+                },
+                "status": {
+                    "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.OrderStatus"
+                },
+                "tick_id": {
+                    "type": "integer"
+                },
+                "totalFilled": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_osmosis-labs_sqs_domain_orderbook.OrderStatus": {
+            "type": "string",
+            "enum": [
+                "open",
+                "partiallyFilled",
+                "filled",
+                "fullyClaimed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "StatusOpen",
+                "StatusPartiallyFilled",
+                "StatusFilled",
+                "StatusFullyClaimed",
+                "StatusCancelled"
+            ]
+        },
+        "github_com_osmosis-labs_sqs_domain_passthrough.AccountCoinsResult": {
+            "type": "object",
+            "properties": {
+                "cap_value": {
+                    "type": "string"
+                },
+                "coin": {
+                    "$ref": "#/definitions/github_com_cosmos_cosmos-sdk_types.Coin"
+                }
+            }
+        },
+        "github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsCategoryResult": {
+            "type": "object",
+            "properties": {
+                "account_coins_result": {
+                    "description": "AccountCoinsResult represents coins only from user balances (contrary to TotalValueCap).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_passthrough.AccountCoinsResult"
+                    }
+                },
+                "capitalization": {
+                    "description": "Capitalization represents the total value of the assets in the portfolio.\nincludes capitalization of user balances, value in locks, bonding or unbonding\nas well as the concentrated positions.",
+                    "type": "string"
+                },
+                "is_best_effort": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsResult": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsCategoryResult"
+                    }
+                }
+            }
+        },
+        "github_com_osmosis-labs_sqs_orderbook_types.GetActiveOrdersResponse": {
+            "type": "object",
+            "properties": {
+                "is_best_effort": {
+                    "type": "boolean"
+                },
+                "orders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.LimitOrder"
+                    }
                 }
             }
         },
@@ -508,6 +707,9 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "types.Int": {
+            "type": "object"
         }
     }
 }`

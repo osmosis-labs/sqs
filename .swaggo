@@ -1,0 +1,5 @@
+// Swagger overrides file
+// @link https://github.com/swaggo/swag?tab=readme-ov-file#use-global-overrides-to-support-a-custom-type
+
+// Replace all Dec with string 
+replace osmomath.Dec string
