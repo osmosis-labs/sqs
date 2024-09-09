@@ -168,7 +168,7 @@ func getStatusCode(err error) int {
 // @Produce  json
 // @Param  base  query  string  true  "Base denom"
 // @Param  quote  query  string  true  "Quote denom"
-// @Success 200  struct domain.CanonicalOrderBooksResult  "Canonical Orderbook Pool ID for the given base and quote"
+// @Success 200  {object} domain.CanonicalOrderBooksResult  "Canonical Orderbook Pool ID for the given base and quote"
 // @Router /pools/canonical-orderbook [get]
 func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 	base := c.QueryParam("base")

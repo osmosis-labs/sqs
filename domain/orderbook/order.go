@@ -3,6 +3,8 @@ package orderbookdomain
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
 // OrderStatus represents the status of an order.
@@ -71,23 +73,23 @@ type Asset struct {
 }
 
 type LimitOrder struct {
-	TickId           int64       `json:"tick_id"`
-	OrderId          int64       `json:"order_id"`
-	OrderDirection   string      `json:"order_direction"`
-	Owner            string      `json:"owner"`
-	Quantity         int64       `json:"quantity"`
-	Etas             string      `json:"etas"`
-	ClaimBounty      string      `json:"claim_bounty"`
-	PlacedQuantity   int64       `json:"placed_quantity"`
-	PlacedAt         int64       `json:"placed_at"`
-	Price            string      `json:"price"`
-	PercentClaimed   string      `json:"percentClaimed"`
-	TotalFilled      int64       `json:"totalFilled"`
-	PercentFilled    string      `json:"percentFilled"`
-	OrderbookAddress string      `json:"orderbookAddress"`
-	Status           OrderStatus `json:"status"`
-	Output           string      `json:"output"`
-	QuoteAsset       Asset       `json:"quote_asset"`
-	BaseAsset        Asset       `json:"base_asset"`
-	PlacedTx         *string     `json:"placed_tx,omitempty"`
+	TickId           int64        `json:"tick_id"`
+	OrderId          int64        `json:"order_id"`
+	OrderDirection   string       `json:"order_direction"`
+	Owner            string       `json:"owner"`
+	Quantity         osmomath.Dec `json:"quantity"`
+	Etas             string       `json:"etas"`
+	ClaimBounty      string       `json:"claim_bounty"`
+	PlacedQuantity   osmomath.Dec `json:"placed_quantity"`
+	PlacedAt         int64        `json:"placed_at"`
+	Price            osmomath.Dec `json:"price"`
+	PercentClaimed   osmomath.Dec `json:"percentClaimed"`
+	TotalFilled      osmomath.Dec `json:"totalFilled"`
+	PercentFilled    osmomath.Dec `json:"percentFilled"`
+	OrderbookAddress string       `json:"orderbookAddress"`
+	Status           OrderStatus  `json:"status"`
+	Output           osmomath.Dec `json:"output"`
+	QuoteAsset       Asset        `json:"quote_asset"`
+	BaseAsset        Asset        `json:"base_asset"`
+	PlacedTx         *string      `json:"placed_tx,omitempty"`
 }
