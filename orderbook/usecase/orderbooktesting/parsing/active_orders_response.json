@@ -1,0 +1,53 @@
+{
+  "orders": [
+    {
+      "tick_id": 1,
+      "order_id": 1,
+      "order_direction": "bid",
+      "owner": "owner1",
+      "quantity": "1000.000000000000000000",
+      "etas": "500",
+      "claim_bounty": "10",
+      "placed_quantity": "1500.000000000000000000",
+      "placed_at": 1634,
+      "price": "1.000001000000000000",
+      "percentClaimed": "0.333333333333333333",
+      "totalFilled": "600.000000000000000000",
+      "percentFilled": "0.400000000000000000",
+      "orderbookAddress": "someOrderbookAddress",
+      "status": "partiallyFilled",
+      "output": "1499.998500001499998500",
+      "quote_asset": {
+        "symbol": ""
+      },
+      "base_asset": {
+        "symbol": ""
+      }
+    },
+    {
+      "tick_id": 1,
+      "order_id": 2,
+      "order_direction": "bid",
+      "owner": "owner1",
+      "quantity": "1000.000000000000000000",
+      "etas": "500",
+      "claim_bounty": "10",
+      "placed_quantity": "1500.000000000000000000",
+      "placed_at": 1634,
+      "price": "1.000001000000000000",
+      "percentClaimed": "0.333333333333333333",
+      "totalFilled": "600.000000000000000000",
+      "percentFilled": "0.400000000000000000",
+      "orderbookAddress": "someOrderbookAddress",
+      "status": "partiallyFilled",
+      "output": "1499.998500001499998500",
+      "quote_asset": {
+        "symbol": ""
+      },
+      "base_asset": {
+        "symbol": ""
+      }
+    }
+  ],
+  "is_best_effort": false
+}

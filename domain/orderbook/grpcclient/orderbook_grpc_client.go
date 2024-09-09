@@ -2,6 +2,7 @@ package orderbookgrpcclientdomain
 
 import (
 	"context"
+	"fmt"
 
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
@@ -21,8 +22,22 @@ type OrderBookClient interface {
 	// GetTickUnrealizedCancels fetches unrealized cancels by tick from the orderbook contract.
 	GetTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]UnrealizedTickCancels, error)
 
+	// FetchTickUnrealizedCancels fetches the unrealized cancels for a given tick ID and contract address.
+	// It returns the unrealized cancels and an error if any.
+	// Errors if:
+	// - failed to fetch unrealized cancels
+	// - mismatch in number of unrealized cancels fetched
+	FetchTickUnrealizedCancels(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]UnrealizedTickCancels, error)
+
 	// QueryTicks fetches ticks by tickIDs from the orderbook contract.
 	QueryTicks(ctx context.Context, contractAddress string, ticks []int64) ([]orderbookdomain.Tick, error)
+
+	// FetchTicksForOrderbook fetches the ticks in chunks of maxQueryTicks at the time for a given tick ID and contract address.
+	// It returns the ticks and an error if any.
+	// Errors if:
+	// - failed to fetch ticks
+	// - mismatch in number of ticks fetched
+	FetchTicks(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error)
 }
 
 // orderbookClientImpl is an implementation of OrderbookCWAPIClient.
@@ -39,7 +54,7 @@ func New(wasmClient wasmtypes.QueryClient) *orderbookClientImpl {
 	}
 }
 
-// GetOrdersByTick implements OrderbookCWAPIClient.
+// GetOrdersByTick implements OrderBookClient.
 func (o *orderbookClientImpl) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error) {
 	ordersByTick := ordersByTick{Tick: tick}
 
@@ -51,7 +66,7 @@ func (o *orderbookClientImpl) GetOrdersByTick(ctx context.Context, contractAddre
 	return orders.Orders, nil
 }
 
-// GetActiveOrders implements OrderbookCWAPIClient.
+// GetActiveOrders implements OrderBookClient.
 func (o *orderbookClientImpl) GetActiveOrders(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
 	var orders activeOrdersResponse
 	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, o.wasmClient, contractAddress, activeOrdersRequest{OrdersByOwner: ordersByOwner{Owner: ownerAddress}}, &orders); err != nil {
@@ -61,13 +76,40 @@ func (o *orderbookClientImpl) GetActiveOrders(ctx context.Context, contractAddre
 	return orders.Orders, orders.Count, nil
 }
 
-// GetTickUnrealizedCancels implements OrderbookCWAPIClient.
+// GetTickUnrealizedCancels implements OrderBookClient.
 func (o *orderbookClientImpl) GetTickUnrealizedCancels(ctx context.Context, contractAddress string, tickIDs []int64) ([]UnrealizedTickCancels, error) {
 	var unrealizedCancels unrealizedCancelsResponse
 	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, o.wasmClient, contractAddress, unrealizedCancelsByTickIdRequest{UnrealizedCancels: unrealizedCancelsRequestPayload{TickIds: tickIDs}}, &unrealizedCancels); err != nil {
 		return nil, err
 	}
 	return unrealizedCancels.Ticks, nil
+}
+
+// FetchTickUnrealizedCancels implements OrderBookClient.
+func (o *orderbookClientImpl) FetchTickUnrealizedCancels(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]UnrealizedTickCancels, error) {
+	allUnrealizedCancels := make([]UnrealizedTickCancels, 0, len(tickIDs))
+
+	for i := 0; i < len(tickIDs); i += chunkSize {
+		end := i + chunkSize
+		if end > len(tickIDs) {
+			end = len(tickIDs)
+		}
+
+		currentTickIDs := tickIDs[i:end]
+
+		unrealizedCancels, err := o.GetTickUnrealizedCancels(ctx, contractAddress, currentTickIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch unrealized cancels for ticks %v: %w", currentTickIDs, err)
+		}
+
+		allUnrealizedCancels = append(allUnrealizedCancels, unrealizedCancels...)
+	}
+
+	if len(allUnrealizedCancels) != len(tickIDs) {
+		return nil, fmt.Errorf("mismatch in number of unrealized cancels fetched: expected %d, got %d", len(tickIDs), len(allUnrealizedCancels))
+	}
+
+	return allUnrealizedCancels, nil
 }
 
 // QueryTicks implements OrderBookClient.
@@ -77,4 +119,31 @@ func (o *orderbookClientImpl) QueryTicks(ctx context.Context, contractAddress st
 		return nil, err
 	}
 	return orderbookTicks.Ticks, nil
+}
+
+// FetchTicks implements OrderBookClient.
+func (o *orderbookClientImpl) FetchTicks(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
+	finalTickStates := make([]orderbookdomain.Tick, 0, len(tickIDs))
+
+	for i := 0; i < len(tickIDs); i += chunkSize {
+		end := i + chunkSize
+		if end > len(tickIDs) {
+			end = len(tickIDs)
+		}
+
+		currentTickIDs := tickIDs[i:end]
+
+		tickStates, err := o.QueryTicks(ctx, contractAddress, currentTickIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch ticks for pool %s: %w", contractAddress, err)
+		}
+
+		finalTickStates = append(finalTickStates, tickStates...)
+	}
+
+	if len(finalTickStates) != len(tickIDs) {
+		return nil, fmt.Errorf("mismatch in number of ticks fetched: expected %d, got %d", len(tickIDs), len(finalTickStates))
+	}
+
+	return finalTickStates, nil
 }
