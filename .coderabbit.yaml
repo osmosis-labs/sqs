@@ -1,0 +1,6 @@
+reviews:
+  # Ignore test files
+  path_filters:
+    - "!**/*_test.go"
+  # Disable review status notification
+  review_status: false
