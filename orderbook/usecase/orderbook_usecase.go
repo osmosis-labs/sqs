@@ -137,7 +137,7 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
 	orderbooks, err := o.poolsUsecease.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to get all canonical orderbook pool IDs: %w", err)
+		return nil, false, types.FailedGetAllCanonicalOrderbookPoolIDsError{Err: err}
 	}
 
 	type orderbookResult struct {
@@ -148,7 +148,6 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	}
 
 	results := make(chan orderbookResult, len(orderbooks))
-	defer close(results)
 
 	// Process orderbooks concurrently
 	for _, orderbook := range orderbooks {
@@ -174,7 +173,6 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 			if result.err != nil {
 				telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
 				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
-				return nil, false, result.err
 			}
 
 			isBestEffort = isBestEffort || result.isBestEffort
@@ -198,9 +196,17 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 // For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
 // This is a best-effort process.
 func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+	if err := orderBook.Validate(); err != nil {
+		return nil, false, err
+	}
+
 	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderBook.ContractAddress, ownerAddress)
 	if err != nil {
-		return nil, false, err
+		return nil, false, types.FailedToGetActiveOrdersError{
+			ContractAddress: orderBook.ContractAddress,
+			OwnerAddress:    ownerAddress,
+			Err:             err,
+		}
 	}
 
 	// There are orders to process for given orderbook
@@ -210,12 +216,18 @@ func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 
 	quoteToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Quote)
 	if err != nil {
-		return nil, false, err
+		return nil, false, types.FailedToGetMetadataError{
+			TokenDenom: orderBook.Quote,
+			Err:        err,
+		}
 	}
 
 	baseToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Base)
 	if err != nil {
-		return nil, false, err
+		return nil, false, types.FailedToGetMetadataError{
+			TokenDenom: orderBook.Base,
+			Err:        err,
+		}
 	}
 
 	// Create a slice to store the results
