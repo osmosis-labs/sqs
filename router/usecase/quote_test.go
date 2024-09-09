@@ -35,8 +35,8 @@ var (
 //
 // The test structure is as follows:
 // - Set up a 50-50 split route
-// Route 1: 2 hop
-// Route 2: 1 hop
+// - Route 1: 2 hop
+// - Route 2: 1 hop
 //
 // Validate that the effective swap fee is computed correctly.
 func (s *RouterTestSuite) TestPrepareResult() {
