@@ -195,3 +195,26 @@ type FailedGetAllCanonicalOrderbookPoolIDsError struct {
 func (e FailedGetAllCanonicalOrderbookPoolIDsError) Error() string {
 	return fmt.Sprintf("failed to get all canonical orderbook pool IDs: %v", e.Err)
 }
+
+// FailedToGetActiveOrdersError is returned when the retrieval of active orders fails.
+type FailedToGetActiveOrdersError struct {
+	ContractAddress string
+	OwnerAddress    string
+	Err             error
+}
+
+// Error implements the error interface.
+func (e FailedToGetActiveOrdersError) Error() string {
+	return fmt.Sprintf("failed to get active orders for contract: %s and owner: %s: %v", e.ContractAddress, e.OwnerAddress, e.Err)
+}
+
+// FailedToGetMetadataError is returned when getting token metadata fails.
+type FailedToGetMetadataError struct {
+	TokenDenom string
+	Err        error
+}
+
+// Error implements the error interface.
+func (e FailedToGetMetadataError) Error() string {
+	return fmt.Sprintf("failed to get metadata for token denom: %s: %v", e.TokenDenom, e.Err)
+}
