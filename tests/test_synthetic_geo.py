@@ -8,7 +8,7 @@ from conftest import SERVICE_MAP
 from util import *
 
 from test_pools import run_pool_liquidity_cap_test, run_canonical_orderbook_test, run_pool_filters_test
-from test_passthrough import run_test_portfolio_assets
+from test_passthrough import run_test_portfolio_assets, run_test_active_orderbook_orders
 from test_candidate_routes import run_candidate_routes_test
 from test_router_quote_out_given_in import TestExactAmountInQuote
 from test_router_quote_in_given_out import TestExactAmountOutQuote
@@ -40,6 +40,10 @@ class TestSyntheticMonitoringGeo:
     # /passthrough/portfolio-assets endpoint
     def test_synth_passthrough_portfolio_assets(self, environment_url):
         run_test_portfolio_assets(environment_url)
+
+    # /passthrough/active-orders endpoint
+    def test_synth_passthrough_active_orders(self, environment_url):
+        run_test_active_orderbook_orders(environment_url)
 
     # /router/routes endpoint
     def test_synth_candidate_routes(self, environment_url):
