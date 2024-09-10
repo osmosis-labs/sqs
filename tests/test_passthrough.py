@@ -48,7 +48,7 @@ def run_test_active_orderbook_orders(environment_url):
         response = sqs_service.get_active_orderbook_orders(address)
         elapsed_time_ms = (time.time() - start_time) * 1000
 
-        assert EXPECTED_LATENCY_UPPER_BOUND_MS > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {expected_latency_upper_bound_ms} ms"
+        assert EXPECTED_LATENCY_UPPER_BOUND_MS > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {EXPECTED_LATENCY_UPPER_BOUND_MS} ms"
 
         resp = OrderbookActiveOrdersResponse(**response)
 
