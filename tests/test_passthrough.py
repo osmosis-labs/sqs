@@ -1,34 +1,63 @@
+import time
 import conftest
 import pytest
 
 from sqs_service import *
-import util
+from active_orderbook_orders_response import OrderbookActiveOrdersResponse
 from conftest import SERVICE_MAP
 from e2e_math import *
 from decimal import *
 
+# Arbitrary choice based on performance at the time of test writing
+EXPECTED_LATENCY_UPPER_BOUND_MS = 150
 
-user_balances_assets_category_name  = "user-balances"
-unstaking_assets_category_name  = "unstaking"
-staked_assets_category_name  = "staked"
-inLocks_assets_category_name  = "in-locks"
-pooled_assets_category_name  = "pooled"
-unclaimed_rewards_assets_category_name  = "unclaimed-rewards"
-total_assets_category_name  = "total-assets"
+user_balances_assets_category_name = "user-balances"
+unstaking_assets_category_name = "unstaking"
+staked_assets_category_name = "staked"
+inLocks_assets_category_name = "in-locks"
+pooled_assets_category_name = "pooled"
+unclaimed_rewards_assets_category_name = "unclaimed-rewards"
+total_assets_category_name = "total-assets"
 
 # Test suite for the /passthrough endpoint
 
 # Note: this is for convinience to skip long-running tests in development
 # locally.
 # @pytest.mark.skip(reason="This test is currently disabled")
-class TestPassthrough:
 
+
+class TestPassthrough:
     def test_poortfolio_assets(self, environment_url):
         run_test_portfolio_assets(environment_url)
 
+    def test_active_orderbook_orders(self, environment_url):
+        run_test_active_orderbook_orders(environment_url)
+
+
+def run_test_active_orderbook_orders(environment_url):
+    sqs_service = SERVICE_MAP[environment_url]
+
+    # list of burner addresses for the integration tests
+    addresses = [
+        "osmo1jgz4xmaw9yk9pjxd4h8c2zs0r0vmgyn88s8t6l",
+    ]
+
+    for address in addresses:
+
+        start_time = time.time()
+        response = sqs_service.get_active_orderbook_orders(address)
+        elapsed_time_ms = (time.time() - start_time) * 1000
+
+        assert EXPECTED_LATENCY_UPPER_BOUND_MS > elapsed_time_ms, f"Error: latency {elapsed_time_ms} exceeded {EXPECTED_LATENCY_UPPER_BOUND_MS} ms"
+
+        resp = OrderbookActiveOrdersResponse(**response)
+
+        resp.validate(address)
+
+
 def run_test_portfolio_assets(environment_url):
     sqs_service = SERVICE_MAP[environment_url]
-    
+
     # Arbitrary addresses
     addresses = [
         "osmo1044qatzg4a0wm63jchrfdnn2u8nwdgxxt6e524",
@@ -64,6 +93,7 @@ def run_test_portfolio_assets(environment_url):
         total_assets = categories.get(total_assets_category_name)
         validate_category(total_assets, True)
 
+
 def validate_category(category, should_have_breakdown=False):
     assert category is not None
 
@@ -80,9 +110,7 @@ def validate_category(category, should_have_breakdown=False):
 
     account_coins_result = category.get('account_coins_result')
     assert account_coins_result is not None
-    
+
     for coin_result in account_coins_result:
         assert coin_result.get('coin') is not None
         assert coin_result.get('cap_value') is not None
-
-
