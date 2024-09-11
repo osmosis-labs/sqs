@@ -5,11 +5,12 @@ import (
 	"sync"
 
 	"cosmossdk.io/math"
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
 // RouterRepository represents the contract for a repository handling router information
@@ -17,13 +18,13 @@ type RouterRepository interface {
 	mvc.CandidateRouteSearchDataHolder
 
 	// GetTakerFee returns the taker fee for a given pair of denominations
-	// Sorts the denominations lexicographically before looking up the taker fee.
+	// Sorting is no longer performed before looking up as bi-directional taker fees are stored.
 	// Returns true if the taker fee for a given denomimnation is found. False otherwise.
 	GetTakerFee(denom0, denom1 string) (osmomath.Dec, bool)
 	// GetAllTakerFees returns all taker fees
 	GetAllTakerFees() sqsdomain.TakerFeeMap
 	// SetTakerFee sets the taker fee for a given pair of denominations
-	// Sorts the denominations lexicographically before storing the taker fee.
+	// Sorting is no longer performed before storing as bi-directional taker fee is supported.
 	SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec)
 	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
 }
@@ -75,10 +76,6 @@ func (r *routerRepo) GetAllTakerFees() sqsdomain.TakerFeeMap {
 
 // GetTakerFee implements RouterRepository.
 func (r *routerRepo) GetTakerFee(denom0 string, denom1 string) (math.LegacyDec, bool) {
-	// Ensure increasing lexicographic order.
-	if denom1 < denom0 {
-		denom0, denom1 = denom1, denom0
-	}
 
 	takerFeeAny, ok := r.takerFeeMap.Load(sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1})
 
@@ -96,10 +93,6 @@ func (r *routerRepo) GetTakerFee(denom0 string, denom1 string) (math.LegacyDec, 
 
 // SetTakerFee implements RouterRepository.
 func (r *routerRepo) SetTakerFee(denom0 string, denom1 string, takerFee math.LegacyDec) {
-	// Ensure increasing lexicographic order.
-	if denom1 < denom0 {
-		denom0, denom1 = denom1, denom0
-	}
 
 	r.takerFeeMap.Store(sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1}, takerFee)
 }
