@@ -76,7 +76,6 @@ func (r *routerRepo) GetAllTakerFees() sqsdomain.TakerFeeMap {
 
 // GetTakerFee implements RouterRepository.
 func (r *routerRepo) GetTakerFee(denom0 string, denom1 string) (math.LegacyDec, bool) {
-
 	takerFeeAny, ok := r.takerFeeMap.Load(sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1})
 
 	if !ok {
@@ -93,7 +92,6 @@ func (r *routerRepo) GetTakerFee(denom0 string, denom1 string) (math.LegacyDec, 
 
 // SetTakerFee implements RouterRepository.
 func (r *routerRepo) SetTakerFee(denom0 string, denom1 string, takerFee math.LegacyDec) {
-
 	r.takerFeeMap.Store(sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1}, takerFee)
 }
 
