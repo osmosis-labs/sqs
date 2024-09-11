@@ -9,15 +9,13 @@ import (
 )
 
 // DenomPair encapsulates a pair of denoms.
-// The order of the denoms ius that Denom0 precedes
-// Denom1 lexicographically.
 type DenomPair struct {
 	Denom0 string
 	Denom1 string
 }
 
 // TakerFeeMap is a map of DenomPair to taker fee.
-// It sorts the denoms lexicographically before looking up the taker fee.
+// Sorting is no longer performed since bi-directional taker fee is supported.
 type TakerFeeMap map[DenomPair]osmomath.Dec
 
 var _ json.Marshaler = &TakerFeeMap{}
@@ -56,25 +54,17 @@ func (tfm TakerFeeMap) UnmarshalJSON(data []byte) error {
 }
 
 // Has returns true if the taker fee for the given denoms is found.
-// It sorts the denoms lexicographically before looking up the taker fee.
+// Sorting is no longer performed since bi-directional taker fees are stored.
 func (tfm TakerFeeMap) Has(denom0, denom1 string) bool {
-	// Ensure increasing lexicographic order.
-	if denom1 < denom0 {
-		denom0, denom1 = denom1, denom0
-	}
 
 	_, found := tfm[DenomPair{Denom0: denom0, Denom1: denom1}]
 	return found
 }
 
 // GetTakerFee returns the taker fee for the given denoms.
-// It sorts the denoms lexicographically before looking up the taker fee.
+// Sorting is no longer performed since bi-directional taker fees are stored.
 // Returns error if the taker fee is not found.
 func (tfm TakerFeeMap) GetTakerFee(denom0, denom1 string) osmomath.Dec {
-	// Ensure increasing lexicographic order.
-	if denom1 < denom0 {
-		denom0, denom1 = denom1, denom0
-	}
 
 	takerFee, found := tfm[DenomPair{Denom0: denom0, Denom1: denom1}]
 
@@ -86,12 +76,8 @@ func (tfm TakerFeeMap) GetTakerFee(denom0, denom1 string) osmomath.Dec {
 }
 
 // SetTakerFee sets the taker fee for the given denoms.
-// It sorts the denoms lexicographically before setting the taker fee.
+// Sorting is no longer performed since bi-directional taker fee is supported.
 func (tfm TakerFeeMap) SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec) {
-	// Ensure increasing lexicographic order.
-	if denom1 < denom0 {
-		denom0, denom1 = denom1, denom0
-	}
 
 	tfm[DenomPair{Denom0: denom0, Denom1: denom1}] = takerFee
 }

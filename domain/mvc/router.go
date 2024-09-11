@@ -5,9 +5,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
 // CandidateRouteSearchDataUpdateListener is the interface for the candidate route search data holder.
@@ -29,13 +30,13 @@ type RouterRepository interface {
 	CandidateRouteSearchDataHolder
 
 	// GetTakerFee returns the taker fee for a given pair of denominations
-	// Sorts the denominations lexicographically before looking up the taker fee.
+	// Sorting is no longer performed before looking up as bi-directional taker fees are stored.
 	// Returns true if the taker fee for a given denomimnation is found. False otherwise.
 	GetTakerFee(denom0, denom1 string) (osmomath.Dec, bool)
 	// GetAllTakerFees returns all taker fees
 	GetAllTakerFees() sqsdomain.TakerFeeMap
 	// SetTakerFee sets the taker fee for a given pair of denominations
-	// Sorts the denominations lexicographically before storing the taker fee.
+	// Sorting is no longer performed before storing as bi-directional taker fee is supported.
 	SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec)
 	// SetTakerFees sets taker fees on router repository
 	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
