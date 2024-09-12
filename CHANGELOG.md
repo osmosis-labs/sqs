@@ -34,6 +34,15 @@ Ref: https://keepachangelog.com/en/1.0.0/
 -->
 
 # Changelog
+
+## v25.18.0
+
+- 10b84b4c Fix sqsdomain package version (#508)
+- ec649caa SQS-375 | Unit test createFormattedLimitOrder (#492)
+- 142faa74 Fix: Orderbook ProcessPool panic (#497)
+- f1efd83f feat: improve test stability by optional pricing source (#490)
+- 4133a718 fix: rename tenderming to tendermint (#488)
+
 ## v25.17.0
 - 4f5b8b81 chore: active orders observability TODOs (#469)
 
