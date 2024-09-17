@@ -449,16 +449,6 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 		return nil, fmt.Errorf("denom %s in pool %d: %w", tokenOutDenom, poolID, ErrTokenOutDenomPoolNotFound)
 	}
 
-	// Retrieve taker fee for the pool
-	takerFee, ok := r.routerRepository.GetTakerFee(tokenIn.Denom, tokenOutDenom)
-	if !ok {
-		return nil, fmt.Errorf("taker fee not found for pool %d, denom in (%s), denom out (%s)", poolID, tokenIn.Denom, tokenOutDenom)
-	}
-
-	// Create a taker fee map with the taker fee for the pool
-	takerFeeMap := sqsdomain.TakerFeeMap{}
-	takerFeeMap.SetTakerFee(tokenIn.Denom, tokenOutDenom, takerFee)
-
 	// create candidate routes with given token out denom and pool ID.
 	candidateRoutes := r.createCandidateRouteByPoolID(tokenOutDenom, poolID)
 
