@@ -35,6 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v26.0.0
+
+- ee288006 Uni-directional taker fee (#510)
+- 2a657033 Fix orderbook ProcessPool panic (#498)
+
 ## v25.18.0
 
 - 10b84b4c Fix sqsdomain package version (#508)
