@@ -115,7 +115,8 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	ctx, span := tracer.Start(ctx, "ingestUseCase.ProcessBlockData")
 	defer span.End()
 
-	if p.firstHeightAfterStartUp.Load() == 0 && len(poolData) > firstBlockPoolCountThreshold {
+	firstHeightAfterStartup := p.firstHeightAfterStartUp.Load()
+	if firstHeightAfterStartup == 0 && len(poolData) > firstBlockPoolCountThreshold {
 		p.logger.Info("setting first block height", zap.Uint64("height", height))
 		p.firstHeightAfterStartUp.Store(height)
 		p.firstBlockWg.Add(1)
@@ -158,7 +159,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		return err
 	}
 
-	if height == p.firstHeightAfterStartUp.Load() {
+	if height == firstHeightAfterStartup {
 		// For the first block, we need to update the prices synchronously.
 		// and let any subsequent block wait before starting its computation
 		// to avoid overloading the system.
