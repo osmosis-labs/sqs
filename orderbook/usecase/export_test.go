@@ -2,9 +2,16 @@ package orderbookusecase
 
 import (
 	"context"
+	"time"
+
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 )
+
+// SetFetchActiveOrdersEveryDuration overrides the fetchActiveOrdersDuration for testing purposes
+func (o *OrderbookUseCaseImpl) SetFetchActiveOrdersEveryDuration(duration time.Duration) {
+	fetchActiveOrdersDuration = duration
+}
 
 // CreateFormattedLimitOrder is an alias of createFormattedLimitOrder for testing purposes
 func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(
