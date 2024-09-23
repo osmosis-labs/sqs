@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v26.0.1
+
+0c663b7f SQS-417 | Fix orderbook order Quantity parsing (#519)
+
 ## v26.0.0
 
 - ee288006 Uni-directional taker fee (#510)
