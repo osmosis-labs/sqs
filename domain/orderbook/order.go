@@ -2,7 +2,6 @@ package orderbookdomain
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -34,12 +33,12 @@ type Order struct {
 
 // Status returns the status of the order based on the percent filled.
 func (o Order) Status(percentFilled float64) (OrderStatus, error) {
-	quantity, err := strconv.Atoi(o.Quantity)
+	quantity, err := osmomath.NewDecFromStr(o.Quantity)
 	if err != nil {
 		return "", fmt.Errorf("error parsing quantity: %w", err)
 	}
 
-	if quantity == 0 || percentFilled == 1 {
+	if quantity.IsZero() || percentFilled == 1 {
 		return StatusFilled, nil
 	}
 
