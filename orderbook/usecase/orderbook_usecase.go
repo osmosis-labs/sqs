@@ -140,7 +140,7 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 var (
 	// fetchActiveOrdersEvery is a duration in which orders are pushed to the client periodically
 	// This is an arbitrary number selected to avoid spamming the client
-	fetchActiveOrdersDuration = 5 * time.Second
+	fetchActiveOrdersDuration = 10 * time.Second
 
 	// getActiveOrdersStreamChanLen is the length of the channel for active orders stream
 	// length is arbitrary number selected to avoid blocking

@@ -18,7 +18,7 @@ type OrderBookUsecase interface {
 	GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error)
 
 	// GetActiveOrdersStream returns a channel for streaming limit orderbook orders for a given address.
-	// The caller should range over the channel, but note that channel is never closed since there may by multiple
+	// The caller should range over the channel, but note that channel is never closed since there may be multiple
 	// sender goroutines.
 	GetActiveOrdersStream(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult
 }
