@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -235,6 +236,209 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 			} else {
 				s.Assert().NoError(err)
 			}
+		})
+	}
+}
+func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
+	testCases := []struct {
+		name               string
+		address            string
+		setupMocks         func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int)
+		tickerDuration     time.Duration
+		expectedCallCount  int
+		expectedOrders     []orderbookdomain.OrderbookResult
+		expectedError      error
+		expectedOrderbooks []domain.CanonicalOrderBooksResult
+	}{
+
+		{
+			name:    "failed to get all canonical orderbook pool IDs",
+			address: "osmo1glq2duq5f4x3m88fqwecfrfcuauy8343amy5fm",
+			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+					return nil, assert.AnError
+				}
+			},
+			expectedError: &types.FailedGetAllCanonicalOrderbookPoolIDsError{},
+		},
+		{
+			name:    "skips empty orders",
+			address: "osmo1npsku4qlqav6udkvgfk9eran4s4edzu69vzdm6",
+			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(
+					nil,
+					s.NewCanonicalOrderBooksResult(8, "A"), // Non-empty orderbook
+					s.NewCanonicalOrderBooksResult(1, "B"), // Empty orderbook
+				)
+
+				grpcclient.GetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
+					if contractAddress == "A" {
+						return orderbookdomain.Orders{s.NewOrder().WithOrderID(5).Order}, 1, nil
+					}
+					return nil, 0, nil
+				}
+
+				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFuncEmptyToken()
+
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.GetSpotPriceScalingFactorByDenomFunc(1, nil)
+
+				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("500", 100, "bid"), true)
+			},
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.OrderbookResult{
+				{
+
+					PoolID: 8,
+					LimitOrders: []orderbookdomain.LimitOrder{
+						s.NewLimitOrder().WithOrderID(5).WithOrderbookAddress("A").LimitOrder, // Non-empty orderbook
+					},
+				},
+			},
+		},
+		{
+			name:    "canceled context",
+			address: "osmo1npsku4qlqav6udkvgfk9eran4s4edzu69vzdm6",
+			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(
+					nil,
+					s.NewCanonicalOrderBooksResult(1, "F"),
+					s.NewCanonicalOrderBooksResult(2, "C"),
+				)
+
+				grpcclient.GetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
+					// cancel the context for the F orderbook
+					if contractAddress == "F" {
+						go func() {
+							time.Sleep(1 * time.Second)
+							defer cancel()
+						}()
+						return orderbookdomain.Orders{
+							s.NewOrder().WithOrderID(8).Order,
+						}, 1, nil
+					}
+					return orderbookdomain.Orders{
+						s.NewOrder().WithOrderID(3).Order,
+					}, 1, nil
+				}
+
+				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFuncEmptyToken()
+
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.GetSpotPriceScalingFactorByDenomFunc(1, nil)
+
+				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("500", 100, "bid"), true)
+			},
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.OrderbookResult{
+				{
+					PoolID: 2,
+					LimitOrders: []orderbookdomain.LimitOrder{
+						s.NewLimitOrder().WithOrderID(3).WithOrderbookAddress("C").LimitOrder,
+					},
+				},
+			},
+		},
+		{
+			name:    "ticker should push orders",
+			address: "osmo1npsku4qlqav6udkvgfk9eran4s4edzu69vzdm6",
+			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(
+					nil,
+					s.NewCanonicalOrderBooksResult(1, "C"),
+				)
+
+				grpcclient.GetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
+					defer func() {
+						*callcount++
+					}()
+					return orderbookdomain.Orders{}, 0, nil
+				}
+
+				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFuncEmptyToken()
+
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.GetSpotPriceScalingFactorByDenomFunc(1, nil)
+
+				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("500", 100, "bid"), true)
+			},
+			tickerDuration:    time.Second,
+			expectedCallCount: 2,
+			expectedError:     nil,
+		},
+		{
+			name:    "returns valid orders stream",
+			address: "osmo1p2pq3dt5xkj39p0420p4mm9l45394xecr00299",
+			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(nil, s.NewCanonicalOrderBooksResult(1, "A"))
+
+				grpcclient.GetActiveOrdersCb = s.GetActiveOrdersFunc(orderbookdomain.Orders{
+					s.NewOrder().WithOrderID(1).Order,
+					s.NewOrder().WithOrderID(2).Order,
+				}, 2, nil)
+
+				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFuncEmptyToken()
+
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.GetSpotPriceScalingFactorByDenomFunc(1, nil)
+
+				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("500", 100, "bid"), true)
+			},
+			expectedError: nil,
+			expectedOrders: []orderbookdomain.OrderbookResult{
+				{
+					PoolID: 1,
+					LimitOrders: []orderbookdomain.LimitOrder{
+						s.NewLimitOrder().WithOrderID(1).WithOrderbookAddress("A").LimitOrder,
+						s.NewLimitOrder().WithOrderID(2).WithOrderbookAddress("A").LimitOrder,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// track the number of times the GetActiveOrdersCb is called
+			var callcount int
+
+			// Create a context with cancellation
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// Create instances of the mocks
+			poolsUsecase := mocks.PoolsUsecaseMock{}
+			orderbookrepositorysitory := mocks.OrderbookRepositoryMock{}
+			client := mocks.OrderbookGRPCClientMock{}
+			tokensusecase := mocks.TokensUsecaseMock{}
+
+			// Setup the mocks according to the test case
+			usecase := orderbookusecase.New(&orderbookrepositorysitory, &client, &poolsUsecase, &tokensusecase, &log.NoOpLogger{})
+			if tc.setupMocks != nil {
+				tc.setupMocks(ctx, cancel, usecase, &orderbookrepositorysitory, &client, &poolsUsecase, &tokensusecase, &callcount)
+			}
+
+			// Call the method under test
+			orders := usecase.GetActiveOrdersStream(ctx, tc.address)
+
+			// Wait for the ticker to push the orders
+			if tc.expectedCallCount > 1 {
+				usecase.SetFetchActiveOrdersEveryDuration(tc.tickerDuration)
+				time.Sleep(tc.tickerDuration)
+			}
+
+			// Collect results from the stream
+			var actualOrders []orderbookdomain.OrderbookResult
+			for i := 0; i < len(tc.expectedOrders); i++ {
+				select {
+				case <-ctx.Done():
+					break
+				case order := <-orders:
+					actualOrders = append(actualOrders, order)
+				}
+			}
+
+			// Check the expected orders
+			s.Assert().Equal(tc.expectedOrders, actualOrders)
+
+			// Check expected call count
+			s.Assert().Equal(tc.expectedCallCount, callcount)
 		})
 	}
 }

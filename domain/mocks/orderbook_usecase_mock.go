@@ -12,9 +12,10 @@ var _ mvc.OrderBookUsecase = &OrderbookUsecaseMock{}
 
 // OrderbookUsecaseMock is a mock implementation of the RouterUsecase interface
 type OrderbookUsecaseMock struct {
-	ProcessPoolFunc     func(ctx context.Context, pool sqsdomain.PoolI) error
-	GetAllTicksFunc     func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool)
-	GetActiveOrdersFunc func(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error)
+	ProcessPoolFunc           func(ctx context.Context, pool sqsdomain.PoolI) error
+	GetAllTicksFunc           func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool)
+	GetActiveOrdersFunc       func(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error)
+	GetActiveOrdersStreamFunc func(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult
 }
 
 func (m *OrderbookUsecaseMock) ProcessPool(ctx context.Context, pool sqsdomain.PoolI) error {
@@ -34,6 +35,13 @@ func (m *OrderbookUsecaseMock) GetAllTicks(poolID uint64) (map[int64]orderbookdo
 func (m *OrderbookUsecaseMock) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
 	if m.GetActiveOrdersFunc != nil {
 		return m.GetActiveOrdersFunc(ctx, address)
+	}
+	panic("unimplemented")
+}
+
+func (m *OrderbookUsecaseMock) GetActiveOrdersStream(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult {
+	if m.GetActiveOrdersStreamFunc != nil {
+		return m.GetActiveOrdersStreamFunc(ctx, address)
 	}
 	panic("unimplemented")
 }

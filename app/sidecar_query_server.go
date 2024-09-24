@@ -203,7 +203,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
-	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase)
+	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase, logger)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
 		return nil, err

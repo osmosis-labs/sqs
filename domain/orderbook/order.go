@@ -71,6 +71,7 @@ type Asset struct {
 	Decimals int    `json:"-"`
 }
 
+// LimitOrder represents a limit order in the orderbook.
 type LimitOrder struct {
 	TickId           int64        `json:"tick_id"`
 	OrderId          int64        `json:"order_id"`
@@ -91,4 +92,12 @@ type LimitOrder struct {
 	QuoteAsset       Asset        `json:"quote_asset"`
 	BaseAsset        Asset        `json:"base_asset"`
 	PlacedTx         *string      `json:"placed_tx,omitempty"`
+}
+
+// OrderbookResult represents orderbook orders result.
+type OrderbookResult struct {
+	LimitOrders  []LimitOrder // The channel on which the orders are delivered.
+	PoolID       uint64       // The PoolID ID.
+	IsBestEffort bool
+	Error        error
 }

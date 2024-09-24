@@ -137,6 +137,77 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.P
 	return nil
 }
 
+var (
+	// fetchActiveOrdersEvery is a duration in which orders are pushed to the client periodically
+	// This is an arbitrary number selected to avoid spamming the client
+	fetchActiveOrdersDuration = 10 * time.Second
+
+	// getActiveOrdersStreamChanLen is the length of the channel for active orders stream
+	// length is arbitrary number selected to avoid blocking
+	getActiveOrdersStreamChanLen = 50
+)
+
+// GetActiveOrdersStream implements mvc.OrderBookUsecase.
+func (o *OrderbookUseCaseImpl) GetActiveOrdersStream(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult {
+	// Result channel
+	c := make(chan orderbookdomain.OrderbookResult, getActiveOrdersStreamChanLen)
+
+	// Function to fetch orders
+	fetchOrders := func(ctx context.Context) {
+		orderbooks, err := o.poolsUsecease.GetAllCanonicalOrderbookPoolIDs()
+		if err != nil {
+			c <- orderbookdomain.OrderbookResult{
+				Error: types.FailedGetAllCanonicalOrderbookPoolIDsError{Err: err},
+			}
+			return
+		}
+
+		for _, orderbook := range orderbooks {
+			go func(orderbook domain.CanonicalOrderBooksResult) {
+				limitOrders, isBestEffort, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
+				if len(limitOrders) == 0 && err == nil {
+					return // skip empty orders
+				}
+
+				if err != nil {
+					telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
+					o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("pool_id", orderbook.PoolID), zap.Any("err", err))
+				}
+
+				select {
+				case c <- orderbookdomain.OrderbookResult{
+					PoolID:       orderbook.PoolID,
+					IsBestEffort: isBestEffort,
+					LimitOrders:  limitOrders,
+					Error:        err,
+				}:
+				case <-ctx.Done():
+					return
+				}
+			}(orderbook)
+		}
+	}
+
+	// Fetch orders immediately on start
+	go fetchOrders(ctx)
+
+	// Pull orders periodically based on duration
+	go func() {
+		ticker := time.NewTicker(fetchActiveOrdersDuration)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				fetchOrders(ctx)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return c
+}
+
 // GetActiveOrders implements mvc.OrderBookUsecase.
 func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
 	orderbooks, err := o.poolsUsecease.GetAllCanonicalOrderbookPoolIDs()
@@ -144,25 +215,17 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 		return nil, false, types.FailedGetAllCanonicalOrderbookPoolIDsError{Err: err}
 	}
 
-	type orderbookResult struct {
-		isBestEffort bool
-		orderbookID  uint64
-		limitOrders  []orderbookdomain.LimitOrder
-		err          error
-	}
-
-	results := make(chan orderbookResult, len(orderbooks))
+	results := make(chan orderbookdomain.OrderbookResult, len(orderbooks))
 
 	// Process orderbooks concurrently
 	for _, orderbook := range orderbooks {
 		go func(orderbook domain.CanonicalOrderBooksResult) {
 			limitOrders, isBestEffort, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
-
-			results <- orderbookResult{
-				isBestEffort: isBestEffort,
-				orderbookID:  orderbook.PoolID,
-				limitOrders:  limitOrders,
-				err:          err,
+			results <- orderbookdomain.OrderbookResult{
+				IsBestEffort: isBestEffort,
+				PoolID:       orderbook.PoolID,
+				LimitOrders:  limitOrders,
+				Error:        err,
 			}
 		}(orderbook)
 	}
@@ -174,14 +237,14 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	for i := 0; i < len(orderbooks); i++ {
 		select {
 		case result := <-results:
-			if result.err != nil {
+			if result.Error != nil {
 				telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
-				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("orderbook_id", result.orderbookID), zap.Any("err", result.err))
+				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("pool_id", result.PoolID), zap.Any("err", result.Error))
 			}
 
-			isBestEffort = isBestEffort || result.isBestEffort
+			isBestEffort = isBestEffort || result.IsBestEffort
 
-			finalResults = append(finalResults, result.limitOrders...)
+			finalResults = append(finalResults, result.LimitOrders...)
 		case <-ctx.Done():
 			return nil, false, ctx.Err()
 		}
