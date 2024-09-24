@@ -11,7 +11,6 @@ import (
 	"github.com/osmosis-labs/sqs/orderbook/types"
 
 	"github.com/labstack/echo/v4"
-	"go.opentelemetry.io/otel/trace"
 
 	"go.uber.org/zap"
 )
@@ -72,38 +71,18 @@ func (a *PassthroughHandler) GetPortfolioAssetsByAddress(c echo.Context) error {
 	return c.JSON(http.StatusOK, portfolioAssetsResult)
 }
 
-// parseAndValidateGetActiveOrdersRequest encapsulates the request unmarshalling and validation logic
-// for the GetActiveOrders request.
-func (a *PassthroughHandler) parseAndValidateGetActiveOrdersRequest(c echo.Context) (types.GetActiveOrdersRequest, error) {
-	var req types.GetActiveOrdersRequest
-	if err := deliveryhttp.UnmarshalRequest(c, &req); err != nil {
-		return req, err
-	}
+func (a *PassthroughHandler) GetActiveOrdersStream(c echo.Context) error {
+	var (
+		req types.GetActiveOrdersRequest
+		err error
+	)
 
-	// Validate the request
-	if err := req.Validate(); err != nil {
-		return req, err
-	}
-
-	return req, nil
-}
-
-func (a *PassthroughHandler) GetActiveOrdersStream(c echo.Context) (err error) {
-	ctx := c.Request().Context()
-
-	span := trace.SpanFromContext(ctx)
+	ctx, span := deliveryhttp.Span(c)
 	defer func() {
-		if err != nil {
-			span.RecordError(err)
-			// nolint:errcheck // ignore error
-			c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-		}
-
-		// Note: we do not end the span here as it is ended in the middleware.
+		deliveryhttp.RecordSpanError(ctx, span, err)
 	}()
 
-	req, err := a.parseAndValidateGetActiveOrdersRequest(c)
-	if err != nil {
+	if err := deliveryhttp.ParseRequest(c, &req); err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
@@ -150,22 +129,18 @@ func (a *PassthroughHandler) GetActiveOrdersStream(c echo.Context) (err error) {
 // @Failure 500           {object}  domain.ResponseError                 "Response error"
 // @Param  userOsmoAddress  query  string  true  "Osmo wallet address"
 // @Router /passthrough/active-orders [get]
-func (a *PassthroughHandler) GetActiveOrders(c echo.Context) (err error) {
-	ctx := c.Request().Context()
+func (a *PassthroughHandler) GetActiveOrders(c echo.Context) error {
+	var (
+		req types.GetActiveOrdersRequest
+		err error
+	)
 
-	span := trace.SpanFromContext(ctx)
+	ctx, span := deliveryhttp.Span(c)
 	defer func() {
-		if err != nil {
-			span.RecordError(err)
-			// nolint:errcheck // ignore error
-			c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-		}
-
-		// Note: we do not end the span here as it is ended in the middleware.
+		deliveryhttp.RecordSpanError(ctx, span, err)
 	}()
 
-	req, err := a.parseAndValidateGetActiveOrdersRequest(c)
-	if err != nil {
+	if err = deliveryhttp.ParseRequest(c, &req); err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
