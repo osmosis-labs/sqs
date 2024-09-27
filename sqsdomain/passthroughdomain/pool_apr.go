@@ -1,4 +1,4 @@
-package passthroughdomain
+package sqspassthroughdomain
 
 import (
 	"fmt"

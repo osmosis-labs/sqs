@@ -7,9 +7,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
-	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
+	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v26/x/gamm/pool-models/balancer"
@@ -33,30 +33,30 @@ type MockRoutablePool struct {
 	SpreadFactor      osmomath.Dec
 	mockedTokenOut    sdk.Coin
 
-	APRData  passthroughdomain.PoolAPRDataStatusWrap
-	FeesData passthroughdomain.PoolFeesDataStatusWrap
+	APRData  sqspassthroughdomain.PoolAPRDataStatusWrap
+	FeesData sqspassthroughdomain.PoolFeesDataStatusWrap
 
 	PoolLiquidityCap      osmomath.Int
 	PoolLiquidityCapError string
 }
 
 // GetAPRData implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) GetAPRData() passthroughdomain.PoolAPRDataStatusWrap {
+func (mp *MockRoutablePool) GetAPRData() sqspassthroughdomain.PoolAPRDataStatusWrap {
 	return mp.APRData
 }
 
 // GetFeesData implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) GetFeesData() passthroughdomain.PoolFeesDataStatusWrap {
+func (mp *MockRoutablePool) GetFeesData() sqspassthroughdomain.PoolFeesDataStatusWrap {
 	return mp.FeesData
 }
 
 // SetAPRData implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) SetAPRData(aprData passthroughdomain.PoolAPRDataStatusWrap) {
+func (mp *MockRoutablePool) SetAPRData(aprData sqspassthroughdomain.PoolAPRDataStatusWrap) {
 	mp.APRData = aprData
 }
 
 // SetFeesData implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) SetFeesData(feesData passthroughdomain.PoolFeesDataStatusWrap) {
+func (mp *MockRoutablePool) SetFeesData(feesData sqspassthroughdomain.PoolFeesDataStatusWrap) {
 	mp.FeesData = feesData
 }
 
