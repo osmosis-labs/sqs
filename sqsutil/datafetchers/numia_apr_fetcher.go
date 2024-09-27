@@ -6,14 +6,15 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
+	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 	"go.uber.org/zap"
 )
 
 // GetFetchPoolAPRsFromNumiaCb returns a callback to fetch pool APRs from Numia.
 // It increments the error counter if the pool APRs fetching fails.
 // It returns a callback function that returns the pool APRs on success.
-func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClient, logger log.Logger) func() (map[uint64]passthroughdomain.PoolAPR, error) {
-	return func() (map[uint64]passthroughdomain.PoolAPR, error) {
+func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClient, logger log.Logger) func() (map[uint64]sqspassthroughdomain.PoolAPR, error) {
+	return func() (map[uint64]sqspassthroughdomain.PoolAPR, error) {
 		// Fetch pool APRs from the passthrough grpc client
 		poolAPRs, err := numiaHTTPClient.GetPoolAPRsRange()
 		if err != nil {
@@ -25,7 +26,7 @@ func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClie
 		}
 
 		// Convert to map
-		poolAPRsMap := make(map[uint64]passthroughdomain.PoolAPR, len(poolAPRs))
+		poolAPRsMap := make(map[uint64]sqspassthroughdomain.PoolAPR, len(poolAPRs))
 		for _, poolAPR := range poolAPRs {
 			poolAPRsMap[poolAPR.PoolID] = poolAPR
 		}
@@ -37,8 +38,8 @@ func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClie
 // GetFetchPoolPoolFeesFromTimeseries returns a callback to fetch pool fees from timeseries data stack.
 // It increments the error counter if the pool fees fetching fails.
 // It returns a callback function that returns the pool fees on success.
-func GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.TimeSeriesHTTPClient, logger log.Logger) func() (map[uint64]passthroughdomain.PoolFee, error) {
-	return func() (map[uint64]passthroughdomain.PoolFee, error) {
+func GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.TimeSeriesHTTPClient, logger log.Logger) func() (map[uint64]sqspassthroughdomain.PoolFee, error) {
+	return func() (map[uint64]sqspassthroughdomain.PoolFee, error) {
 		// Fetch pool APRs from the passthrough grpc client
 		poolFees, err := timeseriesHTTPClient.GetPoolFees()
 		if err != nil {
@@ -50,7 +51,7 @@ func GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.T
 			return nil, err
 		}
 
-		poolFeesMap := make(map[uint64]passthroughdomain.PoolFee, len(poolFees.Data))
+		poolFeesMap := make(map[uint64]sqspassthroughdomain.PoolFee, len(poolFees.Data))
 		for _, poolFee := range poolFees.Data {
 			// Convert pool ID to uint64
 			poolID, err := strconv.ParseUint(poolFee.PoolID, 10, 64)

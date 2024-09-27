@@ -1,4 +1,4 @@
-package passthroughdomain
+package sqspassthroughdomain
 
 import (
 	"github.com/osmosis-labs/sqs/sqsdomain/json"

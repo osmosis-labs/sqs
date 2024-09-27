@@ -19,7 +19,7 @@ import (
 	gammtypes "github.com/osmosis-labs/osmosis/v26/x/gamm/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
-	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
+	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
@@ -57,15 +57,15 @@ var (
 	defaultError = fmt.Errorf("forced error")
 
 	// Default APR and fee data
-	defaultAPRData = passthroughdomain.PoolAPRDataStatusWrap{PoolAPR: passthroughdomain.PoolAPR{
+	defaultAPRData = sqspassthroughdomain.PoolAPRDataStatusWrap{PoolAPR: sqspassthroughdomain.PoolAPR{
 		PoolID: defaultPoolID,
-		SwapFees: passthroughdomain.PoolDataRange{
+		SwapFees: sqspassthroughdomain.PoolDataRange{
 			Lower: 0.01,
 			Upper: 0.02,
 		},
 	}}
-	defaultFeeData = passthroughdomain.PoolFeesDataStatusWrap{
-		PoolFee: passthroughdomain.PoolFee{
+	defaultFeeData = sqspassthroughdomain.PoolFeesDataStatusWrap{
+		PoolFee: sqspassthroughdomain.PoolFee{
 			PoolID: fmt.Sprintf("%d", defaultPoolID),
 		},
 	}
@@ -758,26 +758,26 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 	var (
 		// Helper functions to modify the APR and fee data
-		withIsAPRStale = func(aprData passthroughdomain.PoolAPRDataStatusWrap) passthroughdomain.PoolAPRDataStatusWrap {
+		withIsAPRStale = func(aprData sqspassthroughdomain.PoolAPRDataStatusWrap) sqspassthroughdomain.PoolAPRDataStatusWrap {
 			aprData.IsStale = true
 			return aprData
 		}
-		withIsAPRError = func(aprData passthroughdomain.PoolAPRDataStatusWrap) passthroughdomain.PoolAPRDataStatusWrap {
+		withIsAPRError = func(aprData sqspassthroughdomain.PoolAPRDataStatusWrap) sqspassthroughdomain.PoolAPRDataStatusWrap {
 			aprData.IsError = true
 			return aprData
 		}
-		withIsFeeStale = func(feeData passthroughdomain.PoolFeesDataStatusWrap) passthroughdomain.PoolFeesDataStatusWrap {
+		withIsFeeStale = func(feeData sqspassthroughdomain.PoolFeesDataStatusWrap) sqspassthroughdomain.PoolFeesDataStatusWrap {
 			feeData.IsStale = true
 			return feeData
 		}
-		withIsFeeError = func(feeData passthroughdomain.PoolFeesDataStatusWrap) passthroughdomain.PoolFeesDataStatusWrap {
+		withIsFeeError = func(feeData sqspassthroughdomain.PoolFeesDataStatusWrap) sqspassthroughdomain.PoolFeesDataStatusWrap {
 			feeData.IsError = true
 			return feeData
 		}
 
 		// Empty APR and fee data
-		emptyAPRData = passthroughdomain.PoolAPRDataStatusWrap{}
-		emptyFeeData = passthroughdomain.PoolFeesDataStatusWrap{}
+		emptyAPRData = sqspassthroughdomain.PoolAPRDataStatusWrap{}
+		emptyFeeData = sqspassthroughdomain.PoolFeesDataStatusWrap{}
 	)
 
 	testCases := []struct {
@@ -792,8 +792,8 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 		isAPRDataStale bool
 		isFeeDataStale bool
 
-		expectedAPRData  passthroughdomain.PoolAPRDataStatusWrap
-		expectedFeesData passthroughdomain.PoolFeesDataStatusWrap
+		expectedAPRData  sqspassthroughdomain.PoolAPRDataStatusWrap
+		expectedFeesData sqspassthroughdomain.PoolFeesDataStatusWrap
 	}{
 		{
 			name: "no APR or fees data configured",
@@ -985,17 +985,17 @@ func (s *PoolsUsecaseTestSuite) newDefaultPoolsUseCase() *usecase.PoolsUsecase {
 }
 
 // Returns a mock APR fetcher that can be used to test the APR data fetching logic.
-func getMockAPRFetcher(shouldForceAPRFetcherError, isAPRDataStale bool) *mocks.MapFetcherMock[uint64, passthroughdomain.PoolAPR] {
-	return &mocks.MapFetcherMock[uint64, passthroughdomain.PoolAPR]{
+func getMockAPRFetcher(shouldForceAPRFetcherError, isAPRDataStale bool) *mocks.MapFetcherMock[uint64, sqspassthroughdomain.PoolAPR] {
+	return &mocks.MapFetcherMock[uint64, sqspassthroughdomain.PoolAPR]{
 		// Mock GetByKey
-		GetByKeyFn: func(key uint64) (passthroughdomain.PoolAPR, time.Time, bool, error) {
+		GetByKeyFn: func(key uint64) (sqspassthroughdomain.PoolAPR, time.Time, bool, error) {
 			var err error
 			if shouldForceAPRFetcherError {
 				err = defaultError
 			}
 
 			if key != defaultPoolID {
-				return passthroughdomain.PoolAPR{}, defaultTime, isAPRDataStale, err
+				return sqspassthroughdomain.PoolAPR{}, defaultTime, isAPRDataStale, err
 			}
 
 			return defaultAPRData.PoolAPR, defaultTime, isAPRDataStale, err
@@ -1004,17 +1004,17 @@ func getMockAPRFetcher(shouldForceAPRFetcherError, isAPRDataStale bool) *mocks.M
 }
 
 // Returns a mock fees fetcher that can be used to test the fees data fetching logic.
-func getMockFeesFetcher(shouldForceFeesFetcherError, isFeeDataStale bool) *mocks.MapFetcherMock[uint64, passthroughdomain.PoolFee] {
-	return &mocks.MapFetcherMock[uint64, passthroughdomain.PoolFee]{
+func getMockFeesFetcher(shouldForceFeesFetcherError, isFeeDataStale bool) *mocks.MapFetcherMock[uint64, sqspassthroughdomain.PoolFee] {
+	return &mocks.MapFetcherMock[uint64, sqspassthroughdomain.PoolFee]{
 		// Mock GetByKey
-		GetByKeyFn: func(key uint64) (passthroughdomain.PoolFee, time.Time, bool, error) {
+		GetByKeyFn: func(key uint64) (sqspassthroughdomain.PoolFee, time.Time, bool, error) {
 			var err error
 			if shouldForceFeesFetcherError {
 				err = defaultError
 			}
 
 			if key != defaultPoolID {
-				return passthroughdomain.PoolFee{}, defaultTime, isFeeDataStale, err
+				return sqspassthroughdomain.PoolFee{}, defaultTime, isFeeDataStale, err
 			}
 
 			return defaultFeeData.PoolFee, defaultTime, isFeeDataStale, err

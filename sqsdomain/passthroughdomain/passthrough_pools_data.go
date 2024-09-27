@@ -1,4 +1,4 @@
-package passthroughdomain
+package sqspassthroughdomain
 
 // PoolAPRDataStatusWrap is a wrapper for PoolAPRData that includes status flags.
 type PoolAPRDataStatusWrap struct {

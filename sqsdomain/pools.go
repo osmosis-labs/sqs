@@ -11,8 +11,8 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	clqueryproto "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/client/queryproto"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
-	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
+	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 )
 
 // PoolI represents a generalized Pool interface.
@@ -42,9 +42,9 @@ type PoolI interface {
 	// GetLiquidityCapError returns the pool liquidity capitalization error.
 	GetLiquidityCapError() string
 
-	GetAPRData() passthroughdomain.PoolAPRDataStatusWrap
+	GetAPRData() sqspassthroughdomain.PoolAPRDataStatusWrap
 
-	GetFeesData() passthroughdomain.PoolFeesDataStatusWrap
+	GetFeesData() sqspassthroughdomain.PoolFeesDataStatusWrap
 
 	// SetTickModel sets the tick model for the pool
 	// If this is not a concentrated pool, errors
@@ -58,10 +58,10 @@ type PoolI interface {
 	SetLiquidityCapError(liquidityCapError string)
 
 	// SetAPRData sets the APR data for the pool
-	SetAPRData(aprData passthroughdomain.PoolAPRDataStatusWrap)
+	SetAPRData(aprData sqspassthroughdomain.PoolAPRDataStatusWrap)
 
 	// SetFeesData sets the fees data for the pool
-	SetFeesData(feesData passthroughdomain.PoolFeesDataStatusWrap)
+	SetFeesData(feesData sqspassthroughdomain.PoolFeesDataStatusWrap)
 
 	// Validate validates the pool
 	// Returns nil if the pool is valid
@@ -90,11 +90,11 @@ type SQSPool struct {
 }
 
 type PoolWrapper struct {
-	ChainModel poolmanagertypes.PoolI                   `json:"underlying_pool"`
-	SQSModel   SQSPool                                  `json:"sqs_model"`
-	APRData    passthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
-	FeesData   passthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
-	TickModel  *TickModel                               `json:"tick_model,omitempty"`
+	ChainModel poolmanagertypes.PoolI                      `json:"underlying_pool"`
+	SQSModel   SQSPool                                     `json:"sqs_model"`
+	APRData    sqspassthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
+	FeesData   sqspassthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
+	TickModel  *TickModel                                  `json:"tick_model,omitempty"`
 }
 
 var _ PoolI = &PoolWrapper{}
@@ -207,21 +207,21 @@ func (p *PoolWrapper) SetLiquidityCapError(liquidityCapError string) {
 }
 
 // SetAPRData implements PoolI.
-func (p *PoolWrapper) SetAPRData(aprData passthroughdomain.PoolAPRDataStatusWrap) {
+func (p *PoolWrapper) SetAPRData(aprData sqspassthroughdomain.PoolAPRDataStatusWrap) {
 	p.APRData = aprData
 }
 
 // SetFeesData implements PoolI.
-func (p *PoolWrapper) SetFeesData(feesData passthroughdomain.PoolFeesDataStatusWrap) {
+func (p *PoolWrapper) SetFeesData(feesData sqspassthroughdomain.PoolFeesDataStatusWrap) {
 	p.FeesData = feesData
 }
 
 // GetAPRData implements PoolI.
-func (p *PoolWrapper) GetAPRData() passthroughdomain.PoolAPRDataStatusWrap {
+func (p *PoolWrapper) GetAPRData() sqspassthroughdomain.PoolAPRDataStatusWrap {
 	return p.APRData
 }
 
 // GetFeesData implements PoolI.
-func (p *PoolWrapper) GetFeesData() passthroughdomain.PoolFeesDataStatusWrap {
+func (p *PoolWrapper) GetFeesData() sqspassthroughdomain.PoolFeesDataStatusWrap {
 	return p.FeesData
 }

@@ -26,10 +26,10 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
+	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/model"
@@ -54,8 +54,8 @@ type poolsUseCase struct {
 
 	cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams
 
-	aprPrefetcher      datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR]
-	poolFeesPrefetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolFee]
+	aprPrefetcher      datafetchers.MapFetcher[uint64, sqspassthroughdomain.PoolAPR]
+	poolFeesPrefetcher datafetchers.MapFetcher[uint64, sqspassthroughdomain.PoolFee]
 
 	logger log.Logger
 }
@@ -508,12 +508,12 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 }
 
 // RegisterAPRFetcher registers the APR fetcher for the passthrough use case.
-func (p *poolsUseCase) RegisterAPRFetcher(aprFetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolAPR]) {
+func (p *poolsUseCase) RegisterAPRFetcher(aprFetcher datafetchers.MapFetcher[uint64, sqspassthroughdomain.PoolAPR]) {
 	p.aprPrefetcher = aprFetcher
 }
 
 // RegisterPoolFeesFetcher registers the pool fees fetcher for the passthrough use case.
-func (p *poolsUseCase) RegisterPoolFeesFetcher(poolFeesFetcher datafetchers.MapFetcher[uint64, passthroughdomain.PoolFee]) {
+func (p *poolsUseCase) RegisterPoolFeesFetcher(poolFeesFetcher datafetchers.MapFetcher[uint64, sqspassthroughdomain.PoolFee]) {
 	p.poolFeesPrefetcher = poolFeesFetcher
 }
 
@@ -655,7 +655,7 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, op
 		}
 
 		// Set APR data
-		pool.SetAPRData(passthroughdomain.PoolAPRDataStatusWrap{
+		pool.SetAPRData(sqspassthroughdomain.PoolAPRDataStatusWrap{
 			PoolAPR: poolAPRData,
 			IsStale: isStale,
 			IsError: err != nil,
@@ -669,7 +669,7 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, op
 		}
 
 		// Set pool fee data
-		pool.SetFeesData(passthroughdomain.PoolFeesDataStatusWrap{
+		pool.SetFeesData(sqspassthroughdomain.PoolFeesDataStatusWrap{
 			PoolFee: poolFeeData,
 			IsStale: isStale,
 			IsError: err != nil,

@@ -3,11 +3,12 @@ package passthroughdomain
 import (
 	"net/http"
 
+	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 	"github.com/osmosis-labs/sqs/sqsutil/sqshttp"
 )
 
 type TimeSeriesHTTPClient interface {
-	GetPoolFees() (*PoolFees, error)
+	GetPoolFees() (*sqspassthroughdomain.PoolFees, error)
 }
 
 type TimeSeriesHTTPClientImpl struct {
@@ -29,8 +30,8 @@ func NewTimeSeriesHTTPClient(url string) *TimeSeriesHTTPClientImpl {
 }
 
 // GetPoolFees implements TimeSeriesHTTPClient.
-func (t *TimeSeriesHTTPClientImpl) GetPoolFees() (*PoolFees, error) {
-	poolFees, err := sqshttp.Get[PoolFees](t.client, t.url, feesEndpoint)
+func (t *TimeSeriesHTTPClientImpl) GetPoolFees() (*sqspassthroughdomain.PoolFees, error) {
+	poolFees, err := sqshttp.Get[sqspassthroughdomain.PoolFees](t.client, t.url, feesEndpoint)
 	if err != nil {
 		return nil, err
 	}

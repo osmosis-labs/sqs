@@ -10,11 +10,11 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
+	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 )
 
 // ResponseError represent the response error struct
@@ -39,8 +39,8 @@ type PoolResponse struct {
 	LiquidityCap      osmomath.Int `json:"liquidity_cap"`
 	LiquidityCapError string       `json:"liquidity_cap_error"`
 
-	APRData  passthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
-	FeesData passthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
+	APRData  sqspassthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
+	FeesData sqspassthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
 }
 
 const resourcePrefix = "/pools"
