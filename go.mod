@@ -2,8 +2,6 @@ module github.com/osmosis-labs/sqs
 
 go 1.22.4
 
-toolchain go1.22.5
-
 require (
 	cosmossdk.io/math v1.3.0
 	cosmossdk.io/store v1.1.0
@@ -15,7 +13,7 @@ require (
 	github.com/osmosis-labs/osmosis/osmomath v0.0.13
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.13
 	github.com/osmosis-labs/osmosis/v26 v26.0.0-rc1
-	github.com/osmosis-labs/sqs/sqsdomain v0.26.0
+	github.com/osmosis-labs/sqs/sqsdomain v0.26.1-0.20240927203000-382296c78ee2
 	github.com/prometheus/client_golang v1.20.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0

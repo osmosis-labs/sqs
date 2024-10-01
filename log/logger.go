@@ -68,9 +68,15 @@ func (l *loggerImpl) Warn(msg string, fields ...zapcore.Field) {
 // If fileName is non-empty, it pipes logs to file and stdout.
 // if filename is empty, it pipes logs only to stdout.
 func NewLogger(isProduction bool, fileName string, logLevelStr string) (Logger, error) {
-	loggerConfig := zap.NewProductionConfig()
-	if !isProduction {
-		loggerConfig = zap.NewDevelopmentConfig()
+	loggerConfig := zap.NewDevelopmentConfig()
+	if isProduction {
+		loggerConfig = zap.NewProductionConfig()
+
+		// Ensure JSON output
+		loggerConfig.Encoding = "json"
+
+		// Configure timestamp format
+		loggerConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 
 	logLevel := zap.InfoLevel
