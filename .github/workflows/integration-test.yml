@@ -47,7 +47,7 @@ jobs:
           
   scheduled_integration_test:
     if: github.event_name == 'schedule'
-    runs-on: 
+    runs-on: buildjet-4vcpu-ubuntu-2204
     strategy:
       matrix:
         # TODO: re-add prod environment ", prod"
