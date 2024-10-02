@@ -19,6 +19,11 @@ def filter_pools(pools_data, min_pool_liquidity_cap_usdc):
     filtered_pool_data = []
 
     for pool_data in pools_data:
+
+        pool_id = pool_data.get("pool_id")
+        if pool_id in conftest.pool_blacklist:
+            continue
+
         pool_liquidity = pool_data.get("liquidity")
         if pool_liquidity > min_pool_liquidity_cap_usdc:
             filtered_pool_data.append(pool_data)
