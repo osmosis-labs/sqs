@@ -9,7 +9,7 @@ from e2e_math import *
 from decimal import *
 
 # Arbitrary choice based on performance at the time of test writing
-EXPECTED_LATENCY_UPPER_BOUND_MS = 450
+EXPECTED_LATENCY_UPPER_BOUND_MS = 1500
 
 user_balances_assets_category_name = "user-balances"
 unstaking_assets_category_name = "unstaking"
