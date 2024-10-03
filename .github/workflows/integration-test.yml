@@ -21,7 +21,7 @@ on:
 jobs:
   manual_integration_test:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
           
   scheduled_integration_test:
     if: github.event_name == 'schedule'
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         # TODO: re-add prod environment ", prod"
