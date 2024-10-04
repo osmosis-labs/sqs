@@ -3,6 +3,7 @@ package mvc
 import (
 	"context"
 
+	"github.com/osmosis-labs/sqs/domain"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 )
@@ -21,4 +22,7 @@ type OrderBookUsecase interface {
 	// The caller should range over the channel, but note that channel is never closed since there may be multiple
 	// sender goroutines.
 	GetActiveOrdersStream(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult
+
+	// TODO
+	CreateFormattedLimitOrder(orderbook domain.CanonicalOrderBooksResult, order orderbookdomain.Order) (orderbookdomain.LimitOrder, error)
 }

@@ -156,8 +156,8 @@ var (
 			ServerConnectionTimeoutSeconds: 10,
 			Plugins: []Plugin{
 				&OrderBookPluginConfig{
-					Enabled: false,
-					Name:    orderbookplugindomain.OrderBookPluginName,
+					Enabled: true,
+					Name:    orderbookplugindomain.OrderBookClaimerPluginName,
 				},
 			},
 		},

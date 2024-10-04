@@ -65,6 +65,17 @@ func (o Orders) TickID() []int64 {
 	return tickIDs
 }
 
+// TODO
+func (o Orders) OrderByDirection(direction string) Orders {
+	var result Orders
+	for _, v := range o {
+		if v.OrderDirection == direction {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
 // Asset represents orderbook asset returned by the orderbook contract.
 type Asset struct {
 	Symbol   string `json:"symbol"`
