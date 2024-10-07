@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	gogogrpc "github.com/cosmos/gogoproto/grpc"
 	"go.uber.org/zap"
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
@@ -324,34 +323,16 @@ func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []s
 	txFactory = txFactory.WithGasAdjustment(1.02)
 
 	// Estimate transaction
-	gasResult, adjustedGasUsed, err := CalculateGas(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), txFactory, msgs...)
+	gasResult, adjustedGasUsed, err := tx.CalculateGas(
+		o.passthroughGRPCClient.GetChainGRPCClient(), 
+		txFactory, 
+		msgs...,
+	)
 	if err != nil {
 		return nil, adjustedGasUsed, err
 	}
 
 	return gasResult, adjustedGasUsed, nil
-}
-
-// CalculateGas simulates the execution of a transaction and returns the
-// simulation response obtained by the query and the adjusted gas amount.
-func CalculateGas(
-	ctx context.Context,
-	clientCtx gogogrpc.ClientConn, txf tx.Factory, msgs ...sdk.Msg,
-) (*txtypes.SimulateResponse, uint64, error) {
-	txBytes, err := txf.BuildSimTx(msgs...)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	txSvcClient := txtypes.NewServiceClient(clientCtx)
-	simRes, err := txSvcClient.Simulate(ctx, &txtypes.SimulateRequest{
-		TxBytes: txBytes,
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return simRes, uint64(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed)), nil
 }
 
 // broadcastTransaction broadcasts a transaction to the chain.

@@ -284,7 +284,15 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 				}
 
 				if plugin.GetName() == orderbookplugindomain.OrderBookClaimerPluginName {
+					// Create keyring
+					keyring, err := keyring.New()
+					if err != nil {
+						return nil, err
+					}
+
+					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
 					currentPlugin = orderbookclaimer.New(
+						keyring,
 						orderBookUseCase,
 						poolsUseCase,
 						orderBookRepository,
