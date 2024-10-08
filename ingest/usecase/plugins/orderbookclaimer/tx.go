@@ -14,16 +14,18 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	// "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v26/app"
+
+	sqsgcp "github.com/osmosis-labs/sqs/grpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -32,15 +34,21 @@ import (
 var (
 	chainID = "osmosis-1"
 
-	RPC       = "localhost:9090"
-	LCD       = "http://127.0.0.1:1317"
-	Denom     = "uosmo"
-	NobleUSDC = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+	RPC   = "localhost:9090"
+	LCD   = "http://127.0.0.1:1317"
+	Denom = "uosmo"
 
 	encodingConfig = app.MakeEncodingConfig()
 )
 
 func (o *orderbookClaimerIngestPlugin) sendBatchClaimTx(contractAddress string, claims []Claim) error {
+	// Create a connection to the gRPC server.
+	grpcConn, err := sqsgcp.NewClient(RPC)
+	if err != nil {
+		return err
+	}
+
+	defer grpcConn.Close()
 	key := o.keyring.GetKey()
 	keyBytes := key.Bytes()
 	privKey := &secp256k1.PrivKey{Key: keyBytes}
@@ -87,22 +95,24 @@ func (o *orderbookClaimerIngestPlugin) sendBatchClaimTx(contractAddress string, 
 		return fmt.Errorf("failed to set messages: %w", err)
 	}
 
-	// Query gas price from chain
-	gasPrice, err := osmomath.NewDecFromStr("0.025") // Example gas price, adjust as necessary
-	if err != nil {
-		return err
-	}
+	accountSequence, accountNumber := getInitialSequence(context.TODO(), o.keyring.GetAddress().String())
 
 	_, gas, err := o.simulateMsgs(context.TODO(), []sdk.Msg{&msg})
+	fmt.Println("gas", gas, err)
+
+	txFeeClient := txfeestypes.NewQueryClient(grpcConn)
+	resp, err := txFeeClient.BaseDenom(context.Background(), &txfeestypes.QueryBaseDenomRequest{})
+
+	fmt.Println("base denom", resp.BaseDenom, err)
+
+	resp0, err := txFeeClient.GetEipBaseFee(context.TODO(), &txfeestypes.QueryEipBaseFeeRequest{})
+	fmt.Printf("fee amount %#v : %s\n", resp0, err)
 
 	// Calculate the fee based on gas and gas price
-	feeAmount := gasPrice.MulInt64(int64(gas)).Ceil().TruncateInt64()
+	feeAmount := resp0.BaseFee.MulInt64(int64(gas)).Ceil().TruncateInt()
 
-	fmt.Println("fee amount", feeAmount)
 	// Create the final fee structure
-	feecoin := sdk.NewCoin("uosmo", osmomath.NewInt(feeAmount))
-
-	accountSequence, accountNumber := getInitialSequence(context.TODO(), o.keyring.GetAddress().String())
+	feecoin := sdk.NewCoin(resp.BaseDenom, feeAmount)
 
 	txBuilder.SetGasLimit(gas)
 	txBuilder.SetFeeAmount(sdk.NewCoins(feecoin))
@@ -155,6 +165,11 @@ func (o *orderbookClaimerIngestPlugin) sendBatchClaimTx(contractAddress string, 
 		return err
 	}
 
+	defer func() {
+		// Wait for block inclusion with buffer to avoid sequence mismatch
+		time.Sleep(5 * time.Second)
+	}()
+
 	err = sendTx(context.TODO(), txBytes)
 
 	log.Println("txJSON", string(txJSONBytes), err)
@@ -168,16 +183,6 @@ type Claim struct {
 	OrderID int64
 }
 
-// Config should contain all the necessary configuration variables
-var Config struct {
-	CHAIN_ID      string
-	RPC_ENDPOINT  string
-	TX_KEY        string
-	TX_GAS        int64
-	TX_FEE_DENOM  string
-	TX_FEE_AMOUNT int64
-}
-
 type AccountInfo struct {
 	Sequence      string `json:"sequence"`
 	AccountNumber string `json:"account_number"`
@@ -188,6 +193,17 @@ type AccountResult struct {
 }
 
 func getInitialSequence(ctx context.Context, address string) (uint64, uint64) {
+	// Create a connection to the gRPC server.
+	grpcConn, err := grpc.NewClient(
+		RPC, // Or your gRPC server address.
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		// return err
+	}
+
+	defer grpcConn.Close()
+
 	resp, err := httpGet(ctx, LCD+"/cosmos/auth/v1beta1/accounts/"+address)
 	if err != nil {
 		log.Printf("Failed to get initial sequence: %v", err)
@@ -300,7 +316,7 @@ func (o *orderbookClaimerIngestPlugin) simulateMsgs(ctx context.Context, msgs []
 	txFactory = txFactory.WithAccountNumber(accNum)
 	txFactory = txFactory.WithSequence(accSeq)
 	txFactory = txFactory.WithChainID(chainID)
-	txFactory = txFactory.WithGasAdjustment(1.02)
+	txFactory = txFactory.WithGasAdjustment(1.05)
 
 	// Estimate transaction
 	gasResult, adjustedGasUsed, err := tx.CalculateGas(

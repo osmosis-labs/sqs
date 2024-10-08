@@ -14,6 +14,7 @@ import (
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/slices"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
@@ -107,23 +108,24 @@ func (o *orderbookClaimerIngestPlugin) ProcessEndBlock(ctx context.Context, bloc
 			var claimable orderbookdomain.Orders
 			claimable = append(claimable, o.getClaimableOrders(orderbook, orders.OrderByDirection("ask"), t.TickState.AskValues)...)
 			claimable = append(claimable, o.getClaimableOrders(orderbook, orders.OrderByDirection("bid"), t.TickState.BidValues)...)
-
 			if len(claimable) == 0 {
 				continue // nothing to do
 			}
 
-			var claims []Claim
-			for _, order := range claimable {
-				claims = append(claims, Claim{
-					TickID:  order.TickId,
-					OrderID: order.OrderId,
-				})
+			// Chunk claimable orders of size 100
+			for _, chunk := range slices.Split(claimable, 100) {
+				var claims []Claim
+				for _, order := range chunk {
+					claims = append(claims, Claim{
+						TickID:  order.TickId,
+						OrderID: order.OrderId,
+					})
+				}
 
-				break
+				err = o.sendBatchClaimTx(orderbook.ContractAddress, claims)
+
+				fmt.Println("claims", orderbook.ContractAddress, claims, err)
 			}
-
-			err = o.sendBatchClaimTx(orderbook.ContractAddress, claims)
-			fmt.Println("claims", claims, err)
 
 			break
 		}

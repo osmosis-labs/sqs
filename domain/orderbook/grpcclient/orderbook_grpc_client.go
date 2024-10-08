@@ -88,6 +88,7 @@ func (o *orderbookClientImpl) GetTickUnrealizedCancels(ctx context.Context, cont
 func (o *orderbookClientImpl) FetchTickUnrealizedCancels(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]UnrealizedTickCancels, error) {
 	allUnrealizedCancels := make([]UnrealizedTickCancels, 0, len(tickIDs))
 
+	// TODO: use slices.Split package
 	for i := 0; i < len(tickIDs); i += chunkSize {
 		end := i + chunkSize
 		if end > len(tickIDs) {
