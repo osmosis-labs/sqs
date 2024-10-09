@@ -6,15 +6,17 @@ import (
 	"sync/atomic"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/delivery/grpc"
 	"github.com/osmosis-labs/sqs/domain"
+	accounttypes "github.com/osmosis-labs/sqs/domain/cosmos/account/types"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
+	"github.com/osmosis-labs/sqs/domain/slices"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/slices"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
@@ -27,7 +29,9 @@ type orderbookClaimerIngestPlugin struct {
 	orderbookRepository orderbookdomain.OrderBookRepository
 	orderBookClient     orderbookgrpcclientdomain.OrderBookClient
 
-	atomicBool atomic.Bool
+	accountQueryClient accounttypes.QueryClient
+	grpcClient         *grpc.Client
+	atomicBool         atomic.Bool
 
 	logger log.Logger
 }
@@ -52,7 +56,15 @@ func New(
 	orderBookCWAPIClient orderbookplugindomain.OrderbookCWAPIClient,
 	logger log.Logger,
 ) *orderbookClaimerIngestPlugin {
+	// Create a connection to the gRPC server.
+	grpcClient, err := grpc.NewClient(RPC)
+	if err != nil {
+		logger.Error("err", zap.Error(err)) // TODO
+	}
+
 	return &orderbookClaimerIngestPlugin{
+		accountQueryClient:  accounttypes.NewQueryClient(LCD), // TODO: as param
+		grpcClient:          grpcClient,
 		keyring:             keyring,
 		orderbookusecase:    orderbookusecase,
 		orderbookRepository: orderbookRepository,
