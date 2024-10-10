@@ -1,3 +1,4 @@
+// Package grpc provides a custom gRPC client implementation for Cosmos SDK-based applications.
 package grpc
 
 import (
@@ -35,12 +36,15 @@ func (c customCodec) Name() string {
 	return "gogoproto"
 }
 
+// Client wraps a gRPC ClientConn, providing a custom connection.
+// Connection is set up with custom options, including the use of a custom codec
+// for gogoproto and OpenTelemetry instrumentation.
+// Client addresses issue mentioned here: https://github.com/cosmos/cosmos-sdk/issues/18430
 type Client struct {
 	*grpc.ClientConn
 }
 
-// connectGRPC dials up our grpc connection endpoint.
-// See: https://github.com/cosmos/cosmos-sdk/issues/18430
+// NewClient creates a new gRPC client connection to the specified endpoint.
 func NewClient(grpcEndpoint string) (*Client, error) {
 	customCodec := &customCodec{parentCodec: encoding.GetCodec("proto")}
 
