@@ -22,8 +22,8 @@ import (
 
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
-	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookclaimer"
-	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller"
+	orderbookclaimbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
+	orderbookfillbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot"
 	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
@@ -280,7 +280,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					}
 
 					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
-					currentPlugin = orderbookfiller.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
+					currentPlugin = orderbookfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
 				}
 
 				if plugin.GetName() == orderbookplugindomain.OrderBookClaimerPluginName {
@@ -291,16 +291,17 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					}
 
 					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
-					currentPlugin = orderbookclaimer.New(
+					currentPlugin, err = orderbookclaimbot.New(
 						keyring,
 						orderBookUseCase,
 						poolsUseCase,
 						orderBookRepository,
 						orderBookAPIClient,
-						passthroughGRPCClient,
-						orderBookAPIClient,
 						logger,
 					)
+					if err != nil {
+						return nil, err
+					}
 				}
 
 				// Register the plugin with the ingest use case

@@ -106,6 +106,12 @@ type LimitOrder struct {
 	PlacedTx         *string      `json:"placed_tx,omitempty"`
 }
 
+// IsClaimable reports whether the limit order is filled above the given
+// threshold to be considered as claimable.
+func (o LimitOrder) IsClaimable(threshold osmomath.Dec) bool {
+	return o.PercentFilled.GT(threshold) && o.PercentFilled.LTE(osmomath.OneDec())
+}
+
 // OrderbookResult represents orderbook orders result.
 type OrderbookResult struct {
 	LimitOrders  []LimitOrder // The channel on which the orders are delivered.

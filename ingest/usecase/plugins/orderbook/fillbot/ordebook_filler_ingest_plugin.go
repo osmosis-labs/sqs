@@ -1,4 +1,4 @@
-package orderbookfiller
+package fillbot
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
-	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
-	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/msg"
-	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/tx"
+	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
+	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/msg"
+	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/tx"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 	"go.opentelemetry.io/otel"

@@ -1,11 +1,11 @@
-package orderbookfiller
+package fillbot
 
 import (
 	"fmt"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
-	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
+	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
 	"go.uber.org/zap"
 
 	clmath "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/math"

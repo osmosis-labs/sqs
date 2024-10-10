@@ -23,6 +23,6 @@ type OrderBookUsecase interface {
 	// sender goroutines.
 	GetActiveOrdersStream(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult
 
-	// TODO
+	// CreateFormattedLimitOrder creates a formatted limit order from the given orderbook and order.
 	CreateFormattedLimitOrder(orderbook domain.CanonicalOrderBooksResult, order orderbookdomain.Order) (orderbookdomain.LimitOrder, error)
 }

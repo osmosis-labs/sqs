@@ -1,4 +1,4 @@
-package orderbookfiller
+package fillbot
 
 import (
 	"context"

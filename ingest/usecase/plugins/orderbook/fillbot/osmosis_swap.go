@@ -1,4 +1,4 @@
-package orderbookfiller
+package fillbot
 
 import (
 	"context"
@@ -28,8 +28,8 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
-	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
-	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/msg"
+	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
+	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/msg"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -325,8 +325,8 @@ func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []s
 
 	// Estimate transaction
 	gasResult, adjustedGasUsed, err := tx.CalculateGas(
-		o.passthroughGRPCClient.GetChainGRPCClient(), 
-		txFactory, 
+		o.passthroughGRPCClient.GetChainGRPCClient(),
+		txFactory,
 		msgs...,
 	)
 	if err != nil {
