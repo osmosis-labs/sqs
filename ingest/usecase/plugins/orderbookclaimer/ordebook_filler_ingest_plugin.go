@@ -8,7 +8,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/delivery/grpc"
 	"github.com/osmosis-labs/sqs/domain"
-	accounttypes "github.com/osmosis-labs/sqs/domain/cosmos/account/types"
+	authtypes "github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
@@ -29,7 +29,7 @@ type orderbookClaimerIngestPlugin struct {
 	orderbookRepository orderbookdomain.OrderBookRepository
 	orderBookClient     orderbookgrpcclientdomain.OrderBookClient
 
-	accountQueryClient accounttypes.QueryClient
+	accountQueryClient authtypes.QueryClient
 	grpcClient         *grpc.Client
 	atomicBool         atomic.Bool
 
@@ -63,7 +63,7 @@ func New(
 	}
 
 	return &orderbookClaimerIngestPlugin{
-		accountQueryClient:  accounttypes.NewQueryClient(LCD), // TODO: as param
+		accountQueryClient:  authtypes.NewQueryClient(LCD), // TODO: as param
 		grpcClient:          grpcClient,
 		keyring:             keyring,
 		orderbookusecase:    orderbookusecase,

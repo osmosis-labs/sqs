@@ -91,9 +91,10 @@ func (o *orderbookClaimerIngestPlugin) sendBatchClaimTx(contractAddress string, 
 	log.Printf("txres %#v : %s", txresp, err)
 
 
-	return nil // TODO
+	return nil
 }
 
+// TODO
 // You'll need to define the Claim struct and Config variables
 type Claim struct {
 	TickID  int64

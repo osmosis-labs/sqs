@@ -65,7 +65,8 @@ func (o Orders) TickID() []int64 {
 	return tickIDs
 }
 
-// TODO
+// OrderByDirection filters orders by given direction and returns resulting slice.
+// Original slice is not mutated.
 func (o Orders) OrderByDirection(direction string) Orders {
 	var result Orders
 	for _, v := range o {

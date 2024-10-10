@@ -1,3 +1,4 @@
+// Package tx provides functionality for building, simulating, and sending Cosmos SDK transactions.
 package tx
 
 import (
@@ -21,13 +22,15 @@ import (
 	"github.com/osmosis-labs/osmosis/v26/app/params"
 )
 
+// Account represents the account information required for transaction building and signing.
 type Account struct {
-	Sequence      uint64
-	AccountNumber uint64
+	Sequence      uint64 // Current sequence (nonce) of the account, used to prevent replay attacks.
+	AccountNumber uint64 // Unique identifier of the account on the blockchain.
 }
 
-// TODO:
-// SimulateMsgs
+// SimulateMsgs simulates the execution of the given messages and returns the simulation response,
+// adjusted gas used, and any error encountered. It uses the provided gRPC client, encoding config,
+// account details, and chain ID to create a transaction factory for the simulation.
 func SimulateMsgs(
 	grpcClient *grpc.Client,
 	encodingConfig params.EncodingConfig,
@@ -55,7 +58,9 @@ func SimulateMsgs(
 	return gasResult, adjustedGasUsed, nil
 }
 
-func BuildTx(ctx context.Context,grpcClient *grpc.Client, keyring keyring.Keyring, encodingConfig params.EncodingConfig, account Account, chainID string, msg ...sdk.Msg) (cosmosClient.TxBuilder, error) {
+// BuildTx constructs a transaction using the provided parameters and messages.
+// Returns a TxBuilder and any error encountered.
+func BuildTx(ctx context.Context, grpcClient *grpc.Client, keyring keyring.Keyring, encodingConfig params.EncodingConfig, account Account, chainID string, msg ...sdk.Msg) (cosmosClient.TxBuilder, error) {
 	key := keyring.GetKey()
 	privKey := &secp256k1.PrivKey{Key: key.Bytes()}
 
@@ -130,6 +135,8 @@ func SendTx(ctx context.Context, grpcConn *grpc.Client, txBytes []byte) (*sdk.Tx
 	return resp.TxResponse, nil
 }
 
+// BuildSignatures creates a SignatureV2 object using the provided public key, signature, and sequence number.
+// This is used in the process of building and signing transactions.
 func BuildSignatures(publicKey cryptotypes.PubKey, signature []byte, sequence uint64) signingtypes.SignatureV2 {
 	return signingtypes.SignatureV2{
 		PubKey: publicKey,
@@ -140,6 +147,9 @@ func BuildSignatures(publicKey cryptotypes.PubKey, signature []byte, sequence ui
 		Sequence: sequence,
 	}
 }
+
+// BuildSignerData creates a SignerData object with the given chain ID, account number, and sequence.
+// This data is used in the process of signing transactions.
 func BuildSignerData(chainID string, accountNumber, sequence uint64) authsigning.SignerData {
 	return authsigning.SignerData{
 		ChainID:       chainID,
@@ -147,6 +157,9 @@ func BuildSignerData(chainID string, accountNumber, sequence uint64) authsigning
 		Sequence:      sequence,
 	}
 }
+
+// CalculateFeeCoin determines the appropriate fee coin for a transaction based on the current base fee
+// and the amount of gas used. It queries the base denomination and EIP base fee using the provided gRPC connection.
 func CalculateFeeCoin(ctx context.Context, grpcConn *grpc.Client, gas uint64) (sdk.Coin, error) {
 	client := txfeestypes.NewQueryClient(grpcConn)
 
@@ -165,7 +178,8 @@ func CalculateFeeCoin(ctx context.Context, grpcConn *grpc.Client, gas uint64) (s
 	return sdk.NewCoin(queryBaseDenomResponse.BaseDenom, feeAmount), nil
 }
 
-// CalculateFeeAmount calculates the fee based on gas and gas price
+// CalculateFeeAmount calculates the fee amount based on the base fee and gas used.
+// It multiplies the base fee by the gas amount, rounds up to the nearest integer, and returns the result.
 func CalculateFeeAmount(baseFee osmomath.Dec, gas uint64) osmomath.Int {
 	return baseFee.MulInt64(int64(gas)).Ceil().TruncateInt()
 }
