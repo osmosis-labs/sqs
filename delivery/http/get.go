@@ -19,7 +19,7 @@ func Get(ctx context.Context, url string) ([]byte, error) {
 		return nil, err
 	}
 
-	resp, err := defaultClient.Do(req)
+	resp, err := DefaultClient.Do(req)
 	if err != nil {
 		netErr, ok := err.(net.Error)
 		if ok && netErr.Timeout() {

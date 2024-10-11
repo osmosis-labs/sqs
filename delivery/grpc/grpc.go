@@ -12,11 +12,11 @@ import (
 	"google.golang.org/grpc/encoding"
 )
 
-type customCodec struct {
+type OsmomathCodec struct {
 	parentCodec encoding.Codec
 }
 
-func (c customCodec) Marshal(v interface{}) ([]byte, error) {
+func (c OsmomathCodec) Marshal(v interface{}) ([]byte, error) {
 	protoMsg, ok := v.(proto.Message)
 	if !ok {
 		return nil, fmt.Errorf("failed to assert proto.Message")
@@ -24,7 +24,7 @@ func (c customCodec) Marshal(v interface{}) ([]byte, error) {
 	return proto.Marshal(protoMsg)
 }
 
-func (c customCodec) Unmarshal(data []byte, v interface{}) error {
+func (c OsmomathCodec) Unmarshal(data []byte, v interface{}) error {
 	protoMsg, ok := v.(proto.Message)
 	if !ok {
 		return fmt.Errorf("failed to assert proto.Message")
@@ -32,21 +32,21 @@ func (c customCodec) Unmarshal(data []byte, v interface{}) error {
 	return proto.Unmarshal(data, protoMsg)
 }
 
-func (c customCodec) Name() string {
+func (c OsmomathCodec) Name() string {
 	return "gogoproto"
 }
 
 // Client wraps a gRPC ClientConn, providing a custom connection.
 // Connection is set up with custom options, including the use of a custom codec
 // for gogoproto and OpenTelemetry instrumentation.
-// Client addresses issue mentioned here: https://github.com/cosmos/cosmos-sdk/issues/18430
+// Client addresses marshaling math.LegacyDec issue: https://github.com/cosmos/cosmos-sdk/issues/18430
 type Client struct {
 	*grpc.ClientConn
 }
 
 // NewClient creates a new gRPC client connection to the specified endpoint.
 func NewClient(grpcEndpoint string) (*Client, error) {
-	customCodec := &customCodec{parentCodec: encoding.GetCodec("proto")}
+	customCodec := &OsmomathCodec{parentCodec: encoding.GetCodec("proto")}
 
 	grpcOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

@@ -10,9 +10,9 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-// defaultClient represents default HTTP client for issuing outgoing HTTP requests.
-var defaultClient = &http.Client{
-	Timeout:   10 * time.Second, // Adjusted timeout to 10 seconds
+// DefaultClient represents default HTTP client for issuing outgoing HTTP requests.
+var DefaultClient = &http.Client{
+	Timeout:   5 * time.Second, // Adjusted timeout to 5 seconds
 	Transport: otelhttp.NewTransport(http.DefaultTransport),
 }
 

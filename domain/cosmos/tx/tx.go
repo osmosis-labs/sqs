@@ -4,22 +4,23 @@ package tx
 import (
 	"context"
 
-	cosmosClient "github.com/cosmos/cosmos-sdk/client"
+	"github.com/osmosis-labs/sqs/delivery/grpc"
+	"github.com/osmosis-labs/sqs/domain/keyring"
 
-	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v26/app/params"
+	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+
+	cosmosClient "github.com/cosmos/cosmos-sdk/client"
+	txclient "github.com/cosmos/cosmos-sdk/client/tx"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
-	"github.com/osmosis-labs/osmosis/osmomath"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
-	"github.com/osmosis-labs/sqs/delivery/grpc"
-	"github.com/osmosis-labs/sqs/domain/keyring"
-
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 
-	"github.com/osmosis-labs/osmosis/v26/app/params"
+	gogogrpc "github.com/cosmos/gogoproto/grpc"
 )
 
 // Account represents the account information required for transaction building and signing.
@@ -28,39 +29,17 @@ type Account struct {
 	AccountNumber uint64 // Unique identifier of the account on the blockchain.
 }
 
-// SimulateMsgs simulates the execution of the given messages and returns the simulation response,
-// adjusted gas used, and any error encountered. It uses the provided gRPC client, encoding config,
-// account details, and chain ID to create a transaction factory for the simulation.
-func SimulateMsgs(
+// BuildTx constructs a transaction using the provided parameters and messages.
+// Returns a TxBuilder and any error encountered.
+func BuildTx(
+	ctx context.Context,
 	grpcClient *grpc.Client,
+	keyring keyring.Keyring,
 	encodingConfig params.EncodingConfig,
 	account Account,
 	chainID string,
-	msgs []sdk.Msg,
-) (*txtypes.SimulateResponse, uint64, error) {
-	txFactory := tx.Factory{}
-	txFactory = txFactory.WithTxConfig(encodingConfig.TxConfig)
-	txFactory = txFactory.WithAccountNumber(account.AccountNumber)
-	txFactory = txFactory.WithSequence(account.Sequence)
-	txFactory = txFactory.WithChainID(chainID)
-	txFactory = txFactory.WithGasAdjustment(1.05)
-
-	// Estimate transaction
-	gasResult, adjustedGasUsed, err := tx.CalculateGas(
-		grpcClient,
-		txFactory,
-		msgs...,
-	)
-	if err != nil {
-		return nil, adjustedGasUsed, err
-	}
-
-	return gasResult, adjustedGasUsed, nil
-}
-
-// BuildTx constructs a transaction using the provided parameters and messages.
-// Returns a TxBuilder and any error encountered.
-func BuildTx(ctx context.Context, grpcClient *grpc.Client, keyring keyring.Keyring, encodingConfig params.EncodingConfig, account Account, chainID string, msg ...sdk.Msg) (cosmosClient.TxBuilder, error) {
+	msg ...sdk.Msg,
+) (cosmosClient.TxBuilder, error) {
 	key := keyring.GetKey()
 	privKey := &secp256k1.PrivKey{Key: key.Bytes()}
 
@@ -99,7 +78,7 @@ func BuildTx(ctx context.Context, grpcClient *grpc.Client, keyring keyring.Keyri
 
 	signerData := BuildSignerData(chainID, account.AccountNumber, account.Sequence)
 
-	signed, err := tx.SignWithPrivKey(
+	signed, err := txclient.SignWithPrivKey(
 		ctx,
 		signingtypes.SignMode_SIGN_MODE_DIRECT, signerData,
 		txBuilder, privKey, encodingConfig.TxConfig, account.Sequence)
@@ -115,13 +94,17 @@ func BuildTx(ctx context.Context, grpcClient *grpc.Client, keyring keyring.Keyri
 	return txBuilder, nil
 }
 
+// newTxServiceClient creates a new tx NewServiceClient instance with the provided gRPC connection.
+// In testing, this function is replaced with a mock implementation.
+var newTxServiceClient = txtypes.NewServiceClient
+
 // SendTx broadcasts a transaction to the chain, returning the result and error.
-func SendTx(ctx context.Context, grpcConn *grpc.Client, txBytes []byte) (*sdk.TxResponse, error) {
+func SendTx(ctx context.Context, grpcClient *grpc.Client, txBytes []byte) (*sdk.TxResponse, error) {
 	// Broadcast the tx via gRPC. We create a new client for the Protobuf Tx service.
-	txClient := txtypes.NewServiceClient(grpcConn)
+	txServiceClient := newTxServiceClient(grpcClient)
 
 	// We then call the BroadcastTx method on this client.
-	resp, err := txClient.BroadcastTx(
+	resp, err := txServiceClient.BroadcastTx(
 		ctx,
 		&txtypes.BroadcastTxRequest{
 			Mode:    txtypes.BroadcastMode_BROADCAST_MODE_SYNC,
@@ -133,6 +116,44 @@ func SendTx(ctx context.Context, grpcConn *grpc.Client, txBytes []byte) (*sdk.Tx
 	}
 
 	return resp.TxResponse, nil
+}
+
+// nolint
+// calculateGasFunc defines the function signature for calculating gas for a transaction.
+type calculateGasFunc func(clientCtx gogogrpc.ClientConn, txf txclient.Factory, msgs ...sdk.Msg) (*txtypes.SimulateResponse, uint64, error)
+
+// calculateGas is a function that calculates the gas used for a transaction.
+// In testing, this function is replaced with a mock implementation.
+var calculateGas = txclient.CalculateGas
+
+// SimulateMsgs simulates the execution of the given messages and returns the simulation response,
+// adjusted gas used, and any error encountered. It uses the provided gRPC client, encoding config,
+// account details, and chain ID to create a transaction factory for the simulation.
+func SimulateMsgs(
+	grpcClient *grpc.Client,
+	encodingConfig params.EncodingConfig,
+	account Account,
+	chainID string,
+	msgs []sdk.Msg,
+) (*txtypes.SimulateResponse, uint64, error) {
+	txFactory := txclient.Factory{}
+	txFactory = txFactory.WithTxConfig(encodingConfig.TxConfig)
+	txFactory = txFactory.WithAccountNumber(account.AccountNumber)
+	txFactory = txFactory.WithSequence(account.Sequence)
+	txFactory = txFactory.WithChainID(chainID)
+	txFactory = txFactory.WithGasAdjustment(1.05)
+
+	// Estimate transaction
+	gasResult, adjustedGasUsed, err := calculateGas(
+		grpcClient,
+		txFactory,
+		msgs...,
+	)
+	if err != nil {
+		return nil, adjustedGasUsed, err
+	}
+
+	return gasResult, adjustedGasUsed, nil
 }
 
 // BuildSignatures creates a SignatureV2 object using the provided public key, signature, and sequence number.
@@ -158,11 +179,14 @@ func BuildSignerData(chainID string, accountNumber, sequence uint64) authsigning
 	}
 }
 
+// newTxFeesClient creates a new tx fees NewQueryClient instance with the provided gRPC connection.
+// In testing, this function is replaced with a mock implementation.
+var newTxFeesClient = txfeestypes.NewQueryClient
+
 // CalculateFeeCoin determines the appropriate fee coin for a transaction based on the current base fee
 // and the amount of gas used. It queries the base denomination and EIP base fee using the provided gRPC connection.
-func CalculateFeeCoin(ctx context.Context, grpcConn *grpc.Client, gas uint64) (sdk.Coin, error) {
-	client := txfeestypes.NewQueryClient(grpcConn)
-
+func CalculateFeeCoin(ctx context.Context, grpcClient *grpc.Client, gas uint64) (sdk.Coin, error) {
+	client := newTxFeesClient(grpcClient)
 	queryBaseDenomResponse, err := client.BaseDenom(ctx, &txfeestypes.QueryBaseDenomRequest{})
 	if err != nil {
 		return sdk.Coin{}, err

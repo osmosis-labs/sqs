@@ -687,28 +687,6 @@ func (s *OrderbookUsecaseTestSuite) TestProcessOrderBookActiveOrders() {
 			expectedIsBestEffort: false,
 		},
 		{
-			name: "failed to get quote token metadata",
-			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
-				client.GetActiveOrdersCb = s.GetActiveOrdersFunc(orderbookdomain.Orders{s.NewOrder().Order}, 1, nil)
-				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFunc(newLimitOrder(), "quoteToken")
-			},
-			poolID:        11,
-			order:         newLimitOrder().WithOrderID(1),
-			ownerAddress:  "osmo103l28g7r3q90d20vta2p2mz0x7qvdr3xgfwnas",
-			expectedError: &types.FailedToGetMetadataError{},
-		},
-		{
-			name: "failed to get base token metadata",
-			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
-				client.GetActiveOrdersCb = s.GetActiveOrdersFunc(orderbookdomain.Orders{s.NewOrder().Order}, 1, nil)
-				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFunc(newLimitOrder(), "quoteToken")
-			},
-			poolID:        35,
-			order:         newLimitOrder().WithOrderbookAddress("D"),
-			ownerAddress:  "osmo1rlj2g3etczywhawuk7zh3tv8sp9edavvntn7jr",
-			expectedError: &types.FailedToGetMetadataError{},
-		},
-		{
 			name: "error on creating formatted limit order ( no error - best effort )",
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
 				client.GetActiveOrdersCb = s.GetActiveOrdersFunc(orderbookdomain.Orders{
@@ -918,6 +896,24 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("130", 13, "ask"), true)
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.GetSpotPriceScalingFactorByDenomFunc(1, assert.AnError)
+			},
+		},
+		{
+			name:          "failed to get quote token metadata",
+			order:         s.NewOrder().Order,
+			orderbook:     newOrderbook("osmo197hxw89l3gqn5ake3l5as0zh2ls6e52ata2sgq80lep0854dwe5sstljsp"),
+			expectedError: &types.FailedToGetMetadataError{},
+			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
+				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFunc(s.NewLimitOrder(), "quoteToken")
+			},
+		},
+		{
+			name:          "failed to get base token metadata",
+			order:         s.NewOrder().Order,
+			orderbook:     newOrderbook("osmo197hxw89l3gqn5ake3l5as0zh2ls6e52ata2sgq80lep0854dwe5sstljsp"),
+			expectedError: &types.FailedToGetMetadataError{},
+			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
+				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFunc(s.NewLimitOrder(), "baseToken")
 			},
 		},
 		{
