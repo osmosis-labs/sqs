@@ -9,7 +9,7 @@ import (
 
 	sqshttp "github.com/osmosis-labs/sqs/delivery/http"
 
-	"github.com/alecthomas/assert/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGet(t *testing.T) {

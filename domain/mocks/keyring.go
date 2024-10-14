@@ -1,6 +1,8 @@
 package mocks
 
 import (
+	"encoding/hex"
+
 	"github.com/osmosis-labs/sqs/domain/keyring"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
@@ -20,19 +22,24 @@ func (m *Keyring) GetKey() secp256k1.PrivKey {
 	if m.GetKeyFunc != nil {
 		return m.GetKeyFunc()
 	}
-	panic("unimplemented")
+	panic("Keyring.GetKey(): unimplemented")
 }
 
 func (m *Keyring) GetAddress() sdk.AccAddress {
 	if m.GetAddressFunc != nil {
 		return m.GetAddressFunc()
 	}
-	panic("unimplemented")
+	panic("Keyring.GetAddress(): unimplemented")
 }
 
 func (m *Keyring) GetPubKey() cryptotypes.PubKey {
 	if m.GetPubKeyFunc != nil {
 		return m.GetPubKeyFunc()
 	}
-	panic("unimplemented")
+	panic("Keyring.GetPubKey(): unimplemented")
+}
+
+func (m *Keyring) GenPrivKey(key string) secp256k1.PrivKey {
+	bz, _ := hex.DecodeString(key)
+	return secp256k1.PrivKey{Key: bz}
 }

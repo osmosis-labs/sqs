@@ -2,7 +2,6 @@ package tx_test
 
 import (
 	"context"
-	"encoding/hex"
 	"testing"
 
 	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
@@ -48,11 +47,6 @@ var (
 		}
 	}
 
-	genPrivKey = func(key string) secp256k1.PrivKey {
-		bz, _ := hex.DecodeString(key)
-		return secp256k1.PrivKey{Key: bz}
-	}
-
 	newMsg = func(sender, contract, msg string) sdk.Msg {
 		return &wasmtypes.MsgExecuteContract{
 			Sender:   sender,
@@ -79,7 +73,7 @@ func TestBuildTx(t *testing.T) {
 			name: "Valid transaction",
 			keyring: &mocks.Keyring{
 				GetKeyFunc: func() secp256k1.PrivKey {
-					return genPrivKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
+					return (&mocks.Keyring{}).GenPrivKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
 				},
 			},
 			calculateGas: calculateGasFunc(nil, 50, nil),
@@ -104,7 +98,7 @@ func TestBuildTx(t *testing.T) {
 			name: "Error building transaction",
 			keyring: &mocks.Keyring{
 				GetKeyFunc: func() secp256k1.PrivKey {
-					return genPrivKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
+					return (&mocks.Keyring{}).GenPrivKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
 				},
 			},
 			calculateGas:  calculateGasFunc(nil, 50, assert.AnError),
