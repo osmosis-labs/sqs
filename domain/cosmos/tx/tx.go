@@ -13,12 +13,12 @@ import (
 
 	cosmosClient "github.com/cosmos/cosmos-sdk/client"
 	txclient "github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 
 	gogogrpc "github.com/cosmos/gogoproto/grpc"
 )
