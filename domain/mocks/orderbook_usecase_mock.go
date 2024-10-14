@@ -47,6 +47,11 @@ func (m *OrderbookUsecaseMock) GetActiveOrdersStream(ctx context.Context, addres
 	}
 	panic("unimplemented")
 }
+func (m *OrderbookUsecaseMock) WithCreateFormattedLimitOrder(order orderbookdomain.LimitOrder, err error) {
+	m.CreateFormattedLimitOrderFunc = func(domain.CanonicalOrderBooksResult, orderbookdomain.Order) (orderbookdomain.LimitOrder, error) {
+		return order, err
+	}
+}
 
 func (m *OrderbookUsecaseMock) CreateFormattedLimitOrder(orderbook domain.CanonicalOrderBooksResult, order orderbookdomain.Order) (orderbookdomain.LimitOrder, error) {
 	if m.CreateFormattedLimitOrderFunc != nil {

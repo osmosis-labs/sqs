@@ -9,15 +9,15 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
-	"go.uber.org/zap"
-
 	"github.com/osmosis-labs/sqs/log"
+
+	"go.uber.org/zap"
 )
 
 type order struct {
-	orderbook domain.CanonicalOrderBooksResult
-	orders    orderbookdomain.Orders
-	err       error
+	Orderbook domain.CanonicalOrderBooksResult
+	Orders    orderbookdomain.Orders
+	Err       error
 }
 
 // processOrderbooksAndGetClaimableOrders processes a list of orderbooks and returns claimable orders for each.
@@ -51,13 +51,13 @@ func processOrderbook(
 	claimable, err := getClaimableOrdersForOrderbook(ctx, fillThreshold, orderbook, orderbookRepository, orderBookClient, orderbookusecase, logger)
 	if err != nil {
 		return order{
-			orderbook: orderbook,
-			err:       err,
+			Orderbook: orderbook,
+			Err:       err,
 		}
 	}
 	return order{
-		orderbook: orderbook,
-		orders:    claimable,
+		Orderbook: orderbook,
+		Orders:    claimable,
 	}
 }
 
@@ -131,12 +131,16 @@ func getClaimableOrders(
 	if isTickFullyFilled(tickValues) {
 		return orders
 	}
+
 	return filterClaimableOrders(orderbook, orders, fillThreshold, orderbookusecase, logger)
 }
 
 // isTickFullyFilled checks if a tick is fully filled by comparing its cumulative total value
 // to its effective total amount swapped.
 func isTickFullyFilled(tickValues orderbookdomain.TickValues) bool {
+	if len(tickValues.CumulativeTotalValue) == 0 || len(tickValues.EffectiveTotalAmountSwapped) == 0 {
+		return false // empty values, thus not fully filled
+	}
 	return tickValues.CumulativeTotalValue == tickValues.EffectiveTotalAmountSwapped
 }
 

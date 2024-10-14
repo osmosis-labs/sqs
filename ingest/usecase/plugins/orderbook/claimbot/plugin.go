@@ -109,15 +109,15 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 	)
 
 	for _, orderbook := range orders {
-		if orderbook.err != nil {
-			fmt.Println("step1 error", orderbook.err)
+		if orderbook.Err != nil {
+			fmt.Println("step1 error", orderbook.Err)
 			continue
 		}
 
-		if err := o.processBatchClaimOrders(ctx, orderbook.orderbook, orderbook.orders); err != nil {
+		if err := o.processBatchClaimOrders(ctx, orderbook.Orderbook, orderbook.Orders); err != nil {
 			o.logger.Info(
 				"failed to process orderbook orders",
-				zap.String("contract_address", orderbook.orderbook.ContractAddress),
+				zap.String("contract_address", orderbook.Orderbook.ContractAddress),
 				zap.Error(err),
 			)
 		}
