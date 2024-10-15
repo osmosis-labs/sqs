@@ -6,7 +6,6 @@ import (
 
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -14,7 +13,7 @@ import (
 // OrderBookClient is an interface for fetching orders by tick from the orderbook contract.
 type OrderBookClient interface {
 	// GetOrdersByTick fetches orders by tick from the orderbook contract.
-	GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error)
+	GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) (orderbookdomain.Orders, error)
 
 	// GetActiveOrders fetches active orders by owner from the orderbook contract.
 	GetActiveOrders(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error)
@@ -55,7 +54,7 @@ func New(wasmClient wasmtypes.QueryClient) *orderbookClientImpl {
 }
 
 // GetOrdersByTick implements OrderBookClient.
-func (o *orderbookClientImpl) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error) {
+func (o *orderbookClientImpl) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) (orderbookdomain.Orders, error) {
 	ordersByTick := ordersByTick{Tick: tick}
 
 	var orders ordersByTickResponse
