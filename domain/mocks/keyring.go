@@ -25,11 +25,23 @@ func (m *Keyring) GetKey() secp256k1.PrivKey {
 	panic("Keyring.GetKey(): unimplemented")
 }
 
+func (m *Keyring) WithGetKey(key string) {
+	m.GetKeyFunc = func() secp256k1.PrivKey {
+		return m.GenPrivKey(key)
+	}
+}
+
 func (m *Keyring) GetAddress() sdk.AccAddress {
 	if m.GetAddressFunc != nil {
 		return m.GetAddressFunc()
 	}
 	panic("Keyring.GetAddress(): unimplemented")
+}
+
+func (m *Keyring) WithGetAddress(address string) {
+	m.GetAddressFunc = func() sdk.AccAddress {
+		return sdk.AccAddress(address)
+	}
 }
 
 func (m *Keyring) GetPubKey() cryptotypes.PubKey {

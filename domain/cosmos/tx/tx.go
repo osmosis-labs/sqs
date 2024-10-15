@@ -4,7 +4,6 @@ package tx
 import (
 	"context"
 
-	"github.com/osmosis-labs/sqs/delivery/grpc"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -19,8 +18,6 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
-
-	gogogrpc "github.com/cosmos/gogoproto/grpc"
 )
 
 // Account represents the account information required for transaction building and signing.
@@ -33,8 +30,9 @@ type Account struct {
 // Returns a TxBuilder and any error encountered.
 func BuildTx(
 	ctx context.Context,
-	grpcClient *grpc.Client,
 	keyring keyring.Keyring,
+	txfeesClient txfeestypes.QueryClient,
+	gasCalculator GasCalculator,
 	encodingConfig params.EncodingConfig,
 	account Account,
 	chainID string,
@@ -52,7 +50,7 @@ func BuildTx(
 	}
 
 	_, gas, err := SimulateMsgs(
-		grpcClient,
+		gasCalculator,
 		encodingConfig,
 		account,
 		chainID,
@@ -63,7 +61,7 @@ func BuildTx(
 	}
 	txBuilder.SetGasLimit(gas)
 
-	feecoin, err := CalculateFeeCoin(ctx, grpcClient, gas)
+	feecoin, err := CalculateFeeCoin(ctx, txfeesClient, gas)
 	if err != nil {
 		return nil, err
 	}
@@ -94,15 +92,8 @@ func BuildTx(
 	return txBuilder, nil
 }
 
-// newTxServiceClient creates a new tx NewServiceClient instance with the provided gRPC connection.
-// In testing, this function is replaced with a mock implementation.
-var newTxServiceClient = txtypes.NewServiceClient
-
 // SendTx broadcasts a transaction to the chain, returning the result and error.
-func SendTx(ctx context.Context, grpcClient *grpc.Client, txBytes []byte) (*sdk.TxResponse, error) {
-	// Broadcast the tx via gRPC. We create a new client for the Protobuf Tx service.
-	txServiceClient := newTxServiceClient(grpcClient)
-
+func SendTx(ctx context.Context, txServiceClient txtypes.ServiceClient, txBytes []byte) (*sdk.TxResponse, error) {
 	// We then call the BroadcastTx method on this client.
 	resp, err := txServiceClient.BroadcastTx(
 		ctx,
@@ -118,19 +109,11 @@ func SendTx(ctx context.Context, grpcClient *grpc.Client, txBytes []byte) (*sdk.
 	return resp.TxResponse, nil
 }
 
-// nolint
-// calculateGasFunc defines the function signature for calculating gas for a transaction.
-type calculateGasFunc func(clientCtx gogogrpc.ClientConn, txf txclient.Factory, msgs ...sdk.Msg) (*txtypes.SimulateResponse, uint64, error)
-
-// calculateGas is a function that calculates the gas used for a transaction.
-// In testing, this function is replaced with a mock implementation.
-var calculateGas = txclient.CalculateGas
-
 // SimulateMsgs simulates the execution of the given messages and returns the simulation response,
 // adjusted gas used, and any error encountered. It uses the provided gRPC client, encoding config,
 // account details, and chain ID to create a transaction factory for the simulation.
 func SimulateMsgs(
-	grpcClient *grpc.Client,
+	gasCalculator GasCalculator,
 	encodingConfig params.EncodingConfig,
 	account Account,
 	chainID string,
@@ -144,8 +127,7 @@ func SimulateMsgs(
 	txFactory = txFactory.WithGasAdjustment(1.05)
 
 	// Estimate transaction
-	gasResult, adjustedGasUsed, err := calculateGas(
-		grpcClient,
+	gasResult, adjustedGasUsed, err := gasCalculator.CalculateGas(
 		txFactory,
 		msgs...,
 	)
@@ -179,14 +161,9 @@ func BuildSignerData(chainID string, accountNumber, sequence uint64) authsigning
 	}
 }
 
-// newTxFeesClient creates a new tx fees NewQueryClient instance with the provided gRPC connection.
-// In testing, this function is replaced with a mock implementation.
-var newTxFeesClient = txfeestypes.NewQueryClient
-
 // CalculateFeeCoin determines the appropriate fee coin for a transaction based on the current base fee
 // and the amount of gas used. It queries the base denomination and EIP base fee using the provided gRPC connection.
-func CalculateFeeCoin(ctx context.Context, grpcClient *grpc.Client, gas uint64) (sdk.Coin, error) {
-	client := newTxFeesClient(grpcClient)
+func CalculateFeeCoin(ctx context.Context, client txfeestypes.QueryClient, gas uint64) (sdk.Coin, error) {
 	queryBaseDenomResponse, err := client.BaseDenom(ctx, &txfeestypes.QueryBaseDenomRequest{})
 	if err != nil {
 		return sdk.Coin{}, err
