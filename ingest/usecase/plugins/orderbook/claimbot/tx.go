@@ -6,18 +6,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/osmosis-labs/sqs/delivery/grpc"
 	authtypes "github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
 	"github.com/osmosis-labs/osmosis/v26/app"
-	"github.com/osmosis-labs/osmosis/v26/app/params"
+	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	cosmosClient "github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
 
 var (
@@ -40,37 +39,15 @@ func init() {
 	}
 }
 
-// buildTxFunc is a function signature for buildTx.
-// nolint: unused
-type buildTxFunc func(
-	ctx context.Context,
-	grpcClient *grpc.Client,
-	keyring keyring.Keyring,
-	encodingConfig params.EncodingConfig,
-	account sqstx.Account,
-	chainID string,
-	msg ...sdk.Msg,
-) (cosmosClient.TxBuilder, error)
-
-// buildTx is a function that constructs a transaction.
-// In testing, this function is replaced with a mock implementation.
-var buildTx = sqstx.BuildTx
-
-// sendTxFunc is a function signature for sendTx.
-// nolint: unused
-type sendTxFunc func(ctx context.Context, grpcClient *grpc.Client, txBytes []byte) (*sdk.TxResponse, error)
-
-// SendTx is a function that sends a transaction to the blockchain.
-// In testing, this function is replaced with a mock implementation.
-var sendTx = sqstx.SendTx
-
 // sendBatchClaimTx prepares and sends a batch claim transaction to the blockchain.
 // It builds the transaction, signs it, and broadcasts it to the network.
 func sendBatchClaimTx(
 	ctx context.Context,
 	keyring keyring.Keyring,
-	grpcClient *grpc.Client,
 	accountQueryClient authtypes.QueryClient,
+	txfeesClient txfeestypes.QueryClient,
+	gasCalculator sqstx.GasCalculator,
+	txServiceClient txtypes.ServiceClient,
 	contractAddress string,
 	claims orderbookdomain.Orders,
 ) (*sdk.TxResponse, error) {
@@ -88,7 +65,7 @@ func sendBatchClaimTx(
 
 	msg := buildExecuteContractMsg(address, contractAddress, msgBytes)
 
-	tx, err := buildTx(ctx, grpcClient, keyring, encodingConfig, account, chainID, msg)
+	tx, err := sqstx.BuildTx(ctx, keyring, txfeesClient, gasCalculator, encodingConfig, account, chainID, msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build transaction: %w", err)
 	}
@@ -98,8 +75,7 @@ func sendBatchClaimTx(
 		return nil, fmt.Errorf("failed to encode transaction: %w", err)
 	}
 
-	// Broadcast the transaction
-	return sendTx(ctx, grpcClient, txBytes)
+	return sqstx.SendTx(ctx, txServiceClient, txBytes)
 }
 
 // getAccount retrieves account information for a given address.

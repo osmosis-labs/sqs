@@ -4,15 +4,12 @@ import (
 	"context"
 	"testing"
 
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
 	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
-	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v26/app"
 
-	txclient "github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/types"
@@ -23,29 +20,12 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	gogogrpc "github.com/cosmos/gogoproto/grpc"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 )
 
 var (
 	encodingConfig = app.MakeEncodingConfig()
-
-	newQueryBaseDenomResponse = func(denom string) *txfeestypes.QueryBaseDenomResponse {
-		return &txfeestypes.QueryBaseDenomResponse{BaseDenom: denom}
-	}
-
-	newQueryEipBaseFeeResponse = func(baseFee string) *txfeestypes.QueryEipBaseFeeResponse {
-		return &txfeestypes.QueryEipBaseFeeResponse{
-			BaseFee: osmomath.MustNewDecFromStr(baseFee),
-		}
-	}
-
-	calculateGasFunc = func(response *txtypes.SimulateResponse, n uint64, err error) sqstx.CalculateGasFunc {
-		return func(clientCtx gogogrpc.ClientConn, txf txclient.Factory, msgs ...sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
-			return response, n, err
-		}
-	}
 
 	newMsg = func(sender, contract, msg string) sdk.Msg {
 		return &wasmtypes.MsgExecuteContract{
@@ -60,9 +40,7 @@ var (
 func TestBuildTx(t *testing.T) {
 	testCases := []struct {
 		name          string
-		keyring       keyring.Keyring
-		calculateGas  sqstx.CalculateGasFunc
-		txFeesClient  mocks.TxFeesQueryClient
+		setupMocks    func(calculator *mocks.GasCalculator, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring)
 		account       sqstx.Account
 		chainID       string
 		msgs          []sdk.Msg
@@ -71,19 +49,11 @@ func TestBuildTx(t *testing.T) {
 	}{
 		{
 			name: "Valid transaction",
-			keyring: &mocks.Keyring{
-				GetKeyFunc: func() secp256k1.PrivKey {
-					return (&mocks.Keyring{}).GenPrivKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
-				},
-			},
-			calculateGas: calculateGasFunc(nil, 50, nil),
-			txFeesClient: mocks.TxFeesQueryClient{
-				BaseDenomFunc: func(ctx context.Context, in *txfeestypes.QueryBaseDenomRequest, opts ...grpc.CallOption) (*txfeestypes.QueryBaseDenomResponse, error) {
-					return newQueryBaseDenomResponse("eth"), nil
-				},
-				GetEipBaseFeeFunc: func(ctx context.Context, in *txfeestypes.QueryEipBaseFeeRequest, opts ...grpc.CallOption) (*txfeestypes.QueryEipBaseFeeResponse, error) {
-					return newQueryEipBaseFeeResponse("0.1"), nil
-				},
+			setupMocks: func(calculator *mocks.GasCalculator, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) {
+				calculator.WithCalculateGas(nil, 50, nil)
+				keyring.WithGetKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
+				txFeesClient.WithBaseDenom("eth", nil)
+				txFeesClient.WithGetEipBaseFee("0.1", nil)
 			},
 			account: sqstx.Account{
 				Sequence:      13,
@@ -96,25 +66,27 @@ func TestBuildTx(t *testing.T) {
 		},
 		{
 			name: "Error building transaction",
-			keyring: &mocks.Keyring{
-				GetKeyFunc: func() secp256k1.PrivKey {
-					return (&mocks.Keyring{}).GenPrivKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
-				},
+			setupMocks: func(calculator *mocks.GasCalculator, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) {
+				calculator.WithCalculateGas(nil, 50, assert.AnError)
+				keyring.WithGetKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
 			},
-			calculateGas:  calculateGasFunc(nil, 50, assert.AnError),
 			expectedError: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			sqstx.SetCalculateGasFunc(tc.calculateGas)
-			sqstx.SetTxFeesClient(&tc.txFeesClient)
+			gasCalculator := mocks.GasCalculator{}
+			txFeesClient := mocks.TxFeesQueryClient{}
+			keyring := mocks.Keyring{}
+
+			tc.setupMocks(&gasCalculator, &txFeesClient, &keyring)
 
 			txBuilder, err := sqstx.BuildTx(
 				context.Background(),
-				nil,
-				tc.keyring,
+				&keyring,
+				&txFeesClient,
+				&gasCalculator,
 				encodingConfig,
 				tc.account,
 				tc.chainID,
@@ -147,14 +119,14 @@ func TestSendTx(t *testing.T) {
 	tests := []struct {
 		name            string
 		txBytes         []byte
-		txServiceClient mocks.ServiceClient
+		txServiceClient mocks.TxServiceClient
 		expectedResult  *sdk.TxResponse
 		expectedError   error
 	}{
 		{
 			name:    "Successful transaction",
 			txBytes: []byte("txbytes"),
-			txServiceClient: mocks.ServiceClient{
+			txServiceClient: mocks.TxServiceClient{
 				BroadcastTxFunc: newBroadcastTxFunc(&txtypes.BroadcastTxResponse{
 					TxResponse: &sdk.TxResponse{
 						Code:   0,
@@ -168,7 +140,7 @@ func TestSendTx(t *testing.T) {
 		{
 			name:    "Error in BroadcastTx",
 			txBytes: []byte("failtxbytes"),
-			txServiceClient: mocks.ServiceClient{
+			txServiceClient: mocks.TxServiceClient{
 				BroadcastTxFunc: newBroadcastTxFunc(nil, assert.AnError),
 			},
 			expectedResult: nil,
@@ -178,9 +150,7 @@ func TestSendTx(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sqstx.SetTxServiceClient(&tt.txServiceClient)
-
-			result, err := sqstx.SendTx(context.Background(), nil, tt.txBytes)
+			result, err := sqstx.SendTx(context.Background(), &tt.txServiceClient, tt.txBytes)
 
 			assert.Equal(t, tt.expectedResult, result)
 			assert.Equal(t, tt.expectedError, err)
@@ -194,7 +164,7 @@ func TestSimulateMsgs(t *testing.T) {
 		account                  sqstx.Account
 		chainID                  string
 		msgs                     []sdk.Msg
-		calculateGas             sqstx.CalculateGasFunc
+		setupMocks               func(calculator *mocks.GasCalculator)
 		expectedSimulateResponse *txtypes.SimulateResponse
 		expectedGas              uint64
 		expectedError            error
@@ -204,21 +174,21 @@ func TestSimulateMsgs(t *testing.T) {
 			account: sqstx.Account{AccountNumber: 1, Sequence: 1},
 			chainID: "test-chain",
 			msgs:    []sdk.Msg{newMsg("sender", "contract", `{}`)},
-			calculateGas: calculateGasFunc(
-				&txtypes.SimulateResponse{GasInfo: &sdk.GasInfo{GasUsed: 100000}},
-				50,
-				nil,
-			),
+			setupMocks: func(calculator *mocks.GasCalculator) {
+				calculator.WithCalculateGas(&txtypes.SimulateResponse{GasInfo: &sdk.GasInfo{GasUsed: 100000}}, 50, nil)
+			},
 			expectedSimulateResponse: &txtypes.SimulateResponse{GasInfo: &sdk.GasInfo{GasUsed: 100000}},
 			expectedGas:              50,
 			expectedError:            nil,
 		},
 		{
-			name:                     "Simulation error",
-			account:                  sqstx.Account{AccountNumber: 2, Sequence: 2},
-			chainID:                  "test-chain",
-			msgs:                     []sdk.Msg{},
-			calculateGas:             calculateGasFunc(nil, 3, assert.AnError),
+			name:    "Simulation error",
+			account: sqstx.Account{AccountNumber: 2, Sequence: 2},
+			chainID: "test-chain",
+			msgs:    []sdk.Msg{},
+			setupMocks: func(calculator *mocks.GasCalculator) {
+				calculator.WithCalculateGas(nil, 3, assert.AnError)
+			},
 			expectedSimulateResponse: nil,
 			expectedGas:              3,
 			expectedError:            assert.AnError,
@@ -227,11 +197,13 @@ func TestSimulateMsgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sqstx.SetCalculateGasFunc(tt.calculateGas)
+			calculator := mocks.GasCalculator{}
+
+			tt.setupMocks(&calculator)
 
 			// Call the function
 			result, gas, err := sqstx.SimulateMsgs(
-				nil,
+				&calculator,
 				encodingConfig,
 				tt.account,
 				tt.chainID,
@@ -358,6 +330,7 @@ func TestCalculateFeeCoin(t *testing.T) {
 		name           string
 		gas            uint64
 		txFeesClient   mocks.TxFeesQueryClient
+		setupMocks     func(*mocks.TxFeesQueryClient)
 		expectedCoin   string
 		expectedAmount osmomath.Int
 		expectError    bool
@@ -365,13 +338,9 @@ func TestCalculateFeeCoin(t *testing.T) {
 		{
 			name: "Normal case",
 			gas:  100000,
-			txFeesClient: mocks.TxFeesQueryClient{
-				BaseDenomFunc: func(ctx context.Context, in *txfeestypes.QueryBaseDenomRequest, opts ...grpc.CallOption) (*txfeestypes.QueryBaseDenomResponse, error) {
-					return newQueryBaseDenomResponse("uosmo"), nil
-				},
-				GetEipBaseFeeFunc: func(ctx context.Context, in *txfeestypes.QueryEipBaseFeeRequest, opts ...grpc.CallOption) (*txfeestypes.QueryEipBaseFeeResponse, error) {
-					return newQueryEipBaseFeeResponse("0.5"), nil
-				},
+			setupMocks: func(client *mocks.TxFeesQueryClient) {
+				client.WithBaseDenom("uosmo", nil)
+				client.WithGetEipBaseFee("0.5", nil)
 			},
 			expectedCoin:   "uosmo",
 			expectedAmount: osmomath.NewInt(50000),
@@ -379,25 +348,17 @@ func TestCalculateFeeCoin(t *testing.T) {
 		},
 		{
 			name: "Error getting base denom",
-			txFeesClient: mocks.TxFeesQueryClient{
-				BaseDenomFunc: func(ctx context.Context, in *txfeestypes.QueryBaseDenomRequest, opts ...grpc.CallOption) (*txfeestypes.QueryBaseDenomResponse, error) {
-					return nil, assert.AnError
-				},
-				GetEipBaseFeeFunc: func(ctx context.Context, in *txfeestypes.QueryEipBaseFeeRequest, opts ...grpc.CallOption) (*txfeestypes.QueryEipBaseFeeResponse, error) {
-					return nil, nil
-				},
+			setupMocks: func(client *mocks.TxFeesQueryClient) {
+				client.WithBaseDenom("", assert.AnError)
+				client.WithGetEipBaseFee("", nil)
 			},
 			expectError: true,
 		},
 		{
 			name: "Error getting EIP base fee",
-			txFeesClient: mocks.TxFeesQueryClient{
-				BaseDenomFunc: func(ctx context.Context, in *txfeestypes.QueryBaseDenomRequest, opts ...grpc.CallOption) (*txfeestypes.QueryBaseDenomResponse, error) {
-					return newQueryBaseDenomResponse("wbtc"), nil
-				},
-				GetEipBaseFeeFunc: func(ctx context.Context, in *txfeestypes.QueryEipBaseFeeRequest, opts ...grpc.CallOption) (*txfeestypes.QueryEipBaseFeeResponse, error) {
-					return nil, assert.AnError
-				},
+			setupMocks: func(client *mocks.TxFeesQueryClient) {
+				client.WithBaseDenom("wbtc", nil)
+				client.WithGetEipBaseFee("", assert.AnError)
 			},
 			expectError: true,
 		},
@@ -405,8 +366,9 @@ func TestCalculateFeeCoin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sqstx.SetTxFeesClient(&tt.txFeesClient)
-			result, err := sqstx.CalculateFeeCoin(context.TODO(), nil, tt.gas)
+			tt.setupMocks(&tt.txFeesClient)
+
+			result, err := sqstx.CalculateFeeCoin(context.TODO(), &tt.txFeesClient, tt.gas)
 
 			if tt.expectError {
 				assert.Error(t, err)

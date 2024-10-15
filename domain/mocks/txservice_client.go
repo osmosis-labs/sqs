@@ -8,9 +8,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-var _ txtypes.ServiceClient = &ServiceClient{}
+var _ txtypes.ServiceClient = &TxServiceClient{}
 
-type ServiceClient struct {
+type TxServiceClient struct {
 	SimulateFunc        func(ctx context.Context, in *txtypes.SimulateRequest, opts ...grpc.CallOption) (*txtypes.SimulateResponse, error)
 	GetTxFunc           func(ctx context.Context, in *txtypes.GetTxRequest, opts ...grpc.CallOption) (*txtypes.GetTxResponse, error)
 	BroadcastTxFunc     func(ctx context.Context, in *txtypes.BroadcastTxRequest, opts ...grpc.CallOption) (*txtypes.BroadcastTxResponse, error)
@@ -22,65 +22,71 @@ type ServiceClient struct {
 	TxDecodeAminoFunc   func(ctx context.Context, in *txtypes.TxDecodeAminoRequest, opts ...grpc.CallOption) (*txtypes.TxDecodeAminoResponse, error)
 }
 
-func (m *ServiceClient) Simulate(ctx context.Context, in *txtypes.SimulateRequest, opts ...grpc.CallOption) (*txtypes.SimulateResponse, error) {
+func (m *TxServiceClient) Simulate(ctx context.Context, in *txtypes.SimulateRequest, opts ...grpc.CallOption) (*txtypes.SimulateResponse, error) {
 	if m.SimulateFunc != nil {
 		return m.SimulateFunc(ctx, in, opts...)
 	}
-	panic("unimplemented")
+	panic("TxServiceClient.Simulate unimplemented")
 }
 
-func (m *ServiceClient) GetTx(ctx context.Context, in *txtypes.GetTxRequest, opts ...grpc.CallOption) (*txtypes.GetTxResponse, error) {
+func (m *TxServiceClient) GetTx(ctx context.Context, in *txtypes.GetTxRequest, opts ...grpc.CallOption) (*txtypes.GetTxResponse, error) {
 	if m.GetTxFunc != nil {
 		return m.GetTxFunc(ctx, in, opts...)
 	}
-	panic("unimplemented")
+	panic("TxServiceClient.GetTx unimplemented")
 }
 
-func (m *ServiceClient) BroadcastTx(ctx context.Context, in *txtypes.BroadcastTxRequest, opts ...grpc.CallOption) (*txtypes.BroadcastTxResponse, error) {
+func (m *TxServiceClient) BroadcastTx(ctx context.Context, in *txtypes.BroadcastTxRequest, opts ...grpc.CallOption) (*txtypes.BroadcastTxResponse, error) {
 	if m.BroadcastTxFunc != nil {
 		return m.BroadcastTxFunc(ctx, in, opts...)
 	}
-	panic("unimplemented")
+	panic("TxServiceClient.BroadcastTx unimplemented")
 }
 
-func (m *ServiceClient) GetTxsEvent(ctx context.Context, in *txtypes.GetTxsEventRequest, opts ...grpc.CallOption) (*txtypes.GetTxsEventResponse, error) {
+func (m *TxServiceClient) WithBroadcastTx(response *txtypes.BroadcastTxResponse, err error) {
+	m.BroadcastTxFunc = func(ctx context.Context, in *txtypes.BroadcastTxRequest, opts ...grpc.CallOption) (*txtypes.BroadcastTxResponse, error) {
+		return response, err
+	}
+}
+
+func (m *TxServiceClient) GetTxsEvent(ctx context.Context, in *txtypes.GetTxsEventRequest, opts ...grpc.CallOption) (*txtypes.GetTxsEventResponse, error) {
 	if m.GetTxsEventFunc != nil {
 		return m.GetTxsEventFunc(ctx, in, opts...)
 	}
-	panic("unimplemented")
+	panic("TxServiceClient.GetTxsEvent unimplemented")
 }
 
-func (m *ServiceClient) GetBlockWithTxs(ctx context.Context, in *txtypes.GetBlockWithTxsRequest, opts ...grpc.CallOption) (*txtypes.GetBlockWithTxsResponse, error) {
+func (m *TxServiceClient) GetBlockWithTxs(ctx context.Context, in *txtypes.GetBlockWithTxsRequest, opts ...grpc.CallOption) (*txtypes.GetBlockWithTxsResponse, error) {
 	if m.GetBlockWithTxsFunc != nil {
 		return m.GetBlockWithTxsFunc(ctx, in, opts...)
 	}
-	panic("unimplemented")
+	panic("TxServiceClient.GetBlockWithTxs unimplemented")
 }
 
-func (m *ServiceClient) TxDecode(ctx context.Context, in *txtypes.TxDecodeRequest, opts ...grpc.CallOption) (*txtypes.TxDecodeResponse, error) {
+func (m *TxServiceClient) TxDecode(ctx context.Context, in *txtypes.TxDecodeRequest, opts ...grpc.CallOption) (*txtypes.TxDecodeResponse, error) {
 	if m.TxDecodeFunc != nil {
 		return m.TxDecodeFunc(ctx, in, opts...)
 	}
-	panic("unimplemented")
+	panic("TxServiceClient.TxDecode unimplemented")
 }
 
-func (m *ServiceClient) TxEncode(ctx context.Context, in *txtypes.TxEncodeRequest, opts ...grpc.CallOption) (*txtypes.TxEncodeResponse, error) {
+func (m *TxServiceClient) TxEncode(ctx context.Context, in *txtypes.TxEncodeRequest, opts ...grpc.CallOption) (*txtypes.TxEncodeResponse, error) {
 	if m.TxEncodeFunc != nil {
 		return m.TxEncodeFunc(ctx, in, opts...)
 	}
-	panic("unimplemented")
+	panic("TxServiceClient.TxEncode unimplemented")
 }
 
-func (m *ServiceClient) TxEncodeAmino(ctx context.Context, in *txtypes.TxEncodeAminoRequest, opts ...grpc.CallOption) (*txtypes.TxEncodeAminoResponse, error) {
+func (m *TxServiceClient) TxEncodeAmino(ctx context.Context, in *txtypes.TxEncodeAminoRequest, opts ...grpc.CallOption) (*txtypes.TxEncodeAminoResponse, error) {
 	if m.TxEncodeAminoFunc != nil {
 		return m.TxEncodeAminoFunc(ctx, in, opts...)
 	}
-	panic("unimplemented")
+	panic("TxServiceClient.TxEncodeAmino unimplemented")
 }
 
-func (m *ServiceClient) TxDecodeAmino(ctx context.Context, in *txtypes.TxDecodeAminoRequest, opts ...grpc.CallOption) (*txtypes.TxDecodeAminoResponse, error) {
+func (m *TxServiceClient) TxDecodeAmino(ctx context.Context, in *txtypes.TxDecodeAminoRequest, opts ...grpc.CallOption) (*txtypes.TxDecodeAminoResponse, error) {
 	if m.TxDecodeAminoFunc != nil {
 		return m.TxDecodeAminoFunc(ctx, in, opts...)
 	}
-	panic("unimplemented")
+	panic("TxServiceClient.TxDecodeAmino unimplemented")
 }

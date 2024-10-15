@@ -18,3 +18,9 @@ func (m *AuthQueryClientMock) GetAccount(ctx context.Context, address string) (*
 	}
 	panic("GetAccountFunc has not been mocked")
 }
+
+func (m *AuthQueryClientMock) WithGetAccount(response *authtypes.QueryAccountResponse, err error) {
+	m.GetAccountFunc = func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+		return response, err
+	}
+}

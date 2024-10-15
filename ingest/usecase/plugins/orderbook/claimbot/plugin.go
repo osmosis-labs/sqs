@@ -6,16 +6,23 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/delivery/grpc"
 	"github.com/osmosis-labs/sqs/domain"
 	authtypes "github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
+	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	"github.com/osmosis-labs/sqs/domain/slices"
 	"github.com/osmosis-labs/sqs/log"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
+
+	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
@@ -28,12 +35,12 @@ type claimbot struct {
 	orderbookusecase    mvc.OrderBookUsecase
 	orderbookRepository orderbookdomain.OrderBookRepository
 	orderBookClient     orderbookgrpcclientdomain.OrderBookClient
-
-	accountQueryClient authtypes.QueryClient
-	grpcClient         *grpc.Client
-	atomicBool         atomic.Bool
-
-	logger log.Logger
+	accountQueryClient  authtypes.QueryClient
+	txfeesClient        txfeestypes.QueryClient
+	gasCalculator       sqstx.GasCalculator
+	txServiceClient     txtypes.ServiceClient
+	atomicBool          atomic.Bool
+	logger              log.Logger
 }
 
 var _ domain.EndBlockProcessPlugin = &claimbot{}
@@ -64,9 +71,11 @@ func New(
 
 	return &claimbot{
 		accountQueryClient:  authtypes.NewQueryClient(LCD),
-		grpcClient:          grpcClient,
 		keyring:             keyring,
 		orderbookusecase:    orderbookusecase,
+		txfeesClient:        txfeestypes.NewQueryClient(grpcClient),
+		gasCalculator:       sqstx.NewGasCalculator(grpcClient),
+		txServiceClient:     txtypes.NewServiceClient(grpcClient),
 		orderbookRepository: orderbookRepository,
 		orderBookClient:     orderBookClient,
 		poolsUseCase:        poolsUseCase,
@@ -130,11 +139,17 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 
 func (o *claimbot) processBatchClaimOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, orders orderbookdomain.Orders) error {
 	for _, chunk := range slices.Split(orders, 100) {
+		if len(chunk) == 0 {
+			continue
+		}
+
 		txres, err := sendBatchClaimTx(
 			ctx,
 			o.keyring,
-			o.grpcClient,
 			o.accountQueryClient,
+			o.txfeesClient,
+			o.gasCalculator,
+			o.txServiceClient,
 			orderbook.ContractAddress,
 			chunk,
 		)
