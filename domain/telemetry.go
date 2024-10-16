@@ -3,6 +3,14 @@ package domain
 import "github.com/prometheus/client_golang/prometheus"
 
 var (
+	// sqs_ingest_usecase_process_block_height
+	//
+	// counter that measures the height of a block being processed in ingest usecase
+	//
+	// Has the following labels:
+	// * height - the height of the block being processed
+	SQSIngestUsecaseProcessBlockHeightMetricName = "sqs_ingest_usecase_process_block_height"
+
 	// sqs_ingest_usecase_process_block_duration
 	//
 	// gauge that measures the duration of processing a block in milliseconds in ingest usecase
@@ -142,6 +150,13 @@ var (
 	//
 	// counter that measures the number of pricing coingecko cache misses
 	SQSPricingCoingeckoCacheMissesCounterMetricName = "sqs_pricing_coingecko_cache_misses_total"
+
+	SQSIngestHandlerProcessBlockHeightGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: SQSIngestUsecaseProcessBlockHeightMetricName,
+			Help: "counter that measures the height of a block being processed in ingest usecase",
+		},
+	)
 
 	SQSIngestHandlerProcessBlockDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
@@ -293,6 +308,7 @@ var (
 )
 
 func init() {
+	prometheus.MustRegister(SQSIngestHandlerProcessBlockHeightGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockErrorCounter)
 	prometheus.MustRegister(SQSIngestHandlerProcessOrderbookPoolErrorCounter)
