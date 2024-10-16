@@ -6,10 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/osmosis-labs/sqs/delivery/grpc"
 	"github.com/osmosis-labs/sqs/domain"
-	authtypes "github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
-	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
@@ -19,10 +16,6 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
-
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
@@ -30,17 +23,8 @@ import (
 // claimbot is a claim bot that processes and claims eligible orderbook orders at the end of each block.
 // Claimable orders are determined based on order filled percentage that is handled with fillThreshold package level variable.
 type claimbot struct {
-	keyring             keyring.Keyring
-	poolsUseCase        mvc.PoolsUsecase
-	orderbookusecase    mvc.OrderBookUsecase
-	orderbookRepository orderbookdomain.OrderBookRepository
-	orderBookClient     orderbookgrpcclientdomain.OrderBookClient
-	accountQueryClient  authtypes.QueryClient
-	txfeesClient        txfeestypes.QueryClient
-	gasCalculator       sqstx.GasCalculator
-	txServiceClient     txtypes.ServiceClient
-	atomicBool          atomic.Bool
-	logger              log.Logger
+	config     *Config
+	atomicBool atomic.Bool
 }
 
 var _ domain.EndBlockProcessPlugin = &claimbot{}
@@ -54,35 +38,27 @@ var (
 	fillThreshold = osmomath.MustNewDecFromStr("0.98")
 )
 
+// maxBatchOfClaimableOrders is the maximum number of claimable orders
+// that can be processed in a single batch.
+const maxBatchOfClaimableOrders = 100
+
 // New creates and returns a new claimbot instance.
 func New(
 	keyring keyring.Keyring,
 	orderbookusecase mvc.OrderBookUsecase,
-	poolsUseCase mvc.PoolsUsecase,
+	poolsUsecase mvc.PoolsUsecase,
 	orderbookRepository orderbookdomain.OrderBookRepository,
 	orderBookClient orderbookgrpcclientdomain.OrderBookClient,
 	logger log.Logger,
 ) (*claimbot, error) {
-	// Create a connection to the gRPC server.
-	grpcClient, err := grpc.NewClient(RPC)
+	config, err := NewConfig(keyring, orderbookusecase, poolsUsecase, orderbookRepository, orderBookClient, logger)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create claimbot config: %w", err)
 	}
 
 	return &claimbot{
-		accountQueryClient:  authtypes.NewQueryClient(LCD),
-		keyring:             keyring,
-		orderbookusecase:    orderbookusecase,
-		txfeesClient:        txfeestypes.NewQueryClient(grpcClient),
-		gasCalculator:       sqstx.NewGasCalculator(grpcClient),
-		txServiceClient:     txtypes.NewServiceClient(grpcClient),
-		orderbookRepository: orderbookRepository,
-		orderBookClient:     orderBookClient,
-		poolsUseCase:        poolsUseCase,
-
+		config:     config,
 		atomicBool: atomic.Bool{},
-
-		logger: logger,
 	}, nil
 }
 
@@ -96,12 +72,12 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 	// For simplicity, we allow only one block to be processed at a time.
 	// This may be relaxed in the future.
 	if !o.atomicBool.CompareAndSwap(false, true) {
-		o.logger.Info("orderbook claimer is already in progress", zap.Uint64("block_height", blockHeight))
+		o.config.Logger.Info("orderbook claimer is already in progress", zap.Uint64("block_height", blockHeight))
 		return nil
 	}
 	defer o.atomicBool.Store(false)
 
-	orderbooks, err := o.getOrderbooks(ctx, blockHeight, metadata)
+	orderbooks, err := getOrderbooks(o.config.PoolsUseCase, blockHeight, metadata)
 	if err != nil {
 		return err
 	}
@@ -111,10 +87,10 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 		ctx,
 		fillThreshold,
 		orderbooks,
-		o.orderbookRepository,
-		o.orderBookClient,
-		o.orderbookusecase,
-		o.logger,
+		o.config.OrderbookRepository,
+		o.config.OrderBookClient,
+		o.config.OrderbookUsecase,
+		o.config.Logger,
 	)
 
 	for _, orderbook := range orders {
@@ -123,8 +99,8 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 			continue
 		}
 
-		if err := o.processBatchClaimOrders(ctx, orderbook.Orderbook, orderbook.Orders); err != nil {
-			o.logger.Info(
+		if err := o.processOrderbookOrders(ctx, orderbook.Orderbook, orderbook.Orders); err != nil {
+			o.config.Logger.Info(
 				"failed to process orderbook orders",
 				zap.String("contract_address", orderbook.Orderbook.ContractAddress),
 				zap.Error(err),
@@ -132,30 +108,31 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 		}
 	}
 
-	o.logger.Info("processed end block in orderbook claimer ingest plugin", zap.Uint64("block_height", blockHeight))
+	o.config.Logger.Info("processed end block in orderbook claimer ingest plugin", zap.Uint64("block_height", blockHeight))
 
 	return nil
 }
 
-func (o *claimbot) processBatchClaimOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, orders orderbookdomain.Orders) error {
-	for _, chunk := range slices.Split(orders, 100) {
+// processOrderbookOrders processes a batch of claimable orders.
+func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, orders orderbookdomain.Orders) error {
+	for _, chunk := range slices.Split(orders, maxBatchOfClaimableOrders) {
 		if len(chunk) == 0 {
 			continue
 		}
 
 		txres, err := sendBatchClaimTx(
 			ctx,
-			o.keyring,
-			o.accountQueryClient,
-			o.txfeesClient,
-			o.gasCalculator,
-			o.txServiceClient,
+			o.config.Keyring,
+			o.config.AccountQueryClient,
+			o.config.TxfeesClient,
+			o.config.GasCalculator,
+			o.config.TxServiceClient,
 			orderbook.ContractAddress,
 			chunk,
 		)
 
 		if err != nil {
-			o.logger.Info(
+			o.config.Logger.Info(
 				"failed to sent batch claim tx",
 				zap.String("contract_address", orderbook.ContractAddress),
 				zap.Any("tx_result", txres),
@@ -170,13 +147,4 @@ func (o *claimbot) processBatchClaimOrders(ctx context.Context, orderbook domain
 	}
 
 	return nil
-}
-
-// TODO: process only block orderbooks
-func (o *claimbot) getOrderbooks(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) ([]domain.CanonicalOrderBooksResult, error) {
-	orderbooks, err := o.poolsUseCase.GetAllCanonicalOrderbookPoolIDs()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all canonical orderbook pool IDs : %w", err)
-	}
-	return orderbooks, nil
 }

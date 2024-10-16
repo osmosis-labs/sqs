@@ -63,3 +63,9 @@ func GetAccount(ctx context.Context, client authtypes.QueryClient, address strin
 func PrepareBatchClaimMsg(claims orderbookdomain.Orders) ([]byte, error) {
 	return prepareBatchClaimMsg(claims)
 }
+
+// GetOrderbooks is a test wrapper for getOrderbooks.
+// This function is exported for testing purposes.
+func GetOrderbooks(poolsUsecase mvc.PoolsUsecase, blockHeight uint64, metadata domain.BlockPoolMetadata) ([]domain.CanonicalOrderBooksResult, error) {
+	return getOrderbooks(poolsUsecase, blockHeight, metadata)
+}
