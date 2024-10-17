@@ -9,7 +9,6 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v26/app"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -18,6 +17,7 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
@@ -42,7 +42,7 @@ func TestBuildTx(t *testing.T) {
 	testCases := []struct {
 		name          string
 		setupMocks    func(calculator *mocks.GasCalculator, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring)
-		account       sqstx.Account
+		account       *authtypes.BaseAccount
 		chainID       string
 		msgs          []sdk.Msg
 		expectedJSON  []byte
@@ -56,7 +56,7 @@ func TestBuildTx(t *testing.T) {
 				txFeesClient.WithBaseDenom("eth", nil)
 				txFeesClient.WithGetEipBaseFee("0.1", nil)
 			},
-			account: sqstx.Account{
+			account: &authtypes.BaseAccount{
 				Sequence:      13,
 				AccountNumber: 1,
 			},
@@ -70,6 +70,10 @@ func TestBuildTx(t *testing.T) {
 			setupMocks: func(calculator *mocks.GasCalculator, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) {
 				calculator.WithCalculateGas(nil, 50, assert.AnError)
 				keyring.WithGetKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
+			},
+			account: &authtypes.BaseAccount{
+				Sequence:      8,
+				AccountNumber: 51,
 			},
 			expectedError: true,
 		},
@@ -162,7 +166,7 @@ func TestSendTx(t *testing.T) {
 func TestSimulateMsgs(t *testing.T) {
 	tests := []struct {
 		name                     string
-		account                  sqstx.Account
+		account                  *authtypes.BaseAccount
 		chainID                  string
 		msgs                     []sdk.Msg
 		setupMocks               func(calculator *mocks.GasCalculator)
@@ -172,7 +176,7 @@ func TestSimulateMsgs(t *testing.T) {
 	}{
 		{
 			name:    "Successful simulation",
-			account: sqstx.Account{AccountNumber: 1, Sequence: 1},
+			account: &authtypes.BaseAccount{AccountNumber: 1, Sequence: 1},
 			chainID: "test-chain",
 			msgs:    []sdk.Msg{newMsg("sender", "contract", `{}`)},
 			setupMocks: func(calculator *mocks.GasCalculator) {
@@ -184,7 +188,7 @@ func TestSimulateMsgs(t *testing.T) {
 		},
 		{
 			name:    "Simulation error",
-			account: sqstx.Account{AccountNumber: 2, Sequence: 2},
+			account: &authtypes.BaseAccount{AccountNumber: 2, Sequence: 2},
 			chainID: "test-chain",
 			msgs:    []sdk.Msg{},
 			setupMocks: func(calculator *mocks.GasCalculator) {
