@@ -1,7 +1,7 @@
 package orderbookplugindomain
 
+// Orderbook plugin names
 const (
-	// OrderBookPluginName is the name of the orderbook plugin.
-	OrderBookPluginName        = "orderbook"
-	OrderBookClaimerPluginName = "orderbookclaimer"
+	OrderbookFillbotPlugin  = "orderbook-fillbot-plugin"
+	OrderbookClaimbotPlugin = "orderbook-claimbot-plugin"
 )

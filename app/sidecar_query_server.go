@@ -272,7 +272,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 			if plugin.IsEnabled() {
 				var currentPlugin domain.EndBlockProcessPlugin
 
-				if plugin.GetName() == orderbookplugindomain.OrderBookPluginName {
+				if plugin.GetName() == orderbookplugindomain.OrderbookFillbotPlugin {
 					// Create keyring
 					keyring, err := keyring.New()
 					if err != nil {
@@ -283,7 +283,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					currentPlugin = orderbookfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
 				}
 
-				if plugin.GetName() == orderbookplugindomain.OrderBookClaimerPluginName {
+				if plugin.GetName() == orderbookplugindomain.OrderbookClaimbotPlugin {
 					// Create keyring
 					keyring, err := keyring.New()
 					if err != nil {

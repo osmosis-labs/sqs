@@ -156,8 +156,12 @@ var (
 			ServerConnectionTimeoutSeconds: 10,
 			Plugins: []Plugin{
 				&OrderBookPluginConfig{
-					Enabled: true,
-					Name:    orderbookplugindomain.OrderBookClaimerPluginName,
+					Enabled: false,
+					Name:    orderbookplugindomain.OrderbookFillbotPlugin,
+				},
+				&OrderBookPluginConfig{
+					Enabled: false,
+					Name:    orderbookplugindomain.OrderbookClaimbotPlugin,
 				},
 			},
 		},
@@ -377,7 +381,9 @@ func validateDynamicMinLiquidityCapDesc(values []DynamicMinLiquidityCapFilterEnt
 // PluginFactory creates a Plugin instance based on the provided name.
 func PluginFactory(name string) Plugin {
 	switch name {
-	case orderbookplugindomain.OrderBookPluginName:
+	case orderbookplugindomain.OrderbookFillbotPlugin:
+		return &OrderBookPluginConfig{}
+	case orderbookplugindomain.OrderbookClaimbotPlugin:
 		return &OrderBookPluginConfig{}
 	// Add cases for other plugins as needed
 	default:

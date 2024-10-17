@@ -45,7 +45,7 @@ In `config.json`, set the plugin to enabled:
     ...
     "plugins": [
         {
-            "name": "orderbook",
+            "name": "orderbook-fillbot-plugin",
             "enabled": true
         }
     ]
