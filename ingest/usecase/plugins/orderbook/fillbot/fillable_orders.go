@@ -1,14 +1,15 @@
-package orderbookfiller
+package fillbot
 
 import (
 	"fmt"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
-	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/block"
+	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
 	"go.uber.org/zap"
 
 	clmath "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/math"
+	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
@@ -132,7 +133,7 @@ func applyFee(amount osmomath.Int, fee osmomath.Dec) osmomath.Int {
 // Iterates over all ask orders, identifying their ticks.
 // Compares the order tick to the current tick. If ask order is below the market tick, it is fillable.
 // In that case, we determine the remaining ask liquidity on that tick, applying the price to get its value in the quote denom.
-func (o *orderbookFillerIngestPlugin) getFillableAskAmountInQuoteDenom(askOrders []orderbookplugindomain.Order, currentTick int64, tickRemainingLiqMap map[int64]cosmwasmpool.OrderbookTickLiquidity) (osmomath.Int, error) {
+func (o *orderbookFillerIngestPlugin) getFillableAskAmountInQuoteDenom(askOrders []orderbookdomain.Order, currentTick int64, tickRemainingLiqMap map[int64]cosmwasmpool.OrderbookTickLiquidity) (osmomath.Int, error) {
 	fillableAskAmountInQuoteDenom := osmomath.ZeroBigDec()
 
 	// Multiple orders may be placed on the same tick, so we need to keep track of which ticks we have processed
@@ -178,7 +179,7 @@ func (o *orderbookFillerIngestPlugin) getFillableAskAmountInQuoteDenom(askOrders
 // Iterates over all bid orders, identifying their ticks.
 // Compares the order tick to the current tick. If bid order is above the market tick, it is fillable.
 // In that case, we determine the remaining bi liquidity on that tick, applying the price to get its value in the base denom.
-func (o *orderbookFillerIngestPlugin) getFillableBidAmountInBaseDenom(bidOrders []orderbookplugindomain.Order, currentTick int64, tickRemainingLiqMap map[int64]cosmwasmpool.OrderbookTickLiquidity) (osmomath.Int, error) {
+func (o *orderbookFillerIngestPlugin) getFillableBidAmountInBaseDenom(bidOrders []orderbookdomain.Order, currentTick int64, tickRemainingLiqMap map[int64]cosmwasmpool.OrderbookTickLiquidity) (osmomath.Int, error) {
 	fillableBidAmountInBaseDenom := osmomath.ZeroBigDec()
 
 	// Multiple orders may be placed on the same tick, so we need to keep track of which ticks we have processed
