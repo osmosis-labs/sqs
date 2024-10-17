@@ -199,6 +199,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	go p.executeEndBlockProcessPlugins(ctx, height, uniqueBlockPoolMetadata)
 
 	// Observe the processing duration with height
+	domain.SQSIngestHandlerProcessBlockHeightGauge.Set(float64(height))
 	domain.SQSIngestHandlerProcessBlockDurationGauge.Set(float64(time.Since(startProcessingTime).Milliseconds()))
 
 	return nil
