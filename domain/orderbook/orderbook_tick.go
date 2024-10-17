@@ -27,9 +27,29 @@ type TickState struct {
 }
 
 type TickValues struct {
-	TotalAmountOfLiquidity      string `json:"total_amount_of_liquidity"`
-	CumulativeTotalValue        string `json:"cumulative_total_value"`
+	// Total Amount of Liquidity at tick (TAL)
+	// - Every limit order placement increments this value.
+	// - Every swap at this tick decrements this value.
+	// - Every cancellation decrements this value.
+	TotalAmountOfLiquidity string `json:"total_amount_of_liquidity"`
+
+	// Cumulative Total Limits at tick (CTT)
+	// - Every limit order placement increments this value.
+	// - There might be an edge-case optimization to lower this value.
+	CumulativeTotalValue string `json:"cumulative_total_value"`
+
+	// Effective Total Amount Swapped at tick (ETAS)
+	// - Every swap increments ETAS by the swap amount.
+	// - There will be other ways to update ETAS as described below.
 	EffectiveTotalAmountSwapped string `json:"effective_total_amount_swapped"`
-	CumulativeRealizedCancels   string `json:"cumulative_realized_cancels"`
-	LastTickSyncEtas            string `json:"last_tick_sync_etas"`
+
+	// Cumulative Realized Cancellations at tick
+	// - Increases as cancellations are checkpointed in batches on the sumtree
+	// - Equivalent to the prefix sum at the tick's current ETAS after being synced
+	CumulativeRealizedCancels string `json:"cumulative_realized_cancels"`
+
+	// last_tick_sync_etas is the ETAS value after the most recent tick sync.
+	// It is used to skip tick syncs if ETAS has not changed since the previous
+	// sync.
+	LastTickSyncEtas string `json:"last_tick_sync_etas"`
 }

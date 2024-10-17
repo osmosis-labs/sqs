@@ -23,6 +23,12 @@ func (m *OrderbookRepositoryMock) StoreTicks(poolID uint64, ticksMap map[int64]o
 	panic("StoreTicks not implemented")
 }
 
+func (m *OrderbookRepositoryMock) WithGetAllTicksFunc(ticks map[int64]orderbookdomain.OrderbookTick, ok bool) {
+	m.GetAllTicksFunc = func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
+		return ticks, ok
+	}
+}
+
 // GetAllTicks implements OrderBookRepository.
 func (m *OrderbookRepositoryMock) GetAllTicks(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
 	if m.GetAllTicksFunc != nil {

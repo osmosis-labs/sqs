@@ -5,6 +5,7 @@ type OrderBookRepository interface {
 	StoreTicks(poolID uint64, ticksMap map[int64]OrderbookTick)
 
 	// GetTicks returns the orderbook ticks for a given orderbook pool id.
+	// Bool indicates whether ticks were found for the given orderbook pool id.
 	GetAllTicks(poolID uint64) (map[int64]OrderbookTick, bool)
 
 	// GetTicks returns specific orderbook ticks for a given orderbook pool id.

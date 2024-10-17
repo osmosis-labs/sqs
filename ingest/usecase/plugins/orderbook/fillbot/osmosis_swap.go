@@ -312,6 +312,7 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 	return msgCtx, nil
 }
 
+// TODO:
 func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
 	accSeq, accNum := getInitialSequence(ctx, o.keyring.GetAddress().String())
 
