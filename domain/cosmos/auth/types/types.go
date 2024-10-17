@@ -3,75 +3,56 @@ package types
 
 import (
 	"context"
-	"encoding/json"
-	"strconv"
+	"fmt"
 
-	"github.com/osmosis-labs/sqs/delivery/http"
+	"github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/gogoproto/grpc"
+	"github.com/osmosis-labs/osmosis/v26/app"
+)
+
+var (
+	encodingConfig = app.MakeEncodingConfig()
 )
 
 // QueryClient is the client API for Query service.
 type QueryClient interface {
 	// GetAccount retrieves account information for a given address.
-	GetAccount(ctx context.Context, address string) (*QueryAccountResponse, error)
+	GetAccount(ctx context.Context, address string) (*authtypes.BaseAccount, error)
 }
 
 // NewQueryClient creates a new QueryClient instance with the provided LCD (Light Client Daemon) endpoint.
-func NewQueryClient(lcd string) QueryClient {
-	return &queryClient{lcd}
+func NewQueryClient(conn grpc.ClientConn) QueryClient {
+	return &queryClient{
+		queryClient: authtypes.NewQueryClient(conn),
+	}
 }
 
 var _ QueryClient = &queryClient{}
 
 // queryClient is an implementation of the QueryClient interface.
 type queryClient struct {
-	lcd string
+	queryClient authtypes.QueryClient
 }
 
-// Account represents the basic account information.
-type Account struct {
-	Sequence      uint64 `json:"sequence"`       // Current sequence (nonce) of the account, used to prevent replay attacks.
-	AccountNumber uint64 `json:"account_number"` // Unique identifier of the account on the blockchain.
-}
-
-// QueryAccountResponse encapsulates the response for an account query.
-type QueryAccountResponse struct {
-	Account Account `json:"account"`
-}
-
-// GetAccount retrieves account information for a given address.
-func (c *queryClient) GetAccount(ctx context.Context, address string) (*QueryAccountResponse, error) {
-	resp, err := http.Get(ctx, c.lcd+"/cosmos/auth/v1beta1/accounts/"+address)
+// GetAccount returns the account information for the given address.
+func (c *queryClient) GetAccount(ctx context.Context, address string) (*authtypes.BaseAccount, error) {
+	resp, err := c.queryClient.Account(ctx, &authtypes.QueryAccountRequest{
+		Address: address,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	type queryAccountResponse struct {
-		Account struct {
-			Sequence      string `json:"sequence"`
-			AccountNumber string `json:"account_number"`
-		} `json:"account"`
-	}
-
-	var accountRes queryAccountResponse
-	err = json.Unmarshal(resp, &accountRes)
-	if err != nil {
+	var account types.AccountI
+	if err := encodingConfig.InterfaceRegistry.UnpackAny(resp.Account, &account); err != nil {
 		return nil, err
 	}
 
-	sequence, err := strconv.ParseUint(accountRes.Account.Sequence, 10, 64)
-	if err != nil {
-		return nil, err
+	baseAccount, ok := account.(*authtypes.BaseAccount)
+	if !ok {
+		return nil, fmt.Errorf("account is not of the type of BaseAccount")
 	}
 
-	accountNumber, err := strconv.ParseUint(accountRes.Account.AccountNumber, 10, 64)
-	if err != nil {
-		return nil, err
-	}
-
-	return &QueryAccountResponse{
-		Account: Account{
-			Sequence:      sequence,
-			AccountNumber: accountNumber,
-		},
-	}, nil
+	return baseAccount, nil
 }

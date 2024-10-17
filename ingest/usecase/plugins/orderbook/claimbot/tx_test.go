@@ -4,15 +4,13 @@ import (
 	"context"
 	"testing"
 
-	authtypes "github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
-	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
-	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -51,11 +49,9 @@ func TestSendBatchClaimTx(t *testing.T) {
 			setupMocks: func(keyringMock *mocks.Keyring, authQueryClient *mocks.AuthQueryClientMock, txfeesClient *mocks.TxFeesQueryClient, gasCalculator *mocks.GasCalculator, txServiceClient *mocks.TxServiceClient) {
 				keyringMock.WithGetAddress("osmo0address")
 				keyringMock.WithGetKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
-				authQueryClient.WithGetAccount(&authtypes.QueryAccountResponse{
-					Account: authtypes.Account{
-						AccountNumber: 3,
-						Sequence:      31,
-					},
+				authQueryClient.WithGetAccount(&authtypes.BaseAccount{
+					AccountNumber: 3,
+					Sequence:      31,
 				}, nil)
 				gasCalculator.WithCalculateGas(nil, 0, assert.AnError) // Fail BuildTx
 			},
@@ -74,11 +70,9 @@ func TestSendBatchClaimTx(t *testing.T) {
 				gasCalculator.WithCalculateGas(nil, 51, nil)
 				txfeesClient.WithBaseDenom("uosmo", nil)
 				txfeesClient.WithGetEipBaseFee("0.2", nil)
-				authQueryClient.WithGetAccount(&authtypes.QueryAccountResponse{
-					Account: authtypes.Account{
-						AccountNumber: 83,
-						Sequence:      5,
-					},
+				authQueryClient.WithGetAccount(&authtypes.BaseAccount{
+					AccountNumber: 83,
+					Sequence:      5,
 				}, nil)
 				txServiceClient.WithBroadcastTx(nil, assert.AnError) // SendTx returns error
 			},
@@ -98,11 +92,9 @@ func TestSendBatchClaimTx(t *testing.T) {
 				gasCalculator.WithCalculateGas(nil, 51, nil)
 				txfeesClient.WithBaseDenom("uosmo", nil)
 				txfeesClient.WithGetEipBaseFee("0.15", nil)
-				authQueryClient.WithGetAccount(&authtypes.QueryAccountResponse{
-					Account: authtypes.Account{
-						AccountNumber: 1,
-						Sequence:      1,
-					},
+				authQueryClient.WithGetAccount(&authtypes.BaseAccount{
+					AccountNumber: 1,
+					Sequence:      1,
 				}, nil)
 
 				txServiceClient.BroadcastTxFunc = func(ctx context.Context, in *txtypes.BroadcastTxRequest, opts ...grpc.CallOption) (*txtypes.BroadcastTxResponse, error) {
@@ -137,58 +129,6 @@ func TestSendBatchClaimTx(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedResponse, response)
-			}
-		})
-	}
-}
-
-func TestGetAccount(t *testing.T) {
-	newQueryClient := func(resp *authtypes.QueryAccountResponse, err error) authtypes.QueryClient {
-		return &mocks.AuthQueryClientMock{
-			GetAccountFunc: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
-				return resp, err
-			},
-		}
-	}
-	tests := []struct {
-		name           string
-		address        string
-		queryClient    authtypes.QueryClient
-		expectedResult sqstx.Account
-		expectedError  bool
-	}{
-		{
-			name:    "Successful account retrieval",
-			address: "osmo1f4tvsdukfwh6s9swrc24gkuz23tp8pd3e9r5fa",
-			queryClient: newQueryClient(&authtypes.QueryAccountResponse{
-				Account: authtypes.Account{
-					Sequence:      123,
-					AccountNumber: 456,
-				},
-			}, nil),
-			expectedResult: tx.Account{
-				Sequence:      123,
-				AccountNumber: 456,
-			},
-			expectedError: false,
-		},
-		{
-			name:           "Error retrieving account",
-			address:        "osmo1jllfytsz4dryxhz5tl7u73v29exsf80vz52ucc",
-			queryClient:    newQueryClient(nil, assert.AnError),
-			expectedResult: tx.Account{},
-			expectedError:  true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := claimbot.GetAccount(context.Background(), tt.queryClient, tt.address)
-			if tt.expectedError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedResult, result)
 			}
 		})
 	}

@@ -49,7 +49,7 @@ func NewConfig(
 		OrderbookUsecase:    orderbookusecase,
 		OrderbookRepository: orderbookRepository,
 		OrderBookClient:     orderBookClient,
-		AccountQueryClient:  authtypes.NewQueryClient(LCD),
+		AccountQueryClient:  authtypes.NewQueryClient(grpcClient),
 		TxfeesClient:        txfeestypes.NewQueryClient(grpcClient),
 		GasCalculator:       sqstx.NewGasCalculator(grpcClient),
 		TxServiceClient:     txtypes.NewServiceClient(grpcClient),

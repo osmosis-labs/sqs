@@ -52,12 +52,6 @@ func SendBatchClaimTx(
 	return sendBatchClaimTx(ctx, keyring, accountQueryClient, txfeesClient, gasCalculator, txServiceClient, contractAddress, claims)
 }
 
-// GetAccount is a test wrapper for getAccount.
-// This function is exported for testing purposes.
-func GetAccount(ctx context.Context, client authtypes.QueryClient, address string) (sqstx.Account, error) {
-	return getAccount(ctx, client, address)
-}
-
 // PrepareBatchClaimMsg is a test wrapper for prepareBatchClaimMsg.
 // This function is exported for testing purposes.
 func PrepareBatchClaimMsg(claims orderbookdomain.Orders) ([]byte, error) {

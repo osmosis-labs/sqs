@@ -18,13 +18,8 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
-
-// Account represents the account information required for transaction building and signing.
-type Account struct {
-	Sequence      uint64 // Current sequence (nonce) of the account, used to prevent replay attacks.
-	AccountNumber uint64 // Unique identifier of the account on the blockchain.
-}
 
 // BuildTx constructs a transaction using the provided parameters and messages.
 // Returns a TxBuilder and any error encountered.
@@ -34,7 +29,7 @@ func BuildTx(
 	txfeesClient txfeestypes.QueryClient,
 	gasCalculator GasCalculator,
 	encodingConfig params.EncodingConfig,
-	account Account,
+	account *authtypes.BaseAccount,
 	chainID string,
 	msg ...sdk.Msg,
 ) (cosmosClient.TxBuilder, error) {
@@ -115,7 +110,7 @@ func SendTx(ctx context.Context, txServiceClient txtypes.ServiceClient, txBytes 
 func SimulateMsgs(
 	gasCalculator GasCalculator,
 	encodingConfig params.EncodingConfig,
-	account Account,
+	account *authtypes.BaseAccount,
 	chainID string,
 	msgs []sdk.Msg,
 ) (*txtypes.SimulateResponse, uint64, error) {

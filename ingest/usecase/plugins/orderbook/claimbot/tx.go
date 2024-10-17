@@ -23,7 +23,6 @@ var (
 	chainID = "osmosis-1"
 
 	RPC = "localhost:9090"
-	LCD = "http://127.0.0.1:1317"
 
 	encodingConfig = app.MakeEncodingConfig()
 )
@@ -32,10 +31,6 @@ var (
 func init() {
 	if rpc := os.Getenv("OSMOSIS_RPC_ENDPOINT"); len(rpc) > 0 {
 		RPC = rpc
-	}
-
-	if lcd := os.Getenv("OSMOSIS_LCD_ENDPOINT"); len(lcd) > 0 {
-		LCD = lcd
 	}
 }
 
@@ -53,7 +48,7 @@ func sendBatchClaimTx(
 ) (*sdk.TxResponse, error) {
 	address := keyring.GetAddress().String()
 
-	account, err := getAccount(ctx, accountQueryClient, address)
+	account, err := accountQueryClient.GetAccount(ctx, address)
 	if err != nil {
 		return nil, err
 	}
@@ -76,18 +71,6 @@ func sendBatchClaimTx(
 	}
 
 	return sqstx.SendTx(ctx, txServiceClient, txBytes)
-}
-
-// getAccount retrieves account information for a given address.
-func getAccount(ctx context.Context, accountQueryClient authtypes.QueryClient, address string) (sqstx.Account, error) {
-	account, err := accountQueryClient.GetAccount(ctx, address)
-	if err != nil {
-		return sqstx.Account{}, fmt.Errorf("failed to get account: %w", err)
-	}
-	return sqstx.Account{
-		Sequence:      account.Account.Sequence,
-		AccountNumber: account.Account.AccountNumber,
-	}, nil
 }
 
 // prepareBatchClaimMsg creates a JSON-encoded batch claim message from the provided orders.
