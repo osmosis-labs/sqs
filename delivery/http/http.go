@@ -1,9 +1,20 @@
 package http
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/labstack/echo/v4"
 	"github.com/osmosis-labs/sqs/validator"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
+
+// DefaultClient represents default HTTP client for issuing outgoing HTTP requests.
+var DefaultClient = &http.Client{
+	Timeout:   5 * time.Second, // Adjusted timeout to 5 seconds
+	Transport: otelhttp.NewTransport(http.DefaultTransport),
+}
 
 // RequestUnmarshaler is any type capable to unmarshal data from HTTP request to itself.
 type RequestUnmarshaler interface {
