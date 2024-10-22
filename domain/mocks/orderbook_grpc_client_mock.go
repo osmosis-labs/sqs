@@ -5,14 +5,13 @@ import (
 
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
-	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 )
 
 var _ orderbookgrpcclientdomain.OrderBookClient = (*OrderbookGRPCClientMock)(nil)
 
 // OrderbookGRPCClientMock is a mock struct that implements orderbookplugindomain.OrderbookGRPCClient.
 type OrderbookGRPCClientMock struct {
-	GetOrdersByTickCb            func(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error)
+	GetOrdersByTickCb            func(ctx context.Context, contractAddress string, tick int64) (orderbookdomain.Orders, error)
 	GetActiveOrdersCb            func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error)
 	GetTickUnrealizedCancelsCb   func(ctx context.Context, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error)
 	FetchTickUnrealizedCancelsCb func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookgrpcclientdomain.UnrealizedTickCancels, error)
@@ -20,7 +19,13 @@ type OrderbookGRPCClientMock struct {
 	FetchTicksCb                 func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error)
 }
 
-func (o *OrderbookGRPCClientMock) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) ([]orderbookplugindomain.Order, error) {
+func (o *OrderbookGRPCClientMock) WithGetOrdersByTickCb(orders orderbookdomain.Orders, err error) {
+	o.GetOrdersByTickCb = func(ctx context.Context, contractAddress string, tick int64) (orderbookdomain.Orders, error) {
+		return orders, err
+	}
+}
+
+func (o *OrderbookGRPCClientMock) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) (orderbookdomain.Orders, error) {
 	if o.GetOrdersByTickCb != nil {
 		return o.GetOrdersByTickCb(ctx, contractAddress, tick)
 	}
