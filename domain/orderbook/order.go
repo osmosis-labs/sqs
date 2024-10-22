@@ -65,6 +65,18 @@ func (o Orders) TickID() []int64 {
 	return tickIDs
 }
 
+// OrderByDirection filters orders by given direction and returns resulting slice.
+// Original slice is not mutated.
+func (o Orders) OrderByDirection(direction string) Orders {
+	var result Orders
+	for _, v := range o {
+		if v.OrderDirection == direction {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
 // Asset represents orderbook asset returned by the orderbook contract.
 type Asset struct {
 	Symbol   string `json:"symbol"`
@@ -92,6 +104,12 @@ type LimitOrder struct {
 	QuoteAsset       Asset        `json:"quote_asset"`
 	BaseAsset        Asset        `json:"base_asset"`
 	PlacedTx         *string      `json:"placed_tx,omitempty"`
+}
+
+// IsClaimable reports whether the limit order is filled above the given
+// threshold to be considered as claimable.
+func (o LimitOrder) IsClaimable(threshold osmomath.Dec) bool {
+	return o.PercentFilled.GT(threshold) && o.PercentFilled.LTE(osmomath.OneDec())
 }
 
 // OrderbookResult represents orderbook orders result.
