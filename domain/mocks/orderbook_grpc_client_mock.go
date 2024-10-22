@@ -19,6 +19,12 @@ type OrderbookGRPCClientMock struct {
 	FetchTicksCb                 func(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error)
 }
 
+func (o *OrderbookGRPCClientMock) WithGetOrdersByTickCb(orders orderbookdomain.Orders, err error) {
+	o.GetOrdersByTickCb = func(ctx context.Context, contractAddress string, tick int64) (orderbookdomain.Orders, error) {
+		return orders, err
+	}
+}
+
 func (o *OrderbookGRPCClientMock) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) (orderbookdomain.Orders, error) {
 	if o.GetOrdersByTickCb != nil {
 		return o.GetOrdersByTickCb(ctx, contractAddress, tick)
