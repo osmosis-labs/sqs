@@ -61,7 +61,7 @@ services:
       - --host
       - sqs-fill-bot
     build:
-      context: ../../../../
+      context: ../../../../../
       dockerfile: Dockerfile
     depends_on:
       - osmosis
