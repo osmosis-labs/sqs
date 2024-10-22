@@ -76,8 +76,8 @@ of POC implementation. In the future, this can be improved to support multiple b
 ## Starting (via docker compose)
 
 1. Ensure that the "Configuration" section is complete.
-2. From project root, `cd` into `ingest/usecase/plugins/orderbookfiller`
+2. From project root, `cd` into `ingest/usecase/plugins/orderbook/fillbot`
 3. Update `.env` with your environment variables.
-4. Run `make orderbook-filler-start`
+4. Run `make orderbook-fillbot-start`
 5. Run `osmosisd status` to check that the node is running and caught up to tip.
 6. Curl `/healthcheck` to check that SQS is running `curl http://localhost:9092/healthcheck`

@@ -228,7 +228,10 @@ datadog-agent-start:
 				-e DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT=0.0.0.0:4317 \
 				gcr.io/datadoghq/agent:latest
 
-#### Order Book Fill Bot Plugin
+
+#### Orderbook plugins ####
+####
+#### Orderbook Fill Bot Plugin
 
 # Starts the full-scale order fill bot.
 # - Creates a copy of the config.json file with the updated
@@ -236,7 +239,7 @@ datadog-agent-start:
 # Starts node and SQS in the background.
 # - Starts DataDog service
 # Use ./ingest/usecase/plugins/orderbook/fillbot/.env to configure the keyring.
-orderbook-filler-start:
+orderbook-fillbot-start:
 	./ingest/usecase/plugins/orderbook/fillbot/create_copy_config.sh
 	cd ./ingest/usecase/plugins/orderbook/fillbot && docker compose up -d
 	cd ../../../../
@@ -244,7 +247,7 @@ orderbook-filler-start:
 	sleep 10 && osmosisd status
 	sleep 10 && docker logs -f osmosis-sqs
 
-orderbook-filler-stop:
+orderbook-fillbot-stop:
 	cd ./ingest/usecase/plugins/orderbook/fillbot && docker compose down
 	cd ../../../../
 	echo "Order Book Filler Bot Stopped"	
