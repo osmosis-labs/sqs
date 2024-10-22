@@ -6,6 +6,7 @@ import (
 
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
+	"github.com/osmosis-labs/sqs/domain/slices"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -88,19 +89,11 @@ func (o *orderbookClientImpl) GetTickUnrealizedCancels(ctx context.Context, cont
 func (o *orderbookClientImpl) FetchTickUnrealizedCancels(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]UnrealizedTickCancels, error) {
 	allUnrealizedCancels := make([]UnrealizedTickCancels, 0, len(tickIDs))
 
-	for i := 0; i < len(tickIDs); i += chunkSize {
-		end := i + chunkSize
-		if end > len(tickIDs) {
-			end = len(tickIDs)
-		}
-
-		currentTickIDs := tickIDs[i:end]
-
-		unrealizedCancels, err := o.GetTickUnrealizedCancels(ctx, contractAddress, currentTickIDs)
+	for _, chunk := range slices.Split(tickIDs, chunkSize) {
+		unrealizedCancels, err := o.GetTickUnrealizedCancels(ctx, contractAddress, chunk)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch unrealized cancels for ticks %v: %w", currentTickIDs, err)
+			return nil, fmt.Errorf("failed to fetch unrealized cancels for ticks %v: %w", chunk, err)
 		}
-
 		allUnrealizedCancels = append(allUnrealizedCancels, unrealizedCancels...)
 	}
 
@@ -124,15 +117,8 @@ func (o *orderbookClientImpl) QueryTicks(ctx context.Context, contractAddress st
 func (o *orderbookClientImpl) FetchTicks(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 	finalTickStates := make([]orderbookdomain.Tick, 0, len(tickIDs))
 
-	for i := 0; i < len(tickIDs); i += chunkSize {
-		end := i + chunkSize
-		if end > len(tickIDs) {
-			end = len(tickIDs)
-		}
-
-		currentTickIDs := tickIDs[i:end]
-
-		tickStates, err := o.QueryTicks(ctx, contractAddress, currentTickIDs)
+	for _, chunk := range slices.Split(tickIDs, chunkSize) {
+		tickStates, err := o.QueryTicks(ctx, contractAddress, chunk)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch ticks for pool %s: %w", contractAddress, err)
 		}
