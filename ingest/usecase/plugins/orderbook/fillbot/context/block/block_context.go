@@ -7,7 +7,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
-	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbookfiller/context/tx"
+	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/tx"
 	"google.golang.org/grpc"
 )
 

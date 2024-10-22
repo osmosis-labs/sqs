@@ -62,7 +62,7 @@ OSMOSIS_KEYRING_KEY_NAME=local.info
 
 To create your key:
 ```bash
-osmosisd keys add local --kerying-backend test --recover
+osmosisd keys add local --keyring-backend test --recover
 
 # Enter your mnemonic
 

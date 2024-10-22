@@ -262,15 +262,15 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 //
 // For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
 // This is a best-effort process.
-func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
-	if err := orderBook.Validate(); err != nil {
+func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+	if err := orderbook.Validate(); err != nil {
 		return nil, false, err
 	}
 
-	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderBook.ContractAddress, ownerAddress)
+	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderbook.ContractAddress, ownerAddress)
 	if err != nil {
 		return nil, false, types.FailedToGetActiveOrdersError{
-			ContractAddress: orderBook.ContractAddress,
+			ContractAddress: orderbook.ContractAddress,
 			OwnerAddress:    ownerAddress,
 			Err:             err,
 		}
@@ -279,22 +279,6 @@ func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 	// There are orders to process for given orderbook
 	if count == 0 {
 		return nil, false, nil
-	}
-
-	quoteToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Quote)
-	if err != nil {
-		return nil, false, types.FailedToGetMetadataError{
-			TokenDenom: orderBook.Quote,
-			Err:        err,
-		}
-	}
-
-	baseToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderBook.Base)
-	if err != nil {
-		return nil, false, types.FailedToGetMetadataError{
-			TokenDenom: orderBook.Base,
-			Err:        err,
-		}
 	}
 
 	// Create a slice to store the results
@@ -306,18 +290,9 @@ func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 	// For each order, create a formatted limit order
 	for _, order := range orders {
 		// create limit order
-		result, err := o.createFormattedLimitOrder(
-			orderBook.PoolID,
+		result, err := o.CreateFormattedLimitOrder(
+			orderbook,
 			order,
-			orderbookdomain.Asset{
-				Symbol:   quoteToken.CoinMinimalDenom,
-				Decimals: quoteToken.Precision,
-			},
-			orderbookdomain.Asset{
-				Symbol:   baseToken.CoinMinimalDenom,
-				Decimals: baseToken.Precision,
-			},
-			orderBook.ContractAddress,
 		)
 		if err != nil {
 			telemetry.CreateLimitOrderErrorCounter.Inc()
@@ -338,19 +313,39 @@ func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 // It is defined in a global space to avoid creating a new instance every time.
 var zeroDec = osmomath.ZeroDec()
 
-// createFormattedLimitOrder creates a limit order from the orderbook order.
-func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
-	poolID uint64,
-	order orderbookdomain.Order,
-	quoteAsset orderbookdomain.Asset,
-	baseAsset orderbookdomain.Asset,
-	orderbookAddress string,
-) (orderbookdomain.LimitOrder, error) {
-	tickForOrder, ok := o.orderbookRepository.GetTickByID(poolID, order.TickId)
+// CreateFormattedLimitOrder creates a limit order from the orderbook order.
+func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(orderbook domain.CanonicalOrderBooksResult, order orderbookdomain.Order) (orderbookdomain.LimitOrder, error) {
+	quoteToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderbook.Quote)
+	if err != nil {
+		return orderbookdomain.LimitOrder{}, types.FailedToGetMetadataError{
+			TokenDenom: orderbook.Quote,
+			Err:        err,
+		}
+	}
+
+	quoteAsset := orderbookdomain.Asset{
+		Symbol:   quoteToken.CoinMinimalDenom,
+		Decimals: quoteToken.Precision,
+	}
+
+	baseToken, err := o.tokensUsecease.GetMetadataByChainDenom(orderbook.Base)
+	if err != nil {
+		return orderbookdomain.LimitOrder{}, types.FailedToGetMetadataError{
+			TokenDenom: orderbook.Base,
+			Err:        err,
+		}
+	}
+
+	baseAsset := orderbookdomain.Asset{
+		Symbol:   baseToken.CoinMinimalDenom,
+		Decimals: baseToken.Precision,
+	}
+
+	tickForOrder, ok := o.orderbookRepository.GetTickByID(orderbook.PoolID, order.TickId)
 	if !ok {
 		telemetry.GetTickByIDNotFoundCounter.Inc()
 		return orderbookdomain.LimitOrder{}, types.TickForOrderbookNotFoundError{
-			OrderbookAddress: orderbookAddress,
+			OrderbookAddress: orderbook.ContractAddress,
 			TickID:           order.TickId,
 		}
 	}
@@ -497,7 +492,7 @@ func (o *OrderbookUseCaseImpl) createFormattedLimitOrder(
 		PercentClaimed:   percentClaimed,
 		TotalFilled:      totalFilled,
 		PercentFilled:    percentFilled,
-		OrderbookAddress: orderbookAddress,
+		OrderbookAddress: orderbook.ContractAddress,
 		Price:            normalizedPrice,
 		Status:           status,
 		Output:           output,

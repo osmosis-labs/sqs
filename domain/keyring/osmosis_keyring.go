@@ -56,6 +56,9 @@ func New() (*keyringImpl, error) {
 	}
 
 	keyringConfig := keyring.Config{
+		AllowedBackends: []keyring.BackendType{
+			keyring.FileBackend,
+		},
 		ServiceName:              keyringServiceName,
 		FileDir:                  keyringPathEnv,
 		KeychainTrustApplication: true,
@@ -64,16 +67,15 @@ func New() (*keyringImpl, error) {
 		},
 	}
 
-	// Open the keyring
 	openKeyring, err := keyring.Open(keyringConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Unable to open keyring [ %s ]: %w", keyringPathEnv, err)
 	}
 
 	// Get the keyring record
 	openRecord, err := openKeyring.Get(keyringKeyName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Unable to get keyring record [ %s ]: %w", keyringKeyName, err)
 	}
 
 	// Unmarshal the keyring record

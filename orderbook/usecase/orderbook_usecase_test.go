@@ -687,28 +687,6 @@ func (s *OrderbookUsecaseTestSuite) TestProcessOrderBookActiveOrders() {
 			expectedIsBestEffort: false,
 		},
 		{
-			name: "failed to get quote token metadata",
-			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
-				client.GetActiveOrdersCb = s.GetActiveOrdersFunc(orderbookdomain.Orders{s.NewOrder().Order}, 1, nil)
-				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFunc(newLimitOrder(), "quoteToken")
-			},
-			poolID:        11,
-			order:         newLimitOrder().WithOrderID(1),
-			ownerAddress:  "osmo103l28g7r3q90d20vta2p2mz0x7qvdr3xgfwnas",
-			expectedError: &types.FailedToGetMetadataError{},
-		},
-		{
-			name: "failed to get base token metadata",
-			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
-				client.GetActiveOrdersCb = s.GetActiveOrdersFunc(orderbookdomain.Orders{s.NewOrder().Order}, 1, nil)
-				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFunc(newLimitOrder(), "quoteToken")
-			},
-			poolID:        35,
-			order:         newLimitOrder().WithOrderbookAddress("D"),
-			ownerAddress:  "osmo1rlj2g3etczywhawuk7zh3tv8sp9edavvntn7jr",
-			expectedError: &types.FailedToGetMetadataError{},
-		},
-		{
 			name: "error on creating formatted limit order ( no error - best effort )",
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
 				client.GetActiveOrdersCb = s.GetActiveOrdersFunc(orderbookdomain.Orders{
@@ -819,24 +797,27 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 		return "9223372036854775808" + strings.Repeat("0", 100000)
 	}
 
+	newOrderbook := func(addr string) domain.CanonicalOrderBooksResult {
+		return domain.CanonicalOrderBooksResult{
+			ContractAddress: addr,
+		}
+	}
+
 	testCases := []struct {
-		name             string
-		poolID           uint64
-		order            orderbookdomain.Order
-		quoteAsset       orderbookdomain.Asset
-		baseAsset        orderbookdomain.Asset
-		orderbookAddress string
-		setupMocks       func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock)
-		expectedError    error
-		expectedOrder    orderbookdomain.LimitOrder
+		name          string
+		order         orderbookdomain.Order
+		orderbook     domain.CanonicalOrderBooksResult
+		setupMocks    func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock)
+		expectedError error
+		expectedOrder orderbookdomain.LimitOrder
 	}{
 		{
 			name: "tick not found",
 			order: orderbookdomain.Order{
 				TickId: 99, // Non-existent tick ID
 			},
-			orderbookAddress: "osmo10dl92ghwn3v44pd8w24c3htqn2mj29549zcsn06usr56ng9ppp0qe6wd0r",
-			expectedError:    &types.TickForOrderbookNotFoundError{},
+			orderbook:     newOrderbook("osmo10dl92ghwn3v44pd8w24c3htqn2mj29549zcsn06usr56ng9ppp0qe6wd0r"),
+			expectedError: &types.TickForOrderbookNotFoundError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(orderbookdomain.OrderbookTick{}, false)
 			},
@@ -846,8 +827,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			order: orderbookdomain.Order{
 				Quantity: "invalid", // Invalid quantity
 			},
-			orderbookAddress: "osmo1xvmtylht48gyvwe2s5rf3w6kn5g9rc4s0da0v0md82t9ldx447gsk07thg",
-			expectedError:    &types.ParsingQuantityError{},
+			orderbook:     newOrderbook("osmo1xvmtylht48gyvwe2s5rf3w6kn5g9rc4s0da0v0md82t9ldx447gsk07thg"),
+			expectedError: &types.ParsingQuantityError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("6431", 935, "ask"), true)
 			},
@@ -860,8 +841,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Etas:           "500",
 				ClaimBounty:    "10",
 			},
-			orderbookAddress: "osmo1rummy6vy4pfm82ctzmz4rr6fxgk0y4jf8h5s7zsadr2znwtuvq7slvl7p4",
-			expectedError:    &types.ParsingQuantityError{},
+			orderbook:     newOrderbook("osmo1rummy6vy4pfm82ctzmz4rr6fxgk0y4jf8h5s7zsadr2znwtuvq7slvl7p4"),
+			expectedError: &types.ParsingQuantityError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("500", 100, "bid"), true)
 			},
@@ -872,8 +853,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Quantity:       "1000",
 				PlacedQuantity: "invalid", // Invalid placed quantity
 			},
-			orderbookAddress: "osmo1pwnxmmynz4esx79qv60cshhxkuu0glmzltsaykhccnq7jmj7tvsqdumey8",
-			expectedError:    &types.ParsingPlacedQuantityError{},
+			orderbook:     newOrderbook("osmo1pwnxmmynz4esx79qv60cshhxkuu0glmzltsaykhccnq7jmj7tvsqdumey8"),
+			expectedError: &types.ParsingPlacedQuantityError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("813", 1331, "bid"), true)
 			},
@@ -886,8 +867,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Etas:           "500",
 				ClaimBounty:    "10",
 			},
-			orderbookAddress: "osmo1z6h6etav6mfljq66vej7eqwsu4kummg9dfkvs969syw09fm0592s3fwgcs",
-			expectedError:    &types.ParsingPlacedQuantityError{},
+			orderbook:     newOrderbook("osmo1z6h6etav6mfljq66vej7eqwsu4kummg9dfkvs969syw09fm0592s3fwgcs"),
+			expectedError: &types.ParsingPlacedQuantityError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("500", 100, "bid"), true)
 			},
@@ -898,8 +879,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Quantity:       "1000",
 				PlacedQuantity: "0", // division by zero
 			},
-			orderbookAddress: "osmo1w8jm03vws7h448yvh83utd8p43j02npydy2jll0r0k7f6w7hjspsvw2u42",
-			expectedError:    &types.InvalidPlacedQuantityError{},
+			orderbook:     newOrderbook("osmo1w8jm03vws7h448yvh83utd8p43j02npydy2jll0r0k7f6w7hjspsvw2u42"),
+			expectedError: &types.InvalidPlacedQuantityError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("813", 1331, "bid"), true)
 			},
@@ -910,11 +891,29 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Quantity:       "931",
 				PlacedQuantity: "183",
 			},
-			orderbookAddress: "osmo197hxw89l3gqn5ake3l5as0zh2ls6e52ata2sgq80lep0854dwe5sstljsp",
-			expectedError:    &types.GettingSpotPriceScalingFactorError{},
+			orderbook:     newOrderbook("osmo197hxw89l3gqn5ake3l5as0zh2ls6e52ata2sgq80lep0854dwe5sstljsp"),
+			expectedError: &types.GettingSpotPriceScalingFactorError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("130", 13, "ask"), true)
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.GetSpotPriceScalingFactorByDenomFunc(1, assert.AnError)
+			},
+		},
+		{
+			name:          "failed to get quote token metadata",
+			order:         s.NewOrder().Order,
+			orderbook:     newOrderbook("osmo197hxw89l3gqn5ake3l5as0zh2ls6e52ata2sgq80lep0854dwe5sstljsp"),
+			expectedError: &types.FailedToGetMetadataError{},
+			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
+				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFunc(s.NewLimitOrder(), "quoteToken")
+			},
+		},
+		{
+			name:          "failed to get base token metadata",
+			order:         s.NewOrder().Order,
+			orderbook:     newOrderbook("osmo197hxw89l3gqn5ake3l5as0zh2ls6e52ata2sgq80lep0854dwe5sstljsp"),
+			expectedError: &types.FailedToGetMetadataError{},
+			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
+				tokensusecase.GetMetadataByChainDenomFunc = s.GetMetadataByChainDenomFunc(s.NewLimitOrder(), "baseToken")
 			},
 		},
 		{
@@ -924,8 +923,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				PlacedQuantity: "131",
 				OrderDirection: "bid",
 			},
-			orderbookAddress: "osmo1s552kx03vsr7ha5ck0k9tmg74gn4w72fmmjcqgr4ky3wf96wwpcqlg7vn9",
-			expectedError:    &types.ParsingTickValuesError{},
+			orderbook:     newOrderbook("osmo1s552kx03vsr7ha5ck0k9tmg74gn4w72fmmjcqgr4ky3wf96wwpcqlg7vn9"),
+			expectedError: &types.ParsingTickValuesError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("invalid", 13, "bid"), true)
 			},
@@ -937,8 +936,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				PlacedQuantity: "131",
 				OrderDirection: "ask",
 			},
-			orderbookAddress: "osmo1yuz6952hrcx0hadq4mgg6fq3t04d4kxhzwsfezlvvsvhq053qyys5udd8z",
-			expectedError:    &types.ParsingTickValuesError{},
+			orderbook:     newOrderbook("osmo1yuz6952hrcx0hadq4mgg6fq3t04d4kxhzwsfezlvvsvhq053qyys5udd8z"),
+			expectedError: &types.ParsingTickValuesError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("invalid", 1, "ask"), true)
 			},
@@ -950,8 +949,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				PlacedQuantity: "153",
 				OrderDirection: "bid",
 			},
-			orderbookAddress: "osmo1apmfjhycfh4cyvc7e6px4vtfwhnl5k4l0ssjq9el4rqx8kxzh2mq5gm3j9",
-			expectedError:    &types.ParsingUnrealizedCancelsError{},
+			orderbook:     newOrderbook("osmo1apmfjhycfh4cyvc7e6px4vtfwhnl5k4l0ssjq9el4rqx8kxzh2mq5gm3j9"),
+			expectedError: &types.ParsingUnrealizedCancelsError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("15", 0, "bid"), true)
 			},
@@ -963,8 +962,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				PlacedQuantity: "313",
 				OrderDirection: "ask",
 			},
-			orderbookAddress: "osmo17qvca7z822w5hy6jxzvaut46k44tlyk4fshx9aklkzq6prze4s9q73u4wz",
-			expectedError:    &types.ParsingUnrealizedCancelsError{},
+			orderbook:     newOrderbook("osmo17qvca7z822w5hy6jxzvaut46k44tlyk4fshx9aklkzq6prze4s9q73u4wz"),
+			expectedError: &types.ParsingUnrealizedCancelsError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("13", 0, "ask"), true)
 			},
@@ -977,8 +976,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				OrderDirection: "bid",
 				Etas:           "invalid", // Invalid ETAs
 			},
-			orderbookAddress: "osmo1dkqnzv7r5wgq08yaj7cxpqy766mwneec2z2agke2l59x7qxff5sqzd2y5l",
-			expectedError:    &types.ParsingEtasError{},
+			orderbook:     newOrderbook("osmo1dkqnzv7r5wgq08yaj7cxpqy766mwneec2z2agke2l59x7qxff5sqzd2y5l"),
+			expectedError: &types.ParsingEtasError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("386", 830, "bid"), true)
 			},
@@ -992,8 +991,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Etas:           overflowDecStr(), // overflow value for ETAs
 				ClaimBounty:    "10",
 			},
-			orderbookAddress: "osmo1nkt9lwky3l3gnrdjw075u557fhzxn9ke085uxnxvtkpj6kz2asrqkd65ra",
-			expectedError:    &types.ParsingEtasError{},
+			orderbook:     newOrderbook("osmo1nkt9lwky3l3gnrdjw075u557fhzxn9ke085uxnxvtkpj6kz2asrqkd65ra"),
+			expectedError: &types.ParsingEtasError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("500", 100, "bid"), true)
 			},
@@ -1007,8 +1006,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				OrderDirection: "ask",
 				Etas:           "100",
 			},
-			orderbookAddress: "osmo1nzpy57uftd877avsgfqjnqtsg5jhnzt8uv8mmytnku7lt76qa4lqds80nn",
-			expectedError:    &types.ConvertingTickToPriceError{},
+			orderbook:     newOrderbook("osmo1nzpy57uftd877avsgfqjnqtsg5jhnzt8uv8mmytnku7lt76qa4lqds80nn"),
+			expectedError: &types.ConvertingTickToPriceError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("190", 150, "ask"), true)
 			},
@@ -1023,8 +1022,8 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				Etas:           "100",
 				PlacedAt:       "invalid", // Invalid timestamp
 			},
-			orderbookAddress: "osmo1ewuvnvtvh5jrcve9v8txr9eqnnq9x9vq82ujct53yzt2jpc8usjsyx72sr",
-			expectedError:    &types.ParsingPlacedAtError{},
+			orderbook:     newOrderbook("osmo1ewuvnvtvh5jrcve9v8txr9eqnnq9x9vq82ujct53yzt2jpc8usjsyx72sr"),
+			expectedError: &types.ParsingPlacedAtError{},
 			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, tokensusecase *mocks.TokensUsecaseMock) {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("100", 100, "ask"), true)
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.GetSpotPriceScalingFactorByDenomFunc(10, nil)
@@ -1037,9 +1036,9 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("500", 100, "bid"), true)
 				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.GetSpotPriceScalingFactorByDenomFunc(1, nil)
 			},
-			orderbookAddress: "osmo1kfct7fcu3qqc9jlxeku873p7t5vucfzw5ujn0dh97hypg24t2w6qe9q5zs",
-			expectedError:    nil,
-			expectedOrder:    s.NewLimitOrder().WithOrderbookAddress("osmo1kfct7fcu3qqc9jlxeku873p7t5vucfzw5ujn0dh97hypg24t2w6qe9q5zs").LimitOrder,
+			orderbook:     newOrderbook("osmo1kfct7fcu3qqc9jlxeku873p7t5vucfzw5ujn0dh97hypg24t2w6qe9q5zs"),
+			expectedError: nil,
+			expectedOrder: s.NewLimitOrder().WithOrderbookAddress("osmo1kfct7fcu3qqc9jlxeku873p7t5vucfzw5ujn0dh97hypg24t2w6qe9q5zs").LimitOrder,
 		},
 	}
 
@@ -1062,7 +1061,7 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 			)
 
 			// Call the method under test
-			result, err := usecase.CreateFormattedLimitOrder(tc.poolID, tc.order, tc.quoteAsset, tc.baseAsset, tc.orderbookAddress)
+			result, err := usecase.CreateFormattedLimitOrder(tc.orderbook, tc.order)
 
 			// Assert the results
 			if tc.expectedError != nil {
