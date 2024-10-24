@@ -1,25 +1,11 @@
-# Order Book Filler Plugin
+# Orderbook Claimbot Plugin
 
-The Order Book Filler plugin is a plugin that fills the order book orders.
+The Orderbook Claimbot plugin is a plugin that claims filled order book orders.
 
-It scans all active orders in the order book, comparing their tick/price to the current market.
+It scans all active orders for each order book determining which orders have been filled and need to be claimed. At the moment order is said to be claimable if it is filled 98 percent or more. In order for an order book to be processed to claim its active orders it must be canonical as per SQS definition.
 
-If ask orders are below the current market, the plugin will attempt to fill them by constructing
-a cyclic arbitrage route.
 
-If bid orders are above the current market, the plugin will attempt to fill them by constructing
-a cyclic arbitrage route.
-
-All order cyclic arb are simulated and batched in a single transaction within a block.
-The simulation is done to estimate the gas cost and also to avoid executing a transaction that
-would be unprofitable. The batching is done to save on transaction fees but also to maximize the
-possibility of dust orders being filled (i.e. orders that are too small to be profitable on their own).
-
-## Criteria
-
-- For an order book to be processed, it must be canonical as per SQS definition and have at least $10 USDC of liquidity
-- User/bot address must have at least $10 USDC in each token to attempt to process an orderbook and a sufficient
-amount to execute it, including gas fees.
+Such order book scanning and claiming is achieved by listening for new blocks and core logic is triggered at the end of each new block by calling Claimbot `ProcessEndBlock` method.
 
 ## Configuration
 
@@ -27,7 +13,7 @@ amount to execute it, including gas fees.
 
 1. Initialize a fresh node with the `osmosisd` binary.
 ```bash
-osmosisd init fill-bot --chain-id osmosis-1
+osmosisd init claim-bot --chain-id osmosis-1
 ```
 
 2. Get latest snapshot from [here](https://snapshots.osmosis.zone/index.html)
@@ -45,7 +31,7 @@ In `config.json`, set the plugin to enabled:
     ...
     "plugins": [
         {
-            "name": "orderbook-fillbot-plugin",
+            "name": "orderbook-claimbot-plugin",
             "enabled": true
         }
     ]
@@ -71,13 +57,13 @@ osmosisd keys list --keyring-backend test
 ```
 
 Note that the test keyring is not a secure approach but we opted-in for simplicity and speed
-of POC implementation. In the future, this can be improved to support multiple backends.
+of PoC implementation. In the future, this can be improved to support multiple backends.
 
 ## Starting (via docker compose)
 
 1. Ensure that the "Configuration" section is complete.
-2. From project root, `cd` into `ingest/usecase/plugins/orderbook/fillbot`
+2. From project root, `cd` into `ingest/usecase/plugins/orderbook/claimbot`
 3. Update `.env` with your environment variables.
-4. Run `make orderbook-fillbot-start`
+4. Run `make orderbook-claimbot-start`
 5. Run `osmosisd status` to check that the node is running and caught up to tip.
 6. Curl `/healthcheck` to check that SQS is running `curl http://localhost:9092/healthcheck`
