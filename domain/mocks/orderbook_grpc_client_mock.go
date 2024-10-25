@@ -24,6 +24,7 @@ func (o *OrderbookGRPCClientMock) WithGetOrdersByTickCb(orders orderbookdomain.O
 		return orders, err
 	}
 }
+
 func (o *OrderbookGRPCClientMock) GetOrdersByTick(ctx context.Context, contractAddress string, tick int64) (orderbookdomain.Orders, error) {
 	if o.GetOrdersByTickCb != nil {
 		return o.GetOrdersByTickCb(ctx, contractAddress, tick)
