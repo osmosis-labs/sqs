@@ -97,12 +97,16 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 
 	for _, orderbook := range orders {
 		if orderbook.Err != nil {
-			fmt.Println("step1 error", orderbook.Err)
+			o.config.Logger.Warn(
+				"failed to retrieve claimable orders",
+				zap.String("contract_address", orderbook.Orderbook.ContractAddress),
+				zap.Error(err),
+			)
 			continue
 		}
 
 		if err := o.processOrderbookOrders(ctx, orderbook.Orderbook, orderbook.Orders); err != nil {
-			o.config.Logger.Info(
+			o.config.Logger.Warn(
 				"failed to process orderbook orders",
 				zap.String("contract_address", orderbook.Orderbook.ContractAddress),
 				zap.Error(err),
@@ -117,6 +121,10 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 
 // processOrderbookOrders processes a batch of claimable orders.
 func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, orders orderbookdomain.Orders) error {
+	if len(orders) == 0 {
+		return fmt.Errorf("no claimable orders found for orderbook %s, nothing to process", orderbook.ContractAddress)
+	}
+
 	for _, chunk := range slices.Split(orders, maxBatchOfClaimableOrders) {
 		if len(chunk) == 0 {
 			continue
@@ -134,16 +142,12 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.
 			chunk,
 		)
 
-		if err != nil {
-			o.config.Logger.Info(
-				"failed to sent batch claim tx",
-				zap.String("contract_address", orderbook.ContractAddress),
-				zap.Any("tx_result", txres),
-				zap.Error(err),
-			)
-		}
-
-		fmt.Println("claims", orderbook.ContractAddress, txres, chunk, err)
+		o.config.Logger.Info("claimed orders",
+			zap.String("orderbook contract address", orderbook.ContractAddress),
+			zap.Any("orders", chunk),
+			zap.Any("tx result", txres),
+			zap.Error(err),
+		)
 
 		// Wait for block inclusion with buffer to avoid sequence mismatch
 		time.Sleep(5 * time.Second)
