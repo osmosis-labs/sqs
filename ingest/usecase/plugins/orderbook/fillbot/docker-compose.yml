@@ -22,7 +22,7 @@ services:
     command:
       - start
       - --home=/osmosis/.osmosisd
-    image: osmolabs/osmosis-dev:v25.x-c775cee7-1722825184
+    image: osmolabs/osmosis:26.0.2
     container_name: osmosis
     restart: always
     ports:
@@ -56,7 +56,7 @@ services:
       - SQS_GRPC_TENDERMINT_RPC_ENDPOINT=http://osmosis:26657
       - SQS_GRPC_GATEWAY_ENDPOINT=osmosis:9090
       - SQS_OTEL_ENVIRONMENT=sqs-fill-bot
-      - SQS_GRPC_INGESTER_PLUGINS_ORDERBOOK_FILLBOT_PLUGIN_ENABLED=true
+      - SQS_GRPC_INGESTER_PLUGINS_ORDERBOOK_ENABLED=true
     command:
       - --host
       - sqs-fill-bot
