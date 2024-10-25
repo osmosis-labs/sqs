@@ -50,8 +50,10 @@ func New(
 	orderbookRepository orderbookdomain.OrderBookRepository,
 	orderBookClient orderbookgrpcclientdomain.OrderBookClient,
 	logger log.Logger,
+	chainGRPCGatewayEndpoint string,
+	chainID string,
 ) (*claimbot, error) {
-	config, err := NewConfig(keyring, orderbookusecase, poolsUsecase, orderbookRepository, orderBookClient, logger)
+	config, err := NewConfig(keyring, orderbookusecase, poolsUsecase, orderbookRepository, orderBookClient, logger, chainGRPCGatewayEndpoint, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create claimbot config: %w", err)
 	}
@@ -127,6 +129,7 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.
 			o.config.TxfeesClient,
 			o.config.GasCalculator,
 			o.config.TxServiceClient,
+			o.config.ChainID,
 			orderbook.ContractAddress,
 			chunk,
 		)

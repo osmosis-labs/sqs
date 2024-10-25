@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	authtypes "github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
@@ -20,19 +19,8 @@ import (
 )
 
 var (
-	chainID = "osmosis-1"
-
-	RPC = "localhost:9090"
-
 	encodingConfig = app.MakeEncodingConfig()
 )
-
-// init overrides LCD and RPC endpoints from environment variables if those are set.
-func init() {
-	if rpc := os.Getenv("OSMOSIS_RPC_ENDPOINT"); len(rpc) > 0 {
-		RPC = rpc
-	}
-}
 
 // sendBatchClaimTx prepares and sends a batch claim transaction to the blockchain.
 // It builds the transaction, signs it, and broadcasts it to the network.
@@ -43,6 +31,7 @@ func sendBatchClaimTx(
 	txfeesClient txfeestypes.QueryClient,
 	gasCalculator sqstx.GasCalculator,
 	txServiceClient txtypes.ServiceClient,
+	chainID string,
 	contractAddress string,
 	claims orderbookdomain.Orders,
 ) (*sdk.TxResponse, error) {

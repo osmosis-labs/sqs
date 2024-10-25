@@ -298,6 +298,8 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 						orderBookRepository,
 						orderBookAPIClient,
 						logger,
+						config.ChainGRPCGatewayEndpoint,
+						config.ChainID,
 					)
 					if err != nil {
 						return nil, err

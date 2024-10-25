@@ -19,6 +19,7 @@ import (
 func TestSendBatchClaimTx(t *testing.T) {
 	tests := []struct {
 		name             string
+		chainID          string
 		contractAddress  string
 		claims           orderbookdomain.Orders
 		setupMocks       func(*mocks.Keyring, *mocks.AuthQueryClientMock, *mocks.TxFeesQueryClient, *mocks.GasCalculator, *mocks.TxServiceClient)
@@ -81,6 +82,7 @@ func TestSendBatchClaimTx(t *testing.T) {
 		},
 		{
 			name:            "Successful transaction",
+			chainID:         "osmosis-1",
 			contractAddress: "osmo1contractaddress",
 			claims: orderbookdomain.Orders{
 				{TickId: 1, OrderId: 100},
@@ -123,7 +125,7 @@ func TestSendBatchClaimTx(t *testing.T) {
 
 			tt.setupMocks(&keyring, &authQueryClient, &txFeesClient, &gasCalculator, &txServiceClient)
 
-			response, err := claimbot.SendBatchClaimTx(ctx, &keyring, &authQueryClient, &txFeesClient, &gasCalculator, &txServiceClient, tt.contractAddress, tt.claims)
+			response, err := claimbot.SendBatchClaimTx(ctx, &keyring, &authQueryClient, &txFeesClient, &gasCalculator, &txServiceClient, tt.chainID, tt.contractAddress, tt.claims)
 			if tt.expectedError {
 				assert.Error(t, err)
 			} else {

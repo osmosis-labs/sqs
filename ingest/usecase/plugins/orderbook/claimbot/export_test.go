@@ -46,10 +46,11 @@ func SendBatchClaimTx(
 	txfeesClient txfeestypes.QueryClient,
 	gasCalculator sqstx.GasCalculator,
 	txServiceClient txtypes.ServiceClient,
+	chainID string,
 	contractAddress string,
 	claims orderbookdomain.Orders,
 ) (*sdk.TxResponse, error) {
-	return sendBatchClaimTx(ctx, keyring, accountQueryClient, txfeesClient, gasCalculator, txServiceClient, contractAddress, claims)
+	return sendBatchClaimTx(ctx, keyring, accountQueryClient, txfeesClient, gasCalculator, txServiceClient, chainID, contractAddress, claims)
 }
 
 // PrepareBatchClaimMsg is a test wrapper for prepareBatchClaimMsg.

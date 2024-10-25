@@ -26,6 +26,7 @@ type Config struct {
 	TxfeesClient        txfeestypes.QueryClient
 	GasCalculator       sqstx.GasCalculator
 	TxServiceClient     txtypes.ServiceClient
+	ChainID             string
 	Logger              log.Logger
 }
 
@@ -37,8 +38,10 @@ func NewConfig(
 	orderbookRepository orderbookdomain.OrderBookRepository,
 	orderBookClient orderbookgrpcclientdomain.OrderBookClient,
 	logger log.Logger,
+	chainGRPCGatewayEndpoint string,
+	chainID string,
 ) (*Config, error) {
-	grpcClient, err := grpc.NewClient(RPC)
+	grpcClient, err := grpc.NewClient(chainGRPCGatewayEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -54,5 +57,6 @@ func NewConfig(
 		GasCalculator:       sqstx.NewGasCalculator(grpcClient),
 		TxServiceClient:     txtypes.NewServiceClient(grpcClient),
 		Logger:              logger,
+		ChainID:             chainID,
 	}, nil
 }
