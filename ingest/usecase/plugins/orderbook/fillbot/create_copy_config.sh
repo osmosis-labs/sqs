@@ -1,8 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Define the input and output file paths
 ORIGINAL_APP_TOML_NAME="$HOME/.osmosisd/config/app.toml"   # Replace with the actual file path
 BACKUP_APP_TOML_NAME="$HOME/.osmosisd/config/app-backup.toml"
+
+if [ -f $BACKUP_APP_TOML_NAME ]; then
+	echo "Backup file $BACKUP_APP_TOML_NAME already exist, no modifications will be made."
+	exit 0
+fi
 
 mv $ORIGINAL_APP_TOML_NAME $BACKUP_APP_TOML_NAME
 

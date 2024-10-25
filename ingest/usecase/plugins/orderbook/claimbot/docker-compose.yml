@@ -22,7 +22,7 @@ services:
     command:
       - start
       - --home=/osmosis/.osmosisd
-    image: osmolabs/osmosis-dev:v25.x-c775cee7-1722825184
+    image: osmolabs/osmosis:26.0.2
     container_name: osmosis
     restart: always
     ports:
@@ -61,7 +61,7 @@ services:
       - --host
       - sqs-claim-bot
     build:
-      context: ../../../../
+      context: ../../../../../
       dockerfile: Dockerfile
     depends_on:
       - osmosis
