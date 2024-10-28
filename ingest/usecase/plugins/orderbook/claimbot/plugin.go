@@ -143,12 +143,14 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.
 			chunk,
 		)
 
-		o.config.Logger.Info("claimed orders",
-			zap.String("orderbook contract address", orderbook.ContractAddress),
-			zap.Any("orders", chunk),
-			zap.Any("tx result", txres),
-			zap.Error(err),
-		)
+		if err != nil || (txres != nil && txres.Code != 0) {
+			o.config.Logger.Info("failed sending tx",
+				zap.String("orderbook contract address", orderbook.ContractAddress),
+				zap.Any("orders", chunk),
+				zap.Any("tx result", txres),
+				zap.Error(err),
+			)
+		}
 
 		// Wait for block inclusion with buffer to avoid sequence mismatch
 		time.Sleep(blockInclusionWaitTime)
