@@ -34,8 +34,9 @@ const (
 )
 
 var (
-	tracer        = otel.Tracer(tracerName)
-	fillThreshold = osmomath.MustNewDecFromStr("0.98")
+	tracer                 = otel.Tracer(tracerName)
+	fillThreshold          = osmomath.MustNewDecFromStr("0.98")
+	blockInclusionWaitTime = 5 * time.Second
 )
 
 // maxBatchOfClaimableOrders is the maximum number of claimable orders
@@ -150,7 +151,7 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.
 		)
 
 		// Wait for block inclusion with buffer to avoid sequence mismatch
-		time.Sleep(5 * time.Second)
+		time.Sleep(blockInclusionWaitTime)
 	}
 
 	return nil
