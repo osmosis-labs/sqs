@@ -101,7 +101,7 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 			o.config.Logger.Warn(
 				"failed to retrieve claimable orders",
 				zap.String("contract_address", orderbook.Orderbook.ContractAddress),
-				zap.Error(err),
+				zap.Error(orderbook.Err),
 			)
 			continue
 		}
