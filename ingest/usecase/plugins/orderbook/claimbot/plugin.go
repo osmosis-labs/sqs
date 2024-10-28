@@ -30,7 +30,7 @@ type claimbot struct {
 var _ domain.EndBlockProcessPlugin = &claimbot{}
 
 const (
-	tracerName = "sqs-orderbook-claimer"
+	tracerName = "sqs-orderbook-claimbot"
 )
 
 var (
@@ -55,7 +55,7 @@ func New(
 ) (*claimbot, error) {
 	config, err := NewConfig(keyring, orderbookusecase, poolsUsecase, orderbookRepository, orderBookClient, logger, chainGRPCGatewayEndpoint, chainID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create claimbot config: %w", err)
+		return nil, fmt.Errorf("failed to create config: %w", err)
 	}
 
 	return &claimbot{
@@ -74,7 +74,7 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 	// For simplicity, we allow only one block to be processed at a time.
 	// This may be relaxed in the future.
 	if !o.atomicBool.CompareAndSwap(false, true) {
-		o.config.Logger.Info("orderbook claimer is already in progress", zap.Uint64("block_height", blockHeight))
+		o.config.Logger.Info("already in progress", zap.Uint64("block_height", blockHeight))
 		return nil
 	}
 	defer o.atomicBool.Store(false)
@@ -114,7 +114,7 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 		}
 	}
 
-	o.config.Logger.Info("processed end block in orderbook claimer ingest plugin", zap.Uint64("block_height", blockHeight))
+	o.config.Logger.Info("processed end block", zap.Uint64("block_height", blockHeight))
 
 	return nil
 }

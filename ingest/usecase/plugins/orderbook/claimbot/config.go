@@ -56,7 +56,7 @@ func NewConfig(
 		TxfeesClient:        txfeestypes.NewQueryClient(grpcClient),
 		GasCalculator:       sqstx.NewGasCalculator(grpcClient),
 		TxServiceClient:     txtypes.NewServiceClient(grpcClient),
-		Logger:              logger,
+		Logger:              logger.Named("claimbot"),
 		ChainID:             chainID,
 	}, nil
 }
