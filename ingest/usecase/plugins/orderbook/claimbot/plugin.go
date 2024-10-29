@@ -69,7 +69,7 @@ func New(
 // This method is called at the end of each block to process and claim eligible orderbook orders.
 // ProcessEndBlock implements domain.EndBlockProcessPlugin.
 func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) error {
-	ctx, span := tracer.Start(ctx, "orderbooktFillerIngestPlugin.ProcessEndBlock")
+	ctx, span := tracer.Start(ctx, "orderbookClaimbotIngestPlugin.ProcessEndBlock")
 	defer span.End()
 
 	// For simplicity, we allow only one block to be processed at a time.
