@@ -79,7 +79,11 @@ type TokensUsecase interface {
 	// RegisterPricingStrategy registers a pricing strategy for a given pricing source.
 	RegisterPricingStrategy(source domain.PricingSourceType, strategy domain.PricingSource)
 
+	// IsValidChainDenom checks if the chain denom is valid
 	IsValidChainDenom(chainDenom string) bool
+
+	// IsValidListedDenom checks if the chain denom is valid
+	IsValidListedDenom(chainDenom string) bool
 
 	// IsValidPricingSource checks if the pricing source is a valid one
 	IsValidPricingSource(pricingSource int) bool
@@ -101,8 +105,10 @@ type TokensUsecase interface {
 // ValidateChainDenomQueryParam validates the chain denom query parameter.
 // If isHumanDenoms is true, it converts the human denom to chain denom.
 // If isHumanDenoms is false, it validates the chain denom.
+// If doesAllowUnlistedDenoms is true, it allows unlisted denoms.
+// If doesAllowUnlistedDenoms is false, it does not allow unlisted denoms.
 // Returns the chain denom and an error if any.
-func ValidateChainDenomQueryParam(tokensUsecase TokensUsecase, denom string, isHumanDenoms bool) (string, error) {
+func ValidateChainDenomQueryParam(tokensUsecase TokensUsecase, denom string, isHumanDenoms bool, doesAllowUnlistedDenoms bool) (string, error) {
 	// Note that sdk.Coins initialization
 	// auto-converts base denom from human
 	// to IBC notation.
@@ -120,8 +126,14 @@ func ValidateChainDenomQueryParam(tokensUsecase TokensUsecase, denom string, isH
 			return tokensUsecase.GetChainDenom(denom)
 		}
 	} else {
-		if !tokensUsecase.IsValidChainDenom(denom) {
-			return "", fmt.Errorf("denom is not a valid chain denom (%s)", denom)
+		if !doesAllowUnlistedDenoms {
+			if !tokensUsecase.IsValidListedDenom(denom) {
+				return "", fmt.Errorf("denom is not a valid listed chain denom (%s)", denom)
+			}
+		} else {
+			if !tokensUsecase.IsValidChainDenom(denom) {
+				return "", fmt.Errorf("denom is not a valid chain denom (%s)", denom)
+			}
 		}
 	}
 
@@ -130,7 +142,7 @@ func ValidateChainDenomQueryParam(tokensUsecase TokensUsecase, denom string, isH
 }
 
 // ValidateChainDenomsQueryParam validates the chain denom query parameters.
-func ValidateChainDenomsQueryParam(c echo.Context, tokensUsecase TokensUsecase, denoms []string) ([]string, error) {
+func ValidateChainDenomsQueryParam(c echo.Context, tokensUsecase TokensUsecase, denoms []string, doesAllowUnlistedDenoms bool) ([]string, error) {
 	isHumanDenoms, err := domain.GetIsHumanDenomsQueryParam(c)
 	if err != nil {
 		return nil, err
@@ -138,7 +150,7 @@ func ValidateChainDenomsQueryParam(c echo.Context, tokensUsecase TokensUsecase, 
 
 	chainDenoms := make([]string, len(denoms))
 	for i, denom := range denoms {
-		chainDenom, err := ValidateChainDenomQueryParam(tokensUsecase, denom, isHumanDenoms)
+		chainDenom, err := ValidateChainDenomQueryParam(tokensUsecase, denom, isHumanDenoms, doesAllowUnlistedDenoms)
 		if err != nil {
 			return nil, err
 		}

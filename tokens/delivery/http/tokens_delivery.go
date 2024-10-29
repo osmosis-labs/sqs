@@ -141,7 +141,9 @@ func (a *TokensHandler) GetPoolDenomMetadata(c echo.Context) (err error) {
 
 	denoms := strings.Split(denomsStr, ",")
 	// Validate denom parameters and convert to chain denoms if necessary.
-	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, denoms)
+	// We allow unlisted denoms since this is a debug endpoint.
+	doesAllowUnlistedDenoms := true
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, denoms, doesAllowUnlistedDenoms)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}

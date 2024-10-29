@@ -31,6 +31,7 @@ type TokensUsecaseMock struct {
 	UpdateAssetsAtHeightIntervalSyncFunc func(height uint64) error
 	SetTokenRegistryLoaderFunc           func(loader domain.TokenRegistryLoader)
 	ClearPoolDenomMetadataFunc           func()
+	IsValidListedDenomFunc               func(chainDenom string) bool
 }
 
 var _ mvc.TokensUsecase = &TokensUsecaseMock{}
@@ -171,4 +172,12 @@ func (m *TokensUsecaseMock) ClearPoolDenomMetadata() {
 		m.ClearPoolDenomMetadataFunc()
 	}
 	panic("unimplemented")
+}
+
+// IsValidListedDenom implements mvc.TokensUsecase.
+func (m *TokensUsecaseMock) IsValidListedDenom(chainDenom string) bool {
+	if m.IsValidListedDenomFunc != nil {
+		return m.IsValidListedDenomFunc(chainDenom)
+	}
+	return false
 }

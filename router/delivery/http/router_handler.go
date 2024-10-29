@@ -105,7 +105,9 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		tokenIn, tokenOutDenom = req.TokenOut, req.TokenInDenom
 	}
 
-	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn.Denom, tokenOutDenom})
+	// We do not allow unlisted denoms since this is a production from the swap tool.
+	doesAllowUnlistedDenoms := false
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn.Denom, tokenOutDenom}, doesAllowUnlistedDenoms)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
@@ -200,7 +202,10 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 	}
 
 	// Apply human denoms conversion if required.
-	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, append([]string{tokenIn.Denom}, tokenOutDenom...))
+	// We allow unlisted denoms since this is a production endpoint from the pools page
+	// where we want to support all chain denoms.
+	doesAllowUnlistedDenoms := true
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, append([]string{tokenIn.Denom}, tokenOutDenom...), doesAllowUnlistedDenoms)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
@@ -250,7 +255,10 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn, tokenOutDenom})
+	// We do not allow unlisted denoms to maintain
+	// compatibility with the /quote endpoint.
+	doesAllowUnlistedDenoms := false
+	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn, tokenOutDenom}, doesAllowUnlistedDenoms)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
