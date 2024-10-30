@@ -501,3 +501,106 @@ func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(orderbook domain.Canoni
 		PlacedAt:         placedAt,
 	}, nil
 }
+
+func (o *OrderbookUseCaseImpl) GetClaimableOrdersForOrderbook(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) (orderbookdomain.Orders, error) {
+	ticks, ok := o.orderbookRepository.GetAllTicks(orderbook.PoolID)
+	if !ok {
+		return nil, fmt.Errorf("no ticks found for orderbook %s with pool %d", orderbook.ContractAddress, orderbook.PoolID)
+	}
+
+	var claimable orderbookdomain.Orders
+	for _, tick := range ticks {
+		tickClaimable, err := o.getClaimableOrdersForTick(ctx, fillThreshold, orderbook, tick)
+		if err != nil {
+			o.logger.Error(
+				"error processing tick",
+				zap.String("orderbook", orderbook.ContractAddress),
+				zap.Int64("tick", tick.Tick.TickId),
+				zap.Error(err),
+			)
+			continue
+		}
+		claimable = append(claimable, tickClaimable...)
+	}
+
+	return claimable, nil
+}
+
+// getClaimableOrdersForTick retrieves claimable orders for a specific tick in an orderbook
+// It processes all ask/bid direction orders and filters the orders that are claimable.
+func (o *OrderbookUseCaseImpl) getClaimableOrdersForTick(
+	ctx context.Context,
+	fillThreshold osmomath.Dec,
+	orderbook domain.CanonicalOrderBooksResult,
+	tick orderbookdomain.OrderbookTick,
+) (orderbookdomain.Orders, error) {
+	orders, err := o.orderBookClient.GetOrdersByTick(ctx, orderbook.ContractAddress, tick.Tick.TickId)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(orders) == 0 {
+		return nil, nil
+	}
+
+	askClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection("ask"), tick.TickState.AskValues, fillThreshold)
+	if err != nil {
+		return nil, err
+	}
+
+	bidClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection("bid"), tick.TickState.BidValues, fillThreshold)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(askClaimable, bidClaimable...), nil
+}
+
+// getClaimableOrders determines which orders are claimable for a given direction (ask or bid) in a tick.
+// If the tick is fully filled, all orders are considered claimable. Otherwise, it filters the orders
+// based on the fill threshold.
+func (o *OrderbookUseCaseImpl) getClaimableOrders(
+	orderbook domain.CanonicalOrderBooksResult,
+	orders orderbookdomain.Orders,
+	tickValues orderbookdomain.TickValues,
+	fillThreshold osmomath.Dec,
+) (orderbookdomain.Orders, error) {
+	// if the cumulative total value is invalid, we assume the tick is not fully filled
+	isFilled, err := tickValues.IsTickFullyFilled()
+	if err != nil {
+		return nil, err
+	}
+
+	if isFilled {
+		return orders, nil
+	}
+
+	var result orderbookdomain.Orders
+	for _, order := range orders {
+		claimable := o.isOrderClaimable(orderbook, order, fillThreshold)
+		if claimable {
+			result = append(result, order)
+		}
+	}
+
+	return result, nil
+}
+
+// isOrderClaimable determines if a single order is claimable based on the fill threshold.
+func (o *OrderbookUseCaseImpl) isOrderClaimable(
+	orderbook domain.CanonicalOrderBooksResult,
+	order orderbookdomain.Order,
+	fillThreshold osmomath.Dec,
+) bool {
+	result, err := o.CreateFormattedLimitOrder(orderbook, order)
+	if err != nil {
+		o.logger.Info(
+			"unable to create orderbook limit order; marking as not claimable",
+			zap.String("orderbook", orderbook.ContractAddress),
+			zap.Int64("order", order.OrderId),
+			zap.Error(err),
+		)
+		return false
+	}
+	return result.IsClaimable(fillThreshold)
+}

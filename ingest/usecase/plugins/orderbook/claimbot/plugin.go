@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
-	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
-	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
 	"github.com/osmosis-labs/sqs/domain/slices"
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
@@ -34,9 +34,8 @@ const (
 )
 
 var (
-	tracer                 = otel.Tracer(tracerName)
-	fillThreshold          = osmomath.MustNewDecFromStr("0.98")
-	blockInclusionWaitTime = 5 * time.Second
+	tracer        = otel.Tracer(tracerName)
+	fillThreshold = osmomath.MustNewDecFromStr("0.98")
 )
 
 // maxBatchOfClaimableOrders is the maximum number of claimable orders
@@ -48,13 +47,11 @@ func New(
 	keyring keyring.Keyring,
 	orderbookusecase mvc.OrderBookUsecase,
 	poolsUsecase mvc.PoolsUsecase,
-	orderbookRepository orderbookdomain.OrderBookRepository,
-	orderBookClient orderbookgrpcclientdomain.OrderBookClient,
 	logger log.Logger,
 	chainGRPCGatewayEndpoint string,
 	chainID string,
 ) (*claimbot, error) {
-	config, err := NewConfig(keyring, orderbookusecase, poolsUsecase, orderbookRepository, orderBookClient, logger, chainGRPCGatewayEndpoint, chainID)
+	config, err := NewConfig(keyring, orderbookusecase, poolsUsecase, logger, chainGRPCGatewayEndpoint, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config: %w", err)
 	}
@@ -91,15 +88,17 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 		return err
 	}
 
+	account, err := o.config.AccountQueryClient.GetAccount(ctx, o.config.Keyring.GetAddress().String())
+	if err != nil {
+		return err
+	}
+
 	// retrieve claimable orders for the orderbooks
 	orders, err := processOrderbooksAndGetClaimableOrders(
 		ctx,
+		o.config.OrderbookUsecase,
 		fillThreshold,
 		orderbooks,
-		o.config.OrderbookRepository,
-		o.config.OrderBookClient,
-		o.config.OrderbookUsecase,
-		o.config.Logger,
 	)
 
 	if err != nil {
@@ -120,7 +119,7 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 			continue
 		}
 
-		if err := o.processOrderbookOrders(ctx, orderbook.Orderbook, orderbook.Orders); err != nil {
+		if err := o.processOrderbookOrders(ctx, account, orderbook.Orderbook, orderbook.Orders); err != nil {
 			o.config.Logger.Warn(
 				"failed to process orderbook orders",
 				zap.String("contract_address", orderbook.Orderbook.ContractAddress),
@@ -133,7 +132,7 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 }
 
 // processOrderbookOrders processes a batch of claimable orders.
-func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, orders orderbookdomain.Orders) error {
+func (o *claimbot) processOrderbookOrders(ctx context.Context, account *authtypes.BaseAccount, orderbook domain.CanonicalOrderBooksResult, orders orderbookdomain.Orders) error {
 	if len(orders) == 0 {
 		return nil
 	}
@@ -146,11 +145,11 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.
 		txres, err := sendBatchClaimTx(
 			ctx,
 			o.config.Keyring,
-			o.config.AccountQueryClient,
 			o.config.TxfeesClient,
 			o.config.GasCalculator,
 			o.config.TxServiceClient,
 			o.config.ChainID,
+			account,
 			orderbook.ContractAddress,
 			chunk,
 		)
@@ -162,10 +161,18 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.
 				zap.Any("tx result", txres),
 				zap.Error(err),
 			)
+			continue // continue processing the next batch
 		}
 
-		// Wait for block inclusion with buffer to avoid sequence mismatch
-		time.Sleep(blockInclusionWaitTime)
+		// Since we have a lock on block processing, that is, if block X is being processed,
+		// block X+1 processing cannot start, instead of waiting for the tx to be included
+		// in the block we set the sequence number here to avoid sequence number mismatch errors.
+		if err := account.SetSequence(account.GetSequence() + 1); err != nil {
+			o.config.Logger.Info("failed incrementing account sequence number",
+				zap.String("orderbook contract address", orderbook.ContractAddress),
+				zap.Error(err),
+			)
+		}
 	}
 
 	return nil

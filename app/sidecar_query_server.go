@@ -295,8 +295,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 						keyring,
 						orderBookUseCase,
 						poolsUseCase,
-						orderBookRepository,
-						orderBookAPIClient,
 						logger,
 						config.ChainGRPCGatewayEndpoint,
 						config.ChainID,

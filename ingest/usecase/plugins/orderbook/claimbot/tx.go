@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	authtypes "github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
@@ -16,6 +15,7 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 var (
@@ -27,20 +27,15 @@ var (
 func sendBatchClaimTx(
 	ctx context.Context,
 	keyring keyring.Keyring,
-	accountQueryClient authtypes.QueryClient,
 	txfeesClient txfeestypes.QueryClient,
 	gasCalculator sqstx.GasCalculator,
 	txServiceClient txtypes.ServiceClient,
 	chainID string,
+	account *authtypes.BaseAccount,
 	contractAddress string,
 	claims orderbookdomain.Orders,
 ) (*sdk.TxResponse, error) {
 	address := keyring.GetAddress().String()
-
-	account, err := accountQueryClient.GetAccount(ctx, address)
-	if err != nil {
-		return nil, err
-	}
 
 	msgBytes, err := prepareBatchClaimMsg(claims)
 	if err != nil {

@@ -4,13 +4,10 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/sqs/domain"
-	authtypes "github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
-	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
-	"github.com/osmosis-labs/sqs/log"
 
 	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
 
@@ -18,6 +15,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 // ProcessedOrderbook is order alias data structure for testing purposes.
@@ -27,14 +25,11 @@ type ProcessedOrderbook = processedOrderbook
 // This function is exported for testing purposes.
 func ProcessOrderbooksAndGetClaimableOrders(
 	ctx context.Context,
+	orderbookusecase mvc.OrderBookUsecase,
 	fillThreshold osmomath.Dec,
 	orderbooks []domain.CanonicalOrderBooksResult,
-	orderbookRepository orderbookdomain.OrderBookRepository,
-	orderBookClient orderbookgrpcclientdomain.OrderBookClient,
-	orderbookusecase mvc.OrderBookUsecase,
-	logger log.Logger,
 ) ([]ProcessedOrderbook, error) {
-	return processOrderbooksAndGetClaimableOrders(ctx, fillThreshold, orderbooks, orderbookRepository, orderBookClient, orderbookusecase, logger)
+	return processOrderbooksAndGetClaimableOrders(ctx, orderbookusecase, fillThreshold, orderbooks)
 }
 
 // SendBatchClaimTx a test wrapper for sendBatchClaimTx.
@@ -42,15 +37,15 @@ func ProcessOrderbooksAndGetClaimableOrders(
 func SendBatchClaimTx(
 	ctx context.Context,
 	keyring keyring.Keyring,
-	accountQueryClient authtypes.QueryClient,
 	txfeesClient txfeestypes.QueryClient,
 	gasCalculator sqstx.GasCalculator,
 	txServiceClient txtypes.ServiceClient,
 	chainID string,
+	account *authtypes.BaseAccount,
 	contractAddress string,
 	claims orderbookdomain.Orders,
 ) (*sdk.TxResponse, error) {
-	return sendBatchClaimTx(ctx, keyring, accountQueryClient, txfeesClient, gasCalculator, txServiceClient, chainID, contractAddress, claims)
+	return sendBatchClaimTx(ctx, keyring, txfeesClient, gasCalculator, txServiceClient, chainID, account, contractAddress, claims)
 }
 
 // PrepareBatchClaimMsg is a test wrapper for prepareBatchClaimMsg.
