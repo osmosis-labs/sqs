@@ -161,6 +161,13 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, account *authtype
 				zap.Any("tx result", txres),
 				zap.Error(err),
 			)
+
+			// if the tx failed, we need to fetch the account again to get the latest sequence number.
+			account, err = o.config.AccountQueryClient.GetAccount(ctx, o.config.Keyring.GetAddress().String())
+			if err != nil {
+				return err
+			}
+
 			continue // continue processing the next batch
 		}
 
