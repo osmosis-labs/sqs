@@ -74,7 +74,7 @@ func TestProcessOrderbooksAndGetClaimableOrders(t *testing.T) {
 		fillThreshold  osmomath.Dec
 		orderbooks     []domain.CanonicalOrderBooksResult
 		mockSetup      func(*mocks.OrderbookRepositoryMock, *mocks.OrderbookGRPCClientMock, *mocks.OrderbookUsecaseMock)
-		expectedOrders []claimbot.Order
+		expectedOrders []claimbot.ProcessedOrderbook
 	}{
 		{
 			name:          "No orderbooks",
@@ -103,7 +103,7 @@ func TestProcessOrderbooksAndGetClaimableOrders(t *testing.T) {
 				// Not claimable order, below threshold
 				usecase.WithCreateFormattedLimitOrder(newLimitOrder(osmomath.NewDecWithPrec(90, 2)), nil)
 			},
-			expectedOrders: []claimbot.Order{
+			expectedOrders: []claimbot.ProcessedOrderbook{
 				{
 					Orderbook: newCanonicalOrderBooksResult(10, "contract1"), // orderbook with
 					Orders:    nil,                                           // no claimable orders
@@ -125,7 +125,7 @@ func TestProcessOrderbooksAndGetClaimableOrders(t *testing.T) {
 
 				usecase.WithCreateFormattedLimitOrder(newLimitOrder(osmomath.NewDecWithPrec(90, 2)), nil)
 			},
-			expectedOrders: []claimbot.Order{
+			expectedOrders: []claimbot.ProcessedOrderbook{
 				{
 					Orderbook: newCanonicalOrderBooksResult(38, "contract8"),
 					Orders:    orderbookdomain.Orders{newOrder("bid")},
@@ -143,15 +143,19 @@ func TestProcessOrderbooksAndGetClaimableOrders(t *testing.T) {
 
 				client.WithGetOrdersByTickCb(orderbookdomain.Orders{
 					newOrder("ask"),
+					newOrder("bid"),
 				}, nil)
 
 				// Claimable order, above threshold
 				usecase.WithCreateFormattedLimitOrder(newLimitOrder(osmomath.NewDecWithPrec(96, 2)), nil)
 			},
-			expectedOrders: []claimbot.Order{
+			expectedOrders: []claimbot.ProcessedOrderbook{
 				{
 					Orderbook: newCanonicalOrderBooksResult(64, "contract58"),
-					Orders:    orderbookdomain.Orders{newOrder("ask")},
+					Orders: orderbookdomain.Orders{
+						newOrder("ask"),
+						newOrder("bid"),
+					},
 				},
 			},
 		},
@@ -167,7 +171,8 @@ func TestProcessOrderbooksAndGetClaimableOrders(t *testing.T) {
 
 			tt.mockSetup(&repository, &client, &usecase)
 
-			result := claimbot.ProcessOrderbooksAndGetClaimableOrders(ctx, tt.fillThreshold, tt.orderbooks, &repository, &client, &usecase, &logger)
+			result, err := claimbot.ProcessOrderbooksAndGetClaimableOrders(ctx, tt.fillThreshold, tt.orderbooks, &repository, &client, &usecase, &logger)
+			assert.NoError(t, err)
 
 			assert.Equal(t, tt.expectedOrders, result)
 		})

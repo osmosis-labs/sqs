@@ -79,14 +79,20 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 		return nil
 	}
 	defer o.atomicBool.Store(false)
+	defer o.config.Logger.Info("processed end block", zap.Uint64("block_height", blockHeight))
 
-	orderbooks, err := getOrderbooks(o.config.PoolsUseCase, blockHeight, metadata)
+	orderbooks, err := getOrderbooks(o.config.PoolsUseCase, metadata)
 	if err != nil {
+		o.config.Logger.Warn(
+			"failed to get canonical orderbook pools for block",
+			zap.Uint64("block_height", blockHeight),
+			zap.Error(err),
+		)
 		return err
 	}
 
 	// retrieve claimable orders for the orderbooks
-	orders := processOrderbooksAndGetClaimableOrders(
+	orders, err := processOrderbooksAndGetClaimableOrders(
 		ctx,
 		fillThreshold,
 		orderbooks,
@@ -95,6 +101,14 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 		o.config.OrderbookUsecase,
 		o.config.Logger,
 	)
+
+	if err != nil {
+		o.config.Logger.Warn(
+			"failed to process block orderbooks",
+			zap.Error(err),
+		)
+		return err
+	}
 
 	for _, orderbook := range orders {
 		if orderbook.Err != nil {
@@ -115,15 +129,13 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 		}
 	}
 
-	o.config.Logger.Info("processed end block", zap.Uint64("block_height", blockHeight))
-
 	return nil
 }
 
 // processOrderbookOrders processes a batch of claimable orders.
 func (o *claimbot) processOrderbookOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, orders orderbookdomain.Orders) error {
 	if len(orders) == 0 {
-		return fmt.Errorf("no claimable orders found for orderbook %s, nothing to process", orderbook.ContractAddress)
+		return nil
 	}
 
 	for _, chunk := range slices.Split(orders, maxBatchOfClaimableOrders) {

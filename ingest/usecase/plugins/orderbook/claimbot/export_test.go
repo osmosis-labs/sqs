@@ -20,8 +20,8 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
 
-// Order is order alias data structure for testing purposes.
-type Order = order
+// ProcessedOrderbook is order alias data structure for testing purposes.
+type ProcessedOrderbook = processedOrderbook
 
 // ProcessOrderbooksAndGetClaimableOrders is test wrapper for processOrderbooksAndGetClaimableOrders.
 // This function is exported for testing purposes.
@@ -33,7 +33,7 @@ func ProcessOrderbooksAndGetClaimableOrders(
 	orderBookClient orderbookgrpcclientdomain.OrderBookClient,
 	orderbookusecase mvc.OrderBookUsecase,
 	logger log.Logger,
-) []Order {
+) ([]ProcessedOrderbook, error) {
 	return processOrderbooksAndGetClaimableOrders(ctx, fillThreshold, orderbooks, orderbookRepository, orderBookClient, orderbookusecase, logger)
 }
 
@@ -61,6 +61,6 @@ func PrepareBatchClaimMsg(claims orderbookdomain.Orders) ([]byte, error) {
 
 // GetOrderbooks is a test wrapper for getOrderbooks.
 // This function is exported for testing purposes.
-func GetOrderbooks(poolsUsecase mvc.PoolsUsecase, blockHeight uint64, metadata domain.BlockPoolMetadata) ([]domain.CanonicalOrderBooksResult, error) {
-	return getOrderbooks(poolsUsecase, blockHeight, metadata)
+func GetOrderbooks(poolsUsecase mvc.PoolsUsecase, metadata domain.BlockPoolMetadata) ([]domain.CanonicalOrderBooksResult, error) {
+	return getOrderbooks(poolsUsecase, metadata)
 }

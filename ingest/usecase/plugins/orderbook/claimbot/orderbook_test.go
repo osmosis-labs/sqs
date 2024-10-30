@@ -12,16 +12,14 @@ import (
 
 func TestGetOrderbooks(t *testing.T) {
 	tests := []struct {
-		name        string
-		blockHeight uint64
-		metadata    domain.BlockPoolMetadata
-		setupMocks  func(*mocks.PoolsUsecaseMock)
-		want        []domain.CanonicalOrderBooksResult
-		err         bool
+		name       string
+		metadata   domain.BlockPoolMetadata
+		setupMocks func(*mocks.PoolsUsecaseMock)
+		want       []domain.CanonicalOrderBooksResult
+		err        bool
 	}{
 		{
-			name:        "Metadata contains all canonical orderbooks but one",
-			blockHeight: 1000,
+			name: "Metadata contains all canonical orderbooks but one",
 			metadata: domain.BlockPoolMetadata{
 				PoolIDs: map[uint64]struct{}{1: {}, 2: {}, 3: {}},
 			},
@@ -36,8 +34,7 @@ func TestGetOrderbooks(t *testing.T) {
 			err: false,
 		},
 		{
-			name:        "Metadata contains only canonical orderbooks",
-			blockHeight: 1893,
+			name: "Metadata contains only canonical orderbooks",
 			metadata: domain.BlockPoolMetadata{
 				PoolIDs: map[uint64]struct{}{1: {}, 2: {}, 3: {}},
 			},
@@ -52,9 +49,8 @@ func TestGetOrderbooks(t *testing.T) {
 			err: false,
 		},
 		{
-			name:        "Error getting all canonical orderbook pool IDs",
-			blockHeight: 2000,
-			metadata:    domain.BlockPoolMetadata{},
+			name:     "Error getting all canonical orderbook pool IDs",
+			metadata: domain.BlockPoolMetadata{},
 			setupMocks: func(poolsUsecase *mocks.PoolsUsecaseMock) {
 				poolsUsecase.WithGetAllCanonicalOrderbookPoolIDs(nil, assert.AnError)
 			},
@@ -69,7 +65,7 @@ func TestGetOrderbooks(t *testing.T) {
 
 			tt.setupMocks(&poolsUsecase)
 
-			got, err := claimbot.GetOrderbooks(&poolsUsecase, tt.blockHeight, tt.metadata)
+			got, err := claimbot.GetOrderbooks(&poolsUsecase, tt.metadata)
 			if tt.err {
 				assert.Error(t, err)
 				return

@@ -14,13 +14,14 @@ import (
 	"go.uber.org/zap"
 )
 
-type order struct {
+type processedOrderbook struct {
 	Orderbook domain.CanonicalOrderBooksResult
 	Orders    orderbookdomain.Orders
 	Err       error
 }
 
 // processOrderbooksAndGetClaimableOrders processes a list of orderbooks and returns claimable orders for each.
+// Under the hood processing of each orderbook in done concurrently to speed up the process.
 func processOrderbooksAndGetClaimableOrders(
 	ctx context.Context,
 	fillThreshold osmomath.Dec,
@@ -29,13 +30,27 @@ func processOrderbooksAndGetClaimableOrders(
 	orderBookClient orderbookgrpcclientdomain.OrderBookClient,
 	orderbookusecase mvc.OrderBookUsecase,
 	logger log.Logger,
-) []order {
-	var result []order
+) ([]processedOrderbook, error) {
+	ch := make(chan processedOrderbook, len(orderbooks))
+
 	for _, orderbook := range orderbooks {
-		processedOrder := processOrderbook(ctx, fillThreshold, orderbook, orderbookRepository, orderBookClient, orderbookusecase, logger)
-		result = append(result, processedOrder)
+		go func(orderbook domain.CanonicalOrderBooksResult) {
+			o := processOrderbook(ctx, fillThreshold, orderbook, orderbookRepository, orderBookClient, orderbookusecase, logger)
+			ch <- o
+		}(orderbook)
 	}
-	return result
+
+	var results []processedOrderbook
+	for i := 0; i < len(orderbooks); i++ {
+		select {
+		case result := <-ch:
+			results = append(results, result)
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	return results, nil
 }
 
 // processOrderbook processes a single orderbook and returns an order struct containing the processed orderbook and its claimable orders.
@@ -47,15 +62,15 @@ func processOrderbook(
 	orderBookClient orderbookgrpcclientdomain.OrderBookClient,
 	orderbookusecase mvc.OrderBookUsecase,
 	logger log.Logger,
-) order {
+) processedOrderbook {
 	claimable, err := getClaimableOrdersForOrderbook(ctx, fillThreshold, orderbook, orderbookRepository, orderBookClient, orderbookusecase, logger)
 	if err != nil {
-		return order{
+		return processedOrderbook{
 			Orderbook: orderbook,
 			Err:       err,
 		}
 	}
-	return order{
+	return processedOrderbook{
 		Orderbook: orderbook,
 		Orders:    claimable,
 	}
@@ -75,14 +90,19 @@ func getClaimableOrdersForOrderbook(
 ) (orderbookdomain.Orders, error) {
 	ticks, ok := orderbookRepository.GetAllTicks(orderbook.PoolID)
 	if !ok {
-		return nil, fmt.Errorf("no ticks for orderbook")
+		return nil, fmt.Errorf("no ticks found for orderbook %s with pool %d", orderbook.ContractAddress, orderbook.PoolID)
 	}
 
 	var claimable orderbookdomain.Orders
-	for _, t := range ticks {
-		tickClaimable, err := getClaimableOrdersForTick(ctx, fillThreshold, orderbook, t, orderBookClient, orderbookusecase, logger)
+	for _, tick := range ticks {
+		tickClaimable, err := getClaimableOrdersForTick(ctx, fillThreshold, orderbook, tick, orderBookClient, orderbookusecase, logger)
 		if err != nil {
-			logger.Error("error processing tick", zap.String("orderbook", orderbook.ContractAddress), zap.Int64("tick", t.Tick.TickId), zap.Error(err))
+			logger.Error(
+				"error processing tick",
+				zap.String("orderbook", orderbook.ContractAddress),
+				zap.Int64("tick", tick.Tick.TickId),
+				zap.Error(err),
+			)
 			continue
 		}
 		claimable = append(claimable, tickClaimable...)
@@ -104,7 +124,7 @@ func getClaimableOrdersForTick(
 ) (orderbookdomain.Orders, error) {
 	orders, err := orderBookClient.GetOrdersByTick(ctx, orderbook.ContractAddress, tick.Tick.TickId)
 	if err != nil {
-		return nil, fmt.Errorf("unable to fetch orderbook orders by tick ID: %w", err)
+		return nil, err
 	}
 
 	if len(orders) == 0 {
@@ -138,10 +158,17 @@ func getClaimableOrders(
 // isTickFullyFilled checks if a tick is fully filled by comparing its cumulative total value
 // to its effective total amount swapped.
 func isTickFullyFilled(tickValues orderbookdomain.TickValues) bool {
-	if len(tickValues.CumulativeTotalValue) == 0 || len(tickValues.EffectiveTotalAmountSwapped) == 0 {
-		return false // empty values, thus not fully filled
+	cumulativeTotalValue, err := osmomath.NewDecFromStr(tickValues.CumulativeTotalValue)
+	if err != nil {
+		return false // if the cumulative total value is invalid, we assume the tick is not fully filled
 	}
-	return tickValues.CumulativeTotalValue == tickValues.EffectiveTotalAmountSwapped
+
+	effectiveTotalAmountSwapped, err := osmomath.NewDecFromStr(tickValues.EffectiveTotalAmountSwapped)
+	if err != nil {
+		return false // if the effective total amount swapped is invalid, we assume the tick is not fully filled
+	}
+
+	return cumulativeTotalValue.Equal(effectiveTotalAmountSwapped)
 }
 
 // filterClaimableOrders processes a list of orders and returns only those that are considered claimable.

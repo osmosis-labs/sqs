@@ -62,6 +62,17 @@ func sendBatchClaimTx(
 	return sqstx.SendTx(ctx, txServiceClient, txBytes)
 }
 
+// batchClaim represents batch claim orders message.
+type batchClaim struct {
+	batchClaimOrders `json:"batch_claim"`
+}
+
+// batchClaimOrders represents the orders in the batch claim message.
+// Each order is represented by a pair of tick ID and order ID.
+type batchClaimOrders struct {
+	Orders [][]int64 `json:"orders"`
+}
+
 // prepareBatchClaimMsg creates a JSON-encoded batch claim message from the provided orders.
 func prepareBatchClaimMsg(claims orderbookdomain.Orders) ([]byte, error) {
 	orders := make([][]int64, len(claims))
@@ -69,14 +80,8 @@ func prepareBatchClaimMsg(claims orderbookdomain.Orders) ([]byte, error) {
 		orders[i] = []int64{claim.TickId, claim.OrderId}
 	}
 
-	batchClaim := struct {
-		BatchClaim struct {
-			Orders [][]int64 `json:"orders"`
-		} `json:"batch_claim"`
-	}{
-		BatchClaim: struct {
-			Orders [][]int64 `json:"orders"`
-		}{
+	batchClaim := batchClaim{
+		batchClaimOrders: batchClaimOrders{
 			Orders: orders,
 		},
 	}
