@@ -191,15 +191,15 @@ replace (
 	// Needs to be replaced due to iavlFastNodeModuleWhitelist feature
 	cosmossdk.io/store => github.com/osmosis-labs/cosmos-sdk/store v0.1.0-alpha.1.0.20240509221435-b8feb2ffb728
 
-	// Direct cometbft branch link: https://github.com/osmosis-labs/cometbft/tree/osmo/v0.38.11, current branch: osmo/v0.38.11.
-	// Direct commit link: https://github.com/osmosis-labs/cometbft/commit/fc8a51f1afdfd43fcc497d285aec35515e3a28af
-	// Direct tag link: https://github.com/osmosis-labs/cometbft/releases/tag/v0.38.11-v26-osmo-1
+	// Direct cometbft branch link: https://github.com/osmosis-labs/cometbft/tree/osmo-v27/0.38.12, current branch: osmo-v27/v0.38.12
+	// Direct commit link: https://github.com/osmosis-labs/cometbft/commit/2305cecebc3aadee694c6d5e05f9d34b5630f564
+	// Direct tag link: https://github.com/osmosis-labs/cometbft/releases/tag/v0.38.12-v27-osmo-1
 	github.com/cometbft/cometbft => github.com/osmosis-labs/cometbft v0.38.12-v27-osmo-1
 
-	// Direct cosmos-sdk branch link: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo/v0.50.x, current branch: osmo/v0.50.x.
-	// Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/b5b1d9fe35977a97cd86c58ac82b6c9000b1d715
-	// Direct tag link: https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.50.6-v26-osmo-1
-	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.50.6-v26-osmo-1
+	// Direct cosmos-sdk branch link: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo-v27/0.50.10, current branch: osmo-v27/0.50.10
+	// Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/33e0aaf2b1840a8bca4f1b2292700b6f15e5fad7
+	// Direct tag link: https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.50.10-v27-osmo-1
+	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.50.10-v27-osmo-1
 	github.com/cosmos/iavl => github.com/cosmos/iavl v1.1.2-0.20240405172238-7f92c6b356ac
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 

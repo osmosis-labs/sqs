@@ -603,8 +603,8 @@ github.com/ory/dockertest v3.3.5+incompatible h1:iLLK6SQwIhcbrG783Dghaaa3WPzGc+4
 github.com/ory/dockertest v3.3.5+incompatible/go.mod h1:1vX4m9wsvi00u5bseYwXaSnhNrne+V0E6LAcBILJdPs=
 github.com/osmosis-labs/cometbft v0.38.12-v27-osmo-1 h1:rQgVL3+kX65PSXQ8//o7F8gUfOQyQnYvA6c3D5hD/5U=
 github.com/osmosis-labs/cometbft v0.38.12-v27-osmo-1/go.mod h1:a8NBI2IdO283RZdpH0MuXlze3j+lv6PXuzOtTCq4YGE=
-github.com/osmosis-labs/cosmos-sdk v0.50.6-v26-osmo-1 h1:SvAf4u/YaqtjBoMoP2Y6yv+tQQ2YQE2QP8B0JbByiyQ=
-github.com/osmosis-labs/cosmos-sdk v0.50.6-v26-osmo-1/go.mod h1:xbI6+pKxoB9vokhcHfH6r9r/BZbVjlFM8/yPZqDDhQY=
+github.com/osmosis-labs/cosmos-sdk v0.50.10-v27-osmo-1 h1:h15nNpKcnNOpijSJLBsieD2P5NUmlMDk9ovDeGCW2t0=
+github.com/osmosis-labs/cosmos-sdk v0.50.10-v27-osmo-1/go.mod h1:sYSfC78jZEx6m0WOprklQJG4PMGSmNJ0Y8lYrsv/MfU=
 github.com/osmosis-labs/cosmos-sdk/store v0.1.0-alpha.1.0.20240509221435-b8feb2ffb728 h1:AMz4HWC+WA/MwBQdsb11yIF9ForIvSLYYVy/jyhJ3/I=
 github.com/osmosis-labs/cosmos-sdk/store v0.1.0-alpha.1.0.20240509221435-b8feb2ffb728/go.mod h1:gjE3DZe4t/+VeIk6CmrouyqiuDbZ7QOVDDq3nLqBTpg=
 github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240825083448-87db4447a1ff h1:fRqhUx0m6v18u5/M3HAnt8Z6Qt/YLBP53iffl3Zjh2E=

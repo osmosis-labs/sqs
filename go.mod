@@ -12,6 +12,8 @@ require (
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/osmosis-labs/osmosis/osmomath v0.0.14
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.14
+	github.com/osmosis-labs/osmosis/v27 v27.0.0-00010101000000-000000000000
+	github.com/osmosis-labs/sqs/sqsdomain v0.26.1-0.20241025083851-6db925447d66
 	github.com/prometheus/client_golang v1.20.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
@@ -40,6 +42,7 @@ require (
 	github.com/DataDog/datadog-go v3.2.0+incompatible // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/bits-and-blooms/bitset v1.8.0 // indirect
+	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce // indirect
 	github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v8 v8.0.2 // indirect
 	github.com/cosmos/ibc-apps/modules/async-icq/v8 v8.0.0 // indirect
 	github.com/cosmos/ibc-go/modules/capability v1.0.1 // indirect
@@ -58,7 +61,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
 	github.com/oklog/run v1.1.0 // indirect
-	github.com/osmosis-labs/osmosis/v27 v27.0.0-20241031095800-e8f1b266f784 // indirect
+	github.com/osmosis-labs/osmosis/v26 v26.0.0-rc1 // indirect
 	github.com/shamaton/msgpack/v2 v2.2.0 // indirect
 	github.com/skip-mev/block-sdk/v2 v2.1.5 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.31.0 // indirect
@@ -259,15 +262,15 @@ replace (
 	// Needs to be replaced due to iavlFastNodeModuleWhitelist feature
 	cosmossdk.io/store => github.com/osmosis-labs/cosmos-sdk/store v0.1.0-alpha.1.0.20240509221435-b8feb2ffb728
 
-	// Direct cometbft branch link: https://github.com/osmosis-labs/cometbft/tree/osmo/v0.38.11, current branch: osmo/v0.38.11.
-	// Direct commit link: https://github.com/osmosis-labs/cometbft/commit/fc8a51f1afdfd43fcc497d285aec35515e3a28af
-	// Direct tag link: https://github.com/osmosis-labs/cometbft/releases/tag/v0.38.11-v26-osmo-1
+	// Direct cometbft branch link: https://github.com/osmosis-labs/cometbft/tree/osmo-v27/0.38.12, current branch: osmo-v27/v0.38.12
+	// Direct commit link: https://github.com/osmosis-labs/cometbft/commit/2305cecebc3aadee694c6d5e05f9d34b5630f564
+	// Direct tag link: https://github.com/osmosis-labs/cometbft/releases/tag/v0.38.12-v27-osmo-1
 	github.com/cometbft/cometbft => github.com/osmosis-labs/cometbft v0.38.12-v27-osmo-1
 
-	// Direct cosmos-sdk branch link: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo/v0.50.x, current branch: osmo/v0.50.x.
-	// Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/b5b1d9fe35977a97cd86c58ac82b6c9000b1d715
-	// Direct tag link: https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.50.6-v26-osmo-1
-	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.50.6-v26-osmo-1
+	// Direct cosmos-sdk branch link: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo-v27/0.50.10, current branch: osmo-v27/0.50.10
+	// Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/33e0aaf2b1840a8bca4f1b2292700b6f15e5fad7
+	// Direct tag link: https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.50.10-v27-osmo-1
+	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.50.10-v27-osmo-1
 
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
