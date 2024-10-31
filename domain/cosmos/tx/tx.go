@@ -7,8 +7,8 @@ import (
 	"github.com/osmosis-labs/sqs/domain/keyring"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v26/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v27/app/params"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 
 	cosmosClient "github.com/cosmos/cosmos-sdk/client"
 	txclient "github.com/cosmos/cosmos-sdk/client/tx"

@@ -32,9 +32,9 @@ import (
 	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v26/x/gamm/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
+	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v27/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v27/x/gamm/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
 
 	errorsmod "cosmossdk.io/errors"
 )
