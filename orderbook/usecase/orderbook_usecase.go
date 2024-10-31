@@ -571,13 +571,11 @@ func (o *OrderbookUseCaseImpl) getClaimableOrders(
 			result = append(result, orderbookdomain.ClaimableOrder{Order: order})
 			continue
 		}
-
 		claimable, err := o.isOrderClaimable(orderbook, order, fillThreshold)
-		if claimable {
-			result = append(result, orderbookdomain.ClaimableOrder{
-				Order: order,
-				Error: err,
-			})
+		orderToAdd := orderbookdomain.ClaimableOrder{Order: order, Error: err}
+
+		if err != nil || claimable {
+			result = append(result, orderToAdd)
 		}
 	}
 

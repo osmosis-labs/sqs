@@ -122,24 +122,26 @@ func (s *OrderbookTestHelper) NewTick(effectiveTotalAmountSwapped string, unreal
 		TickState:         orderbookdomain.TickState{},
 		UnrealizedCancels: orderbookdomain.UnrealizedCancels{},
 	}
-
-	if direction == "bid" {
+	switch direction {
+	case "bid":
 		tick.TickState.BidValues = tickValues
 		if unrealizedCancels != 0 {
 			tick.UnrealizedCancels.BidUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
 		}
-	} else {
+	case "ask":
 		tick.TickState.AskValues = tickValues
 		if unrealizedCancels != 0 {
 			tick.UnrealizedCancels.AskUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
 		}
-	}
-
-	if direction == "all" {
+	case "all":
+		tick.TickState.AskValues = tickValues
 		tick.TickState.BidValues = tickValues
 		if unrealizedCancels != 0 {
+			tick.UnrealizedCancels.AskUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
 			tick.UnrealizedCancels.BidUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
 		}
+	default:
+		s.T().Fatalf("invalid direction: %s", direction)
 	}
 
 	tick.Tick = &cosmwasmpool.OrderbookTick{
