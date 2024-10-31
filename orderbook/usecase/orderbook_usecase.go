@@ -502,28 +502,23 @@ func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(orderbook domain.Canoni
 	}, nil
 }
 
-func (o *OrderbookUseCaseImpl) GetClaimableOrdersForOrderbook(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) (orderbookdomain.Orders, error) {
+func (o *OrderbookUseCaseImpl) GetClaimableOrdersForOrderbook(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) ([]orderbookdomain.ClaimableOrderbook, error) {
 	ticks, ok := o.orderbookRepository.GetAllTicks(orderbook.PoolID)
 	if !ok {
 		return nil, fmt.Errorf("no ticks found for orderbook %s with pool %d", orderbook.ContractAddress, orderbook.PoolID)
 	}
 
-	var claimable orderbookdomain.Orders
+	var orders []orderbookdomain.ClaimableOrderbook
 	for _, tick := range ticks {
-		tickClaimable, err := o.getClaimableOrdersForTick(ctx, fillThreshold, orderbook, tick)
-		if err != nil {
-			o.logger.Error(
-				"error processing tick",
-				zap.String("orderbook", orderbook.ContractAddress),
-				zap.Int64("tick", tick.Tick.TickId),
-				zap.Error(err),
-			)
-			continue
-		}
-		claimable = append(claimable, tickClaimable...)
+		tickOrders, err := o.getClaimableOrdersForTick(ctx, fillThreshold, orderbook, tick)
+		orders = append(orders, orderbookdomain.ClaimableOrderbook{
+			Tick:   tick,
+			Orders: tickOrders,
+			Error:  err,
+		})
 	}
 
-	return claimable, nil
+	return orders, nil
 }
 
 // getClaimableOrdersForTick retrieves claimable orders for a specific tick in an orderbook
@@ -533,14 +528,14 @@ func (o *OrderbookUseCaseImpl) getClaimableOrdersForTick(
 	fillThreshold osmomath.Dec,
 	orderbook domain.CanonicalOrderBooksResult,
 	tick orderbookdomain.OrderbookTick,
-) (orderbookdomain.Orders, error) {
+) ([]orderbookdomain.ClaimableOrder, error) {
 	orders, err := o.orderBookClient.GetOrdersByTick(ctx, orderbook.ContractAddress, tick.Tick.TickId)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(orders) == 0 {
-		return nil, nil
+		return nil, nil // nothing to process
 	}
 
 	askClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection("ask"), tick.TickState.AskValues, fillThreshold)
@@ -564,22 +559,25 @@ func (o *OrderbookUseCaseImpl) getClaimableOrders(
 	orders orderbookdomain.Orders,
 	tickValues orderbookdomain.TickValues,
 	fillThreshold osmomath.Dec,
-) (orderbookdomain.Orders, error) {
-	// if the cumulative total value is invalid, we assume the tick is not fully filled
+) ([]orderbookdomain.ClaimableOrder, error) {
 	isFilled, err := tickValues.IsTickFullyFilled()
 	if err != nil {
 		return nil, err
 	}
 
-	if isFilled {
-		return orders, nil
-	}
-
-	var result orderbookdomain.Orders
+	var result []orderbookdomain.ClaimableOrder
 	for _, order := range orders {
-		claimable := o.isOrderClaimable(orderbook, order, fillThreshold)
+		if isFilled {
+			result = append(result, orderbookdomain.ClaimableOrder{Order: order})
+			continue
+		}
+
+		claimable, err := o.isOrderClaimable(orderbook, order, fillThreshold)
 		if claimable {
-			result = append(result, order)
+			result = append(result, orderbookdomain.ClaimableOrder{
+				Order: order,
+				Error: err,
+			})
 		}
 	}
 
@@ -591,16 +589,10 @@ func (o *OrderbookUseCaseImpl) isOrderClaimable(
 	orderbook domain.CanonicalOrderBooksResult,
 	order orderbookdomain.Order,
 	fillThreshold osmomath.Dec,
-) bool {
+) (bool, error) {
 	result, err := o.CreateFormattedLimitOrder(orderbook, order)
 	if err != nil {
-		o.logger.Info(
-			"unable to create orderbook limit order; marking as not claimable",
-			zap.String("orderbook", orderbook.ContractAddress),
-			zap.Int64("order", order.OrderId),
-			zap.Error(err),
-		)
-		return false
+		return false, err
 	}
-	return result.IsClaimable(fillThreshold)
+	return result.IsClaimable(fillThreshold), nil
 }

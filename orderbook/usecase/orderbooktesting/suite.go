@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -114,6 +115,7 @@ func (s *OrderbookTestHelper) NewTick(effectiveTotalAmountSwapped string, unreal
 
 	tickValues := orderbookdomain.TickValues{
 		EffectiveTotalAmountSwapped: effectiveTotalAmountSwapped,
+		CumulativeTotalValue:        "1000",
 	}
 
 	tick := orderbookdomain.OrderbookTick{
@@ -131,6 +133,17 @@ func (s *OrderbookTestHelper) NewTick(effectiveTotalAmountSwapped string, unreal
 		if unrealizedCancels != 0 {
 			tick.UnrealizedCancels.AskUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
 		}
+	}
+
+	if direction == "all" {
+		tick.TickState.BidValues = tickValues
+		if unrealizedCancels != 0 {
+			tick.UnrealizedCancels.BidUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
+		}
+	}
+
+	tick.Tick = &cosmwasmpool.OrderbookTick{
+		TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{},
 	}
 
 	return tick

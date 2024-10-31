@@ -30,5 +30,5 @@ type OrderBookUsecase interface {
 	// GetClaimableOrdersForOrderbook retrieves all claimable orders for a given orderbook.
 	// It fetches all ticks for the orderbook, processes each tick to find claimable orders,
 	// and returns a combined list of all claimable orders across all ticks.
-	GetClaimableOrdersForOrderbook(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) (orderbookdomain.Orders, error)
+	GetClaimableOrdersForOrderbook(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) ([]orderbookdomain.ClaimableOrderbook, error)
 }

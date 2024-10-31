@@ -93,8 +93,8 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 		return err
 	}
 
-	// retrieve claimable orders for the orderbooks
-	orders, err := processOrderbooksAndGetClaimableOrders(
+	// retrieve claimable proccessedOrderbooks for the orderbooks
+	proccessedOrderbooks, err := processOrderbooksAndGetClaimableOrders(
 		ctx,
 		o.config.OrderbookUsecase,
 		fillThreshold,
@@ -109,17 +109,44 @@ func (o *claimbot) ProcessEndBlock(ctx context.Context, blockHeight uint64, meta
 		return err
 	}
 
-	for _, orderbook := range orders {
-		if orderbook.Err != nil {
+	for _, orderbook := range proccessedOrderbooks {
+		if orderbook.Error != nil {
 			o.config.Logger.Warn(
 				"failed to retrieve claimable orders",
 				zap.String("contract_address", orderbook.Orderbook.ContractAddress),
-				zap.Error(orderbook.Err),
+				zap.Error(orderbook.Error),
 			)
 			continue
 		}
 
-		if err := o.processOrderbookOrders(ctx, account, orderbook.Orderbook, orderbook.Orders); err != nil {
+		var claimable orderbookdomain.Orders
+		for _, orderbookOrder := range orderbook.Orders {
+			if orderbookOrder.Error != nil {
+				o.config.Logger.Warn(
+					"error processing orderbook",
+					zap.String("orderbook", orderbook.Orderbook.ContractAddress),
+					zap.Int64("tick", orderbookOrder.Tick.Tick.TickId),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			for _, order := range orderbookOrder.Orders {
+				if order.Error != nil {
+					o.config.Logger.Warn(
+						"unable to create orderbook limit order; marking as not claimable",
+						zap.String("orderbook", orderbook.Orderbook.ContractAddress),
+						zap.Int64("tick", orderbookOrder.Tick.Tick.TickId),
+						zap.Error(err),
+					)
+					continue
+				}
+
+				claimable = append(claimable, order.Order)
+			}
+		}
+
+		if err := o.processOrderbookOrders(ctx, account, orderbook.Orderbook, claimable); err != nil {
 			o.config.Logger.Warn(
 				"failed to process orderbook orders",
 				zap.String("contract_address", orderbook.Orderbook.ContractAddress),

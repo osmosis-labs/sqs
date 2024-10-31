@@ -119,3 +119,19 @@ type OrderbookResult struct {
 	IsBestEffort bool
 	Error        error
 }
+
+// ClaimableOrderbook represents a list of claimable orders for an orderbook.
+// If an error occurs processing the orders, it is stored in the error field.
+type ClaimableOrderbook struct {
+	Tick   OrderbookTick
+	Orders []ClaimableOrder
+	Error  error
+}
+
+// ClaimableOrder represents an order that is claimable.
+// If an error occurs processing the order, it is stored in the error field
+// and the order is nil.
+type ClaimableOrder struct {
+	Order Order
+	Error error
+}

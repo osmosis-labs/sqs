@@ -64,12 +64,29 @@ func TestProcessOrderbooksAndGetClaimableOrders(t *testing.T) {
 				newCanonicalOrderBooksResult(38, "contract8"),
 			},
 			mockSetup: func(usecase *mocks.OrderbookUsecaseMock) {
-				usecase.WithGetClaimableOrdersForOrderbook(orderbookdomain.Orders{newOrder("bid")}, nil)
+				usecase.WithGetClaimableOrdersForOrderbook(
+					[]orderbookdomain.ClaimableOrderbook{
+						{
+							Orders: []orderbookdomain.ClaimableOrder{
+								{
+									Order: newOrder("bid"),
+								},
+							},
+						},
+					}, nil)
 			},
 			expectedOrders: []claimbot.ProcessedOrderbook{
 				{
 					Orderbook: newCanonicalOrderBooksResult(38, "contract8"),
-					Orders:    orderbookdomain.Orders{newOrder("bid")},
+					Orders: []orderbookdomain.ClaimableOrderbook{
+						{
+							Orders: []orderbookdomain.ClaimableOrder{
+								{
+									Order: newOrder("bid"),
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -80,17 +97,30 @@ func TestProcessOrderbooksAndGetClaimableOrders(t *testing.T) {
 				newCanonicalOrderBooksResult(64, "contract58"),
 			},
 			mockSetup: func(usecase *mocks.OrderbookUsecaseMock) {
-				usecase.WithGetClaimableOrdersForOrderbook(orderbookdomain.Orders{
-					newOrder("ask"),
-					newOrder("bid"),
-				}, nil)
+				usecase.WithGetClaimableOrdersForOrderbook(
+					[]orderbookdomain.ClaimableOrderbook{
+						{
+							Orders: []orderbookdomain.ClaimableOrder{
+								{
+									Order: newOrder("ask"),
+								},
+								{
+									Order: newOrder("bid"),
+								},
+							},
+						},
+					}, nil)
 			},
 			expectedOrders: []claimbot.ProcessedOrderbook{
 				{
 					Orderbook: newCanonicalOrderBooksResult(64, "contract58"),
-					Orders: orderbookdomain.Orders{
-						newOrder("ask"),
-						newOrder("bid"),
+					Orders: []orderbookdomain.ClaimableOrderbook{
+						{
+							Orders: []orderbookdomain.ClaimableOrder{
+								{Order: newOrder("ask")},
+								{Order: newOrder("bid")},
+							},
+						},
 					},
 				},
 			},

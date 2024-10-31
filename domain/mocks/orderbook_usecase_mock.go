@@ -20,7 +20,7 @@ type OrderbookUsecaseMock struct {
 	GetActiveOrdersFunc                func(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error)
 	GetActiveOrdersStreamFunc          func(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult
 	CreateFormattedLimitOrderFunc      func(orderbook domain.CanonicalOrderBooksResult, order orderbookdomain.Order) (orderbookdomain.LimitOrder, error)
-	GetClaimableOrdersForOrderbookFunc func(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) (orderbookdomain.Orders, error)
+	GetClaimableOrdersForOrderbookFunc func(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) ([]orderbookdomain.ClaimableOrderbook, error)
 }
 
 func (m *OrderbookUsecaseMock) ProcessPool(ctx context.Context, pool sqsdomain.PoolI) error {
@@ -63,15 +63,15 @@ func (m *OrderbookUsecaseMock) CreateFormattedLimitOrder(orderbook domain.Canoni
 	panic("unimplemented")
 }
 
-func (m *OrderbookUsecaseMock) GetClaimableOrdersForOrderbook(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) (orderbookdomain.Orders, error) {
+func (m *OrderbookUsecaseMock) GetClaimableOrdersForOrderbook(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) ([]orderbookdomain.ClaimableOrderbook, error) {
 	if m.GetClaimableOrdersForOrderbookFunc != nil {
 		return m.GetClaimableOrdersForOrderbookFunc(ctx, fillThreshold, orderbook)
 	}
 	panic("unimplemented")
 }
 
-func (m *OrderbookUsecaseMock) WithGetClaimableOrdersForOrderbook(orders orderbookdomain.Orders, err error) {
-	m.GetClaimableOrdersForOrderbookFunc = func(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) (orderbookdomain.Orders, error) {
+func (m *OrderbookUsecaseMock) WithGetClaimableOrdersForOrderbook(orders []orderbookdomain.ClaimableOrderbook, err error) {
+	m.GetClaimableOrdersForOrderbookFunc = func(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) ([]orderbookdomain.ClaimableOrderbook, error) {
 		return orders, err
 	}
 }

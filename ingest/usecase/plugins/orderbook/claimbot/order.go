@@ -13,8 +13,8 @@ import (
 // containing the processed orderbook and its claimable orders.
 type processedOrderbook struct {
 	Orderbook domain.CanonicalOrderBooksResult
-	Orders    orderbookdomain.Orders
-	Err       error
+	Orders    []orderbookdomain.ClaimableOrderbook
+	Error     error
 }
 
 // processOrderbooksAndGetClaimableOrders processes a list of orderbooks and returns claimable orders for each.
@@ -29,8 +29,12 @@ func processOrderbooksAndGetClaimableOrders(
 
 	for _, orderbook := range orderbooks {
 		go func(orderbook domain.CanonicalOrderBooksResult) {
-			o := processOrderbook(ctx, orderbookusecase, fillThreshold, orderbook)
-			ch <- o
+			orders, err := orderbookusecase.GetClaimableOrdersForOrderbook(ctx, fillThreshold, orderbook)
+			ch <- processedOrderbook{
+				Orderbook: orderbook,
+				Orders:    orders,
+				Error:     err,
+			}
 		}(orderbook)
 	}
 
@@ -45,24 +49,4 @@ func processOrderbooksAndGetClaimableOrders(
 	}
 
 	return results, nil
-}
-
-// processOrderbook processes a single orderbook and returns an order struct containing the processed orderbook and its claimable orders.
-func processOrderbook(
-	ctx context.Context,
-	orderbookusecase mvc.OrderBookUsecase,
-	fillThreshold osmomath.Dec,
-	orderbook domain.CanonicalOrderBooksResult,
-) processedOrderbook {
-	claimable, err := orderbookusecase.GetClaimableOrdersForOrderbook(ctx, fillThreshold, orderbook)
-	if err != nil {
-		return processedOrderbook{
-			Orderbook: orderbook,
-			Err:       err,
-		}
-	}
-	return processedOrderbook{
-		Orderbook: orderbook,
-		Orders:    claimable,
-	}
 }
