@@ -37,6 +37,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+- #526 - Refactor gas estimation APIs
 - #524 - Claimbot
 
 ## v26.1.0
