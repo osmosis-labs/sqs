@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -114,23 +115,37 @@ func (s *OrderbookTestHelper) NewTick(effectiveTotalAmountSwapped string, unreal
 
 	tickValues := orderbookdomain.TickValues{
 		EffectiveTotalAmountSwapped: effectiveTotalAmountSwapped,
+		CumulativeTotalValue:        "1000",
 	}
 
 	tick := orderbookdomain.OrderbookTick{
 		TickState:         orderbookdomain.TickState{},
 		UnrealizedCancels: orderbookdomain.UnrealizedCancels{},
 	}
-
-	if direction == "bid" {
+	switch direction {
+	case "bid":
 		tick.TickState.BidValues = tickValues
 		if unrealizedCancels != 0 {
 			tick.UnrealizedCancels.BidUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
 		}
-	} else {
+	case "ask":
 		tick.TickState.AskValues = tickValues
 		if unrealizedCancels != 0 {
 			tick.UnrealizedCancels.AskUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
 		}
+	case "all":
+		tick.TickState.AskValues = tickValues
+		tick.TickState.BidValues = tickValues
+		if unrealizedCancels != 0 {
+			tick.UnrealizedCancels.AskUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
+			tick.UnrealizedCancels.BidUnrealizedCancels = osmomath.NewInt(unrealizedCancels)
+		}
+	default:
+		s.T().Fatalf("invalid direction: %s", direction)
+	}
+
+	tick.Tick = &cosmwasmpool.OrderbookTick{
+		TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{},
 	}
 
 	return tick

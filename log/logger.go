@@ -8,6 +8,7 @@ import (
 )
 
 type Logger interface {
+	Named(s string) Logger
 	Info(msg string, fields ...zap.Field)
 	Warn(msg string, fields ...zap.Field)
 	Error(msg string, fields ...zap.Field)
@@ -36,6 +37,11 @@ func (*NoOpLogger) Warn(msg string, fields ...zapcore.Field) {
 	// no-op
 }
 
+// Warn implements Logger.
+func (l *NoOpLogger) Named(s string) Logger {
+	return l
+}
+
 var _ Logger = (*NoOpLogger)(nil)
 
 type loggerImpl struct {
@@ -62,6 +68,12 @@ func (l *loggerImpl) Info(msg string, fields ...zapcore.Field) {
 // Warn implements Logger.
 func (l *loggerImpl) Warn(msg string, fields ...zapcore.Field) {
 	l.zapLogger.Warn(msg, fields...)
+}
+
+func (l *loggerImpl) Named(s string) Logger {
+	return &loggerImpl{
+		zapLogger: *l.zapLogger.Named(s),
+	}
 }
 
 // NewLogger creates a new logger.
@@ -113,5 +125,7 @@ func NewLogger(isProduction bool, fileName string, logLevelStr string) (Logger, 
 
 	logger.Info("log level", zap.Bool("is_debug", isDebugLevel), zap.String("log_level", loggerConfig.Level.String()))
 
-	return logger, nil
+	return &loggerImpl{
+		zapLogger: *logger,
+	}, nil
 }

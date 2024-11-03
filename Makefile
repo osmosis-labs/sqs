@@ -243,11 +243,25 @@ orderbook-fillbot-start:
 	./ingest/usecase/plugins/orderbook/fillbot/create_copy_config.sh
 	cd ./ingest/usecase/plugins/orderbook/fillbot && docker compose up -d
 	cd ../../../../
-	echo "Order Book Filler Bot Started"
+	echo "Orderbook Fill Bot Started"
 	sleep 10 && osmosisd status
 	sleep 10 && docker logs -f osmosis-sqs
 
 orderbook-fillbot-stop:
 	cd ./ingest/usecase/plugins/orderbook/fillbot && docker compose down
 	cd ../../../../
-	echo "Order Book Filler Bot Stopped"	
+	echo "Orderbook Fill Bot Stopped"	
+
+
+orderbook-claimbot-start:
+	./ingest/usecase/plugins/orderbook/fillbot/create_copy_config.sh
+	cd ./ingest/usecase/plugins/orderbook/claimbot && docker compose up -d
+	cd ../../../../
+	echo "Orderbook Claim Bot Started"
+	sleep 10 && osmosisd status
+	sleep 10 && docker logs -f osmosis-sqs
+
+orderbook-claimbot-stop:
+	cd ./ingest/usecase/plugins/orderbook/claimbot && docker compose down
+	cd ../../../../
+	echo "Orderbook Claim Bot Stopped"	
