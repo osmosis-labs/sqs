@@ -3,7 +3,6 @@ package tx
 import (
 	"context"
 
-	"github.com/cosmos/cosmos-sdk/client"
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	txclient "github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
@@ -34,7 +33,7 @@ type MsgSimulator interface {
 	// adjusted gas used, and any error encountered. It uses the provided gRPC client, encoding config,
 	// account details, and chain ID to create a transaction factory for the simulation.
 	SimulateMsgs(
-		encodingConfig client.TxConfig,
+		encodingConfig cosmosclient.TxConfig,
 		account *authtypes.BaseAccount,
 		chainID string,
 		msgs []sdk.Msg,
@@ -123,7 +122,7 @@ func (c *txGasCalulator) BuildTx(
 }
 
 // SimulateMsgs implements MsgSimulator.
-func (c *txGasCalulator) SimulateMsgs(encodingConfig client.TxConfig, account *authtypes.BaseAccount, chainID string, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
+func (c *txGasCalulator) SimulateMsgs(encodingConfig cosmosclient.TxConfig, account *authtypes.BaseAccount, chainID string, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
 	txFactory := txclient.Factory{}
 	txFactory = txFactory.WithTxConfig(encodingConfig)
 	txFactory = txFactory.WithAccountNumber(account.AccountNumber)

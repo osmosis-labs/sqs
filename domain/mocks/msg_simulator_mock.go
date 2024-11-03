@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -23,7 +22,7 @@ type MsgSimulatorMock struct {
 		account *authtypes.BaseAccount,
 		chainID string,
 		msg ...sdk.Msg,
-	) (cosmosclient.TxBuilder, error)
+	) (client.TxBuilder, error)
 
 	SimulateMsgsFn func(
 		encodingConfig client.TxConfig,
@@ -42,7 +41,7 @@ func (m *MsgSimulatorMock) BuildTx(ctx context.Context,
 	account *authtypes.BaseAccount,
 	chainID string,
 	msg ...sdk.Msg,
-) (cosmosclient.TxBuilder, error) {
+) (client.TxBuilder, error) {
 	if m.BuildTxFn != nil {
 		return m.BuildTxFn(ctx, keyring, txfeesClient, encodingConfig, account, chainID, msg...)
 	}
