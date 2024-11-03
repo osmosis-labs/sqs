@@ -5,9 +5,7 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/sqs/domain"
-
-	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
+	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -31,35 +29,6 @@ func SendTx(ctx context.Context, txServiceClient txtypes.ServiceClient, txBytes 
 	}
 
 	return resp.TxResponse, nil
-}
-
-// SimulateMsgs simulates the execution of the given messages and returns the simulation response,
-// adjusted gas used, and any error encountered. It uses the provided gRPC client, encoding config,
-// account details, and chain ID to create a transaction factory for the simulation.
-func SimulateMsgs(
-	gasCalculator GasCalculator,
-	encodingConfig params.EncodingConfig,
-	account *authtypes.BaseAccount,
-	chainID string,
-	msgs []sdk.Msg,
-) (*txtypes.SimulateResponse, uint64, error) {
-	txFactory := txclient.Factory{}
-	txFactory = txFactory.WithTxConfig(encodingConfig.TxConfig)
-	txFactory = txFactory.WithAccountNumber(account.AccountNumber)
-	txFactory = txFactory.WithSequence(account.Sequence)
-	txFactory = txFactory.WithChainID(chainID)
-	txFactory = txFactory.WithGasAdjustment(1.15)
-
-	// Estimate transaction
-	gasResult, adjustedGasUsed, err := gasCalculator.CalculateGas(
-		txFactory,
-		msgs...,
-	)
-	if err != nil {
-		return nil, adjustedGasUsed, err
-	}
-
-	return gasResult, adjustedGasUsed, nil
 }
 
 // BuildSignatures creates a SignatureV2 object using the provided public key, signature, and sequence number.
