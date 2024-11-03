@@ -10,6 +10,7 @@ import (
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
 	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v27/app/params"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
@@ -20,6 +21,12 @@ import (
 
 // ProcessedOrderbook is order alias data structure for testing purposes.
 type ProcessedOrderbook = processedOrderbook
+
+var (
+	EncodingConfig = encodingConfig
+
+	DefaultEncodingConfigFn = defaultEncodingConfigFn
+)
 
 // ProcessOrderbooksAndGetClaimableOrders is test wrapper for processOrderbooksAndGetClaimableOrders.
 // This function is exported for testing purposes.
@@ -34,18 +41,19 @@ func ProcessOrderbooksAndGetClaimableOrders(
 
 // SendBatchClaimTx a test wrapper for sendBatchClaimTx.
 // This function is used only for testing purposes.
-func SendBatchClaimTx(
+func SendBatchClaimTxInternal(
 	ctx context.Context,
 	keyring keyring.Keyring,
 	txfeesClient txfeestypes.QueryClient,
-	gasCalculator sqstx.GasCalculator,
+	msgSimulator sqstx.MsgSimulator,
 	txServiceClient txtypes.ServiceClient,
 	chainID string,
 	account *authtypes.BaseAccount,
 	contractAddress string,
 	claims orderbookdomain.Orders,
+	getEncodingConfig func() params.EncodingConfig,
 ) (*sdk.TxResponse, error) {
-	return sendBatchClaimTx(ctx, keyring, txfeesClient, gasCalculator, txServiceClient, chainID, account, contractAddress, claims)
+	return sendBatchClaimTxInternal(ctx, keyring, txfeesClient, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, getEncodingConfig)
 }
 
 // PrepareBatchClaimMsg is a test wrapper for prepareBatchClaimMsg.
