@@ -173,7 +173,7 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, account *authtype
 			ctx,
 			o.config.Keyring,
 			o.config.TxfeesClient,
-			o.config.GasCalculator,
+			o.config.MsgSimulator,
 			o.config.TxServiceClient,
 			o.config.ChainID,
 			account,

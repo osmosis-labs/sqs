@@ -20,7 +20,7 @@ type Config struct {
 	OrderbookUsecase   mvc.OrderBookUsecase
 	AccountQueryClient authtypes.QueryClient
 	TxfeesClient       txfeestypes.QueryClient
-	GasCalculator      sqstx.GasCalculator
+	MsgSimulator       sqstx.MsgSimulator
 	TxServiceClient    txtypes.ServiceClient
 	ChainID            string
 	Logger             log.Logger
@@ -46,7 +46,7 @@ func NewConfig(
 		OrderbookUsecase:   orderbookusecase,
 		AccountQueryClient: authtypes.NewQueryClient(grpcClient),
 		TxfeesClient:       txfeestypes.NewQueryClient(grpcClient),
-		GasCalculator:      sqstx.NewGasCalculator(grpcClient),
+		MsgSimulator:       sqstx.NewGasCalculator(grpcClient, sqstx.CalculateGas),
 		TxServiceClient:    txtypes.NewServiceClient(grpcClient),
 		Logger:             logger.Named("claimbot"),
 		ChainID:            chainID,
