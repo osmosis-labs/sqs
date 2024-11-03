@@ -33,6 +33,35 @@ func SendTx(ctx context.Context, txServiceClient txtypes.ServiceClient, txBytes 
 	return resp.TxResponse, nil
 }
 
+// SimulateMsgs simulates the execution of the given messages and returns the simulation response,
+// adjusted gas used, and any error encountered. It uses the provided gRPC client, encoding config,
+// account details, and chain ID to create a transaction factory for the simulation.
+func SimulateMsgs(
+	gasCalculator GasCalculator,
+	encodingConfig params.EncodingConfig,
+	account *authtypes.BaseAccount,
+	chainID string,
+	msgs []sdk.Msg,
+) (*txtypes.SimulateResponse, uint64, error) {
+	txFactory := txclient.Factory{}
+	txFactory = txFactory.WithTxConfig(encodingConfig.TxConfig)
+	txFactory = txFactory.WithAccountNumber(account.AccountNumber)
+	txFactory = txFactory.WithSequence(account.Sequence)
+	txFactory = txFactory.WithChainID(chainID)
+	txFactory = txFactory.WithGasAdjustment(1.15)
+
+	// Estimate transaction
+	gasResult, adjustedGasUsed, err := gasCalculator.CalculateGas(
+		txFactory,
+		msgs...,
+	)
+	if err != nil {
+		return nil, adjustedGasUsed, err
+	}
+
+	return gasResult, adjustedGasUsed, nil
+}
+
 // BuildSignatures creates a SignatureV2 object using the provided public key, signature, and sequence number.
 // This is used in the process of building and signing transactions.
 func BuildSignatures(publicKey cryptotypes.PubKey, signature []byte, sequence uint64) signingtypes.SignatureV2 {

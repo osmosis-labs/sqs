@@ -172,7 +172,8 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, account *authtype
 		txres, err := sendBatchClaimTx(
 			ctx,
 			o.config.Keyring,
-			o.config.MsgSimulator,
+			o.config.TxfeesClient,
+			o.config.GasCalculator,
 			o.config.TxServiceClient,
 			o.config.ChainID,
 			account,

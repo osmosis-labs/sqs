@@ -25,7 +25,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
-	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/basefee"
 	orderbookclaimbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
 	orderbookfillbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot"
 	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"

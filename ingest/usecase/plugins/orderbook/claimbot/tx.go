@@ -9,21 +9,17 @@ import (
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
+	"github.com/osmosis-labs/osmosis/v26/app"
+	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/osmosis-labs/osmosis/v27/app"
-	"github.com/osmosis-labs/osmosis/v27/app/params"
 )
 
 var (
-	// Note: we monkey patch the encoding config in tests
-	encodingConfig params.EncodingConfig = app.MakeEncodingConfig()
-
-	defaultEncodingConfigFn = func() params.EncodingConfig {
-		return encodingConfig
-	}
+	encodingConfig = app.MakeEncodingConfig()
 )
 
 // sendBatchClaimTx prepares and sends a batch claim transaction to the blockchain.
@@ -31,31 +27,14 @@ var (
 func sendBatchClaimTx(
 	ctx context.Context,
 	keyring keyring.Keyring,
-	msgSimulator sqstx.MsgSimulator,
+	txfeesClient txfeestypes.QueryClient,
+	gasCalculator sqstx.GasCalculator,
 	txServiceClient txtypes.ServiceClient,
 	chainID string,
 	account *authtypes.BaseAccount,
 	contractAddress string,
 	claims orderbookdomain.Orders,
 ) (*sdk.TxResponse, error) {
-	return sendBatchClaimTxInternal(ctx, keyring, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, defaultEncodingConfigFn)
-}
-
-// sendBatchClaimTxInternal is a helper function that prepares and sends a batch claim transaction to the blockchain.
-// It takes an encoding config function as a parameter to allow for customization of the encoding config in tests.
-func sendBatchClaimTxInternal(
-	ctx context.Context,
-	keyring keyring.Keyring,
-	msgSimulator sqstx.MsgSimulator,
-	txServiceClient txtypes.ServiceClient,
-	chainID string,
-	account *authtypes.BaseAccount,
-	contractAddress string,
-	claims orderbookdomain.Orders,
-	getEncodingConfig func() params.EncodingConfig,
-) (*sdk.TxResponse, error) {
-	encodingConfig := getEncodingConfig()
-
 	address := keyring.GetAddress().String()
 
 	msgBytes, err := prepareBatchClaimMsg(claims)
@@ -65,7 +44,7 @@ func sendBatchClaimTxInternal(
 
 	msg := buildExecuteContractMsg(address, contractAddress, msgBytes)
 
-	tx, err := msgSimulator.BuildTx(ctx, keyring, encodingConfig, account, chainID, msg)
+	tx, err := sqstx.BuildTx(ctx, keyring, txfeesClient, gasCalculator, encodingConfig, account, chainID, msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build transaction: %w", err)
 	}
