@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- #524 - Claimbot
+
 ## v26.1.0
 
 e42b32bc SQS-412 | Active Orders Query: SSE (#518)
