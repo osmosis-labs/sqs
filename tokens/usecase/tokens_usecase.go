@@ -406,18 +406,8 @@ func (t *tokensUseCase) RegisterPricingStrategy(source domain.PricingSourceType,
 
 // IsValidChainDenom implements mvc.TokensUsecase.
 func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
-	metaData, ok := t.tokenMetadataByChainDenom.Load(chainDenom)
-	if !ok {
-		return false
-	}
-
-	v, ok := metaData.(domain.Token)
-	if !ok {
-		return false
-	}
-
-	// is valid only if token is found and is not unlisted
-	return !v.IsUnlisted
+	_, ok := t.tokenMetadataByChainDenom.Load(chainDenom)
+	return ok
 }
 
 // GetMinPoolLiquidityCap implements mvc.TokensUsecase.
@@ -465,4 +455,19 @@ func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, e
 	}
 
 	return v, nil
+}
+
+// IsValidListedDenom implements mvc.TokensUsecase.
+func (t *tokensUseCase) IsValidListedDenom(denom string) bool {
+	metaData, ok := t.tokenMetadataByChainDenom.Load(denom)
+	if !ok {
+		return false
+	}
+
+	v, ok := metaData.(domain.Token)
+	if !ok {
+		return false
+	}
+
+	return !v.IsUnlisted
 }

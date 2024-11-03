@@ -562,7 +562,7 @@ func (s *TokensUseCaseTestSuite) TestGetMinPoolLiquidityCap() {
 }
 
 // Test to validate valid chain denom works as expected.
-func (s *TokensUseCaseTestSuite) TestIsValidChainDenom() {
+func (s *TokensUseCaseTestSuite) TestIsValidListedDenom() {
 	testcases := []struct {
 		name           string
 		chainDenom     string
@@ -592,6 +592,53 @@ func (s *TokensUseCaseTestSuite) TestIsValidChainDenom() {
 			chainDenom:     "invalidtype",
 			tokens:         map[string]any{"invalidtype": 1},
 			expectedResult: false,
+		},
+	}
+
+	for _, tt := range testcases {
+		s.Run(tt.name, func() {
+			usecase := tokensusecase.NewTokensUsecase(nil, 0, nil)
+			for k, v := range tt.tokens {
+				usecase.SetTokenMetadataByChainDenom(k, v)
+			}
+
+			result := usecase.IsValidListedDenom(tt.chainDenom)
+			s.Require().Equal(tt.expectedResult, result)
+		})
+	}
+}
+
+// Test to validate valid chain denom works as expected.
+func (s *TokensUseCaseTestSuite) TestIsValidChainDenom() {
+	testcases := []struct {
+		name           string
+		chainDenom     string
+		tokens         map[string]any // domain.Token
+		expectedResult bool
+	}{
+		{
+			name:           "Valid chain denom",
+			chainDenom:     "validDenom",
+			tokens:         map[string]any{"validDenom": domain.Token{IsUnlisted: false}},
+			expectedResult: true,
+		},
+		{
+			name:           "Invalid chain denom - not found",
+			chainDenom:     "invalidDenom",
+			tokens:         map[string]any{"validDenom": domain.Token{IsUnlisted: false}},
+			expectedResult: false,
+		},
+		{
+			name:           "unlisted chain denom - still valid",
+			chainDenom:     "unlistedDenom",
+			tokens:         map[string]any{"unlistedDenom": domain.Token{IsUnlisted: true}},
+			expectedResult: true,
+		},
+		{
+			name:           "Invalid type - not a domain.Token (no type type chain denom)",
+			chainDenom:     "invalidtype",
+			tokens:         map[string]any{"invalidtype": 1},
+			expectedResult: true,
 		},
 	}
 

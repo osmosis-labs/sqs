@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Allow unlisted denoms in the /custom-direct-quote endpoint.
+
 ## v26.1.0
 
 e42b32bc SQS-412 | Active Orders Query: SSE (#518)
