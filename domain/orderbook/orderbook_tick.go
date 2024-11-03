@@ -53,3 +53,19 @@ type TickValues struct {
 	// sync.
 	LastTickSyncEtas string `json:"last_tick_sync_etas"`
 }
+
+// isTickFullyFilled checks if a tick is fully filled by comparing its cumulative total value
+// to its effective total amount swapped.
+func (tv *TickValues) IsTickFullyFilled() (bool, error) {
+	cumulativeTotalValue, err := osmomath.NewDecFromStr(tv.CumulativeTotalValue)
+	if err != nil {
+		return false, err
+	}
+
+	effectiveTotalAmountSwapped, err := osmomath.NewDecFromStr(tv.EffectiveTotalAmountSwapped)
+	if err != nil {
+		return false, err
+	}
+
+	return cumulativeTotalValue.Equal(effectiveTotalAmountSwapped), nil
+}

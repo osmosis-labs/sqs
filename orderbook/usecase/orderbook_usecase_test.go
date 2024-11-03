@@ -1074,3 +1074,120 @@ func (s *OrderbookUsecaseTestSuite) TestCreateFormattedLimitOrder() {
 		})
 	}
 }
+
+func (s *OrderbookUsecaseTestSuite) TestGetClaimableOrdersForOrderbook() {
+
+	newOrder := func(id int64, direction string) orderbookdomain.Order {
+		order := s.NewOrder()
+		order.OrderId = id
+		order.OrderDirection = direction
+		return order.Order
+	}
+
+	testCases := []struct {
+		name           string
+		setupMocks     func(orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock)
+		orderbook      domain.CanonicalOrderBooksResult
+		fillThreshold  osmomath.Dec
+		expectedOrders []orderbookdomain.ClaimableOrderbook
+		expectedError  bool
+	}{
+		{
+			name: "no ticks found for orderbook",
+			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
+				orderbookrepository.GetAllTicksFunc = func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
+					return nil, false
+				}
+			},
+			orderbook:     domain.CanonicalOrderBooksResult{PoolID: 1, ContractAddress: "osmo1contract"},
+			fillThreshold: osmomath.NewDec(80),
+			expectedError: true,
+		},
+		{
+			name: "error processing tick",
+			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
+				orderbookrepository.GetAllTicksFunc = func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
+					return map[int64]orderbookdomain.OrderbookTick{
+						1: s.NewTick("500", 100, "bid"),
+					}, true
+				}
+				client.GetOrdersByTickCb = func(ctx context.Context, contractAddress string, tickID int64) (orderbookdomain.Orders, error) {
+					return nil, assert.AnError
+				}
+			},
+			orderbook:     domain.CanonicalOrderBooksResult{PoolID: 1, ContractAddress: "osmo1contract"},
+			fillThreshold: osmomath.NewDec(80),
+			expectedOrders: []orderbookdomain.ClaimableOrderbook{
+				{
+					Tick:   s.NewTick("500", 100, "bid"),
+					Orders: nil,
+					Error:  assert.AnError,
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "successful retrieval of claimable orders",
+			setupMocks: func(orderbookrepository *mocks.OrderbookRepositoryMock, client *mocks.OrderbookGRPCClientMock, tokensusecase *mocks.TokensUsecaseMock) {
+
+				tokensusecase.GetSpotPriceScalingFactorByDenomFunc = s.GetSpotPriceScalingFactorByDenomFunc(1, nil)
+				orderbookrepository.GetAllTicksFunc = func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
+					return map[int64]orderbookdomain.OrderbookTick{
+						1: s.NewTick("500", 100, "all"),
+					}, true
+				}
+				client.GetOrdersByTickCb = func(ctx context.Context, contractAddress string, tickID int64) (orderbookdomain.Orders, error) {
+					return orderbookdomain.Orders{
+						newOrder(1, "bid"),
+						newOrder(2, "bid"),
+					}, nil
+				}
+				orderbookrepository.GetTickByIDFunc = s.GetTickByIDFunc(s.NewTick("500", 100, "bid"), true)
+			},
+			orderbook:     domain.CanonicalOrderBooksResult{PoolID: 1, ContractAddress: "osmo1contract"},
+			fillThreshold: osmomath.MustNewDecFromStr("0.3"),
+			expectedOrders: []orderbookdomain.ClaimableOrderbook{
+				{
+					Tick: s.NewTick("500", 100, "all"),
+					Orders: []orderbookdomain.ClaimableOrder{
+						{
+							Order: newOrder(1, "bid"),
+						},
+						{
+							Order: newOrder(2, "bid"),
+						},
+					},
+					Error: nil,
+				},
+			},
+			expectedError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// Create instances of the mocks
+			orderbookrepository := mocks.OrderbookRepositoryMock{}
+			client := mocks.OrderbookGRPCClientMock{}
+			tokensusecase := mocks.TokensUsecaseMock{}
+
+			if tc.setupMocks != nil {
+				tc.setupMocks(&orderbookrepository, &client, &tokensusecase)
+			}
+
+			// Setup the mocks according to the test case
+			usecase := orderbookusecase.New(&orderbookrepository, &client, nil, &tokensusecase, &log.NoOpLogger{})
+
+			// Call the method under test
+			orders, err := usecase.GetClaimableOrdersForOrderbook(context.Background(), tc.fillThreshold, tc.orderbook)
+
+			// Assert the results
+			if tc.expectedError {
+				s.Assert().Error(err)
+			} else {
+				s.Assert().NoError(err)
+				s.Assert().Equal(tc.expectedOrders, orders)
+			}
+		})
+	}
+}

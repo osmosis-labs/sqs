@@ -3,6 +3,7 @@ package mvc
 import (
 	"context"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	"github.com/osmosis-labs/sqs/sqsdomain"
@@ -25,4 +26,9 @@ type OrderBookUsecase interface {
 
 	// CreateFormattedLimitOrder creates a formatted limit order from the given orderbook and order.
 	CreateFormattedLimitOrder(orderbook domain.CanonicalOrderBooksResult, order orderbookdomain.Order) (orderbookdomain.LimitOrder, error)
+
+	// GetClaimableOrdersForOrderbook retrieves all claimable orders for a given orderbook.
+	// It fetches all ticks for the orderbook, processes each tick to find claimable orders,
+	// and returns a combined list of all claimable orders across all ticks.
+	GetClaimableOrdersForOrderbook(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) ([]orderbookdomain.ClaimableOrderbook, error)
 }
