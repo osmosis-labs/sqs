@@ -37,6 +37,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+- #547 - Add /quote simulation for "out given in" single routes.
 - #526 - Refactor gas estimation APIs
 - #524 - Claimbot
 
