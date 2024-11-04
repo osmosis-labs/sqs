@@ -72,6 +72,9 @@ type Quote interface {
 	// for the tokens. In that case, we invalidate spot price by setting it to zero.
 	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]SplitRoute, osmomath.Dec, error)
 
+	// SetQuotePriceInfo sets the quote price info.
+	SetQuotePriceInfo(info *QuotePriceInfo)
+
 	String() string
 }
 

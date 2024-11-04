@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/labstack/echo/v4"
 	"github.com/osmosis-labs/sqs/domain"
@@ -67,6 +68,36 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_in_response.json"),
+		},
+		{
+			name: "valid exact in request (simulated)",
+			queryParams: map[string]string{
+				"tokenIn":                     "1000ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5",
+				"tokenOutDenom":               "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+				"singleRoute":                 "true",
+				"applyExponents":              "true",
+				"simulatorAddress":            "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+				"simulationSlippageTolerance": "1.01",
+			},
+			handler: &routerdelivery.RouterHandler{
+				TUsecase: &mocks.TokensUsecaseMock{
+					IsValidChainDenomFunc: func(chainDenom string) bool {
+						return true
+					},
+				},
+				RUsecase: &mocks.RouterUsecaseMock{
+					GetOptimalQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+						return s.NewExactAmountInQuote(poolOne, poolTwo, poolThree), nil
+					},
+				},
+				QuoteSimulator: &mocks.QuoteSimulatorMock{
+					SimulateQuoteFn: func(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) (uint64, sdk.Coin, error) {
+						return 1_000_000, sdk.NewCoin("uosmo", math.NewInt(1000)), nil
+					},
+				},
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_in_response_simulated.json"),
 		},
 		{
 			name: "valid exact out request",

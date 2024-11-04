@@ -33,13 +33,15 @@ class Route:
 # QuoteExactAmountInResponse represents the response format
 # of the /router/quote endpoint for Exact Amount In Quote.
 class QuoteExactAmountInResponse:
-    def __init__(self, amount_in, amount_out, route, effective_fee, price_impact, in_base_out_quote_spot_price):
+    def __init__(self, amount_in, amount_out, route, effective_fee, price_impact, in_base_out_quote_spot_price, price_info=None):
         self.amount_in = Coin(**amount_in)
         self.amount_out = int(amount_out)
         self.route = [Route(**r) for r in route]
         self.effective_fee = Decimal(effective_fee)
         self.price_impact = Decimal(price_impact)
         self.in_base_out_quote_spot_price = Decimal(in_base_out_quote_spot_price)
+        if price_info:
+            self.price_info = price_info
 
     def get_pool_ids(self):
         pool_ids = []

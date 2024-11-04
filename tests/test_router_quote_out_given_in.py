@@ -83,7 +83,6 @@ class TestExactAmountInQuote:
 
         # Set the token in coin
         token_in_coin = amount_str + USDC
-
         # Run the quote test
         quote =  ExactAmountInQuote.run_quote_test(environment_url, token_in_coin, denom_out, False, False, EXPECTED_LATENCY_UPPER_BOUND_MS)
 
@@ -287,3 +286,26 @@ class TestExactAmountInQuote:
         amount_out_diff = relative_error(expected_amount_out, amount_out)
         assert amount_out_diff < error_tolerance, \
             f"Error: difference between calculated and actual amount out is {amount_out_diff} which is greater than {error_tolerance}"
+
+
+    def test_simulation_slippage_tolerance(self, environment_url):
+        """
+        This test validates that the simulation slippage tolerance is working as expected.
+        """
+        token_in_coin = "1000000uosmo"
+        denom_out = "uion"
+
+        expected_status_code = 200
+
+        # Fillbot address and slippage tolerance
+        # We choose fillbot address because we expect it to have at least one OSMO.
+        fillbot_address = "osmo10s3vlv40h64qs2p98yal9w0tpm4r30uyg6ceux"
+        # Note: relaxed
+        simulation_slippage_tolerance = 0.8
+
+                # Run the quote test
+        quote =  ExactAmountInQuote.run_quote_test(environment_url, token_in_coin, denom_out, False, True, EXPECTED_LATENCY_UPPER_BOUND_MS, expected_status_code, fillbot_address,  simulation_slippage_tolerance)
+
+        # Validate that the price info is set to something
+        assert quote is not None
+        assert quote.price_info is not None

@@ -9,11 +9,16 @@ import (
 	distribution "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	math "github.com/osmosis-labs/osmosis/osmomath"
+<<<<<<< HEAD
 	concentratedLiquidity "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/client/queryproto"
 	lockup "github.com/osmosis-labs/osmosis/v27/x/lockup/types"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+=======
+	concentratedLiquidity "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/client/queryproto"
+	lockup "github.com/osmosis-labs/osmosis/v26/x/lockup/types"
+	polarisgrpc "github.com/osmosis-labs/sqs/delivery/grpc"
+>>>>>>> f2931d8 (feat: simulate swap as part of quotes (#547))
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // PassthroughGRPCClient represents the GRPC client for the passthrough module to query the chain.
@@ -40,7 +45,7 @@ type PassthroughGRPCClient interface {
 	// DelegationTotalRewards returns the total unclaimed staking rewards accrued of the user with the given address.
 	DelegationRewards(ctx context.Context, address string) (sdk.Coins, error)
 
-	GetChainGRPCClient() *grpc.ClientConn
+	GetChainGRPCClient() grpc.ClientConnInterface
 }
 
 type PassthroughFetchFn func(context.Context, string) (sdk.Coins, error)
@@ -57,7 +62,7 @@ type passthroughGRPCClient struct {
 	concentratedLiquidityQueryClient concentratedLiquidity.QueryClient
 	distributionClient               distribution.QueryClient
 
-	chainGRPCClient *grpc.ClientConn
+	chainGRPCClient grpc.ClientConnInterface
 }
 
 const (
@@ -69,10 +74,7 @@ var (
 )
 
 func NewPassthroughGRPCClient(grpcURI string) (PassthroughGRPCClient, error) {
-	grpcClient, err := grpc.NewClient(grpcURI,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
-	)
+	grpcClient, err := polarisgrpc.NewClient(grpcURI)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +201,7 @@ func (p *passthroughGRPCClient) DelegationRewards(ctx context.Context, address s
 }
 
 // GetChainGRPCClient implements PassthroughGRPCClient.
-func (p *passthroughGRPCClient) GetChainGRPCClient() *grpc.ClientConn {
+func (p *passthroughGRPCClient) GetChainGRPCClient() grpc.ClientConnInterface {
 	return p.chainGRPCClient
 }
 
