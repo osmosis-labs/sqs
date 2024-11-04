@@ -79,6 +79,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	span := trace.SpanFromContext(ctx)
 	defer func() {
 		if r := recover(); r != nil {
+			// nolint:errcheck // ignore error
 			c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: fmt.Sprintf("panic: %v", r)})
 		}
 
