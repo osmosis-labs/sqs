@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v26/app/params"
 	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
@@ -35,10 +34,10 @@ func NewQuoteSimulator(msgSimulator tx.MsgSimulator, encodingConfig params.Encod
 }
 
 // SimulateQuote implements domain.QuoteSimulator
-func (q *quoteSimulator) SimulateQuote(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) (uint64, sdk.Coin, error) {
+func (q *quoteSimulator) SimulateQuote(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) domain.QuotePriceInfo {
 	route := quote.GetRoute()
 	if len(route) != 1 {
-		return 0, sdk.Coin{}, fmt.Errorf("route length must be 1, got %d", len(route))
+		return domain.QuotePriceInfo{Err: fmt.Sprintf("route length must be 1, got %d", len(route))}
 	}
 
 	poolsInRoute := route[0].GetPools()
@@ -67,16 +66,11 @@ func (q *quoteSimulator) SimulateQuote(ctx context.Context, quote domain.Quote, 
 	// Get the account for the simulator address
 	baseAccount, err := q.accountQueryClient.GetAccount(ctx, simulatorAddress)
 	if err != nil {
-		return 0, sdk.Coin{}, err
+		return domain.QuotePriceInfo{Err: err.Error()}
 	}
 
 	// Price the message
-	gasAdjusted, feeCoin, err := q.msgSimulator.PriceMsgs(ctx, q.txFeesClient, q.encodingConfig.TxConfig, baseAccount, q.chainID, swapMsg)
-	if err != nil {
-		return 0, sdk.Coin{}, err
-	}
-
-	return gasAdjusted, feeCoin, nil
+	return q.msgSimulator.PriceMsgs(ctx, q.txFeesClient, q.encodingConfig.TxConfig, baseAccount, q.chainID, swapMsg)
 }
 
 var _ domain.QuoteSimulator = &quoteSimulator{}

@@ -9,6 +9,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/osmosis-labs/osmosis/v26/app/params"
 	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/sqs/domain"
 	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 )
@@ -38,7 +39,7 @@ type MsgSimulatorMock struct {
 		account *authtypes.BaseAccount,
 		chainID string,
 		msg ...sdk.Msg,
-	) (uint64, sdk.Coin, error)
+	) domain.QuotePriceInfo
 }
 
 var _ sqstx.MsgSimulator = &MsgSimulatorMock{}
@@ -74,7 +75,7 @@ func (m *MsgSimulatorMock) PriceMsgs(ctx context.Context, txfeesClient txfeestyp
 	ProtoMessage()
 	Reset()
 	String() string
-}) (uint64, sdk.Coin, error) {
+}) domain.QuotePriceInfo {
 	if m.PriceMsgsFn != nil {
 		return m.PriceMsgsFn(ctx, txfeesClient, encodingConfig, account, chainID, msg...)
 	}

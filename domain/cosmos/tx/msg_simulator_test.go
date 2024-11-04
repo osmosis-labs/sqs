@@ -121,6 +121,8 @@ func TestBuildTx(t *testing.T) {
 			name: "Error building transaction",
 			setupMocks: func(calculator mocks.GetCalculateGasMock, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) tx.CalculateGasFn {
 				keyring.WithGetKey(testKey)
+				txFeesClient.WithBaseDenom(testDenom, nil)
+				txFeesClient.WithGetEipBaseFee(testBaseFee, nil)
 				return calculator(&txtypes.SimulateResponse{}, testGasUsed, assert.AnError)
 			},
 			account: &authtypes.BaseAccount{
@@ -173,6 +175,7 @@ func TestPriceMsgs(t *testing.T) {
 		msgs            []sdk.Msg
 		expectedGas     uint64
 		expectedFeeCoin sdk.Coin
+		expectedBaseFee osmomath.Dec
 		expectedError   bool
 	}{
 		{
@@ -189,19 +192,25 @@ func TestPriceMsgs(t *testing.T) {
 			msgs:            []sdk.Msg{testMsg},
 			expectedGas:     testGasUsed,
 			expectedFeeCoin: sdk.Coin{Denom: testDenom, Amount: osmomath.NewInt(testAmount)},
+			expectedBaseFee: osmomath.NewDecWithPrec(1, 1),
 			expectedError:   false,
 		},
 		{
 			name: "Error building transaction",
 			setupMocks: func(calculator mocks.GetCalculateGasMock, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) tx.CalculateGasFn {
 				keyring.WithGetKey(testKey)
+				txFeesClient.WithBaseDenom(testDenom, nil)
+				txFeesClient.WithGetEipBaseFee(testBaseFee, nil)
+
 				return calculator(&txtypes.SimulateResponse{}, testGasUsed, assert.AnError)
 			},
 			account: &authtypes.BaseAccount{
 				Sequence:      8,
 				AccountNumber: 51,
 			},
-			expectedError: true,
+			expectedFeeCoin: sdk.Coin{},
+			expectedBaseFee: osmomath.Dec{},
+			expectedError:   true,
 		},
 		{
 			name: "Error calculating fee coin",
@@ -211,11 +220,13 @@ func TestPriceMsgs(t *testing.T) {
 
 				return calculator(&txtypes.SimulateResponse{GasInfo: &sdk.GasInfo{GasUsed: 100000}}, testGasUsed, nil)
 			},
-			account:       testAccount,
-			chainID:       testChainID,
-			msgs:          []sdk.Msg{testMsg},
-			expectedGas:   testGasUsed,
-			expectedError: true,
+			account:         testAccount,
+			chainID:         testChainID,
+			msgs:            []sdk.Msg{testMsg},
+			expectedGas:     testGasUsed,
+			expectedFeeCoin: sdk.Coin{},
+			expectedBaseFee: osmomath.Dec{},
+			expectedError:   true,
 		},
 	}
 
@@ -227,7 +238,7 @@ func TestPriceMsgs(t *testing.T) {
 			calculateGasFnMock := tc.setupMocks(mocks.DefaultGetCalculateGasMock, &txFeesClient, &keyring)
 			msgSimulator := tx.NewGasCalculator(nil, calculateGasFnMock)
 
-			gasUsed, feeCoin, err := msgSimulator.PriceMsgs(
+			priceInfo := msgSimulator.PriceMsgs(
 				context.Background(),
 				&txFeesClient,
 				encodingConfig.TxConfig,
@@ -237,13 +248,14 @@ func TestPriceMsgs(t *testing.T) {
 			)
 
 			if tc.expectedError {
-				assert.Error(t, err)
-				assert.Equal(t, uint64(0), gasUsed)
-				assert.Equal(t, sdk.Coin{}, feeCoin)
+				assert.NotEmpty(t, priceInfo.Err)
+				assert.Equal(t, priceInfo.AdjustedGasUsed, uint64(0))
+				assert.Equal(t, priceInfo.FeeCoin, sdk.Coin{})
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tc.expectedGas, gasUsed)
-				assert.Equal(t, tc.expectedFeeCoin, feeCoin)
+				assert.Empty(t, priceInfo.Err)
+				assert.Equal(t, tc.expectedGas, priceInfo.AdjustedGasUsed)
+				assert.Equal(t, tc.expectedFeeCoin, priceInfo.FeeCoin)
+				assert.Equal(t, tc.expectedBaseFee, priceInfo.BaseFee)
 			}
 		})
 	}

@@ -10,6 +10,7 @@ import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/labstack/echo/v4"
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	routerdelivery "github.com/osmosis-labs/sqs/router/delivery/http"
@@ -91,8 +92,12 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 					},
 				},
 				QuoteSimulator: &mocks.QuoteSimulatorMock{
-					SimulateQuoteFn: func(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) (uint64, sdk.Coin, error) {
-						return 1_000_000, sdk.NewCoin("uosmo", math.NewInt(1000)), nil
+					SimulateQuoteFn: func(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) domain.QuotePriceInfo {
+						return domain.QuotePriceInfo{
+							AdjustedGasUsed: 1_000_000,
+							FeeCoin:         sdk.NewCoin("uosmo", math.NewInt(1000)),
+							BaseFee:         osmomath.NewDecWithPrec(5, 1),
+						}
 					},
 				},
 			},

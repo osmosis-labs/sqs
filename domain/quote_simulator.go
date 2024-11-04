@@ -14,10 +14,12 @@ type QuoteSimulator interface {
 	// - Only direct (non-split) quotes are supported.
 	// Retursn error if:
 	// - Simulator address does not have enough funds to pay for the quote.
-	SimulateQuote(ctx context.Context, quote Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) (uint64, sdk.Coin, error)
+	SimulateQuote(ctx context.Context, quote Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) QuotePriceInfo
 }
 
 type QuotePriceInfo struct {
-	AdjustedGasUsed uint64   `json:"adjusted_gas_used"`
-	FeeCoin         sdk.Coin `json:"fee_coin"`
+	AdjustedGasUsed uint64       `json:"adjusted_gas_used"`
+	FeeCoin         sdk.Coin     `json:"fee_coin"`
+	BaseFee         osmomath.Dec `json:"base_fee"`
+	Err             string       `json:"error"`
 }
