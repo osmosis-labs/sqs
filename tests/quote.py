@@ -117,7 +117,7 @@ class ExactAmountInQuote:
 
         return expected_in_base_out_quote_price, expected_token_in, token_in_amount_usdc_value
 
-    def run_quote_test(environment_url, token_in, token_out, human_denoms, single_route, expected_latency_upper_bound_ms, expected_status_code=200) -> QuoteExactAmountInResponse:
+    def run_quote_test(environment_url, token_in, token_out, human_denoms, single_route, expected_latency_upper_bound_ms, expected_status_code=200, simulator_address="", simulation_slippage_tolerance="") -> QuoteExactAmountInResponse:
         """
         Runs a test for the /router/quote endpoint with the given input parameters.
 
@@ -130,7 +130,7 @@ class ExactAmountInQuote:
         - Latency is under the given bound
         """
         
-        service_call = lambda: conftest.SERVICE_MAP[environment_url].get_exact_amount_in_quote(token_in, token_out, human_denoms, single_route)        
+        service_call = lambda: conftest.SERVICE_MAP[environment_url].get_exact_amount_in_quote(token_in, token_out, human_denoms, single_route, simulator_address, simulation_slippage_tolerance)        
 
         response = Quote.run_quote_test(service_call, expected_latency_upper_bound_ms, expected_status_code)
 
