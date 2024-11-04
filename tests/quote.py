@@ -135,7 +135,13 @@ class ExactAmountInQuote:
         response = Quote.run_quote_test(service_call, expected_latency_upper_bound_ms, expected_status_code)
 
         # Return route for more detailed validation
-        return QuoteExactAmountInResponse(**response)
+        quote_response = QuoteExactAmountInResponse(**response)
+
+        price_info = response.get("price_info")
+        if price_info:
+            quote_response.price_info = price_info
+
+        return quote_response
 
     @staticmethod
     def validate_quote_test(quote, expected_amount_in_str, expected_denom_in, spot_price_scaling_factor, expected_in_base_out_quote_price, expected_token_out, denom_out, error_tolerance, direct_quote=False):

@@ -53,14 +53,14 @@ func (q *quoteSimulator) SimulateQuote(ctx context.Context, quote domain.Quote, 
 	}
 
 	// Slippage bound from the token in and provided slippage tolerance multiplier
-	tokenIn := quote.GetAmountIn()
-	slippageBound := tokenIn.Amount.ToLegacyDec().Mul(slippageToleranceMultiplier).TruncateInt()
+	tokenOutAmt := quote.GetAmountOut()
+	slippageBound := tokenOutAmt.ToLegacyDec().Mul(slippageToleranceMultiplier).TruncateInt()
 
 	// Create the swap message
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
 		Sender:            simulatorAddress,
 		Routes:            poolManagerRoute,
-		TokenIn:           tokenIn,
+		TokenIn:           quote.GetAmountIn(),
 		TokenOutMinAmount: slippageBound,
 	}
 

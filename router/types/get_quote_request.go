@@ -58,9 +58,6 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 
 	simulatorAddress := c.QueryParam("simulatorAddress")
 	slippageToleranceStr := c.QueryParam("simulationSlippageTolerance")
-	if err != nil {
-		return err
-	}
 
 	slippageToleranceDec, err := validateSimulationParams(r.SwapMethod(), simulatorAddress, slippageToleranceStr)
 	if err != nil {
@@ -80,7 +77,7 @@ func validateSimulationParams(swapMethod domain.TokenSwapMethod, simulatorAddres
 	if simulatorAddress != "" {
 		_, err := sdk.AccAddressFromBech32(simulatorAddress)
 		if err != nil {
-			return osmomath.Dec{}, fmt.Errorf("simulator address is not valid: %w", err)
+			return osmomath.Dec{}, fmt.Errorf("simulator address is not valid: (%s) (%w)", simulatorAddress, err)
 		}
 
 		// Validate that simulation is only requested for "out given in" swap method.
