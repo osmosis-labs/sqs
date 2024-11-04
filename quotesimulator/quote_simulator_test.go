@@ -52,6 +52,11 @@ func TestSimulateQuote(t *testing.T) {
 				GetAmountInFunc: func() sdk.Coin {
 					return uosmoCoinIn
 				},
+
+				GetAmountOutFunc: func() math.Int {
+					return osmomath.NewInt(200000)
+				},
+
 				GetRouteFunc: func() []domain.SplitRoute {
 					return []domain.SplitRoute{
 						&mocks.RouteMock{

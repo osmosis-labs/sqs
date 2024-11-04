@@ -10,8 +10,9 @@ import (
 )
 
 type MockQuote struct {
-	GetAmountInFunc func() types.Coin
-	GetRouteFunc    func() []domain.SplitRoute
+	GetAmountInFunc  func() types.Coin
+	GetAmountOutFunc func() math.Int
+	GetRouteFunc     func() []domain.SplitRoute
 }
 
 // GetAmountIn implements domain.Quote.
@@ -25,6 +26,10 @@ func (m *MockQuote) GetAmountIn() types.Coin {
 
 // GetAmountOut implements domain.Quote.
 func (m *MockQuote) GetAmountOut() math.Int {
+	if m.GetAmountOutFunc != nil {
+		return m.GetAmountOutFunc()
+	}
+
 	panic("unimplemented")
 }
 
