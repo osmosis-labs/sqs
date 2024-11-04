@@ -38,7 +38,7 @@ definitions:
   github_com_cosmos_cosmos-sdk_types.Coin:
     properties:
       amount:
-        $ref: '#/definitions/types.Int'
+        $ref: '#/definitions/math.Int'
       denom:
         type: string
     type: object
@@ -142,6 +142,8 @@ definitions:
           $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.LimitOrder'
         type: array
     type: object
+  math.Int:
+    type: object
   sqsdomain.CandidatePool:
     properties:
       id:
@@ -170,8 +172,6 @@ definitions:
         additionalProperties:
           type: object
         type: object
-    type: object
-  types.Int:
     type: object
 info:
   contact: {}
@@ -407,6 +407,16 @@ paths:
         in: query
         name: applyExponents
         type: boolean
+      - description: Address of the simulator to simulate the quote. If provided,
+          the quote will be simulated.
+        in: query
+        name: simulatorAddress
+        type: string
+      - description: Slippage tolerance multiplier for the simulation. If simulatorAddress
+          is provided, this must be provided.
+        in: query
+        name: simulationSlippageTolerance
+        type: string
       produces:
       - application/json
       responses:

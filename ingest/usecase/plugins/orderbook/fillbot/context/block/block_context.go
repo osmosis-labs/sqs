@@ -58,7 +58,7 @@ type BlockGasPrice struct {
 var _ BlockCtxI = &blockContext{}
 
 // New creates a new block context.
-func New(ctx context.Context, chainGRPCClient *grpc.ClientConn, uniqueDenoms []string, orderBookDenomPrices domain.PricesResult, userBalances sdk.Coins, defaultQuoteDenom string, blockHeight uint64) (*blockContext, error) {
+func New(ctx context.Context, chainGRPCClient grpc.ClientConnInterface, uniqueDenoms []string, orderBookDenomPrices domain.PricesResult, userBalances sdk.Coins, defaultQuoteDenom string, blockHeight uint64) (*blockContext, error) {
 	blockCtx := blockContext{
 		Context:     ctx,
 		txContext:   txctx.New(),

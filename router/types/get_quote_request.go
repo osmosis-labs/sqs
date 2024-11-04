@@ -1,6 +1,9 @@
 package types
 
 import (
+	"fmt"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -9,13 +12,15 @@ import (
 
 // GetQuoteRequest represents swap quote request for the /router/quote endpoint.
 type GetQuoteRequest struct {
-	TokenIn        *sdk.Coin
-	TokenOutDenom  string
-	TokenOut       *sdk.Coin
-	TokenInDenom   string
-	SingleRoute    bool
-	HumanDenoms    bool
-	ApplyExponents bool
+	TokenIn                     *sdk.Coin
+	TokenOutDenom               string
+	TokenOut                    *sdk.Coin
+	TokenInDenom                string
+	SingleRoute                 bool
+	SimulatorAddress            string
+	SlippageToleranceMultiplier osmomath.Dec
+	HumanDenoms                 bool
+	ApplyExponents              bool
 }
 
 // UnmarshalHTTPRequest unmarshals the HTTP request to GetQuoteRequest.
@@ -51,7 +56,56 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	r.TokenInDenom = c.QueryParam("tokenInDenom")
 	r.TokenOutDenom = c.QueryParam("tokenOutDenom")
 
+	simulatorAddress := c.QueryParam("simulatorAddress")
+	slippageToleranceStr := c.QueryParam("simulationSlippageTolerance")
+
+	slippageToleranceDec, err := validateSimulationParams(r.SwapMethod(), simulatorAddress, slippageToleranceStr)
+	if err != nil {
+		return err
+	}
+
+	r.SimulatorAddress = simulatorAddress
+	r.SlippageToleranceMultiplier = slippageToleranceDec
+
 	return nil
+}
+
+// validateSimulationParams validates the simulation parameters.
+// Returns error if the simulation parameters are invalid.
+// Returns slippage tolerance if it's valid.
+func validateSimulationParams(swapMethod domain.TokenSwapMethod, simulatorAddress string, slippageToleranceStr string) (osmomath.Dec, error) {
+	if simulatorAddress != "" {
+		_, err := sdk.AccAddressFromBech32(simulatorAddress)
+		if err != nil {
+			return osmomath.Dec{}, fmt.Errorf("simulator address is not valid: (%s) (%w)", simulatorAddress, err)
+		}
+
+		// Validate that simulation is only requested for "out given in" swap method.
+		if swapMethod != domain.TokenSwapMethodExactIn {
+			return osmomath.Dec{}, fmt.Errorf("only 'out given in' swap method is supported for simulation")
+		}
+
+		if slippageToleranceStr == "" {
+			return osmomath.Dec{}, fmt.Errorf("slippage tolerance is required for simulation")
+		}
+
+		slippageTolerance, err := osmomath.NewDecFromStr(slippageToleranceStr)
+		if err != nil {
+			return osmomath.Dec{}, fmt.Errorf("slippage tolerance is not valid: %w", err)
+		}
+
+		if slippageTolerance.LTE(osmomath.ZeroDec()) {
+			return osmomath.Dec{}, fmt.Errorf("slippage tolerance must be greater than 0")
+		}
+
+		return slippageTolerance, nil
+	} else {
+		if slippageToleranceStr != "" {
+			return osmomath.Dec{}, fmt.Errorf("slippage tolerance is not supported without simulator address")
+		}
+	}
+
+	return osmomath.Dec{}, nil
 }
 
 // SwapMethod returns the swap method of the request.

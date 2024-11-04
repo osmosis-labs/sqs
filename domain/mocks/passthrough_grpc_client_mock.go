@@ -20,7 +20,7 @@ type PassthroughGRPCClientMock struct {
 }
 
 // GetChainGRPCClient implements passthroughdomain.PassthroughGRPCClient.
-func (p *PassthroughGRPCClientMock) GetChainGRPCClient() *grpc.ClientConn {
+func (p *PassthroughGRPCClientMock) GetChainGRPCClient() grpc.ClientConnInterface {
 	panic("unimplemented")
 }
 
