@@ -9,8 +9,8 @@ import (
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
-	"github.com/osmosis-labs/osmosis/v26/app"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v27/app"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"

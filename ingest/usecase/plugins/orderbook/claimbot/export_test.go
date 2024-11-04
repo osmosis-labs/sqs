@@ -9,7 +9,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
