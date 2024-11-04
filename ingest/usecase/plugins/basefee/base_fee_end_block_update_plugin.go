@@ -27,7 +27,6 @@ func NewEndBlockUpdatePlugin(routerRepository routerrepo.RouterRepository, txfee
 
 // ProcessEndBlock calculates the base fee for the current block and updates the router repository with the new base fee.
 func (p *baseFeeEndBlockUpdatePlugin) ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) error {
-
 	baseFee, err := tx.CalculateFeePrice(ctx, p.txfeesClient)
 	if err != nil {
 		p.logger.Error("failed to calculate fee price", zap.Error(err))
