@@ -72,7 +72,7 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 // @Param  humanDenoms     query  bool    true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
 // @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
 // @Param  simulatorAddress query string false "Address of the simulator to simulate the quote. If provided, the quote will be simulated."
-// @Param  slippageToleranceMultiplier query string false "Slippage tolerance multiplier for the simulation. If simulatorAddress is provided, this must be provided."
+// @Param  simulationSlippageTolerance query string false "Slippage tolerance multiplier for the simulation. If simulatorAddress is provided, this must be provided."
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/quote [get]
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {

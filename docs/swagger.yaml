@@ -415,7 +415,7 @@ paths:
       - description: Slippage tolerance multiplier for the simulation. If simulatorAddress
           is provided, this must be provided.
         in: query
-        name: slippageToleranceMultiplier
+        name: simulationSlippageTolerance
         type: string
       produces:
       - application/json

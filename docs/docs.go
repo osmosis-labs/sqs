@@ -309,7 +309,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Slippage tolerance multiplier for the simulation. If simulatorAddress is provided, this must be provided.",
-                        "name": "slippageToleranceMultiplier",
+                        "name": "simulationSlippageTolerance",
                         "in": "query"
                     }
                 ],
