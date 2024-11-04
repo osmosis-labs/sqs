@@ -41,9 +41,16 @@ type routerRepo struct {
 	takerFeeMap              sync.Map
 	candidateRouteSearchData sync.Map
 
-	baseFeeMx sync.RWMutex
-	baseFee   domain.BaseFee
+func New(logger log.Logger) RouterRepository {
+	return &routerRepo{
+		takerFeeMap:              sync.Map{},
+		candidateRouteSearchData: sync.Map{},
+		baseFeeMx:               sync.RWMutex{},
+		baseFee:                 domain.BaseFee{}, // Initialize with zero value or appropriate default
 
+		logger: logger,
+	}
+}
 	logger log.Logger
 }
 
