@@ -19,7 +19,6 @@ type GetQuoteRequest struct {
 	SingleRoute                 bool
 	SimulatorAddress            string
 	SlippageToleranceMultiplier osmomath.Dec
-	AppendBaseFee               bool
 	HumanDenoms                 bool
 	ApplyExponents              bool
 }
@@ -67,11 +66,6 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 
 	r.SimulatorAddress = simulatorAddress
 	r.SlippageToleranceMultiplier = slippageToleranceDec
-
-	r.AppendBaseFee, err = domain.ParseBooleanQueryParam(c, "appendBaseFee")
-	if err != nil {
-		return err
-	}
 
 	return nil
 }

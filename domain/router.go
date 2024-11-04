@@ -73,7 +73,7 @@ type Quote interface {
 	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]SplitRoute, osmomath.Dec, error)
 
 	// SetQuotePriceInfo sets the quote price info.
-	SetQuotePriceInfo(info *TxFeeInfo)
+	SetQuotePriceInfo(info *QuotePriceInfo)
 
 	String() string
 }

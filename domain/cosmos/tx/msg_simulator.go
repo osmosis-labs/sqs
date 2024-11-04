@@ -38,6 +38,17 @@ type MsgSimulator interface {
 		chainID string,
 		msgs []sdk.Msg,
 	) (*txtypes.SimulateResponse, uint64, error)
+
+	// PriceMsgs simulates the execution of the given messages and returns the gas used and the fee coin,
+	// which is the fee amount in the base denomination.
+	PriceMsgs(
+		ctx context.Context,
+		txfeesClient txfeestypes.QueryClient,
+		encodingConfig cosmosclient.TxConfig,
+		account *authtypes.BaseAccount,
+		chainID string,
+		msg ...sdk.Msg,
+	) (uint64, sdk.Coin, error)
 }
 
 // NewGasCalculator creates a new GasCalculator instance.
@@ -79,23 +90,13 @@ func (c *txGasCalulator) BuildTx(
 		return nil, err
 	}
 
-	_, gas, err := c.SimulateMsgs(
-		encodingConfig.TxConfig,
-		account,
-		chainID,
-		msg,
-	)
-	if err != nil {
-		return nil, err
-	}
-	txBuilder.SetGasLimit(gas)
-
-	feecoin, err := CalculateFeeCoin(ctx, txfeesClient, gas)
+	gasAdjusted, feecoin, err := c.PriceMsgs(ctx, txfeesClient, encodingConfig.TxConfig, account, chainID, msg...)
 	if err != nil {
 		return nil, err
 	}
 
-	txBuilder.SetFeeAmount(sdk.NewCoins(feecoin))
+	txBuilder.SetGasLimit(gasAdjusted)
+	txBuilder.SetFeeAmount(sdk.Coins{feecoin})
 
 	sigV2 := BuildSignatures(privKey.PubKey(), nil, account.Sequence)
 	err = txBuilder.SetSignatures(sigV2)
@@ -141,6 +142,26 @@ func (c *txGasCalulator) SimulateMsgs(encodingConfig cosmosclient.TxConfig, acco
 	}
 
 	return gasResult, adjustedGasUsed, nil
+}
+
+// PriceMsgs implements MsgSimulator.
+func (c *txGasCalulator) PriceMsgs(ctx context.Context, txfeesClient txfeestypes.QueryClient, encodingConfig cosmosclient.TxConfig, account *authtypes.BaseAccount, chainID string, msg ...sdk.Msg) (uint64, sdk.Coin, error) {
+	_, gasAdjusted, err := c.SimulateMsgs(
+		encodingConfig,
+		account,
+		chainID,
+		msg,
+	)
+	if err != nil {
+		return 0, sdk.Coin{}, err
+	}
+
+	feeCoin, err := CalculateFeeCoin(ctx, txfeesClient, gasAdjusted)
+	if err != nil {
+		return 0, sdk.Coin{}, err
+	}
+
+	return gasAdjusted, feeCoin, nil
 }
 
 // CalculateGas calculates the gas required for a transaction using the provided transaction factory and messages.
