@@ -20,12 +20,16 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/osmosis-labs/osmosis/v26/app"
+	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
 	orderbookclaimbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
 	orderbookfillbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot"
 	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
+	"github.com/osmosis-labs/sqs/quotesimulator"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
@@ -43,6 +47,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
+	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
@@ -210,7 +215,17 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
 		return nil, err
 	}
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
+
+	grpcClient := passthroughGRPCClient.GetChainGRPCClient()
+	gasCalculator := tx.NewGasCalculator(grpcClient, tx.CalculateGas)
+	quoteSimulator := quotesimulator.NewQuoteSimulator(
+		gasCalculator,
+		app.GetEncodingConfig(),
+		txfeestypes.NewQueryClient(grpcClient),
+		types.NewQueryClient(grpcClient),
+		config.ChainID,
+	)
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough

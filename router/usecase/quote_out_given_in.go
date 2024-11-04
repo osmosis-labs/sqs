@@ -36,12 +36,13 @@ func NewQuoteExactAmountOut(q *QuoteExactAmountIn) *quoteExactAmountOut {
 
 // quoteExactAmountIn is a quote implementation for token swap method exact in.
 type quoteExactAmountIn struct {
-	AmountIn                sdk.Coin            "json:\"amount_in\""
-	AmountOut               osmomath.Int        "json:\"amount_out\""
-	Route                   []domain.SplitRoute "json:\"route\""
-	EffectiveFee            osmomath.Dec        "json:\"effective_fee\""
-	PriceImpact             osmomath.Dec        "json:\"price_impact\""
-	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
+	AmountIn                sdk.Coin               "json:\"amount_in\""
+	AmountOut               osmomath.Int           "json:\"amount_out\""
+	Route                   []domain.SplitRoute    "json:\"route\""
+	EffectiveFee            osmomath.Dec           "json:\"effective_fee\""
+	PriceImpact             osmomath.Dec           "json:\"price_impact\""
+	InBaseOutQuoteSpotPrice osmomath.Dec           "json:\"in_base_out_quote_spot_price\""
+	PriceInfo               *domain.QuotePriceInfo `json:"price_info,omitempty"`
 }
 
 // PrepareResult implements domain.Quote.
@@ -150,4 +151,9 @@ func (q *quoteExactAmountIn) GetPriceImpact() osmomath.Dec {
 // GetInBaseOutQuoteSpotPrice implements domain.Quote.
 func (q *quoteExactAmountIn) GetInBaseOutQuoteSpotPrice() osmomath.Dec {
 	return q.InBaseOutQuoteSpotPrice
+}
+
+// SetQuotePriceInfo implements domain.Quote.
+func (q *quoteExactAmountIn) SetQuotePriceInfo(info *domain.QuotePriceInfo) {
+	q.PriceInfo = info
 }

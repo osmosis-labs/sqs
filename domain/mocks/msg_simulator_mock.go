@@ -30,6 +30,15 @@ type MsgSimulatorMock struct {
 		chainID string,
 		msgs []sdk.Msg,
 	) (*txtypes.SimulateResponse, uint64, error)
+
+	PriceMsgsFn func(
+		ctx context.Context,
+		txfeesClient txfeestypes.QueryClient,
+		encodingConfig client.TxConfig,
+		account *authtypes.BaseAccount,
+		chainID string,
+		msg ...sdk.Msg,
+	) (uint64, sdk.Coin, error)
 }
 
 var _ sqstx.MsgSimulator = &MsgSimulatorMock{}
@@ -58,4 +67,16 @@ func (m *MsgSimulatorMock) SimulateMsgs(
 		return m.SimulateMsgsFn(encodingConfig, account, chainID, msgs)
 	}
 	panic("SimulateMsgsFn not implemented")
+}
+
+// PriceMsgs implements tx.MsgSimulator.
+func (m *MsgSimulatorMock) PriceMsgs(ctx context.Context, txfeesClient txfeestypes.QueryClient, encodingConfig client.TxConfig, account *authtypes.BaseAccount, chainID string, msg ...interface {
+	ProtoMessage()
+	Reset()
+	String() string
+}) (uint64, sdk.Coin, error) {
+	if m.PriceMsgsFn != nil {
+		return m.PriceMsgsFn(ctx, txfeesClient, encodingConfig, account, chainID, msg...)
+	}
+	panic("PriceMsgsFn not implemented")
 }

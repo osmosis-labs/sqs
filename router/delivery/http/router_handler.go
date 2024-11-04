@@ -19,9 +19,10 @@ import (
 
 // RouterHandler  represent the httphandler for the router
 type RouterHandler struct {
-	RUsecase mvc.RouterUsecase
-	TUsecase mvc.TokensUsecase
-	logger   log.Logger
+	RUsecase       mvc.RouterUsecase
+	TUsecase       mvc.TokensUsecase
+	QuoteSimulator domain.QuoteSimulator
+	logger         log.Logger
 }
 
 const routerResource = "/router"
@@ -35,11 +36,12 @@ func formatRouterResource(resource string) string {
 }
 
 // NewRouterHandler will initialize the pools/ resources endpoint
-func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, logger log.Logger) {
+func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, qs domain.QuoteSimulator, logger log.Logger) {
 	handler := &RouterHandler{
-		RUsecase: us,
-		TUsecase: tu,
-		logger:   logger,
+		RUsecase:       us,
+		TUsecase:       tu,
+		QuoteSimulator: qs,
+		logger:         logger,
 	}
 	e.GET(formatRouterResource("/quote"), handler.GetOptimalQuote)
 	e.GET(formatRouterResource("/routes"), handler.GetCandidateRoutes)
@@ -142,6 +144,24 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	span.SetAttributes(attribute.Stringer("token_out", quote.GetAmountOut()))
 	span.SetAttributes(attribute.Stringer("price_impact", quote.GetPriceImpact()))
+
+	// Simulate quote if applicable.
+	// Note: only single routes (non-splits) are supported for simulation.
+	// Additionally, the functionality is triggerred by the user providing a simulator address.
+	// Only "out given in" swap method is supported for simulation. Thus, we also check for tokenOutDenom being set.
+	simulatorAddress := req.SimulatorAddress
+	if req.SingleRoute && simulatorAddress != "" && req.SwapMethod() == domain.TokenSwapMethodExactIn {
+		gasUsed, feeCoin, err := a.QuoteSimulator.SimulateQuote(ctx, quote, req.SlippageToleranceMultiplier, simulatorAddress)
+		if err != nil {
+			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		}
+
+		// Set the quote price info.
+		quote.SetQuotePriceInfo(&domain.QuotePriceInfo{
+			AdjustedGasUsed: gasUsed,
+			FeeCoin:         feeCoin,
+		})
+	}
 
 	return c.JSON(http.StatusOK, quote)
 }

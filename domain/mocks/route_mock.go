@@ -17,6 +17,9 @@ type RouteMock struct {
 	GetTokenInDenomFunc                 func() string
 	PrepareResultPoolsFunc              func(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
 	StringFunc                          func() string
+
+	GetAmountInFunc  func() math.Int
+	GetAmountOutFunc func() math.Int
 }
 
 // CalculateTokenOutByTokenIn implements domain.Route.
@@ -82,4 +85,21 @@ func (r *RouteMock) String() string {
 	panic("unimplemented")
 }
 
+func (r *RouteMock) GetAmountIn() math.Int {
+	if r.GetAmountInFunc != nil {
+		return r.GetAmountInFunc()
+	}
+
+	panic("unimplemented")
+}
+
+func (r *RouteMock) GetAmountOut() math.Int {
+	if r.GetAmountOutFunc != nil {
+		return r.GetAmountOutFunc()
+	}
+
+	panic("unimplemented")
+}
+
 var _ domain.Route = &RouteMock{}
+var _ domain.SplitRoute = &RouteMock{}
