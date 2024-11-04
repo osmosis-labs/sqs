@@ -1,0 +1,57 @@
+{
+    "amount_in": {
+      "denom": "ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5",
+      "amount": "10000000"
+    },
+    "amount_out": "40000000",
+    "route": [
+      {
+        "pools": [
+          {
+            "id": 1,
+            "type": 0,
+            "balances": [],
+            "spread_factor": "0.010000000000000000",
+            "token_out_denom": "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB",
+            "taker_fee": "0.020000000000000000"
+          },
+          {
+            "id": 2,
+            "type": 0,
+            "balances": [],
+            "spread_factor": "0.030000000000000000",
+            "token_out_denom": "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+            "taker_fee": "0.000400000000000000"
+          }
+        ],
+        "has-cw-pool": false,
+        "out_amount": "20000000",
+        "in_amount": "5000000"
+      },
+      {
+        "pools": [
+          {
+            "id": 3,
+            "type": 0,
+            "balances": [],
+            "spread_factor": "0.005000000000000000",
+            "token_out_denom": "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+            "taker_fee": "0.003000000000000000"
+          }
+        ],
+        "has-cw-pool": false,
+        "out_amount": "20000000",
+        "in_amount": "5000000"
+      }
+    ],
+    "effective_fee": "0.011696000000000000",
+    "price_impact": "-0.565353638051463862",
+    "in_base_out_quote_spot_price": "4.500000000000000000",
+    "price_info": {
+        "fee_coin": {
+            "amount": "0"
+        },
+        "base_fee": "0.500000000000000000"
+    }
+  }
+  

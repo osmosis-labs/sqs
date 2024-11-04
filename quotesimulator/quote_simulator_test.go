@@ -12,7 +12,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v26/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 )
@@ -84,7 +83,6 @@ func TestSimulateQuote(t *testing.T) {
 			msgSimulator := &mocks.MsgSimulatorMock{
 				PriceMsgsFn: func(
 					ctx context.Context,
-					txfeesClient txfeestypes.QueryClient,
 					encodingConfig client.TxConfig,
 					account *authtypes.BaseAccount,
 					chainID string,
@@ -97,7 +95,6 @@ func TestSimulateQuote(t *testing.T) {
 					}
 				},
 			}
-			txFeesClient := &mocks.TxFeesQueryClient{}
 			accountQueryClient := &mocks.AuthQueryClientMock{
 				GetAccountFunc: func(ctx context.Context, address string) (*authtypes.BaseAccount, error) {
 					return &authtypes.BaseAccount{
@@ -110,7 +107,6 @@ func TestSimulateQuote(t *testing.T) {
 			simulator := NewQuoteSimulator(
 				msgSimulator,
 				params.EncodingConfig{},
-				txFeesClient,
 				accountQueryClient,
 				"osmosis-1",
 			)

@@ -6,28 +6,24 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v26/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
-
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
 )
 
 // quoteSimulator simulates a quote and returns the gas adjusted amount and the fee coin.
 type quoteSimulator struct {
 	msgSimulator       tx.MsgSimulator
 	encodingConfig     params.EncodingConfig
-	txFeesClient       txfeestypes.QueryClient
 	accountQueryClient types.QueryClient
 	chainID            string
 }
 
-func NewQuoteSimulator(msgSimulator tx.MsgSimulator, encodingConfig params.EncodingConfig, txFeesClient txfeestypes.QueryClient, accountQueryClient types.QueryClient, chainID string) *quoteSimulator {
+func NewQuoteSimulator(msgSimulator tx.MsgSimulator, encodingConfig params.EncodingConfig, accountQueryClient types.QueryClient, chainID string) *quoteSimulator {
 	return &quoteSimulator{
 		msgSimulator:       msgSimulator,
 		encodingConfig:     encodingConfig,
-		txFeesClient:       txFeesClient,
 		accountQueryClient: accountQueryClient,
 		chainID:            chainID,
 	}
@@ -69,8 +65,7 @@ func (q *quoteSimulator) SimulateQuote(ctx context.Context, quote domain.Quote, 
 		return domain.QuotePriceInfo{Err: err.Error()}
 	}
 
-	// Price the message
-	return q.msgSimulator.PriceMsgs(ctx, q.txFeesClient, q.encodingConfig.TxConfig, baseAccount, q.chainID, swapMsg)
+	return q.msgSimulator.PriceMsgs(ctx, q.encodingConfig.TxConfig, baseAccount, q.chainID, swapMsg)
 }
 
 var _ domain.QuoteSimulator = &quoteSimulator{}

@@ -18,8 +18,8 @@ type QuoteSimulator interface {
 }
 
 type QuotePriceInfo struct {
-	AdjustedGasUsed uint64       `json:"adjusted_gas_used"`
-	FeeCoin         sdk.Coin     `json:"fee_coin"`
+	AdjustedGasUsed uint64       `json:"adjusted_gas_used,omitempty"`
+	FeeCoin         sdk.Coin     `json:"fee_coin,omitempty"`
 	BaseFee         osmomath.Dec `json:"base_fee"`
-	Err             string       `json:"error"`
+	Err             string       `json:"error,omitempty"`
 }

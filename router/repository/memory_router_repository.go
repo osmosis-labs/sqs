@@ -27,6 +27,9 @@ type RouterRepository interface {
 	// Sorting is no longer performed before storing as bi-directional taker fee is supported.
 	SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec)
 	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
+
+	SetBaseFee(baseFee domain.BaseFee)
+	GetBaseFee() domain.BaseFee
 }
 
 var (
@@ -38,7 +41,24 @@ type routerRepo struct {
 	takerFeeMap              sync.Map
 	candidateRouteSearchData sync.Map
 
+	baseFeeMx sync.RWMutex
+	baseFee   domain.BaseFee
+
 	logger log.Logger
+}
+
+// GetBaseFee implements RouterRepository.
+func (r *routerRepo) GetBaseFee() domain.BaseFee {
+	r.baseFeeMx.RLock()
+	defer r.baseFeeMx.RUnlock()
+	return r.baseFee
+}
+
+// SetBaseFee implements RouterRepository.
+func (r *routerRepo) SetBaseFee(baseFee domain.BaseFee) {
+	r.baseFeeMx.Lock()
+	defer r.baseFeeMx.Unlock()
+	r.baseFee = baseFee
 }
 
 // New creates a new repository for the router.

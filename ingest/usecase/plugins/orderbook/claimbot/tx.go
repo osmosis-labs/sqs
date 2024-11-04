@@ -68,7 +68,7 @@ func sendBatchClaimTxInternal(
 
 	msg := buildExecuteContractMsg(address, contractAddress, msgBytes)
 
-	tx, err := msgSimulator.BuildTx(ctx, keyring, txfeesClient, encodingConfig, account, chainID, msg)
+	tx, err := msgSimulator.BuildTx(ctx, keyring, encodingConfig, account, chainID, msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build transaction: %w", err)
 	}

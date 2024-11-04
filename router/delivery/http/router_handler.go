@@ -165,6 +165,12 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		quote.SetQuotePriceInfo(&priceInfo)
 	}
 
+	if req.AppendBaseFee {
+		quote.SetQuotePriceInfo(&domain.QuotePriceInfo{
+			BaseFee: a.RUsecase.GetBaseFee().CurrentFee,
+		})
+	}
+
 	return c.JSON(http.StatusOK, quote)
 }
 

@@ -8,8 +8,11 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqs/log"
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,6 +32,8 @@ var (
 	}
 	testMsg    = newMsg("sender", "contract", `{"payload": "hello contract"}`)
 	testTxJSON = []byte(`{"body":{"messages":[{"@type":"/cosmwasm.wasm.v1.MsgExecuteContract","sender":"sender","contract":"contract","msg":{"payload":"hello contract"},"funds":[]}],"memo":"","timeout_height":"0","extension_options":[],"non_critical_extension_options":[]},"auth_info":{"signer_infos":[{"public_key":{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"A+9dbfKKCHgfmiV2XUWelqidYzZhHR+KtNMvcSzWjdPQ"},"mode_info":{"single":{"mode":"SIGN_MODE_DIRECT"}},"sequence":"13"}],"fee":{"amount":[{"denom":"eth","amount":"5"}],"gas_limit":"50","payer":"","granter":""},"tip":null},"signatures":["aRlC8F2MnDA50tNNTJUk7zPvH/xc5c3Av+yaGQEiU0l0AXJxUdzOUxWHiC74D9ltvbsk0HzWbb+2uetCjdQdfA=="]}`)
+
+	testBaseFeeDec = osmomath.MustNewDecFromStr(testBaseFee)
 )
 
 func TestSimulateMsgs(t *testing.T) {
@@ -71,7 +76,8 @@ func TestSimulateMsgs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			calculateGasFnMock := tt.setupMocks(mocks.DefaultGetCalculateGasMock)
-			gasCalculator := tx.NewGasCalculator(nil, calculateGasFnMock)
+			routerRepository := routerrepo.New(&log.NoOpLogger{})
+			gasCalculator := tx.NewMsgSimulator(nil, calculateGasFnMock, routerRepository)
 
 			result, gas, err := gasCalculator.SimulateMsgs(
 				encodingConfig.TxConfig,
@@ -95,7 +101,8 @@ func TestSimulateMsgs(t *testing.T) {
 func TestBuildTx(t *testing.T) {
 	testCases := []struct {
 		name          string
-		setupMocks    func(calculator mocks.GetCalculateGasMock, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) tx.CalculateGasFn
+		setupMocks    func(calculator mocks.GetCalculateGasMock, keyring *mocks.Keyring) tx.CalculateGasFn
+		preSetBaseFee domain.BaseFee
 		account       *authtypes.BaseAccount
 		chainID       string
 		msgs          []sdk.Msg
@@ -104,25 +111,24 @@ func TestBuildTx(t *testing.T) {
 	}{
 		{
 			name: "Valid transaction",
-			setupMocks: func(calculator mocks.GetCalculateGasMock, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) tx.CalculateGasFn {
+			setupMocks: func(calculator mocks.GetCalculateGasMock, keyring *mocks.Keyring) tx.CalculateGasFn {
 				keyring.WithGetKey(testKey)
-				txFeesClient.WithBaseDenom(testDenom, nil)
-				txFeesClient.WithGetEipBaseFee(testBaseFee, nil)
-
 				return calculator(&txtypes.SimulateResponse{GasInfo: &sdk.GasInfo{GasUsed: 100000}}, testGasUsed, nil)
 			},
-			account:       testAccount,
-			chainID:       testChainID,
-			msgs:          []sdk.Msg{testMsg},
+			account: testAccount,
+			chainID: testChainID,
+			msgs:    []sdk.Msg{testMsg},
+			preSetBaseFee: domain.BaseFee{
+				Denom:      testDenom,
+				CurrentFee: testBaseFeeDec,
+			},
 			expectedJSON:  testTxJSON,
 			expectedError: false,
 		},
 		{
 			name: "Error building transaction",
-			setupMocks: func(calculator mocks.GetCalculateGasMock, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) tx.CalculateGasFn {
+			setupMocks: func(calculator mocks.GetCalculateGasMock, keyring *mocks.Keyring) tx.CalculateGasFn {
 				keyring.WithGetKey(testKey)
-				txFeesClient.WithBaseDenom(testDenom, nil)
-				txFeesClient.WithGetEipBaseFee(testBaseFee, nil)
 				return calculator(&txtypes.SimulateResponse{}, testGasUsed, assert.AnError)
 			},
 			account: &authtypes.BaseAccount{
@@ -135,16 +141,15 @@ func TestBuildTx(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			txFeesClient := mocks.TxFeesQueryClient{}
 			keyring := mocks.Keyring{}
-
-			calculateGasFnMock := tc.setupMocks(mocks.DefaultGetCalculateGasMock, &txFeesClient, &keyring)
-			msgSimulator := tx.NewGasCalculator(nil, calculateGasFnMock)
+			routerRepository := routerrepo.New(&log.NoOpLogger{})
+			routerRepository.SetBaseFee(tc.preSetBaseFee)
+			calculateGasFnMock := tc.setupMocks(mocks.DefaultGetCalculateGasMock, &keyring)
+			msgSimulator := tx.NewMsgSimulator(nil, calculateGasFnMock, routerRepository)
 
 			txBuilder, err := msgSimulator.BuildTx(
 				context.Background(),
 				&keyring,
-				&txFeesClient,
 				encodingConfig,
 				tc.account,
 				tc.chainID,
@@ -169,10 +174,11 @@ func TestBuildTx(t *testing.T) {
 func TestPriceMsgs(t *testing.T) {
 	testCases := []struct {
 		name            string
-		setupMocks      func(calculator mocks.GetCalculateGasMock, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) tx.CalculateGasFn
+		setupMocks      func(calculator mocks.GetCalculateGasMock, keyring *mocks.Keyring) tx.CalculateGasFn
 		account         *authtypes.BaseAccount
 		chainID         string
 		msgs            []sdk.Msg
+		preSetBaseFee   domain.BaseFee
 		expectedGas     uint64
 		expectedFeeCoin sdk.Coin
 		expectedBaseFee osmomath.Dec
@@ -180,29 +186,33 @@ func TestPriceMsgs(t *testing.T) {
 	}{
 		{
 			name: "Valid transaction",
-			setupMocks: func(calculator mocks.GetCalculateGasMock, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) tx.CalculateGasFn {
+			setupMocks: func(calculator mocks.GetCalculateGasMock, keyring *mocks.Keyring) tx.CalculateGasFn {
 				keyring.WithGetKey(testKey)
-				txFeesClient.WithBaseDenom(testDenom, nil)
-				txFeesClient.WithGetEipBaseFee(testBaseFee, nil)
 
 				return calculator(&txtypes.SimulateResponse{GasInfo: &sdk.GasInfo{GasUsed: 100000}}, testGasUsed, nil)
 			},
-			account:         testAccount,
-			chainID:         testChainID,
-			msgs:            []sdk.Msg{testMsg},
+			account: testAccount,
+			chainID: testChainID,
+			msgs:    []sdk.Msg{testMsg},
+			preSetBaseFee: domain.BaseFee{
+				Denom:      testDenom,
+				CurrentFee: testBaseFeeDec,
+			},
 			expectedGas:     testGasUsed,
 			expectedFeeCoin: sdk.Coin{Denom: testDenom, Amount: osmomath.NewInt(testAmount)},
-			expectedBaseFee: osmomath.NewDecWithPrec(1, 1),
+			expectedBaseFee: testBaseFeeDec,
 			expectedError:   false,
 		},
 		{
 			name: "Error building transaction",
-			setupMocks: func(calculator mocks.GetCalculateGasMock, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) tx.CalculateGasFn {
+			setupMocks: func(calculator mocks.GetCalculateGasMock, keyring *mocks.Keyring) tx.CalculateGasFn {
 				keyring.WithGetKey(testKey)
-				txFeesClient.WithBaseDenom(testDenom, nil)
-				txFeesClient.WithGetEipBaseFee(testBaseFee, nil)
 
 				return calculator(&txtypes.SimulateResponse{}, testGasUsed, assert.AnError)
+			},
+			preSetBaseFee: domain.BaseFee{
+				Denom:      testDenom,
+				CurrentFee: testBaseFeeDec,
 			},
 			account: &authtypes.BaseAccount{
 				Sequence:      8,
@@ -213,10 +223,9 @@ func TestPriceMsgs(t *testing.T) {
 			expectedError:   true,
 		},
 		{
-			name: "Error calculating fee coin",
-			setupMocks: func(calculator mocks.GetCalculateGasMock, txFeesClient *mocks.TxFeesQueryClient, keyring *mocks.Keyring) tx.CalculateGasFn {
+			name: "Invalid base fee",
+			setupMocks: func(calculator mocks.GetCalculateGasMock, keyring *mocks.Keyring) tx.CalculateGasFn {
 				keyring.WithGetKey(testKey)
-				txFeesClient.WithBaseDenom(testDenom, assert.AnError)
 
 				return calculator(&txtypes.SimulateResponse{GasInfo: &sdk.GasInfo{GasUsed: 100000}}, testGasUsed, nil)
 			},
@@ -232,15 +241,15 @@ func TestPriceMsgs(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			txFeesClient := mocks.TxFeesQueryClient{}
 			keyring := mocks.Keyring{}
+			routerRepository := routerrepo.New(&log.NoOpLogger{})
+			routerRepository.SetBaseFee(tc.preSetBaseFee)
 
-			calculateGasFnMock := tc.setupMocks(mocks.DefaultGetCalculateGasMock, &txFeesClient, &keyring)
-			msgSimulator := tx.NewGasCalculator(nil, calculateGasFnMock)
+			calculateGasFnMock := tc.setupMocks(mocks.DefaultGetCalculateGasMock, &keyring)
+			msgSimulator := tx.NewMsgSimulator(nil, calculateGasFnMock, routerRepository)
 
 			priceInfo := msgSimulator.PriceMsgs(
 				context.Background(),
-				&txFeesClient,
 				encodingConfig.TxConfig,
 				tc.account,
 				tc.chainID,

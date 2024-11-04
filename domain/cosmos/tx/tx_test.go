@@ -231,14 +231,14 @@ func TestCalculateFeeCoin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMocks(&tt.txFeesClient)
 
-			denom, baseFee, err := sqstx.CalculateFeePrice(context.TODO(), &tt.txFeesClient)
+			baseFee, err := sqstx.CalculateFeePrice(context.TODO(), &tt.txFeesClient)
 
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedCoin, denom)
-				assert.Equal(t, tt.expectedBaseFee, baseFee)
+				assert.Equal(t, tt.expectedCoin, baseFee.Denom)
+				assert.Equal(t, tt.expectedBaseFee, baseFee.CurrentFee)
 			}
 		})
 	}
