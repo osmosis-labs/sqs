@@ -13,8 +13,15 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+// BaseFeeRepository represents the contract for a repository handling base fee information
+type BaseFeeRepository interface {
+	SetBaseFee(baseFee domain.BaseFee)
+	GetBaseFee() domain.BaseFee
+}
+
 // RouterRepository represents the contract for a repository handling router information
 type RouterRepository interface {
+	BaseFeeRepository
 	mvc.CandidateRouteSearchDataHolder
 
 	// GetTakerFee returns the taker fee for a given pair of denominations
@@ -38,17 +45,35 @@ type routerRepo struct {
 	takerFeeMap              sync.Map
 	candidateRouteSearchData sync.Map
 
+	baseFeeMx sync.RWMutex
+	baseFee   domain.BaseFee
+
 	logger log.Logger
 }
 
-// New creates a new repository for the router.
 func New(logger log.Logger) RouterRepository {
 	return &routerRepo{
 		takerFeeMap:              sync.Map{},
 		candidateRouteSearchData: sync.Map{},
+		baseFeeMx:                sync.RWMutex{},
+		baseFee:                  domain.BaseFee{},
 
 		logger: logger,
 	}
+}
+
+// GetBaseFee implements RouterRepository.
+func (r *routerRepo) GetBaseFee() domain.BaseFee {
+	r.baseFeeMx.RLock()
+	defer r.baseFeeMx.RUnlock()
+	return r.baseFee
+}
+
+// SetBaseFee implements RouterRepository.
+func (r *routerRepo) SetBaseFee(baseFee domain.BaseFee) {
+	r.baseFeeMx.Lock()
+	defer r.baseFeeMx.Unlock()
+	r.baseFee = baseFee
 }
 
 // GetAllTakerFees implements RouterRepository.

@@ -172,8 +172,12 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, account *authtype
 		txres, err := sendBatchClaimTx(
 			ctx,
 			o.config.Keyring,
+<<<<<<< HEAD
 			o.config.TxfeesClient,
 			o.config.GasCalculator,
+=======
+			o.config.MsgSimulator,
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 			o.config.TxServiceClient,
 			o.config.ChainID,
 			account,

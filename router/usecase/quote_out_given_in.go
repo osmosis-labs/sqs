@@ -42,6 +42,10 @@ type quoteExactAmountIn struct {
 	EffectiveFee            osmomath.Dec        "json:\"effective_fee\""
 	PriceImpact             osmomath.Dec        "json:\"price_impact\""
 	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
+<<<<<<< HEAD
+=======
+	PriceInfo               *domain.TxFeeInfo   `json:"price_info,omitempty"`
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 }
 
 // PrepareResult implements domain.Quote.
@@ -151,3 +155,11 @@ func (q *quoteExactAmountIn) GetPriceImpact() osmomath.Dec {
 func (q *quoteExactAmountIn) GetInBaseOutQuoteSpotPrice() osmomath.Dec {
 	return q.InBaseOutQuoteSpotPrice
 }
+<<<<<<< HEAD
+=======
+
+// SetQuotePriceInfo implements domain.Quote.
+func (q *quoteExactAmountIn) SetQuotePriceInfo(info *domain.TxFeeInfo) {
+	q.PriceInfo = info
+}
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))

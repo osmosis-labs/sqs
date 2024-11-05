@@ -9,6 +9,7 @@ import (
 
 // GetQuoteRequest represents swap quote request for the /router/quote endpoint.
 type GetQuoteRequest struct {
+<<<<<<< HEAD
 	TokenIn        *sdk.Coin
 	TokenOutDenom  string
 	TokenOut       *sdk.Coin
@@ -16,6 +17,18 @@ type GetQuoteRequest struct {
 	SingleRoute    bool
 	HumanDenoms    bool
 	ApplyExponents bool
+=======
+	TokenIn                     *sdk.Coin
+	TokenOutDenom               string
+	TokenOut                    *sdk.Coin
+	TokenInDenom                string
+	SingleRoute                 bool
+	SimulatorAddress            string
+	SlippageToleranceMultiplier osmomath.Dec
+	AppendBaseFee               bool
+	HumanDenoms                 bool
+	ApplyExponents              bool
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 }
 
 // UnmarshalHTTPRequest unmarshals the HTTP request to GetQuoteRequest.
@@ -51,6 +64,25 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	r.TokenInDenom = c.QueryParam("tokenInDenom")
 	r.TokenOutDenom = c.QueryParam("tokenOutDenom")
 
+<<<<<<< HEAD
+=======
+	simulatorAddress := c.QueryParam("simulatorAddress")
+	slippageToleranceStr := c.QueryParam("simulationSlippageTolerance")
+
+	slippageToleranceDec, err := validateSimulationParams(r.SwapMethod(), simulatorAddress, slippageToleranceStr)
+	if err != nil {
+		return err
+	}
+
+	r.SimulatorAddress = simulatorAddress
+	r.SlippageToleranceMultiplier = slippageToleranceDec
+
+	r.AppendBaseFee, err = domain.ParseBooleanQueryParam(c, "appendBaseFee")
+	if err != nil {
+		return err
+	}
+
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 	return nil
 }
 

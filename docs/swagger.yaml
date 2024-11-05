@@ -407,6 +407,24 @@ paths:
         in: query
         name: applyExponents
         type: boolean
+<<<<<<< HEAD
+=======
+      - description: Address of the simulator to simulate the quote. If provided,
+          the quote will be simulated.
+        in: query
+        name: simulatorAddress
+        type: string
+      - description: Slippage tolerance multiplier for the simulation. If simulatorAddress
+          is provided, this must be provided.
+        in: query
+        name: simulationSlippageTolerance
+        type: string
+      - description: Boolean flag indicating whether to append the base fee to the
+          quote. False by default.
+        in: query
+        name: appendBaseFee
+        type: boolean
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
       produces:
       - application/json
       responses:

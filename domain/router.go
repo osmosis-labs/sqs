@@ -72,6 +72,12 @@ type Quote interface {
 	// for the tokens. In that case, we invalidate spot price by setting it to zero.
 	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]SplitRoute, osmomath.Dec, error)
 
+<<<<<<< HEAD
+=======
+	// SetQuotePriceInfo sets the quote price info.
+	SetQuotePriceInfo(info *TxFeeInfo)
+
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 	String() string
 }
 

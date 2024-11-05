@@ -4,6 +4,18 @@ import (
 	"context"
 	"testing"
 
+<<<<<<< HEAD
+=======
+	cosmosclient "github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/osmosis-labs/osmosis/v26/app"
+	"github.com/osmosis-labs/osmosis/v26/app/params"
+	"github.com/osmosis-labs/sqs/domain/keyring"
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
@@ -40,7 +52,21 @@ func TestSendBatchClaimTx(t *testing.T) {
 					AccountNumber: 3,
 					Sequence:      31,
 				}
+<<<<<<< HEAD
 				gasCalculator.WithCalculateGas(nil, 0, assert.AnError) // Fail BuildTx
+=======
+				// Fail BuildTx
+				msgSimulator.BuildTxFn = func(
+					ctx context.Context,
+					keyring keyring.Keyring,
+					encodingConfig params.EncodingConfig,
+					account *authtypes.BaseAccount,
+					chainID string,
+					msg ...sdk.Msg,
+				) (cosmosclient.TxBuilder, error) {
+					return nil, assert.AnError
+				}
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 			},
 			expectedResponse: &sdk.TxResponse{},
 			expectedError:    true,
@@ -54,7 +80,24 @@ func TestSendBatchClaimTx(t *testing.T) {
 			setupMocks: func(keyringMock *mocks.Keyring, account *authtypes.BaseAccount, txfeesClient *mocks.TxFeesQueryClient, gasCalculator *mocks.GasCalculator, txServiceClient *mocks.TxServiceClient) {
 				keyringMock.WithGetAddress("osmo5address")
 				keyringMock.WithGetKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
+<<<<<<< HEAD
 				gasCalculator.WithCalculateGas(nil, 51, nil)
+=======
+				msgSimulator.BuildTxFn = func(
+					ctx context.Context,
+					keyring keyring.Keyring,
+					encodingConfig params.EncodingConfig,
+					account *authtypes.BaseAccount,
+					chainID string,
+					msg ...sdk.Msg,
+				) (cosmosclient.TxBuilder, error) {
+					return &mocks.TxBuilderMock{
+						GetTxFn: func() signing.Tx {
+							return &mocks.TxMock{}
+						},
+					}, nil
+				}
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 				txfeesClient.WithBaseDenom("uosmo", nil)
 				txfeesClient.WithGetEipBaseFee("0.2", nil)
 				account = &authtypes.BaseAccount{
@@ -77,7 +120,24 @@ func TestSendBatchClaimTx(t *testing.T) {
 			setupMocks: func(keyringMock *mocks.Keyring, account *authtypes.BaseAccount, txfeesClient *mocks.TxFeesQueryClient, gasCalculator *mocks.GasCalculator, txServiceClient *mocks.TxServiceClient) {
 				keyringMock.WithGetAddress("osmo1address")
 				keyringMock.WithGetKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
+<<<<<<< HEAD
 				gasCalculator.WithCalculateGas(nil, 51, nil)
+=======
+				msgSimulator.BuildTxFn = func(
+					ctx context.Context,
+					keyring keyring.Keyring,
+					encodingConfig params.EncodingConfig,
+					account *authtypes.BaseAccount,
+					chainID string,
+					msg ...sdk.Msg,
+				) (cosmosclient.TxBuilder, error) {
+					return &mocks.TxBuilderMock{
+						GetTxFn: func() signing.Tx {
+							return &mocks.TxMock{}
+						},
+					}, nil
+				}
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 				txfeesClient.WithBaseDenom("uosmo", nil)
 				txfeesClient.WithGetEipBaseFee("0.15", nil)
 				account = &authtypes.BaseAccount{

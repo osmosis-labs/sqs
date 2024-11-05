@@ -22,6 +22,7 @@ import (
 
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
+	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/basefee"
 	orderbookclaimbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
 	orderbookfillbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot"
 	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
@@ -210,7 +211,20 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
 		return nil, err
 	}
+<<<<<<< HEAD
 	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, logger)
+=======
+
+	grpcClient := passthroughGRPCClient.GetChainGRPCClient()
+	gasCalculator := tx.NewMsgSimulator(grpcClient, tx.CalculateGas, routerRepository)
+	quoteSimulator := quotesimulator.NewQuoteSimulator(
+		gasCalculator,
+		app.GetEncodingConfig(),
+		types.NewQueryClient(grpcClient),
+		config.ChainID,
+	)
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, logger)
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough
@@ -308,6 +322,10 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 				ingestUseCase.RegisterEndBlockProcessPlugin(currentPlugin)
 			}
 		}
+
+		// Unconditionally register the base fee fetcher.
+		baseFeeFetcherPlugin := basefee.NewEndBlockUpdatePlugin(routerRepository, txfeestypes.NewQueryClient(grpcClient), logger)
+		ingestUseCase.RegisterEndBlockProcessPlugin(baseFeeFetcherPlugin)
 
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
 		poolLiquidityComputeWorker.RegisterListener(chainInfoUseCase)

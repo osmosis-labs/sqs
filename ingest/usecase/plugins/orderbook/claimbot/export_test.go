@@ -45,7 +45,11 @@ func SendBatchClaimTx(
 	contractAddress string,
 	claims orderbookdomain.Orders,
 ) (*sdk.TxResponse, error) {
+<<<<<<< HEAD
 	return sendBatchClaimTx(ctx, keyring, txfeesClient, gasCalculator, txServiceClient, chainID, account, contractAddress, claims)
+=======
+	return sendBatchClaimTxInternal(ctx, keyring, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, getEncodingConfig)
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 }
 
 // PrepareBatchClaimMsg is a test wrapper for prepareBatchClaimMsg.

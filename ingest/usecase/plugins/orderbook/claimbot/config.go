@@ -45,8 +45,12 @@ func NewConfig(
 		PoolsUseCase:       poolsUseCase,
 		OrderbookUsecase:   orderbookusecase,
 		AccountQueryClient: authtypes.NewQueryClient(grpcClient),
+<<<<<<< HEAD
 		TxfeesClient:       txfeestypes.NewQueryClient(grpcClient),
 		GasCalculator:      sqstx.NewGasCalculator(grpcClient),
+=======
+		MsgSimulator:       sqstx.NewMsgSimulator(grpcClient, sqstx.CalculateGas, nil),
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 		TxServiceClient:    txtypes.NewServiceClient(grpcClient),
 		Logger:             logger.Named("claimbot"),
 		ChainID:            chainID,

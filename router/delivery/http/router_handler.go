@@ -68,6 +68,12 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 // @Param  singleRoute     query  bool    false  "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default."
 // @Param  humanDenoms     query  bool    true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
 // @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
+<<<<<<< HEAD
+=======
+// @Param  simulatorAddress query string false "Address of the simulator to simulate the quote. If provided, the quote will be simulated."
+// @Param  simulationSlippageTolerance query string false "Slippage tolerance multiplier for the simulation. If simulatorAddress is provided, this must be provided."
+// @Param  appendBaseFee query bool false "Boolean flag indicating whether to append the base fee to the quote. False by default."
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/quote [get]
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
@@ -143,6 +149,27 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	span.SetAttributes(attribute.Stringer("token_out", quote.GetAmountOut()))
 	span.SetAttributes(attribute.Stringer("price_impact", quote.GetPriceImpact()))
 
+<<<<<<< HEAD
+=======
+	// Simulate quote if applicable.
+	// Note: only single routes (non-splits) are supported for simulation.
+	// Additionally, the functionality is triggerred by the user providing a simulator address.
+	// Only "out given in" swap method is supported for simulation. Thus, we also check for tokenOutDenom being set.
+	simulatorAddress := req.SimulatorAddress
+	if req.SingleRoute && simulatorAddress != "" && req.SwapMethod() == domain.TokenSwapMethodExactIn {
+		priceInfo := a.QuoteSimulator.SimulateQuote(ctx, quote, req.SlippageToleranceMultiplier, simulatorAddress)
+
+		// Set the quote price info.
+		quote.SetQuotePriceInfo(&priceInfo)
+	}
+
+	if req.AppendBaseFee {
+		quote.SetQuotePriceInfo(&domain.TxFeeInfo{
+			BaseFee: a.RUsecase.GetBaseFee().CurrentFee,
+		})
+	}
+
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 	return c.JSON(http.StatusOK, quote)
 }
 

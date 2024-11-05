@@ -16,6 +16,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+<<<<<<< HEAD
+=======
+	"github.com/osmosis-labs/osmosis/v26/app"
+	"github.com/osmosis-labs/osmosis/v26/app/params"
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 )
 
 var (
@@ -27,14 +32,39 @@ var (
 func sendBatchClaimTx(
 	ctx context.Context,
 	keyring keyring.Keyring,
+<<<<<<< HEAD
 	txfeesClient txfeestypes.QueryClient,
 	gasCalculator sqstx.GasCalculator,
+=======
+	msgSimulator sqstx.MsgSimulator,
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 	txServiceClient txtypes.ServiceClient,
 	chainID string,
 	account *authtypes.BaseAccount,
 	contractAddress string,
 	claims orderbookdomain.Orders,
 ) (*sdk.TxResponse, error) {
+<<<<<<< HEAD
+=======
+	return sendBatchClaimTxInternal(ctx, keyring, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, defaultEncodingConfigFn)
+}
+
+// sendBatchClaimTxInternal is a helper function that prepares and sends a batch claim transaction to the blockchain.
+// It takes an encoding config function as a parameter to allow for customization of the encoding config in tests.
+func sendBatchClaimTxInternal(
+	ctx context.Context,
+	keyring keyring.Keyring,
+	msgSimulator sqstx.MsgSimulator,
+	txServiceClient txtypes.ServiceClient,
+	chainID string,
+	account *authtypes.BaseAccount,
+	contractAddress string,
+	claims orderbookdomain.Orders,
+	getEncodingConfig func() params.EncodingConfig,
+) (*sdk.TxResponse, error) {
+	encodingConfig := getEncodingConfig()
+
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 	address := keyring.GetAddress().String()
 
 	msgBytes, err := prepareBatchClaimMsg(claims)
@@ -44,7 +74,11 @@ func sendBatchClaimTx(
 
 	msg := buildExecuteContractMsg(address, contractAddress, msgBytes)
 
+<<<<<<< HEAD
 	tx, err := sqstx.BuildTx(ctx, keyring, txfeesClient, gasCalculator, encodingConfig, account, chainID, msg)
+=======
+	tx, err := msgSimulator.BuildTx(ctx, keyring, encodingConfig, account, chainID, msg)
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 	if err != nil {
 		return nil, fmt.Errorf("failed to build transaction: %w", err)
 	}

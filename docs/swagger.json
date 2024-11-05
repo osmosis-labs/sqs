@@ -290,6 +290,27 @@
                         "description": "Boolean flag indicating whether to apply exponents to the spot price. False by default.",
                         "name": "applyExponents",
                         "in": "query"
+<<<<<<< HEAD
+=======
+                    },
+                    {
+                        "type": "string",
+                        "description": "Address of the simulator to simulate the quote. If provided, the quote will be simulated.",
+                        "name": "simulatorAddress",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Slippage tolerance multiplier for the simulation. If simulatorAddress is provided, this must be provided.",
+                        "name": "simulationSlippageTolerance",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether to append the base fee to the quote. False by default.",
+                        "name": "appendBaseFee",
+                        "in": "query"
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
                     }
                 ],
                 "responses": {

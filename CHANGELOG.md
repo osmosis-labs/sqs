@@ -35,6 +35,16 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+<<<<<<< HEAD
+=======
+## Unreleased
+
+- #548 - Return base fee in /quote regardless of simulation success.
+- #547 - Add /quote simulation for "out given in" single routes.
+- #526 - Refactor gas estimation APIs
+- #524 - Claimbot
+
+>>>>>>> fcbf7b6 (refactor: decouple base fee fetching as part of quote from simulation (#550))
 ## v26.1.0
 
 e42b32bc SQS-412 | Active Orders Query: SSE (#518)
