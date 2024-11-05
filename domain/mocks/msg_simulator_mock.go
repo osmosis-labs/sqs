@@ -36,7 +36,7 @@ type MsgSimulatorMock struct {
 		account *authtypes.BaseAccount,
 		chainID string,
 		msg ...sdk.Msg,
-	) domain.QuotePriceInfo
+	) domain.TxFeeInfo
 }
 
 var _ sqstx.MsgSimulator = &MsgSimulatorMock{}
@@ -71,7 +71,7 @@ func (m *MsgSimulatorMock) PriceMsgs(ctx context.Context, encodingConfig client.
 	ProtoMessage()
 	Reset()
 	String() string
-}) domain.QuotePriceInfo {
+}) domain.TxFeeInfo {
 	if m.PriceMsgsFn != nil {
 		return m.PriceMsgsFn(ctx, encodingConfig, account, chainID, msg...)
 	}

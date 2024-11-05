@@ -167,7 +167,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	}
 
 	if req.AppendBaseFee {
-		quote.SetQuotePriceInfo(&domain.QuotePriceInfo{
+		quote.SetQuotePriceInfo(&domain.TxFeeInfo{
 			BaseFee: a.RUsecase.GetBaseFee().CurrentFee,
 		})
 	}

@@ -87,8 +87,8 @@ func TestSimulateQuote(t *testing.T) {
 					account *authtypes.BaseAccount,
 					chainID string,
 					msg ...sdk.Msg,
-				) domain.QuotePriceInfo {
-					return domain.QuotePriceInfo{
+				) domain.TxFeeInfo {
+					return domain.TxFeeInfo{
 						AdjustedGasUsed: tt.expectedGasAdjusted,
 						FeeCoin:         tt.expectedFeeCoin,
 						BaseFee:         osmomath.NewDecWithPrec(5, 1),

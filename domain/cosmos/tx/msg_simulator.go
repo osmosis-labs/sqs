@@ -49,7 +49,7 @@ type MsgSimulator interface {
 		account *authtypes.BaseAccount,
 		chainID string,
 		msg ...sdk.Msg,
-	) domain.QuotePriceInfo
+	) domain.TxFeeInfo
 }
 
 // NewMsgSimulator creates a new GasCalculator instance.
@@ -147,13 +147,13 @@ func (c *txGasCalulator) SimulateMsgs(encodingConfig cosmosclient.TxConfig, acco
 }
 
 // PriceMsgs implements MsgSimulator.
-func (c *txGasCalulator) PriceMsgs(ctx context.Context, encodingConfig cosmosclient.TxConfig, account *authtypes.BaseAccount, chainID string, msg ...sdk.Msg) domain.QuotePriceInfo {
+func (c *txGasCalulator) PriceMsgs(ctx context.Context, encodingConfig cosmosclient.TxConfig, account *authtypes.BaseAccount, chainID string, msg ...sdk.Msg) domain.TxFeeInfo {
 	baseFee := c.memoryRouterRepository.GetBaseFee()
 	if baseFee.CurrentFee.IsNil() || baseFee.CurrentFee.IsZero() {
-		return domain.QuotePriceInfo{Err: "base fee is zero or nil"}
+		return domain.TxFeeInfo{Err: "base fee is zero or nil"}
 	}
 	if baseFee.Denom == "" {
-		return domain.QuotePriceInfo{Err: "base fee denom is empty"}
+		return domain.TxFeeInfo{Err: "base fee denom is empty"}
 	}
 
 	_, gasAdjusted, err := c.SimulateMsgs(
@@ -163,12 +163,12 @@ func (c *txGasCalulator) PriceMsgs(ctx context.Context, encodingConfig cosmoscli
 		msg,
 	)
 	if err != nil {
-		return domain.QuotePriceInfo{Err: err.Error(), BaseFee: baseFee.CurrentFee}
+		return domain.TxFeeInfo{Err: err.Error(), BaseFee: baseFee.CurrentFee}
 	}
 
 	feeAmount := CalculateFeeAmount(baseFee.CurrentFee, gasAdjusted)
 
-	return domain.QuotePriceInfo{
+	return domain.TxFeeInfo{
 		AdjustedGasUsed: gasAdjusted,
 		FeeCoin:         sdk.Coin{Denom: baseFee.Denom, Amount: feeAmount},
 		BaseFee:         baseFee.CurrentFee,

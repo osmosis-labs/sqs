@@ -30,10 +30,10 @@ func NewQuoteSimulator(msgSimulator tx.MsgSimulator, encodingConfig params.Encod
 }
 
 // SimulateQuote implements domain.QuoteSimulator
-func (q *quoteSimulator) SimulateQuote(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) domain.QuotePriceInfo {
+func (q *quoteSimulator) SimulateQuote(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) domain.TxFeeInfo {
 	route := quote.GetRoute()
 	if len(route) != 1 {
-		return domain.QuotePriceInfo{Err: fmt.Sprintf("route length must be 1, got %d", len(route))}
+		return domain.TxFeeInfo{Err: fmt.Sprintf("route length must be 1, got %d", len(route))}
 	}
 
 	poolsInRoute := route[0].GetPools()
@@ -62,7 +62,7 @@ func (q *quoteSimulator) SimulateQuote(ctx context.Context, quote domain.Quote, 
 	// Get the account for the simulator address
 	baseAccount, err := q.accountQueryClient.GetAccount(ctx, simulatorAddress)
 	if err != nil {
-		return domain.QuotePriceInfo{Err: err.Error()}
+		return domain.TxFeeInfo{Err: err.Error()}
 	}
 
 	return q.msgSimulator.PriceMsgs(ctx, q.encodingConfig.TxConfig, baseAccount, q.chainID, swapMsg)

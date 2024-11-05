@@ -92,8 +92,8 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 					},
 				},
 				QuoteSimulator: &mocks.QuoteSimulatorMock{
-					SimulateQuoteFn: func(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) domain.QuotePriceInfo {
-						return domain.QuotePriceInfo{
+					SimulateQuoteFn: func(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) domain.TxFeeInfo {
+						return domain.TxFeeInfo{
 							AdjustedGasUsed: 1_000_000,
 							FeeCoin:         sdk.NewCoin("uosmo", math.NewInt(1000)),
 							BaseFee:         osmomath.NewDecWithPrec(5, 1),
