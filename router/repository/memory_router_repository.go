@@ -41,17 +41,21 @@ type routerRepo struct {
 	takerFeeMap              sync.Map
 	candidateRouteSearchData sync.Map
 
+	baseFeeMx sync.RWMutex
+	baseFee   domain.BaseFee
+
+	logger log.Logger
+}
+
 func New(logger log.Logger) RouterRepository {
 	return &routerRepo{
 		takerFeeMap:              sync.Map{},
 		candidateRouteSearchData: sync.Map{},
-		baseFeeMx:               sync.RWMutex{},
-		baseFee:                 domain.BaseFee{}, // Initialize with zero value or appropriate default
+		baseFeeMx:                sync.RWMutex{},
+		baseFee:                  domain.BaseFee{},
 
 		logger: logger,
 	}
-}
-	logger log.Logger
 }
 
 // GetBaseFee implements RouterRepository.
@@ -66,16 +70,6 @@ func (r *routerRepo) SetBaseFee(baseFee domain.BaseFee) {
 	r.baseFeeMx.Lock()
 	defer r.baseFeeMx.Unlock()
 	r.baseFee = baseFee
-}
-
-// New creates a new repository for the router.
-func New(logger log.Logger) RouterRepository {
-	return &routerRepo{
-		takerFeeMap:              sync.Map{},
-		candidateRouteSearchData: sync.Map{},
-
-		logger: logger,
-	}
 }
 
 // GetAllTakerFees implements RouterRepository.
