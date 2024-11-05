@@ -311,6 +311,12 @@ const docTemplate = `{
                         "description": "Slippage tolerance multiplier for the simulation. If simulatorAddress is provided, this must be provided.",
                         "name": "simulationSlippageTolerance",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Boolean flag indicating whether to append the base fee to the quote. False by default.",
+                        "name": "appendBaseFee",
+                        "in": "query"
                     }
                 ],
                 "responses": {

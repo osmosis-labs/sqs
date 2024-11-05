@@ -6,6 +6,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/sqs/domain"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"

@@ -73,6 +73,7 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 // @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
 // @Param  simulatorAddress query string false "Address of the simulator to simulate the quote. If provided, the quote will be simulated."
 // @Param  simulationSlippageTolerance query string false "Slippage tolerance multiplier for the simulation. If simulatorAddress is provided, this must be provided."
+// @Param  appendBaseFee query bool false "Boolean flag indicating whether to append the base fee to the quote. False by default."
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/quote [get]
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
@@ -159,15 +160,15 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	// Only "out given in" swap method is supported for simulation. Thus, we also check for tokenOutDenom being set.
 	simulatorAddress := req.SimulatorAddress
 	if req.SingleRoute && simulatorAddress != "" && req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		gasUsed, feeCoin, err := a.QuoteSimulator.SimulateQuote(ctx, quote, req.SlippageToleranceMultiplier, simulatorAddress)
-		if err != nil {
-			return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
-		}
+		priceInfo := a.QuoteSimulator.SimulateQuote(ctx, quote, req.SlippageToleranceMultiplier, simulatorAddress)
 
 		// Set the quote price info.
-		quote.SetQuotePriceInfo(&domain.QuotePriceInfo{
-			AdjustedGasUsed: gasUsed,
-			FeeCoin:         feeCoin,
+		quote.SetQuotePriceInfo(&priceInfo)
+	}
+
+	if req.AppendBaseFee {
+		quote.SetQuotePriceInfo(&domain.TxFeeInfo{
+			BaseFee: a.RUsecase.GetBaseFee().CurrentFee,
 		})
 	}
 
