@@ -68,7 +68,7 @@ type CalculateGasFn func(clientCtx gogogrpc.ClientConn, txf txclient.Factory, ms
 type txGasCalulator struct {
 	clientCtx              grpc.ClientConnInterface
 	calculateGas           CalculateGasFn
-	memoryRouterRepository routerrepo.RouterRepository
+	memoryRouterRepository routerrepo.BaseFeeRepository
 }
 
 // BuildTx constructs a transaction using the provided parameters and messages.

@@ -13,8 +13,15 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+// BaseFeeRepository represents the contract for a repository handling base fee information
+type BaseFeeRepository interface {
+	SetBaseFee(baseFee domain.BaseFee)
+	GetBaseFee() domain.BaseFee
+}
+
 // RouterRepository represents the contract for a repository handling router information
 type RouterRepository interface {
+	BaseFeeRepository
 	mvc.CandidateRouteSearchDataHolder
 
 	// GetTakerFee returns the taker fee for a given pair of denominations
@@ -27,9 +34,6 @@ type RouterRepository interface {
 	// Sorting is no longer performed before storing as bi-directional taker fee is supported.
 	SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec)
 	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
-
-	SetBaseFee(baseFee domain.BaseFee)
-	GetBaseFee() domain.BaseFee
 }
 
 var (
