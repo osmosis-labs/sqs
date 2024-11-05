@@ -63,7 +63,7 @@ func (m *MockQuote) PrepareResult(ctx context.Context, scalingFactor math.Legacy
 }
 
 // SetQuotePriceInfo implements domain.Quote.
-func (m *MockQuote) SetQuotePriceInfo(info *domain.QuotePriceInfo) {
+func (m *MockQuote) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 	panic("unimplemented")
 }
 

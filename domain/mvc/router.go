@@ -40,6 +40,8 @@ type RouterRepository interface {
 	SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec)
 	// SetTakerFees sets taker fees on router repository
 	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
+
+	GetBaseFee() domain.BaseFee
 }
 
 // SimpleRouterUsecase represent the simple router's usecases
@@ -75,6 +77,9 @@ type RouterUsecase interface {
 	GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error)
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
 	GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
+
+	GetBaseFee() domain.BaseFee
+
 	// GetTakerFee returns the taker fee for all token pairs in a pool.
 	GetTakerFee(poolID uint64) ([]sqsdomain.TakerFeeForPair, error)
 	// SetTakerFees sets the taker fees for all token pairs in all pools.

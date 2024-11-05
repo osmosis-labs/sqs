@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
 )
 
 type QuoteSimulatorMock struct {
-	SimulateQuoteFn func(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) (uint64, types.Coin, error)
+	SimulateQuoteFn func(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) domain.TxFeeInfo
 }
 
 // SimulateQuote implements domain.QuoteSimulator.
-func (q *QuoteSimulatorMock) SimulateQuote(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) (uint64, types.Coin, error) {
+func (q *QuoteSimulatorMock) SimulateQuote(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) domain.TxFeeInfo {
 	if q.SimulateQuoteFn != nil {
 		return q.SimulateQuoteFn(ctx, quote, slippageToleranceMultiplier, simulatorAddress)
 	}

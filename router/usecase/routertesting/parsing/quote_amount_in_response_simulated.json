@@ -52,6 +52,7 @@
     "fee_coin": {
       "denom": "uosmo",
       "amount": "1000"
-    }
+    },
+    "base_fee": "0.500000000000000000"
   }
 }
