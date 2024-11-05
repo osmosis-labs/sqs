@@ -35,6 +35,13 @@ type RouterUsecaseMock struct {
 	ConvertMinTokensPoolLiquidityCapToFilterFunc func(minTokensPoolLiquidityCap uint64) uint64
 	SetSortedPoolsFunc                           func(pools []sqsdomain.PoolI)
 	GetMinPoolLiquidityCapFilterFunc             func(tokenInDenom string, tokenOutDenom string) (uint64, error)
+
+	BaseFee domain.BaseFee
+}
+
+// GetBaseFee implements mvc.RouterUsecase.
+func (m *RouterUsecaseMock) GetBaseFee() domain.BaseFee {
+	return m.BaseFee
 }
 
 // GetMinPoolLiquidityCapFilter implements mvc.RouterUsecase.

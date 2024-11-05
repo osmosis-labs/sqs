@@ -12,7 +12,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v27/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 )
@@ -32,6 +31,7 @@ func TestSimulateQuote(t *testing.T) {
 		simulatorAddress            string
 		expectedGasAdjusted         uint64
 		expectedFeeCoin             sdk.Coin
+		expectedBaseFee             osmomath.Dec
 		expectError                 bool
 		expectedErrorMsg            string
 	}{
@@ -41,6 +41,7 @@ func TestSimulateQuote(t *testing.T) {
 			simulatorAddress:            "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
 			expectedGasAdjusted:         100000,
 			expectedFeeCoin:             sdk.NewCoin("uosmo", osmomath.NewInt(10000)),
+			expectedBaseFee:             osmomath.NewDecWithPrec(5, 1),
 			expectError:                 false,
 		},
 	}
@@ -82,16 +83,18 @@ func TestSimulateQuote(t *testing.T) {
 			msgSimulator := &mocks.MsgSimulatorMock{
 				PriceMsgsFn: func(
 					ctx context.Context,
-					txfeesClient txfeestypes.QueryClient,
 					encodingConfig client.TxConfig,
 					account *authtypes.BaseAccount,
 					chainID string,
 					msg ...sdk.Msg,
-				) (uint64, sdk.Coin, error) {
-					return tt.expectedGasAdjusted, tt.expectedFeeCoin, nil
+				) domain.TxFeeInfo {
+					return domain.TxFeeInfo{
+						AdjustedGasUsed: tt.expectedGasAdjusted,
+						FeeCoin:         tt.expectedFeeCoin,
+						BaseFee:         osmomath.NewDecWithPrec(5, 1),
+					}
 				},
 			}
-			txFeesClient := &mocks.TxFeesQueryClient{}
 			accountQueryClient := &mocks.AuthQueryClientMock{
 				GetAccountFunc: func(ctx context.Context, address string) (*authtypes.BaseAccount, error) {
 					return &authtypes.BaseAccount{
@@ -104,13 +107,12 @@ func TestSimulateQuote(t *testing.T) {
 			simulator := NewQuoteSimulator(
 				msgSimulator,
 				params.EncodingConfig{},
-				txFeesClient,
 				accountQueryClient,
 				"osmosis-1",
 			)
 
 			// System under test
-			gasAdjusted, feeCoin, err := simulator.SimulateQuote(
+			priceInfo := simulator.SimulateQuote(
 				context.Background(),
 				mockQuote,
 				tt.slippageToleranceMultiplier,
@@ -119,12 +121,13 @@ func TestSimulateQuote(t *testing.T) {
 
 			// Assert results
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.expectedErrorMsg)
+				assert.NotEmpty(t, priceInfo.Err)
+				assert.Contains(t, priceInfo.Err, tt.expectedErrorMsg)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedGasAdjusted, gasAdjusted)
-				assert.Equal(t, tt.expectedFeeCoin, feeCoin)
+				assert.Empty(t, priceInfo.Err)
+				assert.Equal(t, tt.expectedGasAdjusted, priceInfo.AdjustedGasUsed)
+				assert.Equal(t, tt.expectedFeeCoin, priceInfo.FeeCoin)
+				assert.Equal(t, tt.expectedBaseFee, priceInfo.BaseFee)
 			}
 		})
 	}

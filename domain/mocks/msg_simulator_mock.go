@@ -8,7 +8,7 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/osmosis-labs/osmosis/v27/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
+	"github.com/osmosis-labs/sqs/domain"
 	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 )
@@ -17,7 +17,6 @@ type MsgSimulatorMock struct {
 	BuildTxFn func(
 		ctx context.Context,
 		keyring keyring.Keyring,
-		txfeesClient txfeestypes.QueryClient,
 		encodingConfig params.EncodingConfig,
 		account *authtypes.BaseAccount,
 		chainID string,
@@ -33,26 +32,24 @@ type MsgSimulatorMock struct {
 
 	PriceMsgsFn func(
 		ctx context.Context,
-		txfeesClient txfeestypes.QueryClient,
 		encodingConfig client.TxConfig,
 		account *authtypes.BaseAccount,
 		chainID string,
 		msg ...sdk.Msg,
-	) (uint64, sdk.Coin, error)
+	) domain.TxFeeInfo
 }
 
 var _ sqstx.MsgSimulator = &MsgSimulatorMock{}
 
 func (m *MsgSimulatorMock) BuildTx(ctx context.Context,
 	keyring keyring.Keyring,
-	txfeesClient txfeestypes.QueryClient,
 	encodingConfig params.EncodingConfig,
 	account *authtypes.BaseAccount,
 	chainID string,
 	msg ...sdk.Msg,
 ) (client.TxBuilder, error) {
 	if m.BuildTxFn != nil {
-		return m.BuildTxFn(ctx, keyring, txfeesClient, encodingConfig, account, chainID, msg...)
+		return m.BuildTxFn(ctx, keyring, encodingConfig, account, chainID, msg...)
 	}
 	panic("BuildTxFn not implemented")
 }
@@ -70,13 +67,13 @@ func (m *MsgSimulatorMock) SimulateMsgs(
 }
 
 // PriceMsgs implements tx.MsgSimulator.
-func (m *MsgSimulatorMock) PriceMsgs(ctx context.Context, txfeesClient txfeestypes.QueryClient, encodingConfig client.TxConfig, account *authtypes.BaseAccount, chainID string, msg ...interface {
+func (m *MsgSimulatorMock) PriceMsgs(ctx context.Context, encodingConfig client.TxConfig, account *authtypes.BaseAccount, chainID string, msg ...interface {
 	ProtoMessage()
 	Reset()
 	String() string
-}) (uint64, sdk.Coin, error) {
+}) domain.TxFeeInfo {
 	if m.PriceMsgsFn != nil {
-		return m.PriceMsgsFn(ctx, txfeesClient, encodingConfig, account, chainID, msg...)
+		return m.PriceMsgsFn(ctx, encodingConfig, account, chainID, msg...)
 	}
 	panic("PriceMsgsFn not implemented")
 }

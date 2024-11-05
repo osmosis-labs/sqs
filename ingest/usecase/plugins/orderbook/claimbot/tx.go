@@ -15,7 +15,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/osmosis-labs/osmosis/v27/app"
 	"github.com/osmosis-labs/osmosis/v27/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 )
 
 var (
@@ -32,7 +31,6 @@ var (
 func sendBatchClaimTx(
 	ctx context.Context,
 	keyring keyring.Keyring,
-	txfeesClient txfeestypes.QueryClient,
 	msgSimulator sqstx.MsgSimulator,
 	txServiceClient txtypes.ServiceClient,
 	chainID string,
@@ -40,7 +38,7 @@ func sendBatchClaimTx(
 	contractAddress string,
 	claims orderbookdomain.Orders,
 ) (*sdk.TxResponse, error) {
-	return sendBatchClaimTxInternal(ctx, keyring, txfeesClient, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, defaultEncodingConfigFn)
+	return sendBatchClaimTxInternal(ctx, keyring, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, defaultEncodingConfigFn)
 }
 
 // sendBatchClaimTxInternal is a helper function that prepares and sends a batch claim transaction to the blockchain.
@@ -48,7 +46,6 @@ func sendBatchClaimTx(
 func sendBatchClaimTxInternal(
 	ctx context.Context,
 	keyring keyring.Keyring,
-	txfeesClient txfeestypes.QueryClient,
 	msgSimulator sqstx.MsgSimulator,
 	txServiceClient txtypes.ServiceClient,
 	chainID string,
@@ -68,7 +65,7 @@ func sendBatchClaimTxInternal(
 
 	msg := buildExecuteContractMsg(address, contractAddress, msgBytes)
 
-	tx, err := msgSimulator.BuildTx(ctx, keyring, txfeesClient, encodingConfig, account, chainID, msg)
+	tx, err := msgSimulator.BuildTx(ctx, keyring, encodingConfig, account, chainID, msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build transaction: %w", err)
 	}

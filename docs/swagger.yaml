@@ -417,6 +417,11 @@ paths:
         in: query
         name: simulationSlippageTolerance
         type: string
+      - description: Boolean flag indicating whether to append the base fee to the
+          quote. False by default.
+        in: query
+        name: appendBaseFee
+        type: boolean
       produces:
       - application/json
       responses:

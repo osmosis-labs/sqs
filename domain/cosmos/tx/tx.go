@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
 
 	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 
@@ -55,22 +56,23 @@ func BuildSignerData(chainID string, accountNumber, sequence uint64) authsigning
 	}
 }
 
-// CalculateFeeCoin determines the appropriate fee coin for a transaction based on the current base fee
+// CalculateFeePrice determines the appropriate fee price for a transaction based on the current base fee
 // and the amount of gas used. It queries the base denomination and EIP base fee using the provided gRPC connection.
-func CalculateFeeCoin(ctx context.Context, client txfeestypes.QueryClient, gas uint64) (sdk.Coin, error) {
+func CalculateFeePrice(ctx context.Context, client txfeestypes.QueryClient) (domain.BaseFee, error) {
 	queryBaseDenomResponse, err := client.BaseDenom(ctx, &txfeestypes.QueryBaseDenomRequest{})
 	if err != nil {
-		return sdk.Coin{}, err
+		return domain.BaseFee{}, err
 	}
 
 	queryEipBaseFeeResponse, err := client.GetEipBaseFee(ctx, &txfeestypes.QueryEipBaseFeeRequest{})
 	if err != nil {
-		return sdk.Coin{}, err
+		return domain.BaseFee{}, err
 	}
 
-	feeAmount := CalculateFeeAmount(queryEipBaseFeeResponse.BaseFee, gas)
-
-	return sdk.NewCoin(queryBaseDenomResponse.BaseDenom, feeAmount), nil
+	return domain.BaseFee{
+		Denom:      queryBaseDenomResponse.BaseDenom,
+		CurrentFee: queryEipBaseFeeResponse.BaseFee,
+	}, nil
 }
 
 // CalculateFeeAmount calculates the fee amount based on the base fee and gas used.

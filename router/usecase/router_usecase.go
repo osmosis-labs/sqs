@@ -885,6 +885,11 @@ func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	return spotPrice, nil
 }
 
+// GetBaseFee implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetBaseFee() domain.BaseFee {
+	return r.routerRepository.GetBaseFee()
+}
+
 // SetSortedPools implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) SetSortedPools(pools []sqsdomain.PoolI) {
 	r.sortedPoolsMu.Lock()

@@ -53,7 +53,7 @@ func SendBatchClaimTxInternal(
 	claims orderbookdomain.Orders,
 	getEncodingConfig func() params.EncodingConfig,
 ) (*sdk.TxResponse, error) {
-	return sendBatchClaimTxInternal(ctx, keyring, txfeesClient, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, getEncodingConfig)
+	return sendBatchClaimTxInternal(ctx, keyring, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, getEncodingConfig)
 }
 
 // PrepareBatchClaimMsg is a test wrapper for prepareBatchClaimMsg.

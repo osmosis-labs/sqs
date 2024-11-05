@@ -25,6 +25,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
+	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/basefee"
 	orderbookclaimbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
 	orderbookfillbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot"
 	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
@@ -217,11 +218,10 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}
 
 	grpcClient := passthroughGRPCClient.GetChainGRPCClient()
-	gasCalculator := tx.NewGasCalculator(grpcClient, tx.CalculateGas)
+	gasCalculator := tx.NewMsgSimulator(grpcClient, tx.CalculateGas, routerRepository)
 	quoteSimulator := quotesimulator.NewQuoteSimulator(
 		gasCalculator,
 		app.GetEncodingConfig(),
-		txfeestypes.NewQueryClient(grpcClient),
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
@@ -323,6 +323,10 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 				ingestUseCase.RegisterEndBlockProcessPlugin(currentPlugin)
 			}
 		}
+
+		// Unconditionally register the base fee fetcher.
+		baseFeeFetcherPlugin := basefee.NewEndBlockUpdatePlugin(routerRepository, txfeestypes.NewQueryClient(grpcClient), logger)
+		ingestUseCase.RegisterEndBlockProcessPlugin(baseFeeFetcherPlugin)
 
 		// Register chain info use case as a listener to the pool liquidity compute worker (healthcheck).
 		poolLiquidityComputeWorker.RegisterListener(chainInfoUseCase)

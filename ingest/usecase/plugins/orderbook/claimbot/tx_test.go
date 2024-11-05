@@ -12,7 +12,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/osmosis-labs/osmosis/v27/app"
 	"github.com/osmosis-labs/osmosis/v27/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
@@ -54,7 +53,6 @@ func TestSendBatchClaimTx(t *testing.T) {
 				msgSimulator.BuildTxFn = func(
 					ctx context.Context,
 					keyring keyring.Keyring,
-					txfeesClient txfeestypes.QueryClient,
 					encodingConfig params.EncodingConfig,
 					account *authtypes.BaseAccount,
 					chainID string,
@@ -79,7 +77,6 @@ func TestSendBatchClaimTx(t *testing.T) {
 				msgSimulator.BuildTxFn = func(
 					ctx context.Context,
 					keyring keyring.Keyring,
-					txfeesClient txfeestypes.QueryClient,
 					encodingConfig params.EncodingConfig,
 					account *authtypes.BaseAccount,
 					chainID string,
@@ -117,7 +114,6 @@ func TestSendBatchClaimTx(t *testing.T) {
 				msgSimulator.BuildTxFn = func(
 					ctx context.Context,
 					keyring keyring.Keyring,
-					txfeesClient txfeestypes.QueryClient,
 					encodingConfig params.EncodingConfig,
 					account *authtypes.BaseAccount,
 					chainID string,

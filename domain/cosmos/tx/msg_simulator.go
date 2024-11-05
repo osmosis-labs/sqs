@@ -2,6 +2,7 @@ package tx
 
 import (
 	"context"
+	"errors"
 
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	txclient "github.com/cosmos/cosmos-sdk/client/tx"
@@ -12,8 +13,10 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/osmosis-labs/osmosis/v27/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/keyring"
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
+	"google.golang.org/grpc"
 
 	gogogrpc "github.com/cosmos/gogoproto/grpc"
 )
@@ -23,7 +26,6 @@ type MsgSimulator interface {
 	BuildTx(
 		ctx context.Context,
 		keyring keyring.Keyring,
-		txfeesClient txfeestypes.QueryClient,
 		encodingConfig params.EncodingConfig,
 		account *authtypes.BaseAccount,
 		chainID string,
@@ -44,19 +46,19 @@ type MsgSimulator interface {
 	// which is the fee amount in the base denomination.
 	PriceMsgs(
 		ctx context.Context,
-		txfeesClient txfeestypes.QueryClient,
 		encodingConfig cosmosclient.TxConfig,
 		account *authtypes.BaseAccount,
 		chainID string,
 		msg ...sdk.Msg,
-	) (uint64, sdk.Coin, error)
+	) domain.TxFeeInfo
 }
 
-// NewGasCalculator creates a new GasCalculator instance.
-func NewGasCalculator(clientCtx gogogrpc.ClientConn, calculateGas CalculateGasFn) MsgSimulator {
+// NewMsgSimulator creates a new GasCalculator instance.
+func NewMsgSimulator(clientCtx gogogrpc.ClientConn, calculateGas CalculateGasFn, memoryRouterRepository routerrepo.RouterRepository) MsgSimulator {
 	return &txGasCalulator{
-		clientCtx:    clientCtx,
-		calculateGas: calculateGas,
+		clientCtx:              clientCtx,
+		calculateGas:           calculateGas,
+		memoryRouterRepository: memoryRouterRepository,
 	}
 }
 
@@ -65,8 +67,9 @@ type CalculateGasFn func(clientCtx gogogrpc.ClientConn, txf txclient.Factory, ms
 
 // txGasCalulator is a GasCalculator implementation that uses simulated transactions to calculate gas.
 type txGasCalulator struct {
-	clientCtx    gogogrpc.ClientConn
-	calculateGas CalculateGasFn
+	clientCtx              grpc.ClientConnInterface
+	calculateGas           CalculateGasFn
+	memoryRouterRepository routerrepo.BaseFeeRepository
 }
 
 // BuildTx constructs a transaction using the provided parameters and messages.
@@ -74,7 +77,6 @@ type txGasCalulator struct {
 func (c *txGasCalulator) BuildTx(
 	ctx context.Context,
 	keyring keyring.Keyring,
-	txfeesClient txfeestypes.QueryClient,
 	encodingConfig params.EncodingConfig,
 	account *authtypes.BaseAccount,
 	chainID string,
@@ -91,13 +93,13 @@ func (c *txGasCalulator) BuildTx(
 		return nil, err
 	}
 
-	gasAdjusted, feecoin, err := c.PriceMsgs(ctx, txfeesClient, encodingConfig.TxConfig, account, chainID, msg...)
-	if err != nil {
-		return nil, err
+	priceInfo := c.PriceMsgs(ctx, encodingConfig.TxConfig, account, chainID, msg...)
+	if priceInfo.Err != "" {
+		return nil, errors.New(priceInfo.Err)
 	}
 
-	txBuilder.SetGasLimit(gasAdjusted)
-	txBuilder.SetFeeAmount(sdk.Coins{feecoin})
+	txBuilder.SetGasLimit(priceInfo.AdjustedGasUsed)
+	txBuilder.SetFeeAmount(sdk.Coins{priceInfo.FeeCoin})
 
 	sigV2 := BuildSignatures(privKey.PubKey(), nil, account.Sequence)
 	err = txBuilder.SetSignatures(sigV2)
@@ -146,7 +148,15 @@ func (c *txGasCalulator) SimulateMsgs(encodingConfig cosmosclient.TxConfig, acco
 }
 
 // PriceMsgs implements MsgSimulator.
-func (c *txGasCalulator) PriceMsgs(ctx context.Context, txfeesClient txfeestypes.QueryClient, encodingConfig cosmosclient.TxConfig, account *authtypes.BaseAccount, chainID string, msg ...sdk.Msg) (uint64, sdk.Coin, error) {
+func (c *txGasCalulator) PriceMsgs(ctx context.Context, encodingConfig cosmosclient.TxConfig, account *authtypes.BaseAccount, chainID string, msg ...sdk.Msg) domain.TxFeeInfo {
+	baseFee := c.memoryRouterRepository.GetBaseFee()
+	if baseFee.CurrentFee.IsNil() || baseFee.CurrentFee.IsZero() {
+		return domain.TxFeeInfo{Err: "base fee is zero or nil"}
+	}
+	if baseFee.Denom == "" {
+		return domain.TxFeeInfo{Err: "base fee denom is empty"}
+	}
+
 	_, gasAdjusted, err := c.SimulateMsgs(
 		encodingConfig,
 		account,
@@ -154,15 +164,17 @@ func (c *txGasCalulator) PriceMsgs(ctx context.Context, txfeesClient txfeestypes
 		msg,
 	)
 	if err != nil {
-		return 0, sdk.Coin{}, err
+		return domain.TxFeeInfo{Err: err.Error(), BaseFee: baseFee.CurrentFee}
 	}
 
-	feeCoin, err := CalculateFeeCoin(ctx, txfeesClient, gasAdjusted)
-	if err != nil {
-		return 0, sdk.Coin{}, err
-	}
+	feeAmount := CalculateFeeAmount(baseFee.CurrentFee, gasAdjusted)
 
-	return gasAdjusted, feeCoin, nil
+	return domain.TxFeeInfo{
+		AdjustedGasUsed: gasAdjusted,
+		FeeCoin:         sdk.Coin{Denom: baseFee.Denom, Amount: feeAmount},
+		BaseFee:         baseFee.CurrentFee,
+		Err:             "",
+	}
 }
 
 // CalculateGas calculates the gas required for a transaction using the provided transaction factory and messages.

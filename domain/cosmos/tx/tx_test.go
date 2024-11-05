@@ -12,7 +12,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -189,13 +188,14 @@ func TestBuildSignerData(t *testing.T) {
 
 func TestCalculateFeeCoin(t *testing.T) {
 	tests := []struct {
-		name           string
-		gas            uint64
-		txFeesClient   mocks.TxFeesQueryClient
-		setupMocks     func(*mocks.TxFeesQueryClient)
-		expectedCoin   string
-		expectedAmount osmomath.Int
-		expectError    bool
+		name            string
+		gas             uint64
+		txFeesClient    mocks.TxFeesQueryClient
+		setupMocks      func(*mocks.TxFeesQueryClient)
+		expectedCoin    string
+		expectedAmount  osmomath.Int
+		expectedBaseFee osmomath.Dec
+		expectError     bool
 	}{
 		{
 			name: "Normal case",
@@ -204,9 +204,10 @@ func TestCalculateFeeCoin(t *testing.T) {
 				client.WithBaseDenom("uosmo", nil)
 				client.WithGetEipBaseFee("0.5", nil)
 			},
-			expectedCoin:   "uosmo",
-			expectedAmount: osmomath.NewInt(50000),
-			expectError:    false,
+			expectedCoin:    "uosmo",
+			expectedAmount:  osmomath.NewInt(50000),
+			expectedBaseFee: osmomath.NewDecWithPrec(5, 1),
+			expectError:     false,
 		},
 		{
 			name: "Error getting base denom",
@@ -230,13 +231,14 @@ func TestCalculateFeeCoin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMocks(&tt.txFeesClient)
 
-			result, err := sqstx.CalculateFeeCoin(context.TODO(), &tt.txFeesClient, tt.gas)
+			baseFee, err := sqstx.CalculateFeePrice(context.TODO(), &tt.txFeesClient)
 
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, types.NewCoin(tt.expectedCoin, tt.expectedAmount), result)
+				assert.Equal(t, tt.expectedCoin, baseFee.Denom)
+				assert.Equal(t, tt.expectedBaseFee, baseFee.CurrentFee)
 			}
 		})
 	}
