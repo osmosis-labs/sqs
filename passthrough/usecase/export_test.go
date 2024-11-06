@@ -15,6 +15,7 @@ const (
 	InLocksAssetsCategoryName          = inLocksAssetsCategoryName
 	PooledAssetsCategoryName           = pooledAssetsCategoryName
 	UnclaimedRewardsAssetsCategoryName = unclaimedRewardsAssetsCategoryName
+	LimitOrdersCategoryName            = limitOrdersCategoryName
 	TotalAssetsCategoryName            = totalAssetsCategoryName
 )
 

@@ -6,6 +6,30 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+// NewDirection returns a new order direction.
+func NewDirection(direction string) OrderDirection {
+	return OrderDirection(direction)
+}
+
+// Direction represents the direction of an order.
+type OrderDirection string
+
+// Is returns true if the order direction is equal to the given direction.
+func (d OrderDirection) Is(direction OrderDirection) bool {
+	return d == direction
+}
+
+// String returns the string representation of the order direction.
+func (d OrderDirection) String() string {
+	return string(d)
+}
+
+// Order direction types.
+const (
+	DirectionBid OrderDirection = "bid"
+	DirectionAsk OrderDirection = "ask"
+)
+
 // OrderStatus represents the status of an order.
 type OrderStatus string
 
@@ -20,13 +44,20 @@ const (
 
 // Order represents an order in the orderbook returned by the orderbook contract.
 type Order struct {
-	TickId         int64  `json:"tick_id"`
-	OrderId        int64  `json:"order_id"`
+	// The price for which to place the order.
+	// Can be calculated following the tick calculations:
+	// https://github.com/osmosis-labs/orderbook/edit/main/contracts/sumtree-orderbook/README.md#tick-calculations
+	TickId int64 `json:"tick_id"`
+	// The ID of the order
+	OrderId int64 `json:"order_id"`
+	// The direction for which to place the order, should be either an ask order or a bid order
 	OrderDirection string `json:"order_direction"`
 	Owner          string `json:"owner"`
 	Quantity       string `json:"quantity"`
 	Etas           string `json:"etas"`
-	ClaimBounty    string `json:"claim_bounty"`
+	// An optional percentage bounty to claim the order, capped at 1%
+	ClaimBounty string `json:"claim_bounty"`
+	// Immutable quantity of the order when placed
 	PlacedQuantity string `json:"placed_quantity"`
 	PlacedAt       string `json:"placed_at"`
 }
@@ -67,10 +98,10 @@ func (o Orders) TickID() []int64 {
 
 // OrderByDirection filters orders by given direction and returns resulting slice.
 // Original slice is not mutated.
-func (o Orders) OrderByDirection(direction string) Orders {
+func (o Orders) OrderByDirection(direction OrderDirection) Orders {
 	var result Orders
 	for _, v := range o {
-		if v.OrderDirection == direction {
+		if NewDirection(v.OrderDirection).Is(direction) {
 			result = append(result, v)
 		}
 	}
@@ -85,31 +116,46 @@ type Asset struct {
 
 // LimitOrder represents a limit order in the orderbook.
 type LimitOrder struct {
-	TickId           int64        `json:"tick_id"`
-	OrderId          int64        `json:"order_id"`
-	OrderDirection   string       `json:"order_direction"`
-	Owner            string       `json:"owner"`
-	Quantity         osmomath.Dec `json:"quantity"`
-	Etas             string       `json:"etas"`
-	ClaimBounty      string       `json:"claim_bounty"`
-	PlacedQuantity   osmomath.Dec `json:"placed_quantity"`
-	PlacedAt         int64        `json:"placed_at"`
-	Price            osmomath.Dec `json:"price"`
-	PercentClaimed   osmomath.Dec `json:"percentClaimed"`
-	TotalFilled      osmomath.Dec `json:"totalFilled"`
-	PercentFilled    osmomath.Dec `json:"percentFilled"`
-	OrderbookAddress string       `json:"orderbookAddress"`
-	Status           OrderStatus  `json:"status"`
-	Output           osmomath.Dec `json:"output"`
-	QuoteAsset       Asset        `json:"quote_asset"`
-	BaseAsset        Asset        `json:"base_asset"`
-	PlacedTx         *string      `json:"placed_tx,omitempty"`
+	TickId           int64          `json:"tick_id"`
+	OrderId          int64          `json:"order_id"`
+	OrderDirection   OrderDirection `json:"order_direction"`
+	Owner            string         `json:"owner"`
+	Quantity         osmomath.Dec   `json:"quantity"`
+	Etas             string         `json:"etas"`
+	ClaimBounty      string         `json:"claim_bounty"`
+	PlacedQuantity   osmomath.Dec   `json:"placed_quantity"`
+	PlacedAt         int64          `json:"placed_at"`
+	Price            osmomath.Dec   `json:"price"`
+	PercentClaimed   osmomath.Dec   `json:"percentClaimed"`
+	TotalFilled      osmomath.Dec   `json:"totalFilled"`
+	PercentFilled    osmomath.Dec   `json:"percentFilled"`
+	OrderbookAddress string         `json:"orderbookAddress"`
+	Status           OrderStatus    `json:"status"`
+	Output           osmomath.Dec   `json:"output"`
+	QuoteAsset       Asset          `json:"quote_asset"`
+	BaseAsset        Asset          `json:"base_asset"`
+	PlacedTx         *string        `json:"placed_tx,omitempty"`
 }
 
 // IsClaimable reports whether the limit order is filled above the given
 // threshold to be considered as claimable.
 func (o LimitOrder) IsClaimable(threshold osmomath.Dec) bool {
 	return o.PercentFilled.GT(threshold) && o.PercentFilled.LTE(osmomath.OneDec())
+}
+
+// ClaimableAmountOfOSMO calculates the claimable amount of base asset
+func (o LimitOrder) ClaimableAmount() osmomath.Dec {
+	return o.TotalFilled.Sub(o.TotalFilled.Mul(o.PercentClaimed))
+}
+
+// GetQuoteFillableAmount calculates the amount of quote asset left to be filled
+func (o LimitOrder) QuoteAssetFillableAmount() osmomath.Dec {
+	return o.PlacedQuantity.Sub(o.Output.Mul(o.PercentFilled))
+}
+
+// GetBaseAssetFillableAmount calculates the amount of base asset left to be filled
+func (o LimitOrder) BaseAssetFillableAmount() osmomath.Dec {
+	return o.Quantity.Sub(o.TotalFilled)
 }
 
 // OrderbookResult represents orderbook orders result.

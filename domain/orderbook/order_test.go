@@ -82,49 +82,49 @@ func TestOrdersByDirection(t *testing.T) {
 	testCases := []struct {
 		name           string
 		orders         orderbookdomain.Orders
-		direction      string
+		direction      orderbookdomain.OrderDirection
 		expectedOrders orderbookdomain.Orders
 	}{
 		{
 			name: "Filter buy orders",
 			orders: orderbookdomain.Orders{
-				{OrderDirection: "buy", OrderId: 1},
-				{OrderDirection: "sell", OrderId: 2},
-				{OrderDirection: "buy", OrderId: 3},
+				{OrderDirection: orderbookdomain.DirectionBid.String(), OrderId: 1},
+				{OrderDirection: orderbookdomain.DirectionAsk.String(), OrderId: 2},
+				{OrderDirection: orderbookdomain.DirectionBid.String(), OrderId: 3},
 			},
-			direction: "buy",
+			direction: orderbookdomain.DirectionBid,
 			expectedOrders: orderbookdomain.Orders{
-				{OrderDirection: "buy", OrderId: 1},
-				{OrderDirection: "buy", OrderId: 3},
+				{OrderDirection: orderbookdomain.DirectionBid.String(), OrderId: 1},
+				{OrderDirection: orderbookdomain.DirectionBid.String(), OrderId: 3},
 			},
 		},
 		{
 			name: "Filter sell orders",
 			orders: orderbookdomain.Orders{
-				{OrderDirection: "buy", OrderId: 1},
-				{OrderDirection: "sell", OrderId: 2},
-				{OrderDirection: "buy", OrderId: 3},
-				{OrderDirection: "sell", OrderId: 4},
+				{OrderDirection: orderbookdomain.DirectionBid.String(), OrderId: 1},
+				{OrderDirection: orderbookdomain.DirectionAsk.String(), OrderId: 2},
+				{OrderDirection: orderbookdomain.DirectionBid.String(), OrderId: 3},
+				{OrderDirection: orderbookdomain.DirectionAsk.String(), OrderId: 4},
 			},
-			direction: "sell",
+			direction: orderbookdomain.DirectionAsk,
 			expectedOrders: orderbookdomain.Orders{
-				{OrderDirection: "sell", OrderId: 2},
-				{OrderDirection: "sell", OrderId: 4},
+				{OrderDirection: orderbookdomain.DirectionAsk.String(), OrderId: 2},
+				{OrderDirection: orderbookdomain.DirectionAsk.String(), OrderId: 4},
 			},
 		},
 		{
 			name: "No matching orders",
 			orders: orderbookdomain.Orders{
-				{OrderDirection: "buy", OrderId: 1},
-				{OrderDirection: "buy", OrderId: 2},
+				{OrderDirection: orderbookdomain.DirectionBid.String(), OrderId: 1},
+				{OrderDirection: orderbookdomain.DirectionBid.String(), OrderId: 2},
 			},
-			direction:      "sell",
+			direction:      orderbookdomain.DirectionAsk,
 			expectedOrders: nil,
 		},
 		{
 			name:           "Empty orders slice",
 			orders:         orderbookdomain.Orders{},
-			direction:      "buy",
+			direction:      orderbookdomain.DirectionBid,
 			expectedOrders: nil,
 		},
 	}
@@ -181,6 +181,79 @@ func TestLimitOrder_IsClaimable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.order.IsClaimable(tt.threshold)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestClaimableAmount(t *testing.T) {
+	tests := []struct {
+		name  string
+		order orderbookdomain.LimitOrder
+		want  osmomath.Dec
+	}{
+		{
+			name: "Buy 10 OSMO for 1 USD with 50% filled and 0.25% claimed",
+			order: orderbookdomain.LimitOrder{
+				OrderDirection: orderbookdomain.DirectionBid,
+				TotalFilled:    osmomath.NewDec(5),
+				PercentClaimed: osmomath.MustNewDecFromStr("0.25"),
+			},
+			want: osmomath.MustNewDecFromStr("3.75"),
+		},
+		{
+			name: "Buy 10 OSMO with 0% filled and 1% claimed",
+			order: orderbookdomain.LimitOrder{
+				OrderDirection: orderbookdomain.DirectionBid,
+				TotalFilled:    osmomath.NewDec(0),
+				PercentClaimed: osmomath.MustNewDecFromStr("1"),
+			},
+			want: osmomath.MustNewDecFromStr("0"),
+		},
+		{
+			name: "Buy 10 OSMO with 5% filled and 0% claimed",
+			order: orderbookdomain.LimitOrder{
+				OrderDirection: orderbookdomain.DirectionBid,
+				TotalFilled:    osmomath.NewDec(5),
+				PercentClaimed: osmomath.MustNewDecFromStr("0"),
+			},
+			want: osmomath.MustNewDecFromStr("5"),
+		},
+		{
+			name: "Sell 0.1 OSMO for 1 USD, with 50% filled and 0.25% claimed",
+			order: orderbookdomain.LimitOrder{
+				OrderDirection: orderbookdomain.DirectionAsk,
+				Output:         osmomath.NewDec(10),
+				TotalFilled:    osmomath.MustNewDecFromStr("0.5"),
+				PercentClaimed: osmomath.MustNewDecFromStr("0.25"),
+			},
+			want: osmomath.MustNewDecFromStr("0.375"),
+		},
+		{
+			name: "Sell 0.1 OSMO for 1 USD, with 0% filled and 2% claimed",
+			order: orderbookdomain.LimitOrder{
+				OrderDirection: orderbookdomain.DirectionAsk,
+				Output:         osmomath.NewDec(10),
+				TotalFilled:    osmomath.NewDec(0),
+				PercentClaimed: osmomath.MustNewDecFromStr("0.2"),
+			},
+			want: osmomath.NewDec(0),
+		},
+		{
+			name: "Sell 0.1 OSMO for 1 USD, with 3% filled and 0% claimed",
+			order: orderbookdomain.LimitOrder{
+				OrderDirection: orderbookdomain.DirectionAsk,
+				Output:         osmomath.NewDec(10),
+				TotalFilled:    osmomath.MustNewDecFromStr("0.3"),
+				PercentClaimed: osmomath.MustNewDecFromStr("0"),
+			},
+			want: osmomath.MustNewDecFromStr("0.3"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.order.ClaimableAmount()
 			assert.Equal(t, tt.want, got)
 		})
 	}

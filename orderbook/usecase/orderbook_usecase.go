@@ -388,7 +388,8 @@ func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(orderbook domain.Canoni
 
 	// Determine tick values and unrealized cancels based on order direction
 	var tickEtas, tickUnrealizedCancelled osmomath.Dec
-	if order.OrderDirection == "bid" {
+
+	if orderbookdomain.NewDirection(order.OrderDirection).Is(orderbookdomain.DirectionBid) {
 		tickEtas, err = osmomath.NewDecFromStr(tickState.BidValues.EffectiveTotalAmountSwapped)
 		if err != nil {
 			return orderbookdomain.LimitOrder{}, types.ParsingTickValuesError{
@@ -460,7 +461,7 @@ func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(orderbook domain.Canoni
 
 	// Calculate output based on order direction
 	var output osmomath.Dec
-	if order.OrderDirection == "bid" {
+	if orderbookdomain.NewDirection(order.OrderDirection).Is(orderbookdomain.DirectionBid) {
 		output = placedQuantity.Quo(price.Dec())
 	} else {
 		output = placedQuantity.Mul(price.Dec())
@@ -483,7 +484,7 @@ func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(orderbook domain.Canoni
 	return orderbookdomain.LimitOrder{
 		TickId:           order.TickId,
 		OrderId:          order.OrderId,
-		OrderDirection:   order.OrderDirection,
+		OrderDirection:   orderbookdomain.NewDirection(order.OrderDirection),
 		Owner:            order.Owner,
 		Quantity:         quantity,
 		Etas:             order.Etas,
@@ -538,12 +539,12 @@ func (o *OrderbookUseCaseImpl) getClaimableOrdersForTick(
 		return nil, nil // nothing to process
 	}
 
-	askClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection("ask"), tick.TickState.AskValues, fillThreshold)
+	askClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection(orderbookdomain.DirectionAsk), tick.TickState.AskValues, fillThreshold)
 	if err != nil {
 		return nil, err
 	}
 
-	bidClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection("bid"), tick.TickState.BidValues, fillThreshold)
+	bidClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection(orderbookdomain.DirectionBid), tick.TickState.BidValues, fillThreshold)
 	if err != nil {
 		return nil, err
 	}

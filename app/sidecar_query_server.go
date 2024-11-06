@@ -185,8 +185,13 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
+	wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
+	orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)
+	orderBookRepository := orderbookrepository.New()
+	orderBookUseCase := orderbookusecase.New(orderBookRepository, orderBookAPIClient, poolsUseCase, tokensUseCase, logger)
+
 	// Initialize passthrough query use case
-	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, liquidityPricer, defaultQuoteDenom, logger)
+	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, orderBookUseCase, liquidityPricer, defaultQuoteDenom, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -202,11 +207,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// Register pricing strategy on the tokens use case.
 	tokensUseCase.RegisterPricingStrategy(domain.ChainPricingSourceType, chainPricingSource)
 	tokensUseCase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
-
-	wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
-	orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)
-	orderBookRepository := orderbookrepository.New()
-	orderBookUseCase := orderbookusecase.New(orderBookRepository, orderBookAPIClient, poolsUseCase, tokensUseCase, logger)
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)

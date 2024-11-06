@@ -17,9 +17,9 @@ import (
 )
 
 type passthroughUseCase struct {
-	poolsUseCase mvc.PoolsUsecase
-
+	poolsUseCase          mvc.PoolsUsecase
 	tokensUseCase         mvc.TokensUsecase
+	orderbookUseCase      mvc.OrderBookUsecase
 	defaultQuoteDenom     string
 	liquidityPricer       domain.LiquidityPricer
 	passthroughGRPCClient passthroughdomain.PassthroughGRPCClient
@@ -34,6 +34,7 @@ const (
 	inLocksAssetsCategoryName          string = "in-locks"
 	pooledAssetsCategoryName           string = "pooled"
 	unclaimedRewardsAssetsCategoryName string = "unclaimed-rewards"
+	limitOrdersCategoryName            string = "limit-orders"
 	totalAssetsCategoryName            string = "total-assets"
 )
 
@@ -86,9 +87,9 @@ const (
 	denomShareSeparator     = "/"
 	denomShareSeparatorByte = '/'
 
-	numFinalResultJobs = 7
+	numFinalResultJobs = 8
 
-	totalAssetCompositionNumJobs = 6
+	totalAssetCompositionNumJobs = 7
 
 	// Number of pooled balance jobs to fetch concurrently.
 	// 1. Gamm shares from user balances
@@ -105,17 +106,23 @@ const (
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
-func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, tokensUseCase mvc.TokensUsecase, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string, logger log.Logger) *passthroughUseCase {
+func NewPassThroughUsecase(
+	passthroughGRPCClient passthroughdomain.PassthroughGRPCClient,
+	poolsUseCase mvc.PoolsUsecase,
+	tokensUseCase mvc.TokensUsecase,
+	orderbookUseCase mvc.OrderBookUsecase,
+	liquidityPricer domain.LiquidityPricer,
+	defaultQuoteDenom string,
+	logger log.Logger,
+) *passthroughUseCase {
 	return &passthroughUseCase{
-		poolsUseCase: puc,
-
 		passthroughGRPCClient: passthroughGRPCClient,
-
-		tokensUseCase:     tokensUseCase,
-		defaultQuoteDenom: defaultQuoteDenom,
-		liquidityPricer:   liquidityPricer,
-
-		logger: logger,
+		poolsUseCase:          poolsUseCase,
+		tokensUseCase:         tokensUseCase,
+		orderbookUseCase:      orderbookUseCase,
+		defaultQuoteDenom:     defaultQuoteDenom,
+		liquidityPricer:       liquidityPricer,
+		logger:                logger,
 	}
 }
 
@@ -238,6 +245,18 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		return unclaimedCoins, finalErr
 	}
 
+	getLimitOrderCoins := func(ctx context.Context, address string) (sdk.Coins, error) {
+		orders, _, err := p.orderbookUseCase.GetActiveOrders(ctx, address)
+		var limitOrdersCoins sdk.Coins
+		for _, order := range orders {
+			limitOrdersCoins = limitOrdersCoins.Add(sdk.NewCoin(
+				order.BaseAsset.Symbol,
+				order.ClaimableAmount().Ceil().TruncateInt(),
+			))
+		}
+		return limitOrdersCoins, err
+	}
+
 	// Fetch jobs to fetch the portfolio assets concurrently in separate gorooutines.
 	fetchJobs := []fetchBalancesPortfolioAssetsJob{
 		{
@@ -266,6 +285,10 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		{
 			name:    pooledAssetsCategoryName,
 			fetchFn: getPooledCoins,
+		},
+		{
+			name:    limitOrdersCategoryName,
+			fetchFn: getLimitOrderCoins,
 		},
 	}
 
@@ -374,6 +397,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	// 5. Unclaimed rewards
 	// 6. Pooled
 	// 7. In-locks
+	// 8. Limit orders
 	for i := 0; i < numFinalResultJobs; i++ {
 		job := <-finalResultsJobs
 		isBestEffort := job.err != nil

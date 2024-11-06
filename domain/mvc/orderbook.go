@@ -17,6 +17,7 @@ type OrderBookUsecase interface {
 	GetAllTicks(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool)
 
 	// GetOrder returns all active orderbook orders for a given address.
+	// If there was an error fetching the orders, the second return value will be true indicating best effort.
 	GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error)
 
 	// GetActiveOrdersStream returns a channel for streaming limit orderbook orders for a given address.

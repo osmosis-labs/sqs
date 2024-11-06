@@ -10,6 +10,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/passthrough/usecase"
@@ -180,7 +181,21 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 		},
 	}
 
-	pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+	orderbookUseCaseMock := mocks.OrderbookUsecaseMock{
+		GetActiveOrdersFunc: func(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
+			return nil, false, miscError
+		},
+	}
+
+	pu := usecase.NewPassThroughUsecase(
+		&grpcClientMock,
+		&poolsUseCaseMock,
+		&tokensUsecaseMock,
+		&orderbookUseCaseMock,
+		liquidityPricerMock,
+		USDC,
+		&log.NoOpLogger{},
+	)
 
 	// System under test
 	actualPortfolioAssets, err := pu.GetPortfolioAssets(context.TODO(), defaultAddress)
@@ -206,6 +221,10 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 			},
 			usecase.StakedAssetsCategoryName: {
 				Capitalization: osmoCapitalization,
+				IsBestEffort:   true,
+			},
+			usecase.LimitOrdersCategoryName: {
+				Capitalization: zero,
 				IsBestEffort:   true,
 			},
 			usecase.InLocksAssetsCategoryName: {
@@ -368,7 +387,7 @@ func (s *PassthroughUseCaseTestSuite) TestComputeCapitalizationForCoins() {
 				IsValidChainDenomFunc: isValidChainDenomFuncMock,
 			}
 
-			pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, nil, liquidityPricerMock, USDC, &log.NoOpLogger{})
 
 			// System under test
 			accountCoinsResult, totalCapitalization, err := pu.ComputeCapitalizationForCoins(context.TODO(), tt.coins)
@@ -494,7 +513,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetCoinsFromLocks() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.GetCoinsFromLocks(context.TODO(), tt.address)
@@ -579,7 +598,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, gammShareBalances, err := pu.GetBankBalances(context.TODO(), tt.address)
@@ -674,7 +693,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(nil, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(nil, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.HandleGammShares(tt.coinIn)
