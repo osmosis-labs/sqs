@@ -14,6 +14,7 @@ import (
 	"cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
+	"github.com/osmosis-labs/sqs/domain/pipeline"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
@@ -346,9 +347,21 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 				// Add the pool to pools if it matches the options
 				pools = p.retainPoolIfMatchesOptions(pools, pool, options)
 			}
+
 			return true
 		})
 	}
+
+	// Step 1: Create a DataTransformer and apply filtering and sorting
+	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
+	transformer.Sort(func(a, b sqsdomain.PoolI) bool { return a.GetId() < b.GetId() }) // Sort by ID descending
+
+	// Step 2: Create an iterator from the transformed data
+	iterator := pipeline.NewSyncMapIterator[uint64, sqsdomain.PoolI](&p.pools, transformer.Keys())
+
+	// Step 3: Create a paginator with the iterator
+	paginator := pipeline.NewPaginator[uint64](iterator, 5)
+	fmt.Println("Page 1:", paginator.GetPage(0))
 
 	return pools, nil
 }
@@ -654,6 +667,7 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, op
 			p.logger.Error("failed to get APR data", zap.Uint64("poolID", poolID), zap.Error(err))
 		}
 
+		p.logger.Info("APR data", zap.Any("apr", poolAPRData))
 		// Set APR data
 		pool.SetAPRData(sqspassthroughdomain.PoolAPRDataStatusWrap{
 			PoolAPR: poolAPRData,
