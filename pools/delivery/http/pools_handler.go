@@ -8,8 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/pools/types"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -72,45 +74,27 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 // @Success 200  {array}  sqsdomain.PoolI  "List of pool(s) details"
 // @Router /pools [get]
 func (a *PoolsHandler) GetPools(c echo.Context) error {
-	// Get pool ID parameters as strings.
-	poolIDsStr := c.QueryParam("IDs")
-	minLiquidityCapStr := c.QueryParam("min_liquidity_cap")
-	withMarketIncentives, err := domain.ParseBooleanQueryParam(c, "with_market_incentives")
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+	var req types.GetPoolsRequest
+	if err := deliveryhttp.ParseRequest(c, &req); err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	var (
 		pools []sqsdomain.PoolI
 	)
 
-	// Parse numbers
-	poolIDs, err := domain.ParseNumbers(poolIDsStr)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
-	}
-
-	// Parse min liquidity cap if provided
-	var minLiquidityCap uint64
-	if minLiquidityCapStr != "" {
-		minLiquidityCap, err = strconv.ParseUint(minLiquidityCapStr, 10, 64)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, ResponseError{Message: "Invalid min_liquidity_cap value"})
-		}
-	}
-
 	filters := []domain.PoolsOption{
-		domain.WithMinPoolsLiquidityCap(minLiquidityCap),
-		domain.WithMarketIncentives(withMarketIncentives),
+		domain.WithMinPoolsLiquidityCap(req.MinLiquidityCap),
+		domain.WithMarketIncentives(req.WithMarketIncentives),
 	}
 
 	// Only add pool ID filter if it is not empty.
-	if len(poolIDs) > 0 {
-		filters = append(filters, domain.WithPoolIDFilter(poolIDs))
+	if len(req.PoolId) > 0 {
+		filters = append(filters, domain.WithPoolIDFilter(req.PoolId))
 	}
 
 	// Get pools
-	pools, err = a.PUsecase.GetPools(
+	pools, err := a.PUsecase.GetPools(
 		filters...,
 	)
 	if err != nil {
