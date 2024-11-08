@@ -31,17 +31,28 @@ var (
 	ErrLimitTooLarge = fmt.Errorf("limit is too large, maximum allowed is %d", MaxLimit)
 )
 
+// Query parameters for pagination.
+const (
+	queryPageNumber = "page[number]"
+	queryPageSize   = "page[size]"
+)
+
+// IsPresent checks if the pagination request is present in the HTTP request.
+func (r *PaginationRequest) IsPresent(c echo.Context) bool {
+	return c.QueryParam(queryPageNumber) != "" || c.QueryParam(queryPageSize) != ""
+}
+
 // UnmarshalHTTPRequest imlpements RequestUnmarshaler interface.
 func (r *PaginationRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	var err error
-	if p := c.QueryParam("page[number]"); p != "" {
+	if p := c.QueryParam(queryPageNumber); p != "" {
 		r.Page, err = strconv.ParseUint(p, 10, 64)
 		if err != nil {
 			return err
 		}
 	}
 
-	if s := c.QueryParam("page[size]"); s != "" {
+	if s := c.QueryParam(queryPageSize); s != "" {
 		r.Limit, err = strconv.ParseUint(s, 10, 64)
 		if err != nil {
 			return err

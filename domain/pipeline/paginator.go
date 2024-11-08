@@ -1,7 +1,7 @@
 package pipeline
 
 // NewPaginator initializes a Paginator with an Iterator
-func NewPaginator[K, V any](iterator Iterator[K, V], pageSize int) *Paginator[K, V] {
+func NewPaginator[K, V any](iterator Iterator[K, V], pageSize uint64) *Paginator[K, V] {
 	return &Paginator[K, V]{
 		iterator: iterator,
 		pageSize: pageSize,
@@ -11,16 +11,16 @@ func NewPaginator[K, V any](iterator Iterator[K, V], pageSize int) *Paginator[K,
 // Paginator relies on Iterator to fetch paginated data without knowing the data type
 type Paginator[K, V any] struct {
 	iterator Iterator[K, V]
-	pageSize int
+	pageSize uint64
 }
 
 // GetPage retrieves elements for the current page
-func (p *Paginator[K, V]) GetPage(page int) []V {
+func (p *Paginator[K, V]) GetPage(page uint64) []V {
 	p.iterator.Reset() // Ensure we're starting fresh
 	start := page * p.pageSize
 	items := make([]V, 0, p.pageSize)
 
-	for i := 0; i < start+p.pageSize && p.iterator.HasNext(); i++ { // this is quite inefficient, we should be able to set the start index
+	for i := uint64(0); i < start+p.pageSize && p.iterator.HasNext(); i++ { // this is quite inefficient, we should be able to set the start index
 		elem, valid := p.iterator.Next()
 		if valid && i >= start {
 			items = append(items, elem)

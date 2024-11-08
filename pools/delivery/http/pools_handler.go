@@ -11,7 +11,7 @@ import (
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	types "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
+	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -74,7 +74,7 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 // @Success 200  {array}  sqsdomain.PoolI  "List of pool(s) details"
 // @Router /pools [get]
 func (a *PoolsHandler) GetPools(c echo.Context) error {
-	var req types.GetPoolsRequest
+	var req api.GetPoolsRequest
 	if err := deliveryhttp.ParseRequest(c, &req); err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
@@ -86,6 +86,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	filters := []domain.PoolsOption{
 		domain.WithMinPoolsLiquidityCap(req.MinLiquidityCap),
 		domain.WithMarketIncentives(req.WithMarketIncentives),
+		domain.WithPagination(req.Pagination),
 	}
 
 	// Only add pool ID filter if it is not empty.

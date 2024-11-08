@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 
+	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -91,6 +93,8 @@ type PoolsOptions struct {
 	// HadEmptyFilter is true if the pool ID filter was empty.
 	// This signifies avoid getting all pools and rather exit early.
 	HadEmptyFilter bool
+
+	Pagination *v1beta1.PaginationRequest
 }
 
 // PoolsOption configures the pools filter options.
@@ -120,5 +124,12 @@ func WithPoolIDFilter(poolIDFilter []uint64) PoolsOption {
 func WithMarketIncentives(withMarketIncentives bool) PoolsOption {
 	return func(o *PoolsOptions) {
 		o.WithMarketIncentives = withMarketIncentives
+	}
+}
+
+// WithPagination configures the pools options with the pagination request.
+func WithPagination(p *v1beta1.PaginationRequest) PoolsOption {
+	return func(o *PoolsOptions) {
+		o.Pagination = p
 	}
 }

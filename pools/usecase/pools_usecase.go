@@ -352,16 +352,15 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		})
 	}
 
-	// Step 1: Create a DataTransformer and apply filtering and sorting
 	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
 	transformer.Sort(func(a, b sqsdomain.PoolI) bool { return a.GetId() < b.GetId() }) // Sort by ID descending
 
-	// Step 2: Create an iterator from the transformed data
 	iterator := pipeline.NewSyncMapIterator[uint64, sqsdomain.PoolI](&p.pools, transformer.Keys())
 
-	// Step 3: Create a paginator with the iterator
-	paginator := pipeline.NewPaginator[uint64](iterator, 5)
-	fmt.Println("Page 1:", paginator.GetPage(0))
+	if p := options.Pagination; p != nil {
+		paginator := pipeline.NewPaginator[uint64](iterator, p.Limit)
+		return paginator.GetPage(p.Page), nil
+	}
 
 	return pools, nil
 }

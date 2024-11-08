@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/osmosis-labs/sqs/domain"
+	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 
 	"github.com/labstack/echo/v4"
 )
@@ -27,6 +28,17 @@ func (r *GetPoolsRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
+	var pagination v1beta1.PaginationRequest
+	if !(&pagination).IsPresent(c) {
+		return nil // pagination is optional and is not present
+	}
+
+	if err := (&pagination).UnmarshalHTTPRequest(c); err != nil {
+		return err
+	}
+
+	r.Pagination = &pagination
 
 	return nil
 }
