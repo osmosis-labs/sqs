@@ -1,8 +1,88 @@
 package v1beta1
 
-import "testing"
+import (
+	"net/http/httptest"
+	"testing"
 
-func TestPaginationRequest_Validate(t *testing.T) {
+	"github.com/labstack/echo/v4"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestPaginationRequestUnmarshalHTTPRequest(t *testing.T) {
+	tests := []struct {
+		name        string
+		queryParams map[string]string
+		want        *PaginationRequest
+		wantErr     bool
+	}{
+		{
+			name:        "Valid page and size",
+			queryParams: map[string]string{"page[number]": "5", "page[size]": "20"},
+			want:        &PaginationRequest{Page: 5, Limit: 20},
+			wantErr:     false,
+		},
+		{
+			name:        "Only page provided",
+			queryParams: map[string]string{"page[number]": "3"},
+			want:        &PaginationRequest{Page: 3, Limit: 0},
+			wantErr:     false,
+		},
+		{
+			name:        "Only size provided",
+			queryParams: map[string]string{"page[size]": "15"},
+			want:        &PaginationRequest{Page: 0, Limit: 15},
+			wantErr:     false,
+		},
+		{
+			name:        "Invalid page (not a number)",
+			queryParams: map[string]string{"page[number]": "invalid", "page[size]": "10"},
+			want:        &PaginationRequest{},
+			wantErr:     true,
+		},
+		{
+			name:        "Invalid size (not a number)",
+			queryParams: map[string]string{"page[number]": "1", "page[size]": "invalid"},
+			want:        &PaginationRequest{},
+			wantErr:     true,
+		},
+		{
+			name:        "No parameters provided",
+			queryParams: map[string]string{},
+			want:        &PaginationRequest{},
+			wantErr:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(echo.GET, "/", nil)
+			q := req.URL.Query()
+			for k, v := range tt.queryParams {
+				q.Add(k, v)
+			}
+			req.URL.RawQuery = q.Encode()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			var result PaginationRequest
+
+			err := (&result).UnmarshalHTTPRequest(c)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+
+			// GetQuoteRequest must contain the expected result if the status is OK
+			assert.Equal(t, tt.want, &result)
+		})
+	}
+}
+
+func TestPaginationRequestValidate(t *testing.T) {
 	tests := []struct {
 		name    string
 		request PaginationRequest

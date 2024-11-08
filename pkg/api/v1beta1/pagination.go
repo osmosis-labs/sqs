@@ -1,7 +1,7 @@
 package v1beta1
 
 import (
-	fmt "fmt"
+	"fmt"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -35,14 +35,14 @@ var (
 func (r *PaginationRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	var err error
 	if p := c.QueryParam("page[number]"); p != "" {
-		r.Page, err = strconv.ParseUint(c.QueryParam("page"), 10, 64)
+		r.Page, err = strconv.ParseUint(p, 10, 64)
 		if err != nil {
 			return err
 		}
 	}
 
 	if s := c.QueryParam("page[size]"); s != "" {
-		r.Limit, err = strconv.ParseUint(c.QueryParam("limit"), 10, 64)
+		r.Limit, err = strconv.ParseUint(s, 10, 64)
 		if err != nil {
 			return err
 		}
