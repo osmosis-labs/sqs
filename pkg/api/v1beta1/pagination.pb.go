@@ -28,7 +28,7 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type PaginationRequest struct {
-	// page is the page number to query, starts at 1. If not provided, will
+	// page is the page number to query, starts at 0. If not provided, will
 	// default to first page.
 	Page uint64 `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
 	// limit is the total number of results to be returned in the result page.

@@ -10,7 +10,7 @@ import "cosmos/msg/v1/msg.proto";
 option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1";
 
 message PaginationRequest {
-  // page is the page number to query, starts at 1. If not provided, will
+  // page is the page number to query, starts at 0. If not provided, will
   // default to first page.
   uint64 page = 1;
 
