@@ -14,3 +14,14 @@ for dir in $proto_dirs; do
     fi
   done
 done
+
+# jump to the root directory
+cd ..
+
+# move proto files to the right places
+cp -r github.com/osmosis-labs/sqs/pkg ./
+
+# remove github.com directory
+rm -rf github.com
+
+go mod tidy
