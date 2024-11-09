@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -65,8 +64,8 @@ func TestPaginationRequestUnmarshalHTTPRequest(t *testing.T) {
 			req.URL.RawQuery = q.Encode()
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
-			var result PaginationRequest
 
+			var result PaginationRequest
 			err := (&result).UnmarshalHTTPRequest(c)
 
 			if tt.wantErr {

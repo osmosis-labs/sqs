@@ -7,6 +7,7 @@ import "google/protobuf/duration.proto";
 import "cosmos/base/v1beta1/coin.proto";
 import "cosmos/msg/v1/msg.proto";
 import "sqs/query/v1beta1/pagination.proto";
+import "sqs/query/v1beta1/sort.proto";
 
 option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools";
 
@@ -24,4 +25,7 @@ message GetPoolsRequest {
 
  // Pagination options for the result set
   sqs.query.v1beta1.PaginationRequest pagination = 5;
+
+  // Sort options for the result set
+  sqs.query.v1beta1.SortRequest sort = 6;
 }

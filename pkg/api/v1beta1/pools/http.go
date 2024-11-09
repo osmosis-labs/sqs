@@ -40,5 +40,16 @@ func (r *GetPoolsRequest) UnmarshalHTTPRequest(c echo.Context) error {
 
 	r.Pagination = &pagination
 
+	var sort v1beta1.SortRequest
+	if !(&sort).IsPresent(c) {
+		return nil // sort is optional and is not present
+	}
+
+	if err := (&sort).UnmarshalHTTPRequest(c); err != nil {
+		return err
+	}
+
+	r.Sort = &sort
+
 	return nil
 }
