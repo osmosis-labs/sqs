@@ -16,6 +16,7 @@ import (
 	echoSwagger "github.com/swaggo/echo-swagger"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/client/docs"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain/json"
@@ -79,6 +80,7 @@ func NewSystemHandler(e *echo.Echo, config domain.Config, logger log.Logger, us 
 	e.GET("/version", handler.GetVersion)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/swagger/*", echoSwagger.EchoWrapHandler(echoSwagger.URL("docs/swagger.json"), echoSwagger.URL("swagger.yaml")))
+	e.GET("/swagger1/*", echo.WrapHandler(http.StripPrefix("/swagger1/", http.FileServer(http.FS(docs.SwaggerUI)))))
 }
 
 // GetConfig returns the config for the SQS service

@@ -1,6 +1,7 @@
 version: v1
-name: buf.build/osmosis-labs/osmosis
+name: buf.build/osmosis-labs/sqs
 deps:
+  - buf.build/cometbft/cometbft:4a62c99d422068a5165429b62a7eb824df46cca9 
   - buf.build/cosmos/gogo-proto
   - buf.build/cosmos/cosmos-sdk:v0.47.0
   - buf.build/cosmos/cosmos-proto

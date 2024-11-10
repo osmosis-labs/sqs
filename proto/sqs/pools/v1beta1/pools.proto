@@ -23,9 +23,12 @@ message GetPoolsRequest {
   // response.
   bool with_market_incentives = 3;
 
- // Pagination options for the result set
+  // Pagination options for the result set
   sqs.query.v1beta1.PaginationRequest pagination = 5;
 
   // Sort options for the result set
   sqs.query.v1beta1.SortRequest sort = 6;
 }
+
+// TODO: Add more fields to the response
+message GetPoolsResponse {}

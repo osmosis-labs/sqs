@@ -1,0 +1,27 @@
+syntax = "proto3";
+package sqs.query.v1beta1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "google/protobuf/duration.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1";
+
+// SortDirection represents the direction for sorting.
+enum SortDirection {
+  ASCENDING = 0;
+  DESCENDING = 1;
+}
+
+// SortField represents a field to sort by, including its direction.
+message SortField {
+  string field = 1;            // The name of the field to sort by.
+  SortDirection direction = 2; // Sorting direction: ASCENDING or DESCENDING.
+}
+
+// Sort represents multiple sort fields.
+message SortRequest {
+  repeated SortField fields = 1; // List of fields to sort by.
+}
