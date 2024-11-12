@@ -3,7 +3,6 @@ package pools
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -28,10 +27,6 @@ type routableAlloyTransmuterPoolImpl struct {
 	TakerFee            osmomath.Dec                      "json:\"taker_fee\""
 	SpreadFactor        osmomath.Dec                      "json:\"spread_factor\""
 }
-
-const (
-	alloyedLPShareDenomComponent = "all"
-)
 
 // GetId implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetId() uint64 {
@@ -187,7 +182,6 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 	}
 
 	// Check static upper rate limiter
-	// We only need to check it for the token in coin since that is the only one that is increased by the current quote.
 	if err := r.checkStaticRateLimiter(tokenIn); err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -202,21 +196,20 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 	return tokenOutAmount, nil
 }
 
-// checkStaticRateLimiter checks the static rate limiter for the token in coin.
+// checkStaticRateLimiter checks the static rate limiter.
+// If token in denom is not alloyed, we only need to validate the token in balance.
+// Since the token in balance is the only one that is increased by the current quote.
+//
+// If token in denom is alloyed, we need to validate all assets' balances except token out.
+// Since the token out composition is decreasing, other assets' weights are increasing.
+//
 // Note: static rate limit only has an upper limit.
-// Therefore, we only need to validate the token in balance.
 // No-op if the static rate limiter is not set.
 // Returns error if the token in weight is greater than the upper limit.
 // Returns nil if the token in weight is less than or equal to the upper limit.
 func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk.Coin) error {
 	// If no static rate limiter is set, return
 	if len(r.AlloyTransmuterData.RateLimiterConfig.StaticLimiterByDenomMap) == 0 {
-		return nil
-	}
-
-	// Check if the static rate limiter exists for the token in denom updated balance.
-	tokeInStaticLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetStaticLimiter(tokenInCoin.Denom)
-	if !ok {
 		return nil
 	}
 
@@ -232,8 +225,8 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 		assetConfig := r.AlloyTransmuterData.AssetConfigs[i]
 		assetDenom := assetConfig.Denom
 
-		// Skip if the asset is alloyed LP hsare
-		if strings.Contains(assetDenom, alloyedLPShareDenomComponent) {
+		// Skip if the asset is alloyed LP share
+		if assetDenom == r.AlloyTransmuterData.AlloyedDenom {
 			continue
 		}
 
@@ -242,6 +235,11 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 		// Add the token in balance to the asset balance
 		if assetDenom == tokenInCoin.Denom {
 			assetBalance = assetBalance.Add(tokenInCoin.Amount)
+		}
+
+		// Subtract the token out balance from the asset balance
+		if assetDenom == r.TokenOutDenom {
+			assetBalance = assetBalance.Sub(tokenInCoin.Amount)
 		}
 
 		normalizationScalingFactor, ok := normalizationFactors[assetDenom]
@@ -259,34 +257,65 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 		normalizeTotal = normalizeTotal.Add(normalizedBalance)
 	}
 
-	// Calculate weights
-	// Note: -1 for the alloyed LP share.
-	weights := make(map[string]osmomath.Dec, len(r.AlloyTransmuterData.AssetConfigs)-1)
-	for i := 0; i < len(r.AlloyTransmuterData.AssetConfigs); i++ {
-		assetConfig := r.AlloyTransmuterData.AssetConfigs[i]
-		assetDenom := assetConfig.Denom
+	// If token in denom is alloyed, we need to validate limiters for all assets' balances except token out.
+	// Since the token out composition is decreasing, other assets' weights are increasing.
+	// else, we only need to validate the token in denom limiter.
+	if tokenInCoin.Denom == r.AlloyTransmuterData.AlloyedDenom {
+		for i := 0; i < len(r.AlloyTransmuterData.AssetConfigs); i++ {
+			assetConfig := r.AlloyTransmuterData.AssetConfigs[i]
+			assetDenom := assetConfig.Denom
 
-		// Skip if the asset is alloyed LP hsare
-		if strings.Contains(assetDenom, alloyedLPShareDenomComponent) {
-			continue
+			// Skip if the asset is alloyed LP share
+			if assetDenom == r.AlloyTransmuterData.AlloyedDenom {
+				continue
+			}
+
+			// skip if the asset is token out, since its weight is decreasing, no need to check limiter
+			if assetDenom == r.TokenOutDenom {
+				continue
+			}
+
+			// Check if the static rate limiter exists for the asset denom updated balance.
+			// If not, continue to the next asset
+			staticLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetStaticLimiter(assetDenom)
+			if !ok {
+				continue
+			}
+
+			// Validate upper limit
+			upperLimitInt := osmomath.MustNewDecFromStr(staticLimiter.UpperLimit)
+
+			// Asset weight
+			assetWeight := normalizedBalances[assetDenom].ToLegacyDec().Quo(normalizeTotal.ToLegacyDec())
+
+			// Check the upper limit
+			if assetWeight.GT(upperLimitInt) {
+				return domain.StaticRateLimiterInvalidUpperLimitError{
+					UpperLimit: staticLimiter.UpperLimit,
+					Weight:     assetWeight.String(),
+					Denom:      assetDenom,
+				}
+			}
+		}
+	} else {
+		tokeInStaticLimiter, ok := r.AlloyTransmuterData.RateLimiterConfig.GetStaticLimiter(tokenInCoin.Denom)
+		if !ok {
+			return nil
 		}
 
-		// Calculate weight
-		weights[assetDenom] = normalizedBalances[assetDenom].ToLegacyDec().Quo(normalizeTotal.ToLegacyDec())
-	}
+		// Validate upper limit
+		upperLimitInt := osmomath.MustNewDecFromStr(tokeInStaticLimiter.UpperLimit)
 
-	// Validate upper limit
-	upperLimitInt := osmomath.MustNewDecFromStr(tokeInStaticLimiter.UpperLimit)
+		// Token in weight
+		tokenInWeight := normalizedBalances[tokenInCoin.Denom].ToLegacyDec().Quo(normalizeTotal.ToLegacyDec())
 
-	// Token in weight
-	tokenInWeight := weights[tokenInCoin.Denom]
-
-	// Check the upper limit
-	if tokenInWeight.GT(upperLimitInt) {
-		return domain.StaticRateLimiterInvalidUpperLimitError{
-			UpperLimit: tokeInStaticLimiter.UpperLimit,
-			Weight:     tokenInWeight.String(),
-			Denom:      tokenInCoin.Denom,
+		// Check the upper limit
+		if tokenInWeight.GT(upperLimitInt) {
+			return domain.StaticRateLimiterInvalidUpperLimitError{
+				UpperLimit: tokeInStaticLimiter.UpperLimit,
+				Weight:     tokenInWeight.String(),
+				Denom:      tokenInCoin.Denom,
+			}
 		}
 	}
 
