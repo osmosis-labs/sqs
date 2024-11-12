@@ -11,8 +11,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v26/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v27/app/params"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 )

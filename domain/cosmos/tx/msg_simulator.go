@@ -10,8 +10,9 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/osmosis-labs/osmosis/v26/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+
+	"github.com/osmosis-labs/osmosis/v27/app/params"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 
 	gogogrpc "github.com/cosmos/gogoproto/grpc"

@@ -7,8 +7,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/osmosis-labs/osmosis/v26/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v27/app/params"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 )

@@ -6,13 +6,13 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v26/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v27/app/params"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
 
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
 )
 
 // quoteSimulator simulates a quote and returns the gas adjusted amount and the fee coin.

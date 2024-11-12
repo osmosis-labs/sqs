@@ -9,15 +9,9 @@ import (
 	distribution "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	math "github.com/osmosis-labs/osmosis/osmomath"
-<<<<<<< HEAD
 	concentratedLiquidity "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/client/queryproto"
 	lockup "github.com/osmosis-labs/osmosis/v27/x/lockup/types"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-=======
-	concentratedLiquidity "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/client/queryproto"
-	lockup "github.com/osmosis-labs/osmosis/v26/x/lockup/types"
 	polarisgrpc "github.com/osmosis-labs/sqs/delivery/grpc"
->>>>>>> f2931d8 (feat: simulate swap as part of quotes (#547))
 	"google.golang.org/grpc"
 )
 
