@@ -95,6 +95,7 @@ type PoolsOptions struct {
 	HadEmptyFilter bool
 
 	Pagination *v1beta1.PaginationRequest
+	Sort       *v1beta1.SortRequest
 }
 
 // PoolsOption configures the pools filter options.
@@ -131,5 +132,12 @@ func WithMarketIncentives(withMarketIncentives bool) PoolsOption {
 func WithPagination(p *v1beta1.PaginationRequest) PoolsOption {
 	return func(o *PoolsOptions) {
 		o.Pagination = p
+	}
+}
+
+// WithSort configures the pools options with the sort request.
+func WithSort(s *v1beta1.SortRequest) PoolsOption {
+	return func(o *PoolsOptions) {
+		o.Sort = s
 	}
 }

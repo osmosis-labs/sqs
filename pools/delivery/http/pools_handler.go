@@ -87,6 +87,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 		domain.WithMinPoolsLiquidityCap(req.MinLiquidityCap),
 		domain.WithMarketIncentives(req.WithMarketIncentives),
 		domain.WithPagination(req.Pagination),
+		domain.WithSort(req.Sort),
 	}
 
 	// Only add pool ID filter if it is not empty.

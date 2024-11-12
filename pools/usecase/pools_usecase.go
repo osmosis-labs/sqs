@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -353,7 +354,37 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	}
 
 	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
-	transformer.Sort(func(a, b sqsdomain.PoolI) bool { return a.GetId() < b.GetId() }) // Sort by ID descending
+
+	var sortopts []func(sqsdomain.PoolI, sqsdomain.PoolI) bool
+	if s := options.Sort; s != nil {
+		for _, v := range s.Fields {
+			fmt.Println(v)
+			switch v.Field {
+			case "id":
+				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
+					if v.Direction == v1beta1.SortDirection_DESCENDING {
+						return a.GetId() < b.GetId()
+					}
+					return a.GetId() > b.GetId()
+				})
+			case "liquidity_cap":
+				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
+					if v.Direction == v1beta1.SortDirection_DESCENDING {
+						return a.GetLiquidityCap().LT(b.GetLiquidityCap())
+					}
+					return a.GetLiquidityCap().GT(b.GetLiquidityCap())
+				})
+			case "apr_data_total_apr_upper":
+				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
+					if v.Direction == v1beta1.SortDirection_DESCENDING {
+						return a.GetAPRData().TotalAPR.Upper < b.GetAPRData().TotalAPR.Upper
+					}
+					return a.GetAPRData().TotalAPR.Upper > b.GetAPRData().TotalAPR.Upper
+				})
+			}
+		}
+		transformer.Sort(sortopts...)
+	}
 
 	iterator := pipeline.NewSyncMapIterator[uint64, sqsdomain.PoolI](&p.pools, transformer.Keys())
 
