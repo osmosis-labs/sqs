@@ -4,7 +4,7 @@ from decimal import Decimal
 import conftest
 
 # Endpoint URLs
-NUMIA_API_URL = 'https://stage-proxy-data-api.osmosis-labs.workers.dev'
+NUMIA_API_URL = 'https://data.stage.osmosis.zone'
 TOKENS_ENDPOINT = '/tokens/v2/all'
 POOLS_ENDPOINT = '/stream/pool/v1/all'
 
