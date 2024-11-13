@@ -367,14 +367,48 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 					}
 					return a.GetId() > b.GetId()
 				})
-			case "liquidity_cap":
+
+			case "totalFiatValueLocked":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
 					if v.Direction == v1beta1.SortDirection_DESCENDING {
 						return a.GetLiquidityCap().LT(b.GetLiquidityCap())
 					}
 					return a.GetLiquidityCap().GT(b.GetLiquidityCap())
 				})
-			case "apr_data_total_apr_upper":
+
+			case "market.feesSpent7dUsd":
+				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
+					if v.Direction == v1beta1.SortDirection_DESCENDING {
+						return a.GetFeesData().PoolFee.FeesSpent7d < b.GetFeesData().PoolFee.FeesSpent7d
+					}
+					return a.GetFeesData().PoolFee.FeesSpent7d > b.GetFeesData().PoolFee.FeesSpent7d
+				})
+
+			case "market.feesSpent24hUsd":
+				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
+					if v.Direction == v1beta1.SortDirection_DESCENDING {
+						return a.GetFeesData().PoolFee.FeesSpent24h < b.GetFeesData().PoolFee.FeesSpent24h
+					}
+					return a.GetFeesData().PoolFee.FeesSpent24h > b.GetFeesData().PoolFee.FeesSpent24h
+				})
+
+			case "market.volume7dUsd":
+				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
+					if v.Direction == v1beta1.SortDirection_DESCENDING {
+						return a.GetFeesData().PoolFee.Volume7d < b.GetFeesData().PoolFee.Volume7d
+					}
+					return a.GetFeesData().PoolFee.Volume7d > b.GetFeesData().PoolFee.Volume7d
+				})
+
+			case "market.volume24hUsd":
+				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
+					if v.Direction == v1beta1.SortDirection_DESCENDING {
+						return a.GetFeesData().PoolFee.Volume24h < b.GetFeesData().PoolFee.Volume24h
+					}
+					return a.GetFeesData().PoolFee.Volume24h > b.GetFeesData().PoolFee.Volume24h
+				})
+
+			case "incentives.aprBreakdown.total.upper":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
 					if v.Direction == v1beta1.SortDirection_DESCENDING {
 						return a.GetAPRData().TotalAPR.Upper < b.GetAPRData().TotalAPR.Upper
