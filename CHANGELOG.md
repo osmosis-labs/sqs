@@ -35,8 +35,9 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v26.2.0
 
+- #554 - [FIX] Add missing checks for transmuter's limiter 
 - #548 - Return base fee in /quote regardless of simulation success.
 - #547 - Add /quote simulation for "out given in" single routes.
 - #526 - Refactor gas estimation APIs
