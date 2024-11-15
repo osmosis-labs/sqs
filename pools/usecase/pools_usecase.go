@@ -358,7 +358,6 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	var sortopts []func(sqsdomain.PoolI, sqsdomain.PoolI) bool
 	if s := options.Sort; s != nil {
 		for _, v := range s.Fields {
-			fmt.Println(v)
 			switch v.Field {
 			case "id":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {

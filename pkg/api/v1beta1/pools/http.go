@@ -29,27 +29,21 @@ func (r *GetPoolsRequest) UnmarshalHTTPRequest(c echo.Context) error {
 		return err
 	}
 
-	var pagination v1beta1.PaginationRequest
-	if !(&pagination).IsPresent(c) {
-		return nil // pagination is optional and is not present
+	if pagination := new(v1beta1.PaginationRequest); pagination.IsPresent(c) {
+		if err := pagination.UnmarshalHTTPRequest(c); err != nil {
+			return err
+		}
+
+		r.Pagination = pagination
 	}
 
-	if err := (&pagination).UnmarshalHTTPRequest(c); err != nil {
-		return err
+	if sort := new(v1beta1.SortRequest); sort.IsPresent(c) {
+		if err := sort.UnmarshalHTTPRequest(c); err != nil {
+			return err
+		}
+
+		r.Sort = sort
 	}
-
-	r.Pagination = &pagination
-
-	var sort v1beta1.SortRequest
-	if !(&sort).IsPresent(c) {
-		return nil // sort is optional and is not present
-	}
-
-	if err := (&sort).UnmarshalHTTPRequest(c); err != nil {
-		return err
-	}
-
-	r.Sort = &sort
 
 	return nil
 }
