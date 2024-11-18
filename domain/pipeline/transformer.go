@@ -31,6 +31,12 @@ func NewSyncMapTransformer[K, V any](m *sync.Map) *SyncMapTransformer[K, V] {
 	return &SyncMapTransformer[K, V]{data: m, keys: keys}
 }
 
+// Count returns the number of elements in the transformer.
+// Number of elements returned excludes any filtered elements.
+func (dt *SyncMapTransformer[K, V]) Count() uint64 {
+	return uint64(len(dt.keys))
+}
+
 // Range calls f sequentially for each key and value present in the transformer.
 // If f returns false, range stops the iteration.
 func (dt *SyncMapTransformer[K, V]) Range(f func(key K, value V) bool) {

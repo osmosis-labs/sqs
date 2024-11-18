@@ -35,11 +35,12 @@ var (
 const (
 	queryPageNumber = "page[number]"
 	queryPageSize   = "page[size]"
+	queryPageCursor = "page[cursor]"
 )
 
 // IsPresent checks if the pagination request is present in the HTTP request.
 func (r *PaginationRequest) IsPresent(c echo.Context) bool {
-	return c.QueryParam(queryPageNumber) != "" || c.QueryParam(queryPageSize) != ""
+	return c.QueryParam(queryPageNumber) != "" || c.QueryParam(queryPageSize) != "" || c.QueryParam(queryPageCursor) != ""
 }
 
 // UnmarshalHTTPRequest imlpements RequestUnmarshaler interface.
@@ -54,6 +55,13 @@ func (r *PaginationRequest) UnmarshalHTTPRequest(c echo.Context) error {
 
 	if s := c.QueryParam(queryPageSize); s != "" {
 		r.Limit, err = strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			return err
+		}
+	}
+
+	if s := c.QueryParam(queryPageCursor); s != "" {
+		r.Cursor, err = strconv.ParseUint(s, 10, 64)
 		if err != nil {
 			return err
 		}

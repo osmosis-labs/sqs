@@ -11,6 +11,7 @@ import (
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
@@ -43,6 +44,12 @@ type PoolResponse struct {
 
 	APRData  sqspassthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
 	FeesData sqspassthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
+}
+
+// GetPoolsResponse is a structure for serializing pools result returned to clients.
+type GetPoolsResponse struct {
+	Pools []PoolResponse        `json:"pools"`
+	Meta  *v1beta1.MetaResponse `json:"meta"`
 }
 
 const resourcePrefix = "/pools"
@@ -96,7 +103,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	}
 
 	// Get pools
-	pools, err := a.PUsecase.GetPools(
+	pools, total, err := a.PUsecase.GetPools(
 		filters...,
 	)
 	if err != nil {
@@ -104,7 +111,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	}
 
 	// Convert pools to the appropriate format
-	resultPools := convertPoolsToResponse(pools)
+	resultPools := convertPoolsToResponse(pools, total)
 
 	return c.JSON(http.StatusOK, resultPools)
 }
@@ -209,10 +216,16 @@ func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
 }
 
 // convertPoolsToResponse converts the given pools to the appropriate response type.
-func convertPoolsToResponse(pools []sqsdomain.PoolI) []PoolResponse {
-	resultPools := make([]PoolResponse, 0, len(pools))
-	for _, pool := range pools {
-		resultPools = append(resultPools, convertPoolToResponse(pool))
+func convertPoolsToResponse(p []sqsdomain.PoolI, total uint64) *GetPoolsResponse {
+	pools := make([]PoolResponse, 0, len(p))
+	for _, pool := range p {
+		pools = append(pools, convertPoolToResponse(pool))
 	}
-	return resultPools
+
+	return &GetPoolsResponse{
+		Pools: pools,
+		Meta: &v1beta1.MetaResponse{
+			TotalItems: total,
+		},
+	}
 }

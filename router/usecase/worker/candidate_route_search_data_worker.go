@@ -86,7 +86,7 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 
 			denomPoolsIDs := domain.KeysFromMap(denomLiquidityData.Pools)
 
-			unsortedDenomPools, err := c.poolsHandler.GetPools(
+			unsortedDenomPools, _, err := c.poolsHandler.GetPools(
 				domain.WithPoolIDFilter(denomPoolsIDs),
 			)
 			if err != nil {

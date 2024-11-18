@@ -46,8 +46,9 @@ type PoolsUsecase interface {
 }
 
 type PoolHandler interface {
-	// GetPools returns the pools corresponding to the given IDs.
-	GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error)
+	// GetPools returns the pools corresponding to the given options and the total number of pools.
+	// If pagination is provided, returns the pools corresponding to the pagination.
+	GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, uint64, error)
 
 	// StorePools stores the given pools in the usecase
 	StorePools(pools []sqsdomain.PoolI) error

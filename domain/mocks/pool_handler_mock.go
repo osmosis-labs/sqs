@@ -17,9 +17,9 @@ type PoolHandlerMock struct {
 var _ mvc.PoolHandler = &PoolHandlerMock{}
 
 // GetPools implements mvc.PoolHandler.
-func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error) {
+func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, uint64, error) {
 	if p.ForceGetPoolsError != nil {
-		return nil, p.ForceGetPoolsError
+		return nil, 0, p.ForceGetPoolsError
 	}
 
 	options := domain.PoolsOptions{
@@ -49,7 +49,7 @@ func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.Pool
 		}
 	}
 
-	return result, nil
+	return result, uint64(len(result)), nil
 }
 
 // StorePools implements mvc.PoolHandler.

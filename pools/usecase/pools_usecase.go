@@ -307,7 +307,7 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 }
 
 // GetPools implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, error) {
+func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, uint64, error) {
 	options := domain.PoolsOptions{
 		MinPoolLiquidityCap:  0,
 		PoolIDFilter:         []uint64{},
@@ -320,11 +320,11 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	}
 
 	if options.HadEmptyFilter {
-		return nil, nil
+		return nil, 0, nil
 	}
 
 	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
-	if options.PoolIDFilter != nil && len(options.PoolIDFilter) > 0 {
+	if len(options.PoolIDFilter) > 0 {
 		transformer.Filter(func(pool sqsdomain.PoolI) bool {
 			return slices.Contains(options.PoolIDFilter, pool.GetId()) // TODO: with keys method to avoid O(n)
 		})
@@ -413,7 +413,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		pools = paginator.GetPage(pagination.Page)
 	}
 
-	return pools, nil
+	return pools, transformer.Count(), nil
 }
 
 // StorePools implements mvc.PoolsUsecase.
@@ -685,21 +685,6 @@ func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomat
 	}
 
 	return exitedCoins, nil
-}
-
-// retainPoolIfMatchesOptions retains the pool if it matches the options.
-// Returns the updated pools.
-// The input poolConsidered parameter is mutated with options if options specify to set APR and fee data.
-// The input poolsToUpdate parameter is mutated with the poolConsidered if it matches the options.
-func (p *poolsUseCase) retainPoolIfMatchesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
-	if options.MinPoolLiquidityCap == 0 || poolConsidered.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
-		fmt.Println("options.MinPoolLiquidityCap", poolConsidered.GetId(), options.MinPoolLiquidityCap, poolConsidered.GetLiquidityCap().Uint64(), poolConsidered.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap)
-		// Set APR and fee data if configured
-		p.setPoolAPRAndFeeDataIfConfigured(poolConsidered, options)
-
-		poolsToUpdate = append(poolsToUpdate, poolConsidered)
-	}
-	return poolsToUpdate
 }
 
 // setPoolAPRAndFeeDataIfConfigured sets the APR and fee data for the pool if the options are configured.
