@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -322,38 +323,22 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		return nil, nil
 	}
 
-	var (
-		pools []sqsdomain.PoolI
-	)
-
-	if len(options.PoolIDFilter) > 0 {
-		// Get specific pools
-		pools = make([]sqsdomain.PoolI, 0, len(options.PoolIDFilter))
-		for _, poolID := range options.PoolIDFilter {
-			pool, err := p.GetPool(poolID)
-			if err != nil {
-				return nil, err
-			}
-
-			// Add the pool to pools if it matches the options
-			pools = p.retainPoolIfMatchesOptions(pools, pool, options)
-		}
-	} else {
-		// Pre-allocate 2000 since this is how many pools there are today.
-		pools = make([]sqsdomain.PoolI, 0, 2000)
-		p.pools.Range(func(key, value interface{}) bool {
-			pool, ok := value.(sqsdomain.PoolI)
-			// Check filter is non-zero to avoid more expensive get liquidity cap check.
-			if ok {
-				// Add the pool to pools if it matches the options
-				pools = p.retainPoolIfMatchesOptions(pools, pool, options)
-			}
-
-			return true
+	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
+	if options.PoolIDFilter != nil && len(options.PoolIDFilter) > 0 {
+		transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			return slices.Contains(options.PoolIDFilter, pool.GetId()) // TODO: with keys method to avoid O(n)
 		})
 	}
 
-	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
+	transformer.Filter(func(pool sqsdomain.PoolI) bool {
+		return options.MinPoolLiquidityCap == 0 || pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap
+	})
+
+	// Set fetch APR and fees data if configured used by some sort opts below
+	transformer.Range(func(key uint64, value sqsdomain.PoolI) bool {
+		p.setPoolAPRAndFeeDataIfConfigured(value, options)
+		return true
+	})
 
 	var sortopts []func(sqsdomain.PoolI, sqsdomain.PoolI) bool
 	if s := options.Sort; s != nil {
@@ -362,68 +347,70 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 			case "id":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
 					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetId() < b.GetId()
+						return a.GetId() > b.GetId()
 					}
-					return a.GetId() > b.GetId()
+					return a.GetId() < b.GetId()
 				})
 
 			case "totalFiatValueLocked":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
 					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetLiquidityCap().LT(b.GetLiquidityCap())
+						return a.GetLiquidityCap().GT(b.GetLiquidityCap())
 					}
-					return a.GetLiquidityCap().GT(b.GetLiquidityCap())
+					return a.GetLiquidityCap().LT(b.GetLiquidityCap())
 				})
 
 			case "market.feesSpent7dUsd":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
 					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetFeesData().PoolFee.FeesSpent7d < b.GetFeesData().PoolFee.FeesSpent7d
+						return a.GetFeesData().PoolFee.FeesSpent7d > b.GetFeesData().PoolFee.FeesSpent7d
 					}
-					return a.GetFeesData().PoolFee.FeesSpent7d > b.GetFeesData().PoolFee.FeesSpent7d
+					return a.GetFeesData().PoolFee.FeesSpent7d < b.GetFeesData().PoolFee.FeesSpent7d
 				})
 
 			case "market.feesSpent24hUsd":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
 					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetFeesData().PoolFee.FeesSpent24h < b.GetFeesData().PoolFee.FeesSpent24h
+						return a.GetFeesData().PoolFee.FeesSpent24h > b.GetFeesData().PoolFee.FeesSpent24h
 					}
-					return a.GetFeesData().PoolFee.FeesSpent24h > b.GetFeesData().PoolFee.FeesSpent24h
+					return a.GetFeesData().PoolFee.FeesSpent24h < b.GetFeesData().PoolFee.FeesSpent24h
 				})
 
 			case "market.volume7dUsd":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
 					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetFeesData().PoolFee.Volume7d < b.GetFeesData().PoolFee.Volume7d
+						return a.GetFeesData().PoolFee.Volume7d > b.GetFeesData().PoolFee.Volume7d
 					}
-					return a.GetFeesData().PoolFee.Volume7d > b.GetFeesData().PoolFee.Volume7d
+					return a.GetFeesData().PoolFee.Volume7d < b.GetFeesData().PoolFee.Volume7d
 				})
 
 			case "market.volume24hUsd":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
 					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetFeesData().PoolFee.Volume24h < b.GetFeesData().PoolFee.Volume24h
+						return a.GetFeesData().PoolFee.Volume24h > b.GetFeesData().PoolFee.Volume24h
 					}
-					return a.GetFeesData().PoolFee.Volume24h > b.GetFeesData().PoolFee.Volume24h
+					return a.GetFeesData().PoolFee.Volume24h < b.GetFeesData().PoolFee.Volume24h
 				})
 
 			case "incentives.aprBreakdown.total.upper":
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
 					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetAPRData().TotalAPR.Upper < b.GetAPRData().TotalAPR.Upper
+						return a.GetAPRData().TotalAPR.Upper > b.GetAPRData().TotalAPR.Upper
 					}
-					return a.GetAPRData().TotalAPR.Upper > b.GetAPRData().TotalAPR.Upper
+					return a.GetAPRData().TotalAPR.Upper < b.GetAPRData().TotalAPR.Upper
 				})
 			}
 		}
 		transformer.Sort(sortopts...)
 	}
 
-	iterator := pipeline.NewSyncMapIterator[uint64, sqsdomain.PoolI](&p.pools, transformer.Keys())
-
-	if p := options.Pagination; p != nil {
-		paginator := pipeline.NewPaginator[uint64](iterator, p.Limit)
-		return paginator.GetPage(p.Page), nil
+	var pools []sqsdomain.PoolI
+	if pagination := options.Pagination; pagination == nil {
+		pools = transformer.Data()
+	} else {
+		iterator := pipeline.NewSyncMapIterator[uint64, sqsdomain.PoolI](&p.pools, transformer.Keys())
+		paginator := pipeline.NewPaginator[uint64](iterator, pagination.Limit)
+		pools = paginator.GetPage(pagination.Page)
 	}
 
 	return pools, nil
@@ -706,6 +693,7 @@ func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomat
 // The input poolsToUpdate parameter is mutated with the poolConsidered if it matches the options.
 func (p *poolsUseCase) retainPoolIfMatchesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
 	if options.MinPoolLiquidityCap == 0 || poolConsidered.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap {
+		fmt.Println("options.MinPoolLiquidityCap", poolConsidered.GetId(), options.MinPoolLiquidityCap, poolConsidered.GetLiquidityCap().Uint64(), poolConsidered.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap)
 		// Set APR and fee data if configured
 		p.setPoolAPRAndFeeDataIfConfigured(poolConsidered, options)
 
@@ -730,7 +718,6 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, op
 			p.logger.Error("failed to get APR data", zap.Uint64("poolID", poolID), zap.Error(err))
 		}
 
-		p.logger.Info("APR data", zap.Any("apr", poolAPRData))
 		// Set APR data
 		pool.SetAPRData(sqspassthroughdomain.PoolAPRDataStatusWrap{
 			PoolAPR: poolAPRData,

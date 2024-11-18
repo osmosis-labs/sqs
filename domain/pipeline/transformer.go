@@ -31,21 +31,33 @@ func NewSyncMapTransformer[K, V any](m *sync.Map) *SyncMapTransformer[K, V] {
 	return &SyncMapTransformer[K, V]{data: m, keys: keys}
 }
 
+// Range calls f sequentially for each key and value present in the transformer.
+// If f returns false, range stops the iteration.
+func (dt *SyncMapTransformer[K, V]) Range(f func(key K, value V) bool) {
+	for _, k := range dt.keys {
+		v, ok := dt.load(k)
+		if !ok {
+			continue
+		}
+
+		if !f(k, v) {
+			break
+		}
+	}
+}
+
 // Filter implements the Transformer interface for map data.
 func (dt *SyncMapTransformer[K, V]) Filter(fn ...func(V) bool) *SyncMapTransformer[K, V] {
 	var filteredKeys []K
-	for _, key := range dt.keys {
-		for _, f := range fn {
-			v, ok := dt.load(key)
-			if !ok {
-				continue
-			}
 
-			if f(v) {
+	dt.Range(func(key K, value V) bool {
+		for _, f := range fn {
+			if f(value) {
 				filteredKeys = append(filteredKeys, key)
 			}
 		}
-	}
+		return true
+	})
 
 	dt.keys = filteredKeys
 
@@ -76,6 +88,18 @@ func (dt *SyncMapTransformer[K, V]) Sort(less ...func(V, V) bool) *SyncMapTransf
 // Keys implements the Transformer interface for map data.
 func (dt *SyncMapTransformer[K, V]) Keys() []K {
 	return dt.keys
+}
+
+// Data returns transformed underlying data.
+func (dt *SyncMapTransformer[K, V]) Data() []V {
+	var data []V
+	for _, key := range dt.keys {
+		v, ok := dt.load(key)
+		if ok {
+			data = append(data, v)
+		}
+	}
+	return data
 }
 
 func (dt *SyncMapTransformer[K, V]) load(key K) (V, bool) {
