@@ -63,3 +63,60 @@ func TestFetchPageByPageNumber(t *testing.T) {
 		})
 	}
 }
+
+func TestFetchPageByCursor(t *testing.T) {
+	tests := []struct {
+		name       string
+		data       []int
+		pagination *v1beta1.PaginationRequest
+		expected   []int
+	}{
+		{
+			name: "Fetch first page",
+			data: []int{1, 2, 3, 4, 5},
+			pagination: &v1beta1.PaginationRequest{
+				Cursor: 0,
+				Limit:  3,
+			},
+			expected: []int{1, 2, 3},
+		},
+		{
+			name: "Fetch second page",
+			data: []int{1, 2, 3, 4, 5},
+			pagination: &v1beta1.PaginationRequest{
+				Cursor: 3,
+				Limit:  2,
+			},
+			expected: []int{4, 5},
+		},
+		{
+			name: "Fetch beyond available data",
+			data: []int{1, 2, 3, 4, 5},
+			pagination: &v1beta1.PaginationRequest{
+				Cursor: 5,
+				Limit:  2,
+			},
+			expected: []int{},
+		},
+		{
+			name: "Fetch with limit greater than remaining items",
+			data: []int{1, 2, 3, 4, 5},
+			pagination: &v1beta1.PaginationRequest{
+				Cursor: 3,
+				Limit:  5,
+			},
+			expected: []int{4, 5},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockIterator := &MockIterator{items: tt.data}
+			paginator := NewPaginator[int, int](mockIterator, tt.pagination)
+			got := paginator.FetchPageByCursor()
+			if !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("FetchPageByCursor() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
