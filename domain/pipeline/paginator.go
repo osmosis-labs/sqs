@@ -24,13 +24,16 @@ func (p *Paginator[K, V]) GetPage() []V {
 
 // FetchPageByPageNumber retrieves elements for the current page based on page-based pagination strategy.
 func (p *Paginator[K, V]) FetchPageByPageNumber() []V {
-	p.iterator.Reset() // Ensure we're starting fresh
-	start := p.pagination.Page * p.pagination.Limit
-	items := make([]V, 0, p.pagination.Limit)
+	// Ensure we're starting fresh
+	p.iterator.Reset()
 
-	for i := uint64(0); i < start+p.pagination.Limit && p.iterator.HasNext(); i++ { // this is quite inefficient, we should be able to set the start index
+	// Set the offset based on the page number to avoid fetching data from the beginning
+	p.iterator.SetOffset(int(p.pagination.Page * p.pagination.Limit))
+
+	items := make([]V, 0, p.pagination.Limit)
+	for i := uint64(0); i < p.pagination.Limit && p.iterator.HasNext(); i++ {
 		elem, valid := p.iterator.Next()
-		if valid && i >= start {
+		if valid {
 			items = append(items, elem)
 		}
 	}
