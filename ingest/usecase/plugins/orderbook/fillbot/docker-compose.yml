@@ -22,7 +22,7 @@ services:
     command:
       - start
       - --home=/osmosis/.osmosisd
-    image: osmolabs/osmosis:26.0.2
+    image: osmolabs/osmosis:27.0.1
     container_name: osmosis
     restart: always
     ports:
@@ -60,6 +60,8 @@ services:
     command:
       - --host
       - sqs-fill-bot
+      - --config
+      - /etc/config.json
     build:
       context: ../../../../../
       dockerfile: Dockerfile
@@ -71,6 +73,7 @@ services:
       - 9092:9092
     volumes:
       - ${OSMOSIS_KEYRING_PATH}:${OSMOSIS_KEYRING_PATH}
+      - ../../../../../config.json:/etc/config.json
     logging:
       driver: "json-file"
       options:
