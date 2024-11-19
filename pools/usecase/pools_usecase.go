@@ -409,8 +409,8 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		pools = transformer.Data()
 	} else {
 		iterator := pipeline.NewSyncMapIterator[uint64, sqsdomain.PoolI](&p.pools, transformer.Keys())
-		paginator := pipeline.NewPaginator[uint64](iterator, pagination.Limit)
-		pools = paginator.GetPage(pagination.Page)
+		paginator := pipeline.NewPaginator[uint64](iterator, pagination)
+		pools = paginator.GetPage()
 	}
 
 	return pools, transformer.Count(), nil

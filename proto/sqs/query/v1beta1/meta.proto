@@ -1,0 +1,13 @@
+syntax = "proto3";
+package sqs.query.v1beta1;
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1";
+
+// MetaResponse is the response type for the Query methods.
+// It contains metadata about the response.
+message MetaResponse {
+  // TotalItems is the total number of items available in the result set.
+  // This is useful for pagination when the client requests a subset of the
+  // result set.
+  uint64 total_items = 1;
+}

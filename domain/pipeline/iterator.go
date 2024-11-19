@@ -4,9 +4,10 @@ import "sync"
 
 // Iterator interface defines methods for filtering, sorting, and chunked access
 type Iterator[K, V any] interface {
-	Next() (V, bool) // Retrieves the next element and a bool indicating if it's valid
-	HasNext() bool   // Checks if there are more elements
-	Reset()          // Resets the iterator to the start
+	Next() (V, bool)      // Retrieves the next element and a bool indicating if it's valid
+	HasNext() bool        // Checks if there are more elements
+	SetOffset(offset int) // Sets the offset for starting point of iteration
+	Reset()               // Resets the iterator to the start
 }
 
 // NewMapIterator creates an iterator over map data
@@ -44,6 +45,13 @@ func (it *SyncMapIterator[K, V]) Next() (V, bool) {
 	}
 
 	return *new(V), false
+}
+
+// SetOffset sets the offset for the iterator.
+// This is useful when client requests a subset of the result set
+// and wants to start from a specific index.
+func (it *SyncMapIterator[K, V]) SetOffset(offset int) {
+	it.index = offset
 }
 
 // HasNext checks if there are more elements in the iterator
