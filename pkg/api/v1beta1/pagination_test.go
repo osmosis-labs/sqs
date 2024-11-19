@@ -18,19 +18,19 @@ func TestPaginationRequestUnmarshalHTTPRequest(t *testing.T) {
 		{
 			name:        "Valid page and size",
 			queryParams: map[string]string{"page[number]": "5", "page[size]": "20"},
-			want:        &PaginationRequest{Page: 5, Limit: 20},
+			want:        &PaginationRequest{Page: 5, Limit: 20, Strategy: PaginationStrategy_PAGE},
 			wantErr:     false,
 		},
 		{
 			name:        "Only page provided",
 			queryParams: map[string]string{"page[number]": "3"},
-			want:        &PaginationRequest{Page: 3, Limit: 0},
+			want:        &PaginationRequest{Page: 3, Limit: 0, Strategy: PaginationStrategy_PAGE},
 			wantErr:     false,
 		},
 		{
 			name:        "Only size provided",
 			queryParams: map[string]string{"page[size]": "15"},
-			want:        &PaginationRequest{Page: 0, Limit: 15},
+			want:        &PaginationRequest{Page: 0, Limit: 15, Strategy: PaginationStrategy_UNKNOWN},
 			wantErr:     false,
 		},
 		{
@@ -48,7 +48,25 @@ func TestPaginationRequestUnmarshalHTTPRequest(t *testing.T) {
 		{
 			name:        "No parameters provided",
 			queryParams: map[string]string{},
+			want:        &PaginationRequest{Strategy: PaginationStrategy_UNKNOWN},
+			wantErr:     false,
+		},
+		{
+			name:        "Valid cursor and size",
+			queryParams: map[string]string{"page[cursor]": "100", "page[size]": "20"},
+			want:        &PaginationRequest{Cursor: 100, Limit: 20, Strategy: PaginationStrategy_CURSOR},
+			wantErr:     false,
+		},
+		{
+			name:        "Invalid cursor (not a number)",
+			queryParams: map[string]string{"page[cursor]": "invalid", "page[size]": "10"},
 			want:        &PaginationRequest{},
+			wantErr:     true,
+		},
+		{
+			name:        "Cursor takes precedence over page",
+			queryParams: map[string]string{"page[cursor]": "100", "page[number]": "5", "page[size]": "20"},
+			want:        &PaginationRequest{Cursor: 100, Page: 5, Limit: 20, Strategy: PaginationStrategy_CURSOR},
 			wantErr:     false,
 		},
 	}
@@ -74,8 +92,6 @@ func TestPaginationRequestUnmarshalHTTPRequest(t *testing.T) {
 			}
 
 			assert.NoError(t, err)
-
-			// GetQuoteRequest must contain the expected result if the status is OK
 			assert.Equal(t, tt.want, &result)
 		})
 	}
@@ -88,29 +104,49 @@ func TestPaginationRequestValidate(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "Valid request",
-			request: PaginationRequest{Page: 1, Limit: 10},
+			name:    "Valid page-based request",
+			request: PaginationRequest{Page: 1, Limit: 10, Strategy: PaginationStrategy_PAGE},
+			wantErr: nil,
+		},
+		{
+			name:    "Valid cursor-based request",
+			request: PaginationRequest{Cursor: 100, Limit: 10, Strategy: PaginationStrategy_CURSOR},
 			wantErr: nil,
 		},
 		{
 			name:    "Page is zero",
-			request: PaginationRequest{Page: 0, Limit: 10},
+			request: PaginationRequest{Page: 0, Limit: 10, Strategy: PaginationStrategy_PAGE},
 			wantErr: ErrPageNotValid,
 		},
 		{
 			name:    "Limit is zero",
-			request: PaginationRequest{Page: 1, Limit: 0},
+			request: PaginationRequest{Page: 1, Limit: 0, Strategy: PaginationStrategy_PAGE},
 			wantErr: ErrLimitNotValid,
 		},
 		{
 			name:    "Page exceeds maximum",
-			request: PaginationRequest{Page: MaxPage + 1, Limit: 10},
+			request: PaginationRequest{Page: MaxPage + 1, Limit: 10, Strategy: PaginationStrategy_PAGE},
 			wantErr: ErrPageTooLarge,
 		},
 		{
 			name:    "Limit exceeds maximum",
-			request: PaginationRequest{Page: 1, Limit: MaxLimit + 1},
+			request: PaginationRequest{Page: 1, Limit: MaxLimit + 1, Strategy: PaginationStrategy_PAGE},
 			wantErr: ErrLimitTooLarge,
+		},
+		{
+			name:    "Unknown strategy",
+			request: PaginationRequest{Page: 1, Limit: 10, Strategy: PaginationStrategy_UNKNOWN},
+			wantErr: ErrPaginationStrategyNotSupported,
+		},
+		{
+			name:    "Cursor-based with page set",
+			request: PaginationRequest{Page: 1, Cursor: 100, Limit: 10, Strategy: PaginationStrategy_CURSOR},
+			wantErr: nil, // This should be valid as we're not checking for this case in Validate()
+		},
+		{
+			name:    "Page-based with cursor set",
+			request: PaginationRequest{Page: 1, Cursor: 100, Limit: 10, Strategy: PaginationStrategy_PAGE},
+			wantErr: nil, // This should be valid as we're not checking for this case in Validate()
 		},
 	}
 

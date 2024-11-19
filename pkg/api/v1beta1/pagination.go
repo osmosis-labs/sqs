@@ -29,6 +29,9 @@ var (
 
 	// ErrLimitTooLarge is the error returned when the limit is too large.
 	ErrLimitTooLarge = fmt.Errorf("limit is too large, maximum allowed is %d", MaxLimit)
+
+	// ErrPaginationStrategyNotSupported is the error returned when the pagination strategy is not supported.
+	ErrPaginationStrategyNotSupported = fmt.Errorf("pagination strategy is not supported")
 )
 
 // Query parameters for pagination.
@@ -46,25 +49,40 @@ func (r *PaginationRequest) IsPresent(c echo.Context) bool {
 // UnmarshalHTTPRequest imlpements RequestUnmarshaler interface.
 func (r *PaginationRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	var err error
-	if p := c.QueryParam(queryPageNumber); p != "" {
-		r.Page, err = strconv.ParseUint(p, 10, 64)
+
+	// Fetch query parameters
+	pageParam := c.QueryParam(queryPageNumber)
+	limitParam := c.QueryParam(queryPageSize)
+	cursorParam := c.QueryParam(queryPageCursor)
+
+	if pageParam != "" {
+		r.Page, err = strconv.ParseUint(pageParam, 10, 64)
 		if err != nil {
 			return err
 		}
 	}
 
-	if s := c.QueryParam(queryPageSize); s != "" {
-		r.Limit, err = strconv.ParseUint(s, 10, 64)
+	if limitParam != "" {
+		r.Limit, err = strconv.ParseUint(limitParam, 10, 64)
 		if err != nil {
 			return err
 		}
 	}
 
-	if s := c.QueryParam(queryPageCursor); s != "" {
-		r.Cursor, err = strconv.ParseUint(s, 10, 64)
+	if cursorParam != "" {
+		r.Cursor, err = strconv.ParseUint(cursorParam, 10, 64)
 		if err != nil {
 			return err
 		}
+	}
+
+	// Determine strategy
+	if cursorParam != "" {
+		r.Strategy = PaginationStrategy_CURSOR
+	} else if pageParam != "" {
+		r.Strategy = PaginationStrategy_PAGE
+	} else {
+		r.Strategy = PaginationStrategy_UNKNOWN
 	}
 
 	return nil
@@ -86,6 +104,10 @@ func (r *PaginationRequest) Validate() error {
 
 	if r.Limit > MaxLimit {
 		return ErrLimitTooLarge
+	}
+
+	if r.Strategy == PaginationStrategy_UNKNOWN {
+		return ErrPaginationStrategyNotSupported
 	}
 
 	return nil

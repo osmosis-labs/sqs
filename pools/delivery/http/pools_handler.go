@@ -48,8 +48,8 @@ type PoolResponse struct {
 
 // GetPoolsResponse is a structure for serializing pools result returned to clients.
 type GetPoolsResponse struct {
-	Pools []PoolResponse        `json:"pools"`
-	Meta  *v1beta1.MetaResponse `json:"meta"`
+	Data []PoolResponse        `json:"data"`
+	Meta *v1beta1.MetaResponse `json:"meta"`
 }
 
 const resourcePrefix = "/pools"
@@ -223,7 +223,7 @@ func convertPoolsToResponse(p []sqsdomain.PoolI, total uint64) *GetPoolsResponse
 	}
 
 	return &GetPoolsResponse{
-		Pools: pools,
+		Data: pools,
 		Meta: &v1beta1.MetaResponse{
 			TotalItems: total,
 		},
