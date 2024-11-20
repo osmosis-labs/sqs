@@ -39,3 +39,16 @@ message PaginationRequest {
   // default to PAGE.
   PaginationStrategy strategy = 4;
 }
+
+message PaginationResponse {
+  // next_cursor is the cursor to be used in the next request to get the next
+  // page of results for cursor-based pagination.
+  // If the next_cursor is -1, it means that there are no more results to be
+  // fetched.
+  int64 next_cursor = 1;
+
+  // total_items is the total number of items available in the result set.
+  // This is useful for pagination when the client requests a subset of the
+  // result set.
+  uint64 total_items = 2;
+}

@@ -112,3 +112,33 @@ func (r *PaginationRequest) Validate() error {
 
 	return nil
 }
+
+// CalculateNextCursor calculates the next cursor based on the current cursor and limit.
+func (r *PaginationRequest) CalculateNextCursor(totalItems uint64) (nextCursor int64) {
+	if r.Cursor >= totalItems {
+		return -1 // cursor is out of range
+	}
+
+	endIndex := r.Cursor + r.Limit
+	if endIndex >= totalItems {
+		return -1 // end index is out of range
+	}
+
+	nextCursor = int64(r.Cursor + r.Limit)
+
+	return nextCursor
+}
+
+// NewPaginationResponse creates a new pagination response.
+// The response contains relevant fields filled based on the pagination strategy.
+func NewPaginationResponse(req *PaginationRequest, total uint64) *PaginationResponse {
+	response := PaginationResponse{
+		TotalItems: total,
+	}
+
+	if req.Strategy == PaginationStrategy_CURSOR {
+		response.NextCursor = req.CalculateNextCursor(total)
+	}
+
+	return &response
+}

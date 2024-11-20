@@ -159,3 +159,52 @@ func TestPaginationRequestValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestPaginationRequestCalculateNextCursor(t *testing.T) {
+	tests := []struct {
+		name       string
+		request    PaginationRequest
+		totalItems uint64
+		nextCursor int64
+	}{
+		{
+			name:       "Fetch first page",
+			request:    PaginationRequest{Cursor: 0, Limit: 3},
+			totalItems: 5,
+			nextCursor: 3,
+		},
+		{
+			name:       "Fetch second page",
+			request:    PaginationRequest{Cursor: 3, Limit: 2},
+			totalItems: 5,
+			nextCursor: -1,
+		},
+		{
+			name:       "Fetch beyond available data",
+			request:    PaginationRequest{Cursor: 5, Limit: 2},
+			totalItems: 5,
+			nextCursor: -1,
+		},
+		{
+			name:       "Fetch with limit greater than remaining items",
+			request:    PaginationRequest{Cursor: 3, Limit: 5},
+			totalItems: 5,
+			nextCursor: -1,
+		},
+		{
+			name:       "Zero total items",
+			request:    PaginationRequest{Cursor: 0, Limit: 10},
+			totalItems: 0,
+			nextCursor: -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.request.CalculateNextCursor(tt.totalItems)
+			if got != tt.nextCursor {
+				t.Errorf("PaginationRequest.CalculateNextCursor() = %v, want %v", got, tt.nextCursor)
+			}
+		})
+	}
+}

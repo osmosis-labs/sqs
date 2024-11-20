@@ -48,8 +48,8 @@ type PoolResponse struct {
 
 // GetPoolsResponse is a structure for serializing pools result returned to clients.
 type GetPoolsResponse struct {
-	Data []PoolResponse        `json:"data"`
-	Meta *v1beta1.MetaResponse `json:"meta"`
+	Data []PoolResponse              `json:"data"`
+	Meta *v1beta1.PaginationResponse `json:"meta"`
 }
 
 const resourcePrefix = "/pools"
@@ -111,7 +111,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	}
 
 	// Convert pools to the appropriate format
-	resultPools := convertPoolsToResponse(pools, total)
+	resultPools := convertPoolsToResponse(&req, pools, total)
 
 	return c.JSON(http.StatusOK, resultPools)
 }
@@ -216,7 +216,7 @@ func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
 }
 
 // convertPoolsToResponse converts the given pools to the appropriate response type.
-func convertPoolsToResponse(p []sqsdomain.PoolI, total uint64) *GetPoolsResponse {
+func convertPoolsToResponse(req *api.GetPoolsRequest, p []sqsdomain.PoolI, total uint64) *GetPoolsResponse {
 	pools := make([]PoolResponse, 0, len(p))
 	for _, pool := range p {
 		pools = append(pools, convertPoolToResponse(pool))
@@ -224,8 +224,6 @@ func convertPoolsToResponse(p []sqsdomain.PoolI, total uint64) *GetPoolsResponse
 
 	return &GetPoolsResponse{
 		Data: pools,
-		Meta: &v1beta1.MetaResponse{
-			TotalItems: total,
-		},
+		Meta: v1beta1.NewPaginationResponse(req.Pagination, total),
 	}
 }
