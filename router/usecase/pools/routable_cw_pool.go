@@ -29,18 +29,27 @@ var _ domain.RoutablePool = &routableCosmWasmPoolImpl{}
 // routableCosmWasmPool is an implemenation of the cosm wasm pool
 // that interacts with the chain for quotes and spot price.
 type routableCosmWasmPoolImpl struct {
-	ChainPool                *cwpoolmodel.CosmWasmPool       "json:\"pool\""
-	Balances                 sdk.Coins                       "json:\"balances\""
-	TokenOutDenom            string                          "json:\"token_out_denom,omitempty\""
-	TokenInDenom             string                          "json:\"token_in_denom,omitempty\""
-	TakerFee                 osmomath.Dec                    "json:\"taker_fee\""
-	SpreadFactor             osmomath.Dec                    "json:\"spread_factor\""
-	wasmClient               wasmtypes.QueryClient           "json:\"-\""
-	spotPriceQuoteCalculator domain.SpotPriceQuoteCalculator "json:\"-\""
+	ChainPool                *cwpoolmodel.CosmWasmPool       `json:"pool"`
+	Balances                 sdk.Coins                       `json:"balances"`
+	TokenOutDenom            string                          `json:"token_out_denom,omitempty"`
+	TokenInDenom             string                          `json:"token_in_denom,omitempty"`
+	TakerFee                 osmomath.Dec                    `json:"taker_fee"`
+	SpreadFactor             osmomath.Dec                    `json:"spread_factor"`
+	LiquidityCap             osmomath.Int                    `json:"liquidity_cap"`
+	wasmClient               wasmtypes.QueryClient           `json:"-"`
+	spotPriceQuoteCalculator domain.SpotPriceQuoteCalculator `json:"-"`
 }
 
 // NewRoutableCosmWasmPool returns a new routable cosmwasm pool with the given parameters.
-func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins, tokenOutDenom string, takerFee osmomath.Dec, spreadFactor osmomath.Dec, cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams) domain.RoutablePool {
+func NewRoutableCosmWasmPool(
+	pool *cwpoolmodel.CosmWasmPool,
+	balances sdk.Coins,
+	tokenOutDenom string,
+	takerFee osmomath.Dec,
+	spreadFactor osmomath.Dec,
+	liquidityCap osmomath.Int,
+	cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams,
+) domain.RoutablePool {
 	// Initializa routable cosmwasm pool
 	routableCosmWasmPool := &routableCosmWasmPoolImpl{
 		ChainPool:     pool,
@@ -53,6 +62,8 @@ func NewRoutableCosmWasmPool(pool *cwpoolmodel.CosmWasmPool, balances sdk.Coins,
 		// Note, that there is no calculator set
 		// since we need to wire quote calculation callback to it.
 		spotPriceQuoteCalculator: nil,
+
+		LiquidityCap: liquidityCap,
 	}
 
 	// Initialize spot price calculator.
@@ -82,6 +93,11 @@ func (*routableCosmWasmPoolImpl) GetType() poolmanagertypes.PoolType {
 // GetSpreadFactor implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
+}
+
+// GetLiquidityCap implements domain.RoutablePool.
+func (r *routableCosmWasmPoolImpl) GetLiquidityCap() osmomath.Int {
+	return r.LiquidityCap
 }
 
 // CalculateTokenOutByTokenIn implements domain.RoutablePool.

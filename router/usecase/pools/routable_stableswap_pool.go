@@ -19,10 +19,11 @@ import (
 var _ domain.RoutablePool = &routableStableswapPoolImpl{}
 
 type routableStableswapPoolImpl struct {
-	ChainPool     *stableswap.Pool "json:\"pool\""
-	TokenInDenom  string           "json:\"token_in_denom,omitempty\""
-	TokenOutDenom string           "json:\"token_out_denom,omitempty\""
-	TakerFee      osmomath.Dec     "json:\"taker_fee\""
+	ChainPool     *stableswap.Pool `json:"pool"`
+	TokenInDenom  string           `json:"token_in_denom,omitempty"`
+	TokenOutDenom string           `json:"token_out_denom,omitempty"`
+	TakerFee      osmomath.Dec     `json:"taker_fee"`
+	LiquidityCap  osmomath.Int     `json:"liquidity_cap"`
 }
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
@@ -55,6 +56,11 @@ func (r *routableStableswapPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (to
 // GetTakerFee implements domain.RoutablePool.
 func (r *routableStableswapPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
+}
+
+// GetLiquidityCap implements domain.RoutablePool.
+func (r *routableStableswapPoolImpl) GetLiquidityCap() osmomath.Int {
+	return r.LiquidityCap
 }
 
 // GetTokenInDenom implements RoutablePool.

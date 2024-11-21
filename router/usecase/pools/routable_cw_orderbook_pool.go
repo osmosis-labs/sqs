@@ -22,13 +22,14 @@ var oneBigDec = osmomath.OneBigDec()
 var _ domain.RoutablePool = &routableOrderbookPoolImpl{}
 
 type routableOrderbookPoolImpl struct {
-	ChainPool     *cwpoolmodel.CosmWasmPool   "json:\"pool\""
-	Balances      sdk.Coins                   "json:\"balances\""
-	TokenInDenom  string                      "json:\"token_in_denom,omitempty\""
-	TokenOutDenom string                      "json:\"token_out_denom,omitempty\""
-	TakerFee      osmomath.Dec                "json:\"taker_fee\""
-	SpreadFactor  osmomath.Dec                "json:\"spread_factor\""
-	OrderbookData *cosmwasmpool.OrderbookData "json:\"orderbook_data\""
+	ChainPool     *cwpoolmodel.CosmWasmPool   `json:"pool"`
+	Balances      sdk.Coins                   `json:"balances"`
+	TokenInDenom  string                      `json:"token_in_denom,omitempty"`
+	TokenOutDenom string                      `json:"token_out_denom,omitempty"`
+	TakerFee      osmomath.Dec                `json:"taker_fee"`
+	SpreadFactor  osmomath.Dec                `json:"spread_factor"`
+	LiquidityCap  osmomath.Int                `json:"liquidity_cap"`
+	OrderbookData *cosmwasmpool.OrderbookData `json:"orderbook_data"`
 }
 
 // GetId implements domain.RoutablePool.
@@ -49,6 +50,11 @@ func (*routableOrderbookPoolImpl) GetType() poolmanagertypes.PoolType {
 // GetSpreadFactor implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
+}
+
+// GetLiquidityCap implements domain.RoutablePool.
+func (r *routableOrderbookPoolImpl) GetLiquidityCap() osmomath.Int {
+	return r.LiquidityCap
 }
 
 // CalculateTokenOutByTokenIn implements sqsdomain.RoutablePool.

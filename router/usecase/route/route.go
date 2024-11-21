@@ -100,6 +100,7 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, log
 			pool.GetSpreadFactor(),
 			pool.GetTokenOutDenom(),
 			pool.GetTakerFee(),
+			pool.GetLiquidityCap(),
 			pool.GetCodeID(),
 		)
 

@@ -62,6 +62,8 @@ type RoutablePool interface {
 
 	ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin)
 
+	GetLiquidityCap() osmomath.Int
+
 	GetTakerFee() osmomath.Dec
 
 	GetSpreadFactor() osmomath.Dec
