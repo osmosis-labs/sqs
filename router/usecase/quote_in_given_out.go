@@ -24,6 +24,7 @@ type quoteExactAmountOut struct {
 	AmountOut               sdk.Coin            `json:"amount_out"`
 	Route                   []domain.SplitRoute `json:"route"`
 	LiquidityCap            osmomath.Int        `json:"liquidity_cap"`
+	LiquidityCapOverflow    bool                `json:"liquidity_cap_overflow"`
 	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
 	PriceImpact             osmomath.Dec        `json:"price_impact"`
 	InBaseOutQuoteSpotPrice osmomath.Dec        `json:"in_base_out_quote_spot_price"`
@@ -48,6 +49,7 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	q.AmountIn = q.quoteExactAmountIn.AmountOut
 	q.Route = q.quoteExactAmountIn.Route
 	q.LiquidityCap = q.quoteExactAmountIn.LiquidityCap
+	q.LiquidityCapOverflow = q.quoteExactAmountIn.LiquidityCapOverflow
 	q.EffectiveFee = q.quoteExactAmountIn.EffectiveFee
 	q.PriceImpact = q.quoteExactAmountIn.PriceImpact
 	q.InBaseOutQuoteSpotPrice = q.quoteExactAmountIn.InBaseOutQuoteSpotPrice
