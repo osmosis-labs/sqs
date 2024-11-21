@@ -247,13 +247,18 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 
 	getLimitOrderCoins := func(ctx context.Context, address string) (sdk.Coins, error) {
 		orders, _, err := p.orderbookUseCase.GetActiveOrders(ctx, address)
+		if err != nil {
+			return nil, err
+		}
+
 		var limitOrdersCoins sdk.Coins
 		for _, order := range orders {
 			limitOrdersCoins = limitOrdersCoins.Add(sdk.NewCoin(
 				order.BaseAsset.Symbol,
-				order.ClaimableAmount().Ceil().TruncateInt(),
+				order.ClaimableAmount().TruncateInt(),
 			))
 		}
+
 		return limitOrdersCoins, err
 	}
 

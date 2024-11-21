@@ -192,9 +192,6 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Initialize passthrough query use case
 	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, orderBookUseCase, liquidityPricer, defaultQuoteDenom, logger)
-	if err != nil {
-		return nil, err
-	}
 
 	// Use the same config to initialize coingecko pricing strategy
 	coingeckPricingConfig := *config.Pricing
