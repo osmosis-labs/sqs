@@ -92,7 +92,9 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 
 		// Calculate total liquidity cap for the route
 		for _, pool := range newPools {
-			totalLiquidityCap = totalLiquidityCap.Add(pool.GetLiquidityCap())
+			if cap := pool.GetLiquidityCap(); !cap.IsNil() {
+				totalLiquidityCap = totalLiquidityCap.Add(pool.GetLiquidityCap())
+			}
 		}
 
 		resultRoutes = append(resultRoutes, &RouteWithOutAmount{

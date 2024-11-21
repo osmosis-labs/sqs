@@ -551,7 +551,7 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
 	s.Require().NoError(err)
 
 	// Create sqs pool
-	sqsPool := sqsdomain.NewPool(cfmmPool, cfmmPool.GetSpreadFactor(s.Ctx), poolBalances)
+	sqsPool := sqsdomain.NewPool(cfmmPool, cfmmPool.GetSpreadFactor(s.Ctx), poolBalances, s.PoolOneLiquidityCap())
 
 	// Create default use case
 	poolsUseCase := s.newDefaultPoolsUseCase()

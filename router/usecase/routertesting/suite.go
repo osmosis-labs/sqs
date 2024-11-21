@@ -79,6 +79,7 @@ var (
 	DefaultCoin1 = apptesting.DefaultCoin1
 
 	DefaultLiquidityAmt = apptesting.DefaultLiquidityAmt
+	DefaultLiquidityCap = osmomath.NewInt(10)
 
 	// router specific variables
 	DefaultTickModel = &sqsdomain.TickModel{

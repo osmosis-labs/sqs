@@ -157,6 +157,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
+					osmomath.NewInt(3195955),
 					notCosmWasmPoolCodeID,
 				),
 			},
@@ -183,6 +184,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
+					osmomath.NewInt(515881661),
 					notCosmWasmPoolCodeID,
 				),
 				pools.NewRoutableResultPool(
@@ -191,6 +193,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 					DefaultSpreadFactor,
 					DenomThree,
 					DefaultTakerFee,
+					osmomath.NewInt(71519599),
 					transmuter.GetCodeId(),
 				),
 			},

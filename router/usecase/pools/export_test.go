@@ -24,8 +24,9 @@ func NewRoutableCosmWasmPoolWithCustomModel(
 	cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams,
 	tokenOutDenom string,
 	takerFee osmomath.Dec,
+	liquidityCap osmomath.Int,
 ) (domain.RoutablePool, error) {
-	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmPoolsParams, tokenOutDenom, takerFee)
+	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmPoolsParams, tokenOutDenom, takerFee, liquidityCap)
 }
 
 func (r *routableAlloyTransmuterPoolImpl) CheckStaticRateLimiter(tokenInCoin sdk.Coin) error {

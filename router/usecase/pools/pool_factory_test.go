@@ -66,6 +66,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 		cosmWasmConfig       domain.CosmWasmPoolRouterConfig
 		tokenOutDenom        string
 		takerFee             osmomath.Dec
+		liquidityCap         osmomath.Int
 		expectedRoutablePool domain.RoutablePool
 		expectedError        error
 	}{
@@ -137,6 +138,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 			},
 			tokenOutDenom: "quote",
 			takerFee:      orderbookTakerFee,
+			liquidityCap:  osmomath.NewInt(851594865),
 			expectedRoutablePool: &pools.RoutableOrderbookPoolImpl{
 				ChainPool:     &orderbookCosmWasmPool,
 				OrderbookData: orderbookModel.Data.Orderbook,
@@ -144,6 +146,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 				TokenOutDenom: "quote",
 				TakerFee:      orderbookTakerFee,
 				SpreadFactor:  orderbookSpreadFactor,
+				LiquidityCap:  osmomath.NewInt(851594865),
 			},
 		},
 		{
@@ -194,7 +197,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				Config: tt.cosmWasmConfig,
 			}
-			routablePool, err := pools.NewRoutableCosmWasmPoolWithCustomModel(tt.pool, tt.cosmwasmPool, cosmWasmPoolsParams, tt.tokenOutDenom, tt.takerFee)
+			routablePool, err := pools.NewRoutableCosmWasmPoolWithCustomModel(tt.pool, tt.cosmwasmPool, cosmWasmPoolsParams, tt.tokenOutDenom, tt.takerFee, tt.liquidityCap)
 
 			if tt.expectedError != nil {
 				require.Equal(t, tt.expectedError, err)
