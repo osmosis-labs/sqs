@@ -313,13 +313,28 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		opt(&options)
 	}
 
+	// If pool ID filter is empty, return empty result
+	if options.Filter != nil && options.Filter.PoolId != nil && len(options.Filter.PoolId) == 0 {
+		return nil, 0, nil
+	}
+
 	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
+
+	// Filter by pool ID
 	if f := options.Filter; f != nil && len(f.PoolId) > 0 {
 		transformer.Filter(func(pool sqsdomain.PoolI) bool {
 			return slices.Contains(f.PoolId, pool.GetId()) // TODO: with keys method to avoid O(n)
 		})
 	}
 
+	// Filter by pool type
+	if f := options.Filter; f != nil && len(f.Type) > 0 {
+		transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			return slices.Contains(f.Type, uint64(pool.GetType()))
+		})
+	}
+
+	// Filter by pool liquidity capitalization
 	if f := options.Filter; f != nil && f.MinLiquidityCap > 0 {
 		transformer.Filter(func(pool sqsdomain.PoolI) bool {
 			return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap

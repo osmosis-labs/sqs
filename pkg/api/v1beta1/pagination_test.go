@@ -152,9 +152,9 @@ func TestPaginationRequestValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.request.Validate()
-			if err != tt.wantErr {
-				t.Errorf("PaginationRequest.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			got := tt.request.Validate()
+			if got != tt.wantErr {
+				t.Errorf("PaginationRequest.Validate() got error = %v, wantErr %v", got, tt.wantErr)
 			}
 		})
 	}

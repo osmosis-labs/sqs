@@ -90,7 +90,7 @@ func (r *PaginationRequest) UnmarshalHTTPRequest(c echo.Context) error {
 
 // Validate validates the pagination request.
 func (r *PaginationRequest) Validate() error {
-	if r.Page == 0 {
+	if r.Page == 0 && r.Strategy == PaginationStrategy_PAGE {
 		return ErrPageNotValid
 	}
 
