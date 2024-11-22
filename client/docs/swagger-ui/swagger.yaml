@@ -1,0 +1,252 @@
+swagger: '2.0'
+info:
+  title: SQS - gRPC Gateway docs
+  description: A REST interface for state queries, legacy transactions
+  version: 1.0.0
+paths:
+  /pools:
+    get:
+      summary: |-
+        Pools returns all the existing pools.
+        See GetPoolsRequest for possible query parameters.
+      operationId: Pools
+      responses:
+        '200':
+          description: A successful response.
+          schema:
+            type: object
+            title: 'TODO: Add more fields to the response'
+        default:
+          description: An unexpected error response.
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                format: int32
+              message:
+                type: string
+              details:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    '@type':
+                      type: string
+                  additionalProperties: {}
+      parameters:
+        - name: pool_id
+          description: >-
+            pool_id is the pool id to query. If not provided, will return all
+            pools.
+          in: query
+          required: false
+          type: array
+          items:
+            type: string
+            format: uint64
+          collectionFormat: multi
+        - name: min_liquidity_cap
+          description: min_liquidity_cap is the minimum liquidity cap to filter pools by.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: with_market_incentives
+          description: >-
+            with_market_incentives indicates whether to include incentives into
+            pools
+
+            response.
+          in: query
+          required: false
+          type: boolean
+        - name: pagination.page
+          description: |-
+            page is the page number to query, starts at 0. If not provided, will
+            default to first page.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.limit
+          description: >-
+            limit is the total number of results to be returned in the result
+            page.
+
+            If left empty it will default to a value to be set by each app.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.cursor
+          description: >-
+            cursor is the query offset to start from. If not provided, will
+            default to
+
+            the 0.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.strategy
+          description: >-
+            strategy is the pagination strategy to be used. If not provided,
+            will
+
+            default to PAGE.
+
+             - UNKNOWN: unknown strategy indicates that the pagination strategy is not known
+            or not set.
+             - PAGE: page-based pagination is the most common pagination strategy. It is
+            compatible with offset pagination. If you have a page of 2 and a
+            limit of
+
+            20, you will get items 20-39.
+             - CURSOR: cursor-based pagination is compatible with and similar to offset
+            pagination. If you have a cursor of 50 and a limit of 20, you will
+            get
+
+            items 50-69. Client should re-request all data if it changes, as the
+            cursor
+
+            is not a pointer to a page, but to an item index.
+          in: query
+          required: false
+          type: string
+          enum:
+            - UNKNOWN
+            - PAGE
+            - CURSOR
+          default: UNKNOWN
+      tags:
+        - Query
+definitions:
+  google.protobuf.Any:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  google.rpc.Status:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          properties:
+            '@type':
+              type: string
+          additionalProperties: {}
+  sqs.pools.v1beta1.GetPoolsResponse:
+    type: object
+    title: 'TODO: Add more fields to the response'
+  sqs.query.v1beta1.PaginationRequest:
+    type: object
+    properties:
+      page:
+        type: string
+        format: uint64
+        description: |-
+          page is the page number to query, starts at 0. If not provided, will
+          default to first page.
+      limit:
+        type: string
+        format: uint64
+        description: >-
+          limit is the total number of results to be returned in the result
+          page.
+
+          If left empty it will default to a value to be set by each app.
+      cursor:
+        type: string
+        format: uint64
+        description: >-
+          cursor is the query offset to start from. If not provided, will
+          default to
+
+          the 0.
+      strategy:
+        description: |-
+          strategy is the pagination strategy to be used. If not provided, will
+          default to PAGE.
+        type: string
+        enum:
+          - UNKNOWN
+          - PAGE
+          - CURSOR
+        default: UNKNOWN
+  sqs.query.v1beta1.PaginationStrategy:
+    type: string
+    enum:
+      - UNKNOWN
+      - PAGE
+      - CURSOR
+    default: UNKNOWN
+    description: >-
+      PaginationStrategy is an enum that defines the pagination strategy to be
+      used
+
+      in the PaginationRequest request.
+
+       - UNKNOWN: unknown strategy indicates that the pagination strategy is not known
+      or not set.
+       - PAGE: page-based pagination is the most common pagination strategy. It is
+      compatible with offset pagination. If you have a page of 2 and a limit of
+
+      20, you will get items 20-39.
+       - CURSOR: cursor-based pagination is compatible with and similar to offset
+      pagination. If you have a cursor of 50 and a limit of 20, you will get
+
+      items 50-69. Client should re-request all data if it changes, as the
+      cursor
+
+      is not a pointer to a page, but to an item index.
+  sqs.query.v1beta1.SortDirection:
+    type: string
+    enum:
+      - ASCENDING
+      - DESCENDING
+    default: ASCENDING
+    description: SortDirection represents the direction for sorting.
+  sqs.query.v1beta1.SortField:
+    type: object
+    properties:
+      field:
+        type: string
+        description: field is the name of the field to sort by.
+      direction:
+        description: 'direction is a sorting direction: ASCENDING or DESCENDING.'
+        type: string
+        enum:
+          - ASCENDING
+          - DESCENDING
+        default: ASCENDING
+    description: SortField represents a field to sort by, including its direction.
+  sqs.query.v1beta1.SortRequest:
+    type: object
+    properties:
+      fields:
+        type: array
+        items:
+          type: object
+          properties:
+            field:
+              type: string
+              description: field is the name of the field to sort by.
+            direction:
+              description: 'direction is a sorting direction: ASCENDING or DESCENDING.'
+              type: string
+              enum:
+                - ASCENDING
+                - DESCENDING
+              default: ASCENDING
+          description: SortField represents a field to sort by, including its direction.
+        description: fields represents list of fields to sort by.
+    description: Sort represents multiple sort fields.
