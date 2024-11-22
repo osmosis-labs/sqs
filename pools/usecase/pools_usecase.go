@@ -308,31 +308,23 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 
 // GetPools implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, uint64, error) {
-	options := domain.PoolsOptions{
-		MinPoolLiquidityCap:  0,
-		PoolIDFilter:         []uint64{},
-		WithMarketIncentives: false,
-		HadEmptyFilter:       false,
-	}
-
+	var options domain.PoolsOptions
 	for _, opt := range opts {
 		opt(&options)
 	}
 
-	if options.HadEmptyFilter {
-		return nil, 0, nil
-	}
-
 	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
-	if len(options.PoolIDFilter) > 0 {
+	if f := options.Filter; f != nil && len(f.PoolId) > 0 {
 		transformer.Filter(func(pool sqsdomain.PoolI) bool {
-			return slices.Contains(options.PoolIDFilter, pool.GetId()) // TODO: with keys method to avoid O(n)
+			return slices.Contains(f.PoolId, pool.GetId()) // TODO: with keys method to avoid O(n)
 		})
 	}
 
-	transformer.Filter(func(pool sqsdomain.PoolI) bool {
-		return options.MinPoolLiquidityCap == 0 || pool.GetLiquidityCap().Uint64() >= options.MinPoolLiquidityCap
-	})
+	if f := options.Filter; f != nil && f.MinLiquidityCap > 0 {
+		transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap
+		})
+	}
 
 	// Set fetch APR and fees data if configured used by some sort opts below
 	transformer.Range(func(key uint64, value sqsdomain.PoolI) bool {
@@ -693,7 +685,7 @@ func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomat
 // The input pool parameter is mutated.
 // The input options parameter is used to determine whether to set APR and fee data.
 func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
-	if options.WithMarketIncentives {
+	if options.Filter != nil && options.Filter.WithMarketIncentives {
 		poolID := pool.GetId()
 
 		// Get APR data

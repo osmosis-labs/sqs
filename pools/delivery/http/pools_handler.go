@@ -91,15 +91,9 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	)
 
 	filters := []domain.PoolsOption{
-		domain.WithMinPoolsLiquidityCap(req.MinLiquidityCap),
-		domain.WithMarketIncentives(req.WithMarketIncentives),
+		domain.WithFilter(req.Filter),
 		domain.WithPagination(req.Pagination),
 		domain.WithSort(req.Sort),
-	}
-
-	// Only add pool ID filter if it is not empty.
-	if len(req.PoolId) > 0 {
-		filters = append(filters, domain.WithPoolIDFilter(req.PoolId))
 	}
 
 	// Get pools

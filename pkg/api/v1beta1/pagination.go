@@ -136,6 +136,10 @@ func NewPaginationResponse(req *PaginationRequest, total uint64) *PaginationResp
 		TotalItems: total,
 	}
 
+	if req == nil {
+		return &response // return early if request is nil
+	}
+
 	if req.Strategy == PaginationStrategy_CURSOR {
 		response.NextCursor = req.CalculateNextCursor(total)
 	}

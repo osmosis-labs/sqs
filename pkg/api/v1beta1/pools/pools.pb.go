@@ -23,26 +23,105 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// GetPoolsRequest is the request type for the Service.Get RPC method.
-type GetPoolsRequest struct {
+// GetPoolsFilter is the filter type for querying pools.
+// It is used to filter pools based on the provided fields.
+type GetPoolsRequestFilter struct {
 	// pool_id is the pool id to query. If not provided, will return all pools.
 	PoolId []uint64 `protobuf:"varint,1,rep,packed,name=pool_id,json=poolId,proto3" json:"pool_id,omitempty"`
+	// pool_id_not_in is the list of pool id to exclude from the query.
+	PoolIdNotIn []uint64 `protobuf:"varint,2,rep,packed,name=pool_id_not_in,json=poolIdNotIn,proto3" json:"pool_id_not_in,omitempty"`
+	// type is the pool type to filter pools by.
+	Type []uint64 `protobuf:"varint,3,rep,packed,name=type,proto3" json:"type,omitempty"`
 	// min_liquidity_cap is the minimum liquidity cap to filter pools by.
-	MinLiquidityCap uint64 `protobuf:"varint,2,opt,name=min_liquidity_cap,json=minLiquidityCap,proto3" json:"min_liquidity_cap,omitempty"`
+	MinLiquidityCap uint64 `protobuf:"varint,4,opt,name=min_liquidity_cap,json=minLiquidityCap,proto3" json:"min_liquidity_cap,omitempty"`
 	// with_market_incentives indicates whether to include incentives into pools
 	// response.
-	WithMarketIncentives bool `protobuf:"varint,3,opt,name=with_market_incentives,json=withMarketIncentives,proto3" json:"with_market_incentives,omitempty"`
+	WithMarketIncentives bool `protobuf:"varint,5,opt,name=with_market_incentives,json=withMarketIncentives,proto3" json:"with_market_incentives,omitempty"`
+}
+
+func (m *GetPoolsRequestFilter) Reset()         { *m = GetPoolsRequestFilter{} }
+func (m *GetPoolsRequestFilter) String() string { return proto.CompactTextString(m) }
+func (*GetPoolsRequestFilter) ProtoMessage()    {}
+func (*GetPoolsRequestFilter) Descriptor() ([]byte, []int) {
+	return fileDescriptor_30f2696e6c186971, []int{0}
+}
+func (m *GetPoolsRequestFilter) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetPoolsRequestFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetPoolsRequestFilter.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetPoolsRequestFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPoolsRequestFilter.Merge(m, src)
+}
+func (m *GetPoolsRequestFilter) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetPoolsRequestFilter) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetPoolsRequestFilter.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetPoolsRequestFilter proto.InternalMessageInfo
+
+func (m *GetPoolsRequestFilter) GetPoolId() []uint64 {
+	if m != nil {
+		return m.PoolId
+	}
+	return nil
+}
+
+func (m *GetPoolsRequestFilter) GetPoolIdNotIn() []uint64 {
+	if m != nil {
+		return m.PoolIdNotIn
+	}
+	return nil
+}
+
+func (m *GetPoolsRequestFilter) GetType() []uint64 {
+	if m != nil {
+		return m.Type
+	}
+	return nil
+}
+
+func (m *GetPoolsRequestFilter) GetMinLiquidityCap() uint64 {
+	if m != nil {
+		return m.MinLiquidityCap
+	}
+	return 0
+}
+
+func (m *GetPoolsRequestFilter) GetWithMarketIncentives() bool {
+	if m != nil {
+		return m.WithMarketIncentives
+	}
+	return false
+}
+
+// GetPoolsRequest is the request type for the Service.Get RPC method.
+type GetPoolsRequest struct {
+	// Filter options for the result set
+	Filter *GetPoolsRequestFilter `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
 	// Pagination options for the result set
-	Pagination *v1beta1.PaginationRequest `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination *v1beta1.PaginationRequest `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	// Sort options for the result set
-	Sort *v1beta1.SortRequest `protobuf:"bytes,5,opt,name=sort,proto3" json:"sort,omitempty"`
+	Sort *v1beta1.SortRequest `protobuf:"bytes,3,opt,name=sort,proto3" json:"sort,omitempty"`
 }
 
 func (m *GetPoolsRequest) Reset()         { *m = GetPoolsRequest{} }
 func (m *GetPoolsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetPoolsRequest) ProtoMessage()    {}
 func (*GetPoolsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_30f2696e6c186971, []int{0}
+	return fileDescriptor_30f2696e6c186971, []int{1}
 }
 func (m *GetPoolsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -71,25 +150,11 @@ func (m *GetPoolsRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetPoolsRequest proto.InternalMessageInfo
 
-func (m *GetPoolsRequest) GetPoolId() []uint64 {
+func (m *GetPoolsRequest) GetFilter() *GetPoolsRequestFilter {
 	if m != nil {
-		return m.PoolId
+		return m.Filter
 	}
 	return nil
-}
-
-func (m *GetPoolsRequest) GetMinLiquidityCap() uint64 {
-	if m != nil {
-		return m.MinLiquidityCap
-	}
-	return 0
-}
-
-func (m *GetPoolsRequest) GetWithMarketIncentives() bool {
-	if m != nil {
-		return m.WithMarketIncentives
-	}
-	return false
 }
 
 func (m *GetPoolsRequest) GetPagination() *v1beta1.PaginationRequest {
@@ -114,7 +179,7 @@ func (m *GetPoolsResponse) Reset()         { *m = GetPoolsResponse{} }
 func (m *GetPoolsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetPoolsResponse) ProtoMessage()    {}
 func (*GetPoolsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_30f2696e6c186971, []int{1}
+	return fileDescriptor_30f2696e6c186971, []int{2}
 }
 func (m *GetPoolsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -144,6 +209,7 @@ func (m *GetPoolsResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetPoolsResponse proto.InternalMessageInfo
 
 func init() {
+	proto.RegisterType((*GetPoolsRequestFilter)(nil), "sqs.pools.v1beta1.GetPoolsRequestFilter")
 	proto.RegisterType((*GetPoolsRequest)(nil), "sqs.pools.v1beta1.GetPoolsRequest")
 	proto.RegisterType((*GetPoolsResponse)(nil), "sqs.pools.v1beta1.GetPoolsResponse")
 }
@@ -151,29 +217,125 @@ func init() {
 func init() { proto.RegisterFile("sqs/pools/v1beta1/pools.proto", fileDescriptor_30f2696e6c186971) }
 
 var fileDescriptor_30f2696e6c186971 = []byte{
-	// 338 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0x4f, 0x4b, 0xf3, 0x40,
-	0x10, 0xc6, 0x9b, 0x36, 0x6f, 0x5f, 0x59, 0x0f, 0xb5, 0x41, 0x34, 0x14, 0x5d, 0x42, 0xf1, 0x10,
-	0x04, 0x13, 0x5a, 0xfd, 0x04, 0x2a, 0x48, 0x51, 0xa1, 0xc4, 0x9b, 0x97, 0xb0, 0x69, 0x97, 0x76,
-	0x68, 0xb3, 0x9b, 0x64, 0x36, 0x95, 0x7e, 0x01, 0xcf, 0x7e, 0x2c, 0x8f, 0x3d, 0x7a, 0x94, 0xf6,
-	0x8b, 0xc8, 0x26, 0xfd, 0xa3, 0xe8, 0x71, 0xe6, 0x79, 0x7e, 0xbb, 0xf3, 0xcc, 0x90, 0x53, 0x4c,
-	0xd1, 0x4f, 0xa4, 0x9c, 0xa2, 0x3f, 0xeb, 0x44, 0x5c, 0xb1, 0x4e, 0x59, 0x79, 0x49, 0x26, 0x95,
-	0xb4, 0x9a, 0x98, 0xa2, 0x57, 0x36, 0xd6, 0x72, 0xab, 0xad, 0x89, 0x34, 0xe7, 0xd9, 0x7c, 0x47,
-	0xb0, 0x11, 0x08, 0xa6, 0x40, 0x8a, 0x12, 0x6b, 0x9d, 0xfc, 0xf6, 0xa0, 0xcc, 0x54, 0xa9, 0xb6,
-	0x5f, 0xab, 0xa4, 0x71, 0xc7, 0x55, 0x5f, 0x3f, 0x1b, 0xf0, 0x34, 0xe7, 0xa8, 0xac, 0x63, 0xf2,
-	0x5f, 0x7f, 0x13, 0xc2, 0xd0, 0x36, 0x9c, 0x9a, 0x6b, 0x06, 0x75, 0x5d, 0xf6, 0x86, 0xd6, 0x39,
-	0x69, 0xc6, 0x20, 0xc2, 0x29, 0xa4, 0x39, 0x0c, 0x41, 0xcd, 0xc3, 0x01, 0x4b, 0xec, 0xaa, 0x63,
-	0xb8, 0x66, 0xd0, 0x88, 0x41, 0x3c, 0x6c, 0xfa, 0x37, 0x2c, 0xb1, 0xae, 0xc8, 0xd1, 0x0b, 0xa8,
-	0x71, 0x18, 0xb3, 0x6c, 0xc2, 0x55, 0x08, 0x62, 0xc0, 0x85, 0x82, 0x19, 0x47, 0xbb, 0xe6, 0x18,
-	0xee, 0x5e, 0x70, 0xa8, 0xd5, 0xc7, 0x42, 0xec, 0x6d, 0x35, 0xeb, 0x96, 0x90, 0x5d, 0x00, 0xdb,
-	0x74, 0x0c, 0x77, 0xbf, 0x7b, 0xe6, 0xe9, 0xe0, 0x45, 0x82, 0x4d, 0x70, 0xaf, 0xbf, 0x35, 0xad,
-	0x87, 0x0e, 0xbe, 0x71, 0x56, 0x97, 0x98, 0x3a, 0xa2, 0xfd, 0xaf, 0xe0, 0xe9, 0x1f, 0xfc, 0x93,
-	0xcc, 0xd4, 0x86, 0x2c, 0xbc, 0x6d, 0x8b, 0x1c, 0xec, 0xf6, 0x80, 0x89, 0x14, 0xc8, 0xaf, 0xef,
-	0xdf, 0x97, 0xd4, 0x58, 0x2c, 0xa9, 0xf1, 0xb9, 0xa4, 0xc6, 0xdb, 0x8a, 0x56, 0x16, 0x2b, 0x5a,
-	0xf9, 0x58, 0xd1, 0xca, 0x73, 0x67, 0x04, 0x6a, 0x9c, 0x47, 0xde, 0x40, 0xc6, 0xbe, 0xc4, 0x58,
-	0x22, 0xe0, 0xc5, 0x94, 0x45, 0xe8, 0x17, 0x27, 0x9c, 0x8c, 0x7c, 0x96, 0xc0, 0xcf, 0x23, 0x46,
-	0xf5, 0x62, 0xe1, 0x97, 0x5f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x16, 0x77, 0x0a, 0x84, 0xe6, 0x01,
-	0x00, 0x00,
+	// 401 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x92, 0xdf, 0x6a, 0xdb, 0x30,
+	0x14, 0xc6, 0xa3, 0xc4, 0xcb, 0x86, 0x02, 0xcb, 0x22, 0xf6, 0x47, 0x84, 0xcd, 0x18, 0x6f, 0x17,
+	0x66, 0x30, 0x9b, 0x64, 0x7b, 0x80, 0xb1, 0x8d, 0x95, 0xd0, 0x3f, 0x04, 0xf7, 0xae, 0x37, 0x46,
+	0x4e, 0xd4, 0x44, 0xc4, 0x96, 0x6c, 0x4b, 0x4e, 0xc9, 0x5b, 0xf4, 0xb1, 0x0a, 0xa5, 0x90, 0xcb,
+	0x5e, 0x96, 0xe4, 0x45, 0x8a, 0x65, 0x27, 0x69, 0x9b, 0xdc, 0x59, 0xe7, 0x77, 0xbe, 0xef, 0xf8,
+	0x7c, 0x1c, 0xf8, 0x45, 0xa6, 0xd2, 0x4b, 0x84, 0x88, 0xa4, 0x37, 0xef, 0x85, 0x54, 0x91, 0x5e,
+	0xf9, 0x72, 0x93, 0x4c, 0x28, 0x81, 0x3a, 0x32, 0x95, 0x6e, 0x59, 0xa8, 0x70, 0xd7, 0x2e, 0x14,
+	0x69, 0x4e, 0xb3, 0xc5, 0x4e, 0x41, 0x26, 0x8c, 0x13, 0xc5, 0x04, 0x2f, 0x65, 0xdd, 0xcf, 0xfb,
+	0x3d, 0x52, 0x64, 0xaa, 0xa4, 0xf6, 0x2d, 0x80, 0x1f, 0x8e, 0xa8, 0x1a, 0x16, 0xb6, 0x3e, 0x4d,
+	0x73, 0x2a, 0xd5, 0x7f, 0x16, 0x29, 0x9a, 0xa1, 0x4f, 0xf0, 0x75, 0x31, 0x2c, 0x60, 0x63, 0x0c,
+	0xac, 0x86, 0x63, 0xf8, 0xcd, 0xe2, 0x39, 0x18, 0xa3, 0xaf, 0xf0, 0x6d, 0x05, 0x02, 0x2e, 0x54,
+	0xc0, 0x38, 0xae, 0x6b, 0xde, 0x2a, 0xf9, 0x99, 0x50, 0x03, 0x8e, 0x10, 0x34, 0xd4, 0x22, 0xa1,
+	0xb8, 0xa1, 0x91, 0xfe, 0x46, 0xdf, 0x61, 0x27, 0x66, 0x3c, 0x88, 0x58, 0x9a, 0xb3, 0x31, 0x53,
+	0x8b, 0x60, 0x44, 0x12, 0x6c, 0x58, 0xc0, 0x31, 0xfc, 0x76, 0xcc, 0xf8, 0xc9, 0xa6, 0xfe, 0x97,
+	0x24, 0xe8, 0x17, 0xfc, 0x78, 0xc5, 0xd4, 0x34, 0x88, 0x49, 0x36, 0xa3, 0xc5, 0x90, 0x11, 0xe5,
+	0x8a, 0xcd, 0xa9, 0xc4, 0xaf, 0x2c, 0xe0, 0xbc, 0xf1, 0xdf, 0x17, 0xf4, 0x54, 0xc3, 0xc1, 0x96,
+	0xd9, 0x77, 0x00, 0xb6, 0x5f, 0x6c, 0x83, 0x7e, 0xc3, 0xe6, 0xa5, 0xde, 0x08, 0x03, 0x0b, 0x38,
+	0xad, 0xbe, 0xe3, 0xee, 0xe5, 0xe8, 0x1e, 0x4c, 0xc0, 0xaf, 0x74, 0xe8, 0x1f, 0x84, 0xbb, 0x54,
+	0x71, 0x5d, 0xbb, 0x7c, 0xd3, 0x2e, 0x3a, 0xd6, 0xad, 0xcb, 0x70, 0xdb, 0x54, 0xf9, 0xf8, 0x4f,
+	0x74, 0xa8, 0x0f, 0x8d, 0x22, 0x77, 0xdc, 0xd0, 0x7a, 0xf3, 0x80, 0xfe, 0x5c, 0x64, 0x6a, 0xa3,
+	0xd4, 0xbd, 0x36, 0x82, 0xef, 0x76, 0xbf, 0x26, 0x13, 0xc1, 0x25, 0xfd, 0x73, 0x7c, 0xb3, 0x32,
+	0xc1, 0x72, 0x65, 0x82, 0x87, 0x95, 0x09, 0xae, 0xd7, 0x66, 0x6d, 0xb9, 0x36, 0x6b, 0xf7, 0x6b,
+	0xb3, 0x76, 0xd1, 0x9b, 0x30, 0x35, 0xcd, 0x43, 0x77, 0x24, 0x62, 0x4f, 0xc8, 0x58, 0x48, 0x26,
+	0x7f, 0x44, 0x24, 0x94, 0x9e, 0xbe, 0xab, 0xd9, 0xc4, 0x23, 0x09, 0x7b, 0x7e, 0x59, 0x61, 0x53,
+	0x5f, 0xc1, 0xcf, 0xc7, 0x00, 0x00, 0x00, 0xff, 0xff, 0x9a, 0xcc, 0x4a, 0x7d, 0x7b, 0x02, 0x00,
+	0x00,
+}
+
+func (m *GetPoolsRequestFilter) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetPoolsRequestFilter) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetPoolsRequestFilter) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.WithMarketIncentives {
+		i--
+		if m.WithMarketIncentives {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.MinLiquidityCap != 0 {
+		i = encodeVarintPools(dAtA, i, uint64(m.MinLiquidityCap))
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.Type) > 0 {
+		dAtA2 := make([]byte, len(m.Type)*10)
+		var j1 int
+		for _, num := range m.Type {
+			for num >= 1<<7 {
+				dAtA2[j1] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j1++
+			}
+			dAtA2[j1] = uint8(num)
+			j1++
+		}
+		i -= j1
+		copy(dAtA[i:], dAtA2[:j1])
+		i = encodeVarintPools(dAtA, i, uint64(j1))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.PoolIdNotIn) > 0 {
+		dAtA4 := make([]byte, len(m.PoolIdNotIn)*10)
+		var j3 int
+		for _, num := range m.PoolIdNotIn {
+			for num >= 1<<7 {
+				dAtA4[j3] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j3++
+			}
+			dAtA4[j3] = uint8(num)
+			j3++
+		}
+		i -= j3
+		copy(dAtA[i:], dAtA4[:j3])
+		i = encodeVarintPools(dAtA, i, uint64(j3))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.PoolId) > 0 {
+		dAtA6 := make([]byte, len(m.PoolId)*10)
+		var j5 int
+		for _, num := range m.PoolId {
+			for num >= 1<<7 {
+				dAtA6[j5] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j5++
+			}
+			dAtA6[j5] = uint8(num)
+			j5++
+		}
+		i -= j5
+		copy(dAtA[i:], dAtA6[:j5])
+		i = encodeVarintPools(dAtA, i, uint64(j5))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *GetPoolsRequest) Marshal() (dAtA []byte, err error) {
@@ -206,7 +368,7 @@ func (m *GetPoolsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintPools(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x2a
+		dAtA[i] = 0x1a
 	}
 	if m.Pagination != nil {
 		{
@@ -218,38 +380,17 @@ func (m *GetPoolsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintPools(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x22
+		dAtA[i] = 0x12
 	}
-	if m.WithMarketIncentives {
-		i--
-		if m.WithMarketIncentives {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x18
-	}
-	if m.MinLiquidityCap != 0 {
-		i = encodeVarintPools(dAtA, i, uint64(m.MinLiquidityCap))
-		i--
-		dAtA[i] = 0x10
-	}
-	if len(m.PoolId) > 0 {
-		dAtA4 := make([]byte, len(m.PoolId)*10)
-		var j3 int
-		for _, num := range m.PoolId {
-			for num >= 1<<7 {
-				dAtA4[j3] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j3++
+	if m.Filter != nil {
+		{
+			size, err := m.Filter.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
 			}
-			dAtA4[j3] = uint8(num)
-			j3++
+			i -= size
+			i = encodeVarintPools(dAtA, i, uint64(size))
 		}
-		i -= j3
-		copy(dAtA[i:], dAtA4[:j3])
-		i = encodeVarintPools(dAtA, i, uint64(j3))
 		i--
 		dAtA[i] = 0xa
 	}
@@ -290,7 +431,7 @@ func encodeVarintPools(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *GetPoolsRequest) Size() (n int) {
+func (m *GetPoolsRequestFilter) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -303,11 +444,38 @@ func (m *GetPoolsRequest) Size() (n int) {
 		}
 		n += 1 + sovPools(uint64(l)) + l
 	}
+	if len(m.PoolIdNotIn) > 0 {
+		l = 0
+		for _, e := range m.PoolIdNotIn {
+			l += sovPools(uint64(e))
+		}
+		n += 1 + sovPools(uint64(l)) + l
+	}
+	if len(m.Type) > 0 {
+		l = 0
+		for _, e := range m.Type {
+			l += sovPools(uint64(e))
+		}
+		n += 1 + sovPools(uint64(l)) + l
+	}
 	if m.MinLiquidityCap != 0 {
 		n += 1 + sovPools(uint64(m.MinLiquidityCap))
 	}
 	if m.WithMarketIncentives {
 		n += 2
+	}
+	return n
+}
+
+func (m *GetPoolsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Filter != nil {
+		l = m.Filter.Size()
+		n += 1 + l + sovPools(uint64(l))
 	}
 	if m.Pagination != nil {
 		l = m.Pagination.Size()
@@ -335,7 +503,7 @@ func sovPools(x uint64) (n int) {
 func sozPools(x uint64) (n int) {
 	return sovPools(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *GetPoolsRequest) Unmarshal(dAtA []byte) error {
+func (m *GetPoolsRequestFilter) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -358,10 +526,10 @@ func (m *GetPoolsRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: GetPoolsRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: GetPoolsRequestFilter: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: GetPoolsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: GetPoolsRequestFilter: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -441,6 +609,158 @@ func (m *GetPoolsRequest) Unmarshal(dAtA []byte) error {
 				return fmt.Errorf("proto: wrong wireType = %d for field PoolId", wireType)
 			}
 		case 2:
+			if wireType == 0 {
+				var v uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowPools
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.PoolIdNotIn = append(m.PoolIdNotIn, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowPools
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthPools
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthPools
+				}
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				var elementCount int
+				var count int
+				for _, integer := range dAtA[iNdEx:postIndex] {
+					if integer < 128 {
+						count++
+					}
+				}
+				elementCount = count
+				if elementCount != 0 && len(m.PoolIdNotIn) == 0 {
+					m.PoolIdNotIn = make([]uint64, 0, elementCount)
+				}
+				for iNdEx < postIndex {
+					var v uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowPools
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.PoolIdNotIn = append(m.PoolIdNotIn, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field PoolIdNotIn", wireType)
+			}
+		case 3:
+			if wireType == 0 {
+				var v uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowPools
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.Type = append(m.Type, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowPools
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthPools
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthPools
+				}
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				var elementCount int
+				var count int
+				for _, integer := range dAtA[iNdEx:postIndex] {
+					if integer < 128 {
+						count++
+					}
+				}
+				elementCount = count
+				if elementCount != 0 && len(m.Type) == 0 {
+					m.Type = make([]uint64, 0, elementCount)
+				}
+				for iNdEx < postIndex {
+					var v uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowPools
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.Type = append(m.Type, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
+			}
+		case 4:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field MinLiquidityCap", wireType)
 			}
@@ -459,7 +779,7 @@ func (m *GetPoolsRequest) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 3:
+		case 5:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field WithMarketIncentives", wireType)
 			}
@@ -479,7 +799,93 @@ func (m *GetPoolsRequest) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.WithMarketIncentives = bool(v != 0)
-		case 4:
+		default:
+			iNdEx = preIndex
+			skippy, err := skipPools(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthPools
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetPoolsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowPools
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetPoolsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetPoolsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Filter", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPools
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPools
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthPools
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Filter == nil {
+				m.Filter = &GetPoolsRequestFilter{}
+			}
+			if err := m.Filter.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
 			}
@@ -515,7 +921,7 @@ func (m *GetPoolsRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 5:
+		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Sort", wireType)
 			}

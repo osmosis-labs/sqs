@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -25,7 +26,7 @@ type GetDirectCustomQuoteRequest struct {
 // It returns an error if the request is invalid.
 func (r *GetDirectCustomQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	var err error
-	r.ApplyExponents, err = domain.ParseBooleanQueryParam(c, "applyExponents")
+	r.ApplyExponents, err = http.ParseBooleanQueryParam(c, "applyExponents")
 	if err != nil {
 		return err
 	}

@@ -22,19 +22,14 @@ func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.Pool
 		return nil, 0, p.ForceGetPoolsError
 	}
 
-	options := domain.PoolsOptions{
-		MinPoolLiquidityCap: 0,
-		PoolIDFilter:        []uint64{},
-	}
-
+	var options domain.PoolsOptions
 	for _, opt := range opts {
 		opt(&options)
 	}
 
 	result := make([]sqsdomain.PoolI, 0)
-
-	if len(options.PoolIDFilter) > 0 {
-		for _, id := range options.PoolIDFilter {
+	if f := options.Filter; f != nil && len(f.PoolId) > 0 {
+		for _, id := range f.PoolId {
 			for _, pool := range p.Pools {
 				if pool.GetId() == id {
 					result = append(result, pool)
@@ -43,8 +38,10 @@ func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.Pool
 		}
 	} else {
 		for _, pool := range p.Pools {
-			if pool.GetLiquidityCap().Uint64() > options.MinPoolLiquidityCap {
-				result = append(result, pool)
+			if f := options.Filter; f != nil {
+				if pool.GetLiquidityCap().Uint64() > f.MinLiquidityCap {
+					result = append(result, pool)
+				}
 			}
 		}
 	}
