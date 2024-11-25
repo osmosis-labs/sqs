@@ -20,8 +20,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/osmosis-labs/osmosis/v26/app"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v27/app"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
