@@ -327,6 +327,13 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		})
 	}
 
+	// Filter by pool ID: not in
+	if f := options.Filter; f != nil && len(f.PoolIdNotIn) > 0 {
+		transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			return !slices.Contains(f.PoolIdNotIn, pool.GetId())
+		})
+	}
+
 	// Filter by pool type
 	if f := options.Filter; f != nil && len(f.Type) > 0 {
 		transformer.Filter(func(pool sqsdomain.PoolI) bool {

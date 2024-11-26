@@ -108,6 +108,8 @@ func (dt *SyncMapTransformer[K, V]) Data() []V {
 	return data
 }
 
+// load returns the value associated with the key.
+// If the key is not found, it returns a zero value of the value type and false.
 func (dt *SyncMapTransformer[K, V]) load(key K) (V, bool) {
 	mv, ok := dt.data.Load(key)
 	if !ok {
