@@ -306,6 +306,52 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 	return nil
 }
 
+// getPoolsSortFuncs is a map of available sort functions for getPools function.
+var getPoolsSortFuncs = map[string]func(a, b sqsdomain.PoolI, desc bool) bool{
+	"id": func(a, b sqsdomain.PoolI, desc bool) bool {
+		if desc {
+			return a.GetId() > b.GetId()
+		}
+		return a.GetId() < b.GetId()
+	},
+	"totalFiatValueLocked": func(a, b sqsdomain.PoolI, desc bool) bool {
+		if desc {
+			return a.GetLiquidityCap().GT(b.GetLiquidityCap())
+		}
+		return a.GetLiquidityCap().LT(b.GetLiquidityCap())
+	},
+	"market.feesSpent7dUsd": func(a, b sqsdomain.PoolI, desc bool) bool {
+		if desc {
+			return a.GetFeesData().PoolFee.FeesSpent7d > b.GetFeesData().PoolFee.FeesSpent7d
+		}
+		return a.GetFeesData().PoolFee.FeesSpent7d < b.GetFeesData().PoolFee.FeesSpent7d
+	},
+	"market.feesSpent24hUsd": func(a, b sqsdomain.PoolI, desc bool) bool {
+		if desc {
+			return a.GetFeesData().PoolFee.FeesSpent24h > b.GetFeesData().PoolFee.FeesSpent24h
+		}
+		return a.GetFeesData().PoolFee.FeesSpent24h < b.GetFeesData().PoolFee.FeesSpent24h
+	},
+	"market.volume7dUsd": func(a, b sqsdomain.PoolI, desc bool) bool {
+		if desc {
+			return a.GetFeesData().PoolFee.Volume7d > b.GetFeesData().PoolFee.Volume7d
+		}
+		return a.GetFeesData().PoolFee.Volume7d < b.GetFeesData().PoolFee.Volume7d
+	},
+	"market.volume24hUsd": func(a, b sqsdomain.PoolI, desc bool) bool {
+		if desc {
+			return a.GetFeesData().PoolFee.Volume24h > b.GetFeesData().PoolFee.Volume24h
+		}
+		return a.GetFeesData().PoolFee.Volume24h < b.GetFeesData().PoolFee.Volume24h
+	},
+	"incentives.aprBreakdown.total.upper": func(a, b sqsdomain.PoolI, desc bool) bool {
+		if desc {
+			return a.GetAPRData().TotalAPR.Upper > b.GetAPRData().TotalAPR.Upper
+		}
+		return a.GetAPRData().TotalAPR.Upper < b.GetAPRData().TotalAPR.Upper
+	},
+}
+
 // GetPools implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, uint64, error) {
 	var options domain.PoolsOptions
@@ -354,69 +400,29 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		return true
 	})
 
+	// Filter by pool incentive type.
+	// This filter is intentionally placed after setting APR and fee data
+	// to ensure that the APR and fee data is set required for this filter.
+	if f := options.Filter; f != nil && len(f.Incentive) > 0 {
+		transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			return slices.Contains(f.Incentive, pool.Incentive())
+		})
+	}
+
+	// Sorting options for pool results
 	var sortopts []func(sqsdomain.PoolI, sqsdomain.PoolI) bool
-	if s := options.Sort; s != nil {
-		for _, v := range s.Fields {
-			switch v.Field {
-			case "id":
+	if sort := options.Sort; sort != nil {
+		for _, v := range sort.Fields {
+			if sortFunc, ok := getPoolsSortFuncs[v.Field]; ok {
+				// Pass direction as a parameter to avoid duplication
+				desc := v.Direction == v1beta1.SortDirection_DESCENDING
 				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
-					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetId() > b.GetId()
-					}
-					return a.GetId() < b.GetId()
-				})
-
-			case "totalFiatValueLocked":
-				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
-					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetLiquidityCap().GT(b.GetLiquidityCap())
-					}
-					return a.GetLiquidityCap().LT(b.GetLiquidityCap())
-				})
-
-			case "market.feesSpent7dUsd":
-				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
-					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetFeesData().PoolFee.FeesSpent7d > b.GetFeesData().PoolFee.FeesSpent7d
-					}
-					return a.GetFeesData().PoolFee.FeesSpent7d < b.GetFeesData().PoolFee.FeesSpent7d
-				})
-
-			case "market.feesSpent24hUsd":
-				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
-					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetFeesData().PoolFee.FeesSpent24h > b.GetFeesData().PoolFee.FeesSpent24h
-					}
-					return a.GetFeesData().PoolFee.FeesSpent24h < b.GetFeesData().PoolFee.FeesSpent24h
-				})
-
-			case "market.volume7dUsd":
-				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
-					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetFeesData().PoolFee.Volume7d > b.GetFeesData().PoolFee.Volume7d
-					}
-					return a.GetFeesData().PoolFee.Volume7d < b.GetFeesData().PoolFee.Volume7d
-				})
-
-			case "market.volume24hUsd":
-				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
-					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetFeesData().PoolFee.Volume24h > b.GetFeesData().PoolFee.Volume24h
-					}
-					return a.GetFeesData().PoolFee.Volume24h < b.GetFeesData().PoolFee.Volume24h
-				})
-
-			case "incentives.aprBreakdown.total.upper":
-				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
-					if v.Direction == v1beta1.SortDirection_DESCENDING {
-						return a.GetAPRData().TotalAPR.Upper > b.GetAPRData().TotalAPR.Upper
-					}
-					return a.GetAPRData().TotalAPR.Upper < b.GetAPRData().TotalAPR.Upper
+					return sortFunc(a, b, desc)
 				})
 			}
 		}
-		transformer.Sort(sortopts...)
 	}
+	transformer.Sort(sortopts...) // apply sort options
 
 	var pools []sqsdomain.PoolI
 	if pagination := options.Pagination; pagination == nil {

@@ -6,6 +6,14 @@ import "sqs/query/v1beta1/sort.proto";
 
 option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools";
 
+// IncentiveType represents the type of incentive for the pool.
+enum IncentiveType {
+  SUPERFLUID = 0;
+  OSMOSIS = 1;
+  BOOST = 2;
+  NONE = 3;
+}
+
 // GetPoolsFilter is the filter type for querying pools.
 // It is used to filter pools based on the provided fields.
 message GetPoolsRequestFilter {
@@ -18,12 +26,15 @@ message GetPoolsRequestFilter {
   // type is the pool type to filter pools by.
   repeated uint64 type = 3;
 
+  // incentive is the incentive to filter pools by.
+  repeated IncentiveType incentive = 4;
+
   // min_liquidity_cap is the minimum liquidity cap to filter pools by.
-  uint64 min_liquidity_cap = 4;
+  uint64 min_liquidity_cap = 5;
 
   // with_market_incentives indicates whether to include incentives into pools
   // response.
-  bool with_market_incentives = 5;
+  bool with_market_incentives = 6;
 }
 
 // GetPoolsRequest is the request type for the Service.Get RPC method.

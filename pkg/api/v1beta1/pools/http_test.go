@@ -41,6 +41,11 @@ func TestGetPoolsRequestFilter_IsPresent(t *testing.T) {
 			expectedResult: true,
 		},
 		{
+			name:           "With filter[incentive]",
+			queryParams:    map[string]string{queryFilterIncentive: "2"},
+			expectedResult: true,
+		},
+		{
 			name:           "With min_liquidity_cap",
 			queryParams:    map[string]string{queryMinLiquidityCap: "1000"},
 			expectedResult: true,
@@ -102,6 +107,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				queryFilterID:                   "4,5",
 				queryFilterIDNotIn:              "6,7",
 				queryFilterType:                 "8,9",
+				queryFilterIncentive:            "0,1",
 				queryMinLiquidityCap:            "1000",
 				queryFilterMinLiquidityCap:      "2000",
 				queryWithMarketIncentives:       "true",
@@ -111,6 +117,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				PoolId:               []uint64{1, 2, 3, 4, 5},
 				PoolIdNotIn:          []uint64{6, 7},
 				Type:                 []uint64{8, 9},
+				Incentive:            []IncentiveType{0, 1},
 				MinLiquidityCap:      2000,
 				WithMarketIncentives: true,
 			},
@@ -169,6 +176,20 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "Invalid Incentive",
+			queryParams: map[string]string{
+				queryFilterIncentive: "9999",
+			},
+			expectError: true,
+		},
+		{
+			name: "Invalid Incentive ( not a number )",
+			queryParams: map[string]string{
+				queryFilterIncentive: "invalid",
+			},
+			expectError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -195,6 +216,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				assert.Equal(t, tt.expectedFilter.PoolId, filter.PoolId)
 				assert.Equal(t, tt.expectedFilter.PoolIdNotIn, filter.PoolIdNotIn)
 				assert.Equal(t, tt.expectedFilter.Type, filter.Type)
+				assert.Equal(t, tt.expectedFilter.Incentive, filter.Incentive)
 				assert.Equal(t, tt.expectedFilter.MinLiquidityCap, filter.MinLiquidityCap)
 				assert.Equal(t, tt.expectedFilter.WithMarketIncentives, filter.WithMarketIncentives)
 			}

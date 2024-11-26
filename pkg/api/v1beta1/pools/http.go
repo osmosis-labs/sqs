@@ -1,6 +1,7 @@
 package pools
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/osmosis-labs/sqs/delivery/http"
@@ -17,6 +18,7 @@ const (
 	queryFilterID                   = "filter[id]"
 	queryFilterIDNotIn              = "filter[id][not_in]"
 	queryFilterType                 = "filter[type]"
+	queryFilterIncentive            = "filter[incentive]"
 	queryFilterMinLiquidityCap      = "filter[min_liquidity_cap]"
 	queryFilterWithMarketIncentives = "filter[with_market_incentives]"
 )
@@ -56,6 +58,7 @@ func (r *GetPoolsRequestFilter) IsPresent(c echo.Context) bool {
 		c.QueryParam(queryFilterID) != "" ||
 		c.QueryParam(queryFilterIDNotIn) != "" ||
 		c.QueryParam(queryFilterType) != "" ||
+		c.QueryParam(queryFilterIncentive) != "" ||
 		c.QueryParam(queryMinLiquidityCap) != "" ||
 		c.QueryParam(queryFilterMinLiquidityCap) != "" ||
 		c.QueryParam(queryWithMarketIncentives) != "" ||
@@ -72,19 +75,39 @@ func (r *GetPoolsRequestFilter) UnmarshalHTTPRequest(c echo.Context) error {
 		return err
 	}
 
+	// Parse query filter by ID
 	id, err := number.ParseNumbers(c.QueryParam(queryFilterID))
 	if err != nil {
 		return err
 	}
 	r.PoolId = append(r.PoolId, id...)
 
+	// Parse query filter by ID not in
 	idNotIn, err := number.ParseNumbers(c.QueryParam(queryFilterIDNotIn))
 	if err != nil {
 		return err
 	}
 	r.PoolIdNotIn = append(r.PoolIdNotIn, idNotIn...)
 
+	// Parse query filter by type
 	r.Type, err = number.ParseNumbers(c.QueryParam(queryFilterType))
+	if err != nil {
+		return err
+	}
+
+	// Parse query filter by incentive
+	r.Incentive, err = number.ParseNumberType(c.QueryParam(queryFilterIncentive), func(s string) (IncentiveType, error) {
+		i, err := strconv.ParseInt(s, 10, 32)
+		if err != nil {
+			return 0, fmt.Errorf("invalid IncentiveType '%s': %w", s, err)
+		}
+
+		if _, ok := IncentiveType_name[int32(i)]; !ok {
+			return 0, fmt.Errorf("invalid IncentiveType '%s'", s)
+		}
+
+		return IncentiveType(i), nil
+	})
 	if err != nil {
 		return err
 	}
@@ -97,6 +120,7 @@ func (r *GetPoolsRequestFilter) UnmarshalHTTPRequest(c echo.Context) error {
 		}
 	}
 
+	// Parse query filter min liquidity cap
 	if p := c.QueryParam(queryFilterMinLiquidityCap); p != "" {
 		r.MinLiquidityCap, err = strconv.ParseUint(c.QueryParam(queryFilterMinLiquidityCap), 10, 64)
 		if err != nil {
@@ -110,6 +134,7 @@ func (r *GetPoolsRequestFilter) UnmarshalHTTPRequest(c echo.Context) error {
 		return err
 	}
 
+	// Parse query filter with market incentives
 	if p := c.QueryParam(queryFilterWithMarketIncentives); p != "" {
 		r.WithMarketIncentives, err = http.ParseBooleanQueryParam(c, queryFilterWithMarketIncentives)
 		if err != nil {

@@ -72,6 +72,10 @@ func (dt *SyncMapTransformer[K, V]) Filter(fn ...func(V) bool) *SyncMapTransform
 
 // Sort implements the Transformer interface for map data.
 func (dt *SyncMapTransformer[K, V]) Sort(less ...func(V, V) bool) *SyncMapTransformer[K, V] {
+	if len(less) == 0 {
+		return dt // no sorting required
+	}
+
 	sort.Slice(dt.keys, func(i, j int) bool {
 		for _, criterion := range less {
 			vi, ok := dt.load(dt.keys[i])
