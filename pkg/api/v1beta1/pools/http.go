@@ -12,6 +12,10 @@ import (
 )
 
 const (
+	maxSearchQueryLength = 50
+)
+
+const (
 	queryIDs                        = "IDs"                    // Deprecated: use filter[id]
 	queryMinLiquidityCap            = "min_liquidity_cap"      // Deprecated: use filter[min_liquidity_cap]
 	queryWithMarketIncentives       = "with_market_incentives" // Deprecated: use filter[with_market_incentives]
@@ -21,6 +25,7 @@ const (
 	queryFilterIncentive            = "filter[incentive]"
 	queryFilterMinLiquidityCap      = "filter[min_liquidity_cap]"
 	queryFilterWithMarketIncentives = "filter[with_market_incentives]"
+	queryFilterSearch               = "filter[search]"
 )
 
 // UnmarshalHTTPRequest imlpements RequestUnmarshaler interface.
@@ -62,7 +67,8 @@ func (r *GetPoolsRequestFilter) IsPresent(c echo.Context) bool {
 		c.QueryParam(queryMinLiquidityCap) != "" ||
 		c.QueryParam(queryFilterMinLiquidityCap) != "" ||
 		c.QueryParam(queryWithMarketIncentives) != "" ||
-		c.QueryParam(queryFilterWithMarketIncentives) != ""
+		c.QueryParam(queryFilterWithMarketIncentives) != "" ||
+		c.QueryParam(queryFilterSearch) != ""
 }
 
 // UnmarshalHTTPRequest imlpements RequestUnmarshaler interface.
@@ -140,6 +146,13 @@ func (r *GetPoolsRequestFilter) UnmarshalHTTPRequest(c echo.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if p := c.QueryParam(queryFilterSearch); p != "" {
+		if len(p) > maxSearchQueryLength {
+			return fmt.Errorf("search query is too long")
+		}
+		r.Search = p
 	}
 
 	return nil

@@ -806,7 +806,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	tokensRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", tokensRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", tokensRepositoryMock, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
 	s.Require().NoError(err)
 	poolsUsecase.StorePools(mainnetState.Pools)
 

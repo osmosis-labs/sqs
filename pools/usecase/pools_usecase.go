@@ -42,6 +42,10 @@ import (
 	errorsmod "cosmossdk.io/errors"
 )
 
+type TokenMetadataHolder interface {
+	GetMetadataByChainDenom(denom string) (domain.Token, error)
+}
+
 type orderBookEntry struct {
 	PoolID          uint64
 	LiquidityCap    osmomath.Int
@@ -49,8 +53,9 @@ type orderBookEntry struct {
 }
 
 type poolsUseCase struct {
-	pools            sync.Map
-	routerRepository routerrepo.RouterRepository
+	pools               sync.Map
+	routerRepository    routerrepo.RouterRepository
+	tokenMetadataHolder TokenMetadataHolder
 
 	canonicalOrderBookForBaseQuoteDenom sync.Map
 	canonicalOrderbookPoolIDs           sync.Map
@@ -71,7 +76,14 @@ const (
 )
 
 // NewPoolsUsecase will create a new pools use case object
-func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint string, routerRepository routerrepo.RouterRepository, scalingFactorGetterCb domain.ScalingFactorGetterCb, logger log.Logger) (*poolsUseCase, error) {
+func NewPoolsUsecase(
+	poolsConfig *domain.PoolsConfig,
+	chainGRPCGatewayEndpoint string,
+	routerRepository routerrepo.RouterRepository,
+	scalingFactorGetterCb domain.ScalingFactorGetterCb,
+	tokenMetadataHolder TokenMetadataHolder,
+	logger log.Logger,
+) (*poolsUseCase, error) {
 	transmuterCodeIDsMap := make(map[uint64]struct{}, len(poolsConfig.TransmuterCodeIDs))
 	for _, codeID := range poolsConfig.TransmuterCodeIDs {
 		transmuterCodeIDsMap[codeID] = struct{}{}
@@ -98,8 +110,9 @@ func NewPoolsUsecase(poolsConfig *domain.PoolsConfig, chainGRPCGatewayEndpoint s
 	}
 
 	return &poolsUseCase{
-		pools:            sync.Map{},
-		routerRepository: routerRepository,
+		pools:               sync.Map{},
+		routerRepository:    routerRepository,
+		tokenMetadataHolder: tokenMetadataHolder,
 
 		cosmWasmPoolsParams: cosmwasmdomain.CosmWasmPoolsParams{
 			Config: domain.CosmWasmPoolRouterConfig{
@@ -307,6 +320,7 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 }
 
 // getPoolsSortFuncs is a map of available sort functions for getPools function.
+// TODO: define enum?
 var getPoolsSortFuncs = map[string]func(a, b sqsdomain.PoolI, desc bool) bool{
 	"id": func(a, b sqsdomain.PoolI, desc bool) bool {
 		if desc {
@@ -350,6 +364,60 @@ var getPoolsSortFuncs = map[string]func(a, b sqsdomain.PoolI, desc bool) bool{
 		}
 		return a.GetAPRData().TotalAPR.Upper < b.GetAPRData().TotalAPR.Upper
 	},
+}
+
+var filterExactMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, search string) func(pool sqsdomain.PoolI) bool {
+	return func(pool sqsdomain.PoolI) bool {
+		var coinDenoms []string
+
+		for _, denom := range pool.GetPoolDenoms() {
+			token, err := tokenMetadataHolder.GetMetadataByChainDenom(denom)
+			if err != nil {
+				continue
+			}
+			coinDenoms = append(coinDenoms, token.HumanDenom, token.CoinMinimalDenom)
+		}
+
+		if id, err := strconv.ParseUint(search, 10, 64); err == nil {
+			return pool.GetId() == id
+		}
+
+		if slices.Contains(coinDenoms, search) {
+			return true
+		}
+
+		return false
+	}
+}
+
+var filterPartialMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, search string) func(pool sqsdomain.PoolI) bool {
+	return func(pool sqsdomain.PoolI) bool {
+		var humanDenoms []string
+		var poolNameByDenom string
+		var coinnames []string
+
+		for _, denom := range pool.GetPoolDenoms() {
+			token, err := tokenMetadataHolder.GetMetadataByChainDenom(denom)
+			if err != nil {
+				continue
+			}
+			coinnames = append(coinnames, token.Name)
+			humanDenoms = append(humanDenoms, token.HumanDenom)
+		}
+
+		poolNameByDenom = strings.Join(humanDenoms, "/")
+		if strings.Contains(strings.ToLower(poolNameByDenom), strings.ToLower(search)) {
+			return true
+		}
+
+		for _, coinName := range coinnames {
+			if strings.Contains(strings.ToLower(coinName), strings.ToLower(search)) {
+				return true
+			}
+		}
+
+		return false
+	}
 }
 
 // GetPools implements mvc.PoolsUsecase.
@@ -407,6 +475,19 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		transformer.Filter(func(pool sqsdomain.PoolI) bool {
 			return slices.Contains(f.Incentive, pool.Incentive())
 		})
+	}
+
+	// TODO: pool denoms seems needs to be reversed?
+	// which one is base and which one is quote?
+	// we need to sort in format: quote/base
+	if f := options.Filter; f != nil && len(f.Search) > 0 {
+		exactSearch := transformer.Clone()
+		exactSearch.Filter(filterExactMatchSearch(p.tokenMetadataHolder, f.Search))
+		if exactSearch.Count() > 1 {
+			transformer = exactSearch // exact search found
+		} else {
+			transformer.Filter(filterPartialMatchSearch(p.tokenMetadataHolder, f.Search))
+		}
 	}
 
 	// Sorting options for pool results

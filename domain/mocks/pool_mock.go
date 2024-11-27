@@ -6,14 +6,14 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
-	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
-
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v27/x/gamm/pool-models/balancer"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	"github.com/osmosis-labs/sqs/domain"
+	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
+	"github.com/osmosis-labs/sqs/sqsdomain"
+	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
+	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 )
 
 type MockRoutablePool struct {
@@ -32,6 +32,7 @@ type MockRoutablePool struct {
 	TakerFee          osmomath.Dec
 	SpreadFactor      osmomath.Dec
 	mockedTokenOut    sdk.Coin
+	IncentiveType     api.IncentiveType
 
 	APRData  sqspassthroughdomain.PoolAPRDataStatusWrap
 	FeesData sqspassthroughdomain.PoolFeesDataStatusWrap
@@ -175,6 +176,10 @@ func (mp *MockRoutablePool) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfte
 // GetTakerFee implements sqsdomain.PoolI.
 func (mp *MockRoutablePool) GetTakerFee() math.LegacyDec {
 	return mp.TakerFee
+}
+
+func (mp *MockRoutablePool) Incentive() api.IncentiveType {
+	return mp.IncentiveType
 }
 
 var _ sqsdomain.PoolI = &MockRoutablePool{}

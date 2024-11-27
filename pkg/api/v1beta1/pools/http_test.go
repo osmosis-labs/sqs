@@ -46,6 +46,11 @@ func TestGetPoolsRequestFilter_IsPresent(t *testing.T) {
 			expectedResult: true,
 		},
 		{
+			name:           "With filter[search]",
+			queryParams:    map[string]string{queryFilterSearch: "search"},
+			expectedResult: true,
+		},
+		{
 			name:           "With min_liquidity_cap",
 			queryParams:    map[string]string{queryMinLiquidityCap: "1000"},
 			expectedResult: true,
@@ -112,6 +117,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				queryFilterMinLiquidityCap:      "2000",
 				queryWithMarketIncentives:       "true",
 				queryFilterWithMarketIncentives: "true",
+				queryFilterSearch:               "search",
 			},
 			expectedFilter: GetPoolsRequestFilter{
 				PoolId:               []uint64{1, 2, 3, 4, 5},
@@ -120,6 +126,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				Incentive:            []IncentiveType{0, 1},
 				MinLiquidityCap:      2000,
 				WithMarketIncentives: true,
+				Search:               "search",
 			},
 			expectError: false,
 		},
@@ -138,6 +145,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				Type:                 []uint64{5},
 				MinLiquidityCap:      3000,
 				WithMarketIncentives: true,
+				Search:               "search",
 			},
 			expectError: false,
 		},
@@ -187,6 +195,13 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 			name: "Invalid Incentive ( not a number )",
 			queryParams: map[string]string{
 				queryFilterIncentive: "invalid",
+			},
+			expectError: true,
+		},
+		{
+			name: "Invalid Search ( too long )",
+			queryParams: map[string]string{
+				queryFilterSearch: "TestGetPoolsRequestFilter_UnmarshalHTTPRequest/Invalid_Search_(_too_long_)",
 			},
 			expectError: true,
 		},

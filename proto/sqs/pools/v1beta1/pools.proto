@@ -35,6 +35,9 @@ message GetPoolsRequestFilter {
   // with_market_incentives indicates whether to include incentives into pools
   // response.
   bool with_market_incentives = 6;
+
+  // search is the search string to filter pools by.
+  string search = 7;
 }
 
 // GetPoolsRequest is the request type for the Service.Get RPC method.

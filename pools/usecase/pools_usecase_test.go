@@ -230,7 +230,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			routerRepo.SetTakerFees(tc.takerFeeMap)
 
 			// Create pools use case
-			poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, logger)
+			poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, nil, logger)
 			s.Require().NoError(err)
 
 			poolsUsecase.StorePools(tc.pools)
@@ -899,7 +899,7 @@ func (s *PoolsUsecaseTestSuite) TestetPoolAPRAndFeeDataIfConfigured() {
 
 func (s *PoolsUsecaseTestSuite) newDefaultPoolsUseCase() *usecase.PoolsUsecase {
 	routerRepo := routerrepo.New(&log.NoOpLogger{})
-	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
 	s.Require().NoError(err)
 	return poolsUsecase
 }

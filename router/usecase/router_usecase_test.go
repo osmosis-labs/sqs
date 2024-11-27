@@ -1163,7 +1163,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
 	s.Require().NoError(err)
 	poolsUsecase.StorePools(mainnetState.Pools)
 
@@ -1309,7 +1309,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mai
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 
 	// Setup pools usecase mock.
-	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
 	s.Require().NoError(err)
 	poolsUsecase.StorePools(mainnetState.Pools)
 
@@ -1457,7 +1457,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Order
 		OrderbookCodeIDs: []uint64{
 			orderbookCodeId,
 		},
-	}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	}, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
 	s.Require().NoError(err)
 	poolsUsecase.StorePools(mainnetState.Pools)
 
