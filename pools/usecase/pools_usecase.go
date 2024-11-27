@@ -483,7 +483,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	if f := options.Filter; f != nil && len(f.Search) > 0 {
 		exactSearch := transformer.Clone()
 		exactSearch.Filter(filterExactMatchSearch(p.tokenMetadataHolder, f.Search))
-		if exactSearch.Count() > 1 {
+		if exactSearch.Count() > 0 {
 			transformer = exactSearch // exact search found
 		} else {
 			transformer.Filter(filterPartialMatchSearch(p.tokenMetadataHolder, f.Search))
