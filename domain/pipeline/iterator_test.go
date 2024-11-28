@@ -166,3 +166,55 @@ func TestSyncMapIteratorSetOffset(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncMapIterator_HasNext(t *testing.T) {
+	tests := []struct {
+		name  string
+		keys  []string
+		index int
+		want  bool
+	}{
+		{
+			name:  "Empty iterator",
+			keys:  []string{},
+			index: 0,
+			want:  false,
+		},
+		{
+			name:  "Iterator with elements, at start",
+			keys:  []string{"a", "b", "c"},
+			index: 0,
+			want:  true,
+		},
+		{
+			name:  "Iterator with elements, in middle",
+			keys:  []string{"a", "b", "c"},
+			index: 1,
+			want:  true,
+		},
+		{
+			name:  "Iterator with elements, at last element",
+			keys:  []string{"a", "b", "c"},
+			index: 2,
+			want:  true,
+		},
+		{
+			name:  "Iterator with elements, past last element",
+			keys:  []string{"a", "b", "c"},
+			index: 3,
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			iterator := &SyncMapIterator[string, int]{
+				keys:  tt.keys,
+				index: tt.index,
+			}
+			if got := iterator.HasNext(); got != tt.want {
+				t.Errorf("SyncMapIterator.HasNext() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
