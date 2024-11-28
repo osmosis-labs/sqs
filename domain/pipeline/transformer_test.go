@@ -268,3 +268,42 @@ func TestMapTransformerSort(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncMapTransformerKeys(t *testing.T) {
+	type data struct {
+		key   string
+		value int
+	}
+	testCases := []struct {
+		name         string
+		initialKeys  []string
+		expectedKeys []string
+	}{
+		{
+			name: "Empty Map",
+		},
+		{
+			name:         "Single Element",
+			initialKeys:  []string{"one"},
+			expectedKeys: []string{"one"},
+		},
+		{
+			name:         "Multiple Elements",
+			initialKeys:  []string{"one", "two", "three"},
+			expectedKeys: []string{"one", "two", "three"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create transformer, we are not using NewSyncMapTransformer because
+			// we want to keep the keys in a specific order
+			transformer := &SyncMapTransformer[string, int]{data: nil, keys: tc.initialKeys}
+
+			collectedKeys := transformer.Keys()
+			if slices.Equal(tc.expectedKeys, collectedKeys) != true {
+				t.Errorf("Collected keys %v, want %v", collectedKeys, tc.expectedKeys)
+			}
+		})
+	}
+}
