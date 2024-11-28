@@ -377,3 +377,78 @@ func TestSyncMapTransformerData(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncMapTransformerClone(t *testing.T) {
+	type data struct {
+		key   string
+		value int
+	}
+	testCases := []struct {
+		name           string
+		initialData    []data
+		expectedValues []int
+		stopAfter      int
+	}{
+		{
+			name: "Empty Map",
+		},
+		{
+			name: "Single Element",
+			initialData: []data{
+				{
+					key:   "one",
+					value: 1,
+				},
+			},
+			expectedValues: []int{1},
+		},
+		{
+			name: "Multiple Elements",
+			initialData: []data{
+				{
+					key:   "one",
+					value: 1,
+				},
+				{
+					key:   "two",
+					value: 2,
+				},
+				{
+					key:   "three",
+					value: 3,
+				},
+			},
+			expectedValues: []int{1, 2, 3},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Construct sync.Map and populate with initial data
+			m := sync.Map{}
+			var keys []string
+
+			for _, v := range tc.initialData {
+				m.Store(v.key, v.value)
+				keys = append(keys, v.key)
+			}
+
+			// Create transformer, we are not using NewSyncMapTransformer because
+			// we want to keep the keys in a specific order
+			transformer := &SyncMapTransformer[string, int]{data: &m, keys: keys}
+
+			// Clone the transformer
+			clonedTransformer := transformer.Clone()
+
+			// Verify the clone has the same underlying map
+			if clonedTransformer.data != transformer.data {
+				t.Errorf("Clone should share the same underlying sync.Map")
+			}
+
+			// Verify the clone has the same keys
+			if len(clonedTransformer.keys) != len(transformer.keys) {
+				t.Errorf("Clone should have the same number of keys")
+			}
+		})
+	}
+}

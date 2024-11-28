@@ -112,6 +112,14 @@ func (dt *SyncMapTransformer[K, V]) Data() []V {
 	return data
 }
 
+// Clone returns a new transformer with the same underlying data at the current state.
+func (dt *SyncMapTransformer[K, V]) Clone() *SyncMapTransformer[K, V] {
+	return &SyncMapTransformer[K, V]{
+		data: dt.data,
+		keys: dt.keys,
+	}
+}
+
 // load returns the value associated with the key.
 // If the key is not found, it returns a zero value of the value type and false.
 func (dt *SyncMapTransformer[K, V]) load(key K) (V, bool) {
@@ -126,12 +134,4 @@ func (dt *SyncMapTransformer[K, V]) load(key K) (V, bool) {
 	}
 
 	return v, true
-}
-
-// Clone returns a new transformer with the same underlying data at the current state.
-func (dt *SyncMapTransformer[K, V]) Clone() *SyncMapTransformer[K, V] {
-	return &SyncMapTransformer[K, V]{
-		data: dt.data,
-		keys: dt.keys,
-	}
 }
