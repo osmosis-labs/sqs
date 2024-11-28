@@ -218,3 +218,62 @@ func TestSyncMapIterator_HasNext(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncMapIterator_Reset(t *testing.T) {
+	tests := []struct {
+		name            string
+		initialIndex    int
+		keys            []string
+		expectedIndex   int
+		expectedHasNext bool
+	}{
+		{
+			name:            "Reset from middle",
+			initialIndex:    2,
+			keys:            []string{"a", "b", "c", "d"},
+			expectedIndex:   0,
+			expectedHasNext: true,
+		},
+		{
+			name:            "Reset from end",
+			initialIndex:    4,
+			keys:            []string{"a", "b", "c", "d"},
+			expectedIndex:   0,
+			expectedHasNext: true,
+		},
+		{
+			name:            "Reset from start",
+			initialIndex:    0,
+			keys:            []string{"a", "b", "c", "d"},
+			expectedIndex:   0,
+			expectedHasNext: true,
+		},
+		{
+			name:            "Reset empty iterator",
+			initialIndex:    0,
+			keys:            []string{},
+			expectedIndex:   0,
+			expectedHasNext: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			it := &SyncMapIterator[string, int]{
+				data:  &sync.Map{},
+				keys:  tt.keys,
+				index: tt.initialIndex,
+			}
+
+			it.Reset()
+
+			if it.index != tt.expectedIndex {
+				t.Errorf("After Reset(), index = %v, want %v", it.index, tt.expectedIndex)
+			}
+
+			if it.HasNext() != tt.expectedHasNext {
+				t.Errorf("After Reset(), HasNext() = %v, want %v", it.HasNext(), tt.expectedHasNext)
+			}
+		})
+	}
+}
