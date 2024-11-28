@@ -4,6 +4,10 @@ import v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 
 // NewPaginator initializes a Paginator with an Iterator
 func NewPaginator[K, V any](iterator Iterator[K, V], p *v1beta1.PaginationRequest) *Paginator[K, V] {
+	if p == nil {
+		p = &v1beta1.PaginationRequest{}
+	}
+
 	return &Paginator[K, V]{
 		iterator:   iterator,
 		pagination: p,
