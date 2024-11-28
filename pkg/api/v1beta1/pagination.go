@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"fmt"
+	math "math"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -117,6 +118,10 @@ func (r *PaginationRequest) Validate() error {
 func (r *PaginationRequest) CalculateNextCursor(totalItems uint64) (nextCursor int64) {
 	if r.Cursor >= totalItems {
 		return -1 // cursor is out of range
+	}
+
+	if r.Cursor > math.MaxUint64-r.Limit {
+		return -1 // overflow detected
 	}
 
 	endIndex := r.Cursor + r.Limit
