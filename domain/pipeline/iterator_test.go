@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -25,13 +26,13 @@ func (m *MockIterator) SetOffset(offset int) {
 	m.index = offset
 }
 
-func (m *MockIterator) Next() (int, bool) {
+func (m *MockIterator) Next() (int, error) {
 	if m.HasNext() {
 		item := m.items[m.index]
 		m.index++
-		return item, true
+		return item, nil
 	}
-	return 0, false
+	return 0, fmt.Errorf("no more elements")
 }
 
 func (m *MockIterator) Reset() {
@@ -74,8 +75,8 @@ func TestSyncMapIteratorNext(t *testing.T) {
 
 			var result []testdata
 			for {
-				val, ok := it.Next()
-				if !ok {
+				val, err := it.Next()
+				if err != nil {
 					break
 				}
 				result = append(result, val)
@@ -86,8 +87,8 @@ func TestSyncMapIteratorNext(t *testing.T) {
 			}
 
 			// Test that after full iteration, Next() returns false
-			_, ok := it.Next()
-			if ok {
+			_, err := it.Next()
+			if err == nil {
 				t.Errorf("Expected Next() to return false after full iteration")
 			}
 		})
@@ -147,8 +148,8 @@ func TestSyncMapIteratorSetOffset(t *testing.T) {
 
 			var result []testdata
 			for {
-				val, ok := it.Next()
-				if !ok {
+				val, err := it.Next()
+				if err != nil {
 					break
 				}
 				result = append(result, val)
@@ -159,9 +160,9 @@ func TestSyncMapIteratorSetOffset(t *testing.T) {
 			}
 
 			// Test that after full iteration, Next() returns false
-			_, ok := it.Next()
-			if ok {
-				t.Errorf("Expected Next() to return false after full iteration")
+			_, err := it.Next()
+			if err == nil {
+				t.Errorf("Expected Next() to return err after full iteration")
 			}
 		})
 	}

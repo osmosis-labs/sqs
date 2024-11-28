@@ -35,8 +35,8 @@ func (p *Paginator[K, V]) FetchPageByPageNumber() []V {
 
 	items := make([]V, 0, p.pagination.Limit)
 	for i := uint64(0); i < p.pagination.Limit && p.iterator.HasNext(); i++ {
-		elem, valid := p.iterator.Next()
-		if valid {
+		elem, err := p.iterator.Next()
+		if err == nil {
 			items = append(items, elem)
 		}
 	}
@@ -54,8 +54,8 @@ func (p *Paginator[K, V]) FetchPageByCursor() []V {
 
 	items := make([]V, 0, p.pagination.Limit)
 	for i := uint64(0); i < p.pagination.Limit && p.iterator.HasNext(); i++ {
-		elem, valid := p.iterator.Next()
-		if valid {
+		elem, err := p.iterator.Next()
+		if err == nil {
 			items = append(items, elem)
 		}
 	}

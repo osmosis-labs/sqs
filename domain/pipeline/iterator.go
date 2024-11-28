@@ -1,10 +1,13 @@
 package pipeline
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // Iterator interface defines methods for filtering, sorting, and chunked access
 type Iterator[K, V any] interface {
-	Next() (V, bool)      // Retrieves the next element and a bool indicating if it's valid
+	Next() (V, error)     // Retrieves the next element and a bool indicating if it's valid
 	HasNext() bool        // Checks if there are more elements
 	SetOffset(offset int) // Sets the offset for starting point of iteration
 	Reset()               // Resets the iterator to the start
@@ -27,24 +30,24 @@ type SyncMapIterator[K, V any] struct {
 }
 
 // Next retrieves the next element that matches the filter (if set), advancing the index
-func (it *SyncMapIterator[K, V]) Next() (V, bool) {
+func (it *SyncMapIterator[K, V]) Next() (V, error) {
 	if it.HasNext() {
 		key := it.keys[it.index]
 		it.index++
 		mp, ok := it.data.Load(key)
 		if !ok {
-			return *new(V), false
+			return *new(V), fmt.Errorf("key %v not found", key)
 		}
 
 		value, ok := mp.(V)
 		if !ok {
-			return *new(V), false
+			return *new(V), fmt.Errorf("invalid type assertion for key %v", key)
 		}
 
-		return value, true
+		return value, nil
 	}
 
-	return *new(V), false
+	return *new(V), fmt.Errorf("no more elements")
 }
 
 // SetOffset sets the offset for the iterator.
