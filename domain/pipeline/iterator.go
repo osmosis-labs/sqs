@@ -54,6 +54,14 @@ func (it *SyncMapIterator[K, V]) Next() (V, error) {
 // This is useful when client requests a subset of the result set
 // and wants to start from a specific index.
 func (it *SyncMapIterator[K, V]) SetOffset(offset int) {
+	if offset < 0 {
+		offset = 0
+	}
+
+	if offset > len(it.keys) {
+		offset = len(it.keys)
+	}
+
 	it.index = offset
 }
 
