@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"reflect"
+	"slices"
 	"sync"
 	"testing"
 )
@@ -41,6 +42,124 @@ func TestSyncMapTransformer_Count(t *testing.T) {
 
 			if got != tt.expected {
 				t.Errorf("Expected count %d, but got %d", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestSyncMapTransformerRange(t *testing.T) {
+	type data struct {
+		key   string
+		value int
+	}
+	testCases := []struct {
+		name           string
+		initialData    []data
+		expectedKeys   []string
+		expectedValues []int
+		stopAfter      int
+	}{
+		{
+			name: "Empty Map",
+		},
+		{
+			name: "Single Element",
+			initialData: []data{
+				{
+					key:   "one",
+					value: 1,
+				},
+			},
+			expectedKeys:   []string{"one"},
+			expectedValues: []int{1},
+		},
+		{
+			name: "Multiple Elements",
+			initialData: []data{
+				{
+					key:   "one",
+					value: 1,
+				},
+				{
+					key:   "two",
+					value: 2,
+				},
+				{
+					key:   "three",
+					value: 3,
+				},
+			},
+			expectedKeys:   []string{"one", "two", "three"},
+			expectedValues: []int{1, 2, 3},
+		},
+		{
+			name: "Stop Iteration Early",
+			initialData: []data{
+				{
+					key:   "one",
+					value: 1,
+				},
+				{
+					key:   "two",
+					value: 2,
+				},
+				{
+					key:   "three",
+					value: 3,
+				},
+			},
+			expectedKeys:   []string{"one", "two"},
+			expectedValues: []int{1, 2},
+			stopAfter:      2,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Construct sync.Map and populate with initial data
+			m := sync.Map{}
+			var keys []string
+
+			for _, v := range tc.initialData {
+				m.Store(v.key, v.value)
+				keys = append(keys, v.key)
+			}
+
+			// Create transformer, we are not using NewSyncMapTransformer because
+			// we want to keep the keys in a specific order
+			transformer := &SyncMapTransformer[string, int]{data: &m, keys: keys}
+
+			// Collect keys and values during Range
+			var collectedKeys []string
+			var collectedValues []int
+
+			// Define iteration function
+			iterFunc := func(key string, value int) bool {
+				collectedKeys = append(collectedKeys, key)
+				collectedValues = append(collectedValues, value)
+
+				// Stop iteration if stopAfter is set and reached
+				if tc.stopAfter > 0 && len(collectedKeys) >= tc.stopAfter {
+					return false
+				}
+				return true
+			}
+
+			// Perform Range
+			transformer.Range(iterFunc)
+
+			// Validate collected keys
+			if len(collectedKeys) != len(tc.expectedKeys) {
+				t.Errorf("Collected %d keys, want %d", len(collectedKeys), len(tc.expectedKeys))
+			}
+
+			// Validate keys and values
+			if slices.Equal(tc.expectedKeys, collectedKeys) != true {
+				t.Errorf("Collected keys %v, want %v", collectedKeys, tc.expectedKeys)
+			}
+
+			if slices.Equal(tc.expectedValues, collectedValues) != true {
+				t.Errorf("Collected values %v, want %v", collectedValues, tc.expectedValues)
 			}
 		})
 	}
