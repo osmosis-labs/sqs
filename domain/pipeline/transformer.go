@@ -114,9 +114,12 @@ func (dt *SyncMapTransformer[K, V]) Data() []V {
 
 // Clone returns a new transformer with the same underlying data at the current state.
 func (dt *SyncMapTransformer[K, V]) Clone() *SyncMapTransformer[K, V] {
+	keys := make([]K, len(dt.keys))
+	copy(keys, dt.keys)
+
 	return &SyncMapTransformer[K, V]{
 		data: dt.data,
-		keys: dt.keys,
+		keys: keys,
 	}
 }
 
