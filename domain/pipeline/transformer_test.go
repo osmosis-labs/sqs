@@ -48,13 +48,9 @@ func TestSyncMapTransformer_Count(t *testing.T) {
 }
 
 func TestSyncMapTransformerRange(t *testing.T) {
-	type data struct {
-		key   string
-		value int
-	}
 	testCases := []struct {
 		name           string
-		initialData    []data
+		initialData    []testdata
 		expectedKeys   []string
 		expectedValues []int
 		stopAfter      int
@@ -64,7 +60,7 @@ func TestSyncMapTransformerRange(t *testing.T) {
 		},
 		{
 			name: "Single Element",
-			initialData: []data{
+			initialData: []testdata{
 				{
 					key:   "one",
 					value: 1,
@@ -75,7 +71,7 @@ func TestSyncMapTransformerRange(t *testing.T) {
 		},
 		{
 			name: "Multiple Elements",
-			initialData: []data{
+			initialData: []testdata{
 				{
 					key:   "one",
 					value: 1,
@@ -94,7 +90,7 @@ func TestSyncMapTransformerRange(t *testing.T) {
 		},
 		{
 			name: "Stop Iteration Early",
-			initialData: []data{
+			initialData: []testdata{
 				{
 					key:   "one",
 					value: 1,
@@ -270,10 +266,6 @@ func TestMapTransformerSort(t *testing.T) {
 }
 
 func TestSyncMapTransformerKeys(t *testing.T) {
-	type data struct {
-		key   string
-		value int
-	}
 	testCases := []struct {
 		name         string
 		initialKeys  []string
@@ -309,13 +301,9 @@ func TestSyncMapTransformerKeys(t *testing.T) {
 }
 
 func TestSyncMapTransformerData(t *testing.T) {
-	type data struct {
-		key   string
-		value int
-	}
 	testCases := []struct {
 		name           string
-		initialData    []data
+		initialData    []testdata
 		expectedValues []int
 		stopAfter      int
 	}{
@@ -324,7 +312,7 @@ func TestSyncMapTransformerData(t *testing.T) {
 		},
 		{
 			name: "Single Element",
-			initialData: []data{
+			initialData: []testdata{
 				{
 					key:   "one",
 					value: 1,
@@ -334,7 +322,7 @@ func TestSyncMapTransformerData(t *testing.T) {
 		},
 		{
 			name: "Multiple Elements",
-			initialData: []data{
+			initialData: []testdata{
 				{
 					key:   "one",
 					value: 1,
@@ -379,13 +367,9 @@ func TestSyncMapTransformerData(t *testing.T) {
 }
 
 func TestSyncMapTransformerClone(t *testing.T) {
-	type data struct {
-		key   string
-		value int
-	}
 	testCases := []struct {
 		name           string
-		initialData    []data
+		initialData    []testdata
 		expectedValues []int
 		stopAfter      int
 	}{
@@ -394,7 +378,7 @@ func TestSyncMapTransformerClone(t *testing.T) {
 		},
 		{
 			name: "Single Element",
-			initialData: []data{
+			initialData: []testdata{
 				{
 					key:   "one",
 					value: 1,
@@ -404,7 +388,7 @@ func TestSyncMapTransformerClone(t *testing.T) {
 		},
 		{
 			name: "Multiple Elements",
-			initialData: []data{
+			initialData: []testdata{
 				{
 					key:   "one",
 					value: 1,
