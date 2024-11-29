@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	ErrSortFieldTooLong = fmt.Errorf("too many sort fields")
+	ErrSortFieldTooLong = fmt.Errorf("sort parameter exceeds maximum length of %d characters", MaxSortLength)
 )
 
 const (
