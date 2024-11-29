@@ -8,8 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/domain/number"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -75,7 +77,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	// Get pool ID parameters as strings.
 	poolIDsStr := c.QueryParam("IDs")
 	minLiquidityCapStr := c.QueryParam("min_liquidity_cap")
-	withMarketIncentives, err := domain.ParseBooleanQueryParam(c, "with_market_incentives")
+	withMarketIncentives, err := deliveryhttp.ParseBooleanQueryParam(c, "with_market_incentives")
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
 	}
@@ -85,7 +87,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	)
 
 	// Parse numbers
-	poolIDs, err := domain.ParseNumbers(poolIDsStr)
+	poolIDs, err := number.ParseNumbers(poolIDsStr)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
 	}
