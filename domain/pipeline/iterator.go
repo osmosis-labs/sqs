@@ -30,6 +30,7 @@ type SyncMapIterator[K, V any] struct {
 }
 
 // Next retrieves the next element that matches the filter (if set), advancing the index
+// Error is returned when given key is not found, type assertion for value fails, or there are no more elements to iterate
 func (it *SyncMapIterator[K, V]) Next() (V, error) {
 	if it.HasNext() {
 		key := it.keys[it.index]
