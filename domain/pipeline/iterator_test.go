@@ -2,9 +2,10 @@ package pipeline
 
 import (
 	"fmt"
-	"reflect"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type testdata struct {
@@ -82,15 +83,11 @@ func TestSyncMapIteratorNext(t *testing.T) {
 				result = append(result, val)
 			}
 
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("Iteration result = %v, want %v", result, tt.expected)
-			}
+			require.Equal(t, tt.expected, result, "Iteration result should match expected")
 
-			// Test that after full iteration, Next() returns false
+			// Test that after full iteration, Next() returns an error
 			_, err := it.Next()
-			if err == nil {
-				t.Errorf("Expected Next() to return false after full iteration")
-			}
+			require.Error(t, err, "Expected Next() to return an error after full iteration")
 		})
 	}
 }
@@ -155,15 +152,11 @@ func TestSyncMapIteratorSetOffset(t *testing.T) {
 				result = append(result, val)
 			}
 
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("Iteration result after SetOffset(%d) = %v, want %v", tt.offset, result, tt.expected)
-			}
+			require.Equalf(t, tt.expected, result, "Iteration result after SetOffset(%d) should match expected", tt.offset)
 
-			// Test that after full iteration, Next() returns false
+			// Test that after full iteration, Next() returns an error
 			_, err := it.Next()
-			if err == nil {
-				t.Errorf("Expected Next() to return err after full iteration")
-			}
+			require.Error(t, err, "Expected Next() to return an error after full iteration")
 		})
 	}
 }
@@ -213,9 +206,8 @@ func TestSyncMapIterator_HasNext(t *testing.T) {
 				keys:  tt.keys,
 				index: tt.index,
 			}
-			if got := iterator.HasNext(); got != tt.want {
-				t.Errorf("SyncMapIterator.HasNext() = %v, want %v", got, tt.want)
-			}
+			got := iterator.HasNext()
+			require.Equal(t, tt.want, got, "SyncMapIterator.HasNext() should return expected value")
 		})
 	}
 }
@@ -268,13 +260,8 @@ func TestSyncMapIterator_Reset(t *testing.T) {
 
 			it.Reset()
 
-			if it.index != tt.expectedIndex {
-				t.Errorf("After Reset(), index = %v, want %v", it.index, tt.expectedIndex)
-			}
-
-			if it.HasNext() != tt.expectedHasNext {
-				t.Errorf("After Reset(), HasNext() = %v, want %v", it.HasNext(), tt.expectedHasNext)
-			}
+			require.Equal(t, tt.expectedIndex, it.index, "After Reset(), index should match expected")
+			require.Equal(t, tt.expectedHasNext, it.HasNext(), "After Reset(), HasNext() should return expected value")
 		})
 	}
 }

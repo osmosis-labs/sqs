@@ -1,10 +1,11 @@
 package pipeline
 
 import (
-	"reflect"
 	"testing"
 
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetPage(t *testing.T) {
@@ -61,9 +62,7 @@ func TestGetPage(t *testing.T) {
 			iterator := &MockIterator{items: tt.items}
 			paginator := NewPaginator[int, int](iterator, tt.pagination)
 			got := paginator.GetPage()
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetPage() = %v, want %v", got, tt.want)
-			}
+			require.Equal(t, tt.want, got, "GetPage() returned unexpected result")
 		})
 	}
 }
@@ -118,9 +117,7 @@ func TestFetchPageByPageNumber(t *testing.T) {
 			iterator := &MockIterator{items: tt.items}
 			paginator := NewPaginator[int, int](iterator, tt.pagination)
 			got := paginator.FetchPageByPageNumber()
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("FetchPageByPageNumber() = %v, want %v", got, tt.want)
-			}
+			require.Equal(t, tt.want, got, "FetchPageByPageNumber() returned unexpected result")
 		})
 	}
 }
@@ -175,9 +172,7 @@ func TestFetchPageByCursor(t *testing.T) {
 			mockIterator := &MockIterator{items: tt.data}
 			paginator := NewPaginator[int, int](mockIterator, tt.pagination)
 			got := paginator.FetchPageByCursor()
-			if !reflect.DeepEqual(got, tt.expected) {
-				t.Errorf("FetchPageByCursor() = %v, want %v", got, tt.expected)
-			}
+			require.Equal(t, tt.expected, got, "FetchPageByCursor() returned unexpected result")
 		})
 	}
 }

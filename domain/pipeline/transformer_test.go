@@ -1,10 +1,11 @@
 package pipeline
 
 import (
-	"reflect"
 	"slices"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSyncMapTransformer_Count(t *testing.T) {
@@ -40,9 +41,7 @@ func TestSyncMapTransformer_Count(t *testing.T) {
 			transformer := NewSyncMapTransformer[int, int](&m)
 			got := transformer.Count()
 
-			if got != tt.expected {
-				t.Errorf("Expected count %d, but got %d", tt.expected, got)
-			}
+			require.Equal(t, tt.expected, got, "Expected count %d, but got %d", tt.expected, got)
 		})
 	}
 }
@@ -145,18 +144,11 @@ func TestSyncMapTransformerRange(t *testing.T) {
 			transformer.Range(iterFunc)
 
 			// Validate collected keys
-			if len(collectedKeys) != len(tc.expectedKeys) {
-				t.Errorf("Collected %d keys, want %d", len(collectedKeys), len(tc.expectedKeys))
-			}
+			require.Equal(t, len(tc.expectedKeys), len(collectedKeys), "Collected %d keys, want %d", len(collectedKeys), len(tc.expectedKeys))
 
 			// Validate keys and values
-			if slices.Equal(tc.expectedKeys, collectedKeys) != true {
-				t.Errorf("Collected keys %v, want %v", collectedKeys, tc.expectedKeys)
-			}
-
-			if slices.Equal(tc.expectedValues, collectedValues) != true {
-				t.Errorf("Collected values %v, want %v", collectedValues, tc.expectedValues)
-			}
+			require.True(t, slices.Equal(tc.expectedKeys, collectedKeys), "Collected keys %v, want %v", collectedKeys, tc.expectedKeys)
+			require.True(t, slices.Equal(tc.expectedValues, collectedValues), "Collected values %v, want %v", collectedValues, tc.expectedValues)
 		})
 	}
 }
@@ -214,9 +206,7 @@ func TestTransformerFilter(t *testing.T) {
 			transformer.Filter(tt.filter)
 
 			// Check if the original data is unchanged
-			if !reflect.DeepEqual(transformer.Data(), tt.want) {
-				t.Errorf("Filter() modified original data. Got %v, want %v", transformer.Data(), tt.want)
-			}
+			require.Equal(t, tt.want, transformer.Data(), "Filter() modified original data. Got %v, want %v", transformer.Data(), tt.want)
 		})
 	}
 }
@@ -258,9 +248,7 @@ func TestMapTransformerSort(t *testing.T) {
 			transformer.Sort(tt.less)
 
 			got := transformer.Data()
-			if !reflect.DeepEqual(got, tt.expected) {
-				t.Errorf("Expected %v, but got %v", tt.expected, got)
-			}
+			require.Equal(t, tt.expected, got, "Expected %v, but got %v", tt.expected, got)
 		})
 	}
 }
@@ -425,14 +413,10 @@ func TestSyncMapTransformerClone(t *testing.T) {
 			clonedTransformer := transformer.Clone()
 
 			// Verify the clone has the same underlying map
-			if clonedTransformer.data != transformer.data {
-				t.Errorf("Clone should share the same underlying sync.Map")
-			}
+			require.Equal(t, transformer.data, clonedTransformer.data, "Clone should share the same underlying sync.Map")
 
 			// Verify the clone has the same keys
-			if len(clonedTransformer.keys) != len(transformer.keys) {
-				t.Errorf("Clone should have the same number of keys")
-			}
+			require.Equal(t, len(transformer.keys), len(clonedTransformer.keys), "Clone should have the same number of keys")
 		})
 	}
 }
