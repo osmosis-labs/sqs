@@ -132,7 +132,7 @@ func (c *txGasCalulator) SimulateMsgs(encodingConfig cosmosclient.TxConfig, acco
 	txFactory = txFactory.WithAccountNumber(account.AccountNumber)
 	txFactory = txFactory.WithSequence(account.Sequence)
 	txFactory = txFactory.WithChainID(chainID)
-	txFactory = txFactory.WithGasAdjustment(1.05)
+	txFactory = txFactory.WithGasAdjustment(1.15)
 
 	// Estimate transaction
 	gasResult, adjustedGasUsed, err := c.calculateGas(
