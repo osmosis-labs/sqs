@@ -7,9 +7,9 @@ import (
 
 // Transformer defines a generic interface for filtering and sorting data.
 type Transformer[K, V any] interface {
-	Filter(fn func(V) bool) *Transformer[K, V]       // Filter applies a filter to the data
-	Sort(less ...func(V, V) bool) *Transformer[K, V] // Sort sorts the data
-	Keys() []string                                  // Keys returns the list of transformed keys
+	Filter(fn func(V) bool) Transformer[K, V]       // Filter applies a filter to the data
+	Sort(less ...func(V, V) bool) Transformer[K, V] // Sort sorts the data
+	Keys() []string                                 // Keys returns the list of transformed keys
 }
 
 // SyncMapTransformer is a generic data transformer for map data
@@ -114,9 +114,12 @@ func (dt *SyncMapTransformer[K, V]) Data() []V {
 
 // Clone returns a new transformer with the same underlying data at the current state.
 func (dt *SyncMapTransformer[K, V]) Clone() *SyncMapTransformer[K, V] {
+	keys := make([]K, len(dt.keys))
+	copy(keys, dt.keys)
+
 	return &SyncMapTransformer[K, V]{
 		data: dt.data,
-		keys: dt.keys,
+		keys: keys,
 	}
 }
 

@@ -1,9 +1,11 @@
 package pipeline
 
 import (
-	"reflect"
+	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type testdata struct {
@@ -25,13 +27,13 @@ func (m *MockIterator) SetOffset(offset int) {
 	m.index = offset
 }
 
-func (m *MockIterator) Next() (int, bool) {
+func (m *MockIterator) Next() (int, error) {
 	if m.HasNext() {
 		item := m.items[m.index]
 		m.index++
-		return item, true
+		return item, nil
 	}
-	return 0, false
+	return 0, fmt.Errorf("no more elements")
 }
 
 func (m *MockIterator) Reset() {
@@ -74,22 +76,18 @@ func TestSyncMapIteratorNext(t *testing.T) {
 
 			var result []testdata
 			for {
-				val, ok := it.Next()
-				if !ok {
+				val, err := it.Next()
+				if err != nil {
 					break
 				}
 				result = append(result, val)
 			}
 
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("Iteration result = %v, want %v", result, tt.expected)
-			}
+			require.Equal(t, tt.expected, result, "Iteration result should match expected")
 
-			// Test that after full iteration, Next() returns false
-			_, ok := it.Next()
-			if ok {
-				t.Errorf("Expected Next() to return false after full iteration")
-			}
+			// Test that after full iteration, Next() returns an error
+			_, err := it.Next()
+			require.Error(t, err, "Expected Next() to return an error after full iteration")
 		})
 	}
 }
@@ -147,22 +145,18 @@ func TestSyncMapIteratorSetOffset(t *testing.T) {
 
 			var result []testdata
 			for {
-				val, ok := it.Next()
-				if !ok {
+				val, err := it.Next()
+				if err != nil {
 					break
 				}
 				result = append(result, val)
 			}
 
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("Iteration result after SetOffset(%d) = %v, want %v", tt.offset, result, tt.expected)
-			}
+			require.Equalf(t, tt.expected, result, "Iteration result after SetOffset(%d) should match expected", tt.offset)
 
-			// Test that after full iteration, Next() returns false
-			_, ok := it.Next()
-			if ok {
-				t.Errorf("Expected Next() to return false after full iteration")
-			}
+			// Test that after full iteration, Next() returns an error
+			_, err := it.Next()
+			require.Error(t, err, "Expected Next() to return an error after full iteration")
 		})
 	}
 }
@@ -212,9 +206,8 @@ func TestSyncMapIterator_HasNext(t *testing.T) {
 				keys:  tt.keys,
 				index: tt.index,
 			}
-			if got := iterator.HasNext(); got != tt.want {
-				t.Errorf("SyncMapIterator.HasNext() = %v, want %v", got, tt.want)
-			}
+			got := iterator.HasNext()
+			require.Equal(t, tt.want, got, "SyncMapIterator.HasNext() should return expected value")
 		})
 	}
 }
@@ -267,13 +260,8 @@ func TestSyncMapIterator_Reset(t *testing.T) {
 
 			it.Reset()
 
-			if it.index != tt.expectedIndex {
-				t.Errorf("After Reset(), index = %v, want %v", it.index, tt.expectedIndex)
-			}
-
-			if it.HasNext() != tt.expectedHasNext {
-				t.Errorf("After Reset(), HasNext() = %v, want %v", it.HasNext(), tt.expectedHasNext)
-			}
+			require.Equal(t, tt.expectedIndex, it.index, "After Reset(), index should match expected")
+			require.Equal(t, tt.expectedHasNext, it.HasNext(), "After Reset(), HasNext() should return expected value")
 		})
 	}
 }

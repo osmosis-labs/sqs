@@ -4,6 +4,10 @@ import v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 
 // NewPaginator initializes a Paginator with an Iterator
 func NewPaginator[K, V any](iterator Iterator[K, V], p *v1beta1.PaginationRequest) *Paginator[K, V] {
+	if p == nil {
+		p = &v1beta1.PaginationRequest{}
+	}
+
 	return &Paginator[K, V]{
 		iterator:   iterator,
 		pagination: p,
@@ -35,8 +39,8 @@ func (p *Paginator[K, V]) FetchPageByPageNumber() []V {
 
 	items := make([]V, 0, p.pagination.Limit)
 	for i := uint64(0); i < p.pagination.Limit && p.iterator.HasNext(); i++ {
-		elem, valid := p.iterator.Next()
-		if valid {
+		elem, err := p.iterator.Next()
+		if err == nil {
 			items = append(items, elem)
 		}
 	}
@@ -54,8 +58,8 @@ func (p *Paginator[K, V]) FetchPageByCursor() []V {
 
 	items := make([]V, 0, p.pagination.Limit)
 	for i := uint64(0); i < p.pagination.Limit && p.iterator.HasNext(); i++ {
-		elem, valid := p.iterator.Next()
-		if valid {
+		elem, err := p.iterator.Next()
+		if err == nil {
 			items = append(items, elem)
 		}
 	}
