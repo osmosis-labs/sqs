@@ -12,17 +12,17 @@ service SQSIngester {
 
 // PoolData represents a structure encapsulating an Osmosis liquidity pool.
 message PoolData {
-    // ChainModel is the chain representation model of the pool.
-    bytes chain_model = 1;
+  // ChainModel is the chain representation model of the pool.
+  bytes chain_model = 1;
 
-    // SqsModel is additional pool data used by the sidecar query server.
-    bytes sqs_model = 2;
+  // SqsModel is additional pool data used by the sidecar query server.
+  bytes sqs_model = 2;
 
-    // TickModel is the tick data of a concentrated liquidity pool.
-    // This field is only valid and set for concentrated pools. It is nil otherwise.
-    bytes tick_model = 3;
+  // TickModel is the tick data of a concentrated liquidity pool.
+  // This field is only valid and set for concentrated pools. It is nil
+  // otherwise.
+  bytes tick_model = 3;
 }
-
 
 // ProcessBlock
 ////////////////////////////////////////////////////////////////////
@@ -39,4 +39,4 @@ message ProcessBlockRequest {
 }
 
 // The response after completing the block processing.
-message ProcessBlockReply{}
+message ProcessBlockReply {}
