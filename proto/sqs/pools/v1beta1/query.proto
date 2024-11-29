@@ -1,0 +1,24 @@
+syntax = "proto3";
+package sqs.pools.v1beta1;
+
+import "google/api/annotations.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "google/protobuf/duration.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+
+import "sqs/pools/v1beta1/pools.proto";
+import "sqs/query/v1beta1/pagination.proto";
+import "sqs/query/v1beta1/sort.proto";
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Pools returns all the existing pools.
+  // See GetPoolsRequest for possible query parameters.
+  rpc Pools(GetPoolsRequest) returns (GetPoolsResponse) {
+    option (google.api.http).get = "/pools";
+  }
+}
