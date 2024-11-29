@@ -12,6 +12,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
@@ -96,12 +97,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	}()
 
 	var req types.GetQuoteRequest
-	if err := UnmarshalRequest(c, &req); err != nil {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-	}
-
-	// Validate the request
-	if err := req.Validate(); err != nil {
+	if err := deliveryhttp.ParseRequest(c, &req); err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
@@ -207,12 +203,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 	}()
 
 	var req types.GetDirectCustomQuoteRequest
-	if err := UnmarshalRequest(c, &req); err != nil {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-	}
-
-	// Validate the request
-	if err := req.Validate(); err != nil {
+	if err := deliveryhttp.ParseRequest(c, &req); err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
