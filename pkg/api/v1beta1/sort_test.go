@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -14,6 +15,7 @@ func TestSortRequestUnmarshalHTTPRequest(t *testing.T) {
 		queryParams    map[string]string
 		expectedFields []*SortField
 		wantErr        bool
+		expectedError  error
 	}{
 		{
 			name:           "No sort parameter",
@@ -47,6 +49,13 @@ func TestSortRequestUnmarshalHTTPRequest(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name:           "Sort parameter exceeds maximum length",
+			queryParams:    map[string]string{"sort": strings.Repeat("a", MaxSortLength+1)},
+			expectedFields: nil,
+			wantErr:        true,
+			expectedError:  ErrSortFieldTooLong,
+		},
 	}
 
 	for _, tt := range tests {
@@ -67,6 +76,9 @@ func TestSortRequestUnmarshalHTTPRequest(t *testing.T) {
 
 			if tt.wantErr {
 				assert.Error(t, err)
+				if tt.expectedError != nil {
+					assert.Equal(t, tt.expectedError, err)
+				}
 				return
 			}
 
