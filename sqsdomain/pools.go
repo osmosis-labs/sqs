@@ -9,10 +9,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	clqueryproto "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/client/queryproto"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
+
+	clqueryproto "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/client/queryproto"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
 )
 
 // PoolI represents a generalized Pool interface.
@@ -45,6 +47,9 @@ type PoolI interface {
 	GetAPRData() sqspassthroughdomain.PoolAPRDataStatusWrap
 
 	GetFeesData() sqspassthroughdomain.PoolFeesDataStatusWrap
+
+	// Incentive returns the incentive type for the pool
+	Incentive() api.IncentiveType
 
 	// SetTickModel sets the tick model for the pool
 	// If this is not a concentrated pool, errors
@@ -219,6 +224,29 @@ func (p *PoolWrapper) SetFeesData(feesData sqspassthroughdomain.PoolFeesDataStat
 // GetAPRData implements PoolI.
 func (p *PoolWrapper) GetAPRData() sqspassthroughdomain.PoolAPRDataStatusWrap {
 	return p.APRData
+}
+
+
+// Incentive implements PoolI.
+func (p *PoolWrapper) Incentive() api.IncentiveType {
+	apr := p.GetAPRData()
+
+	checks := []struct {
+		apr       sqspassthroughdomain.PoolDataRange
+		incentive api.IncentiveType
+	}{
+		{apr.SuperfluidAPR, api.IncentiveType_SUPERFLUID},
+		{apr.OsmosisAPR, api.IncentiveType_OSMOSIS},
+		{apr.BoostAPR, api.IncentiveType_BOOST},
+	}
+
+	for _, check := range checks {
+		if check.apr.Lower != 0 && check.apr.Upper != 0 {
+			return check.incentive
+		}
+	}
+
+	return api.IncentiveType_NONE
 }
 
 // GetFeesData implements PoolI.
