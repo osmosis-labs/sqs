@@ -26,6 +26,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
+	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -320,7 +321,6 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 }
 
 // getPoolsSortFuncs is a map of available sort functions for getPools function.
-// TODO: define enum?
 var getPoolsSortFuncs = map[string]func(a, b sqsdomain.PoolI, desc bool) bool{
 	"id": func(a, b sqsdomain.PoolI, desc bool) bool {
 		if desc {
@@ -366,6 +366,39 @@ var getPoolsSortFuncs = map[string]func(a, b sqsdomain.PoolI, desc bool) bool{
 	},
 }
 
+// poolFilters is a map of available filters for getPools function.
+var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]){
+	"poolId": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
+		if f != nil && len(f.PoolId) > 0 {
+			transformer.Filter(func(pool sqsdomain.PoolI) bool {
+				return slices.Contains(f.PoolId, pool.GetId()) // TODO: with keys method to avoid O(n)
+			})
+		}
+	},
+	"poolIdNotIn": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
+		if f != nil && len(f.PoolIdNotIn) > 0 {
+			transformer.Filter(func(pool sqsdomain.PoolI) bool {
+				return !slices.Contains(f.PoolIdNotIn, pool.GetId())
+			})
+		}
+	},
+	"type": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
+		if f != nil && len(f.Type) > 0 {
+			transformer.Filter(func(pool sqsdomain.PoolI) bool {
+				return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap
+			})
+		}
+	},
+	"minLiquidityCap": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
+		if f.MinLiquidityCap > 0 {
+			transformer.Filter(func(pool sqsdomain.PoolI) bool {
+				return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap
+			})
+		}
+	},
+}
+
+// filterExactMatchSearch filters pools by exact match search.
 var filterExactMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, search string) func(pool sqsdomain.PoolI) bool {
 	return func(pool sqsdomain.PoolI) bool {
 		var coinDenoms []string
@@ -390,6 +423,7 @@ var filterExactMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, searc
 	}
 }
 
+// filterPartialMatchSearch filters pools by partial match search.
 var filterPartialMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, search string) func(pool sqsdomain.PoolI) bool {
 	return func(pool sqsdomain.PoolI) bool {
 		var humanDenoms []string
@@ -434,32 +468,9 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 
 	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
 
-	// Filter by pool ID
-	if f := options.Filter; f != nil && len(f.PoolId) > 0 {
-		transformer.Filter(func(pool sqsdomain.PoolI) bool {
-			return slices.Contains(f.PoolId, pool.GetId()) // TODO: with keys method to avoid O(n)
-		})
-	}
-
-	// Filter by pool ID: not in
-	if f := options.Filter; f != nil && len(f.PoolIdNotIn) > 0 {
-		transformer.Filter(func(pool sqsdomain.PoolI) bool {
-			return !slices.Contains(f.PoolIdNotIn, pool.GetId())
-		})
-	}
-
-	// Filter by pool type
-	if f := options.Filter; f != nil && len(f.Type) > 0 {
-		transformer.Filter(func(pool sqsdomain.PoolI) bool {
-			return slices.Contains(f.Type, uint64(pool.GetType()))
-		})
-	}
-
-	// Filter by pool liquidity capitalization
-	if f := options.Filter; f != nil && f.MinLiquidityCap > 0 {
-		transformer.Filter(func(pool sqsdomain.PoolI) bool {
-			return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap
-		})
+	// Apply filters
+	for _, applyFilter := range poolFilters {
+		applyFilter(options.Filter, transformer)
 	}
 
 	// Set fetch APR and fees data if configured used by some sort opts below
