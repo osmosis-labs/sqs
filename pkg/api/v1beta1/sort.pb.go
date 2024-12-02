@@ -103,9 +103,20 @@ func (m *SortField) GetDirection() SortDirection {
 	return SortDirection_ASCENDING
 }
 
-// Sort represents multiple sort fields.
+// SortRequest allows sorting by multiple fields with specified precedence.
+// The sort is applied in the order fields are specified - the first field
+// is the primary sort key, the second field is used for ties, and so on.
+// Example:
+//
+//	{
+//	  "fields": [
+//	    {"field": "liquidity", "direction": "DESCENDING"},
+//	    {"field": "volume_24h", "direction": "ASCENDING"}
+//	  ]
+//	}
 type SortRequest struct {
 	// fields represents list of fields to sort by.
+	// The order of fields determines the sort precedence.
 	Fields []*SortField `protobuf:"bytes,1,rep,name=fields,proto3" json:"fields,omitempty"`
 }
 

@@ -1,16 +1,26 @@
 package v1beta1
 
 import (
+	fmt "fmt"
 	"strings"
 
 	"github.com/labstack/echo/v4"
+)
+
+var (
+	ErrSortFieldTooLong = fmt.Errorf("sort parameter exceeds maximum length of %d characters", MaxSortLength)
+)
+
+const (
+	// MaxSortLength is the maximum length of the sort query parameter.
+	MaxSortLength = 1000
 )
 
 const (
 	querySort = "sort"
 )
 
-// IsPresent checks if the pagination request is present in the HTTP request.
+// IsPresent checks if the sort request is present in the HTTP request.
 func (r *SortRequest) IsPresent(c echo.Context) bool {
 	return c.QueryParam(querySort) != ""
 }
@@ -21,6 +31,11 @@ func (r *SortRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	sortParam := c.QueryParam(querySort)
 	if sortParam == "" {
 		return nil // No sort parameter provided, return early
+	}
+
+	// Prevent extremely long input
+	if len(sortParam) > MaxSortLength {
+		return ErrSortFieldTooLong
 	}
 
 	// Split the `sort` parameter by commas to get individual fields
