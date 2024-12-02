@@ -385,7 +385,7 @@ var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pip
 	"type": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
 		if f != nil && len(f.Type) > 0 {
 			transformer.Filter(func(pool sqsdomain.PoolI) bool {
-				return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap
+				return slices.Contains(f.Type, uint64(pool.GetType()))
 			})
 		}
 	},
