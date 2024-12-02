@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
+	"github.com/osmosis-labs/sqs/client/docs"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
@@ -79,6 +80,7 @@ func NewSystemHandler(e *echo.Echo, config domain.Config, logger log.Logger, us 
 	e.GET("/version", handler.GetVersion)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/swagger/*", echoSwagger.EchoWrapHandler(echoSwagger.URL("docs/swagger.json"), echoSwagger.URL("swagger.yaml")))
+	e.GET("/swagger-new/*", echo.WrapHandler(http.StripPrefix("/swagger-new/", http.FileServer(http.FS(docs.SwaggerUI)))))
 }
 
 // GetConfig returns the config for the SQS service
