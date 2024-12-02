@@ -135,6 +135,13 @@ func WithFilter(f *api.GetPoolsRequestFilter) PoolsOption {
 	}
 }
 
+// WithSearch configures the pools options with the search filter.
+func WithSearch(search string) PoolsOption {
+	return WithNonNilFilter(func(filter *api.GetPoolsRequestFilter) {
+		filter.Search = search
+	})
+}
+
 // WithPagination configures the pools options with the pagination request.
 func WithPagination(p *v1beta1.PaginationRequest) PoolsOption {
 	return func(o *PoolsOptions) {

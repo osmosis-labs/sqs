@@ -390,7 +390,7 @@ var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pip
 		}
 	},
 	"minLiquidityCap": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
-		if f.MinLiquidityCap > 0 {
+		if f != nil && f.MinLiquidityCap > 0 {
 			transformer.Filter(func(pool sqsdomain.PoolI) bool {
 				return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap
 			})
@@ -399,6 +399,8 @@ var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pip
 }
 
 // filterExactMatchSearch filters pools by exact match search.
+// If the search is a number, it will be matched against the pool ID.
+// If the search is a string, it will be matched against the pool denoms.
 var filterExactMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, search string) func(pool sqsdomain.PoolI) bool {
 	return func(pool sqsdomain.PoolI) bool {
 		var coinDenoms []string
@@ -807,6 +809,11 @@ func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomat
 func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
 	if options.Filter != nil && options.Filter.WithMarketIncentives {
 		poolID := pool.GetId()
+
+		if p.aprPrefetcher == nil {
+			p.logger.Error("failed to get APR data: aprPrefetcher not set", zap.Uint64("poolID", poolID))
+			return
+		}
 
 		// Get APR data
 		poolAPRData, _, isStale, err := p.aprPrefetcher.GetByKey(poolID)

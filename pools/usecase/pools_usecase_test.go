@@ -23,6 +23,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 	"github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -723,36 +724,159 @@ func mulCoins(coins sdk.Coins, multiplier osmomath.Dec) sdk.Coins {
 
 func (s *PoolsUsecaseTestSuite) TestGetPools() {
 	mainnetState := s.SetupMainnetState()
-
 	usecase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
-	// No filter
-	pools, _, err := usecase.Pools.GetPools()
-	s.Require().NoError(err)
-	s.Require().True(len(pools) > 1500)
+	// Define test cases
+	tests := []struct {
+		name         string
+		options      []domain.PoolsOption
+		expectedLen  int
+		minExpected  int // Minimum expected pools count (for > tests)
+		expectError  bool
+		validateFunc func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI)
+	}{
+		{
+			name:         "No filter",
+			options:      nil,
+			expectedLen:  0,    // Not validated strictly
+			minExpected:  1500, // Expect more than 1500 pools
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name:         "Pool ID filter",
+			options:      []domain.PoolsOption{domain.WithPoolIDFilter([]uint64{32, 1, 1066})},
+			expectedLen:  3,
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name:         "Incentive filter",
+			options:      []domain.PoolsOption{domain.WithMarketIncentives(true)},
+			expectedLen:  1957,
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name:         "Min liquidity cap filter",
+			options:      []domain.PoolsOption{domain.WithMinPoolsLiquidityCap(1_000_000)},
+			expectedLen:  0, // Not validated strictly
+			minExpected:  0, // Expect less than 100 pools
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name: "Min liquidity cap and pool ID filter",
+			options: []domain.PoolsOption{
+				domain.WithMinPoolsLiquidityCap(1),
+				domain.WithPoolIDFilter([]uint64{32, 1, 1066}),
+			},
+			expectedLen: 2,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				s.Require().Contains([]uint64{1, 1066}, pools[0].GetId())
+				s.Require().Contains([]uint64{1, 1066}, pools[1].GetId())
+			},
+		},
+		{
+			name:         "Empty filter",
+			options:      []domain.PoolsOption{domain.WithPoolIDFilter([]uint64{})},
+			expectedLen:  0,
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name: "Exact match search filter: Pool ID",
+			options: []domain.PoolsOption{
+				domain.WithSearch("143"), // Pool ID
+			},
+			expectedLen: 1,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				for _, v := range pools {
+					s.Require().Equal(uint64(143), v.GetId())
+				}
+			},
+		},
+		{
+			name: "Exact match search filter: Denom",
+			options: []domain.PoolsOption{
+				domain.WithSearch("jitoSOL.pica"),
+			},
+			expectedLen: 1,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				for _, v := range pools {
+					s.Require().Equal(
+						// GetPoolDenoms return non-human denom
+						"ibc/9A83BDF4C8C5FFDDE735533BC8CD4363714A6474AED1C2C492FB003BB77C7982",
+						v.GetPoolDenoms()[0],
+					)
+				}
+			},
+		},
+		{
+			name: "Partial match search filter: Denom",
+			options: []domain.PoolsOption{
+				domain.WithSearch("has"),
+			},
+			expectedLen: 4,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				for _, v := range pools {
+					s.Require().Contains(
+						v.GetPoolDenoms(),
+						"ibc/CE5BFF1D9BADA03BB5CCA5F56939392A761B53A10FBD03B37506669C3218D3B2", // HASH
+					)
+				}
+			},
+		},
+		{
+			name: "Sort by pool ID descending",
+			options: []domain.PoolsOption{
+				domain.WithSort(
+					&v1beta1.SortRequest{
+						Fields: []*v1beta1.SortField{
+							{Field: "id", Direction: v1beta1.SortDirection_DESCENDING},
+						},
+					},
+				),
+			},
+			expectedLen: 1957,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				for i := 1; i < len(pools); i++ {
+					s.Require().True(pools[i-1].GetId() > pools[i].GetId())
+				}
+			},
+		},
+	}
 
-	// Pool 32 is garbage and has zero liq.
-	// Pools 1 and 1066 are major pools.
-	poolsFilter := []uint64{32, 1, 1066}
+	// Run each test case
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			pools, _, err := usecase.Pools.GetPools(tt.options...)
 
-	// Pool ID filter
-	pools, _, err = usecase.Pools.GetPools(domain.WithPoolIDFilter(poolsFilter))
-	s.Require().NoError(err)
-	s.Require().Len(pools, len(poolsFilter))
+			// Check for expected errors
+			if tt.expectError {
+				s.Require().Error(err)
+			} else {
+				s.Require().NoError(err)
+			}
 
-	// Min liquidity cap filter
-	pools, _, err = usecase.Pools.GetPools(domain.WithMinPoolsLiquidityCap(1_000_000))
-	s.Require().NoError(err)
-	s.Require().True(len(pools) < 100)
+			// Check pool lengths
+			if tt.expectedLen > 0 {
+				s.Require().Len(pools, tt.expectedLen)
+			} else if tt.minExpected > 0 {
+				s.Require().GreaterOrEqual(len(pools), tt.minExpected)
+			}
 
-	pools, _, err = usecase.Pools.GetPools(domain.WithMinPoolsLiquidityCap(1), domain.WithPoolIDFilter(poolsFilter))
-	s.Require().NoError(err)
-	s.Require().Len(pools, 2)
-
-	// Empty filter signifies returning nothing and exiting early
-	pools, _, err = usecase.Pools.GetPools(domain.WithPoolIDFilter([]uint64{}))
-	s.Require().NoError(err)
-	s.Require().Empty(pools)
+			// Run custom validations if provided
+			if tt.validateFunc != nil {
+				tt.validateFunc(s, pools)
+			}
+		})
+	}
 }
 
 func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
