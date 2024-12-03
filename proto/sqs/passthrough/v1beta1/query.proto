@@ -1,0 +1,16 @@
+syntax = "proto3";
+package sqs.passthrough.v1beta1;
+
+import "google/api/annotations.proto";
+
+import "sqs/passthrough/v1beta1/active_orders.proto";
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1/passthrough";
+
+// Query defines the gRPC querier service.
+service Query {
+  // ActiveOrders returns all the active orders for a given address.
+  rpc ActiveOrders(GetActiveOrdersRequest) returns (GetActiveOrdersResponse) {
+    option (google.api.http).get = "/passthrough/active-orders";
+  }
+}

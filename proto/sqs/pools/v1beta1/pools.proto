@@ -40,7 +40,7 @@ message GetPoolsRequestFilter {
   string search = 7;
 }
 
-// GetPoolsRequest is the request type for the Service.Get RPC method.
+// GetPoolsRequest is the request type for the Query.Pools RPC method.
 message GetPoolsRequest {
   // Filter options for the result set
   GetPoolsRequestFilter filter = 1;

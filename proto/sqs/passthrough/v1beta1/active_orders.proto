@@ -1,0 +1,26 @@
+syntax = "proto3";
+package sqs.passthrough.v1beta1;
+
+import "gogoproto/gogo.proto";
+import "cosmos_proto/cosmos.proto";
+import "amino/amino.proto";
+import "google/protobuf/any.proto";
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1/passthrough";
+
+// GetActiveOrdersRequest represents get active orders request for the
+// Query.ActiveOrders RPC method.
+message GetActiveOrdersRequest {
+  // address is the bech32-encoded address of the user to query active orders.
+  string address = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // minimum inflation rate
+  string inflation_min = 4 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+message GetActiveOrdersResponse {}

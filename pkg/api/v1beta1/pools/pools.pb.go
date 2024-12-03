@@ -157,7 +157,7 @@ func (m *GetPoolsRequestFilter) GetSearch() string {
 	return ""
 }
 
-// GetPoolsRequest is the request type for the Service.Get RPC method.
+// GetPoolsRequest is the request type for the Query.Pools RPC method.
 type GetPoolsRequest struct {
 	// Filter options for the result set
 	Filter *GetPoolsRequestFilter `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
