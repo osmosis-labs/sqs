@@ -15,7 +15,7 @@ require (
 	github.com/osmosis-labs/osmosis/osmomath v0.0.15
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.15
 	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203131357-2b8ba3645054
-	github.com/osmosis-labs/sqs/sqsdomain v0.27.1
+	github.com/osmosis-labs/sqs/sqsdomain v0.27.2-0.20241203131021-4a1cedb097e8
 	github.com/prometheus/client_golang v1.20.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
@@ -285,6 +285,8 @@ replace (
 	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203131357-2b8ba3645054
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
+
+	github.com/osmosis-labs/sqs/sqsdomain => ./sqsdomain
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
