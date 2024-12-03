@@ -9,8 +9,8 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v27/app/params"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v28/app/params"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
 // quoteSimulator simulates a quote and returns the gas adjusted amount and the fee coin.

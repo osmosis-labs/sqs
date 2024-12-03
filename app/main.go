@@ -23,7 +23,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
-	"github.com/osmosis-labs/osmosis/v27/app"
+	"github.com/osmosis-labs/osmosis/v28/app"
 )
 
 const (

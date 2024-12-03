@@ -5,7 +5,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
-	"github.com/osmosis-labs/osmosis/v27/x/gamm/types"
+	"github.com/osmosis-labs/osmosis/v28/x/gamm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

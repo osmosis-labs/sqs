@@ -13,11 +13,11 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/suite"
 
-	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v27/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v27/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v27/x/gamm/pool-models/stableswap"
-	gammtypes "github.com/osmosis-labs/osmosis/v27/x/gamm/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/stableswap"
+	gammtypes "github.com/osmosis-labs/osmosis/v28/x/gamm/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 

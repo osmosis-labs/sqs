@@ -9,8 +9,8 @@ import (
 	distribution "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	math "github.com/osmosis-labs/osmosis/osmomath"
-	concentratedLiquidity "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/client/queryproto"
-	lockup "github.com/osmosis-labs/osmosis/v27/x/lockup/types"
+	concentratedLiquidity "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/client/queryproto"
+	lockup "github.com/osmosis-labs/osmosis/v28/x/lockup/types"
 	polarisgrpc "github.com/osmosis-labs/sqs/delivery/grpc"
 	"google.golang.org/grpc"
 )

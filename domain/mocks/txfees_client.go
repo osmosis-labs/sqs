@@ -3,7 +3,7 @@ package mocks
 import (
 	"context"
 
-	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
+	txfeestypes "github.com/osmosis-labs/osmosis/v28/x/txfees/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 

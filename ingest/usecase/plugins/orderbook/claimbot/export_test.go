@@ -9,8 +9,8 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
-	"github.com/osmosis-labs/osmosis/v27/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v28/app/params"
+	txfeestypes "github.com/osmosis-labs/osmosis/v28/x/txfees/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 

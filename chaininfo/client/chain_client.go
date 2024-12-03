@@ -6,10 +6,10 @@ import (
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
 
-	clpoolmodel "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/model"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v27/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v27/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v27/x/gamm/pool-models/stableswap"
+	clpoolmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/stableswap"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 )

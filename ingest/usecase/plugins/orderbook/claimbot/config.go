@@ -8,7 +8,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 
-	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
+	txfeestypes "github.com/osmosis-labs/osmosis/v28/x/txfees/types"
 
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )

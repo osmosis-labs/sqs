@@ -11,10 +11,10 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	clmath "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/math"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v27/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v27/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	clmath "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/math"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v28/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
 var oneBigDec = osmomath.OneBigDec()

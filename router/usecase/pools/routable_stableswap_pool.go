@@ -10,10 +10,10 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 
-	"github.com/osmosis-labs/osmosis/v27/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v28/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 
-	"github.com/osmosis-labs/osmosis/v27/x/gamm/pool-models/stableswap"
+	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/stableswap"
 )
 
 var _ domain.RoutablePool = &routableStableswapPoolImpl{}

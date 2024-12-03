@@ -13,8 +13,8 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
-	"github.com/osmosis-labs/osmosis/v27/x/gamm/pool-models/balancer"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
 type MockRoutablePool struct {

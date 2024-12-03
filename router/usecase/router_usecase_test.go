@@ -24,7 +24,7 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v27/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
 )
 
 const (

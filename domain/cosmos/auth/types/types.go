@@ -8,7 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/gogoproto/grpc"
-	"github.com/osmosis-labs/osmosis/v27/app"
+	"github.com/osmosis-labs/osmosis/v28/app"
 )
 
 var (

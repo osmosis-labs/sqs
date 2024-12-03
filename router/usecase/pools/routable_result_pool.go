@@ -12,9 +12,9 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v27/x/poolmanager"
+	"github.com/osmosis-labs/osmosis/v28/x/poolmanager"
 
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
 var (

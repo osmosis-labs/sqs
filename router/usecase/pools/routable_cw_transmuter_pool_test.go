@@ -11,7 +11,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
 // Tests no slippage quotes and validation edge cases aroun transmuter pools.

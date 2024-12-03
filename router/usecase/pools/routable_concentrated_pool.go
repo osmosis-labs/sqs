@@ -13,11 +13,11 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	clmath "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/math"
-	concentratedmodel "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/model"
-	"github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/swapstrategy"
-	"github.com/osmosis-labs/osmosis/v27/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	clmath "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/math"
+	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/swapstrategy"
+	"github.com/osmosis-labs/osmosis/v28/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
 var _ domain.RoutablePool = &routableConcentratedPoolImpl{}

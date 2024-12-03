@@ -13,8 +13,8 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
-	clqueryproto "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/client/queryproto"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
+	clqueryproto "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/client/queryproto"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
 // PoolI represents a generalized Pool interface.
