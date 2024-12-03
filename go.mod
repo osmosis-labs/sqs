@@ -14,7 +14,7 @@ require (
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/osmosis-labs/osmosis/osmomath v0.0.15
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.15
-	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241202163535-3253f523440f
+	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203131357-2b8ba3645054
 	github.com/osmosis-labs/sqs/sqsdomain v0.27.1
 	github.com/prometheus/client_golang v1.20.5
 	github.com/sirupsen/logrus v1.9.3
@@ -67,7 +67,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
 	github.com/oklog/run v1.1.0 // indirect
-	github.com/osmosis-labs/osmosis/v27 v27.0.0-00010101000000-000000000000 // indirect
 	github.com/shamaton/msgpack/v2 v2.2.0 // indirect
 	github.com/skip-mev/block-sdk/v2 v2.1.5 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -283,7 +282,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240825083448-87db4447a1ff
-	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20241202163535-3253f523440f
+	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203131357-2b8ba3645054
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
 
