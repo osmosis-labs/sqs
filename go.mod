@@ -14,8 +14,8 @@ require (
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/osmosis-labs/osmosis/osmomath v0.0.15
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.15
-	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203131357-2b8ba3645054
-	github.com/osmosis-labs/sqs/sqsdomain v0.27.2-0.20241203131021-4a1cedb097e8
+	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203152623-9a5d42a415b7
+	github.com/osmosis-labs/sqs/sqsdomain v0.27.2-0.20241203132855-a211412c429b
 	github.com/prometheus/client_golang v1.20.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
@@ -282,7 +282,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240825083448-87db4447a1ff
-	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203131357-2b8ba3645054
+	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203152623-9a5d42a415b7
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
 
