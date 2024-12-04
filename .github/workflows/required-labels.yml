@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, labeled, unlabeled, synchronize]
     branches:
-      - "v26.x"
+      - "v27.x"
 
 jobs:
   backport_labels:
@@ -26,4 +26,4 @@ jobs:
         with: #Require one of the following labels
           mode: exactly
           count: 1
-          labels: "A:backport/v27.x"
+          labels: "A:backport/v28.x"
