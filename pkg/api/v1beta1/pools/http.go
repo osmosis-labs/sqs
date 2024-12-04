@@ -57,6 +57,14 @@ func (r *GetPoolsRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	return nil
 }
 
+// IsLegacy checks if request contains deprecated query parameters.
+// It's used to determine backward compatibility.
+func (r *GetPoolsRequest) IsLegacy(c echo.Context) bool {
+	return c.QueryParam(queryIDs) != "" ||
+		c.QueryParam(queryMinLiquidityCap) != "" ||
+		c.QueryParam(queryWithMarketIncentives) != ""
+}
+
 // IsPresent checks if the pagination request is present in the HTTP request.
 func (r *GetPoolsRequestFilter) IsPresent(c echo.Context) bool {
 	return c.QueryParam(queryIDs) != "" ||
