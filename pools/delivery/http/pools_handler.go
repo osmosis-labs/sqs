@@ -105,7 +105,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	}
 
 	// Convert pools to the appropriate format
-	resultPools := convertPoolsToResponse(&req, pools, total)
+	resultPools := convertPoolsToResponse(c, &req, pools, total)
 
 	return c.JSON(http.StatusOK, resultPools)
 }
@@ -210,10 +210,14 @@ func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
 }
 
 // convertPoolsToResponse converts the given pools to the appropriate response type.
-func convertPoolsToResponse(req *api.GetPoolsRequest, p []sqsdomain.PoolI, total uint64) *GetPoolsResponse {
+func convertPoolsToResponse(c echo.Context, req *api.GetPoolsRequest, p []sqsdomain.PoolI, total uint64) any {
 	pools := make([]PoolResponse, 0, len(p))
 	for _, pool := range p {
 		pools = append(pools, convertPoolToResponse(pool))
+	}
+
+	if req.IsLegacy(c) {
+		return pools // backward compatibility
 	}
 
 	return &GetPoolsResponse{
