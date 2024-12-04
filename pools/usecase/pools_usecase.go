@@ -405,7 +405,7 @@ var filterExactMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, searc
 	return func(pool sqsdomain.PoolI) bool {
 		var coinDenoms []string
 
-		for _, denom := range pool.GetPoolDenoms() {
+		for _, denom := range pool.GetSQSPoolModel().PoolDenoms {
 			token, err := tokenMetadataHolder.GetMetadataByChainDenom(denom)
 			if err != nil {
 				continue
@@ -432,7 +432,7 @@ var filterPartialMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, sea
 		var poolNameByDenom string
 		var coinnames []string
 
-		for _, denom := range pool.GetPoolDenoms() {
+		for _, denom := range pool.GetSQSPoolModel().PoolDenoms {
 			token, err := tokenMetadataHolder.GetMetadataByChainDenom(denom)
 			if err != nil {
 				continue
@@ -442,12 +442,15 @@ var filterPartialMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, sea
 		}
 
 		poolNameByDenom = strings.Join(humanDenoms, "/")
-		if strings.Contains(strings.ToLower(poolNameByDenom), strings.ToLower(search)) {
+
+		search = strings.Replace(strings.ToLower(search), " ", "", -1)
+
+		if strings.Contains(strings.ToLower(poolNameByDenom), search) {
 			return true
 		}
 
 		for _, coinName := range coinnames {
-			if strings.Contains(strings.ToLower(coinName), strings.ToLower(search)) {
+			if strings.Contains(strings.ToLower(coinName), search) {
 				return true
 			}
 		}
