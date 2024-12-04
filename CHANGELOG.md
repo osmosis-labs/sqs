@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v27.1.0
+
+- #553 - Add pagination + sorting + query filtering support for /pools endpoint 
+
 ## v26.2.0
 
 - #554 - [FIX] Add missing checks for transmuter's limiter 
