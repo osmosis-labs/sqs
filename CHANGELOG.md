@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+Unreleased
+
+- Fixed claimbot panics due nil routerrepo.RouterRepository in txGasCalulator
+
 ## v27.2.0
 
 - #593 - Add denoms filter for /pools endpoint
