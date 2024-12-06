@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v27.2.0
+
+- #593 - Add denoms filter for /pools endpoint
+
 ## v27.1.0
 
 - #553 - Add pagination + sorting + query filtering support for /pools endpoint 
