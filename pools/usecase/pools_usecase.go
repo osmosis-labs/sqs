@@ -492,6 +492,31 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		applyFilter(options.Filter, transformer)
 	}
 
+	// Denom filter filters pools by pool denoms.
+	// Given list of denoms in the filter, it will return pools that have at least one denom in the list.
+	// Order of denoms in the filter list is not important.
+	if f := options.Filter; f != nil && len(f.Denom) > 0 {
+		transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			poolDenoms := pool.GetPoolDenoms()
+
+			// Check if any denom in f.Denom exists in poolDenoms
+			for _, denom := range f.Denom {
+				denom = strings.ToLower(denom)
+				for _, poolDenom := range poolDenoms {
+					token, err := p.tokenMetadataHolder.GetMetadataByChainDenom(poolDenom)
+					if err != nil {
+						continue
+					}
+
+					if denom == strings.ToLower(token.HumanDenom) || denom == strings.ToLower(token.CoinMinimalDenom) {
+						return true
+					}
+				}
+			}
+			return false
+		})
+	}
+
 	// Set fetch APR and fees data if configured used by some sort opts below
 	transformer.Range(func(key uint64, value sqsdomain.PoolI) bool {
 		p.setPoolAPRAndFeeDataIfConfigured(value, options)
