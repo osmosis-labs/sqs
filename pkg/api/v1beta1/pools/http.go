@@ -3,6 +3,7 @@ package pools
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain/number"
@@ -13,6 +14,7 @@ import (
 
 const (
 	maxSearchQueryLength = 50
+	maxDenoms            = 8
 )
 
 const (
@@ -23,6 +25,7 @@ const (
 	queryFilterIDNotIn              = "filter[id][not_in]"
 	queryFilterType                 = "filter[type]"
 	queryFilterIncentive            = "filter[incentive]"
+	queryFilterDenom                = "filter[denom]"
 	queryFilterMinLiquidityCap      = "filter[min_liquidity_cap]"
 	queryFilterWithMarketIncentives = "filter[with_market_incentives]"
 	queryFilterSearch               = "filter[search]"
@@ -72,6 +75,7 @@ func (r *GetPoolsRequestFilter) IsPresent(c echo.Context) bool {
 		c.QueryParam(queryFilterIDNotIn) != "" ||
 		c.QueryParam(queryFilterType) != "" ||
 		c.QueryParam(queryFilterIncentive) != "" ||
+		c.QueryParam(queryFilterDenom) != "" ||
 		c.QueryParam(queryMinLiquidityCap) != "" ||
 		c.QueryParam(queryFilterMinLiquidityCap) != "" ||
 		c.QueryParam(queryWithMarketIncentives) != "" ||
@@ -124,6 +128,13 @@ func (r *GetPoolsRequestFilter) UnmarshalHTTPRequest(c echo.Context) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	if denoms := c.QueryParam(queryFilterDenom); len(denoms) > 0 {
+		r.Denom = strings.Split(denoms, ",")
+		if len(r.Denom) > maxDenoms {
+			return fmt.Errorf("too many denoms, max: %d", maxDenoms)
+		}
 	}
 
 	// Deprecated: use filter[min_liquidity_cap]

@@ -46,6 +46,11 @@ func TestGetPoolsRequestFilter_IsPresent(t *testing.T) {
 			expectedResult: true,
 		},
 		{
+			name:           "With filter[denom]",
+			queryParams:    map[string]string{queryFilterDenom: "2"},
+			expectedResult: true,
+		},
+		{
 			name:           "With filter[search]",
 			queryParams:    map[string]string{queryFilterSearch: "search"},
 			expectedResult: true,
@@ -113,6 +118,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				queryFilterIDNotIn:              "6,7",
 				queryFilterType:                 "8,9",
 				queryFilterIncentive:            "0,1",
+				queryFilterDenom:                "uosmo,atom",
 				queryMinLiquidityCap:            "1000",
 				queryFilterMinLiquidityCap:      "2000",
 				queryWithMarketIncentives:       "true",
@@ -124,6 +130,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				PoolIdNotIn:          []uint64{6, 7},
 				Type:                 []uint64{8, 9},
 				Incentive:            []IncentiveType{0, 1},
+				Denom:                []string{"uosmo", "atom"},
 				MinLiquidityCap:      2000,
 				WithMarketIncentives: true,
 				Search:               "search",
@@ -136,6 +143,8 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				queryFilterID:                   "1,2",
 				queryFilterIDNotIn:              "3,4",
 				queryFilterType:                 "5",
+				queryFilterIncentive:            "1,2",
+				queryFilterDenom:                "btc,eth",
 				queryFilterMinLiquidityCap:      "3000",
 				queryFilterWithMarketIncentives: "true",
 			},
@@ -143,6 +152,8 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				PoolId:               []uint64{1, 2},
 				PoolIdNotIn:          []uint64{3, 4},
 				Type:                 []uint64{5},
+				Incentive:            []IncentiveType{1, 2},
+				Denom:                []string{"btc", "eth"},
 				MinLiquidityCap:      3000,
 				WithMarketIncentives: true,
 				Search:               "search",
@@ -199,6 +210,13 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name: "Invalid Denom ( too long )",
+			queryParams: map[string]string{
+				queryFilterDenom: "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z",
+			},
+			expectError: true,
+		},
+		{
 			name: "Invalid Search ( too long )",
 			queryParams: map[string]string{
 				queryFilterSearch: "TestGetPoolsRequestFilter_UnmarshalHTTPRequest/Invalid_Search_(_too_long_)",
@@ -232,6 +250,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				assert.Equal(t, tt.expectedFilter.PoolIdNotIn, filter.PoolIdNotIn)
 				assert.Equal(t, tt.expectedFilter.Type, filter.Type)
 				assert.Equal(t, tt.expectedFilter.Incentive, filter.Incentive)
+				assert.Equal(t, tt.expectedFilter.Denom, filter.Denom)
 				assert.Equal(t, tt.expectedFilter.MinLiquidityCap, filter.MinLiquidityCap)
 				assert.Equal(t, tt.expectedFilter.WithMarketIncentives, filter.WithMarketIncentives)
 			}

@@ -128,6 +128,13 @@ func WithMarketIncentives(withMarketIncentives bool) PoolsOption {
 	})
 }
 
+// WithDenom configures the pools options with the denom  filter.
+func WithDenom(denom []string) PoolsOption {
+	return WithNonNilFilter(func(filter *api.GetPoolsRequestFilter) {
+		filter.Denom = denom
+	})
+}
+
 // WithPagination configures the pools options with the pagination request.
 func WithFilter(f *api.GetPoolsRequestFilter) PoolsOption {
 	return func(o *PoolsOptions) {

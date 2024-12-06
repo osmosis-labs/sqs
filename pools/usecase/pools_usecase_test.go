@@ -758,6 +758,13 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 			validateFunc: nil,
 		},
 		{
+			name:         "Denom filter ( multi denom )",
+			options:      []domain.PoolsOption{domain.WithDenom([]string{"osmo", "atom"})},
+			expectedLen:  1099,
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
 			name:         "Min liquidity cap filter",
 			options:      []domain.PoolsOption{domain.WithMinPoolsLiquidityCap(1_000_000)},
 			expectedLen:  0, // Not validated strictly
