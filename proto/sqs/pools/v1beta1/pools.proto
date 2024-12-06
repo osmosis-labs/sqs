@@ -36,8 +36,11 @@ message GetPoolsRequestFilter {
   // response.
   bool with_market_incentives = 6;
 
+  // denom is the list of denominations to filter pools by.
+  repeated string denom = 7;
+
   // search is the search string to filter pools by.
-  string search = 7;
+  string search = 8;
 }
 
 // GetPoolsRequest is the request type for the Service.Get RPC method.
