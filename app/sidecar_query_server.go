@@ -317,6 +317,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 						keyring,
 						orderBookUseCase,
 						poolsUseCase,
+						gasCalculator,
 						logger,
 						config.ChainGRPCGatewayEndpoint,
 						config.ChainID,
