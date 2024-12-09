@@ -1,0 +1,35 @@
+syntax = "proto3";
+package sqs.query.v1beta1;
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1";
+
+// SortDirection represents the direction for sorting.
+enum SortDirection {
+  ASCENDING = 0;
+  DESCENDING = 1;
+}
+
+// SortField represents a field to sort by, including its direction.
+message SortField {
+  // field is the name of the field to sort by.
+  string field = 1;
+
+  // direction is a sorting direction: ASCENDING or DESCENDING.
+  SortDirection direction = 2;
+}
+
+// SortRequest allows sorting by multiple fields with specified precedence.
+// The sort is applied in the order fields are specified - the first field
+// is the primary sort key, the second field is used for ties, and so on.
+// Example:
+// {
+//   "fields": [
+//     {"field": "liquidity", "direction": "DESCENDING"},
+//     {"field": "volume_24h", "direction": "ASCENDING"}
+//   ]
+// }
+message SortRequest {
+  // fields represents list of fields to sort by.
+  // The order of fields determines the sort precedence.
+  repeated SortField fields = 1;
+}

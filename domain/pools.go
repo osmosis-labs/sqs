@@ -3,6 +3,9 @@ package domain
 import (
 	"context"
 
+	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
+	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -85,40 +88,77 @@ func (c CanonicalOrderBooksResult) Validate() error {
 }
 
 type PoolsOptions struct {
-	MinPoolLiquidityCap  uint64
-	PoolIDFilter         []uint64
-	WithMarketIncentives bool
-	// HadEmptyFilter is true if the pool ID filter was empty.
-	// This signifies avoid getting all pools and rather exit early.
-	HadEmptyFilter bool
+	Filter     *api.GetPoolsRequestFilter
+	Pagination *v1beta1.PaginationRequest
+	Sort       *v1beta1.SortRequest
 }
 
 // PoolsOption configures the pools filter options.
 type PoolsOption func(*PoolsOptions)
 
+// WithNonNilFilter ensures the Filter field in PoolsOptions is not nil and applies the provided configuration function.
+func WithNonNilFilter(configure func(*api.GetPoolsRequestFilter)) PoolsOption {
+	return func(o *PoolsOptions) {
+		if o.Filter == nil {
+			o.Filter = &api.GetPoolsRequestFilter{} // Initialize Filter if nil
+		}
+		configure(o.Filter) // Apply the configuration function
+	}
+}
+
 // WithMinPooslLiquidityCap configures with the min pool liquidity
 // capitalization.
 func WithMinPoolsLiquidityCap(minPoolLiquidityCap uint64) PoolsOption {
-	return func(o *PoolsOptions) {
-		o.MinPoolLiquidityCap = minPoolLiquidityCap
-	}
+	return WithNonNilFilter(func(filter *api.GetPoolsRequestFilter) {
+		filter.MinLiquidityCap = minPoolLiquidityCap
+	})
 }
 
 // WithPoolIDFilter configures the pools options with the pool ID filter.
 func WithPoolIDFilter(poolIDFilter []uint64) PoolsOption {
-	return func(o *PoolsOptions) {
-		// We should simply return early rather than attempting to get all pools.
-		if len(poolIDFilter) == 0 {
-			o.HadEmptyFilter = true
-			return
-		}
+	return WithNonNilFilter(func(filter *api.GetPoolsRequestFilter) {
+		filter.PoolId = poolIDFilter
+	})
+}
 
-		o.PoolIDFilter = poolIDFilter
+// WithMarketIncentives configures the pools options with the market incentives filter.
+func WithMarketIncentives(withMarketIncentives bool) PoolsOption {
+	return WithNonNilFilter(func(filter *api.GetPoolsRequestFilter) {
+		filter.WithMarketIncentives = withMarketIncentives
+	})
+}
+
+// WithDenom configures the pools options with the denom  filter.
+func WithDenom(denom []string) PoolsOption {
+	return WithNonNilFilter(func(filter *api.GetPoolsRequestFilter) {
+		filter.Denom = denom
+	})
+}
+
+// WithPagination configures the pools options with the pagination request.
+func WithFilter(f *api.GetPoolsRequestFilter) PoolsOption {
+	return func(o *PoolsOptions) {
+		o.Filter = f
 	}
 }
 
-func WithMarketIncentives(withMarketIncentives bool) PoolsOption {
+// WithSearch configures the pools options with the search filter.
+func WithSearch(search string) PoolsOption {
+	return WithNonNilFilter(func(filter *api.GetPoolsRequestFilter) {
+		filter.Search = search
+	})
+}
+
+// WithPagination configures the pools options with the pagination request.
+func WithPagination(p *v1beta1.PaginationRequest) PoolsOption {
 	return func(o *PoolsOptions) {
-		o.WithMarketIncentives = withMarketIncentives
+		o.Pagination = p
+	}
+}
+
+// WithSort configures the pools options with the sort request.
+func WithSort(s *v1beta1.SortRequest) PoolsOption {
+	return func(o *PoolsOptions) {
+		o.Sort = s
 	}
 }

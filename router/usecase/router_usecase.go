@@ -12,7 +12,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -883,6 +883,11 @@ func (r *routerUseCaseImpl) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	}
 
 	return spotPrice, nil
+}
+
+// GetBaseFee implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetBaseFee() domain.BaseFee {
+	return r.routerRepository.GetBaseFee()
 }
 
 // SetSortedPools implements mvc.RouterUsecase.

@@ -1,0 +1,54 @@
+syntax = "proto3";
+package sqs.query.v1beta1;
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1";
+
+// PaginationStrategy is an enum that defines the pagination strategy to be used
+// in the PaginationRequest request.
+enum PaginationStrategy {
+  // unknown strategy indicates that the pagination strategy is not known
+  // or not set.
+  UNKNOWN = 0;
+
+  // page-based pagination is the most common pagination strategy. It is
+  // compatible with offset pagination. If you have a page of 2 and a limit of
+  // 20, you will get items 20-39.
+  PAGE = 1;
+
+  // cursor-based pagination is compatible with and similar to offset
+  // pagination. If you have a cursor of 50 and a limit of 20, you will get
+  // items 50-69. Client should re-request all data if it changes, as the cursor
+  // is not a pointer to a page, but to an item index.
+  CURSOR = 2;
+}
+
+message PaginationRequest {
+  // page is the page number to query, starts at 0. If not provided, will
+  // default to first page.
+  uint64 page = 1;
+
+  // limit is the total number of results to be returned in the result page.
+  // If left empty it will default to a value to be set by each app.
+  uint64 limit = 2;
+
+  // cursor is the query offset to start from. If not provided, will default to
+  // the 0.
+  uint64 cursor = 3;
+
+  // strategy is the pagination strategy to be used. If not provided, will
+  // default to PAGE.
+  PaginationStrategy strategy = 4;
+}
+
+message PaginationResponse {
+  // next_cursor is the cursor to be used in the next request to get the next
+  // page of results for cursor-based pagination.
+  // If the next_cursor is -1, it means that there are no more results to be
+  // fetched.
+  int64 next_cursor = 1;
+
+  // total_items is the total number of items available in the result set.
+  // This is useful for pagination when the client requests a subset of the
+  // result set.
+  uint64 total_items = 2;
+}

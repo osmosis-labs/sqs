@@ -1,0 +1,59 @@
+syntax = "proto3";
+package sqs.pools.v1beta1;
+
+import "sqs/query/v1beta1/pagination.proto";
+import "sqs/query/v1beta1/sort.proto";
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools";
+
+// IncentiveType represents the type of incentive for the pool.
+enum IncentiveType {
+  SUPERFLUID = 0;
+  OSMOSIS = 1;
+  BOOST = 2;
+  NONE = 3;
+}
+
+// GetPoolsFilter is the filter type for querying pools.
+// It is used to filter pools based on the provided fields.
+message GetPoolsRequestFilter {
+  // pool_id is the pool id to query. If not provided, will return all pools.
+  repeated uint64 pool_id = 1;
+
+  // pool_id_not_in is the list of pool id to exclude from the query.
+  repeated uint64 pool_id_not_in = 2;
+
+  // type is the pool type to filter pools by.
+  repeated uint64 type = 3;
+
+  // incentive is the incentive to filter pools by.
+  repeated IncentiveType incentive = 4;
+
+  // min_liquidity_cap is the minimum liquidity cap to filter pools by.
+  uint64 min_liquidity_cap = 5;
+
+  // with_market_incentives indicates whether to include incentives into pools
+  // response.
+  bool with_market_incentives = 6;
+
+  // denom is the list of denominations to filter pools by.
+  repeated string denom = 7;
+
+  // search is the search string to filter pools by.
+  string search = 8;
+}
+
+// GetPoolsRequest is the request type for the Service.Get RPC method.
+message GetPoolsRequest {
+  // Filter options for the result set
+  GetPoolsRequestFilter filter = 1;
+
+  // Pagination options for the result set
+  sqs.query.v1beta1.PaginationRequest pagination = 2;
+
+  // Sort options for the result set
+  sqs.query.v1beta1.SortRequest sort = 3;
+}
+
+// TODO: Add more fields to the response
+message GetPoolsResponse {}

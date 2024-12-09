@@ -22,7 +22,7 @@ services:
     command:
       - start
       - --home=/osmosis/.osmosisd
-    image: osmolabs/osmosis:26.0.2
+    image: osmolabs/osmosis:27.0.1
     container_name: osmosis
     restart: always
     ports:

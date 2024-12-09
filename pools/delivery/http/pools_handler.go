@@ -8,12 +8,15 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
+	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
 	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 )
 
@@ -41,6 +44,12 @@ type PoolResponse struct {
 
 	APRData  sqspassthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
 	FeesData sqspassthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
+}
+
+// GetPoolsResponse is a structure for serializing pools result returned to clients.
+type GetPoolsResponse struct {
+	Data []PoolResponse              `json:"data"`
+	Meta *v1beta1.PaginationResponse `json:"meta"`
 }
 
 const resourcePrefix = "/pools"
@@ -72,45 +81,23 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 // @Success 200  {array}  sqsdomain.PoolI  "List of pool(s) details"
 // @Router /pools [get]
 func (a *PoolsHandler) GetPools(c echo.Context) error {
-	// Get pool ID parameters as strings.
-	poolIDsStr := c.QueryParam("IDs")
-	minLiquidityCapStr := c.QueryParam("min_liquidity_cap")
-	withMarketIncentives, err := domain.ParseBooleanQueryParam(c, "with_market_incentives")
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
+	var req api.GetPoolsRequest
+	if err := deliveryhttp.ParseRequest(c, &req); err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	var (
 		pools []sqsdomain.PoolI
 	)
 
-	// Parse numbers
-	poolIDs, err := domain.ParseNumbers(poolIDsStr)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, ResponseError{Message: err.Error()})
-	}
-
-	// Parse min liquidity cap if provided
-	var minLiquidityCap uint64
-	if minLiquidityCapStr != "" {
-		minLiquidityCap, err = strconv.ParseUint(minLiquidityCapStr, 10, 64)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, ResponseError{Message: "Invalid min_liquidity_cap value"})
-		}
-	}
-
 	filters := []domain.PoolsOption{
-		domain.WithMinPoolsLiquidityCap(minLiquidityCap),
-		domain.WithMarketIncentives(withMarketIncentives),
-	}
-
-	// Only add pool ID filter if it is not empty.
-	if len(poolIDs) > 0 {
-		filters = append(filters, domain.WithPoolIDFilter(poolIDs))
+		domain.WithFilter(req.Filter),
+		domain.WithPagination(req.Pagination),
+		domain.WithSort(req.Sort),
 	}
 
 	// Get pools
-	pools, err = a.PUsecase.GetPools(
+	pools, total, err := a.PUsecase.GetPools(
 		filters...,
 	)
 	if err != nil {
@@ -118,7 +105,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	}
 
 	// Convert pools to the appropriate format
-	resultPools := convertPoolsToResponse(pools)
+	resultPools := convertPoolsToResponse(c, &req, pools, total)
 
 	return c.JSON(http.StatusOK, resultPools)
 }
@@ -223,10 +210,18 @@ func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
 }
 
 // convertPoolsToResponse converts the given pools to the appropriate response type.
-func convertPoolsToResponse(pools []sqsdomain.PoolI) []PoolResponse {
-	resultPools := make([]PoolResponse, 0, len(pools))
-	for _, pool := range pools {
-		resultPools = append(resultPools, convertPoolToResponse(pool))
+func convertPoolsToResponse(c echo.Context, req *api.GetPoolsRequest, p []sqsdomain.PoolI, total uint64) any {
+	pools := make([]PoolResponse, 0, len(p))
+	for _, pool := range p {
+		pools = append(pools, convertPoolToResponse(pool))
 	}
-	return resultPools
+
+	if req.IsLegacy(c) {
+		return pools // backward compatibility
+	}
+
+	return &GetPoolsResponse{
+		Data: pools,
+		Meta: v1beta1.NewPaginationResponse(req.Pagination, total),
+	}
 }

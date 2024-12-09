@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -19,6 +20,7 @@ type GetQuoteRequest struct {
 	SingleRoute                 bool
 	SimulatorAddress            string
 	SlippageToleranceMultiplier osmomath.Dec
+	AppendBaseFee               bool
 	HumanDenoms                 bool
 	ApplyExponents              bool
 }
@@ -27,12 +29,12 @@ type GetQuoteRequest struct {
 // It returns an error if the request is invalid.
 func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	var err error
-	r.SingleRoute, err = domain.ParseBooleanQueryParam(c, "singleRoute")
+	r.SingleRoute, err = http.ParseBooleanQueryParam(c, "singleRoute")
 	if err != nil {
 		return err
 	}
 
-	r.ApplyExponents, err = domain.ParseBooleanQueryParam(c, "applyExponents")
+	r.ApplyExponents, err = http.ParseBooleanQueryParam(c, "applyExponents")
 	if err != nil {
 		return err
 	}
@@ -66,6 +68,11 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 
 	r.SimulatorAddress = simulatorAddress
 	r.SlippageToleranceMultiplier = slippageToleranceDec
+
+	r.AppendBaseFee, err = http.ParseBooleanQueryParam(c, "appendBaseFee")
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

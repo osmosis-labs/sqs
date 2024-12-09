@@ -9,8 +9,8 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
-	"github.com/osmosis-labs/osmosis/v26/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v27/app/params"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
@@ -53,7 +53,7 @@ func SendBatchClaimTxInternal(
 	claims orderbookdomain.Orders,
 	getEncodingConfig func() params.EncodingConfig,
 ) (*sdk.TxResponse, error) {
-	return sendBatchClaimTxInternal(ctx, keyring, txfeesClient, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, getEncodingConfig)
+	return sendBatchClaimTxInternal(ctx, keyring, msgSimulator, txServiceClient, chainID, account, contractAddress, claims, getEncodingConfig)
 }
 
 // PrepareBatchClaimMsg is a test wrapper for prepareBatchClaimMsg.

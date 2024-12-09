@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v26/x/cosmwasmpool/model"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v27/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
@@ -18,7 +18,7 @@ import (
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 
-	clmath "github.com/osmosis-labs/osmosis/v26/x/concentrated-liquidity/math"
+	clmath "github.com/osmosis-labs/osmosis/v27/x/concentrated-liquidity/math"
 )
 
 type OrderbookUseCaseImpl struct {
@@ -539,12 +539,12 @@ func (o *OrderbookUseCaseImpl) getClaimableOrdersForTick(
 		return nil, nil // nothing to process
 	}
 
-	askClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection(orderbookdomain.DirectionAsk), tick.TickState.AskValues, fillThreshold)
+	askClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection("ask"), tick.TickState.AskValues, fillThreshold)
 	if err != nil {
 		return nil, err
 	}
 
-	bidClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection(orderbookdomain.DirectionBid), tick.TickState.BidValues, fillThreshold)
+	bidClaimable, err := o.getClaimableOrders(orderbook, orders.OrderByDirection("bid"), tick.TickState.BidValues, fillThreshold)
 	if err != nil {
 		return nil, err
 	}

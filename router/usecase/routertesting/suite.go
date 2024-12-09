@@ -24,9 +24,9 @@ import (
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v26/app"
-	"github.com/osmosis-labs/osmosis/v26/app/apptesting"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v26/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v27/app"
+	"github.com/osmosis-labs/osmosis/v27/app/apptesting"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v27/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	coingeckopricing "github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingecko"
 )
@@ -392,14 +392,14 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 	routerRepositoryMock.SetCandidateRouteSearchData(mainnetState.CandidateRouteSearchData)
 
+	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, &log.NoOpLogger{})
+	tokensUsecase.UpdatePoolDenomMetadata(mainnetState.PoolDenomsMetaData)
+
 	// Setup pools usecase mock.
-	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, tokensUsecase, &log.NoOpLogger{})
 	s.Require().NoError(err)
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
-
-	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, &log.NoOpLogger{})
-	tokensUsecase.UpdatePoolDenomMetadata(mainnetState.PoolDenomsMetaData)
 
 	candidateRouteFinder := routerusecase.NewCandidateRouteFinder(routerRepositoryMock, logger)
 

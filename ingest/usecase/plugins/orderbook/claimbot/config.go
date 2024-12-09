@@ -8,7 +8,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 
-	txfeestypes "github.com/osmosis-labs/osmosis/v26/x/txfees/types"
+	txfeestypes "github.com/osmosis-labs/osmosis/v27/x/txfees/types"
 
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
@@ -31,6 +31,7 @@ func NewConfig(
 	keyring keyring.Keyring,
 	orderbookusecase mvc.OrderBookUsecase,
 	poolsUseCase mvc.PoolsUsecase,
+	msgSimulator sqstx.MsgSimulator,
 	logger log.Logger,
 	chainGRPCGatewayEndpoint string,
 	chainID string,
@@ -45,8 +46,7 @@ func NewConfig(
 		PoolsUseCase:       poolsUseCase,
 		OrderbookUsecase:   orderbookusecase,
 		AccountQueryClient: authtypes.NewQueryClient(grpcClient),
-		TxfeesClient:       txfeestypes.NewQueryClient(grpcClient),
-		MsgSimulator:       sqstx.NewGasCalculator(grpcClient, sqstx.CalculateGas),
+		MsgSimulator:       msgSimulator,
 		TxServiceClient:    txtypes.NewServiceClient(grpcClient),
 		Logger:             logger.Named("claimbot"),
 		ChainID:            chainID,

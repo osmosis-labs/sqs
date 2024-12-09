@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/number"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,7 +25,7 @@ func TestParseNumbers(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		actualNumbers, actualError := domain.ParseNumbers(testCase.input)
+		actualNumbers, actualError := number.ParseNumbers(testCase.input)
 
 		if testCase.expectedError {
 			require.Error(t, actualError)
