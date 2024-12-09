@@ -22,6 +22,7 @@ endif
 
 
 # --- Tooling & Variables ----------------------------------------------------------------
+include ./scripts/makefiles/proto.mk
 include ./misc/make/tools.Makefile
 
 # Install local dependencies
@@ -175,9 +176,6 @@ sqs-update-mainnet-state:
 # Bench tests pricing
 bench-pricing:
 	go test -bench BenchmarkGetPrices -run BenchmarkGetPrices github.com/osmosis-labs/sqs/tokens/usecase -count=6
-
-proto-gen:
-	protoc --go_out=./ --go-grpc_out=./ --proto_path=./sqsdomain/proto ./sqsdomain/proto/ingest.proto
 
 test-prices-mainnet:
 	CI_SQS_PRICING_WORKER_TEST=true go test \

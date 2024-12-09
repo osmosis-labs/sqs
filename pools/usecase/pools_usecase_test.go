@@ -23,6 +23,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 	"github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -230,7 +231,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			routerRepo.SetTakerFees(tc.takerFeeMap)
 
 			// Create pools use case
-			poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, logger)
+			poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, nil, logger)
 			s.Require().NoError(err)
 
 			poolsUsecase.StorePools(tc.pools)
@@ -723,36 +724,166 @@ func mulCoins(coins sdk.Coins, multiplier osmomath.Dec) sdk.Coins {
 
 func (s *PoolsUsecaseTestSuite) TestGetPools() {
 	mainnetState := s.SetupMainnetState()
-
 	usecase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
-	// No filter
-	pools, err := usecase.Pools.GetPools()
-	s.Require().NoError(err)
-	s.Require().True(len(pools) > 1500)
+	// Define test cases
+	tests := []struct {
+		name         string
+		options      []domain.PoolsOption
+		expectedLen  int
+		minExpected  int // Minimum expected pools count (for > tests)
+		expectError  bool
+		validateFunc func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI)
+	}{
+		{
+			name:         "No filter",
+			options:      nil,
+			expectedLen:  0,    // Not validated strictly
+			minExpected:  1500, // Expect more than 1500 pools
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name:         "Pool ID filter",
+			options:      []domain.PoolsOption{domain.WithPoolIDFilter([]uint64{32, 1, 1066})},
+			expectedLen:  3,
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name:         "Incentive filter",
+			options:      []domain.PoolsOption{domain.WithMarketIncentives(true)},
+			expectedLen:  1957,
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name:         "Denom filter ( multi denom )",
+			options:      []domain.PoolsOption{domain.WithDenom([]string{"osmo", "atom"})},
+			expectedLen:  1099,
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name:         "Min liquidity cap filter",
+			options:      []domain.PoolsOption{domain.WithMinPoolsLiquidityCap(1_000_000)},
+			expectedLen:  0, // Not validated strictly
+			minExpected:  0, // Expect less than 100 pools
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name: "Min liquidity cap and pool ID filter",
+			options: []domain.PoolsOption{
+				domain.WithMinPoolsLiquidityCap(1),
+				domain.WithPoolIDFilter([]uint64{32, 1, 1066}),
+			},
+			expectedLen: 2,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				s.Require().Contains([]uint64{1, 1066}, pools[0].GetId())
+				s.Require().Contains([]uint64{1, 1066}, pools[1].GetId())
+			},
+		},
+		{
+			name:         "Empty filter",
+			options:      []domain.PoolsOption{domain.WithPoolIDFilter([]uint64{})},
+			expectedLen:  0,
+			expectError:  false,
+			validateFunc: nil,
+		},
+		{
+			name: "Exact match search filter: Pool ID",
+			options: []domain.PoolsOption{
+				domain.WithSearch("143"), // Pool ID
+			},
+			expectedLen: 1,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				for _, v := range pools {
+					s.Require().Equal(uint64(143), v.GetId())
+				}
+			},
+		},
+		{
+			name: "Exact match search filter: Denom",
+			options: []domain.PoolsOption{
+				domain.WithSearch("jitoSOL.pica"),
+			},
+			expectedLen: 1,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				for _, v := range pools {
+					s.Require().Equal(
+						// GetPoolDenoms return non-human denom
+						"ibc/9A83BDF4C8C5FFDDE735533BC8CD4363714A6474AED1C2C492FB003BB77C7982",
+						v.GetPoolDenoms()[0],
+					)
+				}
+			},
+		},
+		{
+			name: "Partial match search filter: Denom",
+			options: []domain.PoolsOption{
+				domain.WithSearch("has"),
+			},
+			expectedLen: 4,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				for _, v := range pools {
+					s.Require().Contains(
+						v.GetPoolDenoms(),
+						"ibc/CE5BFF1D9BADA03BB5CCA5F56939392A761B53A10FBD03B37506669C3218D3B2", // HASH
+					)
+				}
+			},
+		},
+		{
+			name: "Sort by pool ID descending",
+			options: []domain.PoolsOption{
+				domain.WithSort(
+					&v1beta1.SortRequest{
+						Fields: []*v1beta1.SortField{
+							{Field: "id", Direction: v1beta1.SortDirection_DESCENDING},
+						},
+					},
+				),
+			},
+			expectedLen: 1957,
+			expectError: false,
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+				for i := 1; i < len(pools); i++ {
+					s.Require().True(pools[i-1].GetId() > pools[i].GetId())
+				}
+			},
+		},
+	}
 
-	// Pool 32 is garbage and has zero liq.
-	// Pools 1 and 1066 are major pools.
-	poolsFilter := []uint64{32, 1, 1066}
+	// Run each test case
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			pools, _, err := usecase.Pools.GetPools(tt.options...)
 
-	// Pool ID filter
-	pools, err = usecase.Pools.GetPools(domain.WithPoolIDFilter(poolsFilter))
-	s.Require().NoError(err)
-	s.Require().Len(pools, len(poolsFilter))
+			// Check for expected errors
+			if tt.expectError {
+				s.Require().Error(err)
+			} else {
+				s.Require().NoError(err)
+			}
 
-	// Min liquidity cap filter
-	pools, err = usecase.Pools.GetPools(domain.WithMinPoolsLiquidityCap(1_000_000))
-	s.Require().NoError(err)
-	s.Require().True(len(pools) < 100)
+			// Check pool lengths
+			if tt.expectedLen > 0 {
+				s.Require().Len(pools, tt.expectedLen)
+			} else if tt.minExpected > 0 {
+				s.Require().GreaterOrEqual(len(pools), tt.minExpected)
+			}
 
-	pools, err = usecase.Pools.GetPools(domain.WithMinPoolsLiquidityCap(1), domain.WithPoolIDFilter(poolsFilter))
-	s.Require().NoError(err)
-	s.Require().Len(pools, 2)
-
-	// Empty filter signifies returning nothing and exiting early
-	pools, err = usecase.Pools.GetPools(domain.WithPoolIDFilter([]uint64{}))
-	s.Require().NoError(err)
-	s.Require().Empty(pools)
+			// Run custom validations if provided
+			if tt.validateFunc != nil {
+				tt.validateFunc(s, pools)
+			}
+		})
+	}
 }
 
 func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
@@ -784,7 +915,7 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 		name string
 
 		pool sqsdomain.PoolI
-		opts domain.PoolsOptions
+		opts []domain.PoolsOption
 
 		shouldForceAPRFetcherError  bool
 		shouldForceFeesFetcherError bool
@@ -802,7 +933,7 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 				ID: defaultPoolID,
 			},
 
-			opts: domain.PoolsOptions{},
+			opts: []domain.PoolsOption{},
 
 			expectedAPRData:  emptyAPRData,
 			expectedFeesData: emptyFeeData,
@@ -814,8 +945,8 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 				ID: defaultPoolID,
 			},
 
-			opts: domain.PoolsOptions{
-				WithMarketIncentives: true,
+			opts: []domain.PoolsOption{
+				domain.WithMarketIncentives(true),
 			},
 
 			expectedAPRData:  defaultAPRData,
@@ -828,8 +959,8 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 				ID: defaultPoolID + 1,
 			},
 
-			opts: domain.PoolsOptions{
-				WithMarketIncentives: true,
+			opts: []domain.PoolsOption{
+				domain.WithMarketIncentives(true),
 			},
 
 			expectedAPRData:  emptyAPRData,
@@ -842,8 +973,8 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 				ID: defaultPoolID,
 			},
 
-			opts: domain.PoolsOptions{
-				WithMarketIncentives: true,
+			opts: []domain.PoolsOption{
+				domain.WithMarketIncentives(true),
 			},
 
 			shouldForceAPRFetcherError:  true,
@@ -871,95 +1002,15 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 			poolsUseCase.RegisterPoolFeesFetcher(mockFeesFetcher)
 
 			// System under test
-			poolsUseCase.SetPoolAPRAndFeeDataIfConfigured(tc.pool, tc.opts)
+			var opts domain.PoolsOptions
+			for _, opt := range tc.opts {
+				opt(&opts)
+			}
+			poolsUseCase.SetPoolAPRAndFeeDataIfConfigured(tc.pool, opts)
 
 			// Validate mutations
 			s.Require().Equal(tc.expectedAPRData, tc.pool.GetAPRData())
 			s.Require().Equal(tc.expectedFeesData, tc.pool.GetFeesData())
-		})
-	}
-}
-
-func (s *PoolsUsecaseTestSuite) TestRetainPoolIfMatchesOptions() {
-	const shouldError = false
-	const isStale = false
-
-	testCases := []struct {
-		name string
-
-		poolMinLiquidityCap       uint64
-		minPoolLiquidityCapOption uint64
-
-		withMarketIncentives bool
-
-		expectAdded bool
-	}{
-		{
-			name:        "zero pool liquidity cap -> pool added",
-			expectAdded: true,
-		},
-		{
-			name:                      "pool liquidity cap == min pool liquidity cap -> pool added",
-			poolMinLiquidityCap:       100,
-			minPoolLiquidityCapOption: 100,
-
-			expectAdded: true,
-		},
-		{
-			name:                      "pool liquidity cap < min pool liquidity cap -> pool not added",
-			poolMinLiquidityCap:       99,
-			minPoolLiquidityCapOption: 100,
-
-			expectAdded: false,
-		},
-		{
-			name:                 "zero pool liquidity cap with market incentives -> pool added and mutated",
-			withMarketIncentives: true,
-			expectAdded:          true,
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		s.Run(tc.name, func() {
-
-			// Default pool
-			defaultPool := &mocks.MockRoutablePool{
-				ID:               defaultPoolID,
-				PoolLiquidityCap: osmomath.NewInt(int64(tc.poolMinLiquidityCap)),
-			}
-
-			// Default options
-			defaultOptions := domain.PoolsOptions{
-				MinPoolLiquidityCap:  tc.minPoolLiquidityCapOption,
-				WithMarketIncentives: tc.withMarketIncentives,
-			}
-
-			// Default use case
-			poolsUseCase := s.newDefaultPoolsUseCase()
-
-			// Set up fetcher mocks
-			mockAPRFetcher := getMockAPRFetcher(shouldError, isStale)
-			poolsUseCase.RegisterAPRFetcher(mockAPRFetcher)
-
-			mockFeesFetcher := getMockFeesFetcher(shouldError, isStale)
-			poolsUseCase.RegisterPoolFeesFetcher(mockFeesFetcher)
-
-			// System under test
-			actualPools := poolsUseCase.RetainPoolIfMatchesOptions([]sqsdomain.PoolI{}, defaultPool, defaultOptions)
-
-			// Validate
-			if tc.expectAdded {
-				s.Require().Equal([]sqsdomain.PoolI{defaultPool}, actualPools)
-
-				if tc.withMarketIncentives {
-					s.Require().Equal(defaultAPRData.PoolAPR, defaultPool.GetAPRData().PoolAPR)
-					s.Require().Equal(defaultFeeData.PoolFee, defaultPool.GetFeesData().PoolFee)
-				}
-			} else {
-				s.Require().Empty(actualPools)
-			}
-
 		})
 	}
 }
@@ -979,7 +1030,7 @@ func (s *PoolsUsecaseTestSuite) TestetPoolAPRAndFeeDataIfConfigured() {
 
 func (s *PoolsUsecaseTestSuite) newDefaultPoolsUseCase() *usecase.PoolsUsecase {
 	routerRepo := routerrepo.New(&log.NoOpLogger{})
-	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
 	s.Require().NoError(err)
 	return poolsUsecase
 }

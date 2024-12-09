@@ -392,14 +392,14 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	routerRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
 	routerRepositoryMock.SetCandidateRouteSearchData(mainnetState.CandidateRouteSearchData)
 
+	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, &log.NoOpLogger{})
+	tokensUsecase.UpdatePoolDenomMetadata(mainnetState.PoolDenomsMetaData)
+
 	// Setup pools usecase mock.
-	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, &log.NoOpLogger{})
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&options.PoolsConfig, "node-uri-placeholder", routerRepositoryMock, domain.UnsetScalingFactorGetterCb, tokensUsecase, &log.NoOpLogger{})
 	s.Require().NoError(err)
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
-
-	tokensUsecase := tokensusecase.NewTokensUsecase(mainnetState.TokensMetadata, 0, &log.NoOpLogger{})
-	tokensUsecase.UpdatePoolDenomMetadata(mainnetState.PoolDenomsMetaData)
 
 	candidateRouteFinder := routerusecase.NewCandidateRouteFinder(routerRepositoryMock, logger)
 

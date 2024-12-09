@@ -39,12 +39,8 @@ func (p *poolsUseCase) StoreInvalidOrderBookEntry(baseDenom, quoteDenom string) 
 	p.canonicalOrderBookForBaseQuoteDenom.Store(formatBaseQuoteDenom(baseDenom, quoteDenom), invalidEntryType)
 }
 
-func (p poolsUseCase) SetPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
+func (p *poolsUseCase) SetPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
 	p.setPoolAPRAndFeeDataIfConfigured(pool, options)
-}
-
-func (p *poolsUseCase) RetainPoolIfMatchesOptions(poolsToUpdate []sqsdomain.PoolI, poolConsidered sqsdomain.PoolI, options domain.PoolsOptions) []sqsdomain.PoolI {
-	return p.retainPoolIfMatchesOptions(poolsToUpdate, poolConsidered, options)
 }
 
 func (p *poolsUseCase) CalcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {

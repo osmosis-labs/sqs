@@ -35,6 +35,18 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+Unreleased
+
+- Fixed claimbot panics due nil routerrepo.RouterRepository in txGasCalulator
+
+## v27.2.0
+
+- #593 - Add denoms filter for /pools endpoint
+
+## v27.1.0
+
+- #553 - Add pagination + sorting + query filtering support for /pools endpoint 
+
 ## v26.2.0
 
 - #554 - [FIX] Add missing checks for transmuter's limiter 

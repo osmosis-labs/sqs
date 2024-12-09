@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
@@ -47,11 +48,12 @@ func New(
 	keyring keyring.Keyring,
 	orderbookusecase mvc.OrderBookUsecase,
 	poolsUsecase mvc.PoolsUsecase,
+	msgSimulator tx.MsgSimulator,
 	logger log.Logger,
 	chainGRPCGatewayEndpoint string,
 	chainID string,
 ) (*claimbot, error) {
-	config, err := NewConfig(keyring, orderbookusecase, poolsUsecase, logger, chainGRPCGatewayEndpoint, chainID)
+	config, err := NewConfig(keyring, orderbookusecase, poolsUsecase, msgSimulator, logger, chainGRPCGatewayEndpoint, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config: %w", err)
 	}

@@ -147,7 +147,14 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}
 
 	// Initialize pools repository, usecase and HTTP handler
-	poolsUseCase, err := poolsUseCase.NewPoolsUsecase(config.Pools, config.ChainGRPCGatewayEndpoint, routerRepository, tokensUseCase.GetChainScalingFactorByDenomMut, logger)
+	poolsUseCase, err := poolsUseCase.NewPoolsUsecase(
+		config.Pools,
+		config.ChainGRPCGatewayEndpoint,
+		routerRepository,
+		tokensUseCase.GetChainScalingFactorByDenomMut,
+		tokensUseCase,
+		logger,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -310,6 +317,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 						keyring,
 						orderBookUseCase,
 						poolsUseCase,
+						gasCalculator,
 						logger,
 						config.ChainGRPCGatewayEndpoint,
 						config.ChainID,

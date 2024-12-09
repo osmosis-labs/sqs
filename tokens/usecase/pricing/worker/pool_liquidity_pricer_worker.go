@@ -207,7 +207,7 @@ func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, heigh
 func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]struct{}, blockPriceUpdates domain.PricesResult) error {
 	blockPoolIDs := domain.KeysFromMap(poolIDs)
 
-	pools, err := p.poolHandler.GetPools(domain.WithPoolIDFilter(blockPoolIDs))
+	pools, _, err := p.poolHandler.GetPools(domain.WithPoolIDFilter(blockPoolIDs))
 	if err != nil {
 		return err
 	}

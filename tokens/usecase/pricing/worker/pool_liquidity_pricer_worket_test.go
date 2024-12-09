@@ -873,7 +873,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 			}
 
 			// Get pools
-			actualPools, err := poolHandlerMock.GetPools(domain.WithPoolIDFilter(expectedPoolIDs))
+			actualPools, _, err := poolHandlerMock.GetPools(domain.WithPoolIDFilter(expectedPoolIDs))
 			s.Require().Equal(len(tt.expectedLiquidityResultByID), len(poolHandlerMock.Pools))
 
 			// Validate that liquidity cap is set correctly on each pool
