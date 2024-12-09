@@ -52,9 +52,12 @@ type Order struct {
 	OrderId int64 `json:"order_id"`
 	// The direction for which to place the order, should be either an ask order or a bid order
 	OrderDirection string `json:"order_direction"`
-	Owner          string `json:"owner"`
-	Quantity       string `json:"quantity"`
-	Etas           string `json:"etas"`
+	// The address of the order owner
+	Owner string `json:"owner"`
+	// Quantity is the actual quantity for the order left to be filled
+	// It gets updated as the order is filled, claimed
+	Quantity string `json:"quantity"`
+	Etas     string `json:"etas"`
 	// An optional percentage bounty to claim the order, capped at 1%
 	ClaimBounty string `json:"claim_bounty"`
 	// Immutable quantity of the order when placed

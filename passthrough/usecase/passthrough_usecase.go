@@ -12,6 +12,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 )
@@ -253,9 +254,24 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 
 		var limitOrdersCoins sdk.Coins
 		for _, order := range orders {
+			denom, err := func() (string, error) {
+				switch order.OrderDirection {
+				case orderbookdomain.DirectionAsk:
+					return order.BaseAsset.Symbol, nil
+				case orderbookdomain.DirectionBid:
+					return order.QuoteAsset.Symbol, nil
+				default:
+					return "", fmt.Errorf("unknown order direction: %s", order.OrderDirection)
+				}
+			}()
+			if err != nil {
+				p.logger.Error("unable to get denom for limit order", zap.Error(err))
+				continue
+			}
+
 			limitOrdersCoins = limitOrdersCoins.Add(sdk.Coin{
-				Denom:  order.BaseAsset.Symbol,
-				Amount: order.ClaimableAmount().TruncateInt(),
+				Denom:  denom,
+				Amount: order.Quantity.TruncateInt(),
 			})
 		}
 
