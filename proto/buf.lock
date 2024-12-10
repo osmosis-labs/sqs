@@ -2,6 +2,11 @@
 version: v1
 deps:
   - remote: buf.build
+    owner: cometbft
+    repository: cometbft
+    commit: c0d3497e35d649538679874acdd86660
+    digest: shake256:05d2fb9e6b6bf82385ac26b250afbba281a2ca79f51729291373d24ca676d743183bf70a921daae6feafd5f9917120e2548a7c477d9743f668bca27cc1e12fdf
+  - remote: buf.build
     owner: cosmos
     repository: cosmos-proto
     commit: 04467658e59e44bbb22fe568206e1f70
@@ -19,5 +24,10 @@ deps:
   - remote: buf.build
     owner: googleapis
     repository: googleapis
-    commit: 553fd4b4b3a640be9b69a3fa0c17b383
-    digest: shake256:e30e3247f84b7ff9d09941ce391eb4b6f04734e1e5fae796bfc471f167e6f90813630cc39397ee46b8bc0ea7d6935c416d15c219cc5732d9778cbfdf73a1ed6e
+    commit: acd896313c55464b993332136ded1b6e
+    digest: shake256:66626d5e4d9c8ecf25cd72bdbfbbf62b9a68e9e9c33dab6b9b39a53a67063eeba6b8493247dd6d6240b1ac1c32eb2dc311484e67dd7d271884a960c2e5ce8c9a
+  - remote: buf.build
+    owner: grpc-ecosystem
+    repository: grpc-gateway
+    commit: a48fcebcf8f140dd9d09359b9bb185a4
+    digest: shake256:a926173f0ec3e1a929462c350acda846e546134b5ce2bb83fe44f02f9330a42b1c9b292f64b951b06a4d2c47e2ce4d477d6a2cb31502a15637ada35ecedefcf6
