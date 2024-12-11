@@ -142,6 +142,9 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	unclaimedRewardsChan := make(chan coinsResult, unclaimedRewardsNumJobs)
 	defer close(unclaimedRewardsChan)
 
+	limitOrdersChan := make(chan coinsResult)
+	defer close(limitOrdersChan)
+
 	go func() {
 		// Fetch bank balances and gamm shares concurrently
 		bankBalances, gammShareCoins, err := p.getBankBalances(ctx, address)
@@ -183,6 +186,14 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		// Send unclaimed rewards to the unclaimed rewards channel
 		unclaimedRewardsChan <- coinsResult{
 			coins: unclaimedStakingRewards,
+			err:   err,
+		}
+	}()
+
+	go func() {
+		limitOrdersCoins, err := p.getLimitOrderCoins(ctx, address)
+		limitOrdersChan <- coinsResult{
+			coins: limitOrdersCoins,
 			err:   err,
 		}
 	}()
@@ -247,35 +258,8 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	}
 
 	getLimitOrderCoins := func(ctx context.Context, address string) (sdk.Coins, error) {
-		orders, _, err := p.orderbookUseCase.GetActiveOrders(ctx, address)
-		if err != nil {
-			return nil, err
-		}
-
-		var limitOrdersCoins sdk.Coins
-		for _, order := range orders {
-			denom, err := func() (string, error) {
-				switch order.OrderDirection {
-				case orderbookdomain.DirectionAsk:
-					return order.BaseAsset.Symbol, nil
-				case orderbookdomain.DirectionBid:
-					return order.QuoteAsset.Symbol, nil
-				default:
-					return "", fmt.Errorf("unknown order direction: %s", order.OrderDirection)
-				}
-			}()
-			if err != nil {
-				p.logger.Error("unable to get denom for limit order", zap.Error(err))
-				continue
-			}
-
-			limitOrdersCoins = limitOrdersCoins.Add(sdk.Coin{
-				Denom:  denom,
-				Amount: order.Quantity.TruncateInt(),
-			})
-		}
-
-		return limitOrdersCoins, err
+		limitOrdersResult := <-limitOrdersChan
+		return limitOrdersResult.coins, limitOrdersResult.err
 	}
 
 	// Fetch jobs to fetch the portfolio assets concurrently in separate gorooutines.
@@ -578,6 +562,41 @@ func (p *passthroughUseCase) getBankBalances(ctx context.Context, address string
 	}
 
 	return balanceCoins.Sort(), gammShareCoins, nil
+}
+
+// getLimitOrderCoins returns the user's limit order coins
+func (p *passthroughUseCase) getLimitOrderCoins(ctx context.Context, address string) (sdk.Coins, error) {
+	var err error
+	orders, _, err := p.orderbookUseCase.GetActiveOrders(ctx, address)
+	if err != nil {
+		return nil, err
+	}
+
+	var limitOrdersCoins sdk.Coins
+	for _, order := range orders {
+		denom, derr := func() (string, error) {
+			switch order.OrderDirection {
+			case orderbookdomain.DirectionAsk:
+				return order.BaseAsset.Symbol, nil
+			case orderbookdomain.DirectionBid:
+				return order.QuoteAsset.Symbol, nil
+			default:
+				return "", fmt.Errorf("unknown order direction: %s", order.OrderDirection)
+			}
+		}()
+		if err != nil {
+			err = derr // update error
+			p.logger.Error("unable to get denom for limit order", zap.Error(err))
+			continue
+		}
+
+		limitOrdersCoins = limitOrdersCoins.Add(sdk.Coin{
+			Denom:  denom,
+			Amount: order.Quantity.TruncateInt(),
+		})
+	}
+
+	return limitOrdersCoins, err
 }
 
 // handleGammShares converts GAMM shares to underlying coins
