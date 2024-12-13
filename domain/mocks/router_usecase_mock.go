@@ -24,16 +24,16 @@ type RouterUsecaseMock struct {
 	GetCustomDirectQuoteFunc                     func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error)
 	GetCustomDirectQuoteMultiPoolFunc            func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error)
 	GetCustomDirectQuoteMultiPoolInGivenOutFunc  func(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error)
-	GetCandidateRoutesFunc                       func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
-	GetTakerFeeFunc                              func(poolID uint64) ([]sqsdomain.TakerFeeForPair, error)
-	SetTakerFeesFunc                             func(takerFees sqsdomain.TakerFeeMap)
-	GetCachedCandidateRoutesFunc                 func(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, bool, error)
+	GetCandidateRoutesFunc                       func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (ingesttypes.CandidateRoutes, error)
+	GetTakerFeeFunc                              func(poolID uint64) ([]ingesttypes.TakerFeeForPair, error)
+	SetTakerFeesFunc                             func(takerFees ingesttypes.TakerFeeMap)
+	GetCachedCandidateRoutesFunc                 func(ctx context.Context, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error)
 	StoreRouterStateFilesFunc                    func() error
 	GetRouterStateFunc                           func() (domain.RouterState, error)
-	GetSortedPoolsFunc                           func() []sqsdomain.PoolI
+	GetSortedPoolsFunc                           func() []ingesttypes.PoolI
 	GetConfigFunc                                func() domain.RouterConfig
 	ConvertMinTokensPoolLiquidityCapToFilterFunc func(minTokensPoolLiquidityCap uint64) uint64
-	SetSortedPoolsFunc                           func(pools []sqsdomain.PoolI)
+	SetSortedPoolsFunc                           func(pools []ingesttypes.PoolI)
 	GetMinPoolLiquidityCapFilterFunc             func(tokenInDenom string, tokenOutDenom string) (uint64, error)
 
 	BaseFee domain.BaseFee
@@ -108,31 +108,31 @@ func (m *RouterUsecaseMock) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.
 	panic("unimplemented")
 }
 
-func (m *RouterUsecaseMock) GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error) {
+func (m *RouterUsecaseMock) GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (ingesttypes.CandidateRoutes, error) {
 	if m.GetCandidateRoutesFunc != nil {
 		return m.GetCandidateRoutesFunc(ctx, tokenIn, tokenOutDenom)
 	}
-	return sqsdomain.CandidateRoutes{}, nil
+	return ingesttypes.CandidateRoutes{}, nil
 }
 
-func (m *RouterUsecaseMock) GetTakerFee(poolID uint64) ([]sqsdomain.TakerFeeForPair, error) {
+func (m *RouterUsecaseMock) GetTakerFee(poolID uint64) ([]ingesttypes.TakerFeeForPair, error) {
 	if m.GetTakerFeeFunc != nil {
 		return m.GetTakerFeeFunc(poolID)
 	}
 	panic("unimplemented")
 }
 
-func (m *RouterUsecaseMock) SetTakerFees(takerFees sqsdomain.TakerFeeMap) {
+func (m *RouterUsecaseMock) SetTakerFees(takerFees ingesttypes.TakerFeeMap) {
 	if m.SetTakerFeesFunc != nil {
 		m.SetTakerFeesFunc(takerFees)
 	}
 }
 
-func (m *RouterUsecaseMock) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, bool, error) {
+func (m *RouterUsecaseMock) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error) {
 	if m.GetCachedCandidateRoutesFunc != nil {
 		return m.GetCachedCandidateRoutesFunc(ctx, tokenInDenom, tokenOutDenom)
 	}
-	return sqsdomain.CandidateRoutes{}, false, nil
+	return ingesttypes.CandidateRoutes{}, false, nil
 }
 
 func (m *RouterUsecaseMock) StoreRouterStateFiles() error {
@@ -149,7 +149,7 @@ func (m *RouterUsecaseMock) GetRouterState() (domain.RouterState, error) {
 	return domain.RouterState{}, nil
 }
 
-func (m *RouterUsecaseMock) GetSortedPools() []sqsdomain.PoolI {
+func (m *RouterUsecaseMock) GetSortedPools() []ingesttypes.PoolI {
 	if m.GetSortedPoolsFunc != nil {
 		return m.GetSortedPoolsFunc()
 	}
@@ -170,7 +170,7 @@ func (m *RouterUsecaseMock) ConvertMinTokensPoolLiquidityCapToFilter(minTokensPo
 	panic("unimplemented")
 }
 
-func (m *RouterUsecaseMock) SetSortedPools(pools []sqsdomain.PoolI) {
+func (m *RouterUsecaseMock) SetSortedPools(pools []ingesttypes.PoolI) {
 	if m.SetSortedPoolsFunc != nil {
 		m.SetSortedPoolsFunc(pools)
 	}

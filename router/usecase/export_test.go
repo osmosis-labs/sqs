@@ -25,11 +25,11 @@ const (
 	NoPoolLiquidityCapError = noPoolLiquidityCapError
 )
 
-func ValidateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+func ValidateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
 	return validateAndFilterRoutes(candidateRoutes, tokenInDenom, logger)
 }
 
-func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes sqsdomain.CandidateRoutes, err error) {
+func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
 	return r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 }
 
@@ -41,7 +41,7 @@ func FilterDuplicatePoolIDRoutes(rankedRoutes []RouteWithOutAmount) []route.Rout
 	return filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes)
 }
 
-func ConvertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.CandidateRoutes {
+func ConvertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) ingesttypes.CandidateRoutes {
 	return convertRankedToCandidateRoutes(rankedRoutes)
 }
 
@@ -57,7 +57,7 @@ func FormatCandidateRouteCacheKey(tokenInDenom string, tokenOutDenom string) str
 	return formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom)
 }
 
-func SortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []sqsdomain.PoolI {
+func SortPools(pools []ingesttypes.PoolI, transmuterCodeIDs map[uint64]struct{}, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []ingesttypes.PoolI {
 	return sortPools(pools, transmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger)
 }
 
@@ -65,7 +65,7 @@ func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	return getSplitQuote(ctx, routes, tokenIn)
 }
 
-func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
 	return r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
 }
 
@@ -74,17 +74,17 @@ func CutRoutesForSplits(maxSplitRoutes int, routes []route.RouteImpl) []route.Ro
 }
 
 func (r *routerUseCaseImpl) SetCandidateRouteCacheToMock(tokenInDenom, tokenOutDenom string) {
-	r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), sqsdomain.CandidateRoutes{
+	r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), ingesttypes.CandidateRoutes{
 		// Note: some mock dummy values
-		Routes: []sqsdomain.CandidateRoute{
+		Routes: []ingesttypes.CandidateRoute{
 			{}, {},
 		}}, 0)
 }
 
 func (r *routerUseCaseImpl) SetRankedRouteCacheToMock(tokenInDenom, tokenOutDenom string, orderOfMagnitude int) {
-	r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenInDenom, tokenOutDenom, orderOfMagnitude), sqsdomain.CandidateRoutes{
+	r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenInDenom, tokenOutDenom, orderOfMagnitude), ingesttypes.CandidateRoutes{
 		// Note: some mock dummy values
-		Routes: []sqsdomain.CandidateRoute{
+		Routes: []ingesttypes.CandidateRoute{
 			{}, {},
 		}}, 0)
 

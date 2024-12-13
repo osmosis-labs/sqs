@@ -39,7 +39,7 @@ func (p *poolsUseCase) StoreInvalidOrderBookEntry(baseDenom, quoteDenom string) 
 	p.canonicalOrderBookForBaseQuoteDenom.Store(formatBaseQuoteDenom(baseDenom, quoteDenom), invalidEntryType)
 }
 
-func (p *poolsUseCase) SetPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
+func (p *poolsUseCase) SetPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, options domain.PoolsOptions) {
 	p.setPoolAPRAndFeeDataIfConfigured(pool, options)
 }
 

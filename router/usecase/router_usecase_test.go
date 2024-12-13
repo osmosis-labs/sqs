@@ -48,10 +48,10 @@ var (
 	// - TestGetOptimalQuote_Cache_Overwrites
 	// - TestOverwriteRoutes
 	// for details.
-	poolIDOneRoute = sqsdomain.CandidateRoutes{
-		Routes: []sqsdomain.CandidateRoute{
+	poolIDOneRoute = ingesttypes.CandidateRoutes{
+		Routes: []ingesttypes.CandidateRoute{
 			{
-				Pools: []sqsdomain.CandidatePool{
+				Pools: []ingesttypes.CandidatePool{
 					{
 						ID:            poolIDOneBalancer,
 						TokenOutDenom: ATOM,
@@ -64,10 +64,10 @@ var (
 		},
 	}
 
-	poolID1135Route = sqsdomain.CandidateRoutes{
-		Routes: []sqsdomain.CandidateRoute{
+	poolID1135Route = ingesttypes.CandidateRoutes{
+		Routes: []ingesttypes.CandidateRoute{
 			{
-				Pools: []sqsdomain.CandidatePool{
+				Pools: []ingesttypes.CandidatePool{
 					{
 						ID:            poolID1135Concentrated,
 						TokenOutDenom: ATOM,
@@ -108,9 +108,9 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	balancerPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
 	s.Require().NoError(err)
 
-	defaultPool := &sqsdomain.PoolWrapper{
+	defaultPool := &ingesttypes.PoolWrapper{
 		ChainModel: balancerPool,
-		SQSModel: sqsdomain.SQSPool{
+		SQSModel: ingesttypes.SQSPool{
 			PoolLiquidityCap: osmomath.NewInt(int64(minPoolLiquidityCap*OsmoPrecisionMultiplier + 1)),
 			PoolDenoms:       []string{tokenInDenom, tokenOutDenom},
 			Balances:         balancerCoins,
@@ -121,7 +121,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	var (
 		defaultRoute = WithCandidateRoutePools(
 			EmptyCandidateRoute,
-			[]sqsdomain.CandidatePool{
+			[]ingesttypes.CandidatePool{
 				{
 					ID:            defaultPool.GetId(),
 					TokenOutDenom: tokenOutDenom,
@@ -131,7 +131,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 
 		recomputedRoute = WithCandidateRoutePools(
 			EmptyCandidateRoute,
-			[]sqsdomain.CandidatePool{
+			[]ingesttypes.CandidatePool{
 				{
 					ID:            defaultPool.GetId() + 1,
 					TokenOutDenom: tokenOutDenom,
@@ -139,21 +139,21 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			},
 		)
 
-		singleDefaultRoutes = sqsdomain.CandidateRoutes{
-			Routes: []sqsdomain.CandidateRoute{defaultRoute},
+		singleDefaultRoutes = ingesttypes.CandidateRoutes{
+			Routes: []ingesttypes.CandidateRoute{defaultRoute},
 			UniquePoolIDs: map[uint64]struct{}{
 				defaultPool.GetId(): {},
 			},
 		}
 
-		singeldRecomputedRoutes = sqsdomain.CandidateRoutes{
-			Routes: []sqsdomain.CandidateRoute{recomputedRoute},
+		singeldRecomputedRoutes = ingesttypes.CandidateRoutes{
+			Routes: []ingesttypes.CandidateRoute{recomputedRoute},
 			UniquePoolIDs: map[uint64]struct{}{
 				defaultPool.GetId() + 1: {},
 			},
 		}
 
-		emptyRoutes = sqsdomain.CandidateRoutes{}
+		emptyRoutes = ingesttypes.CandidateRoutes{}
 
 		defaultRouterConfig = domain.RouterConfig{
 			// Only these config values are relevant for this test
@@ -170,8 +170,8 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	testCases := []struct {
 		name string
 
-		repositoryRoutes sqsdomain.CandidateRoutes
-		takerFeeMap      sqsdomain.TakerFeeMap
+		repositoryRoutes ingesttypes.CandidateRoutes
+		takerFeeMap      ingesttypes.TakerFeeMap
 		// specifies if the config applying to all requests disables
 		// the cache.
 		isCacheConfigDisabled bool
@@ -179,7 +179,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 		isCacheOptionDisabled bool
 		shouldSkipAddToCache  bool
 
-		expectedCandidateRoutes sqsdomain.CandidateRoutes
+		expectedCandidateRoutes ingesttypes.CandidateRoutes
 
 		expectedError    error
 		expectedIsCached bool
@@ -564,13 +564,13 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 	tests := map[string]struct {
 		rankedRoutes []route.RouteImpl
 
-		expectedCandidateRoutes sqsdomain.CandidateRoutes
+		expectedCandidateRoutes ingesttypes.CandidateRoutes
 	}{
 		"empty ranked routes": {
 			rankedRoutes: []route.RouteImpl{},
 
-			expectedCandidateRoutes: sqsdomain.CandidateRoutes{
-				Routes:        []sqsdomain.CandidateRoute{},
+			expectedCandidateRoutes: ingesttypes.CandidateRoutes{
+				Routes:        []ingesttypes.CandidateRoute{},
 				UniquePoolIDs: map[uint64]struct{}{},
 			},
 		},
@@ -581,9 +581,9 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 				}),
 			},
 
-			expectedCandidateRoutes: sqsdomain.CandidateRoutes{
-				Routes: []sqsdomain.CandidateRoute{
-					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
+			expectedCandidateRoutes: ingesttypes.CandidateRoutes{
+				Routes: []ingesttypes.CandidateRoute{
+					WithCandidateRoutePools(ingesttypes.CandidateRoute{}, []ingesttypes.CandidatePool{
 						{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomOne,
@@ -607,18 +607,18 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 				}),
 			},
 
-			expectedCandidateRoutes: sqsdomain.CandidateRoutes{
+			expectedCandidateRoutes: ingesttypes.CandidateRoutes{
 				ContainsCanonicalOrderbook: true,
-				Routes: []sqsdomain.CandidateRoute{
-					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
+				Routes: []ingesttypes.CandidateRoute{
+					WithCandidateRoutePools(ingesttypes.CandidateRoute{}, []ingesttypes.CandidatePool{
 						{
 							ID:            defaultPoolID,
 							TokenOutDenom: DenomOne,
 						},
 					}),
-					WithCandidateRoutePools(sqsdomain.CandidateRoute{
+					WithCandidateRoutePools(ingesttypes.CandidateRoute{
 						IsCanonicalOrderboolRoute: true,
-					}, []sqsdomain.CandidatePool{
+					}, []ingesttypes.CandidatePool{
 						{
 							ID:            defaultPoolID + 1,
 							TokenOutDenom: DenomOne,
@@ -668,8 +668,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 	)
 
 	tests := map[string]struct {
-		preCachedCandidateRoutes sqsdomain.CandidateRoutes
-		preCachedRankedRoutes    sqsdomain.CandidateRoutes
+		preCachedCandidateRoutes ingesttypes.CandidateRoutes
+		preCachedRankedRoutes    ingesttypes.CandidateRoutes
 
 		cacheExpiryDuration time.Duration
 

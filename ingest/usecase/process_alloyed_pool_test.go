@@ -17,7 +17,7 @@ var (
 )
 
 func (s *IngestUseCaseTestSuite) TestProcessAlloyedPool() {
-	sqsModel := &sqsdomain.SQSPool{
+	sqsModel := &ingesttypes.SQSPool{
 		CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
 			Data: cosmwasmpool.CosmWasmPoolData{
 				AlloyTransmuter: &cosmwasmpool.AlloyTransmuterData{

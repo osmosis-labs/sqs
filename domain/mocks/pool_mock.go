@@ -21,7 +21,7 @@ type MockRoutablePool struct {
 	CalculateTokenOutByTokenInFunc func(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
 
 	ChainPoolModel    poolmanagertypes.PoolI
-	TickModel         *sqsdomain.TickModel
+	TickModel         *ingesttypes.TickModel
 	CosmWasmPoolModel *cosmwasmpool.CosmWasmPoolModel
 	ID                uint64
 	Balances          sdk.Coins
@@ -42,22 +42,22 @@ type MockRoutablePool struct {
 	PoolLiquidityCapError string
 }
 
-// GetAPRData implements sqsdomain.PoolI.
+// GetAPRData implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) GetAPRData() sqspassthroughdomain.PoolAPRDataStatusWrap {
 	return mp.APRData
 }
 
-// GetFeesData implements sqsdomain.PoolI.
+// GetFeesData implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) GetFeesData() sqspassthroughdomain.PoolFeesDataStatusWrap {
 	return mp.FeesData
 }
 
-// SetAPRData implements sqsdomain.PoolI.
+// SetAPRData implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) SetAPRData(aprData sqspassthroughdomain.PoolAPRDataStatusWrap) {
 	mp.APRData = aprData
 }
 
-// SetFeesData implements sqsdomain.PoolI.
+// SetFeesData implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) SetFeesData(feesData sqspassthroughdomain.PoolFeesDataStatusWrap) {
 	mp.FeesData = feesData
 }
@@ -97,9 +97,9 @@ func (mp *MockRoutablePool) GetUnderlyingPool() poolmanagertypes.PoolI {
 	return mp.ChainPoolModel
 }
 
-// GetSQSPoolModel implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) GetSQSPoolModel() sqsdomain.SQSPool {
-	return sqsdomain.SQSPool{
+// GetSQSPoolModel implements ingesttypes.PoolI.
+func (mp *MockRoutablePool) GetSQSPoolModel() ingesttypes.SQSPool {
+	return ingesttypes.SQSPool{
 		Balances:          mp.Balances,
 		PoolLiquidityCap:  mp.PoolLiquidityCap,
 		SpreadFactor:      mp.SpreadFactor,
@@ -138,17 +138,17 @@ func (*MockRoutablePool) String() string {
 }
 
 // GetTickModel implements domain.RoutablePool.
-func (mp *MockRoutablePool) GetTickModel() (*sqsdomain.TickModel, error) {
+func (mp *MockRoutablePool) GetTickModel() (*ingesttypes.TickModel, error) {
 	return mp.TickModel, nil
 }
 
-// SetTickModel implements sqsdomain.PoolI.
-func (mp *MockRoutablePool) SetTickModel(tickModel *sqsdomain.TickModel) error {
+// SetTickModel implements ingesttypes.PoolI.
+func (mp *MockRoutablePool) SetTickModel(tickModel *ingesttypes.TickModel) error {
 	mp.TickModel = tickModel
 	return nil
 }
 
-// Validate implements sqsdomain.PoolI.
+// Validate implements ingesttypes.PoolI.
 func (*MockRoutablePool) Validate(minUOSMOTVL math.Int) error {
 	// Note: always valid for tests.
 	return nil
@@ -174,7 +174,7 @@ func (mp *MockRoutablePool) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfte
 	return tokenIn.Sub(sdk.NewCoin(tokenIn.Denom, mp.TakerFee.Mul(tokenIn.Amount.ToLegacyDec()).TruncateInt()))
 }
 
-// GetTakerFee implements sqsdomain.PoolI.
+// GetTakerFee implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) GetTakerFee() math.LegacyDec {
 	return mp.TakerFee
 }
@@ -183,25 +183,25 @@ func (mp *MockRoutablePool) Incentive() api.IncentiveType {
 	return mp.IncentiveType
 }
 
-var _ sqsdomain.PoolI = &MockRoutablePool{}
+var _ ingesttypes.PoolI = &MockRoutablePool{}
 var _ domain.RoutablePool = &MockRoutablePool{}
 
-// GetId implements sqsdomain.PoolI.
+// GetId implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) GetId() uint64 {
 	return mp.ID
 }
 
-// GetPoolDenoms implements sqsdomain.PoolI.
+// GetPoolDenoms implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) GetPoolDenoms() []string {
 	return mp.Denoms
 }
 
-// GetPoolLiquidityCap implements sqsdomain.PoolI.
+// GetPoolLiquidityCap implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) GetPoolLiquidityCap() math.Int {
 	return mp.PoolLiquidityCap
 }
 
-// GetType implements sqsdomain.PoolI.
+// GetType implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) GetType() poolmanagertypes.PoolType {
 	return mp.PoolType
 }
@@ -216,22 +216,22 @@ func (mp *MockRoutablePool) GetCodeID() uint64 {
 	return 0
 }
 
-// GetLiquidityCap implements sqsdomain.PoolI.
+// GetLiquidityCap implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) GetLiquidityCap() math.Int {
 	return mp.PoolLiquidityCap
 }
 
-// GetLiquidityCapError implements sqsdomain.PoolI.
+// GetLiquidityCapError implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) GetLiquidityCapError() string {
 	return mp.PoolLiquidityCapError
 }
 
-// SetLiquidityCap implements sqsdomain.PoolI.
+// SetLiquidityCap implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) SetLiquidityCap(liquidityCap math.Int) {
 	mp.PoolLiquidityCap = liquidityCap
 }
 
-// SetLiquidityCapError implements sqsdomain.PoolI.
+// SetLiquidityCapError implements ingesttypes.PoolI.
 func (mp *MockRoutablePool) SetLiquidityCapError(liquidityCapError string) {
 	mp.PoolLiquidityCapError = liquidityCapError
 }

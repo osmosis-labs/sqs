@@ -91,7 +91,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 
 	testCases := []struct {
 		name          string
-		pool          sqsdomain.PoolI
+		pool          ingesttypes.PoolI
 		setupMocks    func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock)
 		expectedError error
 	}{

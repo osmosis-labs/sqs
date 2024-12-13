@@ -19,7 +19,7 @@ type (
 )
 
 func NewRoutableCosmWasmPoolWithCustomModel(
-	pool sqsdomain.PoolI,
+	pool ingesttypes.PoolI,
 	cosmwasmPool *cwpoolmodel.CosmWasmPool,
 	cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams,
 	tokenOutDenom string,

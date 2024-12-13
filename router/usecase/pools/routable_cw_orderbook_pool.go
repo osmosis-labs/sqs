@@ -51,7 +51,7 @@ func (r *routableOrderbookPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
 }
 
-// CalculateTokenOutByTokenIn implements sqsdomain.RoutablePool.
+// CalculateTokenOutByTokenIn implements ingesttypes.RoutablePool.
 // It calculates the amount of token out given the amount of token in for a orderbook pool.
 // Fails if:
 // - the underlying chain pool set on the routable pool is not of cosmwasm type
@@ -168,7 +168,7 @@ func (r *routableOrderbookPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d) Orderbook, pool denoms (%v), token out (%s)", r.ChainPool.PoolId, poolmanagertypes.CosmWasm, r.GetPoolDenoms(), r.TokenOutDenom)
 }
 
-// ChargeTakerFee implements sqsdomain.RoutablePool.
+// ChargeTakerFee implements ingesttypes.RoutablePool.
 // Charges the taker fee for the given token in and returns the token in after the fee has been charged.
 func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())

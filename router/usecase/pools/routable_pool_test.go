@@ -51,8 +51,8 @@ var (
 	DefaultLiquidityAmt = apptesting.DefaultLiquidityAmt
 
 	// router specific variables
-	defaultTickModel = &sqsdomain.TickModel{
-		Ticks:            []sqsdomain.LiquidityDepthsWithRange{},
+	defaultTickModel = &ingesttypes.TickModel{
+		Ticks:            []ingesttypes.LiquidityDepthsWithRange{},
 		CurrentTickIndex: 0,
 		HasNoLiquidity:   false,
 	}

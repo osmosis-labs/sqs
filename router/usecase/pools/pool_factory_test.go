@@ -61,7 +61,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 
 	tests := []struct {
 		name                 string
-		pool                 sqsdomain.PoolI
+		pool                 ingesttypes.PoolI
 		cosmwasmPool         *cwpoolmodel.CosmWasmPool
 		cosmWasmConfig       domain.CosmWasmPoolRouterConfig
 		tokenOutDenom        string
