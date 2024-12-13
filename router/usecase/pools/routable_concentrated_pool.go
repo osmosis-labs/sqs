@@ -8,7 +8,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 
 	"github.com/osmosis-labs/sqs/domain"
 
@@ -25,7 +25,7 @@ var smallestDec = osmomath.BigDecFromDec(osmomath.SmallestDec())
 
 type routableConcentratedPoolImpl struct {
 	ChainPool     *concentratedmodel.Pool "json:\"cl_pool\""
-	TickModel     *sqsdomain.TickModel    "json:\"tick_model\""
+	TickModel     *ingesttypes.TickModel  "json:\"tick_model\""
 	TokenInDenom  string                  "json:\"token_in_denom,omitempty\""
 	TokenOutDenom string                  "json:\"token_out_denom,omitempty\""
 	TakerFee      osmomath.Dec            "json:\"taker_fee\""

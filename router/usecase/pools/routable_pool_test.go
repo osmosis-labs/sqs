@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/suite"
 
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"

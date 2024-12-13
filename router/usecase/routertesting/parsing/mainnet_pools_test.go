@@ -7,11 +7,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"

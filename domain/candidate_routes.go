@@ -2,12 +2,12 @@ package domain
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 )
 
 // CandidateRoutePoolFiltrerCb defines a candidate route pool filter
 // that takes in a pool and returns true if the pool should be skipped.
-type CandidateRoutePoolFiltrerCb func(*sqsdomain.PoolWrapper) bool
+type CandidateRoutePoolFiltrerCb func(*ingesttypes.PoolWrapper) bool
 
 // CandidateRouteSearchOptions represents the options for finding candidate routes.
 type CandidateRouteSearchOptions struct {
@@ -30,7 +30,7 @@ type CandidateRouteSearchOptions struct {
 
 // ShouldSkipPool returns true if the candidate route algorithm should skip
 // a given pool by matching at least one of the pool filters
-func (c CandidateRouteSearchOptions) ShouldSkipPool(pool *sqsdomain.PoolWrapper) bool {
+func (c CandidateRouteSearchOptions) ShouldSkipPool(pool *ingesttypes.PoolWrapper) bool {
 	for _, filter := range c.PoolFiltersAnyOf {
 		if filter(pool) {
 			return true
@@ -47,7 +47,7 @@ type CandidateRoutePoolIDFilterOptionCb struct {
 }
 
 // ShouldSkipPool returns true of the given pool has ID that is present in c.PoolIDsToSkip
-func (c CandidateRoutePoolIDFilterOptionCb) ShouldSkipPool(pool *sqsdomain.PoolWrapper) bool {
+func (c CandidateRoutePoolIDFilterOptionCb) ShouldSkipPool(pool *ingesttypes.PoolWrapper) bool {
 	poolID := pool.GetId()
 	_, ok := c.PoolIDsToSkip[poolID]
 	return ok
@@ -57,7 +57,7 @@ var (
 	// ShouldSkipOrderbookPool skips orderbook pools
 	// by returning true if pool.SQSModel.CosmWasmPoolModel is not nil
 	// and pool.SQSModel.CosmWasmPoolModel.IsOrderbook() returns true.
-	ShouldSkipOrderbookPool CandidateRoutePoolFiltrerCb = func(pool *sqsdomain.PoolWrapper) bool {
+	ShouldSkipOrderbookPool CandidateRoutePoolFiltrerCb = func(pool *ingesttypes.PoolWrapper) bool {
 		cosmWasmPoolModel := pool.SQSModel.CosmWasmPoolModel
 		return cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook()
 	}
@@ -68,15 +68,15 @@ type CandidateRouteSearcher interface {
 	// FindCandidateRoutes finds candidate routes for a given tokenIn and tokenOutDenom
 	// using the given options.
 	// Returns the candidate routes and an error if any.
-	FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, options CandidateRouteSearchOptions) (sqsdomain.CandidateRoutes, error)
+	FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, options CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error)
 }
 
 // CandidateRouteDenomData represents the data for a candidate route for a given denom.
 type CandidateRouteDenomData struct {
 	// SortedPools is the sorted list of pools for the denom.
-	SortedPools []sqsdomain.PoolI
+	SortedPools []ingesttypes.PoolI
 	// CanonicalOrderbooks is the map of canonical orderbooks keyed by the pair token.
 	// For example if this is candidate route denom data for OSMO and there is a canonical orderbook with ID 23
 	// for ATOM/OSMO, we would have an entry from ATOM to 23 in this map.
-	CanonicalOrderbooks map[string]sqsdomain.PoolI
+	CanonicalOrderbooks map[string]ingesttypes.PoolI
 }

@@ -10,8 +10,8 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
-	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 
 	clqueryproto "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/client/queryproto"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"

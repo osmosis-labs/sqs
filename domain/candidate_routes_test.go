@@ -3,10 +3,10 @@ package domain_test
 import (
 	"testing"
 
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/require"
 )
 

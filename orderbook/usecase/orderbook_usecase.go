@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -15,7 +16,6 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/orderbook/telemetry"
 	"github.com/osmosis-labs/sqs/orderbook/types"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 
 	clmath "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/math"
@@ -61,7 +61,7 @@ func (o *OrderbookUseCaseImpl) GetAllTicks(poolID uint64) (map[int64]orderbookdo
 }
 
 // ProcessPool implements mvc.OrderBookUsecase.
-func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool sqsdomain.PoolI) error {
+func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool ingesttypes.PoolI) error {
 	if pool == nil {
 		return types.PoolNilError{}
 	}

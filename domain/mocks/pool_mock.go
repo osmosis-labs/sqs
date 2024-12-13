@@ -7,11 +7,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
-	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
 	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"

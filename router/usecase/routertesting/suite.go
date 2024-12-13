@@ -8,6 +8,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
@@ -18,7 +19,6 @@ import (
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"

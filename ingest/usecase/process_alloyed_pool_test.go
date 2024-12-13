@@ -2,9 +2,9 @@ package usecase_test
 
 import (
 	"github.com/osmosis-labs/osmosis/osmomath"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/ingest/usecase"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
 var (

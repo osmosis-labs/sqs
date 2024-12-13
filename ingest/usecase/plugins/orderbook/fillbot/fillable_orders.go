@@ -12,7 +12,7 @@ import (
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 )
 
 var one = osmomath.MustNewDecFromStr("1")

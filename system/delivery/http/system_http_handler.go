@@ -15,10 +15,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
 	"github.com/labstack/echo/v4"
 )

@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/suite"
 )
 

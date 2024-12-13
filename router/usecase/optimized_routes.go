@@ -9,10 +9,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
 
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -90,10 +90,10 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 // - the previous pool token out denom is in the current pool.
 // - the current pool token out denom is in the current pool.
 // Returns error if not. Nil otherwise.
-func validateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (sqsdomain.CandidateRoutes, error) {
+func validateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
 	var (
 		tokenOutDenom  string
-		filteredRoutes []sqsdomain.CandidateRoute
+		filteredRoutes []ingesttypes.CandidateRoute
 	)
 
 	uniquePoolIDs := make(map[uint64]struct{})
@@ -107,7 +107,7 @@ ROUTE_LOOP:
 		containsCanonicalOrderbook = containsCanonicalOrderbook || candidateRoute.IsCanonicalOrderboolRoute
 
 		if len(candidateRoute.Pools) == 0 {
-			return sqsdomain.CandidateRoutes{}, NoPoolsInRouteError{RouteIndex: i}
+			return ingesttypes.CandidateRoutes{}, NoPoolsInRouteError{RouteIndex: i}
 		}
 
 		lastPool := candidateRoutePools[len(candidateRoutePools)-1]
@@ -162,12 +162,12 @@ ROUTE_LOOP:
 
 			// Ensure that the previous pool token out denom is in the current pool.
 			if !foundPreviousTokenOut {
-				return sqsdomain.CandidateRoutes{}, PreviousTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, PreviousTokenOutDenom: previousTokenOut}
+				return ingesttypes.CandidateRoutes{}, PreviousTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, PreviousTokenOutDenom: previousTokenOut}
 			}
 
 			// Ensure that the current pool token out denom is in the current pool.
 			if !foundCurrentTokenOut {
-				return sqsdomain.CandidateRoutes{}, CurrentTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, CurrentTokenOutDenom: currentPoolTokenOutDenom}
+				return ingesttypes.CandidateRoutes{}, CurrentTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, CurrentTokenOutDenom: currentPoolTokenOutDenom}
 			}
 
 			// Update previous token out denom
@@ -177,21 +177,21 @@ ROUTE_LOOP:
 		if i > 0 {
 			// Ensure that all routes have the same final token out denom
 			if currentRouteTokenOutDenom != tokenOutDenom {
-				return sqsdomain.CandidateRoutes{}, TokenOutMismatchBetweenRoutesError{TokenOutDenomRouteA: tokenOutDenom, TokenOutDenomRouteB: currentRouteTokenOutDenom}
+				return ingesttypes.CandidateRoutes{}, TokenOutMismatchBetweenRoutesError{TokenOutDenomRouteA: tokenOutDenom, TokenOutDenomRouteB: currentRouteTokenOutDenom}
 			}
 		}
 
 		tokenOutDenom = currentRouteTokenOutDenom
 
 		// Update filtered routes if this route passed all checks
-		filteredRoute := sqsdomain.CandidateRoute{
+		filteredRoute := ingesttypes.CandidateRoute{
 			IsCanonicalOrderboolRoute: candidateRoute.IsCanonicalOrderboolRoute,
-			Pools:                     make([]sqsdomain.CandidatePool, 0, len(candidateRoutePools)),
+			Pools:                     make([]ingesttypes.CandidatePool, 0, len(candidateRoutePools)),
 		}
 
 		// Convert route to the final output format
 		for _, pool := range candidateRoutePools {
-			filteredRoute.Pools = append(filteredRoute.Pools, sqsdomain.CandidatePool{
+			filteredRoute.Pools = append(filteredRoute.Pools, ingesttypes.CandidatePool{
 				ID:            pool.ID,
 				TokenOutDenom: pool.TokenOutDenom,
 			})
@@ -201,10 +201,10 @@ ROUTE_LOOP:
 	}
 
 	if tokenOutDenom == tokenInDenom {
-		return sqsdomain.CandidateRoutes{}, TokenOutDenomMatchesTokenInDenomError{Denom: tokenOutDenom}
+		return ingesttypes.CandidateRoutes{}, TokenOutDenomMatchesTokenInDenomError{Denom: tokenOutDenom}
 	}
 
-	return sqsdomain.CandidateRoutes{
+	return ingesttypes.CandidateRoutes{
 		Routes:                     filteredRoutes,
 		UniquePoolIDs:              uniquePoolIDs,
 		ContainsCanonicalOrderbook: containsCanonicalOrderbook,

@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
@@ -98,7 +98,7 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 			// Sort pools
 			sortedDenomPools, orderbookPools := routerusecase.ValidateAndSortPools(unsortedDenomPools, c.cosmWasmPoolConfig, c.preferredPoolIDs, c.logger)
 
-			canonicalOrderbookPoolMapByPairToken := make(map[string]sqsdomain.PoolI, len(orderbookPools))
+			canonicalOrderbookPoolMapByPairToken := make(map[string]ingesttypes.PoolI, len(orderbookPools))
 			for _, pool := range orderbookPools {
 				if c.poolsHandler.IsCanonicalOrderbookPool(pool.GetId()) {
 					poolDenoms := pool.GetPoolDenoms()

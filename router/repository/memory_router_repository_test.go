@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )

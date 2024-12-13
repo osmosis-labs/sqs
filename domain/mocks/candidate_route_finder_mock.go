@@ -2,8 +2,8 @@ package mocks
 
 import (
 	"github.com/cosmos/cosmos-sdk/types"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 type CandidateRouteFinderMock struct {
