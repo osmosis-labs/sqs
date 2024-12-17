@@ -15,6 +15,7 @@ import (
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
+	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 )
 
 type passthroughUseCase struct {
@@ -60,7 +61,7 @@ type coinsResult struct {
 
 // totalAssetsCompositionPortfolioAssetsJob represents a job to compose the total portfolio assets
 // from the fetched balances.
-// Total assets = user balances + staked + unstaking + (pooled - in-locks) + unclaimed-rewards
+// Total assets = user balances + staked + unstaking + (pooled - in-locks) + limit orders
 type totalAssetsCompositionPortfolioAssetsJob struct {
 	// name of the category
 	name string
@@ -372,6 +373,9 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 				continue
 			}
 
+			_, totalAssetsCap, err := p.computeCapitalizationForCoins(ctx, job.coins)
+			p.logger.Info("total assets composition", zap.String("totalAssetsCategoryName", job.name), zap.Any("Capitalization", totalAssetsCap), zap.Error(err))
+
 			totalAssetsCompositionCoins = totalAssetsCompositionCoins.Add(job.coins...)
 		}
 
@@ -383,6 +387,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 			p.logger.Error("error computing total assets capitalization for total assets composition", zap.Error(err), zap.String("address", address))
 		}
 
+		p.logger.Info("total assets composition", zap.String("totalAssetsCategoryName", totalAssetsCategoryName), zap.Any("Capitalization", totalAssetsCap), zap.Error(err))
 		finalResultsJobs <- finalResultPortfolioAssetsJob{
 			name: totalAssetsCategoryName,
 			result: passthroughdomain.PortfolioAssetsCategoryResult{
@@ -399,7 +404,6 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	// 2. Total assets - broken down by asset capitalization
 	// 3. Unstaking
 	// 4. Staked
-	// 5. Unclaimed rewards
 	// 6. Pooled
 	// 7. In-locks
 	// 8. Limit orders
@@ -430,8 +434,24 @@ func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, 
 		}
 	}
 
+	// p.logger.Info("coinDenomsToPrice", zap.Any("coinDenomsToPrice", coinDenomsToPrice), zap.Any("defaultQuoteDenom", p.defaultQuoteDenom))
 	// Compute prices for the final coins
-	priceResult, err := p.tokensUseCase.GetPrices(ctx, coinDenomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	opts := []domain.PricingOption{}
+
+	// TODO: Get pools for each coin
+	// 1. Get pools for each coin
+	// 2. Get the liquidity cap for each pool, if it's less than the min liquidity cap, zero the price
+	// 3. Get the price for each coin
+	// 4. Calculate the capitalization for each coin
+
+	var denoms []string
+	denomCap := make(map[string]osmomath.BigDec)
+	for _, v := range coins {
+		denoms = append(denoms, v.Denom)
+		denomCap[v.Denom] = osmomath.ZeroBigDec()
+	}
+
+	priceResult, err := p.tokensUseCase.GetPrices(ctx, coinDenomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType, opts...)
 	if err != nil {
 		// Instead of returning an error, attempt to return a best-effort result
 		// where all prices are zero.
@@ -441,9 +461,40 @@ func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, 
 	// Instrument coins with prices
 	coinsWithPrices := make([]passthroughdomain.AccountCoinsResult, 0, len(coins))
 	capitalizationTotal := osmomath.ZeroDec()
+	pools, _, err := p.poolsUseCase.GetPools(domain.WithFilter(&api.GetPoolsRequestFilter{
+		Denom: denoms,
+	}))
+	for _, pool := range pools {
+		for _, balance := range pool.GetSQSPoolModel().Balances {
+			v, ok := denomCap[balance.Denom]
+			if !ok {
+				continue
+			}
+
+			scalingFactor, err := p.tokensUseCase.GetChainScalingFactorByDenomMut(balance.Denom)
+			if err != nil {
+				continue
+			}
+
+			price := priceResult.GetPriceForDenom(balance.Denom, p.defaultQuoteDenom)
+			amount := osmomath.BigDecFromSDKInt(balance.Amount)
+
+			capitalization := price.Mul(amount.Quo(osmomath.BigDecFromDec(scalingFactor)))
+			if capitalization.GT(v) {
+				denomCap[balance.Denom] = capitalization
+			}
+		}
+	}
 
 	for _, coin := range coins {
-		price := priceResult.GetPriceForDenom(coin.Denom, p.defaultQuoteDenom)
+		var price osmomath.BigDec
+		v, ok := denomCap[coin.Denom]
+		if !ok || v.LT(osmomath.NewBigDec(500)) {
+			price = osmomath.ZeroBigDec()
+			fmt.Println("price: ", coin.Denom)
+		} else {
+			price = priceResult.GetPriceForDenom(coin.Denom, p.defaultQuoteDenom)
+		}
 
 		coinCapitalization := p.liquidityPricer.PriceCoin(coin, price)
 
