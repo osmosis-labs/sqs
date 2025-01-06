@@ -1,8 +1,8 @@
 package pools
 
 import (
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	"github.com/osmosis-labs/sqs/domain"
 

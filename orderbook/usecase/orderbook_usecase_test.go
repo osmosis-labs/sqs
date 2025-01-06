@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"

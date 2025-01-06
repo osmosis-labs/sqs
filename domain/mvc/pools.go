@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 

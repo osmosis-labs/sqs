@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/orderbook/telemetry"
 	"github.com/osmosis-labs/sqs/orderbook/types"

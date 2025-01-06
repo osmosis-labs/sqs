@@ -4,9 +4,9 @@ import (
 	"sort"
 	"strings"
 
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/types"
 	"github.com/osmosis-labs/sqs/domain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/sqs/log"

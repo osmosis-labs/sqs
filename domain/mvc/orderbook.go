@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
 type OrderBookUsecase interface {

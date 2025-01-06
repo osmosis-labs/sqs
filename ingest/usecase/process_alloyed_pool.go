@@ -5,8 +5,8 @@ import (
 	"math/big"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
 // processAlloyedPool processes the alloyed pool and computes the standard normalization factor and normalization scaling factors.

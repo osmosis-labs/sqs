@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/stretchr/testify/assert"
@@ -185,6 +185,7 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestGetRankedPoolsByDenom_HappyPat
 		denomNoPools = "denomNoPools"
 	)
 
+	ingesttypes.NewPoolWrapper(nil).ChainModel
 	var (
 		denomOnePools = []ingesttypes.PoolI{
 			&ingesttypes.PoolWrapper{

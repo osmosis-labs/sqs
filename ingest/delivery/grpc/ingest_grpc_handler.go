@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	prototypes "github.com/osmosis-labs/osmosis/v28/ingest/types/proto/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"

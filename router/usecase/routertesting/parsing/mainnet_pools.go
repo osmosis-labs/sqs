@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
+	nodeingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
 	"github.com/osmosis-labs/sqs/domain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
@@ -425,9 +426,11 @@ func UnmarshalPool(serializedPool SerializedPool) (ingesttypes.PoolI, error) {
 	}
 
 	poolWrapper := ingesttypes.PoolWrapper{
-		ChainModel: chainModel,
-		SQSModel:   serializedPool.SQSModel,
-		TickModel:  serializedPool.TickModel,
+		PoolWrapper: &nodeingesttypes.PoolWrapper{
+			ChainModel: chainModel,
+			SQSModel:   serializedPool.SQSModel,
+			TickModel:  serializedPool.TickModel,
+		},
 	}
 
 	return &poolWrapper, nil

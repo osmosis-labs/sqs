@@ -8,10 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 

@@ -3,9 +3,9 @@ package mocks
 import (
 	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/types"
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
 type PoolHandlerMock struct {

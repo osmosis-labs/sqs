@@ -2,7 +2,7 @@ package domain
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
 // CandidateRoutePoolFiltrerCb defines a candidate route pool filter

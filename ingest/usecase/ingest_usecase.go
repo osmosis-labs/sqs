@@ -20,6 +20,7 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	sqsingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 
@@ -59,7 +60,7 @@ type ingestUseCase struct {
 }
 
 type poolResult struct {
-	pool ingesttypes.PoolI
+	pool sqsingesttypes.PoolI
 	err  error
 }
 
@@ -223,7 +224,7 @@ func (p *ingestUseCase) updateAssetsAtHeightIntervalAsync(height uint64) {
 
 // sortAndStorePools sorts the pools and stores them in the router.
 // TODO: instead of resorting all pools every block, we should put the updated pools in the correct position
-func (p *ingestUseCase) sortAndStorePools(pools []ingesttypes.PoolI) {
+func (p *ingestUseCase) sortAndStorePools(pools []sqsingesttypes.PoolI) {
 	cosmWasmPoolConfig := p.poolsUseCase.GetCosmWasmPoolConfig()
 	routerConfig := p.routerUsecase.GetConfig()
 
@@ -235,7 +236,7 @@ func (p *ingestUseCase) sortAndStorePools(pools []ingesttypes.PoolI) {
 }
 
 // parsePoolData parses the pool data and returns the pool objects.
-func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]ingesttypes.PoolI, domain.BlockPoolMetadata, error) {
+func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsingesttypes.PoolI, domain.BlockPoolMetadata, error) {
 	poolResultChan := make(chan poolResult, len(poolData))
 
 	// Parse the pools concurrently
@@ -250,7 +251,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 		}(pool)
 	}
 
-	parsedPools := make([]ingesttypes.PoolI, 0, len(poolData))
+	parsedPools := make([]sqsingesttypes.PoolI, 0, len(poolData))
 
 	uniqueData := domain.BlockPoolMetadata{
 		PoolIDs:       make(map[uint64]struct{}, len(poolData)),
@@ -450,10 +451,12 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 
 // parsePool parses the pool data and returns the pool object
 // For concentrated pools, it also processes the tick model
-func (p *ingestUseCase) parsePool(pool *types.PoolData) (ingesttypes.PoolI, error) {
-	poolWrapper := ingesttypes.PoolWrapper{}
+func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, error) {
+	poolWrapper := sqsingesttypes.PoolWrapper{
+		PoolWrapper: &ingesttypes.PoolWrapper{},
+	}
 
-	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, &poolWrapper.ChainModel); err != nil {
+	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, poolWrapper.ChainModel); err != nil {
 		return nil, err
 	}
 
