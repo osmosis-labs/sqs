@@ -452,9 +452,7 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 // parsePool parses the pool data and returns the pool object
 // For concentrated pools, it also processes the tick model
 func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, error) {
-	poolWrapper := sqsingesttypes.PoolWrapper{
-		PoolWrapper: &ingesttypes.PoolWrapper{},
-	}
+	poolWrapper := sqsingesttypes.PoolWrapper{}
 
 	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, poolWrapper.ChainModel); err != nil {
 		return nil, err

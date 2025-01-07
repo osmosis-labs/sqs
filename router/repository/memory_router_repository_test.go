@@ -185,7 +185,6 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestGetRankedPoolsByDenom_HappyPat
 		denomNoPools = "denomNoPools"
 	)
 
-	ingesttypes.NewPoolWrapper(nil).ChainModel
 	var (
 		denomOnePools = []ingesttypes.PoolI{
 			&ingesttypes.PoolWrapper{
