@@ -454,7 +454,7 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, error) {
 	poolWrapper := sqsingesttypes.PoolWrapper{}
 
-	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, poolWrapper.ChainModel); err != nil {
+	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, &poolWrapper.ChainModel); err != nil {
 		return nil, err
 	}
 
