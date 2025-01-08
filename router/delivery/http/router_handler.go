@@ -126,13 +126,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		routerOpts = append(routerOpts, domain.WithMaxSplitRoutes(domain.DisableSplitRoutes))
 	}
 
-	var quote domain.Quote
-	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		quote, err = a.RUsecase.GetOptimalQuote(ctx, *tokenIn, tokenOutDenom, routerOpts...)
-	} else {
-		quote, err = a.RUsecase.GetOptimalQuoteInGivenOut(ctx, *tokenIn, tokenOutDenom, routerOpts...)
-	}
-
+	quote, err := a.RUsecase.GetOptimalQuote(ctx, *tokenIn, tokenOutDenom, req.SwapMethod(), routerOpts...)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -230,12 +224,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 	tokenOutDenom = chainDenoms[1:]
 
 	// Get the quote based on the swap method.
-	var quote domain.Quote
-	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		quote, err = a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, *tokenIn, tokenOutDenom, req.PoolID)
-	} else {
-		quote, err = a.RUsecase.GetCustomDirectQuoteMultiPoolInGivenOut(ctx, *tokenIn, tokenOutDenom, req.PoolID)
-	}
+	quote, err := a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, *tokenIn, tokenOutDenom, req.PoolID, req.SwapMethod())
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}

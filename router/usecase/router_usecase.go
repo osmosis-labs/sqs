@@ -88,7 +88,7 @@ func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.Po
 // Returns error if:
 // - fails to estimate direct quotes for ranked routes
 // - fails to retrieve candidate routes
-func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, opts ...domain.RouterOption) (domain.Quote, error) {
 	options := domain.RouterOptions{
 		MaxPoolsPerRoute:                 r.defaultConfig.MaxPoolsPerRoute,
 		MaxRoutes:                        r.defaultConfig.MaxRoutes,
@@ -137,13 +137,13 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 		}
 
 		// Find candidate routes and rank them by direct quotes.
-		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, tokenIn, tokenOutDenom, options)
+		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, tokenIn, tokenOutDenom, method, options)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// Otherwise, simply compute quotes over cached ranked routes
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
+		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, method, options.MaxSplitRoutes)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +162,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	}
 
 	// Compute split route quote
-	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenIn)
+	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenIn, method)
 	if err != nil {
 		// If error occurs in splits, return the single route quote
 		// rather than failing.
@@ -192,34 +192,12 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 // GetOptimalQuoteInGivenOut returns an optimal quote through the pools for the exact amount out token swap method.
 // Underlying implementation is the same as GetOptimalQuote, but the returned quote is wrapped in a quoteExactAmountOut.
 func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
-	// Disable cache and add orderbook pool filter
-	// So that order-book pools are not used in the candidate route search.
-	// The reason is that order-book contract does not implement the MsgSwapExactAmountOut API.
-	// The reason we disable cache is so that the exluded candidate routes do not interfere with the main
-	// "out given in" API.
-	opts = append(opts,
-		domain.WithDisableCache(),
-		domain.WithCandidateRoutesPoolFiltersAnyOf(domain.ShouldSkipOrderbookPool),
-	)
-
-	quote, err := r.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	q, ok := quote.(*quoteExactAmountIn)
-	if !ok {
-		return nil, errors.New("quote is not a quoteExactAmountIn")
-	}
-
-	return &quoteExactAmountOut{
-		quoteExactAmountIn: q,
-	}, nil
+	return r.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, domain.TokenSwapMethodExactOut, opts...)
 }
 
 // GetSimpleQuote implements mvc.RouterUsecase.
 // TODO: cover with a simple test.
-func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, opts ...domain.RouterOption) (domain.Quote, error) {
 	options := domain.RouterOptions{
 		MaxPoolsPerRoute:    r.defaultConfig.MaxPoolsPerRoute,
 		MaxRoutes:           r.defaultConfig.MaxRoutes,
@@ -261,7 +239,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		return nil, err
 	}
 
-	topQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
+	topQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, method, r.logger)
 	if err != nil {
 		return nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -330,7 +308,7 @@ func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []RouteWithOutAmou
 // - fails to read taker fees
 // - fails to convert candidate routes to routes
 // - fails to estimate direct quotes
-func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
@@ -338,7 +316,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 		return nil, nil, err
 	}
 
-	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
+	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, method, r.logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -353,7 +331,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 }
 
 // computeAndRankRoutesByDirectQuote computes candidate routes and ranks them by token out after estimating direct quotes.
-func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
 	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
 
 	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
@@ -393,7 +371,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	}
 
 	// Rank candidate routes by estimating direct quotes
-	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes)
+	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, method, routingOptions.MaxSplitRoutes)
 	if err != nil {
 		r.logger.Error("error getting ranked routes", zap.Error(err))
 		return nil, nil, err
@@ -434,7 +412,7 @@ var (
 )
 
 // GetCustomDirectQuote implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
+func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64, method domain.TokenSwapMethod) (domain.Quote, error) {
 	pool, err := r.poolsUsecase.GetPool(poolID)
 	if err != nil {
 		return nil, err
@@ -459,7 +437,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	}
 
 	// Compute direct quote
-	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, r.logger)
+	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenIn, method, r.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -468,7 +446,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 }
 
 // GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
+func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64, method domain.TokenSwapMethod) (domain.Quote, error) {
 	if len(poolIDs) == 0 {
 		return nil, fmt.Errorf("%w: at least one pool ID should be specified", types.ErrValidationFailed)
 	}
@@ -490,7 +468,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 	for i, v := range poolIDs {
 		tokenOutDenom := tokenOutDenom[i]
 
-		quote, err := r.GetCustomDirectQuote(ctx, tokenIn, tokenOutDenom, v)
+		quote, err := r.GetCustomDirectQuote(ctx, tokenIn, tokenOutDenom, v, method)
 		if err != nil {
 			return nil, err
 		}
@@ -526,23 +504,6 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 	}
 
 	return &result, nil
-}
-
-// GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error) {
-	quote, err := r.GetCustomDirectQuoteMultiPool(ctx, tokenOut, tokenInDenom, poolIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	q, ok := quote.(*quoteExactAmountIn)
-	if !ok {
-		return nil, errors.New("quote is not a quoteExactAmountIn")
-	}
-
-	return &quoteExactAmountOut{
-		quoteExactAmountIn: q,
-	}, nil
 }
 
 // GetCandidateRoutes implements domain.RouterUsecase.

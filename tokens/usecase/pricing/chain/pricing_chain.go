@@ -146,7 +146,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	}
 
 	// Compute a quote for one quote coin.
-	quote, err := c.RUsecase.GetSimpleQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
+	quote, err := c.RUsecase.GetSimpleQuote(ctx, tenQuoteCoin, baseDenom, domain.TokenSwapMethodExactIn, routingOptions...)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -200,7 +200,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	// if there is an error in the spot price computation above.
 	if !isSpotPriceComputeMethod {
 		// Compute on-chain price for 10 units of base denom and resulted quote denom out.
-		chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().BigIntMut()))
+		chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().Amount.BigIntMut()))
 	}
 
 	if chainPrice.IsZero() {

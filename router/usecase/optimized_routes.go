@@ -20,7 +20,7 @@ import (
 // Returns best quote as well as all routes sorted by amount out and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
@@ -75,7 +75,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 
 	finalQuote := &quoteExactAmountIn{
 		AmountIn:  tokenIn,
-		AmountOut: bestRoute.OutAmount,
+		AmountOut: sdk.Coin{Amount: bestRoute.OutAmount},
 		Route:     []domain.SplitRoute{&bestRoute},
 	}
 

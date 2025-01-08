@@ -155,7 +155,6 @@ func (r *routableResultPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenI
 	return tokenInAfterTakerFee
 }
 
-
 // ChargeTakerFee implements domain.RoutablePool.
 // Charges the taker fee for the given token in and returns the token in after the fee has been charged.
 func (r *routableResultPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
