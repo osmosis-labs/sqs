@@ -20,15 +20,15 @@ import (
 var _ domain.Route = &RouteImpl{}
 
 type RouteImpl struct {
-	Pools []domain.RoutablePool "json:\"pools\""
+	Pools []domain.RoutablePool `json:"pools"`
 	// HasGeneralizedCosmWasmPool is true if the route contains a generalized cosmwasm pool.
 	// We track whether a route contains a generalized cosmwasm pool
 	// so that we can exclude it from split quote logic.
 	// The reason for this is that making network requests to chain is expensive.
 	// As a result, we want to minimize the number of requests we make.
-	HasGeneralizedCosmWasmPool bool "json:\"has-cw-pool\""
+	HasGeneralizedCosmWasmPool bool `json:"has-cw-pool"`
 	// HasCanonicalOrderbookPool is true if the route contains a canonical orderbook pool.
-	HasCanonicalOrderbookPool bool "json:\"-\""
+	HasCanonicalOrderbookPool bool `json:"-"`
 }
 
 var (
@@ -54,7 +54,7 @@ var (
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
 // with token in as base and token out as quote.
-func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, method domain.TokenSwapMethod, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
 		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()
@@ -81,7 +81,11 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, log
 		}
 
 		// Charge taker fee
-		tokenIn = pool.ChargeTakerFeeExactIn(tokenIn)
+		if method == domain.TokenSwapMethodExactIn {
+			tokenIn = pool.ChargeTakerFeeExactIn(tokenIn)
+		} else {
+			tokenIn = pool.ChargeTakerFeeExactOut(tokenIn)
+		}
 
 		tokenOut, err := pool.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {

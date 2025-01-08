@@ -28,20 +28,14 @@ type (
 	QuoteExactAmountIn  = quoteExactAmountIn
 )
 
-func NewQuoteExactAmountOut(q *QuoteExactAmountIn) *quoteExactAmountOut {
-	return &quoteExactAmountOut{
-		quoteExactAmountIn: q,
-	}
-}
-
 // quoteExactAmountIn is a quote implementation for token swap method exact in.
 type quoteExactAmountIn struct {
-	AmountIn                sdk.Coin            "json:\"amount_in\""
-	AmountOut               osmomath.Int        "json:\"amount_out\""
-	Route                   []domain.SplitRoute "json:\"route\""
-	EffectiveFee            osmomath.Dec        "json:\"effective_fee\""
-	PriceImpact             osmomath.Dec        "json:\"price_impact\""
-	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
+	AmountIn                sdk.Coin            `json:"amount_in"`
+	AmountOut               sdk.Coin            `json:"amount_out"`
+	Route                   []domain.SplitRoute `json:"route"`
+	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
+	PriceImpact             osmomath.Dec        `json:"price_impact"`
+	InBaseOutQuoteSpotPrice osmomath.Dec        `json:"in_base_out_quote_spot_price"`
 	PriceInfo               *domain.TxFeeInfo   `json:"price_info,omitempty"`
 }
 
@@ -80,7 +74,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
 		amountInFraction := q.AmountIn.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), logger)
+		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), domain.TokenSwapMethodExactIn, logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}
@@ -116,7 +110,7 @@ func (q *quoteExactAmountIn) GetAmountIn() sdk.Coin {
 }
 
 // GetAmountOut implements Quote.
-func (q *quoteExactAmountIn) GetAmountOut() osmomath.Int {
+func (q *quoteExactAmountIn) GetAmountOut() sdk.Coin {
 	return q.AmountOut
 }
 

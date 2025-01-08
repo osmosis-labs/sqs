@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
@@ -46,7 +47,7 @@ type Route interface {
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
 	// The token in is the base token and the token out is the quote token.
-	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, method domain.TokenSwapMethod, logger log.Logger) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
@@ -59,7 +60,7 @@ type SplitRoute interface {
 
 type Quote interface {
 	GetAmountIn() sdk.Coin
-	GetAmountOut() osmomath.Int
+	GetAmountOut() sdk.Coin // Previously: osmomath.Int
 	GetRoute() []SplitRoute
 	GetEffectiveFee() osmomath.Dec
 	GetPriceImpact() osmomath.Dec
