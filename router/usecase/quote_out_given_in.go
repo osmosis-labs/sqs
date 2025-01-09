@@ -31,7 +31,7 @@ type (
 // quoteExactAmountIn is a quote implementation for token swap method exact in.
 type quoteExactAmountIn struct {
 	AmountIn                sdk.Coin            `json:"amount_in"`
-	AmountOut               sdk.Coin            `json:"amount_out"`
+	AmountOut               osmomath.Int        `json:"amount_out"`
 	Route                   []domain.SplitRoute `json:"route"`
 	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
 	PriceImpact             osmomath.Dec        `json:"price_impact"`
@@ -115,7 +115,7 @@ func (q *quoteExactAmountIn) GetAmountIn() sdk.Coin {
 
 // GetAmountOut implements Quote.
 func (q *quoteExactAmountIn) GetAmountOut() sdk.Coin {
-	return q.AmountOut
+	return sdk.Coin{Amount: q.AmountOut}
 }
 
 // GetRoute implements Quote.

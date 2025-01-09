@@ -21,7 +21,7 @@ var (
 // quoteExactAmountOut is a quote wrapper for exact out quotes.
 // Note that only the PrepareResult method is different from the quoteExactAmountOut.
 type quoteExactAmountOut struct {
-	AmountIn                sdk.Coin            `json:"amount_in"`
+	AmountIn                osmomath.Int        `json:"amount_in"`
 	AmountOut               sdk.Coin            `json:"amount_out"`
 	Route                   []domain.SplitRoute `json:"route"`
 	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
@@ -97,7 +97,7 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 
 // GetAmountIn implements Quote.
 func (q *quoteExactAmountOut) GetAmountIn() sdk.Coin {
-	return q.AmountIn
+	return sdk.Coin{Amount: q.AmountIn}
 }
 
 // GetAmountOut implements Quote.

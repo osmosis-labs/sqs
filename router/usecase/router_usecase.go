@@ -484,7 +484,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 		}
 
 		// the amountOut value is the amount out of last the tokenOutDenom
-		result.AmountOut = quote.GetAmountOut()
+		result.AmountOut = quote.GetAmountOut().Amount
 
 		// append each pool to the route
 		pools = append(pools, poolsInRoute...)
@@ -498,7 +498,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 			RouteImpl: route.RouteImpl{
 				Pools: pools,
 			},
-			OutAmount: result.AmountOut.Amount,
+			OutAmount: result.AmountOut,
 			InAmount:  result.AmountIn.Amount,
 		},
 	}
@@ -545,7 +545,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.
 		}
 
 		// the amountOut value is the amount out of last the tokenOutDenom
-		result.AmountIn = quote.GetAmountIn()
+		result.AmountIn = quote.GetAmountIn().Amount
 
 		// append each pool to the route
 		pools = append(pools, poolsInRoute...)
@@ -560,7 +560,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.
 				Pools: pools,
 			},
 			OutAmount: result.AmountOut.Amount,
-			InAmount:  result.AmountIn.Amount,
+			InAmount:  result.AmountIn,
 		},
 	}
 
