@@ -48,7 +48,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 			routesWithAmountOut = append(routesWithAmountOut, RouteWithAmount{
 				RouteImpl: route,
 				InAmount:  tokenIn.Amount,
-				OutAmount: directRouteTokenOut.Amount, // TODO:
+				OutAmount: directRouteTokenOut.Amount,
 			})
 		}
 
@@ -117,7 +117,12 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 	bestRoute := routesWithAmountOut[0]
 
 	// Here gets quote contructed!
-	finalQuote := newQuote(method, tokenIn, bestRoute.OutAmount, []domain.SplitRoute{&bestRoute})
+	var finalQuote domain.Quote
+	if method == domain.TokenSwapMethodExactIn {
+		finalQuote = newQuote(method, tokenIn, bestRoute.OutAmount, []domain.SplitRoute{&bestRoute})
+	} else {
+		finalQuote = newQuote(method, tokenIn, bestRoute.InAmount, []domain.SplitRoute{&bestRoute})
+	}
 
 	return finalQuote, routesWithAmountOut, nil
 }

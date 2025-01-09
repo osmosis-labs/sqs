@@ -15,6 +15,7 @@ import (
 type split struct {
 	routeIncrements []uint8
 	amountOut       osmomath.Int
+	amountIn        osmomath.Int
 }
 
 const totalIncrements = uint8(10)
@@ -165,6 +166,149 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	}
 
 	return newQuote(method, tokenIn, bestSplit.amountOut, resultRoutes), nil
+}
+
+func getSplitQuoteExactAmountOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, method domain.TokenSwapMethod) (domain.Quote, error) {
+	// Routes must be non-empty
+	if len(routes) == 0 {
+		return nil, errors.New("no routes")
+	}
+	// If only one route, return the best single route quote
+	if len(routes) == 1 {
+		route := routes[0]
+		coinIn, err := route.CalculateTokenInByTokenOut(ctx, tokenOut)
+		if err != nil {
+			return nil, err
+		}
+
+		return newQuote(method, tokenOut, coinIn.Amount, []domain.SplitRoute{&RouteWithAmount{
+			RouteImpl: route,
+			OutAmount: tokenOut.Amount,
+			InAmount:  coinIn.Amount,
+		}}), nil
+	}
+
+	// proportions[x][j] stores the proportion of tokens used for the j-th
+	// route that leads to the optimal value at each state. The proportions slice,
+	// essentially, records the decision made at each step.
+	proportions := make([][]uint8, totalIncrements+1)
+	// dp stores the maximum output values.
+	dp := make([][]osmomath.Int, totalIncrements+1)
+
+	// Step 1: initialize tables
+	for i := 0; i < int(totalIncrements+1); i++ {
+		dp[i] = make([]osmomath.Int, len(routes)+1)
+
+		dp[i][0] = zero
+
+		proportions[i] = make([]uint8, len(routes)+1)
+	}
+
+	// Initialize the first column with 0
+	for j := 0; j <= len(routes); j++ {
+		dp[0][j] = zero
+	}
+
+	inAmountDec := tokenOut.Amount.ToLegacyDec()
+
+	// callback with caching capabilities.
+	computeAndCacheOutAmountCb := getComputeAndCacheOutAmountCb(ctx, inAmountDec, tokenOut.Denom, routes)
+
+	// Step 2: fill the tables
+	for x := uint8(1); x <= totalIncrements; x++ {
+		for j := 1; j <= len(routes); j++ {
+			dp[x][j] = dp[x][j-1] // Not using the j-th route
+			proportions[x][j] = 0 // Default increment (0% of the token)
+
+			for p := uint8(0); p <= x; p++ {
+				// Consider two scenarios:
+				// 1) Not using the j-th route at all, which would yield an output of dp[x][j-1].
+				// 2) Using the j-th route with a certain proportion p of the input.
+				//
+				// The recurrence relation would be:
+				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
+				noChoice := dp[x][j]
+				choice := dp[x-p][j-1].Add(computeAndCacheOutAmountCb(j-1, p))
+
+				if choice.GT(noChoice) {
+					dp[x][j] = choice
+					proportions[x][j] = p
+				}
+			}
+		}
+	}
+
+	// Step 3: trace back to find the optimal proportions
+	x, j := totalIncrements, len(routes)
+	optimalProportions := make([]uint8, len(routes)+1)
+	for j > 0 {
+		optimalProportions[j] = proportions[x][j]
+		x -= proportions[x][j]
+		j -= 1
+	}
+
+	optimalProportions = optimalProportions[1:]
+
+	bestSplit := split{
+		routeIncrements: optimalProportions,
+		amountIn:        dp[totalIncrements][len(routes)],
+	}
+
+	tokenAmountDec := tokenOut.Amount.ToLegacyDec()
+
+	if bestSplit.amountIn.IsZero() {
+		return nil, errors.New("amount in is zero, try increasing amount out")
+	}
+
+	// Step 4: validate the found choice
+	totalIncrementsInSplits := uint8(0)
+	resultRoutes := make([]domain.SplitRoute, 0, len(routes))
+	totalAmoutInFromSplits := osmomath.ZeroInt()
+	for i, currentRouteIncrement := range bestSplit.routeIncrements {
+		currentRoute := routes[i]
+
+		currentRouteAmtIn := computeAndCacheOutAmountCb(i, currentRouteIncrement)
+
+		currentRouteSplit := osmomath.NewDec(int64(currentRouteIncrement)).QuoInt64Mut(int64(totalIncrements))
+
+		outAmount := currentRouteSplit.MulMut(tokenAmountDec).TruncateInt()
+		inAmount := currentRouteAmtIn
+
+		isAmountOutNilOrZero := outAmount.IsNil() || outAmount.IsZero()
+		isAmountInNilOrZero := inAmount.IsNil() || inAmount.IsZero()
+		if isAmountOutNilOrZero && isAmountInNilOrZero {
+			continue
+		}
+
+		if isAmountInNilOrZero {
+			return nil, fmt.Errorf("in amount is zero when out is not (%s), route index (%d)", outAmount, i)
+		}
+
+		if isAmountOutNilOrZero {
+			return nil, fmt.Errorf("out amount is zero when in is not (%s), route index (%d)", inAmount, i) // here
+		}
+
+		resultRoutes = append(resultRoutes, &RouteWithAmount{
+			RouteImpl: currentRoute,
+			InAmount:  currentRouteAmtIn,
+			OutAmount: outAmount,
+		})
+
+		totalIncrementsInSplits += currentRouteIncrement
+		totalAmoutInFromSplits = totalAmoutInFromSplits.Add(currentRouteAmtIn)
+	}
+
+	if !totalAmoutInFromSplits.Equal(bestSplit.amountIn) {
+		return nil, fmt.Errorf("total amount out from splits (%s) does not equal actual amount out (%s)", totalAmoutInFromSplits, bestSplit.amountOut)
+	}
+
+	// This may happen if one of the routes is consistently returning 0 amount out for all increments.
+	// TODO: we may want to remove this check so that we get the best quote.
+	if totalIncrementsInSplits != totalIncrements {
+		return nil, fmt.Errorf("total increments (%d) does not match expected total increments (%d)", totalIncrementsInSplits, totalIncrements)
+	}
+
+	return newQuote(method, tokenOut, bestSplit.amountIn, resultRoutes), nil
 }
 
 // This function computes the inAmountIncrement for a given proportion p.

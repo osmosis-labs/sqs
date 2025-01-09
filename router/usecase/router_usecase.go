@@ -162,7 +162,12 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	}
 
 	// Compute split route quote
-	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenIn, method)
+	var topSplitQuote domain.Quote
+	if method == domain.TokenSwapMethodExactIn {
+		topSplitQuote, err = getSplitQuote(ctx, rankedRoutes, tokenIn, method)
+	} else {
+		topSplitQuote, err = getSplitQuoteExactAmountOut(ctx, rankedRoutes, tokenIn, method)
+	}
 	if err != nil {
 		// If error occurs in splits, return the single route quote
 		// rather than failing.
@@ -172,6 +177,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	finalQuote := topSingleRouteQuote
 
 	// If the split route quote is better than the single route quote, return the split route quote
+	// TODO:
 	if topSplitQuote.GetAmountOut().Amount.GT(topSingleRouteQuote.GetAmountOut().Amount) {
 		routes := topSplitQuote.GetRoute()
 
