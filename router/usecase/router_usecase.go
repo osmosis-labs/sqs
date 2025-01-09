@@ -252,7 +252,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 // Additionally, the routes are converted into route.Route.Impl type.
 // CONTRACT: rankedRoutes are sorted in decreasing order by amount out
 // from first to last.
-func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []RouteWithOutAmount) []route.RouteImpl {
+func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []RouteWithAmount) []route.RouteImpl {
 	// We use two maps for all routes and for the current route.
 	// This is so that if a route ends up getting filtered, its pool IDs are not added to the combined map.
 	combinedPoolIDsMap := make(map[uint64]struct{})
@@ -461,6 +461,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 	}
 
 	// AmountIn is the first token of the asset pair.
+	// TODO:
 	result := quoteExactAmountIn{AmountIn: tokenIn}
 
 	pools := make([]domain.RoutablePool, 0, len(poolIDs))
@@ -494,7 +495,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 
 	// Construct the final multi-hop custom direct quote route.
 	result.Route = []domain.SplitRoute{
-		&RouteWithOutAmount{
+		&RouteWithAmount{
 			RouteImpl: route.RouteImpl{
 				Pools: pools,
 			},

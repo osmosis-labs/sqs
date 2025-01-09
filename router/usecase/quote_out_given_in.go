@@ -47,6 +47,10 @@ type quoteExactAmountIn struct {
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
+//
+// This is representation layer actually.
+// It seems that this layer is responsible for preparing the data to be sent to the client.
+// Can we have "quote" as a struct in the domain layer?
 func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
@@ -74,7 +78,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
 		amountInFraction := q.AmountIn.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), domain.TokenSwapMethodExactIn, logger)
+		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPoolsExactAmountIn(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}
@@ -82,7 +86,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		totalSpotPriceInBaseOutQuote = totalSpotPriceInBaseOutQuote.AddMut(routeSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
 		totalEffectiveSpotPriceInBaseOutQuote = totalEffectiveSpotPriceInBaseOutQuote.AddMut(effectiveSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
 
-		resultRoutes = append(resultRoutes, &RouteWithOutAmount{
+		resultRoutes = append(resultRoutes, &RouteWithAmount{
 			RouteImpl: route.RouteImpl{
 				Pools:                      newPools,
 				HasGeneralizedCosmWasmPool: curRoute.ContainsGeneralizedCosmWasmPool(),

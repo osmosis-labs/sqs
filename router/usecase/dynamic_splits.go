@@ -37,7 +37,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 			return nil, err
 		}
 
-		return newQuote(method, tokenIn, coinOut.Amount, []domain.SplitRoute{&RouteWithOutAmount{
+		return newQuote(method, tokenIn, coinOut.Amount, []domain.SplitRoute{&RouteWithAmount{
 			RouteImpl: route,
 			OutAmount: coinOut.Amount,
 			InAmount:  tokenIn.Amount,
@@ -144,7 +144,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 			return nil, fmt.Errorf("out amount is zero when in is not (%s), route index (%d)", inAmount, i)
 		}
 
-		resultRoutes = append(resultRoutes, &RouteWithOutAmount{
+		resultRoutes = append(resultRoutes, &RouteWithAmount{
 			RouteImpl: currentRoute,
 			InAmount:  inAmount,
 			OutAmount: currentRouteAmtOut,

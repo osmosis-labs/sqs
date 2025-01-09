@@ -54,7 +54,7 @@ var (
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
 // with token in as base and token out as quote.
-func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, method domain.TokenSwapMethod, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPoolsExactAmountIn(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
 		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()
@@ -81,11 +81,7 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, met
 		}
 
 		// Charge taker fee
-		if method == domain.TokenSwapMethodExactIn {
-			tokenIn = pool.ChargeTakerFeeExactIn(tokenIn)
-		} else {
-			tokenIn = pool.ChargeTakerFeeExactOut(tokenIn)
-		}
+		tokenIn = pool.ChargeTakerFeeExactIn(tokenIn)
 
 		tokenOut, err := pool.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
@@ -112,6 +108,62 @@ func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, met
 		tokenIn = tokenOut
 	}
 	return newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, nil
+}
+
+func (r RouteImpl) PrepareResultPoolsExactAmountOut(ctx context.Context, tokenOut sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+	var (
+		routeSpotPriceOutBaseInQuote     = osmomath.OneDec()
+		effectiveSpotPriceOutBaseInQuote = osmomath.OneDec()
+	)
+
+	newPools := make([]domain.RoutablePool, 0, len(r.Pools))
+
+	for _, pool := range r.Pools {
+		// Compute spot price before swap.
+		spotPriceOutBaseInQuote, err := pool.CalcSpotPrice(ctx, tokenOut.Denom, pool.GetTokenInDenom())
+		if err != nil {
+			logger.Error("failed to calculate spot price for pool", zap.Error(err))
+
+			// We don't want to fail the entire quote if one pool fails to calculate spot price.
+			// This might cause miestimaions downsream but we a
+			spotPriceOutBaseInQuote = osmomath.ZeroBigDec()
+
+			// Increment the counter for the error
+			spotPriceErrorResultCounter.WithLabelValues(
+				tokenOut.Denom,
+				pool.GetTokenOutDenom(),
+				r.Pools[len(r.Pools)-1].GetTokenOutDenom(),
+			).Inc()
+		}
+
+		// Charge taker fee
+		tokenOut = pool.ChargeTakerFeeExactOut(tokenOut)
+
+		tokenIn, err := pool.CalculateTokenInByTokenOut(ctx, tokenOut)
+		if err != nil {
+			return nil, osmomath.Dec{}, osmomath.Dec{}, err
+		}
+
+		// Update effective spot price
+		effectiveSpotPriceOutBaseInQuote.MulMut(tokenIn.Amount.ToLegacyDec().QuoMut(tokenOut.Amount.ToLegacyDec()))
+
+		// Note, in the future we may want to increase the precision of the spot price
+		routeSpotPriceOutBaseInQuote.MulMut(spotPriceOutBaseInQuote.Dec())
+
+		newPool := pools.NewExactAmountOutRoutableResultPool(
+			pool.GetId(),
+			pool.GetType(),
+			pool.GetSpreadFactor(),
+			pool.GetTokenInDenom(),
+			pool.GetTakerFee(),
+			pool.GetCodeID(),
+		)
+
+		newPools = append(newPools, newPool)
+
+		tokenOut = tokenIn
+	}
+	return newPools, routeSpotPriceOutBaseInQuote, effectiveSpotPriceOutBaseInQuote, nil
 }
 
 // GetPools implements Route.
@@ -147,6 +199,36 @@ func (r *RouteImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.
 	}
 
 	return tokenOut, nil
+}
+
+// CalculateTokenOutByTokenIn implements Route.
+func (r *RouteImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (tokenIn sdk.Coin, err error) {
+	defer func() {
+		// TODO: cover this by test
+		if r := recover(); r != nil {
+			tokenOut = sdk.Coin{}
+			err = fmt.Errorf("error when calculating out by in in route: %v", r)
+		}
+	}()
+
+	for _, pool := range r.Pools {
+		// Charge taker fee
+		tokenOut = pool.ChargeTakerFeeExactOut(tokenOut)
+		tokenOutAmt := tokenOut.Amount.ToLegacyDec()
+
+		if tokenOutAmt.IsNil() || tokenOutAmt.IsZero() {
+			return sdk.Coin{}, nil
+		}
+
+		tokenIn, err = pool.CalculateTokenInByTokenOut(ctx, tokenOut)
+		if err != nil {
+			return sdk.Coin{}, err
+		}
+
+		tokenOut = tokenIn
+	}
+
+	return tokenIn, nil
 }
 
 // String implements domain.Route.

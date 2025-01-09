@@ -20,50 +20,93 @@ import (
 // Returns best quote as well as all routes sorted by amount out and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
 
-	routesWithAmountOut := make([]RouteWithOutAmount, 0, len(routes))
+	// What is that?
+	// Routes with amount out holds output amount for each route, for swap exact amount in method?
+	routesWithAmountOut := make([]RouteWithAmount, 0, len(routes))
 
 	errors := []error{}
 
-	for _, route := range routes {
-		directRouteTokenOut, err := route.CalculateTokenOutByTokenIn(ctx, tokenIn)
-		if err != nil {
-			logger.Debug("skipping single route due to error in estimate", zap.Error(err))
-			errors = append(errors, err)
-			continue
+	switch method {
+	case domain.TokenSwapMethodExactIn:
+		for _, route := range routes {
+			directRouteTokenOut, err := route.CalculateTokenOutByTokenIn(ctx, tokenIn)
+			if err != nil {
+				logger.Debug("skipping single route due to error in estimate", zap.Error(err))
+				errors = append(errors, err)
+				continue
+			}
+
+			if directRouteTokenOut.Amount.IsNil() {
+				directRouteTokenOut.Amount = osmomath.ZeroInt()
+			}
+
+			routesWithAmountOut = append(routesWithAmountOut, RouteWithAmount{
+				RouteImpl: route,
+				InAmount:  tokenIn.Amount,
+				OutAmount: directRouteTokenOut.Amount, // TODO:
+			})
 		}
 
-		if directRouteTokenOut.Amount.IsNil() {
-			directRouteTokenOut.Amount = osmomath.ZeroInt()
+		// If we skipped all routes due to errors, return the first error
+		if len(routesWithAmountOut) == 0 && len(errors) > 0 {
+			// If we encounter this problem, we attempte to invalidate all caches to recompute the routes
+			// completely.
+			// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
+			// If the original routes were computed only through the zero liquidity token, they will be recomputed
+			// through another token due to changed order.
+
+			// Note: the zero length check occurred at the start of function.
+			tokenOutDenom := routes[0].GetTokenOutDenom()
+
+			r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom))
+			tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
+			r.rankedRouteCache.Delete(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+
+			return nil, nil, errors[0]
 		}
 
-		routesWithAmountOut = append(routesWithAmountOut, RouteWithOutAmount{
-			RouteImpl: route,
-			InAmount:  tokenIn.Amount,
-			OutAmount: directRouteTokenOut.Amount,
-		})
-	}
+	case domain.TokenSwapMethodExactOut:
+		for _, route := range routes {
+			directRouteTokenIn, err := route.CalculateTokenInByTokenOut(ctx, tokenIn)
+			if err != nil {
+				logger.Debug("skipping single route due to error in estimate", zap.Error(err))
+				errors = append(errors, err)
+				continue
+			}
 
-	// If we skipped all routes due to errors, return the first error
-	if len(routesWithAmountOut) == 0 && len(errors) > 0 {
-		// If we encounter this problem, we attempte to invalidate all caches to recompute the routes
-		// completely.
-		// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
-		// If the original routes were computed only through the zero liquidity token, they will be recomputed
-		// through another token due to changed order.
+			if directRouteTokenIn.Amount.IsNil() {
+				directRouteTokenIn.Amount = osmomath.ZeroInt()
+			}
 
-		// Note: the zero length check occurred at the start of function.
-		tokenOutDenom := routes[0].GetTokenOutDenom()
+			routesWithAmountOut = append(routesWithAmountOut, RouteWithAmount{
+				RouteImpl: route,
+				InAmount:  directRouteTokenIn.Amount, // TODO
+				OutAmount: tokenIn.Amount, 
+			})
+		}
 
-		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom))
-		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
-		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+		// If we skipped all routes due to errors, return the first error
+		if len(routesWithAmountOut) == 0 && len(errors) > 0 {
+			// If we encounter this problem, we attempte to invalidate all caches to recompute the routes
+			// completely.
+			// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
+			// If the original routes were computed only through the zero liquidity token, they will be recomputed
+			// through another token due to changed order.
 
-		return nil, nil, errors[0]
+			// Note: the zero length check occurred at the start of function.
+			tokenInDenom := routes[0].GetTokenInDenom()
+
+			r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(tokenIn.Denom, tokenInDenom))
+			tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
+			r.rankedRouteCache.Delete(formatRankedRouteCacheKey(tokenIn.Denom, tokenInDenom, tokenInOrderOfMagnitude))
+
+			return nil, nil, errors[0]
+		}
 	}
 
 	// Sort by amount out in descending order
@@ -73,11 +116,8 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 
 	bestRoute := routesWithAmountOut[0]
 
-	finalQuote := &quoteExactAmountIn{
-		AmountIn:  tokenIn,
-		AmountOut: sdk.Coin{Amount: bestRoute.OutAmount},
-		Route:     []domain.SplitRoute{&bestRoute},
-	}
+	// Here gets quote contructed!
+	finalQuote := newQuote(method, tokenIn, bestRoute.OutAmount, []domain.SplitRoute{&bestRoute})
 
 	return finalQuote, routesWithAmountOut, nil
 }
@@ -211,21 +251,21 @@ ROUTE_LOOP:
 	}, nil
 }
 
-type RouteWithOutAmount struct {
+type RouteWithAmount struct {
 	route.RouteImpl
 	OutAmount osmomath.Int "json:\"out_amount\""
 	InAmount  osmomath.Int "json:\"in_amount\""
 }
 
-var _ domain.SplitRoute = &RouteWithOutAmount{}
+var _ domain.SplitRoute = &RouteWithAmount{}
 
 // GetAmountIn implements domain.SplitRoute.
-func (r RouteWithOutAmount) GetAmountIn() osmomath.Int {
+func (r RouteWithAmount) GetAmountIn() osmomath.Int {
 	return r.InAmount
 }
 
 // GetAmountOut implements domain.SplitRoute.
-func (r RouteWithOutAmount) GetAmountOut() math.Int {
+func (r RouteWithAmount) GetAmountOut() math.Int {
 	return r.OutAmount
 }
 
