@@ -71,7 +71,12 @@ type RouterUsecase interface {
 	GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64, method domain.TokenSwapMethod) (domain.Quote, error)
 	// GetCustomDirectQuoteMultiPool calculates direct custom quote for given swap method over given poolID route.
 	// Underlying implementation uses GetCustomDirectQuote.
-	GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64, method domain.TokenSwapMethod) (domain.Quote, error)
+	GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error)
+
+	// GetCustomDirectQuoteMultiPool calculates direct custom quote for given tokenOut and tokenInDenom over given poolID route.
+	// Underlying implementation uses GetCustomDirectQuote.
+	GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error)
+
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
 	GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 

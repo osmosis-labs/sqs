@@ -86,7 +86,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 			routesWithAmountOut = append(routesWithAmountOut, RouteWithAmount{
 				RouteImpl: route,
 				InAmount:  directRouteTokenIn.Amount, // TODO
-				OutAmount: tokenIn.Amount, 
+				OutAmount: tokenIn.Amount,
 			})
 		}
 
