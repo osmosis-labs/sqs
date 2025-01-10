@@ -259,7 +259,6 @@ require (
 )
 
 replace (
-
 	// TODO(https://github.com/cosmos/rosetta/issues/76): Rosetta requires cosmossdk.io/core v0.12.0 erroneously but
 	// should use v0.11.0. The Cosmos build fails with types/context.go:65:29: undefined: comet.BlockInfo otherwise.
 	cosmossdk.io/core => cosmossdk.io/core v0.11.0
@@ -284,7 +283,8 @@ replace (
 	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203152623-9a5d42a415b7
 
 	// replacement for decoupling Node releases from SQS ( BE-658 )
-	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203152623-9a5d42a415b7 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20250110081310-68d02d313f0c
+	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203152623-9a5d42a415b7 => github.com/osmosis-labs/osmosis/v28 v28.0.2-0.20250110121215-ec32df8e2c32
+
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
 
