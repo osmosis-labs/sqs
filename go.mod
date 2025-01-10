@@ -264,7 +264,7 @@ replace (
 	cosmossdk.io/core => cosmossdk.io/core v0.11.0
 
 	// Needs to be replaced due to iavlFastNodeModuleWhitelist feature
-	cosmossdk.io/store => github.com/osmosis-labs/cosmos-sdk/store v0.1.0-alpha.1.0.20240509221435-b8feb2ffb728
+	cosmossdk.io/store => github.com/osmosis-labs/cosmos-sdk/store v1.1.1-v0.50.11-v28-osmo
 
 	// Direct cometbft branch link: https://github.com/osmosis-labs/cometbft/tree/osmo-v27/0.38.12, current branch: osmo-v27/v0.38.12
 	// Direct commit link: https://github.com/osmosis-labs/cometbft/commit/2305cecebc3aadee694c6d5e05f9d34b5630f564
@@ -274,7 +274,7 @@ replace (
 	// Direct cosmos-sdk branch link: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo-v28/0.50.11, current branch: osmo-v28/0.50.11
 	// Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/eb1a8e88a4ddf77bc2fe235fc07c57016b7386f0
 	// Direct tag link: https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.50.11-v28-osmo-1
-	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.50.11-v28-osmo-1
+	github.com/cometbft/cometbft => github.com/osmosis-labs/cometbft v0.38.15-v27-osmo-2
 
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
@@ -287,6 +287,9 @@ replace (
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
+
+	// replacement for decoupling Node releases from SQS ( BE-658 )
+	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203152623-9a5d42a415b7 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20250110081310-68d02d313f0c
 )
 
 exclude github.com/onsi/ginkgo v1.16.4
