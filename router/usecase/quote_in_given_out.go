@@ -42,14 +42,14 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	totalAmountOut := q.AmountOut.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
-	totalSpotPriceInBaseOutQuote := osmomath.ZeroDec()
-	totalEffectiveSpotPriceInBaseOutQuote := osmomath.ZeroDec()
+	totalSpotPriceOutBaseInQuote := osmomath.ZeroDec()
+	totalEffectiveSpotPriceOutBaseInQuote := osmomath.ZeroDec()
 
 	resultRoutes := make([]domain.SplitRoute, 0, len(q.Route))
 
 	for _, curRoute := range q.Route {
 		routeTotalFee := osmomath.ZeroDec()
-		routeAmountInFraction := curRoute.GetAmountIn().ToLegacyDec().Quo(totalAmountOut)
+		routeAmountOutFraction := curRoute.GetAmountOut().ToLegacyDec().Quo(totalAmountOut)
 
 		// Calculate the spread factor across pools in the route
 		for _, pool := range curRoute.GetPools() {
@@ -62,16 +62,16 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 		}
 
 		// Update the spread factor pro-rated by the amount in
-		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
+		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountOutFraction))
 
-		amountInFraction := q.AmountOut.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPoolsExactAmountOut(ctx, sdk.NewCoin(q.AmountOut.Denom, amountInFraction), logger)
+		amountOutFraction := q.AmountOut.Amount.ToLegacyDec().MulMut(routeAmountOutFraction).TruncateInt()
+		newPools, routeSpotPriceOutBaseInQuote, effectiveSpotPriceOutBaseInQuote, err := curRoute.PrepareResultPoolsExactAmountOut(ctx, sdk.NewCoin(q.AmountOut.Denom, amountOutFraction), logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}
 
-		totalSpotPriceInBaseOutQuote = totalSpotPriceInBaseOutQuote.AddMut(routeSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
-		totalEffectiveSpotPriceInBaseOutQuote = totalEffectiveSpotPriceInBaseOutQuote.AddMut(effectiveSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
+		totalSpotPriceOutBaseInQuote = totalSpotPriceOutBaseInQuote.AddMut(routeSpotPriceOutBaseInQuote.MulMut(routeAmountOutFraction))
+		totalEffectiveSpotPriceOutBaseInQuote = totalEffectiveSpotPriceOutBaseInQuote.AddMut(effectiveSpotPriceOutBaseInQuote.MulMut(routeAmountOutFraction))
 
 		resultRoutes = append(resultRoutes, &RouteWithAmount{
 			RouteImpl: route.RouteImpl{
@@ -84,13 +84,13 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	}
 
 	// Calculate price impact
-	if !totalSpotPriceInBaseOutQuote.IsZero() {
-		q.PriceImpact = totalEffectiveSpotPriceInBaseOutQuote.Quo(totalSpotPriceInBaseOutQuote).SubMut(one)
+	if !totalSpotPriceOutBaseInQuote.IsZero() {
+		q.PriceImpact = totalEffectiveSpotPriceOutBaseInQuote.Quo(totalSpotPriceOutBaseInQuote).SubMut(one)
 	}
 
 	q.EffectiveFee = totalFeeAcrossRoutes
 	q.Route = resultRoutes
-	q.InBaseOutQuoteSpotPrice = totalSpotPriceInBaseOutQuote
+	q.InBaseOutQuoteSpotPrice = totalSpotPriceOutBaseInQuote
 
 	return q.Route, q.EffectiveFee, nil
 }

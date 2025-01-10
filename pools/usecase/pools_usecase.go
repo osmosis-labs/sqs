@@ -150,7 +150,7 @@ func (p *poolsUseCase) GetAllPools() (pools []sqsdomain.PoolI, err error) {
 }
 
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
+func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.CandidateRoutes, tokenDenom string) ([]route.RouteImpl, error) {
 	// We track whether a route contains a generalized cosmwasm pool
 	// so that we can exclude it from split quote logic.
 	// The reason for this is that making network requests to chain is expensive.
@@ -160,8 +160,6 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 	// Convert each candidate route into the actual route with all pool data
 	routes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
-		previousTokenOutDenom := tokenInDenom
-
 		routablePools := make([]domain.RoutablePool, 0, len(candidateRoute.Pools))
 
 		// For fault tolerance, instead of bubbling up the error and skipping an entire
@@ -175,12 +173,12 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 			}
 
 			// Get taker fee
-			takerFee, exists := p.routerRepository.GetTakerFee(previousTokenOutDenom, candidatePool.TokenOutDenom)
+			takerFee, exists := p.routerRepository.GetTakerFee(tokenDenom, candidatePool.TokenDenom)
 			if !exists {
 				takerFee = sqsdomain.DefaultTakerFee
 			}
 
-			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenDenom, takerFee, p.cosmWasmPoolsParams)
 			if err != nil {
 				skipErrorRoute = true
 				break

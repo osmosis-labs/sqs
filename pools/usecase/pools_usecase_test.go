@@ -116,8 +116,8 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			{
 				Pools: []sqsdomain.CandidatePool{
 					{
-						ID:            defaultPoolID,
-						TokenOutDenom: denomTwo,
+						ID:         defaultPoolID,
+						TokenDenom: denomTwo,
 					},
 				},
 			},

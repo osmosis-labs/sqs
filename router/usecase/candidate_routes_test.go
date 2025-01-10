@@ -111,7 +111,7 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_HappyPath() {
 					s.Require().True(slices.Contains(poolDenoms, curTokenInDenom))
 
 					// Pool contains token out
-					tokenOut := pool.TokenOutDenom
+					tokenOut := pool.TokenDenom
 					s.Require().True(slices.Contains(poolInRoute.GetPoolDenoms(), tokenOut))
 
 					// Change tokenInDenom to tokenOutDenom for the next iteration

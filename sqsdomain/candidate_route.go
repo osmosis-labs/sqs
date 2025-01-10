@@ -3,8 +3,8 @@ package sqsdomain
 // CandidatePool is a data structure representing a
 // candidate pool to be used for routing.
 type CandidatePool struct {
-	ID            uint64
-	TokenOutDenom string
+	ID         uint64
+	TokenDenom string
 }
 
 // CandidateRoute is a data structure representing a

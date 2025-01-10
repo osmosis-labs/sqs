@@ -273,8 +273,8 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 
 	defaultDenomOneTwoOutTwoPool := usecase.CandidatePoolWrapper{
 		CandidatePool: sqsdomain.CandidatePool{
-			ID:            defaultPoolID,
-			TokenOutDenom: DenomTwo,
+			ID:         defaultPoolID,
+			TokenDenom: DenomTwo,
 		},
 		PoolDenoms: []string{DenomOne, DenomTwo},
 	}
@@ -308,8 +308,8 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 						defaultDenomOneTwoOutTwoPool,
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomThree,
+								ID:         defaultPoolID + 1,
+								TokenDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomTwo, DenomThree},
 						},
@@ -330,15 +330,15 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomThree,
+								ID:         defaultPoolID + 1,
+								TokenDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomOne, DenomThree},
 						},
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 2,
-								TokenOutDenom: DenomTwo,
+								ID:         defaultPoolID + 2,
+								TokenDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomTwo, DenomThree},
 						},
@@ -371,8 +371,8 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomThree,
+								ID:         defaultPoolID + 1,
+								TokenDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomTwo, DenomThree},
 						},
@@ -390,8 +390,8 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomOne,
+								ID:         defaultPoolID + 1,
+								TokenDenom: DenomOne,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
@@ -409,8 +409,8 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomOne,
+								ID:         defaultPoolID,
+								TokenDenom: DenomOne,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
@@ -427,8 +427,8 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomThree,
+								ID:         defaultPoolID,
+								TokenDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
@@ -447,36 +447,36 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomTwo,
+								ID:         defaultPoolID,
+								TokenDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomTwo,
+								ID:         defaultPoolID + 1,
+								TokenDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 2,
-								TokenOutDenom: DenomFour,
+								ID:         defaultPoolID + 2,
+								TokenDenom: DenomFour,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 3,
-								TokenOutDenom: DenomThree,
+								ID:         defaultPoolID + 3,
+								TokenDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomFour, DenomOne},
 						},
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 4,
-								TokenOutDenom: DenomThree,
+								ID:         defaultPoolID + 4,
+								TokenDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomOne, DenomThree},
 						},
@@ -493,22 +493,22 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomTwo,
+								ID:         defaultPoolID,
+								TokenDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomTwo,
+								ID:         defaultPoolID + 1,
+								TokenDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID + 2,
-								TokenOutDenom: DenomTwo,
+								ID:         defaultPoolID + 2,
+								TokenDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},
@@ -525,15 +525,15 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomTwo,
+								ID:         defaultPoolID,
+								TokenDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomFour,
+								ID:         defaultPoolID,
+								TokenDenom: DenomFour,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},

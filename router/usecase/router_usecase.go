@@ -239,7 +239,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		return nil, err
 	}
 
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom)
 	if err != nil {
 		r.logger.Error("error ranking routes for pricing", zap.Error(err))
 		return nil, err
@@ -317,7 +317,7 @@ func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []RouteWithAmount)
 func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -349,6 +349,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	}
 
 	// If top routes are not present in cache, retrieve unranked candidate routes
+	// TODO?
 	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))
@@ -437,7 +438,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	candidateRoutes := r.createCandidateRouteByPoolID(tokenOutDenom, poolID)
 
 	// Convert candidate route into a route with all the pool data
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom)
 	if err != nil {
 		return nil, err
 	}
@@ -837,8 +838,8 @@ func convertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) sqsdomain.Ca
 
 		for _, randkedPool := range rankedRoute.GetPools() {
 			candidatePool := sqsdomain.CandidatePool{
-				ID:            randkedPool.GetId(),
-				TokenOutDenom: randkedPool.GetTokenOutDenom(),
+				ID:         randkedPool.GetId(),
+				TokenDenom: randkedPool.GetTokenOutDenom(),
 			}
 
 			candidateRoute.Pools = append(candidateRoute.Pools, candidatePool)
@@ -971,8 +972,8 @@ func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenOutDenom string, p
 			{
 				Pools: []sqsdomain.CandidatePool{
 					{
-						ID:            poolID,
-						TokenOutDenom: tokenOutDenom,
+						ID:         poolID,
+						TokenDenom: tokenOutDenom,
 					},
 				},
 			},

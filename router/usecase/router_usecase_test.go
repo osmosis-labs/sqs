@@ -53,8 +53,8 @@ var (
 			{
 				Pools: []sqsdomain.CandidatePool{
 					{
-						ID:            poolIDOneBalancer,
-						TokenOutDenom: ATOM,
+						ID:         poolIDOneBalancer,
+						TokenDenom: ATOM,
 					},
 				},
 			},
@@ -69,8 +69,8 @@ var (
 			{
 				Pools: []sqsdomain.CandidatePool{
 					{
-						ID:            poolID1135Concentrated,
-						TokenOutDenom: ATOM,
+						ID:         poolID1135Concentrated,
+						TokenDenom: ATOM,
 					},
 				},
 			},
@@ -123,8 +123,8 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			EmptyCandidateRoute,
 			[]sqsdomain.CandidatePool{
 				{
-					ID:            defaultPool.GetId(),
-					TokenOutDenom: tokenOutDenom,
+					ID:         defaultPool.GetId(),
+					TokenDenom: tokenOutDenom,
 				},
 			},
 		)
@@ -133,8 +133,8 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			EmptyCandidateRoute,
 			[]sqsdomain.CandidatePool{
 				{
-					ID:            defaultPool.GetId() + 1,
-					TokenOutDenom: tokenOutDenom,
+					ID:         defaultPool.GetId() + 1,
+					TokenDenom: tokenOutDenom,
 				},
 			},
 		)
@@ -585,8 +585,8 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 				Routes: []sqsdomain.CandidateRoute{
 					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
 						{
-							ID:            defaultPoolID,
-							TokenOutDenom: DenomOne,
+							ID:         defaultPoolID,
+							TokenDenom: DenomOne,
 						},
 					}),
 				},
@@ -612,16 +612,16 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 				Routes: []sqsdomain.CandidateRoute{
 					WithCandidateRoutePools(sqsdomain.CandidateRoute{}, []sqsdomain.CandidatePool{
 						{
-							ID:            defaultPoolID,
-							TokenOutDenom: DenomOne,
+							ID:         defaultPoolID,
+							TokenDenom: DenomOne,
 						},
 					}),
 					WithCandidateRoutePools(sqsdomain.CandidateRoute{
 						IsCanonicalOrderboolRoute: true,
 					}, []sqsdomain.CandidatePool{
 						{
-							ID:            defaultPoolID + 1,
-							TokenOutDenom: DenomOne,
+							ID:         defaultPoolID + 1,
+							TokenDenom: DenomOne,
 						},
 					}),
 				},

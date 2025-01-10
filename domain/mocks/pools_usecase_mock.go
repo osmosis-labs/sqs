@@ -111,7 +111,7 @@ func (pm *PoolsUsecaseMock) GetRoutesFromCandidates(candidateRoutes sqsdomain.Ca
 			}
 
 			// TODO: note that taker fee is force set to zero
-			routablePool, err := pools.NewRoutablePool(foundPool, candidatePool.TokenOutDenom, osmomath.ZeroDec(), cosmwasmdomain.CosmWasmPoolsParams{
+			routablePool, err := pools.NewRoutablePool(foundPool, candidatePool.TokenDenom, osmomath.ZeroDec(), cosmwasmdomain.CosmWasmPoolsParams{
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			})
 			if err != nil {

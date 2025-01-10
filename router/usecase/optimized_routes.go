@@ -156,7 +156,7 @@ ROUTE_LOOP:
 		}
 
 		lastPool := candidateRoutePools[len(candidateRoutePools)-1]
-		currentRouteTokenOutDenom := lastPool.TokenOutDenom
+		currentRouteTokenOutDenom := lastPool.TokenDenom
 
 		// Validate that route pools do not have the token in denom or token out denom
 		previousTokenOut := tokenInDenom
@@ -176,7 +176,7 @@ ROUTE_LOOP:
 			}
 
 			currentPoolDenoms := candidateRoutePools[j].PoolDenoms
-			currentPoolTokenOutDenom := currentPool.TokenOutDenom
+			currentPoolTokenOutDenom := currentPool.TokenDenom
 
 			// Check that token in denom and token out denom are in the pool
 			// Also check that previous token out is in the pool
@@ -237,8 +237,8 @@ ROUTE_LOOP:
 		// Convert route to the final output format
 		for _, pool := range candidateRoutePools {
 			filteredRoute.Pools = append(filteredRoute.Pools, sqsdomain.CandidatePool{
-				ID:            pool.ID,
-				TokenOutDenom: pool.TokenOutDenom,
+				ID:         pool.ID,
+				TokenDenom: pool.TokenDenom,
 			})
 		}
 

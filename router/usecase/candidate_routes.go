@@ -76,8 +76,8 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 					Pools: []candidatePoolWrapper{
 						{
 							CandidatePool: sqsdomain.CandidatePool{
-								ID:            canonicalOrderbook.GetId(),
-								TokenOutDenom: tokenOutDenom,
+								ID:         canonicalOrderbook.GetId(),
+								TokenDenom: tokenOutDenom,
 							},
 							PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
 						},
@@ -99,7 +99,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 		if len(currentRoute) > 0 {
 			lastPool := currentRoute[len(currentRoute)-1]
 			lastPoolID = lastPool.ID
-			currenTokenInDenom = lastPool.TokenOutDenom
+			currenTokenInDenom = lastPool.TokenDenom
 		}
 
 		denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
@@ -207,8 +207,8 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 
 					newPath = append(newPath, candidatePoolWrapper{
 						CandidatePool: sqsdomain.CandidatePool{
-							ID:            poolID,
-							TokenOutDenom: denom,
+							ID:         poolID,
+							TokenDenom: denom,
 						},
 						PoolDenoms: poolDenoms,
 					})
