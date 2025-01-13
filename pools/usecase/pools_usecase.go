@@ -150,7 +150,7 @@ func (p *poolsUseCase) GetAllPools() (pools []sqsdomain.PoolI, err error) {
 }
 
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.CandidateRoutes, tokenDenom string) ([]route.RouteImpl, error) {
+func (p *poolsUseCase) GetRoutesFromCandidates(method domain.TokenSwapMethod, candidateRoutes sqsdomain.CandidateRoutes, tokenDenom string) ([]route.RouteImpl, error) {
 	// We track whether a route contains a generalized cosmwasm pool
 	// so that we can exclude it from split quote logic.
 	// The reason for this is that making network requests to chain is expensive.
@@ -178,7 +178,14 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes sqsdomain.Candida
 				takerFee = sqsdomain.DefaultTakerFee
 			}
 
-			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenDenom, takerFee, p.cosmWasmPoolsParams)
+			var (
+				routablePool domain.RoutablePool
+			)
+			if method == domain.TokenSwapMethodExactIn {
+				routablePool, err = pools.NewRoutablePool(pool, tokenDenom, candidatePool.TokenDenom, takerFee, p.cosmWasmPoolsParams)
+			} else {
+				routablePool, err = pools.NewRoutablePool(pool, candidatePool.TokenDenom, tokenDenom, takerFee, p.cosmWasmPoolsParams)
+			}
 			if err != nil {
 				skipErrorRoute = true
 				break
@@ -263,7 +270,7 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 
 	// N.B.: Empty string for token out denom because it is irrelevant for calculating spot price.
 	// It is only relevant in the context of routing
-	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmPoolsParams)
+	routablePool, err := pools.NewRoutablePool(pool, "", "", takerFee, p.cosmWasmPoolsParams)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}

@@ -37,7 +37,8 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 }
 
 // FindCandidateRoutes implements domain.CandidateRouteFinder.
-func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (sqsdomain.CandidateRoutes, error) {
+// TODO: is there any logic that needs to be altered for ExactAmountOut?
+func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (sqsdomain.CandidateRoutes, error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
 	// Preallocate constant visited map size to avoid reallocations.
@@ -78,6 +79,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 							CandidatePool: sqsdomain.CandidatePool{
 								ID:         canonicalOrderbook.GetId(),
 								TokenDenom: tokenOutDenom,
+								SwapMethod: method,
 							},
 							PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
 						},
@@ -209,6 +211,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 						CandidatePool: sqsdomain.CandidatePool{
 							ID:         poolID,
 							TokenDenom: denom,
+							SwapMethod: method,
 						},
 						PoolDenoms: poolDenoms,
 					})

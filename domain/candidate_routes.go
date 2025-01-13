@@ -68,7 +68,7 @@ type CandidateRouteSearcher interface {
 	// FindCandidateRoutes finds candidate routes for a given tokenIn and tokenOutDenom
 	// using the given options.
 	// Returns the candidate routes and an error if any.
-	FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, options CandidateRouteSearchOptions) (sqsdomain.CandidateRoutes, error)
+	FindCandidateRoutes(method int, tokenIn sdk.Coin, tokenOutDenom string, options CandidateRouteSearchOptions) (sqsdomain.CandidateRoutes, error)
 }
 
 // CandidateRouteDenomData represents the data for a candidate route for a given denom.

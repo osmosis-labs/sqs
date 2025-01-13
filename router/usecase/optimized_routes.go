@@ -63,9 +63,9 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 			// Note: the zero length check occurred at the start of function.
 			tokenOutDenom := routes[0].GetTokenOutDenom()
 
-			r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom))
+			r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(method, tokenIn.Denom, tokenOutDenom))
 			tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
-			r.rankedRouteCache.Delete(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+			r.rankedRouteCache.Delete(formatRankedRouteCacheKey(method, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
 
 			return nil, nil, errors[0]
 		}
@@ -85,7 +85,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 
 			routesWithAmountOut = append(routesWithAmountOut, RouteWithAmount{
 				RouteImpl: route,
-				InAmount:  directRouteTokenIn.Amount, // TODO
+				InAmount:  directRouteTokenIn.Amount, 
 				OutAmount: tokenIn.Amount,
 			})
 		}
@@ -101,9 +101,9 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 			// Note: the zero length check occurred at the start of function.
 			tokenInDenom := routes[0].GetTokenInDenom()
 
-			r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(tokenIn.Denom, tokenInDenom))
+			r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(method, tokenIn.Denom, tokenInDenom))
 			tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
-			r.rankedRouteCache.Delete(formatRankedRouteCacheKey(tokenIn.Denom, tokenInDenom, tokenInOrderOfMagnitude))
+			r.rankedRouteCache.Delete(formatRankedRouteCacheKey(method, tokenIn.Denom, tokenInDenom, tokenInOrderOfMagnitude))
 
 			return nil, nil, errors[0]
 		}
@@ -239,6 +239,7 @@ ROUTE_LOOP:
 			filteredRoute.Pools = append(filteredRoute.Pools, sqsdomain.CandidatePool{
 				ID:         pool.ID,
 				TokenDenom: pool.TokenDenom,
+				SwapMethod: pool.SwapMethod,
 			})
 		}
 

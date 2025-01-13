@@ -274,7 +274,7 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 	tokenIn = chainDenoms[0]
 	tokenOutDenom = chainDenoms[1]
 
-	routes, err := a.RUsecase.GetCandidateRoutes(ctx, sdk.NewCoin(tokenIn, osmomath.OneInt()), tokenOutDenom)
+	routes, err := a.RUsecase.GetCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, sdk.NewCoin(tokenIn, osmomath.OneInt()), tokenOutDenom)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -310,7 +310,7 @@ func (a *RouterHandler) GetCachedCandidateRoutes(c echo.Context) error {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	routes, _, err := a.RUsecase.GetCachedCandidateRoutes(ctx, tokenIn, tokenOutDenom)
+	routes, _, err := a.RUsecase.GetCachedCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, tokenIn, tokenOutDenom)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}

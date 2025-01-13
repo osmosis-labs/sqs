@@ -5,6 +5,7 @@ package sqsdomain
 type CandidatePool struct {
 	ID         uint64
 	TokenDenom string
+	SwapMethod int
 }
 
 // CandidateRoute is a data structure representing a

@@ -78,7 +78,7 @@ type RouterUsecase interface {
 	GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error)
 
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
-	GetCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
+	GetCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
 
 	GetBaseFee() domain.BaseFee
 
@@ -90,7 +90,7 @@ type RouterUsecase interface {
 	// It does not recompute the routes if they are not present in cache.
 	// Since we may cache zero routes, it returns false if the routes are not present in cache. Returns true otherwise.
 	// Returns error if cache is disabled.
-	GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, bool, error)
+	GetCachedCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, bool, error)
 	// StoreRoutes stores all router state in the files locally. Used for debugging.
 	StoreRouterStateFiles() error
 

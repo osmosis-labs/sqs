@@ -20,7 +20,7 @@ type PoolsUsecase interface {
 
 	// GetRoutesFromCandidates converts candidate routes to routes intrusmented with all the data necessary for estimating
 	// a swap. This data entails the pool data, the taker fee.
-	GetRoutesFromCandidates(candidateRoutes sqsdomain.CandidateRoutes, tokenDenom string) ([]route.RouteImpl, error)
+	GetRoutesFromCandidates(method domain.TokenSwapMethod, candidateRoutes sqsdomain.CandidateRoutes, tokenDenomIn string) ([]route.RouteImpl, error)
 
 	GetTickModelMap(poolIDs []uint64) (map[uint64]*sqsdomain.TickModel, error)
 	// GetPool returns the pool with the given ID.
