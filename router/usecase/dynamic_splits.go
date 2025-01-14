@@ -20,12 +20,12 @@ type split struct {
 
 const totalIncrements = uint8(10)
 
-// getSplitQuote returns the best quote for the given routes and tokenIn.
+// getSplitQuoteExactAmountIn returns the best quote for the given routes and tokenIn.
 // It uses dynamic programming to find the optimal split of the tokenIn among the routes.
 // The algorithm is based on the knapsack problem.
 // The time complexity is O(n * m), where n is the number of routes and m is the totalIncrements.
 // The space complexity is O(n * m).
-func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod) (domain.Quote, error) {
+func getSplitQuoteExactAmountIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, method domain.TokenSwapMethod) (domain.Quote, error) {
 	// Routes must be non-empty
 	if len(routes) == 0 {
 		return nil, errors.New("no routes")
@@ -209,10 +209,10 @@ func getSplitQuoteExactAmountOut(ctx context.Context, routes []route.RouteImpl, 
 		dp[0][j] = zero
 	}
 
-	inAmountDec := tokenOut.Amount.ToLegacyDec()
+	outAmountDec := tokenOut.Amount.ToLegacyDec()
 
 	// callback with caching capabilities.
-	computeAndCacheOutAmountCb := getComputeAndCacheOutAmountCb(ctx, inAmountDec, tokenOut.Denom, routes)
+	computeAndCacheInAmountCb := getComputeAndCacheInAmountCb(ctx, outAmountDec, tokenOut.Denom, routes)
 
 	// Step 2: fill the tables
 	for x := uint8(1); x <= totalIncrements; x++ {
@@ -228,7 +228,7 @@ func getSplitQuoteExactAmountOut(ctx context.Context, routes []route.RouteImpl, 
 				// The recurrence relation would be:
 				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
 				noChoice := dp[x][j]
-				choice := dp[x-p][j-1].Add(computeAndCacheOutAmountCb(j-1, p))
+				choice := dp[x-p][j-1].Add(computeAndCacheInAmountCb(j-1, p))
 
 				if choice.GT(noChoice) {
 					dp[x][j] = choice
@@ -267,7 +267,7 @@ func getSplitQuoteExactAmountOut(ctx context.Context, routes []route.RouteImpl, 
 	for i, currentRouteIncrement := range bestSplit.routeIncrements {
 		currentRoute := routes[i]
 
-		currentRouteAmtIn := computeAndCacheOutAmountCb(i, currentRouteIncrement)
+		currentRouteAmtIn := computeAndCacheInAmountCb(i, currentRouteIncrement)
 
 		currentRouteSplit := osmomath.NewDec(int64(currentRouteIncrement)).QuoInt64Mut(int64(totalIncrements))
 
@@ -330,6 +330,25 @@ func getComputeAndCacheInAmountIncrementCb(totalInAmountDec osmomath.Dec) func(p
 	}
 }
 
+// This function computes the inAmountIncrement for a given proportion p.
+// It caches the result on the stack to avoid recomputing it.
+func getComputeAndCacheOutAmountIncrementCb(totalOutAmountDec osmomath.Dec) func(p uint8) osmomath.Int {
+	outAmountIncrements := make(map[uint8]osmomath.Int, totalIncrements)
+	return func(p uint8) osmomath.Int {
+		// If the inAmountIncrement has already been computed, return the cached value.
+		// Otherwise, compute the value and cache it.
+		currentIncrement, ok := outAmountIncrements[p]
+		if ok {
+			return currentIncrement
+		}
+
+		currentIncrement = osmomath.NewDec(int64(p)).QuoInt64Mut(int64(totalIncrements)).MulMut(totalOutAmountDec).TruncateInt()
+		outAmountIncrements[p] = currentIncrement
+
+		return currentIncrement
+	}
+}
+
 // This function computes the outAmountIncrement for a given routeIndex and inAmountIncrement.
 // It caches the result on the stack to avoid recomputing it.
 func getComputeAndCacheOutAmountCb(ctx context.Context, totalInAmountDec osmomath.Dec, tokenInDenom string, routes []route.RouteImpl) func(int, uint8) osmomath.Int {
@@ -359,5 +378,35 @@ func getComputeAndCacheOutAmountCb(ctx context.Context, totalInAmountDec osmomat
 		routeOutAmtCache[routeIndex][increment] = curRouteOutAmountIncrement.Amount
 
 		return curRouteOutAmountIncrement.Amount
+	}
+}
+
+func getComputeAndCacheInAmountCb(ctx context.Context, totalOutAmountDec osmomath.Dec, tokenOutDenom string, routes []route.RouteImpl) func(int, uint8) osmomath.Int {
+	// Pre-compute routes cache map.
+	routeInAmtCache := make(map[int]map[uint8]osmomath.Int, len(routes))
+	for routeIndex := 0; routeIndex < len(routes); routeIndex++ {
+		routeInAmtCache[routeIndex] = make(map[uint8]osmomath.Int, totalIncrements+1)
+	}
+
+	// Get callback with in amount increment capabilities.
+	computeAndCacheOutAmountIncrementCb := getComputeAndCacheOutAmountIncrementCb(totalOutAmountDec)
+
+	return func(routeIndex int, increment uint8) osmomath.Int {
+		inAmountIncrement := computeAndCacheOutAmountIncrementCb(increment)
+
+		curRouteAmt, ok := routeInAmtCache[routeIndex][increment]
+		if ok {
+			return curRouteAmt
+		}
+		// This is the expensive computation that we aim to avoid.
+		curRouteInAmountIncrement, _ := routes[routeIndex].CalculateTokenInByTokenOut(ctx, sdk.NewCoin(tokenOutDenom, inAmountIncrement))
+
+		if curRouteInAmountIncrement.IsNil() || curRouteInAmountIncrement.IsZero() {
+			curRouteInAmountIncrement.Amount = zero
+		}
+
+		routeInAmtCache[routeIndex][increment] = curRouteInAmountIncrement.Amount
+
+		return curRouteInAmountIncrement.Amount
 	}
 }

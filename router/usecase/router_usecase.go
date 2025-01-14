@@ -164,7 +164,7 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	// Compute split route quote
 	var topSplitQuote domain.Quote
 	if method == domain.TokenSwapMethodExactIn {
-		topSplitQuote, err = getSplitQuote(ctx, rankedRoutes, tokenIn, method)
+		topSplitQuote, err = getSplitQuoteExactAmountIn(ctx, rankedRoutes, tokenIn, method)
 	} else {
 		topSplitQuote, err = getSplitQuoteExactAmountOut(ctx, rankedRoutes, tokenIn, method)
 	}
@@ -177,19 +177,34 @@ func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coi
 	finalQuote := topSingleRouteQuote
 
 	// If the split route quote is better than the single route quote, return the split route quote
-	// TODO:
-	if topSplitQuote.GetAmountOut().Amount.GT(topSingleRouteQuote.GetAmountOut().Amount) {
-		routes := topSplitQuote.GetRoute()
+	if method == domain.TokenSwapMethodExactIn {
+		if topSplitQuote.GetAmountOut().Amount.GT(topSingleRouteQuote.GetAmountOut().Amount) {
+			routes := topSplitQuote.GetRoute()
 
-		r.logger.Debug("split route selected", zap.Int("route_count", len(routes)))
+			r.logger.Debug("split route selected", zap.Int("route_count", len(routes)))
 
-		finalQuote = topSplitQuote
+			finalQuote = topSplitQuote
+		}
+	} else {
+		if topSplitQuote.GetAmountIn().Amount.GT(topSingleRouteQuote.GetAmountIn().Amount) {
+			routes := topSplitQuote.GetRoute()
+
+			r.logger.Debug("split route selected", zap.Int("route_count", len(routes)))
+
+			finalQuote = topSplitQuote
+		}
 	}
 
 	r.logger.Debug("single route selected", zap.Stringer("route", finalQuote.GetRoute()[0]))
 
-	if finalQuote.GetAmountOut().IsZero() {
-		return nil, errors.New("best we can do is no tokens out")
+	if method == domain.TokenSwapMethodExactIn {
+		if finalQuote.GetAmountOut().IsZero() {
+			return nil, errors.New("best we can do is no tokens out")
+		}
+	} else {
+		if finalQuote.GetAmountIn().IsZero() {
+			return nil, errors.New("best we can do is no tokens in")
+		}
 	}
 
 	return finalQuote, nil
@@ -350,7 +365,6 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 
 	// If top routes are not present in cache, retrieve unranked candidate routes
 	candidateRoutes, err := r.handleCandidateRoutes(ctx, method, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
-	fmt.Printf("candidateRoutes: method %s, %#v\n", method, candidateRoutes)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))
 		return nil, nil, err

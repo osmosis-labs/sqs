@@ -85,7 +85,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 
 			routesWithAmountOut = append(routesWithAmountOut, RouteWithAmount{
 				RouteImpl: route,
-				InAmount:  directRouteTokenIn.Amount, 
+				InAmount:  directRouteTokenIn.Amount,
 				OutAmount: tokenIn.Amount,
 			})
 		}
@@ -109,10 +109,16 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 		}
 	}
 
-	// Sort by amount out in descending order
-	sort.Slice(routesWithAmountOut, func(i, j int) bool {
-		return routesWithAmountOut[i].OutAmount.GT(routesWithAmountOut[j].OutAmount)
-	})
+	// Sort by amount in descending order
+	if method == domain.TokenSwapMethodExactIn {
+		sort.Slice(routesWithAmountOut, func(i, j int) bool {
+			return routesWithAmountOut[i].OutAmount.GT(routesWithAmountOut[j].OutAmount)
+		})
+	} else {
+		sort.Slice(routesWithAmountOut, func(i, j int) bool {
+			return routesWithAmountOut[i].InAmount.GT(routesWithAmountOut[j].InAmount)
+		})
+	}
 
 	bestRoute := routesWithAmountOut[0]
 
