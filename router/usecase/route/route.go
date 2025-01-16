@@ -222,7 +222,7 @@ func (r *RouteImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk
 
 		tokenIn, err = pool.CalculateTokenInByTokenOut(ctx, tokenOut)
 		if err != nil {
-			return sdk.Coin{}, err
+			return sdk.Coin{}, fmt.Errorf("pool %d: %w", pool.GetId(), err)
 		}
 
 		tokenOut = tokenIn

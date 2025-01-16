@@ -254,7 +254,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		return nil, err
 	}
 
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(method, candidateRoutes, tokenIn.Denom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(ctx, method, candidateRoutes, tokenIn.Denom)
 	if err != nil {
 		r.logger.Error("error ranking routes for pricing", zap.Error(err))
 		return nil, err
@@ -332,7 +332,7 @@ func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []RouteWithAmount)
 func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes sqsdomain.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(method, candidateRoutes, tokenIn.Denom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(ctx, method, candidateRoutes, tokenIn.Denom)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -452,7 +452,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	candidateRoutes := r.createCandidateRouteByPoolID(tokenOutDenom, poolID)
 
 	// Convert candidate route into a route with all the pool data
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(domain.TokenSwapMethodExactIn, candidateRoutes, tokenIn.Denom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(ctx, domain.TokenSwapMethodExactIn, candidateRoutes, tokenIn.Denom)
 	if err != nil {
 		return nil, err
 	}
