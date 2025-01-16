@@ -14,7 +14,7 @@ require (
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/osmosis-labs/osmosis/osmomath v0.0.16
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.16
-	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203152623-9a5d42a415b7
+	github.com/osmosis-labs/osmosis/v28 v28.0.2
 	github.com/prometheus/client_golang v1.20.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
@@ -116,7 +116,7 @@ require (
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.0
-	github.com/cosmos/iavl v1.2.2 // indirect
+	github.com/cosmos/iavl v1.2.4 // indirect
 	github.com/cosmos/ibc-go/v8 v8.5.2 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.13.3 // indirect
@@ -264,7 +264,7 @@ replace (
 	cosmossdk.io/core => cosmossdk.io/core v0.11.0
 
 	// Needs to be replaced due to iavlFastNodeModuleWhitelist feature
-	cosmossdk.io/store => github.com/osmosis-labs/cosmos-sdk/store v1.1.1-v0.50.11-v28-osmo
+	cosmossdk.io/store => github.com/osmosis-labs/cosmos-sdk/store v1.1.1-v0.50.11-v28-osmo-2
 
 	// Direct cometbft branch link: https://github.com/osmosis-labs/cometbft/tree/osmo-v27/0.38.15, current branch: osmo-v27/v0.38.15
 	// Direct commit link: https://github.com/osmosis-labs/cometbft/commit/fcd17cea479fcb1cf6eb5c0541cc9585b97004f1
@@ -280,10 +280,7 @@ replace (
 	// we explicitly follow main branch tags
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240825083448-87db4447a1ff
-	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203152623-9a5d42a415b7
-
-	// replacement for decoupling Node releases from SQS ( BE-658 )
-	github.com/osmosis-labs/osmosis/v28 v28.0.0-20241203152623-9a5d42a415b7 => github.com/osmosis-labs/osmosis/v28 v28.0.2-0.20250110121215-ec32df8e2c32
+	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.2
 
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
