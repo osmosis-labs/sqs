@@ -37,7 +37,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 Unreleased
 
-- Fixed claimbot panics due nil routerrepo.RouterRepository in txGasCalulator
+- #599 - Decouple Node releases from SQS
+
+## v28.0.0
+
+- #598 - Fixed claimbot panics due nil routerrepo.RouterRepository in txGasCalulator
 
 ## v27.2.0
 
