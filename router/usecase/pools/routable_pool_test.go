@@ -241,43 +241,43 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_CCFM() {
 func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactOut_CCFM() {
 	tests := map[string]struct {
 		poolType      poolmanagertypes.PoolType
-		tokenOut      sdk.Coin
+		tokenIn       sdk.Coin
 		takerFee      osmomath.Dec
 		expectedToken sdk.Coin
 	}{
 		"balancer pool - no taker fee": {
 			poolType:      poolmanagertypes.Balancer,
-			tokenOut:      sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDec(0),
 			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(100)),
 		},
 		"stableswap pool - no taker fee": {
 			poolType:      poolmanagertypes.Stableswap,
-			tokenOut:      sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDec(0),
 			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(100)),
 		},
 		"balancer pool - small taker fee": {
 			poolType:      poolmanagertypes.Balancer,
-			tokenOut:      sdk.NewCoin(USDT, osmomath.NewInt(100)),
+			tokenIn:       sdk.NewCoin(USDT, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDecWithPrec(1, 2),           // 1%
 			expectedToken: sdk.NewCoin(USDT, osmomath.NewInt(102)), // 100 + 1 = 101.01  = 102 (round up)
 		},
 		"stableswap pool - small taker fee": {
 			poolType:      poolmanagertypes.Stableswap,
-			tokenOut:      sdk.NewCoin(USDT, osmomath.NewInt(100)),
+			tokenIn:       sdk.NewCoin(USDT, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDecWithPrec(1, 2),           // 1%
 			expectedToken: sdk.NewCoin(USDT, osmomath.NewInt(102)), // 100 + 1 = 101.01  = 102 (round up)
 		},
 		"balancer pool - large taker fee": {
 			poolType:      poolmanagertypes.Balancer,
-			tokenOut:      sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDecWithPrec(5, 1),           // 50%
 			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(200)), // 100 + 100 = 200
 		},
 		"stableswap pool - large taker fee": {
 			poolType:      poolmanagertypes.Stableswap,
-			tokenOut:      sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDecWithPrec(5, 1),           // 50%
 			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(200)), // 100 + 100 = 200
 		},
@@ -296,10 +296,10 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactOut_CCFM() {
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
 
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOut.Denom, tc.takerFee, cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, tc.takerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
-			tokenAfterFee := routablePool.ChargeTakerFeeExactOut(tc.tokenOut)
+			tokenAfterFee := routablePool.ChargeTakerFeeExactOut(tc.tokenIn)
 
 			s.Require().Equal(tc.expectedToken, tokenAfterFee)
 		})
