@@ -62,9 +62,9 @@ func (r *routableStableswapPoolImpl) String() string {
 
 // ChargeTakerFee implements domain.RoutablePool.
 // Charges the taker fee for the given token out and returns the token out after the fee has been charged.
-func (r *routableStableswapPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.TakerFee)
-	return tokenOutAfterTakerFee
+func (r *routableStableswapPoolImpl) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
+	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenIn, r.TakerFee)
+	return tokenInAfterTakerFee
 }
 
 // ChargeTakerFee implements domain.RoutablePool.

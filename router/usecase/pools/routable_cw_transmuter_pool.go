@@ -2,7 +2,6 @@ package pools
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -76,7 +75,23 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 
 // CalculateTokenInByTokenOut implements domain.RoutablePool.
 func (r *routableTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	return sdk.Coin{}, errors.New("not implemented")
+	poolType := r.GetType()
+
+	// Esnure that the pool is concentrated
+	if poolType != poolmanagertypes.CosmWasm {
+		return sdk.Coin{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
+	}
+
+	balances := r.Balances
+
+	// Validate token out balance
+	if err := validateTransmuterBalance(tokenOut.Amount, balances, r.TokenInDenom); err != nil {
+		return sdk.Coin{}, err
+	}
+
+	// No slippage swaps - just return the same amount of token in as token out
+	// as long as there is enough liquidity in the pool.
+	return sdk.Coin{Denom: r.TokenInDenom, Amount: tokenOut.Amount}, nil
 }
 
 // GetTokenOutDenom implements RoutablePool.
@@ -101,8 +116,9 @@ func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (in
 }
 
 // ChargeTakerFeeExactOut implements domain.RoutablePool.
-func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (outAmountAfterFee sdk.Coin) {
-	return sdk.Coin{}
+func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
+	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenIn, r.GetTakerFee())
+	return tokenInAfterTakerFee
 }
 
 // validateTransmuterBalance validates that the balance of the denom to validate is greater than the token in amount.

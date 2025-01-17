@@ -69,9 +69,9 @@ func (r *routableBalancerPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (toke
 
 // ChargeTakerFee implements domain.RoutablePool.
 // Charges the taker fee for the given token out and returns the token out after the fee has been charged.
-func (r *routableBalancerPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.TakerFee)
-	return tokenOutAfterTakerFee
+func (r *routableBalancerPoolImpl) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
+	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenIn, r.TakerFee)
+	return tokenInAfterTakerFee
 }
 
 // GetTakerFee implements domain.RoutablePool.
