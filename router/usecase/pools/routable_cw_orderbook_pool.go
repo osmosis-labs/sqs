@@ -2,6 +2,7 @@ package pools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -22,13 +23,13 @@ var oneBigDec = osmomath.OneBigDec()
 var _ domain.RoutablePool = &routableOrderbookPoolImpl{}
 
 type routableOrderbookPoolImpl struct {
-	ChainPool     *cwpoolmodel.CosmWasmPool   "json:\"pool\""
-	Balances      sdk.Coins                   "json:\"balances\""
-	TokenInDenom  string                      "json:\"token_in_denom,omitempty\""
-	TokenOutDenom string                      "json:\"token_out_denom,omitempty\""
-	TakerFee      osmomath.Dec                "json:\"taker_fee\""
-	SpreadFactor  osmomath.Dec                "json:\"spread_factor\""
-	OrderbookData *cosmwasmpool.OrderbookData "json:\"orderbook_data\""
+	ChainPool     *cwpoolmodel.CosmWasmPool   `json:"pool"`
+	Balances      sdk.Coins                   `json:"balances"`
+	TokenInDenom  string                      `json:"token_in_denom,omitempty"`
+	TokenOutDenom string                      `json:"token_out_denom,omitempty"`
+	TakerFee      osmomath.Dec                `json:"taker_fee"`
+	SpreadFactor  osmomath.Dec                `json:"spread_factor"`
+	OrderbookData *cosmwasmpool.OrderbookData `json:"orderbook_data"`
 }
 
 // GetId implements domain.RoutablePool.
@@ -153,6 +154,11 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 	return sdk.Coin{Denom: r.TokenOutDenom, Amount: amountOutTotal.Dec().TruncateInt()}, nil
 }
 
+// CalculateTokenInByTokenOut implements domain.RoutablePool.
+func (r *routableOrderbookPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+	return sdk.Coin{}, errors.New("not implemented")
+}
+
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableOrderbookPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -173,6 +179,12 @@ func (r *routableOrderbookPoolImpl) String() string {
 func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
+}
+
+// ChargeTakerFee implements sqsdomain.RoutablePool.
+// Charges the taker fee for the given token out and returns the token out after the fee has been charged.
+func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
+	return sdk.Coin{}
 }
 
 // GetTakerFee implements domain.RoutablePool.

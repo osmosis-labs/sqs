@@ -2,6 +2,7 @@ package pools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -29,14 +30,14 @@ var _ domain.RoutablePool = &routableCosmWasmPoolImpl{}
 // routableCosmWasmPool is an implemenation of the cosm wasm pool
 // that interacts with the chain for quotes and spot price.
 type routableCosmWasmPoolImpl struct {
-	ChainPool                *cwpoolmodel.CosmWasmPool       "json:\"pool\""
-	Balances                 sdk.Coins                       "json:\"balances\""
-	TokenOutDenom            string                          "json:\"token_out_denom,omitempty\""
-	TokenInDenom             string                          "json:\"token_in_denom,omitempty\""
-	TakerFee                 osmomath.Dec                    "json:\"taker_fee\""
-	SpreadFactor             osmomath.Dec                    "json:\"spread_factor\""
-	wasmClient               wasmtypes.QueryClient           "json:\"-\""
-	spotPriceQuoteCalculator domain.SpotPriceQuoteCalculator "json:\"-\""
+	ChainPool                *cwpoolmodel.CosmWasmPool       `json:"pool"`
+	Balances                 sdk.Coins                       `json:"balances"`
+	TokenOutDenom            string                          `json:"token_out_denom,omitempty"`
+	TokenInDenom             string                          `json:"token_in_denom,omitempty"`
+	TakerFee                 osmomath.Dec                    `json:"taker_fee"`
+	SpreadFactor             osmomath.Dec                    `json:"spread_factor"`
+	wasmClient               wasmtypes.QueryClient           `json:"-"`
+	spotPriceQuoteCalculator domain.SpotPriceQuoteCalculator `json:"-"`
 }
 
 // NewRoutableCosmWasmPool returns a new routable cosmwasm pool with the given parameters.
@@ -82,6 +83,11 @@ func (*routableCosmWasmPoolImpl) GetType() poolmanagertypes.PoolType {
 // GetSpreadFactor implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
+}
+
+// CalculateTokenInByTokenOut implements domain.RoutablePool.
+func (r *routableCosmWasmPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+	return sdk.Coin{}, errors.New("not implemented")
 }
 
 // CalculateTokenOutByTokenIn implements domain.RoutablePool.
@@ -146,6 +152,12 @@ func (r *routableCosmWasmPoolImpl) String() string {
 func (r *routableCosmWasmPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
+}
+
+// ChargeTakerFeeExactOut implements domain.RoutablePool.
+// Returns tokenOutAmount and does not charge any fee for transmuter pools.
+func (r *routableCosmWasmPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (outAmountAfterFee sdk.Coin) {
+	return sdk.Coin{}
 }
 
 // GetTakerFee implements domain.RoutablePool.

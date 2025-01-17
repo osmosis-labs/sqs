@@ -2,6 +2,7 @@ package pools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -24,11 +25,11 @@ var _ domain.RoutablePool = &routableConcentratedPoolImpl{}
 var smallestDec = osmomath.BigDecFromDec(osmomath.SmallestDec())
 
 type routableConcentratedPoolImpl struct {
-	ChainPool     *concentratedmodel.Pool "json:\"cl_pool\""
-	TickModel     *ingesttypes.TickModel  "json:\"tick_model\""
-	TokenInDenom  string                  "json:\"token_in_denom,omitempty\""
-	TokenOutDenom string                  "json:\"token_out_denom,omitempty\""
-	TakerFee      osmomath.Dec            "json:\"taker_fee\""
+	ChainPool     *concentratedmodel.Pool `json:"cl_pool"`
+	TickModel     *ingesttypes.TickModel  `json:"tick_model"`
+	TokenInDenom  string                  `json:"token_in_denom,omitempty"`
+	TokenOutDenom string                  `json:"token_out_denom,omitempty"`
+	TakerFee      osmomath.Dec            `json:"taker_fee"`
 }
 
 // Size is roughly `keys * (2.5 * Key_size + 2*value_size)`. (Plus whatever excess overhead hashmaps internally have)
@@ -193,6 +194,11 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	return sdk.Coin{Denom: tokenOutDenom, Amount: amountOutTotal.TruncateInt()}, nil
 }
 
+// CalculateTokenInByTokenOut implements domain.RoutablePool.
+func (r *routableConcentratedPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+	return sdk.Coin{}, errors.New("not implemented")
+}
+
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableConcentratedPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -214,6 +220,12 @@ func (r *routableConcentratedPoolImpl) String() string {
 func (r *routableConcentratedPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
+}
+
+// ChargeTakerFee implements domain.RoutablePool.
+// Charges the taker fee for the given token out and returns the token out after the fee has been charged.
+func (r *routableConcentratedPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
+	return sdk.Coin{}
 }
 
 // SetTokenInDenom implements domain.RoutablePool.

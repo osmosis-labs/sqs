@@ -25,14 +25,14 @@ var (
 // routableResultPoolImpl is a generalized implementation that is returned to the client
 // side in quotes. It contains all the relevant pool data needed for Osmosis frontend
 type routableResultPoolImpl struct {
-	ID            uint64                    "json:\"id\""
-	Type          poolmanagertypes.PoolType "json:\"type\""
-	Balances      sdk.Coins                 "json:\"balances\""
-	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
-	TokenOutDenom string                    "json:\"token_out_denom,omitempty\""
-	TokenInDenom  string                    "json:\"token_in_denom,omitempty\""
-	TakerFee      osmomath.Dec              "json:\"taker_fee\""
-	CodeID        uint64                    "json:\"code_id,omitempty\""
+	ID            uint64                    `json:"id"`
+	Type          poolmanagertypes.PoolType `json:"type"`
+	Balances      sdk.Coins                 `json:"balances"`
+	SpreadFactor  osmomath.Dec              `json:"spread_factor"`
+	TokenOutDenom string                    `json:"token_out_denom,omitempty"`
+	TokenInDenom  string                    `json:"token_in_denom,omitempty"`
+	TakerFee      osmomath.Dec              `json:"taker_fee"`
+	CodeID        uint64                    `json:"code_id,omitempty"`
 }
 
 // GetCodeID implements domain.RoutablePool.
@@ -128,6 +128,11 @@ func (r *routableResultPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context,
 	return sdk.Coin{}, errors.New("not implemented")
 }
 
+// CalculateTokenInByTokenOut implements RoutablePool.
+func (r *routableResultPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
+	return sdk.Coin{}, errors.New("not implemented")
+}
+
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableResultPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -148,6 +153,12 @@ func (r *routableResultPoolImpl) String() string {
 func (r *routableResultPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.TakerFee)
 	return tokenInAfterTakerFee
+}
+
+// ChargeTakerFee implements domain.RoutablePool.
+// Charges the taker fee for the given token out and returns the token out after the fee has been charged.
+func (r *routableResultPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
+	return sdk.Coin{}
 }
 
 // GetTakerFee implements domain.RoutablePool.

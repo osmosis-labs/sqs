@@ -2,6 +2,7 @@ package pools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -18,12 +19,12 @@ import (
 var _ domain.RoutablePool = &routableTransmuterPoolImpl{}
 
 type routableTransmuterPoolImpl struct {
-	ChainPool     *cwpoolmodel.CosmWasmPool "json:\"pool\""
-	Balances      sdk.Coins                 "json:\"balances\""
-	TokenInDenom  string                    "json:\"token_in_denom,omitempty\""
-	TokenOutDenom string                    "json:\"token_out_denom,omitempty\""
-	TakerFee      osmomath.Dec              "json:\"taker_fee\""
-	SpreadFactor  osmomath.Dec              "json:\"spread_factor\""
+	ChainPool     *cwpoolmodel.CosmWasmPool `json:"pool"`
+	Balances      sdk.Coins                 `json:"balances"`
+	TokenInDenom  string                    `json:"token_in_denom,omitempty"`
+	TokenOutDenom string                    `json:"token_out_denom,omitempty"`
+	TakerFee      osmomath.Dec              `json:"taker_fee"`
+	SpreadFactor  osmomath.Dec              `json:"spread_factor"`
 }
 
 // GetId implements domain.RoutablePool.
@@ -73,6 +74,11 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 	return sdk.Coin{Denom: r.TokenOutDenom, Amount: tokenIn.Amount}, nil
 }
 
+// CalculateTokenInByTokenOut implements domain.RoutablePool.
+func (r *routableTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+	return sdk.Coin{}, errors.New("not implemented")
+}
+
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableTransmuterPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -92,6 +98,11 @@ func (r *routableTransmuterPoolImpl) String() string {
 func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
+}
+
+// ChargeTakerFeeExactOut implements domain.RoutablePool.
+func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (outAmountAfterFee sdk.Coin) {
+	return sdk.Coin{}
 }
 
 // validateTransmuterBalance validates that the balance of the denom to validate is greater than the token in amount.

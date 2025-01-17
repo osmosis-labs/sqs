@@ -2,6 +2,7 @@ package pools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -19,13 +20,13 @@ import (
 var _ domain.RoutablePool = &routableAlloyTransmuterPoolImpl{}
 
 type routableAlloyTransmuterPoolImpl struct {
-	ChainPool           *cwpoolmodel.CosmWasmPool         "json:\"pool\""
-	AlloyTransmuterData *cosmwasmpool.AlloyTransmuterData "json:\"alloy_transmuter_data\""
-	Balances            sdk.Coins                         "json:\"balances\""
-	TokenInDenom        string                            "json:\"token_in_denom,omitempty\""
-	TokenOutDenom       string                            "json:\"token_out_denom,omitempty\""
-	TakerFee            osmomath.Dec                      "json:\"taker_fee\""
-	SpreadFactor        osmomath.Dec                      "json:\"spread_factor\""
+	ChainPool           *cwpoolmodel.CosmWasmPool         `json:"pool"`
+	AlloyTransmuterData *cosmwasmpool.AlloyTransmuterData `json:"alloy_transmuter_data"`
+	Balances            sdk.Coins                         `json:"balances"`
+	TokenInDenom        string                            `json:"token_in_denom,omitempty"`
+	TokenOutDenom       string                            `json:"token_out_denom,omitempty"`
+	TakerFee            osmomath.Dec                      `json:"taker_fee"`
+	SpreadFactor        osmomath.Dec                      `json:"spread_factor"`
 }
 
 // GetId implements domain.RoutablePool.
@@ -79,6 +80,11 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context
 	return sdk.Coin{Denom: r.TokenOutDenom, Amount: tokenOutAmtInt}, nil
 }
 
+// CalculateTokenInByTokenOut implements domain.RoutablePool.
+func (r *routableAlloyTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+	return sdk.Coin{}, errors.New("not implemented")
+}
+
 // GetTokenOutDenom implements RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetTokenOutDenom() string {
 	return r.TokenOutDenom
@@ -99,6 +105,12 @@ func (r *routableAlloyTransmuterPoolImpl) String() string {
 func (r *routableAlloyTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())
 	return tokenInAfterTakerFee
+}
+
+// ChargeTakerFeeExactOut implements domain.RoutablePool.
+// Returns tokenOutAmount and does not charge any fee for transmuter pools.
+func (r *routableAlloyTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (outAmountAfterFee sdk.Coin) {
+	return sdk.Coin{}
 }
 
 // GetTakerFee implements domain.RoutablePool.
@@ -194,6 +206,32 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 	tokenOutAmount := tokenInAmount.MulInt(tokenOutNormFactorBig).QuoInt(tokenInNormFactorBig)
 
 	return tokenOutAmount, nil
+}
+
+// Calculate the token out amount based on the normalization factors:
+//
+// token_in_amt / token_in_norm_factor = token_out_amt / token_out_norm_factor
+// token_in_amt = token_out_amt * token_in_norm_factor / token_out_norm_factor
+func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenInDenom string, tokenOut sdk.Coin) (osmomath.BigDec, error) {
+	tokenOutNormFactor, tokenInNormFactor, err := r.FindNormalizationFactors(tokenOut.Denom, tokenInDenom)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	if tokenInNormFactor.IsZero() {
+		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOut.Denom, PoolId: r.GetId()}
+	}
+
+	if tokenOutNormFactor.IsZero() {
+		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
+	}
+
+	tokenOutAmount := osmomath.NewBigDec(tokenOut.Amount.Int64())
+
+	tokenOutNormFactorBig := osmomath.NewBigIntFromBigInt(tokenOutNormFactor.BigInt())
+	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())
+
+	return tokenOutAmount.MulInt(tokenInNormFactorBig).QuoInt(tokenOutNormFactorBig), nil
 }
 
 // checkStaticRateLimiter checks the static rate limiter.
