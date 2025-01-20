@@ -66,13 +66,13 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
-							"",
+							ETH,
 							USDT,
 							takerFeeOne,
 						),
 						s.newRoutablePool(
 							ingesttypes.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
-							"",
+							USDT,
 							USDC,
 							takerFeeTwo,
 						),
@@ -89,7 +89,7 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
-							"",
+							ETH,
 							USDC,
 							takerFeeThree,
 						),
@@ -118,13 +118,13 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
-							"",
+							ETH,
 							USDT,
 							takerFeeOne,
 						),
 						s.newRoutablePool(
 							ingesttypes.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
-							"",
+							USDT,
 							USDC,
 							takerFeeTwo,
 						),
@@ -139,7 +139,7 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
-							"",
+							ETH,
 							USDC,
 							takerFeeThree,
 						),
