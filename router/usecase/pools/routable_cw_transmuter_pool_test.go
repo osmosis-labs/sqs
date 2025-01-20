@@ -93,6 +93,64 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
 	}
 }
 
+func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_Transmuter() {
+	defaultAmount := DefaultAmt0
+	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount))
+
+	tests := map[string]struct {
+		poolType      poolmanagertypes.PoolType
+		tokenIn       sdk.Coin
+		takerFee      osmomath.Dec
+		balances      sdk.Coins
+		expectedToken sdk.Coin
+	}{
+		"no taker fee": {
+			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			balances:      defaultBalances,
+			takerFee:      osmomath.NewDec(0),
+			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(100)),
+		},
+		"small taker fee": {
+			tokenIn:       sdk.NewCoin(USDT, osmomath.NewInt(100)),
+			takerFee:      osmomath.NewDecWithPrec(1, 2),          // 1%
+			expectedToken: sdk.NewCoin(USDT, osmomath.NewInt(99)), // 100 - 1 = 99
+		},
+		"large taker fee": {
+			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			takerFee:      osmomath.NewDecWithPrec(5, 1),          // 50%
+			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(50)), // 100 - 50 = 50
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+
+			cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{USDC, ETH})
+
+			poolType := cosmwasmPool.GetType()
+
+			mock := &mocks.MockRoutablePool{ChainPoolModel: cosmwasmPool.AsSerializablePool(), Balances: tc.balances, PoolType: poolType}
+
+			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
+				Config: domain.CosmWasmPoolRouterConfig{
+					TransmuterCodeIDs: map[uint64]struct{}{
+						cosmwasmPool.GetCodeId(): {},
+					},
+				},
+				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+			}
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, "", tc.takerFee, cosmWasmPoolsParams)
+			s.Require().NoError(err)
+			s.Require().NoError(err)
+
+			tokenAfterFee := routablePool.ChargeTakerFeeExactIn(tc.tokenIn)
+
+			s.Require().Equal(tc.expectedToken, tokenAfterFee)
+		})
+	}
+}
+
 func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Transmuter() {
 	defaultAmount := DefaultAmt0
 	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount))
