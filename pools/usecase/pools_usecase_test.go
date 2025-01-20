@@ -107,7 +107,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
-	_, err = pools.NewRoutablePool(&brokenChainPool, denomTwo, defaultTakerFee, cosmWasmPoolsParams)
+	_, err = pools.NewRoutablePool(&brokenChainPool, denomOne, denomTwo, defaultTakerFee, cosmWasmPoolsParams)
 	// Validate that it is indeed broken.
 	s.Require().Error(err)
 
@@ -157,7 +157,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee),
+						s.newRoutablePool(defaultPool, denomOne, denomTwo, defaultTakerFee),
 					},
 				},
 			},
@@ -177,7 +177,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, ingesttypes.DefaultTakerFee),
+						s.newRoutablePool(defaultPool, denomOne, denomTwo, ingesttypes.DefaultTakerFee),
 					},
 				},
 			},
@@ -211,7 +211,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee),
+						s.newRoutablePool(defaultPool, denomOne, denomTwo, defaultTakerFee),
 					},
 				},
 			},
@@ -1015,11 +1015,11 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 	}
 }
 
-func (s *PoolsUsecaseTestSuite) newRoutablePool(pool ingesttypes.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
+func (s *PoolsUsecaseTestSuite) newRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
-	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	routablePool, err := pools.NewRoutablePool(pool, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 	return routablePool
 }

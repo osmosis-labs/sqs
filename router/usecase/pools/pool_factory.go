@@ -16,7 +16,7 @@ import (
 
 // NewRoutablePool creates a new RoutablePool.
 // Panics if pool is of invalid type or if does not contain tick data when a concentrated pool.
-func NewRoutablePool(pool ingesttypes.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams) (domain.RoutablePool, error) {
+func NewRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams) (domain.RoutablePool, error) {
 	poolType := pool.GetType()
 	chainPool := pool.GetUnderlyingPool()
 	if poolType == poolmanagertypes.Concentrated {
@@ -37,6 +37,7 @@ func NewRoutablePool(pool ingesttypes.PoolI, tokenOutDenom string, takerFee osmo
 		return &routableConcentratedPoolImpl{
 			ChainPool:     concentratedPool,
 			TickModel:     tickModel,
+			TokenInDenom:  tokenInDenom,
 			TokenOutDenom: tokenOutDenom,
 			TakerFee:      takerFee,
 		}, nil
@@ -56,6 +57,7 @@ func NewRoutablePool(pool ingesttypes.PoolI, tokenOutDenom string, takerFee osmo
 
 		return &routableBalancerPoolImpl{
 			ChainPool:     balancerPool,
+			TokenInDenom:  tokenInDenom,
 			TokenOutDenom: tokenOutDenom,
 			TakerFee:      takerFee,
 		}, nil
@@ -80,17 +82,18 @@ func NewRoutablePool(pool ingesttypes.PoolI, tokenOutDenom string, takerFee osmo
 
 		return &routableStableswapPoolImpl{
 			ChainPool:     stableswapPool,
+			TokenInDenom:  tokenInDenom,
 			TokenOutDenom: tokenOutDenom,
 			TakerFee:      takerFee,
 		}, nil
 	}
 
-	return newRoutableCosmWasmPool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	return newRoutableCosmWasmPool(pool, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 }
 
 // newRoutableCosmWasmPool creates a new RoutablePool for CosmWasm pools.
 // Panics if the given pool is not a cosmwasm pool or if the
-func newRoutableCosmWasmPool(pool ingesttypes.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams) (domain.RoutablePool, error) {
+func newRoutableCosmWasmPool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams) (domain.RoutablePool, error) {
 	chainPool := pool.GetUnderlyingPool()
 	poolType := pool.GetType()
 
@@ -113,6 +116,7 @@ func newRoutableCosmWasmPool(pool ingesttypes.PoolI, tokenOutDenom string, taker
 		return &routableTransmuterPoolImpl{
 			ChainPool:     cosmwasmPool,
 			Balances:      balances,
+			TokenInDenom:  tokenInDenom,
 			TokenOutDenom: tokenOutDenom,
 			TakerFee:      takerFee,
 			SpreadFactor:  spreadFactor,

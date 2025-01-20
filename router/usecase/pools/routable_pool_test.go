@@ -98,7 +98,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
@@ -151,10 +151,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_CFMM() {
 			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenInDenom, noTakerFee, cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenInDenom, tc.tokenOut.Denom, noTakerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
-			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenOut)
+			tokenOut, err := routablePool.CalculateTokenInByTokenOut(context.TODO(), tc.tokenOut)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
@@ -228,7 +228,7 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_CCFM() {
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
 
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, tc.takerFee, cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, "", tc.takerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
 			tokenAfterFee := routablePool.ChargeTakerFeeExactIn(tc.tokenIn)
@@ -296,7 +296,7 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactOut_CCFM() {
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
 
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, tc.takerFee, cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, "", tc.takerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
 			tokenAfterFee := routablePool.ChargeTakerFeeExactOut(tc.tokenIn)

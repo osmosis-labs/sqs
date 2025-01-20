@@ -71,7 +71,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 		},
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
-	routablePool, err := pools.NewRoutablePool(mock, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	routablePool, err := pools.NewRoutablePool(mock, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 
 	return routablePool

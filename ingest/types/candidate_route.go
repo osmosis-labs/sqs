@@ -4,6 +4,7 @@ package types
 // candidate pool to be used for routing.
 type CandidatePool struct {
 	ID            uint64
+	TokenInDenom  string
 	TokenOutDenom string
 }
 

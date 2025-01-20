@@ -180,7 +180,7 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes ingesttypes.Candi
 				takerFee = ingesttypes.DefaultTakerFee
 			}
 
-			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, takerFee, p.cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(pool, candidatePool.TokenInDenom, candidatePool.TokenOutDenom, takerFee, p.cosmWasmPoolsParams)
 			if err != nil {
 				skipErrorRoute = true
 				break
@@ -263,9 +263,9 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 		return osmomath.BigDec{}, err
 	}
 
-	// N.B.: Empty string for token out denom because it is irrelevant for calculating spot price.
+	// N.B.: Empty string for token in/out denom because it is irrelevant for calculating spot price.
 	// It is only relevant in the context of routing
-	routablePool, err := pools.NewRoutablePool(pool, "", takerFee, p.cosmWasmPoolsParams)
+	routablePool, err := pools.NewRoutablePool(pool, "", "", takerFee, p.cosmWasmPoolsParams)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}

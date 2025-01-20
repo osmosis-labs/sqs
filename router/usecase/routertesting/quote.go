@@ -41,11 +41,11 @@ var (
 	)
 )
 
-func (s *RouterTestHelper) newRoutablePool(pool ingesttypes.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
+func (s *RouterTestHelper) newRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
-	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	routablePool, err := pools.NewRoutablePool(pool, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 
 	s.Require().NoError(err)
 
@@ -66,11 +66,13 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
+							"",
 							USDT,
 							takerFeeOne,
 						),
 						s.newRoutablePool(
 							ingesttypes.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
+							"",
 							USDC,
 							takerFeeTwo,
 						),
@@ -87,6 +89,7 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
+							"",
 							USDC,
 							takerFeeThree,
 						),
@@ -115,11 +118,13 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
+							"",
 							USDT,
 							takerFeeOne,
 						),
 						s.newRoutablePool(
 							ingesttypes.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
+							"",
 							USDC,
 							takerFeeTwo,
 						),
@@ -134,6 +139,7 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
+							"",
 							USDC,
 							takerFeeThree,
 						),

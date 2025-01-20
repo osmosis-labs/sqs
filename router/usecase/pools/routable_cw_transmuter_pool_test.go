@@ -70,7 +70,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
 				},
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
 			// Overwrite pool type for edge case testing
@@ -109,21 +109,21 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Transmuter() {
 			tokenInDenom: USDC,
 			balances:     defaultBalances,
 		},
-		"no error: token in is larger than balance of token in": {
+		"no error: token out is larger than balance of token out": {
 			tokenOut:     sdk.NewCoin(ETH, defaultAmount),
 			tokenInDenom: USDC,
-			// Make token in amount 1 smaller than the default amount
-			balances: sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount.Sub(osmomath.OneInt())), sdk.NewCoin(ETH, defaultAmount)),
+			// Make token out amount 1 smaller than the default amount
+			balances: sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount.Sub(osmomath.OneInt()))),
 		},
-		"error: token in is larger than balance of token out": {
+		"error: token out is larger than balance of token in": {
 			tokenOut:     sdk.NewCoin(ETH, defaultAmount),
 			tokenInDenom: USDC,
 
-			// Make token out amount 1 smaller than the default amount
-			balances: sdk.NewCoins(sdk.NewCoin(ETH, defaultAmount.Sub(osmomath.OneInt())), sdk.NewCoin(USDC, defaultAmount)),
+			// Make token in amount 1 smaller than the default amount
+			balances: sdk.NewCoins(sdk.NewCoin(ETH, defaultAmount), sdk.NewCoin(USDC, defaultAmount.Sub(osmomath.OneInt()))),
 
 			expectError: domain.TransmuterInsufficientBalanceError{
-				Denom:         ETH,
+				Denom:         USDC,
 				BalanceAmount: defaultAmount.Sub(osmomath.OneInt()).String(),
 				Amount:        defaultAmount.String(),
 			},
@@ -148,7 +148,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Transmuter() {
 				},
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenInDenom, noTakerFee, cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenInDenom, tc.tokenOut.Denom, noTakerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
 			// Overwrite pool type for edge case testing
@@ -218,7 +218,7 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactOut_Transmuter() {
 				},
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
-			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, tc.takerFee, cosmWasmPoolsParams)
+			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, "", tc.takerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 			s.Require().NoError(err)
 
