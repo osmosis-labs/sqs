@@ -155,7 +155,7 @@ func (mp *MockRoutablePool) CalculateTokenInByTokenOut(ctx context.Context, toke
 		panic("not a balancer pool")
 	}
 
-	return balancerPool.CalcOutAmtGivenIn(sdk.Context{}, sdk.NewCoins(tokenOut), mp.TokenInDenom, mp.SpreadFactor)
+	return balancerPool.CalcInAmtGivenOut(sdk.Context{}, sdk.NewCoins(tokenOut), mp.TokenInDenom, mp.SpreadFactor)
 }
 
 // String implements domain.RoutablePool.
@@ -202,7 +202,7 @@ func (mp *MockRoutablePool) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfte
 
 // ChargeTakerFeeExactOut implements domain.RoutablePool.
 func (mp *MockRoutablePool) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenInAfterFee sdk.Coin) {
-	return tokenOut.Sub(sdk.NewCoin(tokenOut.Denom, mp.TakerFee.Mul(tokenOut.Amount.ToLegacyDec()).TruncateInt()))
+	return tokenOut.Add(sdk.NewCoin(tokenOut.Denom, mp.TakerFee.Mul(tokenOut.Amount.ToLegacyDec()).TruncateInt()))
 }
 
 // GetTakerFee implements ingesttypes.PoolI.
