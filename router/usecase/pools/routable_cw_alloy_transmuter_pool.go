@@ -208,32 +208,6 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 	return tokenOutAmount, nil
 }
 
-// Calculate the token out amount based on the normalization factors:
-//
-// token_in_amt / token_in_norm_factor = token_out_amt / token_out_norm_factor
-// token_in_amt = token_out_amt * token_in_norm_factor / token_out_norm_factor
-func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenInDenom string, tokenOut sdk.Coin) (osmomath.BigDec, error) {
-	tokenOutNormFactor, tokenInNormFactor, err := r.FindNormalizationFactors(tokenOut.Denom, tokenInDenom)
-	if err != nil {
-		return osmomath.BigDec{}, err
-	}
-
-	if tokenInNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOut.Denom, PoolId: r.GetId()}
-	}
-
-	if tokenOutNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
-	}
-
-	tokenOutAmount := osmomath.NewBigDec(tokenOut.Amount.Int64())
-
-	tokenOutNormFactorBig := osmomath.NewBigIntFromBigInt(tokenOutNormFactor.BigInt())
-	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())
-
-	return tokenOutAmount.MulInt(tokenInNormFactorBig).QuoInt(tokenOutNormFactorBig), nil
-}
-
 // checkStaticRateLimiter checks the static rate limiter.
 // If token in denom is not alloyed, we only need to validate the token in balance.
 // Since the token in balance is the only one that is increased by the current quote.
