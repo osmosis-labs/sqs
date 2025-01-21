@@ -286,3 +286,187 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 		})
 	}
 }
+
+// This test cases focuses on testing error and edge cases for CL quote calculation in by token out.
+func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Concentrated_ErrorAndEdgeCases() {
+	const (
+		defaultCurrentTick = int64(0)
+	)
+
+	tests := map[string]struct {
+		tokenOut     sdk.Coin
+		tokenInDenom string
+
+		tickModelOverwrite          *ingesttypes.TickModel
+		isTickModelNil              bool
+		shouldCreateDefaultPosition bool
+
+		expectedTokenIn sdk.Coin
+		expectError     error
+	}{
+		"error: failed to get tick model": {
+			tokenOut:     DefaultCoin1,
+			tokenInDenom: Denom0,
+
+			isTickModelNil: true,
+
+			expectError: domain.ConcentratedPoolNoTickModelError{
+				PoolId: defaultPoolID,
+			},
+		},
+		"error: current bucket index is negative": {
+			tokenOut:     DefaultCoin1,
+			tokenInDenom: Denom0,
+
+			tickModelOverwrite: withCurrentTickIndex(defaultTickModel, -1),
+
+			expectError: domain.ConcentratedCurrentTickNotWithinBucketError{
+				PoolId:             defaultPoolID,
+				CurrentBucketIndex: -1,
+				TotalBuckets:       0,
+			},
+		},
+		"error: current bucket index is greater than or equal to total buckets": {
+			tokenOut:     DefaultCoin1,
+			tokenInDenom: Denom0,
+
+			tickModelOverwrite: defaultTickModel,
+
+			expectError: domain.ConcentratedCurrentTickNotWithinBucketError{
+				PoolId:             defaultPoolID,
+				CurrentBucketIndex: defaultCurrentTick,
+				TotalBuckets:       defaultCurrentTick,
+			},
+		},
+		"error: has no liquidity": {
+			tokenOut:     DefaultCoin1,
+			tokenInDenom: Denom0,
+
+			tickModelOverwrite: withHasNoLiquidity(defaultTickModel),
+
+			expectError: domain.ConcentratedNoLiquidityError{
+				PoolId: defaultPoolID,
+			},
+		},
+		"error: current tick is not within current bucket": {
+			tokenOut:     DefaultCoin1,
+			tokenInDenom: Denom0,
+
+			tickModelOverwrite: withTicks(defaultTickModel, []ingesttypes.LiquidityDepthsWithRange{
+				{
+					LowerTick:       defaultCurrentTick - 2,
+					UpperTick:       defaultCurrentTick - 1,
+					LiquidityAmount: DefaultLiquidityAmt,
+				},
+			}),
+
+			expectError: domain.ConcentratedCurrentTickAndBucketMismatchError{
+				CurrentTick: defaultCurrentTick,
+				LowerTick:   defaultCurrentTick - 2,
+				UpperTick:   defaultCurrentTick - 1,
+			},
+		},
+		"error: zero current sqrt price": {
+			tokenOut:     DefaultCoin1,
+			tokenInDenom: Denom0,
+
+			tickModelOverwrite: &ingesttypes.TickModel{
+				Ticks: []ingesttypes.LiquidityDepthsWithRange{
+					{
+						LowerTick:       defaultCurrentTick,
+						UpperTick:       defaultCurrentTick + 1,
+						LiquidityAmount: DefaultLiquidityAmt,
+					},
+				},
+				CurrentTickIndex: defaultCurrentTick,
+
+				// Note that despite setting HasNoLiquidity to false,
+				// the pool is in invalid state. We expect that the ingester
+				// will not allow this to happen.
+				HasNoLiquidity: false,
+			},
+
+			expectError: domain.ConcentratedZeroCurrentSqrtPriceError{PoolId: defaultPoolID},
+		},
+		"error: not enough liquidity to complete swap": {
+			tokenOut:     DefaultCoin1,
+			tokenInDenom: Denom0,
+
+			shouldCreateDefaultPosition: true,
+
+			tickModelOverwrite: withTicks(defaultTickModel, []ingesttypes.LiquidityDepthsWithRange{
+				{
+					LowerTick:       DefaultCurrentTick,
+					UpperTick:       DefaultCurrentTick + 1,
+					LiquidityAmount: DefaultLiquidityAmt,
+				},
+			}),
+
+			expectError: domain.ConcentratedNotEnoughLiquidityToCompleteSwapError{
+				PoolId:    defaultPoolID,
+				AmountOut: DefaultCoin1.String(),
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.SetupTest()
+
+			var (
+				tickModel *ingesttypes.TickModel
+				err       error
+			)
+
+			pool := s.PrepareConcentratedPool()
+			concentratedPool, ok := pool.(*concentratedmodel.Pool)
+			s.Require().True(ok)
+
+			if tc.shouldCreateDefaultPosition {
+				s.SetupDefaultPosition(concentratedPool.Id)
+			}
+
+			// refetch the pool
+			pool, err = s.App.ConcentratedLiquidityKeeper.GetConcentratedPoolById(s.Ctx, concentratedPool.Id)
+			s.Require().NoError(err)
+			concentratedPool, ok = pool.(*concentratedmodel.Pool)
+			s.Require().True(ok)
+
+			if tc.tickModelOverwrite != nil {
+				tickModel = tc.tickModelOverwrite
+
+			} else if tc.isTickModelNil {
+				// For clarity:
+				tickModel = nil
+			} else {
+				// Get liquidity for full range
+				ticks, currentTickIndex, err := s.App.ConcentratedLiquidityKeeper.GetTickLiquidityForFullRange(s.Ctx, concentratedPool.Id)
+				s.Require().NoError(err)
+
+				tickModel = &ingesttypes.TickModel{
+					Ticks:            ticks,
+					CurrentTickIndex: currentTickIndex,
+					HasNoLiquidity:   false,
+				}
+			}
+
+			routablePool := pools.RoutableConcentratedPoolImpl{
+				ChainPool:    concentratedPool,
+				TickModel:    tickModel,
+				TokenInDenom: tc.tokenInDenom,
+				TakerFee:     osmomath.ZeroDec(),
+			}
+
+			tokenIn, err := routablePool.CalculateTokenInByTokenOut(context.TODO(), tc.tokenOut)
+
+			if tc.expectError != nil {
+				s.Require().Error(err)
+				s.Require().ErrorContains(err, tc.expectError.Error())
+				return
+			}
+			s.Require().NoError(err)
+
+			s.Require().Equal(tc.expectedTokenIn.String(), tokenIn.String())
+		})
+	}
+}
