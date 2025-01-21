@@ -121,15 +121,15 @@ func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (i
 	return tokenInAfterTakerFee
 }
 
-// validateTransmuterBalance validates that the balance of the denom to validate is greater than the token in amount.
+// validateTransmuterBalance validates that the balance of the denom to validate is greater than the token amount.
 // Returns nil on success, error otherwise.
-func validateTransmuterBalance(tokenInAmount osmomath.Int, balances sdk.Coins, denomToValidate string) error {
+func validateTransmuterBalance(tokenAmount osmomath.Int, balances sdk.Coins, denomToValidate string) error {
 	balanceToValidate := balances.AmountOf(denomToValidate)
-	if tokenInAmount.GT(balanceToValidate) {
+	if tokenAmount.GT(balanceToValidate) {
 		return domain.TransmuterInsufficientBalanceError{
 			Denom:         denomToValidate,
 			BalanceAmount: balanceToValidate.String(),
-			Amount:        tokenInAmount.String(),
+			Amount:        tokenAmount.String(),
 		}
 	}
 
