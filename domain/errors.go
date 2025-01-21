@@ -137,8 +137,9 @@ func (e ConcentratedZeroCurrentSqrtPriceError) Error() string {
 }
 
 type ConcentratedNotEnoughLiquidityToCompleteSwapError struct {
-	PoolId   uint64
-	AmountIn string
+	PoolId    uint64
+	AmountIn  string
+	AmountOut string
 }
 
 func (e ConcentratedNotEnoughLiquidityToCompleteSwapError) Error() string {

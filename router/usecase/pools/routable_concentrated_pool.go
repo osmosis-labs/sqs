@@ -2,7 +2,6 @@ package pools
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -195,8 +194,122 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 }
 
 // CalculateTokenInByTokenOut implements domain.RoutablePool.
+// It calculates the amount of token in given the amount of token out for a concentrated liquidity pool.
+// Fails if:
+// - the underlying chain pool set on the routable pool is not of concentrated type
+// - fails to retrieve the tick model for the pool
+// - the current tick is not within the specified current bucket range
+// - tick model has no liquidity flag set
+// - the current sqrt price is zero
+// - rans out of ticks during swap (token out is too high for liquidity in the pool)
 func (r *routableConcentratedPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	return sdk.Coin{}, errors.New("not implemented")
+	concentratedPool := r.ChainPool
+	tickModel := r.TickModel
+
+	if tickModel == nil {
+		return sdk.Coin{}, domain.ConcentratedPoolNoTickModelError{
+			PoolId: r.ChainPool.Id,
+		}
+	}
+
+	// Ensure pool has liquidity.
+	if tickModel.HasNoLiquidity {
+		return sdk.Coin{}, domain.ConcentratedNoLiquidityError{
+			PoolId: concentratedPool.Id,
+		}
+	}
+
+	// Ensure that the current bucket is within the available bucket range.
+	currentBucketIndex := tickModel.CurrentTickIndex
+
+	if currentBucketIndex < 0 || currentBucketIndex >= int64(len(tickModel.Ticks)) {
+		return sdk.Coin{}, domain.ConcentratedCurrentTickNotWithinBucketError{
+			PoolId:             concentratedPool.Id,
+			CurrentBucketIndex: currentBucketIndex,
+			TotalBuckets:       int64(len(tickModel.Ticks)),
+		}
+	}
+
+	currentBucket := tickModel.Ticks[currentBucketIndex]
+
+	isCurrentTickWithinBucket := concentratedPool.IsCurrentTickInRange(currentBucket.LowerTick, currentBucket.UpperTick)
+	if !isCurrentTickWithinBucket {
+		return sdk.Coin{}, domain.ConcentratedCurrentTickAndBucketMismatchError{
+			PoolID:      concentratedPool.Id,
+			CurrentTick: concentratedPool.CurrentTick,
+			LowerTick:   currentBucket.LowerTick,
+			UpperTick:   currentBucket.UpperTick,
+		}
+	}
+
+	// Set the appropriate token out denom.
+	isZeroForOne := tokenOut.Denom == concentratedPool.Token0
+	tokenInDenom := concentratedPool.Token0
+	if isZeroForOne {
+		tokenInDenom = concentratedPool.Token1
+	}
+
+	// Initialize the swap strategy.
+	swapStrategy := swapstrategy.New(isZeroForOne, smallestDec, &storetypes.KVStoreKey{}, concentratedPool.SpreadFactor)
+
+	var (
+		// Swap state
+		currentSqrtPrice = concentratedPool.GetCurrentSqrtPrice()
+
+		amountRemainingOut = tokenOut.Amount.ToLegacyDec()
+		amountInTotal     = osmomath.ZeroDec()
+	)
+
+	if currentSqrtPrice.IsZero() {
+		return sdk.Coin{}, domain.ConcentratedZeroCurrentSqrtPriceError{
+			PoolId: concentratedPool.Id,
+		}
+	}
+
+	// Compute swap over all buckets.
+	for amountRemainingOut.IsPositive() {
+		if currentBucketIndex >= int64(len(tickModel.Ticks)) || currentBucketIndex < 0 {
+			// This happens when there is not enough liquidity in the pool to complete the swap
+			// for a given amount of token in.
+			return sdk.Coin{}, domain.ConcentratedNotEnoughLiquidityToCompleteSwapError{
+				PoolId:    concentratedPool.Id,
+				AmountOut: sdk.NewCoins(tokenOut).String(),
+			}
+		}
+
+		currentBucket = tickModel.Ticks[currentBucketIndex]
+
+		// Compute the next initialized tick index depending on the swap direction.
+		// Zero for one - in the lower tick direction.
+		// One for zero - in the upper tick direction.
+		var nextInitializedTickIndex int64
+		if isZeroForOne {
+			nextInitializedTickIndex = currentBucket.LowerTick
+			currentBucketIndex--
+		} else {
+			nextInitializedTickIndex = currentBucket.UpperTick
+			currentBucketIndex++
+		}
+
+		// Get the sqrt price for the next initialized tick index.
+		sqrtPriceTarget, err := getTickToSqrtPrice(nextInitializedTickIndex)
+		if err != nil {
+			return sdk.Coin{}, err
+		}
+
+		// Compute the swap within current bucket
+		sqrtPriceNext, amountOutConsumed, amountInComputed, spreadRewardChargeTotal := swapStrategy.ComputeSwapWithinBucketInGivenOut(currentSqrtPrice, sqrtPriceTarget, currentBucket.LiquidityAmount, amountRemainingOut)
+
+		// Update swap state for next iteration
+		amountRemainingOut = amountRemainingOut.SubMut(amountOutConsumed).SubMut(spreadRewardChargeTotal)
+		amountInTotal = amountInTotal.AddMut(amountInComputed)
+
+		// Update current sqrt price
+		currentSqrtPrice = sqrtPriceNext
+	}
+
+	// Return the total amount in.
+	return sdk.Coin{Denom: tokenInDenom, Amount: amountInTotal.TruncateInt()}, nil
 }
 
 // GetTokenOutDenom implements RoutablePool.
