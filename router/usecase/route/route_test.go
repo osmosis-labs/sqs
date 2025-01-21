@@ -108,11 +108,11 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 	defaultTokenIn := sdk.NewCoin(DenomTwo, DefaultAmt0)
 
 	// Estimate balancer pool spot price
-	balancerPoolSpotPriceInOverOut, err := balancerPool.SpotPrice(sdk.Context{}, DenomOne, DenomTwo)
+	balancerPoolSpotPriceInOverOut, err := balancerPool.SpotPrice(s.Ctx, DenomOne, DenomTwo)
 	s.Require().NoError(err)
 
 	// Estimate balancer pool effective spot price
-	expectedAmountOutBalancer, err := balancerPool.CalcOutAmtGivenIn(sdk.Context{}, sdk.NewCoins(defaultTokenIn), DenomOne, DefaultSpreadFactor)
+	expectedAmountOutBalancer, err := balancerPool.CalcOutAmtGivenIn(s.Ctx, sdk.NewCoins(defaultTokenIn), DenomOne, DefaultSpreadFactor)
 	s.Require().NoError(err)
 	expectedEffectivePriceBalancerInOverOut := expectedAmountOutBalancer.Amount.ToLegacyDec().Quo(defaultTokenIn.Amount.ToLegacyDec())
 

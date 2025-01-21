@@ -225,7 +225,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	s.Require().NoError(err)
 
 	// Compute spot price before swap
-	spotPriceInBaseOutQuote, err := poolOne.SpotPrice(sdk.Context{}, USDC, ETH)
+	spotPriceInBaseOutQuote, err := poolOne.SpotPrice(s.Ctx, USDC, ETH)
 	s.Require().NoError(err)
 
 	coinIn := sdk.NewCoin(ETH, totalInAmount)

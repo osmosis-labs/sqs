@@ -27,7 +27,7 @@ type routableBalancerPoolImpl struct {
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
 func (r *routableBalancerPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-	tokenOut, err := r.ChainPool.CalcOutAmtGivenIn(sdk.Context{}, sdk.Coins{tokenIn}, r.TokenOutDenom, r.GetSpreadFactor())
+	tokenOut, err := r.ChainPool.CalcOutAmtGivenIn(sdk.Context{}.WithContext(ctx), sdk.Coins{tokenIn}, r.TokenOutDenom, r.GetSpreadFactor())
 	if err != nil {
 		return sdk.Coin{}, err
 	}
@@ -37,7 +37,7 @@ func (r *routableBalancerPoolImpl) CalculateTokenOutByTokenIn(ctx context.Contex
 
 // CalculateTokenInByTokenOut implements RoutablePool.
 func (r *routableBalancerPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	tokenIn, err := r.ChainPool.CalcInAmtGivenOut(sdk.Context{}, sdk.Coins{tokenOut}, r.TokenInDenom, r.GetSpreadFactor())
+	tokenIn, err := r.ChainPool.CalcInAmtGivenOut(sdk.Context{}.WithContext(ctx), sdk.Coins{tokenOut}, r.TokenInDenom, r.GetSpreadFactor())
 	if err != nil {
 		return sdk.Coin{}, err
 	}
@@ -111,7 +111,7 @@ func (*routableBalancerPoolImpl) GetType() poolmanagertypes.PoolType {
 
 // CalcSpotPrice implements domain.RoutablePool.
 func (r *routableBalancerPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
+	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}.WithContext(ctx), quoteDenom, baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
