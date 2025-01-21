@@ -257,7 +257,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenInByTokenOut(ctx context.Co
 		currentSqrtPrice = concentratedPool.GetCurrentSqrtPrice()
 
 		amountRemainingOut = tokenOut.Amount.ToLegacyDec()
-		amountInTotal     = osmomath.ZeroDec()
+		amountInTotal      = osmomath.ZeroDec()
 	)
 
 	if currentSqrtPrice.IsZero() {
