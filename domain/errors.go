@@ -143,7 +143,11 @@ type ConcentratedNotEnoughLiquidityToCompleteSwapError struct {
 }
 
 func (e ConcentratedNotEnoughLiquidityToCompleteSwapError) Error() string {
-	return fmt.Sprintf("not enough liquidity to complete swap in pool (%d) with amount in (%s)", e.PoolId, e.AmountIn)
+	if e.AmountIn != "" {
+		return fmt.Sprintf("not enough liquidity to complete swap in pool (%d) with amount in (%s)", e.PoolId, e.AmountIn)
+	}
+
+	return fmt.Sprintf("not enough liquidity to complete swap in pool (%d) with amount out (%s)", e.PoolId, e.AmountOut)
 }
 
 type ConcentratedTickModelNotSetError struct {
