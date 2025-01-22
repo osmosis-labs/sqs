@@ -103,6 +103,66 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 	}
 }
 
+// Tests the CalculateTokenInByTokenOut method of the RoutableConcentratedPoolImpl struct
+// when the pool is concentrated.
+//
+// It uses the same success test cases as the chain logic.
+// The error cases are tested in a separate fixture because the edge cases are different..
+func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Concentrated_SuccessChainVectors() {
+	tests := apptesting.SwapInGivenOutCases
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			// Note: router quote tests do not have the concept of slippage protection.
+			// These quotes are used to derive the slippage protection amount.
+			// So we skip these tests.
+			if strings.Contains(name, "slippage protection") {
+				s.T().Skip("no slippage protection in router quote tests")
+			}
+
+			s.SetupAndFundSwapTest()
+			concentratedPool := s.PreparePoolWithCustSpread(tc.SpreadFactor)
+			// add default position
+			s.SetupDefaultPosition(concentratedPool.GetId())
+			s.SetupSecondPosition(tc, concentratedPool)
+
+			// Refetch the pool
+			concentratedPool, err := s.App.ConcentratedLiquidityKeeper.GetConcentratedPoolById(s.Ctx, concentratedPool.GetId())
+			s.Require().NoError(err)
+
+			// Get liquidity for full range
+			ticks, currentTickIndex, err := s.App.ConcentratedLiquidityKeeper.GetTickLiquidityForFullRange(s.Ctx, concentratedPool.GetId())
+			s.Require().NoError(err)
+
+			poolWrapper := &ingesttypes.PoolWrapper{
+				ChainModel: concentratedPool,
+				TickModel: &ingesttypes.TickModel{
+					Ticks:            ticks,
+					CurrentTickIndex: currentTickIndex,
+					HasNoLiquidity:   false,
+				},
+				SQSModel: ingesttypes.SQSPool{
+					PoolLiquidityCap:      osmomath.NewInt(100),
+					PoolLiquidityCapError: "",
+					Balances:              sdk.Coins{},
+					PoolDenoms:            []string{"foo", "bar"},
+				},
+			}
+			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
+				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+			}
+
+			routablePool, err := pools.NewRoutablePool(poolWrapper, tc.TokenInDenom, tc.TokenOutDenom, noTakerFee, cosmWasmPoolsParams)
+			s.Require().NoError(err)
+
+			tokenIn, err := routablePool.CalculateTokenInByTokenOut(context.TODO(), tc.TokenOut)
+
+			s.Require().NoError(err)
+			s.Require().Equal(tc.ExpectedTokenIn.String(), tokenIn.String())
+		})
+	}
+}
+
 // This test cases focuses on testing error and edge cases for CL quote calculation out by token in.
 func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_ErrorAndEdgeCases() {
 	const (
