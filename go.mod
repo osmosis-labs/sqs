@@ -284,7 +284,7 @@ replace (
 	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.2
 
 	// Temp replacement
-	github.com/osmosis-labs/osmosis/v28 v28.0.2 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20250122160533-f8cd1e9a2869
+	github.com/osmosis-labs/osmosis/v28 v28.0.2 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20250123151709-6bb88cccbfe6
 
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff

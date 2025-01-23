@@ -243,10 +243,10 @@ func (r *routableConcentratedPoolImpl) CalculateTokenInByTokenOut(ctx context.Co
 	}
 
 	// Set the appropriate token out denom.
-	isZeroForOne := tokenOut.Denom == concentratedPool.Token0
-	tokenInDenom := concentratedPool.Token0
+	isZeroForOne := tokenOut.Denom == concentratedPool.Token1
+	tokenInDenom := concentratedPool.Token1
 	if isZeroForOne {
-		tokenInDenom = concentratedPool.Token1
+		tokenInDenom = concentratedPool.Token0
 	}
 
 	// Initialize the swap strategy.
