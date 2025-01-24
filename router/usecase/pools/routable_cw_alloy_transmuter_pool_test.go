@@ -276,6 +276,72 @@ func (s *RoutablePoolTestSuite) TestCalcTokenOutAmt_AlloyTransmuter() {
 	}
 }
 
+func (s *RoutablePoolTestSuite) TestCalcTokenInAmt_AlloyTransmuter() {
+	tests := map[string]struct {
+		tokenOut         sdk.Coin
+		tokenInDenom     string
+		expectedTokenOut osmomath.BigDec
+		expectedError    error
+	}{
+		"valid calculation using normalization factors": {
+			tokenOut:         sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			tokenInDenom:     USDT,
+			expectedTokenOut: osmomath.NewBigDec(1), // (100 * 1) / 100 = 1
+			expectedError:    nil,
+		},
+		"valid calculation with decimal points": {
+			tokenOut:         sdk.NewCoin(USDC, osmomath.NewInt(10)),
+			tokenInDenom:     USDT,
+			expectedTokenOut: osmomath.MustNewBigDecFromStr("0.1"), // (10 * 1) / 100 = 0.1
+			expectedError:    nil,
+		},
+		"valid calculation, truncated to zero": {
+			tokenOut:         sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(10)),
+			tokenInDenom:     USDC,
+			expectedTokenOut: osmomath.MustNewBigDecFromStr("0"),
+			expectedError:    nil,
+		},
+		"missing normalization factor for token in": {
+			tokenOut:         sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
+			tokenInDenom:     USDT,
+			expectedTokenOut: osmomath.BigDec{},
+			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
+		},
+		"missing normalization factor for token out": {
+			tokenOut:         sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			tokenInDenom:     INVALID_DENOM,
+			expectedTokenOut: osmomath.BigDec{},
+			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
+		},
+		"missing normalization factors for both token in and token out": {
+			tokenOut:         sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
+			tokenInDenom:     INVALID_DENOM,
+			expectedTokenOut: osmomath.BigDec{},
+			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+
+			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenInDenom, tc.tokenOut.Denom, sdk.Coins{}, osmomath.ZeroDec())
+
+			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
+
+			tokenIn, err := r.CalcTokenInAmt(tc.tokenOut, tc.tokenInDenom)
+
+			if tc.expectedError != nil {
+				s.Require().Error(err)
+				s.Require().ErrorIs(err, tc.expectedError)
+			} else {
+				s.Require().NoError(err)
+				s.Require().Equal(tc.expectedTokenOut, tokenIn)
+			}
+		})
+	}
+}
+
 func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_AlloyTransmuter() {
 	tests := map[string]struct {
 		tokenIn       sdk.Coin

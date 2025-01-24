@@ -201,8 +201,8 @@ func (mp *MockRoutablePool) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfte
 }
 
 // ChargeTakerFeeExactOut implements domain.RoutablePool.
-func (mp *MockRoutablePool) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenInAfterFee sdk.Coin) {
-	return tokenOut.Add(sdk.NewCoin(tokenOut.Denom, mp.TakerFee.Mul(tokenOut.Amount.ToLegacyDec()).TruncateInt()))
+func (mp *MockRoutablePool) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
+	return tokenIn.Add(sdk.NewCoin(tokenIn.Denom, mp.TakerFee.Mul(tokenIn.Amount.ToLegacyDec()).TruncateInt()))
 }
 
 // GetTakerFee implements ingesttypes.PoolI.

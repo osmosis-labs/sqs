@@ -183,7 +183,7 @@ func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tok
 
 // ChargeTakerFee implements sqsdomain.RoutablePool.
 // Charges the taker fee for the given token out and returns the token out after the fee has been charged.
-func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
+func (r *routableOrderbookPoolImpl) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	return sdk.Coin{}
 }
 

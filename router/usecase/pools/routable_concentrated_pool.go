@@ -224,7 +224,7 @@ func (r *routableConcentratedPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (
 
 // ChargeTakerFee implements domain.RoutablePool.
 // Charges the taker fee for the given token out and returns the token out after the fee has been charged.
-func (r *routableConcentratedPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
+func (r *routableConcentratedPoolImpl) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	return sdk.Coin{}
 }
 
