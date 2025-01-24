@@ -75,6 +75,7 @@ func (r *routableConcentratedPoolImpl) GetTakerFee() math.LegacyDec {
 
 // CalculateTokenOutByTokenIn implements domain.RoutablePool.
 // It calculates the amount of token out given the amount of token in for a concentrated liquidity pool.
+// Because ChainPool operates on the chain store we simulate the store by operating on the custom data representation that is ingested from chain.
 // Fails if:
 // - the underlying chain pool set on the routable pool is not of concentrated type
 // - fails to retrieve the tick model for the pool
@@ -195,6 +196,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 
 // CalculateTokenInByTokenOut implements domain.RoutablePool.
 // It calculates the amount of token in given the amount of token out for a concentrated liquidity pool.
+// Because ChainPool operates on the chain store we simulate the store by operating on the custom data representation that is ingested from chain.
 // Fails if:
 // - the underlying chain pool set on the routable pool is not of concentrated type
 // - fails to retrieve the tick model for the pool
