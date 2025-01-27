@@ -6,7 +6,7 @@ import (
 
 	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/types"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/sqs/log"
@@ -16,7 +16,7 @@ import (
 )
 
 type ratedPool struct {
-	pool   sqsdomain.PoolI
+	pool   ingesttypes.PoolI
 	rating float64
 }
 
@@ -28,9 +28,9 @@ const (
 
 // filterPoolsByMinLiquidity filters the given pools by the minimum liquidity
 // capitalization.
-func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minPoolLiquidityCap uint64) []sqsdomain.PoolI {
+func FilterPoolsByMinLiquidity(pools []ingesttypes.PoolI, minPoolLiquidityCap uint64) []ingesttypes.PoolI {
 	minLiquidityCapInt := osmomath.NewIntFromUint64(minPoolLiquidityCap)
-	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
+	filteredPools := make([]ingesttypes.PoolI, 0, len(pools))
 	for _, pool := range pools {
 		if pool.GetPoolLiquidityCap().GTE(minLiquidityCapInt) {
 			filteredPools = append(filteredPools, pool)
@@ -43,12 +43,12 @@ func FilterPoolsByMinLiquidity(pools []sqsdomain.PoolI, minPoolLiquidityCap uint
 // according to the given configuration.
 // Filters out pools that have no tvl error set and have zero liquidity.
 // As a second return value, it returns the orderbook pools.
-func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) ([]sqsdomain.PoolI, []sqsdomain.PoolI) {
-	filteredPools := make([]sqsdomain.PoolI, 0, len(pools))
+func ValidateAndSortPools(pools []ingesttypes.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) ([]ingesttypes.PoolI, []ingesttypes.PoolI) {
+	filteredPools := make([]ingesttypes.PoolI, 0, len(pools))
 
 	totalTVL := osmomath.ZeroInt()
 
-	orderbookPools := make([]sqsdomain.PoolI, 0)
+	orderbookPools := make([]ingesttypes.PoolI, 0)
 
 	// Make a copy and filter pools
 	for _, pool := range pools {
@@ -116,7 +116,7 @@ func ValidateAndSortPools(pools []sqsdomain.PoolI, cosmWasmPoolsConfig domain.Co
 // - Pools with no error in TVL are prioritized by getting an even smaller boost.
 //
 // These heuristics are imperfect and subject to change.
-func sortPools(pools []sqsdomain.PoolI, transmuterCodeIDs map[uint64]struct{}, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []sqsdomain.PoolI {
+func sortPools(pools []ingesttypes.PoolI, transmuterCodeIDs map[uint64]struct{}, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []ingesttypes.PoolI {
 	logger.Debug("total tvl", zap.Stringer("total_tvl", totalTVL))
 	totalTVLFloat, _ := totalTVL.BigIntMut().Float64()
 

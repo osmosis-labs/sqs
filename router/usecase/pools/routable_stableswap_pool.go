@@ -27,7 +27,7 @@ type routableStableswapPoolImpl struct {
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
 func (r *routableStableswapPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-	tokenOut, err := r.ChainPool.CalcOutAmtGivenIn(sdk.Context{}, sdk.Coins{tokenIn}, r.TokenOutDenom, r.GetSpreadFactor())
+	tokenOut, err := r.ChainPool.CalcOutAmtGivenIn(sdk.Context{}.WithContext(ctx), sdk.Coins{tokenIn}, r.TokenOutDenom, r.GetSpreadFactor())
 	if err != nil {
 		return sdk.Coin{}, err
 	}
@@ -37,7 +37,7 @@ func (r *routableStableswapPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 
 // CalculateTokenInByTokenOut implements RoutablePool.
 func (r *routableStableswapPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	tokenIn, err := r.ChainPool.CalcInAmtGivenOut(sdk.Context{}, sdk.Coins{tokenOut}, r.TokenInDenom, r.GetSpreadFactor())
+	tokenIn, err := r.ChainPool.CalcInAmtGivenOut(sdk.Context{}.WithContext(ctx), sdk.Coins{tokenOut}, r.TokenInDenom, r.GetSpreadFactor())
 	if err != nil {
 		return sdk.Coin{}, err
 	}
@@ -61,10 +61,10 @@ func (r *routableStableswapPoolImpl) String() string {
 }
 
 // ChargeTakerFee implements domain.RoutablePool.
-// Charges the taker fee for the given token in and returns the token in after the fee has been charged.
-func (r *routableStableswapPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.TakerFee)
-	return tokenOutAfterTakerFee
+// Charges the taker fee for the given token out and returns the token out after the fee has been charged.
+func (r *routableStableswapPoolImpl) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
+	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenIn, r.TakerFee)
+	return tokenInAfterTakerFee
 }
 
 // ChargeTakerFee implements domain.RoutablePool.
@@ -111,7 +111,7 @@ func (r *routableStableswapPoolImpl) GetType() poolmanagertypes.PoolType {
 
 // CalcSpotPrice implements domain.RoutablePool.
 func (r *routableStableswapPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
+	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}.WithContext(ctx), quoteDenom, baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}

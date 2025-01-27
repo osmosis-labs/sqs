@@ -7,9 +7,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 )
 
 var (
@@ -173,14 +173,14 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_SkipPoolOption() {
 	s.Require().False(didFindExpectedPoolID)
 }
 
-func (s *RouterTestSuite) validateExpectedPoolIDOneHopRoute(route sqsdomain.CandidateRoute, expectedPoolID uint64) {
+func (s *RouterTestSuite) validateExpectedPoolIDOneHopRoute(route ingesttypes.CandidateRoute, expectedPoolID uint64) {
 	routePools := route.Pools
 	s.Require().Equal(1, len(routePools))
 	s.Require().Equal(expectedPoolID, routePools[0].ID)
 }
 
 // returns true if at least one roue contains a one-hop route with an expected pool ID
-func foundExpectedPoolID(expectedPoolID uint64, routes []sqsdomain.CandidateRoute) bool {
+func foundExpectedPoolID(expectedPoolID uint64, routes []ingesttypes.CandidateRoute) bool {
 	for _, route := range routes {
 		routePools := route.Pools
 

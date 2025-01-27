@@ -16,8 +16,8 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/pipeline"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
@@ -28,16 +28,16 @@ import (
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
-	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v28/x/gamm/types"
+	gammtypes "github.com/osmosis-labs/osmosis/v28/x/gamm/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -134,9 +134,9 @@ func NewPoolsUsecase(
 }
 
 // GetAllPools returns all pools from the repository.
-func (p *poolsUseCase) GetAllPools() (pools []sqsdomain.PoolI, err error) {
+func (p *poolsUseCase) GetAllPools() (pools []ingesttypes.PoolI, err error) {
 	p.pools.Range(func(key, value interface{}) bool {
-		pool, ok := value.(sqsdomain.PoolI)
+		pool, ok := value.(ingesttypes.PoolI)
 		if !ok {
 			err = fmt.Errorf("failed to cast pool with value %v", value)
 			return false
@@ -150,7 +150,7 @@ func (p *poolsUseCase) GetAllPools() (pools []sqsdomain.PoolI, err error) {
 }
 
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetRoutesFromCandidates(method domain.TokenSwapMethod, candidateRoutes sqsdomain.CandidateRoutes, tokenDenom string) ([]route.RouteImpl, error) {
+func (p *poolsUseCase) GetRoutesFromCandidates(ctx context.Context, method domain.TokenSwapMethod, candidateRoutes ingesttypes.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
 	// We track whether a route contains a generalized cosmwasm pool
 	// so that we can exclude it from split quote logic.
 	// The reason for this is that making network requests to chain is expensive.
@@ -160,6 +160,8 @@ func (p *poolsUseCase) GetRoutesFromCandidates(method domain.TokenSwapMethod, ca
 	// Convert each candidate route into the actual route with all pool data
 	routes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
+		previousTokenOutDenom := tokenInDenom
+
 		routablePools := make([]domain.RoutablePool, 0, len(candidateRoute.Pools))
 
 		// For fault tolerance, instead of bubbling up the error and skipping an entire
@@ -173,18 +175,18 @@ func (p *poolsUseCase) GetRoutesFromCandidates(method domain.TokenSwapMethod, ca
 			}
 
 			// Get taker fee
-			takerFee, exists := p.routerRepository.GetTakerFee(tokenDenom, candidatePool.TokenDenom)
+			takerFee, exists := p.routerRepository.GetTakerFee(previousTokenOutDenom, candidatePool.TokenOutDenom)
 			if !exists {
-				takerFee = sqsdomain.DefaultTakerFee
+				takerFee = ingesttypes.DefaultTakerFee
 			}
 
 			var (
 				routablePool domain.RoutablePool
 			)
 			if method == domain.TokenSwapMethodExactIn {
-				routablePool, err = pools.NewRoutablePool(pool, tokenDenom, candidatePool.TokenDenom, takerFee, p.cosmWasmPoolsParams)
+				routablePool, err = pools.NewRoutablePool(pool, candidatePool.TokenInDenom, candidatePool.TokenOutDenom, takerFee, p.cosmWasmPoolsParams)
 			} else {
-				routablePool, err = pools.NewRoutablePool(pool, candidatePool.TokenDenom, tokenDenom, takerFee, p.cosmWasmPoolsParams)
+				routablePool, err = pools.NewRoutablePool(pool, candidatePool.TokenOutDenom, candidatePool.TokenInDenom, takerFee, p.cosmWasmPoolsParams)
 			}
 			if err != nil {
 				skipErrorRoute = true
@@ -216,8 +218,8 @@ func (p *poolsUseCase) GetRoutesFromCandidates(method domain.TokenSwapMethod, ca
 }
 
 // GetTickModelMap implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetTickModelMap(poolIDs []uint64) (map[uint64]*sqsdomain.TickModel, error) {
-	tickModelMap := make(map[uint64]*sqsdomain.TickModel, len(poolIDs))
+func (p *poolsUseCase) GetTickModelMap(poolIDs []uint64) (map[uint64]*ingesttypes.TickModel, error) {
+	tickModelMap := make(map[uint64]*ingesttypes.TickModel, len(poolIDs))
 	for _, poolID := range poolIDs {
 		pool, err := p.GetPool(poolID)
 		if err != nil {
@@ -228,7 +230,7 @@ func (p *poolsUseCase) GetTickModelMap(poolIDs []uint64) (map[uint64]*sqsdomain.
 			return nil, fmt.Errorf("pool with ID %d is not concentrated", poolID)
 		}
 
-		poolWrapper, ok := pool.(*sqsdomain.PoolWrapper)
+		poolWrapper, ok := pool.(*ingesttypes.PoolWrapper)
 		if !ok {
 			return nil, domain.ConcentratedTickModelNotSetError{
 				PoolId: poolID,
@@ -242,13 +244,13 @@ func (p *poolsUseCase) GetTickModelMap(poolIDs []uint64) (map[uint64]*sqsdomain.
 }
 
 // GetPool implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetPool(poolID uint64) (sqsdomain.PoolI, error) {
+func (p *poolsUseCase) GetPool(poolID uint64) (ingesttypes.PoolI, error) {
 	poolObj, ok := p.pools.Load(poolID)
 	if !ok {
 		return nil, domain.PoolNotFoundError{PoolID: poolID}
 	}
 
-	pool, ok := poolObj.(sqsdomain.PoolI)
+	pool, ok := poolObj.(ingesttypes.PoolI)
 	if !ok {
 		return nil, fmt.Errorf("failed to cast pool with ID %d", poolID)
 	}
@@ -268,7 +270,7 @@ func (p *poolsUseCase) GetPoolSpotPrice(ctx context.Context, poolID uint64, take
 		return osmomath.BigDec{}, err
 	}
 
-	// N.B.: Empty string for token out denom because it is irrelevant for calculating spot price.
+	// N.B.: Empty string for token in/out denom because it is irrelevant for calculating spot price.
 	// It is only relevant in the context of routing
 	routablePool, err := pools.NewRoutablePool(pool, "", "", takerFee, p.cosmWasmPoolsParams)
 	if err != nil {
@@ -287,7 +289,7 @@ func (p *poolsUseCase) IsGeneralCosmWasmCodeID(codeId uint64) bool {
 // setTickModelMapIfConcentrated sets tick model for concentrated pools. No-op if pool is not concentrated.
 // If the pool is concentrated but the map does not contains the tick model, an error is returned.
 // The input pool parameter is mutated.
-func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]*sqsdomain.TickModel) error {
+func setTickModelIfConcentrated(pool ingesttypes.PoolI, tickModelMap map[uint64]*ingesttypes.TickModel) error {
 	if pool.GetType() == poolmanagertypes.Concentrated {
 		// Get tick model for concentrated pool
 		tickModel, ok := tickModelMap[pool.GetId()]
@@ -308,7 +310,7 @@ func setTickModelIfConcentrated(pool sqsdomain.PoolI, tickModelMap map[uint64]*s
 // getTicksAndSetTickModelIfConcentrated gets tick model for concentrated pools and sets it if this is a concentrated pool.
 // The input pool parameter is mutated.
 // No-op if pool is not concentrated.
-func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.PoolI) error {
+func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool ingesttypes.PoolI) error {
 	if pool.GetType() == poolmanagertypes.Concentrated {
 		// Get tick model for concentrated pools
 		tickModelMap, err := p.GetTickModelMap([]uint64{pool.GetId()})
@@ -326,44 +328,44 @@ func (p *poolsUseCase) getTicksAndSetTickModelIfConcentrated(pool sqsdomain.Pool
 }
 
 // getPoolsSortFuncs is a map of available sort functions for getPools function.
-var getPoolsSortFuncs = map[string]func(a, b sqsdomain.PoolI, desc bool) bool{
-	"id": func(a, b sqsdomain.PoolI, desc bool) bool {
+var getPoolsSortFuncs = map[string]func(a, b ingesttypes.PoolI, desc bool) bool{
+	"id": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
 			return a.GetId() > b.GetId()
 		}
 		return a.GetId() < b.GetId()
 	},
-	"totalFiatValueLocked": func(a, b sqsdomain.PoolI, desc bool) bool {
+	"totalFiatValueLocked": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
 			return a.GetLiquidityCap().GT(b.GetLiquidityCap())
 		}
 		return a.GetLiquidityCap().LT(b.GetLiquidityCap())
 	},
-	"market.feesSpent7dUsd": func(a, b sqsdomain.PoolI, desc bool) bool {
+	"market.feesSpent7dUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
 			return a.GetFeesData().PoolFee.FeesSpent7d > b.GetFeesData().PoolFee.FeesSpent7d
 		}
 		return a.GetFeesData().PoolFee.FeesSpent7d < b.GetFeesData().PoolFee.FeesSpent7d
 	},
-	"market.feesSpent24hUsd": func(a, b sqsdomain.PoolI, desc bool) bool {
+	"market.feesSpent24hUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
 			return a.GetFeesData().PoolFee.FeesSpent24h > b.GetFeesData().PoolFee.FeesSpent24h
 		}
 		return a.GetFeesData().PoolFee.FeesSpent24h < b.GetFeesData().PoolFee.FeesSpent24h
 	},
-	"market.volume7dUsd": func(a, b sqsdomain.PoolI, desc bool) bool {
+	"market.volume7dUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
 			return a.GetFeesData().PoolFee.Volume7d > b.GetFeesData().PoolFee.Volume7d
 		}
 		return a.GetFeesData().PoolFee.Volume7d < b.GetFeesData().PoolFee.Volume7d
 	},
-	"market.volume24hUsd": func(a, b sqsdomain.PoolI, desc bool) bool {
+	"market.volume24hUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
 			return a.GetFeesData().PoolFee.Volume24h > b.GetFeesData().PoolFee.Volume24h
 		}
 		return a.GetFeesData().PoolFee.Volume24h < b.GetFeesData().PoolFee.Volume24h
 	},
-	"incentives.aprBreakdown.total.upper": func(a, b sqsdomain.PoolI, desc bool) bool {
+	"incentives.aprBreakdown.total.upper": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
 			return a.GetAPRData().TotalAPR.Upper > b.GetAPRData().TotalAPR.Upper
 		}
@@ -372,31 +374,31 @@ var getPoolsSortFuncs = map[string]func(a, b sqsdomain.PoolI, desc bool) bool{
 }
 
 // poolFilters is a map of available filters for getPools function.
-var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]){
-	"poolId": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
+var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]){
+	"poolId": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
 		if f != nil && len(f.PoolId) > 0 {
-			transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			transformer.Filter(func(pool ingesttypes.PoolI) bool {
 				return slices.Contains(f.PoolId, pool.GetId()) // TODO: with keys method to avoid O(n)
 			})
 		}
 	},
-	"poolIdNotIn": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
+	"poolIdNotIn": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
 		if f != nil && len(f.PoolIdNotIn) > 0 {
-			transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			transformer.Filter(func(pool ingesttypes.PoolI) bool {
 				return !slices.Contains(f.PoolIdNotIn, pool.GetId())
 			})
 		}
 	},
-	"type": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
+	"type": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
 		if f != nil && len(f.Type) > 0 {
-			transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			transformer.Filter(func(pool ingesttypes.PoolI) bool {
 				return slices.Contains(f.Type, uint64(pool.GetType()))
 			})
 		}
 	},
-	"minLiquidityCap": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, sqsdomain.PoolI]) {
+	"minLiquidityCap": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
 		if f != nil && f.MinLiquidityCap > 0 {
-			transformer.Filter(func(pool sqsdomain.PoolI) bool {
+			transformer.Filter(func(pool ingesttypes.PoolI) bool {
 				return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap
 			})
 		}
@@ -406,8 +408,8 @@ var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pip
 // filterExactMatchSearch filters pools by exact match search.
 // If the search is a number, it will be matched against the pool ID.
 // If the search is a string, it will be matched against the pool denoms.
-var filterExactMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, search string) func(pool sqsdomain.PoolI) bool {
-	return func(pool sqsdomain.PoolI) bool {
+var filterExactMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, search string) func(pool ingesttypes.PoolI) bool {
+	return func(pool ingesttypes.PoolI) bool {
 		var coinDenoms []string
 
 		var denoms []string
@@ -438,8 +440,8 @@ var filterExactMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, searc
 }
 
 // filterPartialMatchSearch filters pools by partial match search.
-var filterPartialMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, search string) func(pool sqsdomain.PoolI) bool {
-	return func(pool sqsdomain.PoolI) bool {
+var filterPartialMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, search string) func(pool ingesttypes.PoolI) bool {
+	return func(pool ingesttypes.PoolI) bool {
 		var humanDenoms []string
 		var poolNameByDenom string
 		var coinnames []string
@@ -479,7 +481,7 @@ var filterPartialMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, sea
 }
 
 // GetPools implements mvc.PoolsUsecase.
-func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, uint64, error) {
+func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI, uint64, error) {
 	var options domain.PoolsOptions
 	for _, opt := range opts {
 		opt(&options)
@@ -490,7 +492,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 		return nil, 0, nil
 	}
 
-	transformer := pipeline.NewSyncMapTransformer[uint64, sqsdomain.PoolI](&p.pools)
+	transformer := pipeline.NewSyncMapTransformer[uint64, ingesttypes.PoolI](&p.pools)
 
 	// Apply filters
 	for _, applyFilter := range poolFilters {
@@ -501,7 +503,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	// Given list of denoms in the filter, it will return pools that have at least one denom in the list.
 	// Order of denoms in the filter list is not important.
 	if f := options.Filter; f != nil && len(f.Denom) > 0 {
-		transformer.Filter(func(pool sqsdomain.PoolI) bool {
+		transformer.Filter(func(pool ingesttypes.PoolI) bool {
 			poolDenoms := pool.GetPoolDenoms()
 
 			// Check if any denom in f.Denom exists in poolDenoms
@@ -523,7 +525,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	}
 
 	// Set fetch APR and fees data if configured used by some sort opts below
-	transformer.Range(func(key uint64, value sqsdomain.PoolI) bool {
+	transformer.Range(func(key uint64, value ingesttypes.PoolI) bool {
 		p.setPoolAPRAndFeeDataIfConfigured(value, options)
 		return true
 	})
@@ -532,7 +534,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	// This filter is intentionally placed after setting APR and fee data
 	// to ensure that the APR and fee data is set required for this filter.
 	if f := options.Filter; f != nil && len(f.Incentive) > 0 {
-		transformer.Filter(func(pool sqsdomain.PoolI) bool {
+		transformer.Filter(func(pool ingesttypes.PoolI) bool {
 			return slices.Contains(f.Incentive, pool.Incentive())
 		})
 	}
@@ -551,13 +553,13 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	}
 
 	// Sorting options for pool results
-	var sortopts []func(sqsdomain.PoolI, sqsdomain.PoolI) bool
+	var sortopts []func(ingesttypes.PoolI, ingesttypes.PoolI) bool
 	if sort := options.Sort; sort != nil {
 		for _, v := range sort.Fields {
 			if sortFunc, ok := getPoolsSortFuncs[v.Field]; ok {
 				// Pass direction as a parameter to avoid duplication
 				desc := v.Direction == v1beta1.SortDirection_DESCENDING
-				sortopts = append(sortopts, func(a, b sqsdomain.PoolI) bool {
+				sortopts = append(sortopts, func(a, b ingesttypes.PoolI) bool {
 					return sortFunc(a, b, desc)
 				})
 			}
@@ -565,11 +567,11 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 	}
 	transformer.Sort(sortopts...) // apply sort options
 
-	var pools []sqsdomain.PoolI
+	var pools []ingesttypes.PoolI
 	if pagination := options.Pagination; pagination == nil {
 		pools = transformer.Data()
 	} else {
-		iterator := pipeline.NewSyncMapIterator[uint64, sqsdomain.PoolI](&p.pools, transformer.Keys())
+		iterator := pipeline.NewSyncMapIterator[uint64, ingesttypes.PoolI](&p.pools, transformer.Keys())
 		paginator := pipeline.NewPaginator[uint64](iterator, pagination)
 		pools = paginator.GetPage()
 	}
@@ -578,7 +580,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, 
 }
 
 // StorePools implements mvc.PoolsUsecase.
-func (p *poolsUseCase) StorePools(pools []sqsdomain.PoolI) error {
+func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 	for _, pool := range pools {
 		// Store pool
 		poolID := pool.GetId()
@@ -763,7 +765,7 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingSharesIn osmomath.
 		return nil, fmt.Errorf("invalid pool type for pool ID %d, expected CFMM pool", poolID)
 	}
 
-	pool, ok := sqsPool.GetUnderlyingPool().(types.CFMMPoolI)
+	pool, ok := sqsPool.GetUnderlyingPool().(gammtypes.CFMMPoolI)
 	if !ok {
 		return nil, fmt.Errorf("failed to cast underlying pool to CFMMPoolI for ID: %d", poolID)
 	}
@@ -781,7 +783,7 @@ const errMsgFormatSharesLargerThanMax = "cannot exit all shares in a pool. Attem
 // It is a direct port of the CalcExitPool function from the Gamm module with some modifications
 // to optimize the calculation for performance.
 // @link https://github.com/osmosis-labs/osmosis/blob/fde1776476d9c2f849dcbfb30ca3ec64d0e12863/x/gamm/pool-models/internal/cfmm_common/lp.go#L18
-func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {
+func calcExitPool(ctx sdk.Context, pool gammtypes.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {
 	totalShares, err := strconv.ParseFloat(pool.GetTotalShares().String(), 64)
 	if err != nil {
 		return sdk.Coins{}, err
@@ -793,7 +795,7 @@ func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomat
 	}
 
 	if exitingShares >= totalShares {
-		return sdk.Coins{}, errorsmod.Wrapf(types.ErrLimitMaxAmount, errMsgFormatSharesLargerThanMax, exitingShares, totalShares-float64(osmomath.OneInt().Int64()))
+		return sdk.Coins{}, errorsmod.Wrapf(gammtypes.ErrLimitMaxAmount, errMsgFormatSharesLargerThanMax, exitingShares, totalShares-float64(osmomath.OneInt().Int64()))
 	}
 
 	// refundedShares = exitingShares * (1 - exit fee)
@@ -853,7 +855,7 @@ func calcExitPool(ctx sdk.Context, pool types.CFMMPoolI, exitingSharesIn osmomat
 // Logs an error if fails to get APR or pool fee data.
 // The input pool parameter is mutated.
 // The input options parameter is used to determine whether to set APR and fee data.
-func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool sqsdomain.PoolI, options domain.PoolsOptions) {
+func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, options domain.PoolsOptions) {
 	if options.Filter != nil && options.Filter.WithMarketIncentives {
 		poolID := pool.GetId()
 

@@ -2,6 +2,7 @@ package pools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/math"
@@ -85,25 +86,9 @@ func (r *routableCosmWasmPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
 }
 
+// CalculateTokenInByTokenOut implements domain.RoutablePool.
 func (r *routableCosmWasmPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	poolType := r.GetType()
-
-	// Ensure that the pool is cosmwasm
-	if poolType != poolmanagertypes.CosmWasm {
-		return sdk.Coin{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
-	}
-
-	// Configure the calc query message
-	calcMessage := msg.NewCalcInAmtGivenOutRequest(r.TokenInDenom, tokenOut, r.SpreadFactor)
-
-	calcOutAmtGivenInResponse := msg.CalcOutAmtGivenInResponse{}
-	if err := cosmwasmdomain.QueryCosmwasmContract(ctx, r.wasmClient, r.ChainPool.ContractAddress, &calcMessage, &calcOutAmtGivenInResponse); err != nil {
-		return sdk.Coin{}, err
-	}
-
-	// No slippage swaps - just return the same amount of token out as token in
-	// as long as there is enough liquidity in the pool.
-	return calcOutAmtGivenInResponse.TokenOut, nil
+	return sdk.Coin{}, errors.New("not implemented")
 }
 
 // CalculateTokenOutByTokenIn implements domain.RoutablePool.
@@ -173,8 +158,7 @@ func (r *routableCosmWasmPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (inAm
 // ChargeTakerFeeExactOut implements domain.RoutablePool.
 // Returns tokenOutAmount and does not charge any fee for transmuter pools.
 func (r *routableCosmWasmPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (outAmountAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.GetTakerFee())
-	return tokenOutAfterTakerFee
+	return sdk.Coin{}
 }
 
 // GetTakerFee implements domain.RoutablePool.

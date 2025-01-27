@@ -1,11 +1,12 @@
-package sqsdomain
+package types
 
 // CandidatePool is a data structure representing a
 // candidate pool to be used for routing.
 type CandidatePool struct {
-	ID         uint64
-	TokenDenom string
-	SwapMethod int
+	ID            uint64
+	SwapMethod    int
+	TokenInDenom  string
+	TokenOutDenom string
 }
 
 // CandidateRoute is a data structure representing a

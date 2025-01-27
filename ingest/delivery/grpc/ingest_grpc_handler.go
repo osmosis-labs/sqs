@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
+	prototypes "github.com/osmosis-labs/osmosis/v28/ingest/types/proto/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	prototypes "github.com/osmosis-labs/sqs/sqsdomain/proto/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -31,7 +31,7 @@ type IngestGRPCHandler struct {
 }
 
 type IngestProcessBlockArgs struct {
-	Pools []sqsdomain.PoolI
+	Pools []ingesttypes.PoolI
 }
 
 const (
@@ -66,7 +66,7 @@ func NewIngestGRPCHandler(us mvc.IngestUsecase, grpcIngesterConfig domain.GRPCIn
 
 // ProcessChainPools implements types.IngesterServer.
 func (i *IngestGRPCHandler) ProcessBlock(ctx context.Context, req *prototypes.ProcessBlockRequest) (*prototypes.ProcessBlockReply, error) {
-	takerFeeMap := sqsdomain.TakerFeeMap{}
+	takerFeeMap := ingesttypes.TakerFeeMap{}
 
 	// If there's some metadata in the context, retrieve it.
 	md, ok := metadata.FromIncomingContext(ctx)

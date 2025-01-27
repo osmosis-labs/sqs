@@ -28,7 +28,6 @@ proto-all: proto-format proto-lint proto-gen
 #? proto-gen: Generate Protobuf files
 proto-gen:
 	@$(protoImage) sh ./scripts/protocgen.sh
-	protoc --go_out=./ --go-grpc_out=./ --proto_path=./sqsdomain/proto ./sqsdomain/proto/ingest.proto
 
 #? proto-swagger-gen: Generate Protobuf Swagger
 proto-swagger-gen:

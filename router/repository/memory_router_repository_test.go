@@ -6,9 +6,9 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -85,12 +85,12 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestGetAllTakerFees() {
 	tests := []struct {
 		name              string
 		setup             func()
-		expectedTakerFees sqsdomain.TakerFeeMap
+		expectedTakerFees ingesttypes.TakerFeeMap
 	}{
 		{
 			name:              "no taker fees set",
 			setup:             func() {}, // No setup needed as there are no fees set
-			expectedTakerFees: sqsdomain.TakerFeeMap{},
+			expectedTakerFees: ingesttypes.TakerFeeMap{},
 		},
 		{
 			name: "taker fees set for multiple pairs",
@@ -98,9 +98,9 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestGetAllTakerFees() {
 				suite.repository.SetTakerFee("denomA", "denomB", fee1)
 				suite.repository.SetTakerFee("denomC", "denomD", fee2)
 			},
-			expectedTakerFees: sqsdomain.TakerFeeMap{
-				sqsdomain.DenomPair{Denom0: "denomA", Denom1: "denomB"}: fee1,
-				sqsdomain.DenomPair{Denom0: "denomC", Denom1: "denomD"}: fee2,
+			expectedTakerFees: ingesttypes.TakerFeeMap{
+				ingesttypes.DenomPair{Denom0: "denomA", Denom1: "denomB"}: fee1,
+				ingesttypes.DenomPair{Denom0: "denomC", Denom1: "denomD"}: fee2,
 			},
 		},
 	}
@@ -144,21 +144,21 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestSetTakerFee() {
 }
 
 func (suite *RouteRepositoryChatGPTTestSuite) TestSetTakerFees() {
-	expectedFees := sqsdomain.TakerFeeMap{
-		sqsdomain.DenomPair{Denom0: "denomG", Denom1: "denomH"}: fee1,
-		sqsdomain.DenomPair{Denom0: "denomI", Denom1: "denomJ"}: fee2,
+	expectedFees := ingesttypes.TakerFeeMap{
+		ingesttypes.DenomPair{Denom0: "denomG", Denom1: "denomH"}: fee1,
+		ingesttypes.DenomPair{Denom0: "denomI", Denom1: "denomJ"}: fee2,
 	}
 
 	tests := []struct {
 		name         string
-		takerFees    sqsdomain.TakerFeeMap
-		expectedFees sqsdomain.TakerFeeMap
+		takerFees    ingesttypes.TakerFeeMap
+		expectedFees ingesttypes.TakerFeeMap
 	}{
 		{
 			name: "set multiple taker fees",
-			takerFees: sqsdomain.TakerFeeMap{
-				sqsdomain.DenomPair{Denom0: "denomG", Denom1: "denomH"}: fee1,
-				sqsdomain.DenomPair{Denom0: "denomI", Denom1: "denomJ"}: fee2,
+			takerFees: ingesttypes.TakerFeeMap{
+				ingesttypes.DenomPair{Denom0: "denomG", Denom1: "denomH"}: fee1,
+				ingesttypes.DenomPair{Denom0: "denomI", Denom1: "denomJ"}: fee2,
 			},
 			expectedFees: expectedFees,
 		},
@@ -186,15 +186,15 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestGetRankedPoolsByDenom_HappyPat
 	)
 
 	var (
-		denomOnePools = []sqsdomain.PoolI{
-			&sqsdomain.PoolWrapper{
+		denomOnePools = []ingesttypes.PoolI{
+			&ingesttypes.PoolWrapper{
 				ChainModel: &mocks.ChainPoolMock{
 					ID: defaultPoolID,
 				},
 			}}
 
-		denomTwoPools = []sqsdomain.PoolI{
-			&sqsdomain.PoolWrapper{
+		denomTwoPools = []ingesttypes.PoolI{
+			&ingesttypes.PoolWrapper{
 				ChainModel: &mocks.ChainPoolMock{
 					ID: defaultPoolID + 1,
 				},

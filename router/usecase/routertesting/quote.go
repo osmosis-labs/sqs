@@ -3,10 +3,10 @@ package routertesting
 import (
 	"github.com/osmosis-labs/sqs/domain"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
@@ -41,11 +41,11 @@ var (
 	)
 )
 
-func (s *RouterTestHelper) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
+func (s *RouterTestHelper) newRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
-	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	routablePool, err := pools.NewRoutablePool(pool, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 
 	s.Require().NoError(err)
 
@@ -65,12 +65,14 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
-							sqsdomain.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
+							ingesttypes.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
+							ETH,
 							USDT,
 							takerFeeOne,
 						),
 						s.newRoutablePool(
-							sqsdomain.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
+							ingesttypes.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
+							USDT,
 							USDC,
 							takerFeeTwo,
 						),
@@ -86,7 +88,8 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
-							sqsdomain.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
+							ingesttypes.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
+							ETH,
 							USDC,
 							takerFeeThree,
 						),
@@ -114,12 +117,14 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
-							sqsdomain.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
+							ingesttypes.NewPool(p1, p1.GetSpreadFactor(sdk.Context{}), poolOneBalances),
+							ETH,
 							USDT,
 							takerFeeOne,
 						),
 						s.newRoutablePool(
-							sqsdomain.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
+							ingesttypes.NewPool(p2, p2.GetSpreadFactor(sdk.Context{}), poolTwoBalances),
+							USDT,
 							USDC,
 							takerFeeTwo,
 						),
@@ -133,7 +138,8 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
-							sqsdomain.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
+							ingesttypes.NewPool(p3, p3.GetSpreadFactor(sdk.Context{}), poolThreeBalances),
+							ETH,
 							USDC,
 							takerFeeThree,
 						),

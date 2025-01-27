@@ -13,9 +13,10 @@ import (
 
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	cltypes "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
@@ -24,7 +25,6 @@ import (
 	"github.com/osmosis-labs/sqs/orderbook/types"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
 	"github.com/osmosis-labs/sqs/orderbook/usecase/orderbooktesting"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -91,7 +91,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 
 	testCases := []struct {
 		name          string
-		pool          sqsdomain.PoolI
+		pool          ingesttypes.PoolI
 		setupMocks    func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock)
 		expectedError error
 	}{

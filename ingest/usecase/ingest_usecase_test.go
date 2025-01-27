@@ -8,13 +8,13 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/ingest/usecase"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -416,7 +416,7 @@ func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalSync() {
 
 			ingester, err := usecase.NewIngestUsecase(
 				&mocks.PoolsUsecaseMock{
-					StorePoolsFunc: func(pools []sqsdomain.PoolI) error {
+					StorePoolsFunc: func(pools []ingesttypes.PoolI) error {
 						return nil
 					},
 				},
@@ -459,7 +459,7 @@ func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalSync() {
 func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 
 	var (
-		defaultModel = &sqsdomain.SQSPool{
+		defaultModel = &ingesttypes.SQSPool{
 			PoolLiquidityCap:      osmomath.NewInt(1_000),
 			PoolLiquidityCapError: "",
 			Balances:              sdk.NewCoins(defaultUOSMOBalance, defaultUSDCBalance),
@@ -471,7 +471,7 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 		// We reorder them by balances value
 		reorderedDefaultDenoms = []string{USDC, UOSMO}
 
-		deepCopy = func(sqsPool *sqsdomain.SQSPool) *sqsdomain.SQSPool {
+		deepCopy = func(sqsPool *ingesttypes.SQSPool) *ingesttypes.SQSPool {
 			copy := *sqsPool
 
 			copy.PoolLiquidityCap = sqsPool.PoolLiquidityCap.ToLegacyDec().TruncateInt()
@@ -507,25 +507,25 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 			// Note: data is missing
 		}
 
-		withCosmWasmModel = func(sqsPool *sqsdomain.SQSPool, cosmWasmModel *cosmwasmpool.CosmWasmPoolModel) *sqsdomain.SQSPool {
+		withCosmWasmModel = func(sqsPool *ingesttypes.SQSPool, cosmWasmModel *cosmwasmpool.CosmWasmPoolModel) *ingesttypes.SQSPool {
 			sqsPool = deepCopy(sqsPool)
 			sqsPool.CosmWasmPoolModel = cosmWasmModel
 			return sqsPool
 		}
 
-		withPoolDenoms = func(sqsPool *sqsdomain.SQSPool, denoms ...string) *sqsdomain.SQSPool {
+		withPoolDenoms = func(sqsPool *ingesttypes.SQSPool, denoms ...string) *ingesttypes.SQSPool {
 			sqsPool = deepCopy(sqsPool)
 			sqsPool.PoolDenoms = denoms
 			return sqsPool
 		}
 
-		withBalances = func(sqsPool *sqsdomain.SQSPool, balances sdk.Coins) *sqsdomain.SQSPool {
+		withBalances = func(sqsPool *ingesttypes.SQSPool, balances sdk.Coins) *ingesttypes.SQSPool {
 			sqsPool = deepCopy(sqsPool)
 			sqsPool.Balances = balances
 			return sqsPool
 		}
 
-		withAssetConfigs = func(sqsPool *sqsdomain.SQSPool, assetConfigs []cosmwasmpool.TransmuterAssetConfig) *sqsdomain.SQSPool {
+		withAssetConfigs = func(sqsPool *ingesttypes.SQSPool, assetConfigs []cosmwasmpool.TransmuterAssetConfig) *ingesttypes.SQSPool {
 			sqsPool = deepCopy(sqsPool)
 			sqsPool.CosmWasmPoolModel.Data.AlloyTransmuter.AssetConfigs = assetConfigs
 			return sqsPool
@@ -539,9 +539,9 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 	tests := []struct {
 		name string
 
-		sqsModel *sqsdomain.SQSPool
+		sqsModel *ingesttypes.SQSPool
 
-		expectedSQSModel *sqsdomain.SQSPool
+		expectedSQSModel *ingesttypes.SQSPool
 		expectedErr      bool
 	}{
 		{

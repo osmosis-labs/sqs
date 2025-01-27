@@ -46,6 +46,7 @@ import (
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
@@ -56,7 +57,6 @@ import (
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
-	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
 	routerHttpDelivery "github.com/osmosis-labs/sqs/router/delivery/http"
 	routerUseCase "github.com/osmosis-labs/sqs/router/usecase"

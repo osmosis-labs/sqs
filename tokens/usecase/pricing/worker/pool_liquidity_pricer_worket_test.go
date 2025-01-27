@@ -8,9 +8,9 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 	"github.com/stretchr/testify/suite"
 )
@@ -128,7 +128,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	}
 
 	poolHandlerMock := mocks.PoolHandlerMock{
-		Pools: []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
+		Pools: []ingesttypes.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
 	}
 
 	// Create the worker
@@ -703,7 +703,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 	tests := []struct {
 		name string
 
-		existingPools []sqsdomain.PoolI
+		existingPools []ingesttypes.PoolI
 		poolIDs       map[uint64]struct{}
 
 		// updateHeight      uint64
@@ -721,7 +721,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 				defaultPoolID: {},
 			},
 
-			existingPools:     []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
+			existingPools:     []ingesttypes.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
 			blockPriceUpdates: defaultBlockPriceUpdates,
 			quoteDenom:        USDC,
 
@@ -739,7 +739,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 				defaultPoolID + 1: {},
 			},
 
-			existingPools: []sqsdomain.PoolI{
+			existingPools: []ingesttypes.PoolI{
 				// UOSMO: 1x default balance, ATOM: 1x default balance
 				&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance, defaultATOMBalance)},
 
@@ -767,7 +767,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 				defaultPoolID + 1: {},
 			},
 
-			existingPools: []sqsdomain.PoolI{
+			existingPools: []ingesttypes.PoolI{
 				// UOSMO: 1x default balance, ATOM: 1x default balance, zero capitalization set
 				&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance, defaultATOMBalance), PoolLiquidityCap: zeroCapitalization},
 
@@ -794,7 +794,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 				defaultPoolID: {},
 			},
 
-			existingPools:     []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
+			existingPools:     []ingesttypes.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
 			blockPriceUpdates: defaultBlockPriceUpdates,
 			quoteDenom:        ATOM,
 
@@ -812,7 +812,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 				defaultPoolID: {},
 			},
 
-			existingPools:     []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
+			existingPools:     []ingesttypes.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}},
 			blockPriceUpdates: domain.PricesResult{},
 			quoteDenom:        USDC,
 
@@ -828,7 +828,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 
 			poolIDs: map[uint64]struct{}{},
 
-			existingPools:     []sqsdomain.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance), PoolLiquidityCap: zeroCapitalization}},
+			existingPools:     []ingesttypes.PoolI{&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance), PoolLiquidityCap: zeroCapitalization}},
 			blockPriceUpdates: defaultBlockPriceUpdates,
 			quoteDenom:        USDC,
 
@@ -894,7 +894,7 @@ func (s *PoolLiquidityComputeWorkerSuite) validatePoolDenomMetadata(expected dom
 }
 
 // validateLiquidityCapPools validate that liquidity cap is set correctly on each pool.
-func (s *PoolLiquidityComputeWorkerSuite) validateLiquidityCapPools(expectedLiquidityResultMap map[uint64]liquidityResult, actualPools []sqsdomain.PoolI) {
+func (s *PoolLiquidityComputeWorkerSuite) validateLiquidityCapPools(expectedLiquidityResultMap map[uint64]liquidityResult, actualPools []ingesttypes.PoolI) {
 	for _, pool := range actualPools {
 
 		expectedLiquidityResult, ok := expectedLiquidityResultMap[pool.GetId()]

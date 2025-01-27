@@ -5,11 +5,11 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -71,7 +71,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 		},
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
-	routablePool, err := pools.NewRoutablePool(mock, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	routablePool, err := pools.NewRoutablePool(mock, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 
 	return routablePool

@@ -7,7 +7,7 @@ import (
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	"github.com/osmosis-labs/sqs/domain"
 
@@ -90,8 +90,8 @@ func (r *routableResultPoolImpl) GetPoolDenoms() []string {
 }
 
 // GetSQSPoolModel implements domain.RoutablePool.
-func (r *routableResultPoolImpl) GetSQSPoolModel() sqsdomain.SQSPool {
-	return sqsdomain.SQSPool{
+func (r *routableResultPoolImpl) GetSQSPoolModel() ingesttypes.SQSPool {
+	return ingesttypes.SQSPool{
 		Balances:     r.Balances,
 		PoolDenoms:   r.GetPoolDenoms(),
 		SpreadFactor: r.SpreadFactor,
@@ -99,7 +99,7 @@ func (r *routableResultPoolImpl) GetSQSPoolModel() sqsdomain.SQSPool {
 }
 
 // GetTickModel implements domain.RoutablePool.
-func (r *routableResultPoolImpl) GetTickModel() (*sqsdomain.TickModel, error) {
+func (r *routableResultPoolImpl) GetTickModel() (*ingesttypes.TickModel, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -156,10 +156,9 @@ func (r *routableResultPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenI
 }
 
 // ChargeTakerFee implements domain.RoutablePool.
-// Charges the taker fee for the given token in and returns the token in after the fee has been charged.
+// Charges the taker fee for the given token out and returns the token out after the fee has been charged.
 func (r *routableResultPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (tokenOutAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.TakerFee)
-	return tokenOutAfterTakerFee
+	return sdk.Coin{}
 }
 
 // GetTakerFee implements domain.RoutablePool.

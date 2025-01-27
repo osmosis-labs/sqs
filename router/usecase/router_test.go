@@ -5,13 +5,13 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	cosmwasmpool "github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	cosmwasmpool "github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
@@ -49,8 +49,8 @@ var (
 	DefaultLiquidityAmt = routertesting.DefaultLiquidityAmt
 
 	// router specific variables
-	defaultTickModel = &sqsdomain.TickModel{
-		Ticks:            []sqsdomain.LiquidityDepthsWithRange{},
+	defaultTickModel = &ingesttypes.TickModel{
+		Ticks:            []ingesttypes.LiquidityDepthsWithRange{},
 		CurrentTickIndex: 0,
 		HasNoLiquidity:   false,
 	}
@@ -110,29 +110,29 @@ func (s *RouterTestSuite) TestRouterSorting() {
 		// Inputs
 		minPoolLiquidityCap = 2
 		logger, _           = log.NewLogger(false, "", "")
-		defaultAllPools     = []sqsdomain.PoolI{
-			&sqsdomain.PoolWrapper{
+		defaultAllPools     = []ingesttypes.PoolI{
+			&ingesttypes.PoolWrapper{
 				ChainModel: balancerPool,
-				SQSModel: sqsdomain.SQSPool{
+				SQSModel: ingesttypes.SQSPool{
 					PoolLiquidityCap: osmomath.NewInt(5 * OsmoPrecisionMultiplier), // 5
 					PoolDenoms:       defaultDenoms,
 				},
 			},
-			&sqsdomain.PoolWrapper{
+			&ingesttypes.PoolWrapper{
 				ChainModel: stableswapPool,
-				SQSModel: sqsdomain.SQSPool{
+				SQSModel: ingesttypes.SQSPool{
 					PoolLiquidityCap: osmomath.NewInt(int64(minPoolLiquidityCap) - 1), // 1
 					PoolDenoms:       defaultDenoms,
 				},
 			},
-			&sqsdomain.PoolWrapper{
+			&ingesttypes.PoolWrapper{
 				ChainModel: concentratedPool,
-				SQSModel: sqsdomain.SQSPool{
+				SQSModel: ingesttypes.SQSPool{
 					PoolLiquidityCap: osmomath.NewInt(4 * OsmoPrecisionMultiplier), // 4
 					PoolDenoms:       defaultDenoms,
 				},
-				TickModel: &sqsdomain.TickModel{
-					Ticks: []sqsdomain.LiquidityDepthsWithRange{
+				TickModel: &ingesttypes.TickModel{
+					Ticks: []ingesttypes.LiquidityDepthsWithRange{
 						{
 							LowerTick:       0,
 							UpperTick:       100,
@@ -143,16 +143,16 @@ func (s *RouterTestSuite) TestRouterSorting() {
 					HasNoLiquidity:   false,
 				},
 			},
-			&sqsdomain.PoolWrapper{
+			&ingesttypes.PoolWrapper{
 				ChainModel: cosmWasmPool,
-				SQSModel: sqsdomain.SQSPool{
+				SQSModel: ingesttypes.SQSPool{
 					PoolLiquidityCap: osmomath.NewInt(3 * OsmoPrecisionMultiplier), // 3
 					PoolDenoms:       defaultDenoms,
 				},
 			},
-			&sqsdomain.PoolWrapper{
+			&ingesttypes.PoolWrapper{
 				ChainModel: &mocks.ChainPoolMock{ID: alloyedPoolID, Type: poolmanagertypes.CosmWasm},
-				SQSModel: sqsdomain.SQSPool{
+				SQSModel: ingesttypes.SQSPool{
 					PoolLiquidityCap: osmomath.NewInt(3*OsmoPrecisionMultiplier - 1), // 3 * precision - 1
 					PoolDenoms:       defaultDenoms,
 					CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
@@ -167,17 +167,17 @@ func (s *RouterTestSuite) TestRouterSorting() {
 			// Note that the pools below have higher TVL.
 			// However, since they have TVL error flag set, they
 			// should be sorted after other pools, unless overriden by preferredPoolIDs.
-			&sqsdomain.PoolWrapper{
+			&ingesttypes.PoolWrapper{
 				ChainModel: secondBalancerPool,
-				SQSModel: sqsdomain.SQSPool{
+				SQSModel: ingesttypes.SQSPool{
 					PoolLiquidityCap:      osmomath.NewInt(10 * OsmoPrecisionMultiplier), // 10
 					PoolDenoms:            defaultDenoms,
 					PoolLiquidityCapError: dummyPoolLiquidityCapErrorStr,
 				},
 			},
-			&sqsdomain.PoolWrapper{
+			&ingesttypes.PoolWrapper{
 				ChainModel: thirdBalancerPool,
-				SQSModel: sqsdomain.SQSPool{
+				SQSModel: ingesttypes.SQSPool{
 					PoolLiquidityCap:      osmomath.NewInt(11 * OsmoPrecisionMultiplier), // 11
 					PoolDenoms:            defaultDenoms,
 					PoolLiquidityCapError: dummyPoolLiquidityCapErrorStr,
@@ -231,8 +231,8 @@ func (s *RouterTestSuite) TestRouterSorting() {
 }
 
 // getTakerFeeMapForAllPoolTokenPairs returns a map of all pool token pairs to their taker fees.
-func (s *RouterTestSuite) getTakerFeeMapForAllPoolTokenPairs(pools []sqsdomain.PoolI) sqsdomain.TakerFeeMap {
-	pairs := make(sqsdomain.TakerFeeMap, 0)
+func (s *RouterTestSuite) getTakerFeeMapForAllPoolTokenPairs(pools []ingesttypes.PoolI) ingesttypes.TakerFeeMap {
+	pairs := make(ingesttypes.TakerFeeMap, 0)
 
 	for _, pool := range pools {
 		poolDenoms := pool.GetPoolDenoms()
@@ -260,12 +260,12 @@ func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteI
 	return routertesting.WithRoutePools(r, pools)
 }
 
-func WithCandidateRoutePools(r sqsdomain.CandidateRoute, pools []sqsdomain.CandidatePool) sqsdomain.CandidateRoute {
+func WithCandidateRoutePools(r ingesttypes.CandidateRoute, pools []ingesttypes.CandidatePool) ingesttypes.CandidateRoute {
 	return routertesting.WithCandidateRoutePools(r, pools)
 }
 
 // getPoolIDs returns the pool IDs of the given pools
-func getPoolIDs(pools []sqsdomain.PoolI) []uint64 {
+func getPoolIDs(pools []ingesttypes.PoolI) []uint64 {
 	sortedPoolIDs := make([]uint64, len(pools))
 	for i, pool := range pools {
 		sortedPoolIDs[i] = pool.GetId()

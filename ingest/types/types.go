@@ -1,72 +1,65 @@
-package sqsdomain
+package types
 
 import (
 	"fmt"
 	"sort"
 	"strings"
 
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/osmosis-labs/osmosis/osmomath"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
-	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
-	clqueryproto "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/client/queryproto"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+
+	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// PoolI represents a generalized Pool interface.
+type (
+	TakerFeeMap              = ingesttypes.TakerFeeMap
+	TickModel                = ingesttypes.TickModel
+	SQSPool                  = ingesttypes.SQSPool
+	DenomPair                = ingesttypes.DenomPair
+	LiquidityDepthsWithRange = ingesttypes.LiquidityDepthsWithRange
+)
+
+var DefaultTakerFee = ingesttypes.DefaultTakerFee
+
 type PoolI interface {
-	// GetId returns the ID of the pool.
-	GetId() uint64
-	// GetType returns the type of the pool (Balancer, Stableswap, Concentrated, etc.)
-	GetType() poolmanagertypes.PoolType
+	ingesttypes.PoolI
 
-	GetPoolLiquidityCap() osmomath.Int
+	// GetAPRData gets the APR data for the pool
+	GetAPRData() passthroughdomain.PoolAPRDataStatusWrap
 
-	GetPoolDenoms() []string
+	// SetAPRData sets the APR data for the pool
+	SetAPRData(aprData passthroughdomain.PoolAPRDataStatusWrap)
 
-	GetUnderlyingPool() poolmanagertypes.PoolI
+	// GetFeesData gets the fees data for the pool
+	GetFeesData() passthroughdomain.PoolFeesDataStatusWrap
 
-	GetSQSPoolModel() SQSPool
-
-	// GetTickModel returns the tick model for the pool
-	// if this is a concentrated pool. Errors otherwise
-	// Also errors if this is a concentrated pool but
-	// the tick model is not set
-	GetTickModel() (*TickModel, error)
+	// SetFeesData sets the fees data for the pool
+	SetFeesData(feesData passthroughdomain.PoolFeesDataStatusWrap)
 
 	// GetLiquidityCap returns the pool liquidity capitalization
 	GetLiquidityCap() osmomath.Int
-
-	// GetLiquidityCapError returns the pool liquidity capitalization error.
-	GetLiquidityCapError() string
-
-	GetAPRData() sqspassthroughdomain.PoolAPRDataStatusWrap
-
-	GetFeesData() sqspassthroughdomain.PoolFeesDataStatusWrap
-
-	// Incentive returns the incentive type for the pool
-	Incentive() api.IncentiveType
-
-	// SetTickModel sets the tick model for the pool
-	// If this is not a concentrated pool, errors
-	SetTickModel(*TickModel) error
 
 	// SetLiquidityCap sets the liquidity capitalization to the given
 	// value.
 	SetLiquidityCap(liquidityCap osmomath.Int)
 
+	// GetLiquidityCapError returns the pool liquidity capitalization error.
+	GetLiquidityCapError() string
+
 	// SetLiquidityCapError sets the liquidity capitalization error
 	SetLiquidityCapError(liquidityCapError string)
 
-	// SetAPRData sets the APR data for the pool
-	SetAPRData(aprData sqspassthroughdomain.PoolAPRDataStatusWrap)
+	// SetTickModel sets the tick model for the pool
+	// If this is not a concentrated pool, errors
+	SetTickModel(*TickModel) error
 
-	// SetFeesData sets the fees data for the pool
-	SetFeesData(feesData sqspassthroughdomain.PoolFeesDataStatusWrap)
+	// Incentive returns the incentive type for the pool
+	Incentive() api.IncentiveType
 
 	// Validate validates the pool
 	// Returns nil if the pool is valid
@@ -74,37 +67,17 @@ type PoolI interface {
 	Validate(minUOSMOTVL osmomath.Int) error
 }
 
-type LiquidityDepthsWithRange = clqueryproto.LiquidityDepthWithRange
-
-type TickModel struct {
-	Ticks            []LiquidityDepthsWithRange `json:"ticks,omitempty"`
-	CurrentTickIndex int64                      `json:"current_tick_index,omitempty"`
-	HasNoLiquidity   bool                       `json:"has_no_liquidity,omitempty"`
-}
-
-type SQSPool struct {
-	PoolLiquidityCap      osmomath.Int `json:"pool_liquidity_cap"`
-	PoolLiquidityCapError string       `json:"pool_liquidity_error,omitempty"`
-	// Only CL and Cosmwasm pools need balances appended
-	Balances     sdk.Coins    `json:"balances"`
-	PoolDenoms   []string     `json:"pool_denoms"`
-	SpreadFactor osmomath.Dec `json:"spread_factor"`
-
-	// Only CosmWasm pools need CosmWasmPoolModel appended
-	CosmWasmPoolModel *cosmwasmpool.CosmWasmPoolModel `json:"cosmwasm_pool_model,omitempty"`
-}
-
-type PoolWrapper struct {
-	ChainModel poolmanagertypes.PoolI                      `json:"underlying_pool"`
-	SQSModel   SQSPool                                     `json:"sqs_model"`
-	APRData    sqspassthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
-	FeesData   sqspassthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
-	TickModel  *TickModel                                  `json:"tick_model,omitempty"`
-}
-
 var _ PoolI = &PoolWrapper{}
 
-func NewPool(model poolmanagertypes.PoolI, spreadFactor osmomath.Dec, balances sdk.Coins) PoolI {
+type PoolWrapper struct {
+	ChainModel poolmanagertypes.PoolI                   `json:"underlying_pool"`
+	SQSModel   ingesttypes.SQSPool                      `json:"sqs_model"`
+	APRData    passthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
+	FeesData   passthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
+	TickModel  *ingesttypes.TickModel                   `json:"tick_model,omitempty"`
+}
+
+func NewPool(model poolmanagertypes.PoolI, spreadFactor osmomath.Dec, balances sdk.Coins) *PoolWrapper {
 	return &PoolWrapper{
 		ChainModel: model,
 		SQSModel: SQSPool{
@@ -153,10 +126,32 @@ func (p *PoolWrapper) GetTickModel() (*TickModel, error) {
 	}
 
 	if p.TickModel == nil {
-		return nil, ConcentratedPoolNoTickModelError{PoolId: p.GetId()}
+		return nil, ingesttypes.ConcentratedPoolNoTickModelError{PoolId: p.GetId()}
 	}
 
 	return p.TickModel, nil
+}
+
+// Incentive implements PoolI.
+func (p *PoolWrapper) Incentive() api.IncentiveType {
+	apr := p.GetAPRData()
+
+	checks := []struct {
+		apr       passthroughdomain.PoolDataRange
+		incentive api.IncentiveType
+	}{
+		{apr.SuperfluidAPR, api.IncentiveType_SUPERFLUID},
+		{apr.OsmosisAPR, api.IncentiveType_OSMOSIS},
+		{apr.BoostAPR, api.IncentiveType_BOOST},
+	}
+
+	for _, check := range checks {
+		if check.apr.Lower != 0 && check.apr.Upper != 0 {
+			return check.incentive
+		}
+	}
+
+	return api.IncentiveType_NONE
 }
 
 // SetTickModel implements PoolI.
@@ -212,44 +207,21 @@ func (p *PoolWrapper) SetLiquidityCapError(liquidityCapError string) {
 }
 
 // SetAPRData implements PoolI.
-func (p *PoolWrapper) SetAPRData(aprData sqspassthroughdomain.PoolAPRDataStatusWrap) {
+func (p *PoolWrapper) SetAPRData(aprData passthroughdomain.PoolAPRDataStatusWrap) {
 	p.APRData = aprData
 }
 
 // SetFeesData implements PoolI.
-func (p *PoolWrapper) SetFeesData(feesData sqspassthroughdomain.PoolFeesDataStatusWrap) {
+func (p *PoolWrapper) SetFeesData(feesData passthroughdomain.PoolFeesDataStatusWrap) {
 	p.FeesData = feesData
 }
 
 // GetAPRData implements PoolI.
-func (p *PoolWrapper) GetAPRData() sqspassthroughdomain.PoolAPRDataStatusWrap {
+func (p *PoolWrapper) GetAPRData() passthroughdomain.PoolAPRDataStatusWrap {
 	return p.APRData
 }
 
-
-// Incentive implements PoolI.
-func (p *PoolWrapper) Incentive() api.IncentiveType {
-	apr := p.GetAPRData()
-
-	checks := []struct {
-		apr       sqspassthroughdomain.PoolDataRange
-		incentive api.IncentiveType
-	}{
-		{apr.SuperfluidAPR, api.IncentiveType_SUPERFLUID},
-		{apr.OsmosisAPR, api.IncentiveType_OSMOSIS},
-		{apr.BoostAPR, api.IncentiveType_BOOST},
-	}
-
-	for _, check := range checks {
-		if check.apr.Lower != 0 && check.apr.Upper != 0 {
-			return check.incentive
-		}
-	}
-
-	return api.IncentiveType_NONE
-}
-
 // GetFeesData implements PoolI.
-func (p *PoolWrapper) GetFeesData() sqspassthroughdomain.PoolFeesDataStatusWrap {
+func (p *PoolWrapper) GetFeesData() passthroughdomain.PoolFeesDataStatusWrap {
 	return p.FeesData
 }

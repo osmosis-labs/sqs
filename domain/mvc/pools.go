@@ -5,7 +5,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -16,15 +16,15 @@ import (
 type PoolsUsecase interface {
 	PoolHandler
 
-	GetAllPools() ([]sqsdomain.PoolI, error)
+	GetAllPools() ([]ingesttypes.PoolI, error)
 
 	// GetRoutesFromCandidates converts candidate routes to routes intrusmented with all the data necessary for estimating
 	// a swap. This data entails the pool data, the taker fee.
-	GetRoutesFromCandidates(ctx context.Context, method domain.TokenSwapMethod, candidateRoutes sqsdomain.CandidateRoutes, tokenDenomIn string) ([]route.RouteImpl, error)
+	GetRoutesFromCandidates(ctx context.Context, method domain.TokenSwapMethod, candidateRoutes ingesttypes.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error)
 
-	GetTickModelMap(poolIDs []uint64) (map[uint64]*sqsdomain.TickModel, error)
+	GetTickModelMap(poolIDs []uint64) (map[uint64]*ingesttypes.TickModel, error)
 	// GetPool returns the pool with the given ID.
-	GetPool(poolID uint64) (sqsdomain.PoolI, error)
+	GetPool(poolID uint64) (ingesttypes.PoolI, error)
 	// GetPoolSpotPrice returns the spot price of the given pool given the taker fee, quote and base assets.
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 
@@ -48,10 +48,10 @@ type PoolsUsecase interface {
 type PoolHandler interface {
 	// GetPools returns the pools corresponding to the given options and the total number of pools.
 	// If pagination is provided, returns the pools corresponding to the pagination.
-	GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, uint64, error)
+	GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI, uint64, error)
 
 	// StorePools stores the given pools in the usecase
-	StorePools(pools []sqsdomain.PoolI) error
+	StorePools(pools []ingesttypes.PoolI) error
 
 	// CalcExitCFMMPool estimates the coins returned from redeeming CFMM pool shares given a pool ID and the GAMM shares to convert
 	// poolID must be a CFMM pool. Returns error if not.

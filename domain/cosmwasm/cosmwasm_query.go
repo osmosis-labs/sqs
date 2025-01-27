@@ -3,7 +3,7 @@ package cosmwasmdomain
 import (
 	"context"
 
-	"github.com/osmosis-labs/sqs/sqsdomain/json"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/osmosis-labs/sqs/domain"

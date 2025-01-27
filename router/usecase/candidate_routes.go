@@ -4,8 +4,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	"go.uber.org/zap"
 )
 
@@ -13,7 +13,7 @@ import (
 // structure for constructing all candidate routes related data.
 // It contains pool denoms for validation after the initial route selection.
 type candidatePoolWrapper struct {
-	sqsdomain.CandidatePool
+	ingesttypes.CandidatePool
 	PoolDenoms []string
 }
 
@@ -37,8 +37,7 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 }
 
 // FindCandidateRoutes implements domain.CandidateRouteFinder.
-// TODO: is there any logic that needs to be altered for ExactAmountOut?
-func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (sqsdomain.CandidateRoutes, error) {
+func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
 	// Preallocate constant visited map size to avoid reallocations.
@@ -53,7 +52,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, 
 
 	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenIn.Denom)
 	if err != nil {
-		return sqsdomain.CandidateRoutes{}, err
+		return ingesttypes.CandidateRoutes{}, err
 	}
 
 	if len(denomData.CanonicalOrderbooks) > 0 {
@@ -63,7 +62,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, 
 			// Filter the canonical orderbook pool using the pool filters.
 			for _, filter := range options.PoolFiltersAnyOf {
 				// nolint: forcetypeassert
-				canonicalOrderbookPoolWrapper := (canonicalOrderbook).(*sqsdomain.PoolWrapper)
+				canonicalOrderbookPoolWrapper := (canonicalOrderbook).(*ingesttypes.PoolWrapper)
 				if filter(canonicalOrderbookPoolWrapper) {
 					shouldSkipCanonicalOrderbook = true
 					break
@@ -76,10 +75,10 @@ func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, 
 					IsCanonicalOrderboolRoute: true,
 					Pools: []candidatePoolWrapper{
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         canonicalOrderbook.GetId(),
-								TokenDenom: tokenOutDenom,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            canonicalOrderbook.GetId(),
 								SwapMethod: method,
+								TokenOutDenom: tokenOutDenom,
 							},
 							PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
 						},
@@ -101,12 +100,12 @@ func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, 
 		if len(currentRoute) > 0 {
 			lastPool := currentRoute[len(currentRoute)-1]
 			lastPoolID = lastPool.ID
-			currenTokenInDenom = lastPool.TokenDenom
+			currenTokenInDenom = lastPool.TokenInDenom
 		}
 
 		denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
 		if err != nil {
-			return sqsdomain.CandidateRoutes{}, err
+			return ingesttypes.CandidateRoutes{}, err
 		}
 
 		rankedPools := denomData.SortedPools
@@ -118,7 +117,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, 
 		for i := 0; i < len(rankedPools) && len(routes) < options.MaxRoutes; i++ {
 			// Unsafe cast for performance reasons.
 			// nolint: forcetypeassert
-			pool := (rankedPools[i]).(*sqsdomain.PoolWrapper)
+			pool := (rankedPools[i]).(*ingesttypes.PoolWrapper)
 			poolID := pool.ChainModel.GetId()
 
 			if _, ok := visited[poolID]; ok {
@@ -193,7 +192,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, 
 
 				denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
 				if err != nil {
-					return sqsdomain.CandidateRoutes{}, err
+					return ingesttypes.CandidateRoutes{}, err
 				}
 
 				rankedPools := denomData.SortedPools
@@ -208,10 +207,11 @@ func (c candidateRouteFinder) FindCandidateRoutes(method int, tokenIn sdk.Coin, 
 					copy(newPath, currentRoute)
 
 					newPath = append(newPath, candidatePoolWrapper{
-						CandidatePool: sqsdomain.CandidatePool{
-							ID:         poolID,
-							TokenDenom: denom,
+						// TODO: check!
+						CandidatePool: ingesttypes.CandidatePool{
+							ID:            poolID,
 							SwapMethod: method,
+							TokenOutDenom: denom,
 						},
 						PoolDenoms: poolDenoms,
 					})

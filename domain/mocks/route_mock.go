@@ -10,13 +10,15 @@ import (
 )
 
 type RouteMock struct {
-	CalculateTokenOutByTokenInFunc      func(ctx context.Context, tokenIn types.Coin) (types.Coin, error)
-	ContainsGeneralizedCosmWasmPoolFunc func() bool
-	GetPoolsFunc                        func() []domain.RoutablePool
-	GetTokenOutDenomFunc                func() string
-	GetTokenInDenomFunc                 func() string
-	PrepareResultPoolsFunc              func(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
-	StringFunc                          func() string
+	CalculateTokenOutByTokenInFunc       func(ctx context.Context, tokenIn types.Coin) (types.Coin, error)
+	CalculateTokenInByTokenOutFunc       func(ctx context.Context, tokenOut types.Coin) (types.Coin, error)
+	ContainsGeneralizedCosmWasmPoolFunc  func() bool
+	GetPoolsFunc                         func() []domain.RoutablePool
+	GetTokenOutDenomFunc                 func() string
+	GetTokenInDenomFunc                  func() string
+	PrepareResultPoolsExactAmountInFunc  func(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
+	PrepareResultPoolsExactAmountOutFunc func(ctx context.Context, tokenOut types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
+	StringFunc                           func() string
 
 	GetAmountInFunc  func() math.Int
 	GetAmountOutFunc func() math.Int
@@ -26,6 +28,15 @@ type RouteMock struct {
 func (r *RouteMock) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn types.Coin) (types.Coin, error) {
 	if r.CalculateTokenOutByTokenInFunc != nil {
 		return r.CalculateTokenOutByTokenInFunc(ctx, tokenIn)
+	}
+
+	panic("unimplemented")
+}
+
+// CalculateTokenOutByTokenIn implements domain.Route.
+func (r *RouteMock) CalculateTokenInByTokenOut(ctx context.Context, tokenOut types.Coin) (types.Coin, error) {
+	if r.CalculateTokenInByTokenOutFunc != nil {
+		return r.CalculateTokenInByTokenOutFunc(ctx, tokenOut)
 	}
 
 	panic("unimplemented")
@@ -68,9 +79,18 @@ func (r *RouteMock) GetTokenInDenom() string {
 }
 
 // PrepareResultPools implements domain.Route.
-func (r *RouteMock) PrepareResultPools(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
-	if r.PrepareResultPoolsFunc != nil {
-		return r.PrepareResultPoolsFunc(ctx, tokenIn, logger)
+func (r *RouteMock) PrepareResultPoolsExactAmountIn(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
+	if r.PrepareResultPoolsExactAmountInFunc != nil {
+		return r.PrepareResultPoolsExactAmountInFunc(ctx, tokenIn, logger)
+	}
+
+	panic("unimplemented")
+}
+
+// PrepareResultPools implements domain.Route.
+func (r *RouteMock) PrepareResultPoolsExactAmountOut(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
+	if r.PrepareResultPoolsExactAmountOutFunc != nil {
+		return r.PrepareResultPoolsExactAmountOutFunc(ctx, tokenIn, logger)
 	}
 
 	panic("unimplemented")

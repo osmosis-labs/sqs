@@ -2,13 +2,14 @@ package pools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
@@ -79,22 +80,9 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context
 	return sdk.Coin{Denom: r.TokenOutDenom, Amount: tokenOutAmtInt}, nil
 }
 
+// CalculateTokenInByTokenOut implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	tokenInAmt, err := r.CalcTokenInAmt(r.TokenInDenom, tokenOut)
-	if err != nil {
-		return sdk.Coin{}, err
-	}
-
-	tokenInAmtInt := tokenInAmt.Dec().TruncateInt()
-
-	// Validate token out balance if not alloyed
-	if r.TokenInDenom != r.AlloyTransmuterData.AlloyedDenom {
-		if err := validateTransmuterBalance(tokenInAmtInt, r.Balances, r.TokenOutDenom); err != nil {
-			return sdk.Coin{}, err
-		}
-	}
-
-	return sdk.Coin{Denom: r.TokenInDenom, Amount: tokenInAmtInt}, nil
+	return sdk.Coin{}, errors.New("not implemented")
 }
 
 // GetTokenOutDenom implements RoutablePool.
@@ -122,8 +110,7 @@ func (r *routableAlloyTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin
 // ChargeTakerFeeExactOut implements domain.RoutablePool.
 // Returns tokenOutAmount and does not charge any fee for transmuter pools.
 func (r *routableAlloyTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (outAmountAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.GetTakerFee())
-	return tokenOutAfterTakerFee
+	return sdk.Coin{}
 }
 
 // GetTakerFee implements domain.RoutablePool.
@@ -219,32 +206,6 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 	tokenOutAmount := tokenInAmount.MulInt(tokenOutNormFactorBig).QuoInt(tokenInNormFactorBig)
 
 	return tokenOutAmount, nil
-}
-
-// Calculate the token out amount based on the normalization factors:
-//
-// token_in_amt / token_in_norm_factor = token_out_amt / token_out_norm_factor
-// token_in_amt = token_out_amt * token_in_norm_factor / token_out_norm_factor
-func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenInDenom string, tokenOut sdk.Coin) (osmomath.BigDec, error) {
-	tokenOutNormFactor, tokenInNormFactor, err := r.FindNormalizationFactors(tokenOut.Denom, tokenInDenom)
-	if err != nil {
-		return osmomath.BigDec{}, err
-	}
-
-	if tokenInNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOut.Denom, PoolId: r.GetId()}
-	}
-
-	if tokenOutNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
-	}
-
-	tokenOutAmount := osmomath.NewBigDec(tokenOut.Amount.Int64())
-
-	tokenOutNormFactorBig := osmomath.NewBigIntFromBigInt(tokenOutNormFactor.BigInt())
-	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())
-
-	return tokenOutAmount.MulInt(tokenInNormFactorBig).QuoInt(tokenOutNormFactorBig), nil
 }
 
 // checkStaticRateLimiter checks the static rate limiter.

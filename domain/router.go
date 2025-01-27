@@ -4,9 +4,9 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -138,9 +138,9 @@ type PoolsConfig struct {
 const DisableSplitRoutes = 0
 
 type RouterState struct {
-	Pools                    []sqsdomain.PoolI
-	TakerFees                sqsdomain.TakerFeeMap
-	TickMap                  map[uint64]*sqsdomain.TickModel
+	Pools                    []ingesttypes.PoolI
+	TakerFees                ingesttypes.TakerFeeMap
+	TickMap                  map[uint64]*ingesttypes.TickModel
 	AlloyedDataMap           map[uint64]*cosmwasmpool.AlloyTransmuterData
 	CandidateRouteSearchData map[string]CandidateRouteDenomData
 }

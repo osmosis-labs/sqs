@@ -3,9 +3,9 @@ package usecase
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
 type (
@@ -20,7 +20,7 @@ func TransferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 	return transferDenomLiquidityMap(transferTo, transferFrom)
 }
 
-func ProcessSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
+func ProcessSQSModelMut(sqsModel *ingesttypes.SQSPool) error {
 	return processSQSModelMut(sqsModel)
 }
 
@@ -36,6 +36,6 @@ func ComputeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int
 	return computeNormalizationScalingFactors(standardNormalizationFactor, assetConfigs)
 }
 
-func ProcessAlloyedPool(sqsModel *sqsdomain.SQSPool) error {
+func ProcessAlloyedPool(sqsModel *ingesttypes.SQSPool) error {
 	return processAlloyedPool(sqsModel)
 }

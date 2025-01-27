@@ -5,11 +5,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
 type PoolHandlerMock struct {
-	Pools                []sqsdomain.PoolI
+	Pools                []ingesttypes.PoolI
 	ForceGetPoolsError   error
 	ForceStorePoolsError error
 }
@@ -17,7 +17,7 @@ type PoolHandlerMock struct {
 var _ mvc.PoolHandler = &PoolHandlerMock{}
 
 // GetPools implements mvc.PoolHandler.
-func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.PoolI, uint64, error) {
+func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI, uint64, error) {
 	if p.ForceGetPoolsError != nil {
 		return nil, 0, p.ForceGetPoolsError
 	}
@@ -27,7 +27,7 @@ func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.Pool
 		opt(&options)
 	}
 
-	result := make([]sqsdomain.PoolI, 0)
+	result := make([]ingesttypes.PoolI, 0)
 	if f := options.Filter; f != nil && len(f.PoolId) > 0 {
 		for _, id := range f.PoolId {
 			for _, pool := range p.Pools {
@@ -50,7 +50,7 @@ func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]sqsdomain.Pool
 }
 
 // StorePools implements mvc.PoolHandler.
-func (p *PoolHandlerMock) StorePools(pools []sqsdomain.PoolI) error {
+func (p *PoolHandlerMock) StorePools(pools []ingesttypes.PoolI) error {
 	if p.ForceStorePoolsError != nil {
 		return p.ForceStorePoolsError
 	}

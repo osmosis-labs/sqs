@@ -56,7 +56,7 @@ func (r *routableTransmuterPoolImpl) GetSpreadFactor() math.LegacyDec {
 func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
 	poolType := r.GetType()
 
-	// Esnure that the pool is concentrated
+	// Ensure that the pool is concentrated
 	if poolType != poolmanagertypes.CosmWasm {
 		return sdk.Coin{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
 	}
@@ -74,28 +74,22 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 }
 
 // CalculateTokenInByTokenOut implements domain.RoutablePool.
-// It calculates the amount of token out given the amount of token in for a transmuter pool.
-// Transmuter pool allows no slippage swaps. It just returns the same amount of token out as token in
-// Returns error if:
-// - the underlying chain pool set on the routable pool is not of transmuter type
-// - the token in amount is greater than the balance of the token in
-// - the token in amount is greater than the balance of the token out
 func (r *routableTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
 	poolType := r.GetType()
 
-	// Esnure that the pool is concentrated
+	// Ensure that the pool is concentrated
 	if poolType != poolmanagertypes.CosmWasm {
 		return sdk.Coin{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
 	}
 
 	balances := r.Balances
 
-	// Validate token out balance
+	// Validate token in balance
 	if err := validateTransmuterBalance(tokenOut.Amount, balances, r.TokenInDenom); err != nil {
 		return sdk.Coin{}, err
 	}
 
-	// No slippage swaps - just return the same amount of token out as token in
+	// No slippage swaps - just return the same amount of token in as token out
 	// as long as there is enough liquidity in the pool.
 	return sdk.Coin{Denom: r.TokenInDenom, Amount: tokenOut.Amount}, nil
 }
@@ -122,20 +116,19 @@ func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (in
 }
 
 // ChargeTakerFeeExactOut implements domain.RoutablePool.
-func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenOut sdk.Coin) (outAmountAfterFee sdk.Coin) {
-	tokenOutAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenOut, r.GetTakerFee())
-	return tokenOutAfterTakerFee
+func (r *routableTransmuterPoolImpl) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (inAmountAfterFee sdk.Coin) {
+	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactOut(tokenIn, r.GetTakerFee())
+	return tokenInAfterTakerFee
 }
 
-// validateTransmuterBalance validates that the balance of the denom to validate is greater than the token in amount.
 // Returns nil on success, error otherwise.
-func validateTransmuterBalance(tokenInAmount osmomath.Int, balances sdk.Coins, denomToValidate string) error {
+func validateTransmuterBalance(tokenAmount osmomath.Int, balances sdk.Coins, denomToValidate string) error {
 	balanceToValidate := balances.AmountOf(denomToValidate)
-	if tokenInAmount.GT(balanceToValidate) {
+	if tokenAmount.GT(balanceToValidate) {
 		return domain.TransmuterInsufficientBalanceError{
 			Denom:         denomToValidate,
 			BalanceAmount: balanceToValidate.String(),
-			Amount:        tokenInAmount.String(),
+			Amount:        tokenAmount.String(),
 		}
 	}
 

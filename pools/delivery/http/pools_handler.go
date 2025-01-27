@@ -11,13 +11,13 @@ import (
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
-	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 )
 
 // ResponseError represent the response error struct
@@ -78,7 +78,7 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 // @Param  IDs  query  string  false  "Comma-separated list of pool IDs to fetch, e.g., '1,2,3'"
 // @Param  min_liquidity_cap  query  int  false  "Minimum pool liquidity cap"
 // @Param  with_market_incentives  query  bool  false  "Include market incentives data in the pool response"
-// @Success 200  {array}  sqsdomain.PoolI  "List of pool(s) details"
+// @Success 200  {array}  ingesttypes.PoolI  "List of pool(s) details"
 // @Router /pools [get]
 func (a *PoolsHandler) GetPools(c echo.Context) error {
 	var req api.GetPoolsRequest
@@ -87,7 +87,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	}
 
 	var (
-		pools []sqsdomain.PoolI
+		pools []ingesttypes.PoolI
 	)
 
 	filters := []domain.PoolsOption{
@@ -196,7 +196,7 @@ func (a *PoolsHandler) GetCanonicalOrderbooks(c echo.Context) error {
 }
 
 // convertPoolToResponse convertes a given pool to the appropriate response type.
-func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
+func convertPoolToResponse(pool ingesttypes.PoolI) PoolResponse {
 	return PoolResponse{
 		ChainModel:        pool.GetUnderlyingPool(),
 		Balances:          pool.GetSQSPoolModel().Balances,
@@ -210,7 +210,7 @@ func convertPoolToResponse(pool sqsdomain.PoolI) PoolResponse {
 }
 
 // convertPoolsToResponse converts the given pools to the appropriate response type.
-func convertPoolsToResponse(c echo.Context, req *api.GetPoolsRequest, p []sqsdomain.PoolI, total uint64) any {
+func convertPoolsToResponse(c echo.Context, req *api.GetPoolsRequest, p []ingesttypes.PoolI, total uint64) any {
 	pools := make([]PoolResponse, 0, len(p))
 	for _, pool := range p {
 		pools = append(pools, convertPoolToResponse(pool))

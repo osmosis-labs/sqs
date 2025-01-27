@@ -7,8 +7,8 @@ import (
 	"cosmossdk.io/math"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -29,11 +29,11 @@ type RouterRepository interface {
 	// Returns true if the taker fee for a given denomimnation is found. False otherwise.
 	GetTakerFee(denom0, denom1 string) (osmomath.Dec, bool)
 	// GetAllTakerFees returns all taker fees
-	GetAllTakerFees() sqsdomain.TakerFeeMap
+	GetAllTakerFees() ingesttypes.TakerFeeMap
 	// SetTakerFee sets the taker fee for a given pair of denominations
 	// Sorting is no longer performed before storing as bi-directional taker fee is supported.
 	SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec)
-	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
+	SetTakerFees(takerFees ingesttypes.TakerFeeMap)
 }
 
 var (
@@ -77,8 +77,8 @@ func (r *routerRepo) SetBaseFee(baseFee domain.BaseFee) {
 }
 
 // GetAllTakerFees implements RouterRepository.
-func (r *routerRepo) GetAllTakerFees() sqsdomain.TakerFeeMap {
-	takerFeeMap := sqsdomain.TakerFeeMap{}
+func (r *routerRepo) GetAllTakerFees() ingesttypes.TakerFeeMap {
+	takerFeeMap := ingesttypes.TakerFeeMap{}
 
 	r.takerFeeMap.Range(func(key, value interface{}) bool {
 		takerFee, ok := value.(osmomath.Dec)
@@ -86,7 +86,7 @@ func (r *routerRepo) GetAllTakerFees() sqsdomain.TakerFeeMap {
 			return false
 		}
 
-		denomPair, ok := key.(sqsdomain.DenomPair)
+		denomPair, ok := key.(ingesttypes.DenomPair)
 		if !ok {
 			return false
 		}
@@ -101,7 +101,7 @@ func (r *routerRepo) GetAllTakerFees() sqsdomain.TakerFeeMap {
 
 // GetTakerFee implements RouterRepository.
 func (r *routerRepo) GetTakerFee(denom0 string, denom1 string) (math.LegacyDec, bool) {
-	takerFeeAny, ok := r.takerFeeMap.Load(sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1})
+	takerFeeAny, ok := r.takerFeeMap.Load(ingesttypes.DenomPair{Denom0: denom0, Denom1: denom1})
 
 	if !ok {
 		return osmomath.Dec{}, false
@@ -117,11 +117,11 @@ func (r *routerRepo) GetTakerFee(denom0 string, denom1 string) (math.LegacyDec, 
 
 // SetTakerFee implements RouterRepository.
 func (r *routerRepo) SetTakerFee(denom0 string, denom1 string, takerFee math.LegacyDec) {
-	r.takerFeeMap.Store(sqsdomain.DenomPair{Denom0: denom0, Denom1: denom1}, takerFee)
+	r.takerFeeMap.Store(ingesttypes.DenomPair{Denom0: denom0, Denom1: denom1}, takerFee)
 }
 
 // SetTakerFees implements RouterRepository.
-func (r *routerRepo) SetTakerFees(takerFees sqsdomain.TakerFeeMap) {
+func (r *routerRepo) SetTakerFees(takerFees ingesttypes.TakerFeeMap) {
 	for denomPair, takerFee := range takerFees {
 		r.SetTakerFee(denomPair.Denom0, denomPair.Denom1, takerFee)
 	}
@@ -142,7 +142,7 @@ func (r *routerRepo) GetCandidateRouteSearchData() map[string]domain.CandidateRo
 		candidateRouteDenomData, ok := value.(domain.CandidateRouteDenomData)
 		if !ok {
 			// Note: should never happen.
-			r.logger.Error("error casting value to []sqsdomain.PoolI in GetCandidateRouteSearchData")
+			r.logger.Error("error casting value to []ingesttypes.PoolI in GetCandidateRouteSearchData")
 			return false
 		}
 

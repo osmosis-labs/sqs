@@ -126,7 +126,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		routerOpts = append(routerOpts, domain.WithMaxSplitRoutes(domain.DisableSplitRoutes))
 	}
 
-	quote, err := a.RUsecase.GetOptimalQuote(ctx, *tokenIn, tokenOutDenom, req.SwapMethod(), routerOpts...)
+	quote, err := a.RUsecase.GetOptimalQuote(ctx, req.SwapMethod(), *tokenIn, tokenOutDenom, routerOpts...)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -255,7 +255,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 // @Param  tokenIn  query  string  true  "The string representation of the denom of the token in"
 // @Param  tokenOutDenom  query  string  true  "The string representation of the denom of the token out"
 // @Param humanDenoms query bool true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
-// @Success 200  {array}  sqsdomain.CandidateRoutes  "An array of possible routing options"
+// @Success 200  {array}  ingesttypes.CandidateRoutes  "An array of possible routing options"
 // @Router /router/routes [get]
 func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 	ctx := c.Request().Context()

@@ -6,7 +6,7 @@ import (
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
 type (
@@ -19,7 +19,7 @@ type (
 )
 
 func NewRoutableCosmWasmPoolWithCustomModel(
-	pool sqsdomain.PoolI,
+	pool ingesttypes.PoolI,
 	cosmwasmPool *cwpoolmodel.CosmWasmPool,
 	cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams,
 	tokenOutDenom string,

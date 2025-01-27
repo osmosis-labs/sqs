@@ -3,10 +3,10 @@ package domain_test
 import (
 	"testing"
 
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,15 +24,15 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 	)
 
 	var (
-		defaultNonOrderBookPool = sqsdomain.PoolWrapper{
+		defaultNonOrderBookPool = ingesttypes.PoolWrapper{
 			ChainModel: &mocks.ChainPoolMock{
 				ID: defaultPoolID,
 			},
 		}
 
 		// instruments the given pool with orderbook data, returning new copy.
-		withOrderBookPool = func(pool sqsdomain.PoolWrapper) sqsdomain.PoolWrapper {
-			pool.SQSModel = sqsdomain.SQSPool{
+		withOrderBookPool = func(pool ingesttypes.PoolWrapper) ingesttypes.PoolWrapper {
+			pool.SQSModel = ingesttypes.SQSPool{
 				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
 					ContractInfo: cosmwasmpool.ContractInfo{
 						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
@@ -48,7 +48,7 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 		}
 
 		// instruments the given pool with a new id returning new copy
-		withPoolID = func(pool sqsdomain.PoolWrapper, newPoolID uint64) sqsdomain.PoolWrapper {
+		withPoolID = func(pool ingesttypes.PoolWrapper, newPoolID uint64) ingesttypes.PoolWrapper {
 			pool.ChainModel = &mocks.ChainPoolMock{
 				ID: newPoolID,
 			}
@@ -63,7 +63,7 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 
 		poolIDsToFilter map[uint64]struct{}
 
-		poolToTest sqsdomain.PoolWrapper
+		poolToTest ingesttypes.PoolWrapper
 
 		expectedShouldSkip bool
 	}{

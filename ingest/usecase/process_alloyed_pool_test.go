@@ -2,9 +2,9 @@ package usecase_test
 
 import (
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/ingest/usecase"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 )
 
 var (
@@ -17,7 +17,7 @@ var (
 )
 
 func (s *IngestUseCaseTestSuite) TestProcessAlloyedPool() {
-	sqsModel := &sqsdomain.SQSPool{
+	sqsModel := &ingesttypes.SQSPool{
 		CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
 			Data: cosmwasmpool.CosmWasmPoolData{
 				AlloyTransmuter: &cosmwasmpool.AlloyTransmuterData{

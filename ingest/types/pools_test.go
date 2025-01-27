@@ -1,12 +1,12 @@
-package sqsdomain
+package types
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
-	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 )
 
 func TestPoolWrapper_Incentive(t *testing.T) {

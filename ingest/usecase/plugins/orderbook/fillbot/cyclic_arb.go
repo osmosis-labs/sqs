@@ -19,14 +19,14 @@ func (o *orderbookFillerIngestPlugin) estimateCyclicArb(ctx blockctx.BlockCtxI, 
 
 	goCtx := ctx.AsGoCtx()
 
-	baseInOrderbookQuote, err := o.routerUseCase.GetCustomDirectQuote(goCtx, coinIn, denomOut, canonicalOrderbookPoolId, domain.TokenSwapMethodExactIn)
+	baseInOrderbookQuote, err := o.routerUseCase.GetCustomDirectQuote(goCtx, domain.TokenSwapMethodExactIn, coinIn, denomOut, canonicalOrderbookPoolId)
 	if err != nil {
 		return osmomath.Int{}, nil, err
 	}
 
 	// Make it $10 in USDC terms for quoteDenom
 	quoteInCoin := sdk.NewCoin(denomOut, baseInOrderbookQuote.GetAmountOut().Amount)
-	cyclicArbQuote, err := o.routerUseCase.GetSimpleQuote(goCtx, quoteInCoin, coinIn.Denom, domain.TokenSwapMethodExactIn, domain.WithDisableSplitRoutes())
+	cyclicArbQuote, err := o.routerUseCase.GetSimpleQuote(goCtx, domain.TokenSwapMethodExactIn, quoteInCoin, coinIn.Denom, domain.WithDisableSplitRoutes())
 	if err != nil {
 		return osmomath.Int{}, nil, err
 	}

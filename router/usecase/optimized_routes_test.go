@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/coinutil"
@@ -67,7 +67,7 @@ var (
 		SpreadFactor:     DefaultSpreadFactor,
 	}
 	EmptyRoute          = route.RouteImpl{}
-	EmptyCandidateRoute = sqsdomain.CandidateRoute{}
+	EmptyCandidateRoute = ingesttypes.CandidateRoute{}
 
 	// Test denoms
 	DenomOne   = routertesting.DenomOne
@@ -272,9 +272,9 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 
 	defaultDenomOneTwoOutTwoPool := usecase.CandidatePoolWrapper{
-		CandidatePool: sqsdomain.CandidatePool{
-			ID:         defaultPoolID,
-			TokenDenom: DenomTwo,
+		CandidatePool: ingesttypes.CandidatePool{
+			ID:            defaultPoolID,
+			TokenOutDenom: DenomTwo,
 		},
 		PoolDenoms: []string{DenomOne, DenomTwo},
 	}
@@ -307,9 +307,9 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						defaultDenomOneTwoOutTwoPool,
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 1,
-								TokenDenom: DenomThree,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 1,
+								TokenOutDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomTwo, DenomThree},
 						},
@@ -329,16 +329,16 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 1,
-								TokenDenom: DenomThree,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 1,
+								TokenOutDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomOne, DenomThree},
 						},
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 2,
-								TokenDenom: DenomTwo,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 2,
+								TokenOutDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomTwo, DenomThree},
 						},
@@ -370,9 +370,9 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 1,
-								TokenDenom: DenomThree,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 1,
+								TokenOutDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomTwo, DenomThree},
 						},
@@ -389,9 +389,9 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 1,
-								TokenDenom: DenomOne,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 1,
+								TokenOutDenom: DenomOne,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
@@ -408,9 +408,9 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID,
-								TokenDenom: DenomOne,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID,
+								TokenOutDenom: DenomOne,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
@@ -426,9 +426,9 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID,
-								TokenDenom: DenomThree,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID,
+								TokenOutDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
@@ -446,37 +446,37 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID,
-								TokenDenom: DenomTwo,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID,
+								TokenOutDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 1,
-								TokenDenom: DenomTwo,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 1,
+								TokenOutDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 2,
-								TokenDenom: DenomFour,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 2,
+								TokenOutDenom: DenomFour,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 3,
-								TokenDenom: DenomThree,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 3,
+								TokenOutDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomFour, DenomOne},
 						},
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 4,
-								TokenDenom: DenomThree,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 4,
+								TokenOutDenom: DenomThree,
 							},
 							PoolDenoms: []string{DenomOne, DenomThree},
 						},
@@ -492,23 +492,23 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID,
-								TokenDenom: DenomTwo,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID,
+								TokenOutDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 1,
-								TokenDenom: DenomTwo,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 1,
+								TokenOutDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID + 2,
-								TokenDenom: DenomTwo,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID + 2,
+								TokenOutDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},
@@ -524,16 +524,16 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID,
-								TokenDenom: DenomTwo,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID,
+								TokenOutDenom: DenomTwo,
 							},
 							PoolDenoms: []string{DenomOne, DenomTwo},
 						},
 						{
-							CandidatePool: sqsdomain.CandidatePool{
-								ID:         defaultPoolID,
-								TokenDenom: DenomFour,
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            defaultPoolID,
+								TokenOutDenom: DenomFour,
 							},
 							PoolDenoms: []string{DenomTwo, DenomFour},
 						},
@@ -703,7 +703,7 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounIn_Mainnet() {
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
-			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
+			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), domain.TokenSwapMethodExactIn, sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
 			s.Require().NoError(err)
 
 			// TODO: update mainnet state and validate the quote for each test stricter.
@@ -821,7 +821,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	const expectedPoolID = uint64(2)
 
 	// System under test 2
-	quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), domain.TokenSwapMethodExactIn, sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 }
@@ -990,13 +990,13 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuote() {
 			}
 
 			// System under test
-			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuote(context.Background(), routes, defaultTokenIn, &log.NoOpLogger{})
+			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuote(context.Background(), domain.TokenSwapMethodExactIn, routes, defaultTokenIn, &log.NoOpLogger{})
 
 			// Get cache results
-			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), defaultTokenIn.Denom, tokenOutDenom)
+			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom)
 			s.Require().NoError(err)
 
-			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
+			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
 			s.Require().NoError(err)
 
 			if tc.expectedError != nil {

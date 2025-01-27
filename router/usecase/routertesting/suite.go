@@ -12,13 +12,13 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -37,9 +37,9 @@ type RouterTestHelper struct {
 
 // Mock mainnet state
 type MockMainnetState struct {
-	Pools                    []sqsdomain.PoolI
-	TickMap                  map[uint64]*sqsdomain.TickModel
-	TakerFeeMap              sqsdomain.TakerFeeMap
+	Pools                    []ingesttypes.PoolI
+	TickMap                  map[uint64]*ingesttypes.TickModel
+	TakerFeeMap              ingesttypes.TakerFeeMap
 	TokensMetadata           map[string]domain.Token
 	PricingConfig            domain.PricingConfig
 	CandidateRouteSearchData map[string]domain.CandidateRouteDenomData
@@ -81,8 +81,8 @@ var (
 	DefaultLiquidityAmt = apptesting.DefaultLiquidityAmt
 
 	// router specific variables
-	DefaultTickModel = &sqsdomain.TickModel{
-		Ticks:            []sqsdomain.LiquidityDepthsWithRange{},
+	DefaultTickModel = &ingesttypes.TickModel{
+		Ticks:            []ingesttypes.LiquidityDepthsWithRange{},
 		CurrentTickIndex: 0,
 		HasNoLiquidity:   false,
 	}
@@ -293,10 +293,10 @@ func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteI
 }
 
 // Note that it does not deep copy pools
-func WithCandidateRoutePools(r sqsdomain.CandidateRoute, pools []sqsdomain.CandidatePool) sqsdomain.CandidateRoute {
-	newRoute := sqsdomain.CandidateRoute{
+func WithCandidateRoutePools(r ingesttypes.CandidateRoute, pools []ingesttypes.CandidatePool) ingesttypes.CandidateRoute {
+	newRoute := ingesttypes.CandidateRoute{
 		IsCanonicalOrderboolRoute: r.IsCanonicalOrderboolRoute,
-		Pools:                     make([]sqsdomain.CandidatePool, 0, len(pools)),
+		Pools:                     make([]ingesttypes.CandidatePool, 0, len(pools)),
 	}
 
 	newRoute.Pools = append(newRoute.Pools, pools...)
@@ -450,7 +450,7 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 }
 
 // PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
-func PrepareValidSortedRouterPools(pools []sqsdomain.PoolI, minPoolLiquidityCap uint64) []sqsdomain.PoolI {
+func PrepareValidSortedRouterPools(pools []ingesttypes.PoolI, minPoolLiquidityCap uint64) []ingesttypes.PoolI {
 	sortedPools, _ := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
 
 	// Sort pools

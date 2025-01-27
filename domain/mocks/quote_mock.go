@@ -11,7 +11,7 @@ import (
 
 type MockQuote struct {
 	GetAmountInFunc  func() types.Coin
-	GetAmountOutFunc func() math.Int
+	GetAmountOutFunc func() types.Coin
 	GetRouteFunc     func() []domain.SplitRoute
 }
 
@@ -25,7 +25,7 @@ func (m *MockQuote) GetAmountIn() types.Coin {
 }
 
 // GetAmountOut implements domain.Quote.
-func (m *MockQuote) GetAmountOut() math.Int {
+func (m *MockQuote) GetAmountOut() types.Coin {
 	if m.GetAmountOutFunc != nil {
 		return m.GetAmountOutFunc()
 	}

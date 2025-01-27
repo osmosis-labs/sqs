@@ -7,11 +7,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/json"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
@@ -21,8 +21,8 @@ import (
 const testFileName = "pools.json"
 
 var (
-	zeroMinPoolLiquidityCap                 = osmomath.ZeroInt()
-	testPoolToMarshal       sqsdomain.PoolI = &mocks.MockRoutablePool{
+	zeroMinPoolLiquidityCap                   = osmomath.ZeroInt()
+	testPoolToMarshal       ingesttypes.PoolI = &mocks.MockRoutablePool{
 		ChainPoolModel: &concentratedmodel.Pool{
 			Id:                   1,
 			Token0:               routertesting.Denom0,
@@ -41,8 +41,8 @@ var (
 		PoolType:         poolmanagertypes.Concentrated,
 	}
 
-	defaultTickModel = sqsdomain.TickModel{
-		Ticks: []sqsdomain.LiquidityDepthsWithRange{
+	defaultTickModel = ingesttypes.TickModel{
+		Ticks: []ingesttypes.LiquidityDepthsWithRange{
 			{
 				LiquidityAmount: osmomath.OneDec(),
 				LowerTick:       1,
@@ -85,7 +85,7 @@ func TestStoreFilesAndReadBack(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = parsing.StorePools([]sqsdomain.PoolI{testPoolToMarshal}, map[uint64]*sqsdomain.TickModel{
+	err = parsing.StorePools([]ingesttypes.PoolI{testPoolToMarshal}, map[uint64]*ingesttypes.TickModel{
 		testPoolToMarshal.GetId(): &defaultTickModel,
 	}, testFileName)
 	require.NoError(t, err)
@@ -117,8 +117,8 @@ func TestMarshalUnmarshalPool(t *testing.T) {
 
 // This test validates that unmarshalling and marshalling a taker fee map works as expected.
 func TestMarshalUnmarshalTakerFeeMap(t *testing.T) {
-	takerFeeMap := sqsdomain.TakerFeeMap{
-		sqsdomain.DenomPair{
+	takerFeeMap := ingesttypes.TakerFeeMap{
+		ingesttypes.DenomPair{
 			Denom0: routertesting.Denom0,
 			Denom1: routertesting.Denom1,
 		}: osmomath.OneDec(),
@@ -127,7 +127,7 @@ func TestMarshalUnmarshalTakerFeeMap(t *testing.T) {
 	takerFeeMapBz, err := json.Marshal(takerFeeMap)
 	require.NoError(t, err)
 
-	unmarshalledTakerFeeMap := sqsdomain.TakerFeeMap{}
+	unmarshalledTakerFeeMap := ingesttypes.TakerFeeMap{}
 	err = json.Unmarshal(takerFeeMapBz, &unmarshalledTakerFeeMap)
 	require.NoError(t, err)
 

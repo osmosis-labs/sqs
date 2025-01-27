@@ -6,7 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/sqsdomain"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -21,7 +21,7 @@ type CandidateRouteSearchDataHolder interface {
 
 	// GetDenomData returns the ranked candidate route search pool data for a given denom.
 	// Returns an empty struct if the denom is not found.
-	// Returns error if retrieved pools are not of type sqsdomain.PoolI.
+	// Returns error if retrieved pools are not of type ingesttypes.PoolI.
 	GetDenomData(denom string) (domain.CandidateRouteDenomData, error)
 }
 
@@ -34,12 +34,12 @@ type RouterRepository interface {
 	// Returns true if the taker fee for a given denomimnation is found. False otherwise.
 	GetTakerFee(denom0, denom1 string) (osmomath.Dec, bool)
 	// GetAllTakerFees returns all taker fees
-	GetAllTakerFees() sqsdomain.TakerFeeMap
+	GetAllTakerFees() ingesttypes.TakerFeeMap
 	// SetTakerFee sets the taker fee for a given pair of denominations
 	// Sorting is no longer performed before storing as bi-directional taker fee is supported.
 	SetTakerFee(denom0, denom1 string, takerFee osmomath.Dec)
 	// SetTakerFees sets taker fees on router repository
-	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
+	SetTakerFees(takerFees ingesttypes.TakerFeeMap)
 
 	GetBaseFee() domain.BaseFee
 }
@@ -49,7 +49,7 @@ type RouterRepository interface {
 type SimpleRouterUsecase interface {
 	// GetSimpleQuote returns a simple quote for the given tokenIn and tokenOutDenom.
 	// No split routes or caching is used.
-	GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, opts ...domain.RouterOption) (domain.Quote, error)
+	GetSimpleQuote(ctx context.Context, method domain.TokenSwapMethod, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 
 	// GetPoolSpotPrice returns the spot price of a pool.
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error)
@@ -60,7 +60,7 @@ type RouterUsecase interface {
 	SimpleRouterUsecase
 
 	// GetOptimalQuote returns the optimal quote for the given tokenIn and tokenOutDenom.
-	GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, method domain.TokenSwapMethod, opts ...domain.RouterOption) (domain.Quote, error)
+	GetOptimalQuote(ctx context.Context, method domain.TokenSwapMethod, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 
 	// GetOptimalQuoteInGivenOut returns the optimal quote for the given token swap method exact amount out.
 	GetOptimalQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, opts ...domain.RouterOption) (domain.Quote, error)
@@ -68,7 +68,7 @@ type RouterUsecase interface {
 	// GetCustomDirectQuote returns the custom direct quote for the given tokenIn, tokenOutDenom and poolID.
 	// It does not search for the route. It directly computes the quote for the given poolID.
 	// This allows to bypass a min liquidity requirement in the router when attempting to swap over a specific pool.
-	GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64, method domain.TokenSwapMethod) (domain.Quote, error)
+	GetCustomDirectQuote(ctx context.Context, method domain.TokenSwapMethod, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error)
 	// GetCustomDirectQuoteMultiPool calculates direct custom quote for given swap method over given poolID route.
 	// Underlying implementation uses GetCustomDirectQuote.
 	GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error)
@@ -78,26 +78,26 @@ type RouterUsecase interface {
 	GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error)
 
 	// GetCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom.
-	GetCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenIn sdk.Coin, tokenOutDenom string) (sqsdomain.CandidateRoutes, error)
+	GetCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenIn sdk.Coin, tokenOutDenom string) (ingesttypes.CandidateRoutes, error)
 
 	GetBaseFee() domain.BaseFee
 
 	// GetTakerFee returns the taker fee for all token pairs in a pool.
-	GetTakerFee(poolID uint64) ([]sqsdomain.TakerFeeForPair, error)
+	GetTakerFee(poolID uint64) ([]ingesttypes.TakerFeeForPair, error)
 	// SetTakerFees sets the taker fees for all token pairs in all pools.
-	SetTakerFees(takerFees sqsdomain.TakerFeeMap)
+	SetTakerFees(takerFees ingesttypes.TakerFeeMap)
 	// GetCachedCandidateRoutes returns the candidate routes for the given tokenIn and tokenOutDenom from cache.
 	// It does not recompute the routes if they are not present in cache.
 	// Since we may cache zero routes, it returns false if the routes are not present in cache. Returns true otherwise.
 	// Returns error if cache is disabled.
-	GetCachedCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom, tokenOutDenom string) (sqsdomain.CandidateRoutes, bool, error)
+	GetCachedCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error)
 	// StoreRoutes stores all router state in the files locally. Used for debugging.
 	StoreRouterStateFiles() error
 
 	GetRouterState() (domain.RouterState, error)
 
 	// GetSortedPools returns the sorted pools based on the router configuration.
-	GetSortedPools() []sqsdomain.PoolI
+	GetSortedPools() []ingesttypes.PoolI
 
 	GetConfig() domain.RouterConfig
 
@@ -118,5 +118,5 @@ type RouterUsecase interface {
 	// SetSortedPools stores the pools in the router.
 	// CONTRACT: the pools are already sorted according to the desired parameters.
 	// See sortPools() function.
-	SetSortedPools(pools []sqsdomain.PoolI)
+	SetSortedPools(pools []ingesttypes.PoolI)
 }

@@ -6,8 +6,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
@@ -225,7 +225,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	s.Require().NoError(err)
 
 	// Compute spot price before swap
-	spotPriceInBaseOutQuote, err := poolOne.SpotPrice(sdk.Context{}, USDC, ETH)
+	spotPriceInBaseOutQuote, err := poolOne.SpotPrice(s.Ctx, USDC, ETH)
 	s.Require().NoError(err)
 
 	coinIn := sdk.NewCoin(ETH, totalInAmount)
@@ -292,12 +292,12 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 	}
 }
 
-func (s *RouterTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
+func (s *RouterTestSuite) newRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
 	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		Config:                cosmWasmConfig,
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
-	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	routablePool, err := pools.NewRoutablePool(pool, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 	return routablePool
 }

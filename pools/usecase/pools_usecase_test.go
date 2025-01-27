@@ -8,18 +8,18 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
 	"github.com/stretchr/testify/suite"
 
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
 	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/stableswap"
 	gammtypes "github.com/osmosis-labs/osmosis/v28/x/gamm/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
-	sqspassthroughdomain "github.com/osmosis-labs/sqs/sqsdomain/passthroughdomain"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
@@ -95,7 +95,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		ID:             defaultPoolID,
 	}
 
-	validPools := []sqsdomain.PoolI{
+	validPools := []ingesttypes.PoolI{
 		defaultPool,
 	}
 
@@ -107,14 +107,14 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
-	_, err = pools.NewRoutablePool(&brokenChainPool, denomTwo, defaultTakerFee, cosmWasmPoolsParams)
+	_, err = pools.NewRoutablePool(&brokenChainPool, denomOne, denomTwo, defaultTakerFee, cosmWasmPoolsParams)
 	// Validate that it is indeed broken.
 	s.Require().Error(err)
 
-	validCandidateRoutes := sqsdomain.CandidateRoutes{
-		Routes: []sqsdomain.CandidateRoute{
+	validCandidateRoutes := ingesttypes.CandidateRoutes{
+		Routes: []ingesttypes.CandidateRoute{
 			{
-				Pools: []sqsdomain.CandidatePool{
+				Pools: []ingesttypes.CandidatePool{
 					{
 						ID:         defaultPoolID,
 						TokenDenom: denomTwo,
@@ -124,8 +124,8 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		},
 	}
 
-	validTakerFeeMap := sqsdomain.TakerFeeMap{
-		sqsdomain.DenomPair{
+	validTakerFeeMap := ingesttypes.TakerFeeMap{
+		ingesttypes.DenomPair{
 			Denom0: denomOne,
 			Denom1: denomTwo,
 		}: defaultTakerFee,
@@ -134,9 +134,9 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	tests := []struct {
 		name string
 
-		pools           []sqsdomain.PoolI
-		candidateRoutes sqsdomain.CandidateRoutes
-		takerFeeMap     sqsdomain.TakerFeeMap
+		pools           []ingesttypes.PoolI
+		candidateRoutes ingesttypes.CandidateRoutes
+		takerFeeMap     ingesttypes.TakerFeeMap
 		tokenInDenom    string
 		tokenOutDenom   string
 
@@ -157,7 +157,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee),
+						s.newRoutablePool(defaultPool, denomOne, denomTwo, defaultTakerFee),
 					},
 				},
 			},
@@ -169,7 +169,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			candidateRoutes: validCandidateRoutes,
 
 			// empty map
-			takerFeeMap: sqsdomain.TakerFeeMap{},
+			takerFeeMap: ingesttypes.TakerFeeMap{},
 
 			tokenInDenom:  denomOne,
 			tokenOutDenom: denomTwo,
@@ -177,14 +177,14 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, sqsdomain.DefaultTakerFee),
+						s.newRoutablePool(defaultPool, denomOne, denomTwo, ingesttypes.DefaultTakerFee),
 					},
 				},
 			},
 		},
 		{
 			name:  "error: no pool in state",
-			pools: []sqsdomain.PoolI{},
+			pools: []ingesttypes.PoolI{},
 
 			candidateRoutes: validCandidateRoutes,
 
@@ -200,7 +200,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 		},
 		{
 			name:  "broken chain pool is skipped without failing the whole conversion",
-			pools: []sqsdomain.PoolI{&brokenChainPool, defaultPool},
+			pools: []ingesttypes.PoolI{&brokenChainPool, defaultPool},
 
 			candidateRoutes: validCandidateRoutes,
 			takerFeeMap:     validTakerFeeMap,
@@ -211,7 +211,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			expectedRoutes: []route.RouteImpl{
 				{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomTwo, defaultTakerFee),
+						s.newRoutablePool(defaultPool, denomOne, denomTwo, defaultTakerFee),
 					},
 				},
 			},
@@ -456,7 +456,7 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 			},
 		}
 
-		validPools = []sqsdomain.PoolI{
+		validPools = []ingesttypes.PoolI{
 			defaultBalancerPool,
 			validOrderBookPool,
 			invalidOrderBookPool,
@@ -552,13 +552,13 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
 	s.Require().NoError(err)
 
 	// Create sqs pool
-	sqsPool := sqsdomain.NewPool(cfmmPool, cfmmPool.GetSpreadFactor(s.Ctx), poolBalances)
+	sqsPool := ingesttypes.NewPool(cfmmPool, cfmmPool.GetSpreadFactor(s.Ctx), poolBalances)
 
 	// Create default use case
 	poolsUseCase := s.newDefaultPoolsUseCase()
 
 	// Store pool
-	poolsUseCase.StorePools([]sqsdomain.PoolI{sqsPool})
+	poolsUseCase.StorePools([]ingesttypes.PoolI{sqsPool})
 
 	// Arbitrary large number.
 	numSharesExiting := osmomath.NewInt(1_000_000_000_000_000_000)
@@ -733,7 +733,7 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 		expectedLen  int
 		minExpected  int // Minimum expected pools count (for > tests)
 		expectError  bool
-		validateFunc func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI)
+		validateFunc func(s *PoolsUsecaseTestSuite, pools []ingesttypes.PoolI)
 	}{
 		{
 			name:         "No filter",
@@ -780,7 +780,7 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 			},
 			expectedLen: 2,
 			expectError: false,
-			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []ingesttypes.PoolI) {
 				s.Require().Contains([]uint64{1, 1066}, pools[0].GetId())
 				s.Require().Contains([]uint64{1, 1066}, pools[1].GetId())
 			},
@@ -799,7 +799,7 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 			},
 			expectedLen: 1,
 			expectError: false,
-			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []ingesttypes.PoolI) {
 				for _, v := range pools {
 					s.Require().Equal(uint64(143), v.GetId())
 				}
@@ -812,7 +812,7 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 			},
 			expectedLen: 1,
 			expectError: false,
-			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []ingesttypes.PoolI) {
 				for _, v := range pools {
 					s.Require().Equal(
 						// GetPoolDenoms return non-human denom
@@ -829,7 +829,7 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 			},
 			expectedLen: 4,
 			expectError: false,
-			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []ingesttypes.PoolI) {
 				for _, v := range pools {
 					s.Require().Contains(
 						v.GetPoolDenoms(),
@@ -851,7 +851,7 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 			},
 			expectedLen: 1957,
 			expectError: false,
-			validateFunc: func(s *PoolsUsecaseTestSuite, pools []sqsdomain.PoolI) {
+			validateFunc: func(s *PoolsUsecaseTestSuite, pools []ingesttypes.PoolI) {
 				for i := 1; i < len(pools); i++ {
 					s.Require().True(pools[i-1].GetId() > pools[i].GetId())
 				}
@@ -914,7 +914,7 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 	testCases := []struct {
 		name string
 
-		pool sqsdomain.PoolI
+		pool ingesttypes.PoolI
 		opts []domain.PoolsOption
 
 		shouldForceAPRFetcherError  bool
@@ -1015,11 +1015,11 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 	}
 }
 
-func (s *PoolsUsecaseTestSuite) newRoutablePool(pool sqsdomain.PoolI, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
+func (s *PoolsUsecaseTestSuite) newRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 	}
-	routablePool, err := pools.NewRoutablePool(pool, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	routablePool, err := pools.NewRoutablePool(pool, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 	return routablePool
 }

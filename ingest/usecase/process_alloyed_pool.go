@@ -5,15 +5,15 @@ import (
 	"math/big"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/sqs/sqsdomain"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
 // processAlloyedPool processes the alloyed pool and computes the standard normalization factor and normalization scaling factors.
 // Mutates the model with the computed values.
 // Returns error if fails to computed either.
 // CONTRACT: the caller checked that this is an alloyed pool
-func processAlloyedPool(sqsModel *sqsdomain.SQSPool) error {
+func processAlloyedPool(sqsModel *ingesttypes.SQSPool) error {
 	if len(sqsModel.CosmWasmPoolModel.Data.AlloyTransmuter.AssetConfigs) == 0 {
 		return fmt.Errorf("no asset configs found for alloyed pool")
 	}

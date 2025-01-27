@@ -2,7 +2,7 @@ package orderbookdomain
 
 import (
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/sqs/sqsdomain/cosmwasmpool"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 )
 
 type OrderbookTick struct {

@@ -16,15 +16,16 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	sqsingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
-	"github.com/osmosis-labs/sqs/sqsdomain"
 
-	"github.com/osmosis-labs/sqs/sqsdomain/json"
-	"github.com/osmosis-labs/sqs/sqsdomain/proto/types"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/proto/types"
 )
 
 type ingestUseCase struct {
@@ -59,7 +60,7 @@ type ingestUseCase struct {
 }
 
 type poolResult struct {
-	pool sqsdomain.PoolI
+	pool sqsingesttypes.PoolI
 	err  error
 }
 
@@ -111,7 +112,7 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 	}, nil
 }
 
-func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, takerFeesMap sqsdomain.TakerFeeMap, poolData []*types.PoolData) (err error) {
+func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, takerFeesMap ingesttypes.TakerFeeMap, poolData []*types.PoolData) (err error) {
 	ctx, span := tracer.Start(ctx, "ingestUseCase.ProcessBlockData")
 	defer span.End()
 
@@ -223,7 +224,7 @@ func (p *ingestUseCase) updateAssetsAtHeightIntervalAsync(height uint64) {
 
 // sortAndStorePools sorts the pools and stores them in the router.
 // TODO: instead of resorting all pools every block, we should put the updated pools in the correct position
-func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
+func (p *ingestUseCase) sortAndStorePools(pools []sqsingesttypes.PoolI) {
 	cosmWasmPoolConfig := p.poolsUseCase.GetCosmWasmPoolConfig()
 	routerConfig := p.routerUsecase.GetConfig()
 
@@ -235,7 +236,7 @@ func (p *ingestUseCase) sortAndStorePools(pools []sqsdomain.PoolI) {
 }
 
 // parsePoolData parses the pool data and returns the pool objects.
-func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsdomain.PoolI, domain.BlockPoolMetadata, error) {
+func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsingesttypes.PoolI, domain.BlockPoolMetadata, error) {
 	poolResultChan := make(chan poolResult, len(poolData))
 
 	// Parse the pools concurrently
@@ -250,7 +251,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 		}(pool)
 	}
 
-	parsedPools := make([]sqsdomain.PoolI, 0, len(poolData))
+	parsedPools := make([]sqsingesttypes.PoolI, 0, len(poolData))
 
 	uniqueData := domain.BlockPoolMetadata{
 		PoolIDs:       make(map[uint64]struct{}, len(poolData)),
@@ -450,8 +451,8 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 
 // parsePool parses the pool data and returns the pool object
 // For concentrated pools, it also processes the tick model
-func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsdomain.PoolI, error) {
-	poolWrapper := sqsdomain.PoolWrapper{}
+func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, error) {
+	poolWrapper := sqsingesttypes.PoolWrapper{}
 
 	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, &poolWrapper.ChainModel); err != nil {
 		return nil, err
@@ -462,7 +463,7 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsdomain.PoolI, error)
 	}
 
 	if poolWrapper.GetType() == poolmanagertypes.Concentrated {
-		poolWrapper.TickModel = &sqsdomain.TickModel{}
+		poolWrapper.TickModel = &ingesttypes.TickModel{}
 		if err := json.Unmarshal(pool.TickModel, poolWrapper.TickModel); err != nil {
 			return nil, err
 		}
@@ -488,7 +489,7 @@ func (p *ingestUseCase) executeEndBlockProcessPlugins(ctx context.Context, block
 // processSQSModelMut processes the SQS model and updates it.
 // Specifically, it removes the gamm shares from the balances and pool denoms.
 // Additionally it updates the alloyed denom if it is an alloy transmuter.
-func processSQSModelMut(sqsModel *sqsdomain.SQSPool) error {
+func processSQSModelMut(sqsModel *ingesttypes.SQSPool) error {
 	// Update alloyed denom since it is not in the balances.
 	cosmWasmModel := sqsModel.CosmWasmPoolModel
 	if cosmWasmModel != nil && cosmWasmModel.IsAlloyTransmuter() {
