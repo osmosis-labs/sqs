@@ -92,7 +92,7 @@ func (r *routableCosmWasmPoolImpl) GetSpreadFactor() math.LegacyDec {
 // - the token out amount is greater than the balance of the token out
 // - the token out amount is greater than the balance of the token in
 func (r *routableCosmWasmPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
-	return r.calculateTokenOutByTokenIn(ctx, tokenOut, r.TokenInDenom)
+	return r.calculateTokenInByTokenOut(ctx, tokenOut, r.TokenInDenom)
 }
 
 func (r *routableCosmWasmPoolImpl) calculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string) (sdk.Coin, error) {
