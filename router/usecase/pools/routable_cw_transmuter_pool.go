@@ -48,6 +48,7 @@ func (r *routableTransmuterPoolImpl) GetSpreadFactor() math.LegacyDec {
 
 // CalculateTokenOutByTokenIn implements domain.RoutablePool.
 // It calculates the amount of token out given the amount of token in for a transmuter pool.
+// Because ChainPool operates on the chain store we simulate the store by operating on the custom data representation that is ingested from chain.
 // Transmuter pool allows no slippage swaps. It just returns the same amount of token out as token in
 // Returns error if:
 // - the underlying chain pool set on the routable pool is not of transmuter type
@@ -74,6 +75,13 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 }
 
 // CalculateTokenInByTokenOut implements domain.RoutablePool.
+// It calculates the amount of token in given the amount of token out for a transmuter pool.
+// Because ChainPool operates on the chain store we simulate the store by operating on the custom data representation that is ingested from chain.
+// Transmuter pool allows no slippage swaps. It just returns the same amount of token in as token out
+// Returns error if:
+// - the underlying chain pool set on the routable pool is not of transmuter type
+// - the token out amount is greater than the balance of the token out
+// - the token out amount is greater than the balance of the token in
 func (r *routableTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
 	poolType := r.GetType()
 
