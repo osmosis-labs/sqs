@@ -66,7 +66,7 @@ func (m *RouterUsecaseMock) GetPoolSpotPrice(ctx context.Context, poolID uint64,
 	return osmomath.BigDec{}, nil
 }
 
-func (m *RouterUsecaseMock) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+func (m *RouterUsecaseMock) GetOptimalQuoteOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
 	if m.GetOptimalQuoteFunc != nil {
 		return m.GetOptimalQuoteFunc(ctx, tokenIn, tokenOutDenom, opts...)
 	}
@@ -87,14 +87,14 @@ func (m *RouterUsecaseMock) GetBestSingleRouteQuote(ctx context.Context, tokenIn
 	panic("unimplemented")
 }
 
-func (m *RouterUsecaseMock) GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
+func (m *RouterUsecaseMock) GetCustomDirectQuoteOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
 	if m.GetCustomDirectQuoteFunc != nil {
 		return m.GetCustomDirectQuoteFunc(ctx, tokenIn, tokenOutDenom, poolID)
 	}
 	panic("unimplemented")
 }
 
-func (m *RouterUsecaseMock) GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
+func (m *RouterUsecaseMock) GetCustomDirectQuoteMultiPoolOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
 	if m.GetCustomDirectQuoteMultiPoolFunc != nil {
 		return m.GetCustomDirectQuoteMultiPoolFunc(ctx, tokenIn, tokenOutDenom, poolIDs)
 	}

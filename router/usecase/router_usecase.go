@@ -76,7 +76,7 @@ func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.Po
 	}
 }
 
-// GetOptimalQuote returns the optimal quote by estimating the optimal route(s) through pools
+// GetOptimalQuoteOutGivenIn returns the optimal quote by estimating the optimal route(s) through pools
 // on the osmosis network.
 // Uses default router config if no options parameter is provided.
 // With the options parameter, you can customize the router behavior. See domain.RouterOption for more details.
@@ -88,7 +88,7 @@ func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.Po
 // Returns error if:
 // - fails to estimate direct quotes for ranked routes
 // - fails to retrieve candidate routes
-func (r *routerUseCaseImpl) GetOptimalQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
 	options := domain.RouterOptions{
 		MaxPoolsPerRoute:                 r.defaultConfig.MaxPoolsPerRoute,
 		MaxRoutes:                        r.defaultConfig.MaxRoutes,
@@ -202,7 +202,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 		domain.WithCandidateRoutesPoolFiltersAnyOf(domain.ShouldSkipOrderbookPool),
 	)
 
-	quote, err := r.GetOptimalQuote(ctx, tokenIn, tokenOutDenom, opts...)
+	quote, err := r.GetOptimalQuoteOutGivenIn(ctx, tokenIn, tokenOutDenom, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -433,8 +433,8 @@ var (
 	ErrTokenOutDenomPoolNotFound = fmt.Errorf("token out denom not found in pool")
 )
 
-// GetCustomDirectQuote implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
+// GetCustomDirectQuoteOutGivenIn implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
 	pool, err := r.poolsUsecase.GetPool(poolID)
 	if err != nil {
 		return nil, err
@@ -450,7 +450,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	}
 
 	// create candidate routes with given token out denom and pool ID.
-	candidateRoutes := r.createCandidateRouteByPoolID(tokenOutDenom, poolID)
+	candidateRoutes := r.createCandidateRouteByPoolID(tokenIn.Denom, tokenOutDenom, poolID)
 
 	// Convert candidate route into a route with all the pool data
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
@@ -467,8 +467,8 @@ func (r *routerUseCaseImpl) GetCustomDirectQuote(ctx context.Context, tokenIn sd
 	return bestSingleRouteQuote, nil
 }
 
-// GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
+// GetCustomDirectQuoteMultiPoolOutGivenIn implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
 	if len(poolIDs) == 0 {
 		return nil, fmt.Errorf("%w: at least one pool ID should be specified", routertypes.ErrValidationFailed)
 	}
@@ -490,7 +490,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 	for i, v := range poolIDs {
 		tokenOutDenom := tokenOutDenom[i]
 
-		quote, err := r.GetCustomDirectQuote(ctx, tokenIn, tokenOutDenom, v)
+		quote, err := r.GetCustomDirectQuoteOutGivenIn(ctx, tokenIn, tokenOutDenom, v)
 		if err != nil {
 			return nil, err
 		}
@@ -530,7 +530,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPool(ctx context.Context, t
 
 // GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error) {
-	quote, err := r.GetCustomDirectQuoteMultiPool(ctx, tokenOut, tokenInDenom, poolIDs)
+	quote, err := r.GetCustomDirectQuoteMultiPoolOutGivenIn(ctx, tokenOut, tokenInDenom, poolIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -936,7 +936,7 @@ func filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes []route.RouteImpl) []ro
 }
 
 // createCandidateRouteByPoolID constructs a candidate route with the desired pool.
-func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenOutDenom string, poolID uint64) ingesttypes.CandidateRoutes {
+func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenInDenom string, tokenOutDenom string, poolID uint64) ingesttypes.CandidateRoutes {
 	// Create a candidate route with the desired pool
 	return ingesttypes.CandidateRoutes{
 		Routes: []ingesttypes.CandidateRoute{
@@ -944,6 +944,7 @@ func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenOutDenom string, p
 				Pools: []ingesttypes.CandidatePool{
 					{
 						ID:            poolID,
+						TokenInDenom:  tokenInDenom,
 						TokenOutDenom: tokenOutDenom,
 					},
 				},

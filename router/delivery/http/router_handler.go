@@ -128,7 +128,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	var quote domain.Quote
 	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		quote, err = a.RUsecase.GetOptimalQuote(ctx, *tokenIn, tokenOutDenom, routerOpts...)
+		quote, err = a.RUsecase.GetOptimalQuoteOutGivenIn(ctx, *tokenIn, tokenOutDenom, routerOpts...)
 	} else {
 		quote, err = a.RUsecase.GetOptimalQuoteInGivenOut(ctx, *tokenIn, tokenOutDenom, routerOpts...)
 	}
@@ -232,7 +232,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 	// Get the quote based on the swap method.
 	var quote domain.Quote
 	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		quote, err = a.RUsecase.GetCustomDirectQuoteMultiPool(ctx, *tokenIn, tokenOutDenom, req.PoolID)
+		quote, err = a.RUsecase.GetCustomDirectQuoteMultiPoolOutGivenIn(ctx, *tokenIn, tokenOutDenom, req.PoolID)
 	} else {
 		quote, err = a.RUsecase.GetCustomDirectQuoteMultiPoolInGivenOut(ctx, *tokenIn, tokenOutDenom, req.PoolID)
 	}

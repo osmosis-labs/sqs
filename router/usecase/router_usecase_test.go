@@ -806,7 +806,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			}
 
 			// System under test
-			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom, options...)
+			quote, err := mainnetUseCase.Router.GetOptimalQuoteOutGivenIn(context.Background(), sdk.NewCoin(defaultTokenInDenom, tc.amountIn), defaultTokenOutDenom, options...)
 
 			// We only validate that error does not occur without actually validating the quote.
 			s.Require().NoError(err)
@@ -980,7 +980,7 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	s.Require().True(ok)
 
 	// Get quote.
-	quote, err := mainnetUsecase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(chainWBTC, osmomath.NewInt(1_00_000_000)), USDC)
+	quote, err := mainnetUsecase.Router.GetOptimalQuoteOutGivenIn(context.Background(), sdk.NewCoin(chainWBTC, osmomath.NewInt(1_00_000_000)), USDC)
 	s.Require().NoError(err)
 
 	// Prepare quote result.
@@ -1273,7 +1273,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			quotes, err := routerUsecase.GetCustomDirectQuoteMultiPool(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
+			quotes, err := routerUsecase.GetCustomDirectQuoteMultiPoolOutGivenIn(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
 			s.Require().ErrorIs(err, tc.err)
 			if err != nil {
 				return // nothing else to do
@@ -1509,7 +1509,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Order
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
+			quote, err := routerUsecase.GetCustomDirectQuoteOutGivenIn(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
 
 			if err != nil {
 				s.Require().EqualError(tc.err, err.Error())
@@ -1706,7 +1706,7 @@ func (s *RouterTestSuite) TestGetMinPoolLiquidityCapFilter() {
 // This helper is useful in specific tests that rely on this configuration.
 func (s *RouterTestSuite) validatePoolIDInRoute(routerUseCase mvc.RouterUsecase, coinIn sdk.Coin, tokenOutDenom string, expectedPoolID uint64) {
 	// Get quote
-	quote, err := routerUseCase.GetOptimalQuote(context.Background(), coinIn, tokenOutDenom)
+	quote, err := routerUseCase.GetOptimalQuoteOutGivenIn(context.Background(), coinIn, tokenOutDenom)
 	s.Require().NoError(err)
 
 	quoteRoutes := quote.GetRoute()
