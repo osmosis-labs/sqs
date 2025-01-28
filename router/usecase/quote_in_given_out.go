@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/types"
+	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
@@ -88,36 +89,93 @@ func (q *quoteExactAmountOut) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 //
 // Returns the updated route and the effective spread factor.
 func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
-	// Prepare exact out in the quote for inputs inversion
-	if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, logger); err != nil {
-		return nil, osmomath.Dec{}, err
-	}
-
-	// Assign the inverted values to the quote
-	q.AmountOut = q.quoteExactAmountIn.AmountIn
-	q.AmountIn = q.quoteExactAmountIn.AmountOut
-	q.Route = q.quoteExactAmountIn.Route
-	q.EffectiveFee = q.quoteExactAmountIn.EffectiveFee
-	q.PriceImpact = q.quoteExactAmountIn.PriceImpact
-	q.InBaseOutQuoteSpotPrice = q.quoteExactAmountIn.InBaseOutQuoteSpotPrice
-
-	for i, route := range q.Route {
-		route, ok := route.(*RouteWithOutAmount)
-		if !ok {
-			return nil, osmomath.Dec{}, types.ErrInvalidRouteType
+	if q.quoteExactAmountIn != nil {
+		// Prepare exact out in the quote for inputs inversion
+		if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, logger); err != nil {
+			return nil, osmomath.Dec{}, err
 		}
 
-		// invert the in and out amounts
-		route.InAmount, route.OutAmount = route.OutAmount, route.InAmount
+		// Assign the inverted values to the quote
+		q.AmountOut = q.quoteExactAmountIn.AmountIn
+		q.AmountIn = q.quoteExactAmountIn.AmountOut
+		q.Route = q.quoteExactAmountIn.Route
+		q.EffectiveFee = q.quoteExactAmountIn.EffectiveFee
+		q.PriceImpact = q.quoteExactAmountIn.PriceImpact
+		q.InBaseOutQuoteSpotPrice = q.quoteExactAmountIn.InBaseOutQuoteSpotPrice
 
-		q.Route[i] = route
+		for i, route := range q.Route {
+			route, ok := route.(*RouteWithOutAmount)
+			if !ok {
+				return nil, osmomath.Dec{}, types.ErrInvalidRouteType
+			}
 
-		// invert the in and out amounts for each pool
-		for _, p := range route.GetPools() {
-			p.SetTokenInDenom(p.GetTokenOutDenom())
-			p.SetTokenOutDenom("")
+			// invert the in and out amounts
+			route.InAmount, route.OutAmount = route.OutAmount, route.InAmount
+
+			q.Route[i] = route
+
+			// invert the in and out amounts for each pool
+			for _, p := range route.GetPools() {
+				p.SetTokenInDenom(p.GetTokenOutDenom())
+				p.SetTokenOutDenom("")
+			}
 		}
+
+		return q.Route, q.EffectiveFee, nil
 	}
+
+	totalAmountOut := q.AmountOut.Amount.ToLegacyDec()
+	totalFeeAcrossRoutes := osmomath.ZeroDec()
+
+	totalSpotPriceOutBaseInQuote := osmomath.ZeroDec()
+	totalEffectiveSpotPriceOutBaseInQuote := osmomath.ZeroDec()
+
+	resultRoutes := make([]domain.SplitRoute, 0, len(q.Route))
+
+	for _, curRoute := range q.Route {
+		routeTotalFee := osmomath.ZeroDec()
+		routeAmountOutFraction := curRoute.GetAmountOut().ToLegacyDec().Quo(totalAmountOut)
+
+		// Calculate the spread factor across pools in the route
+		for _, pool := range curRoute.GetPools() {
+			poolTakerFee := pool.GetTakerFee()
+
+			routeTotalFee.AddMut(
+				//  (1 - routeTotalFee) * poolTakerFee
+				osmomath.OneDec().SubMut(routeTotalFee).MulTruncateMut(poolTakerFee),
+			)
+		}
+
+		// Update the spread factor pro-rated by the amount in
+		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountOutFraction))
+
+		amountOutFraction := q.AmountOut.Amount.ToLegacyDec().MulMut(routeAmountOutFraction).TruncateInt()
+		newPools, routeSpotPriceOutBaseInQuote, effectiveSpotPriceOutBaseInQuote, err := curRoute.PrepareResultPoolsExactAmountOut(ctx, sdk.NewCoin(q.AmountOut.Denom, amountOutFraction), logger)
+		if err != nil {
+			return nil, osmomath.Dec{}, err
+		}
+
+		totalSpotPriceOutBaseInQuote = totalSpotPriceOutBaseInQuote.AddMut(routeSpotPriceOutBaseInQuote.MulMut(routeAmountOutFraction))
+		totalEffectiveSpotPriceOutBaseInQuote = totalEffectiveSpotPriceOutBaseInQuote.AddMut(effectiveSpotPriceOutBaseInQuote.MulMut(routeAmountOutFraction))
+
+		resultRoutes = append(resultRoutes, &RouteWithOutAmount{
+			RouteImpl: route.RouteImpl{
+				Pools:                      newPools,
+				HasGeneralizedCosmWasmPool: curRoute.ContainsGeneralizedCosmWasmPool(),
+			},
+			InAmount:  curRoute.GetAmountIn(),
+			OutAmount: curRoute.GetAmountOut(),
+		})
+	}
+
+	// Calculate price impact
+	if !totalSpotPriceOutBaseInQuote.IsZero() {
+		q.PriceImpact = totalEffectiveSpotPriceOutBaseInQuote.Quo(totalSpotPriceOutBaseInQuote).SubMut(one)
+	}
+
+	q.EffectiveFee = totalFeeAcrossRoutes
+	q.Route = resultRoutes
+	q.InBaseOutQuoteSpotPrice = totalSpotPriceOutBaseInQuote
 
 	return q.Route, q.EffectiveFee, nil
 }

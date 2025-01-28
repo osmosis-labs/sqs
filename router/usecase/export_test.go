@@ -66,7 +66,7 @@ func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 }
 
 func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
-	return r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
+	return r.rankRoutesByDirectQuoteOutGivenIn(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
 }
 
 func CutRoutesForSplits(maxSplitRoutes int, routes []route.RouteImpl) []route.RouteImpl {

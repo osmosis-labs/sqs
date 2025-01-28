@@ -92,21 +92,21 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 	errors := []error{}
 
 	for _, route := range routes {
-		directRouteTokenOut, err := route.CalculateTokenOutByTokenIn(ctx, tokenOut)
+		directRouteTokenIn, err := route.CalculateTokenInByTokenOut(ctx, tokenOut)
 		if err != nil {
 			logger.Debug("skipping single route due to error in estimate", zap.Error(err))
 			errors = append(errors, err)
 			continue
 		}
 
-		if directRouteTokenOut.Amount.IsNil() {
-			directRouteTokenOut.Amount = osmomath.ZeroInt()
+		if directRouteTokenIn.Amount.IsNil() {
+			directRouteTokenIn.Amount = osmomath.ZeroInt()
 		}
 
 		routesWithAmountOut = append(routesWithAmountOut, RouteWithOutAmount{
 			RouteImpl: route,
-			InAmount:  tokenOut.Amount,
-			OutAmount: directRouteTokenOut.Amount,
+			InAmount:  directRouteTokenIn.Amount,
+			OutAmount: tokenOut.Amount,
 		})
 	}
 
@@ -128,16 +128,16 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 		return nil, nil, errors[0]
 	}
 
-	// Sort by amount out in descending order
+	// Sort by amount in in descending order
 	sort.Slice(routesWithAmountOut, func(i, j int) bool {
-		return routesWithAmountOut[i].OutAmount.GT(routesWithAmountOut[j].OutAmount)
+		return routesWithAmountOut[i].InAmount.GT(routesWithAmountOut[j].InAmount)
 	})
 
 	bestRoute := routesWithAmountOut[0]
 
-	finalQuote := &quoteExactAmountIn{
-		AmountIn:  tokenOut,
-		AmountOut: bestRoute.OutAmount,
+	finalQuote := &quoteExactAmountOut{
+		AmountIn:  bestRoute.OutAmount,
+		AmountOut: tokenOut,
 		Route:     []domain.SplitRoute{&bestRoute},
 	}
 

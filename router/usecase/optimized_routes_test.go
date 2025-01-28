@@ -3,10 +3,13 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
+	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/coinutil"
@@ -691,6 +694,68 @@ var optimalQuoteTestCases = map[string]struct {
 	},
 }
 
+type RouterTestSuite1 struct {
+	routertesting.RouterTestHelper
+}
+
+func TestRouterTestSuite1(t *testing.T) {
+	suite.Run(t, new(RouterTestSuite1))
+}
+
+func (s *RouterTestSuite1) TestGetOptimalQuoteExactAmounOut_Mainnet() {
+	for name, tc := range optimalQuoteTestCases {
+		tc := tc
+		s.Run(name, func() {
+			// Setup mainnet router
+			mainnetState := s.SetupMainnetState()
+
+			// Mock router use case.
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+			if name != "atom for akt" {
+				return
+			}
+
+			// TODO: fix
+			// TokenInDenom is empty
+			quote, err := mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), sdk.NewCoin(tc.tokenOutDenom, tc.amountIn), tc.tokenInDenom)
+			s.Require().NoError(err)
+
+			// TODO: update mainnet state and validate the quote for each test stricter.
+			routes, _, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0), &log.NoOpLogger{}) //  we are not checking the scaling factor
+			s.Require().NoError(err)
+
+			s.Require().Len(routes, tc.expectedRoutesCountExactAmountOut)
+
+			// Validate that the routes are valid
+			for _, r := range routes {
+				output := tc.tokenOutDenom
+				for _, p := range r.GetPools() {
+					pool, err := mainnetUseCase.Pools.GetPool(p.GetId())
+					s.Require().NoError(err)
+
+					denoms := pool.GetPoolDenoms()
+
+					// Pool denoms must contain output denom
+					s.Require().Contains(denoms, output)
+
+					// Pool denoms must contain route input denom
+					s.Require().Contains(denoms, p.GetTokenInDenom())
+
+					// Pool's token in denom becomes output of the next pool
+					output = p.GetTokenInDenom()
+				}
+
+				// The last route's token out denom must be the output denom of the quote
+				s.Require().Equal(tc.tokenInDenom, r.GetTokenInDenom())
+			}
+
+			// Validate that the quote is not nil
+			s.Require().NotNil(quote.GetAmountOut())
+		})
+	}
+}
+
 // Validates that quotes constructed from mainnet state can be computed with no error
 // for selected pairs.
 func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounIn_Mainnet() {
@@ -749,6 +814,11 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
+			if name == "atom for akt" {
+				fmt.Println("atom for akt")
+			}
+			// TODO: fix
+			// TokenInDenom is empty
 			quote, err := mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), sdk.NewCoin(tc.tokenOutDenom, tc.amountIn), tc.tokenInDenom)
 			s.Require().NoError(err)
 

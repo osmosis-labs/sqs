@@ -52,6 +52,8 @@ type Route interface {
 	// The token in is the base token and the token out is the quote token.
 	PrepareResultPoolsExactAmountIn(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
+	PrepareResultPoolsExactAmountOut(ctx context.Context, tokenOut sdk.Coin, logger log.Logger) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
+
 	String() string
 }
 

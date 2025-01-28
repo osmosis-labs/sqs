@@ -110,6 +110,62 @@ func (r RouteImpl) PrepareResultPoolsExactAmountIn(ctx context.Context, tokenIn 
 	return newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, nil
 }
 
+func (r RouteImpl) PrepareResultPoolsExactAmountOut(ctx context.Context, tokenOut sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+	var (
+		routeSpotPriceOutBaseInQuote     = osmomath.OneDec()
+		effectiveSpotPriceOutBaseInQuote = osmomath.OneDec()
+	)
+
+	newPools := make([]domain.RoutablePool, 0, len(r.Pools))
+
+	for _, pool := range r.Pools {
+		// Compute spot price before swap.
+		spotPriceOutBaseInQuote, err := pool.CalcSpotPrice(ctx, tokenOut.Denom, pool.GetTokenInDenom())
+		if err != nil {
+			logger.Error("failed to calculate spot price for pool", zap.Error(err))
+
+			// We don't want to fail the entire quote if one pool fails to calculate spot price.
+			// This might cause miestimaions downsream but we a
+			spotPriceOutBaseInQuote = osmomath.ZeroBigDec()
+
+			// Increment the counter for the error
+			spotPriceErrorResultCounter.WithLabelValues(
+				tokenOut.Denom,
+				pool.GetTokenOutDenom(),
+				r.Pools[len(r.Pools)-1].GetTokenOutDenom(),
+			).Inc()
+		}
+
+		// Charge taker fee
+		tokenOut = pool.ChargeTakerFeeExactOut(tokenOut)
+
+		tokenIn, err := pool.CalculateTokenInByTokenOut(ctx, tokenOut)
+		if err != nil {
+			return nil, osmomath.Dec{}, osmomath.Dec{}, err
+		}
+
+		// Update effective spot price
+		effectiveSpotPriceOutBaseInQuote.MulMut(tokenIn.Amount.ToLegacyDec().QuoMut(tokenOut.Amount.ToLegacyDec()))
+
+		// Note, in the future we may want to increase the precision of the spot price
+		routeSpotPriceOutBaseInQuote.MulMut(spotPriceOutBaseInQuote.Dec())
+
+		newPool := pools.NewExactAmountOutRoutableResultPool(
+			pool.GetId(),
+			pool.GetType(),
+			pool.GetSpreadFactor(),
+			pool.GetTokenInDenom(),
+			pool.GetTakerFee(),
+			pool.GetCodeID(),
+		)
+
+		newPools = append(newPools, newPool)
+
+		tokenOut = tokenIn
+	}
+	return newPools, routeSpotPriceOutBaseInQuote, effectiveSpotPriceOutBaseInQuote, nil
+}
+
 // GetPools implements Route.
 func (r *RouteImpl) GetPools() []domain.RoutablePool {
 	return r.Pools
@@ -156,17 +212,18 @@ func (r *RouteImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk
 	}()
 
 	for _, pool := range r.Pools {
-		// Charge taker fee
-		tokenOut = pool.ChargeTakerFeeExactOut(tokenIn)
-		tokenInAmt := tokenOut.Amount.ToLegacyDec()
-
-		if tokenInAmt.IsNil() || tokenInAmt.IsZero() {
-			return sdk.Coin{}, nil
-		}
-
 		tokenIn, err = pool.CalculateTokenInByTokenOut(ctx, tokenOut)
 		if err != nil {
 			return sdk.Coin{}, err
+		}
+
+		// Charge taker fee
+		tokenIn = pool.ChargeTakerFeeExactOut(tokenOut)
+
+		tokenInAmt := tokenIn.Amount.ToLegacyDec()
+
+		if tokenInAmt.IsNil() || tokenInAmt.IsZero() {
+			return sdk.Coin{}, nil
 		}
 
 		tokenOut = tokenIn
