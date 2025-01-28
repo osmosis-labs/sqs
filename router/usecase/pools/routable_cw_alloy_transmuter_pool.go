@@ -89,12 +89,12 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context
 //
 // Note that balance validation does not apply to alloyed asset since it can be minted or burned by the pool.
 func (r *routableAlloyTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-	tokenInAtm, err := r.CalcTokenInAmt(tokenIn, r.TokenOutDenom)
+	tokenInAmt, err := r.CalcTokenInAmt(tokenIn, r.TokenOutDenom)
 	if err != nil {
 		return sdk.Coin{}, err
 	}
 
-	tokenInAmtInt := tokenInAtm.Dec().TruncateInt()
+	tokenInAmtInt := tokenInAmt.Dec().TruncateInt()
 
 	// Validate token out balance if not alloyed
 	if r.TokenInDenom != r.AlloyTransmuterData.AlloyedDenom {
