@@ -13,5 +13,5 @@ type QuoteSimulator interface {
 	// - Only direct (non-split) quotes are supported.
 	// Retursn error if:
 	// - Simulator address does not have enough funds to pay for the quote.
-	SimulateQuote(ctx context.Context, quote Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) TxFeeInfo
+	SimulateQuoteOutGivenIn(ctx context.Context, quote Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) TxFeeInfo
 }

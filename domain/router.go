@@ -59,7 +59,7 @@ type SplitRoute interface {
 
 type Quote interface {
 	GetAmountIn() sdk.Coin
-	GetAmountOut() osmomath.Int
+	GetAmountOut() sdk.Coin
 	GetRoute() []SplitRoute
 	GetEffectiveFee() osmomath.Dec
 	GetPriceImpact() osmomath.Dec

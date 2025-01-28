@@ -172,7 +172,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	finalQuote := topSingleRouteQuote
 
 	// If the split route quote is better than the single route quote, return the split route quote
-	if topSplitQuote.GetAmountOut().GT(topSingleRouteQuote.GetAmountOut()) {
+	if topSplitQuote.GetAmountOut().Amount.GT(topSingleRouteQuote.GetAmountOut().Amount) {
 		routes := topSplitQuote.GetRoute()
 
 		r.logger.Debug("split route selected", zap.Int("route_count", len(routes)))
@@ -467,6 +467,40 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 	return bestSingleRouteQuote, nil
 }
 
+// GetCustomDirectQuoteOutGivenIn implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetCustomDirectQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, poolID uint64) (domain.Quote, error) {
+	pool, err := r.poolsUsecase.GetPool(poolID)
+	if err != nil {
+		return nil, err
+	}
+
+	poolDenoms := pool.GetPoolDenoms()
+
+	if !osmoutils.Contains(poolDenoms, tokenOut.Denom) {
+		return nil, fmt.Errorf("denom %s in pool %d: %w", tokenOut.Denom, poolID, ErrTokenInDenomPoolNotFound)
+	}
+	if !osmoutils.Contains(poolDenoms, tokenInDenom) {
+		return nil, fmt.Errorf("denom %s in pool %d: %w", tokenInDenom, poolID, ErrTokenOutDenomPoolNotFound)
+	}
+
+	// create candidate routes with given token out denom and pool ID.
+	candidateRoutes := r.createCandidateRouteByPoolID(tokenInDenom, tokenOut.Denom, poolID)
+
+	// Convert candidate route into a route with all the pool data
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenOut.Denom, tokenInDenom)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute direct quote
+	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuote(ctx, routes, tokenOut, r.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return bestSingleRouteQuote, nil
+}
+
 // GetCustomDirectQuoteMultiPoolOutGivenIn implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
 	if len(poolIDs) == 0 {
@@ -506,12 +540,12 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolOutGivenIn(ctx context.
 		}
 
 		// the amountOut value is the amount out of last the tokenOutDenom
-		result.AmountOut = quote.GetAmountOut()
+		result.AmountOut = quote.GetAmountOut().Amount
 
 		// append each pool to the route
 		pools = append(pools, poolsInRoute...)
 
-		tokenIn = sdk.NewCoin(tokenOutDenom, quote.GetAmountOut())
+		tokenIn = sdk.NewCoin(tokenOutDenom, quote.GetAmountOut().Amount)
 	}
 
 	// Construct the final multi-hop custom direct quote route.
@@ -530,19 +564,63 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolOutGivenIn(ctx context.
 
 // GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error) {
-	quote, err := r.GetCustomDirectQuoteMultiPoolOutGivenIn(ctx, tokenOut, tokenInDenom, poolIDs)
-	if err != nil {
-		return nil, err
+	if len(poolIDs) == 0 {
+		return nil, fmt.Errorf("%w: at least one pool ID should be specified", routertypes.ErrValidationFailed)
 	}
 
-	q, ok := quote.(*quoteExactAmountIn)
-	if !ok {
-		return nil, errors.New("quote is not a quoteExactAmountIn")
+	if len(tokenInDenom) == 0 {
+		return nil, fmt.Errorf("%w: at least one token in denom should be specified", routertypes.ErrValidationFailed)
 	}
 
-	return &quoteExactAmountOut{
-		quoteExactAmountIn: q,
-	}, nil
+	// for each given pool we expect to have provided token out denom
+	if len(poolIDs) != len(tokenInDenom) {
+		return nil, fmt.Errorf("%w: number of pool ID should match number of in denom", routertypes.ErrValidationFailed)
+	}
+
+	// AmountIn is the first token of the asset pair.
+	result := quoteExactAmountOut{AmountOut: tokenOut}
+
+	pools := make([]domain.RoutablePool, 0, len(poolIDs))
+
+	for i, v := range poolIDs {
+		tokenInDenom := tokenInDenom[i]
+
+		quote, err := r.GetCustomDirectQuoteInGivenOut(ctx, tokenOut, tokenInDenom, v)
+		if err != nil {
+			return nil, err
+		}
+
+		route := quote.GetRoute()
+		if len(route) != 1 {
+			return nil, fmt.Errorf("custom direct quote must have 1 route, had: %d", len(route))
+		}
+
+		poolsInRoute := route[0].GetPools()
+		if len(poolsInRoute) != 1 {
+			return nil, fmt.Errorf("custom direct quote route must have 1 pool, had: %d", len(poolsInRoute))
+		}
+
+		// the amountIn value is the amount out of last the tokenInDenom
+		result.AmountIn = quote.GetAmountIn().Amount
+
+		// append each pool to the route
+		pools = append(pools, poolsInRoute...)
+
+		tokenOut = sdk.NewCoin(tokenInDenom, quote.GetAmountOut().Amount)
+	}
+
+	// Construct the final multi-hop custom direct quote route.
+	result.Route = []domain.SplitRoute{
+		&RouteWithOutAmount{
+			RouteImpl: route.RouteImpl{
+				Pools: pools,
+			},
+			OutAmount: result.AmountOut.Amount,
+			InAmount:  result.AmountIn,
+		},
+	}
+
+	return &result, nil
 }
 
 // GetCandidateRoutes implements domain.RouterUsecase.

@@ -1012,7 +1012,7 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuote() {
 			s.Require().NoError(sytErr)
 
 			// Validate quote amount out
-			s.Require().Equal(tokenOutCoin.Amount, quote.GetAmountOut())
+			s.Require().Equal(tokenOutCoin.Amount, quote.GetAmountOut().Amount)
 
 			// Validate ranked route order
 			s.Require().Equal(len(tc.expectedRouteAmounstOut), len(rankedRoutes))

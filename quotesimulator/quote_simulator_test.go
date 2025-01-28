@@ -54,8 +54,8 @@ func TestSimulateQuote(t *testing.T) {
 					return uosmoCoinIn
 				},
 
-				GetAmountOutFunc: func() math.Int {
-					return osmomath.NewInt(200000)
+				GetAmountOutFunc: func() sdk.Coin {
+					return sdk.Coin{Amount: osmomath.NewInt(200000)}
 				},
 
 				GetRouteFunc: func() []domain.SplitRoute {
@@ -112,7 +112,7 @@ func TestSimulateQuote(t *testing.T) {
 			)
 
 			// System under test
-			priceInfo := simulator.SimulateQuote(
+			priceInfo := simulator.SimulateQuoteOutGivenIn(
 				context.Background(),
 				mockQuote,
 				tt.slippageToleranceMultiplier,
