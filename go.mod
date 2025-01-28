@@ -283,8 +283,9 @@ replace (
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.2
 
-	// Temp replacement
-	github.com/osmosis-labs/osmosis/v28 v28.0.2 => github.com/osmosis-labs/osmosis/v28 v28.0.0-20250123151709-6bb88cccbfe6
+	// This replacement can be removed once Osmosis v28.0.3 or higher is released
+	// It is required to pull in test cases for BE-676 from backport branch: https://github.com/osmosis-labs/osmosis/pull/8962
+	github.com/osmosis-labs/osmosis/v28 v28.0.2 => github.com/osmosis-labs/osmosis/v28 v28.0.3-0.20250128064600-532afea930f9
 
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
