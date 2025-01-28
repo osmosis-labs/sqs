@@ -234,7 +234,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 		}
 	}
 
-	return validateAndFilterRoutes(routes, tokenIn.Denom, c.logger)
+	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
 }
 
 func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
@@ -410,6 +410,7 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 						CandidatePool: ingesttypes.CandidatePool{
 							ID:            poolID,
 							TokenOutDenom: denom,
+							TokenInDenom:  tokenInDenom,
 						},
 						PoolDenoms: poolDenoms,
 					})
@@ -434,7 +435,7 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 		}
 	}
 
-	return validateAndFilterRoutes(routes, tokenOut.Denom, c.logger)
+	return validateAndFilterRoutesOutGivenIn(routes, tokenOut.Denom, c.logger)
 }
 
 // Pool represents a pool in the decentralized exchange.

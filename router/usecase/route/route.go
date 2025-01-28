@@ -41,7 +41,7 @@ var (
 	)
 )
 
-// PrepareResultPools implements domain.Route.
+// PrepareResultPoolsExactAmountIn implements domain.Route.
 // Strips away unnecessary fields from each pool in the route,
 // leaving only the data needed by client
 // The following are the list of fields that are returned to the client in each pool:
@@ -54,7 +54,7 @@ var (
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
 // with token in as base and token out as quote.
-func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPoolsExactAmountIn(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
 		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()
@@ -143,6 +143,36 @@ func (r *RouteImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.
 	}
 
 	return tokenOut, nil
+}
+
+// CalculateTokenInByTokenOut implements Route.
+func (r *RouteImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (tokenIn sdk.Coin, err error) {
+	defer func() {
+		// TODO: cover this by test
+		if r := recover(); r != nil {
+			tokenIn = sdk.Coin{}
+			err = fmt.Errorf("error when calculating in by out in route: %v", r)
+		}
+	}()
+
+	for _, pool := range r.Pools {
+		// Charge taker fee
+		tokenOut = pool.ChargeTakerFeeExactOut(tokenIn)
+		tokenInAmt := tokenOut.Amount.ToLegacyDec()
+
+		if tokenInAmt.IsNil() || tokenInAmt.IsZero() {
+			return sdk.Coin{}, nil
+		}
+
+		tokenIn, err = pool.CalculateTokenInByTokenOut(ctx, tokenOut)
+		if err != nil {
+			return sdk.Coin{}, err
+		}
+
+		tokenOut = tokenIn
+	}
+
+	return tokenIn, nil
 }
 
 // String implements domain.Route.

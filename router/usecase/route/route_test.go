@@ -207,7 +207,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 		s.Run(name, func() {
 
 			// Note: token in is chosen arbitrarily since it is irrelevant for this test
-			actualPools, spotPriceBeforeInBaseOutQuote, _, err := tc.route.PrepareResultPools(context.TODO(), tc.tokenIn, &log.NoOpLogger{})
+			actualPools, spotPriceBeforeInBaseOutQuote, _, err := tc.route.PrepareResultPoolsExactAmountIn(context.TODO(), tc.tokenIn, &log.NoOpLogger{})
 			s.Require().NoError(err)
 
 			s.Require().Equal(tc.expectedSpotPriceInBaseOutQuote, spotPriceBeforeInBaseOutQuote)

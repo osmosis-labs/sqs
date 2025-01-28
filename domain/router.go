@@ -30,6 +30,10 @@ type Route interface {
 	// Returns error if the calculation fails.
 	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
 
+	// CalculateTokenInByTokenOut calculates the token out amount given the token in amount.
+	// Returns error if the calculation fails.
+	CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error)
+
 	// Returns token out denom of the last pool in the route.
 	// If route is empty, returns empty string.
 	GetTokenOutDenom() string
@@ -38,7 +42,7 @@ type Route interface {
 	// If route is empty, returns empty string.
 	GetTokenInDenom() string
 
-	// PrepareResultPools strips away unnecessary fields
+	// PrepareResultPoolsExactAmountIn strips away unnecessary fields
 	// from each pool in the route,
 	// leaving only the data needed by client
 	// Runs the quote logic one final time to compute the effective spot price.
@@ -46,7 +50,7 @@ type Route interface {
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
 	// The token in is the base token and the token out is the quote token.
-	PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPoolsExactAmountIn(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
