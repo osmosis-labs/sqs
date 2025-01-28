@@ -38,7 +38,7 @@ func BenchmarkCandidateRouteSearcher(b *testing.B) {
 	// Run the benchmark
 	for i := 0; i < b.N; i++ {
 		// System under test
-		_, err := usecase.CandidateRouteSearcher.FindCandidateRoutes(tokenIn, tokenOutDenom, candidateRouteOptions)
+		_, err := usecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteOptions)
 		s.Require().NoError(err)
 		if err != nil {
 			b.Errorf("FindCandidateRoutes returned an error: %v", err)

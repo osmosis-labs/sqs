@@ -137,7 +137,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 		}
 
 		// Find candidate routes and rank them by direct quotes.
-		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, tokenIn, tokenOutDenom, options)
+		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuoteOutGivenIn(ctx, tokenIn, tokenOutDenom, options)
 		if err != nil {
 			return nil, err
 		}
@@ -191,30 +191,107 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 
 // GetOptimalQuoteInGivenOut returns an optimal quote through the pools for the exact amount out token swap method.
 // Underlying implementation is the same as GetOptimalQuote, but the returned quote is wrapped in a quoteExactAmountOut.
-func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
-	// Disable cache and add orderbook pool filter
-	// So that order-book pools are not used in the candidate route search.
-	// The reason is that order-book contract does not implement the MsgSwapExactAmountOut API.
-	// The reason we disable cache is so that the exluded candidate routes do not interfere with the main
-	// "out given in" API.
-	opts = append(opts,
-		domain.WithDisableCache(),
-		domain.WithCandidateRoutesPoolFiltersAnyOf(domain.ShouldSkipOrderbookPool),
+func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+	options := domain.RouterOptions{
+		MaxPoolsPerRoute:                 r.defaultConfig.MaxPoolsPerRoute,
+		MaxRoutes:                        r.defaultConfig.MaxRoutes,
+		MinPoolLiquidityCap:              r.defaultConfig.MinPoolLiquidityCap,
+		CandidateRouteCacheExpirySeconds: r.defaultConfig.CandidateRouteCacheExpirySeconds,
+		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
+		MaxSplitRoutes:                   r.defaultConfig.MaxSplitRoutes,
+		DisableCache:                     true, // TODO
+		CandidateRoutesPoolFiltersAnyOf:  []domain.CandidateRoutePoolFiltrerCb{},
+	}
+	// Apply options
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	var (
+		candidateRankedRoutes ingesttypes.CandidateRoutes
+		err                   error
 	)
 
-	quote, err := r.GetOptimalQuoteOutGivenIn(ctx, tokenIn, tokenOutDenom, opts...)
+	// TODO
+	if !options.DisableCache {
+		// Get an order of magnitude for the token out amount
+		// This is used for caching ranked routes as these might differ depending on the amount swapped out.
+		tokenOutOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
+
+		candidateRankedRoutes, err = r.GetCachedRankedRoutes(ctx, tokenOut.Denom, tokenInDenom, tokenOutOrderOfMagnitude)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var (
+		topSingleRouteQuote domain.Quote
+		rankedRoutes        []route.RouteImpl
+	)
+
+	// If no cached candidate routes are found, we attempt to
+	// compute them.
+	if len(candidateRankedRoutes.Routes) == 0 {
+		// Get the dynamic min pool liquidity cap for the given token in and token out denoms.
+		dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenOut.Denom, tokenInDenom)
+		if err == nil {
+			// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
+			// Otherwise, use the default.
+			options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+		}
+
+		// HERE
+		// Find candidate routes and rank them by direct quotes.
+		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuoteInGivenOut(ctx, tokenOut, tokenInDenom, options)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Otherwise, simply compute quotes over cached ranked routes
+		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenOut, tokenInDenom, options.MaxSplitRoutes)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes {
+		return topSingleRouteQuote, nil
+	}
+
+	// Filter out generalized cosmWasm pool routes
+	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
+
+	// If filtering leads to a single route left, return it.
+	if len(rankedRoutes) == 1 {
+		return topSingleRouteQuote, nil
+	}
+
+	// Compute split route quote
+	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenOut)
 	if err != nil {
-		return nil, err
+		// If error occurs in splits, return the single route quote
+		// rather than failing.
+		return topSingleRouteQuote, nil
 	}
 
-	q, ok := quote.(*quoteExactAmountIn)
-	if !ok {
-		return nil, errors.New("quote is not a quoteExactAmountIn")
+	finalQuote := topSingleRouteQuote
+
+	// If the split route quote is better than the single route quote, return the split route quote
+	if topSplitQuote.GetAmountOut().Amount.GT(topSingleRouteQuote.GetAmountOut().Amount) {
+		routes := topSplitQuote.GetRoute()
+
+		r.logger.Debug("split route selected", zap.Int("route_count", len(routes)))
+
+		finalQuote = topSplitQuote
 	}
 
-	return &quoteExactAmountOut{
-		quoteExactAmountIn: q,
-	}, nil
+	r.logger.Debug("single route selected", zap.Stringer("route", finalQuote.GetRoute()[0]))
+
+	if finalQuote.GetAmountOut().IsZero() {
+		return nil, errors.New("best we can do is no tokens out")
+	}
+
+	return finalQuote, nil
 }
 
 // GetSimpleQuote implements mvc.RouterUsecase.
@@ -249,7 +326,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		MaxPoolsPerRoute:    options.MaxPoolsPerRoute,
 		MinPoolLiquidityCap: options.MinPoolLiquidityCap,
 	}
-	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutes(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 		return nil, err
@@ -352,8 +429,8 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 	return topQuote, routes, nil
 }
 
-// computeAndRankRoutesByDirectQuote computes candidate routes and ranks them by token out after estimating direct quotes.
-func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
+// computeAndRankRoutesByDirectQuoteOutGivenIn computes candidate routes and ranks them by token out after estimating direct quotes.
+func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
 	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
 
 	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
@@ -365,7 +442,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	}
 
 	// If top routes are not present in cache, retrieve unranked candidate routes
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+	candidateRoutes, err := r.handleCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))
 		return nil, nil, err
@@ -422,6 +499,81 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		if !routingOptions.DisableCache {
 			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
 			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
+		}
+	}
+
+	return topSingleRouteQuote, rankedRoutes, nil
+}
+
+func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
+	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
+
+	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           routingOptions.MaxRoutes,
+		MaxPoolsPerRoute:    routingOptions.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: routingOptions.MinPoolLiquidityCap,
+		DisableCache:        routingOptions.DisableCache,
+		PoolFiltersAnyOf:    routingOptions.CandidateRoutesPoolFiltersAnyOf,
+	}
+
+	// If top routes are not present in cache, retrieve unranked candidate routes
+	candidateRoutes, err := r.handleCandidateRoutesInGivenOut(ctx, tokenOut, tokenInDenom, candidateRouteSearchOptions)
+	if err != nil {
+		r.logger.Error("error handling routes", zap.Error(err))
+		return nil, nil, err
+	}
+
+	// Get request path for metrics
+	requestURLPath, err := domain.GetURLPathFromContext(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if !routingOptions.DisableCache {
+		if len(candidateRoutes.Routes) > 0 {
+			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
+
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenOut.Denom, tokenInDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds)*time.Second)
+		} else {
+			// If no candidate routes found, cache them for quarter of the duration
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenOut.Denom, tokenInDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds/4)*time.Second)
+
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
+
+			return nil, nil, fmt.Errorf("no candidate routes found")
+		}
+	}
+
+	// Rank candidate routes by estimating direct quotes
+	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenOut, tokenInDenom, routingOptions.MaxSplitRoutes)
+	if err != nil {
+		r.logger.Error("error getting ranked routes", zap.Error(err))
+		return nil, nil, err
+	}
+
+	if len(rankedRoutes) == 0 {
+		return nil, nil, fmt.Errorf("no ranked routes found")
+	}
+
+	// Convert ranked routes back to candidate for caching
+	convertedCandidateRoutes := convertRankedToCandidateRoutes(rankedRoutes)
+
+	if len(rankedRoutes) > 0 {
+		// We would like to always consider the canonical orderbook route so that if new limits appear
+		// we can detect them. Oterwise, our cache would have to expire to detect them.
+		if !convertedCandidateRoutes.ContainsCanonicalOrderbook && candidateRoutes.ContainsCanonicalOrderbook {
+			// Find the canonical orderbook route and add it to the converted candidate routes.
+			for _, candidateRoute := range candidateRoutes.Routes {
+				if candidateRoute.IsCanonicalOrderboolRoute {
+					convertedCandidateRoutes.Routes = append(convertedCandidateRoutes.Routes, candidateRoute)
+					break
+				}
+			}
+		}
+
+		if !routingOptions.DisableCache {
+			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
 		}
 	}
 
@@ -639,7 +791,7 @@ func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenIn sdk.
 		candidateRouteSearchOptions.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
 	}
 
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+	candidateRoutes, err := r.handleCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		return ingesttypes.CandidateRoutes{}, err
 	}
@@ -742,14 +894,14 @@ func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, tokenInDe
 	return rankedRoutes, nil
 }
 
-// handleCandidateRoutes attempts to retrieve candidate routes from the cache. If no routes are cached, it will
+// handleCandidateRoutesOutGivenIn attempts to retrieve candidate routes from the cache. If no routes are cached, it will
 // compute, persist in cache and return them.
 // Returns routes on success
 // Errors if:
 // - there is an error retrieving routes from cache
 // - there are no routes cached and there is an error computing them
 // - fails to persist the computed routes in cache
-func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
+func (r *routerUseCaseImpl) handleCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
 	r.logger.Debug("getting routes")
 
 	// Check cache for routes if enabled
@@ -767,7 +919,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 	if !isFoundCached {
 		r.logger.Debug("calculating routes")
 
-		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutes(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 		if err != nil {
 			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return ingesttypes.CandidateRoutes{}, err
@@ -786,6 +938,56 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 
 			r.logger.Debug("persisting routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
 			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(cacheDurationSeconds)*time.Second)
+		}
+	}
+
+	return candidateRoutes, nil
+}
+
+// handleCandidateRoutesInGivenOut attempts to retrieve candidate routes from the cache. If no routes are cached, it will
+// compute, persist in cache and return them.
+// Returns routes on success
+// Errors if:
+// - there is an error retrieving routes from cache
+// - there are no routes cached and there is an error computing them
+// - fails to persist the computed routes in cache
+func (r *routerUseCaseImpl) handleCandidateRoutesInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
+	r.logger.Debug("getting routes")
+
+	// Check cache for routes if enabled
+	var isFoundCached bool
+	if !candidateRouteSearchOptions.DisableCache {
+		candidateRoutes, isFoundCached, err = r.GetCachedCandidateRoutes(ctx, tokenOut.Denom, tokenInDenom)
+		if err != nil {
+			return ingesttypes.CandidateRoutes{}, err
+		}
+	}
+
+	r.logger.Debug("cached routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
+
+	// If no routes are cached, find them
+	if !isFoundCached {
+		r.logger.Debug("calculating routes")
+
+		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesInGivenOut(tokenOut, tokenInDenom, candidateRouteSearchOptions)
+		if err != nil {
+			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
+			return ingesttypes.CandidateRoutes{}, err
+		}
+
+		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
+
+		// Persist routes
+		if !candidateRouteSearchOptions.DisableCache {
+			cacheDurationSeconds := r.defaultConfig.CandidateRouteCacheExpirySeconds
+			if len(candidateRoutes.Routes) == 0 {
+				// If there are no routes, we want to cache the result for a shorter duration
+				// Add 1 to ensure that it is never 0 as zero signifies never clearing.
+				cacheDurationSeconds = cacheDurationSeconds/4 + 1
+			}
+
+			r.logger.Debug("persisting routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(tokenOut.Denom, tokenInDenom), candidateRoutes, time.Duration(cacheDurationSeconds)*time.Second)
 		}
 	}
 
