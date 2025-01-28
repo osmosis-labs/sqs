@@ -5,7 +5,7 @@ go 1.22.7
 toolchain go1.23.3
 
 require (
-	cosmossdk.io/math v1.4.0
+	cosmossdk.io/math v1.5.0
 	cosmossdk.io/store v1.1.1
 	cosmossdk.io/x/tx v0.13.7
 	github.com/CosmWasm/wasmd v0.53.2
@@ -22,11 +22,11 @@ require (
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/swaggo/swag v1.16.3
 	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.53.0
-	go.opentelemetry.io/otel v1.33.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.33.0
-	go.opentelemetry.io/otel/sdk v1.33.0
+	go.opentelemetry.io/otel v1.34.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0
+	go.opentelemetry.io/otel/sdk v1.34.0
 	go.uber.org/zap v1.26.0
-	google.golang.org/grpc v1.68.1
+	google.golang.org/grpc v1.69.4
 )
 
 require (
@@ -46,6 +46,7 @@ require (
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
+	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce // indirect
 	github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v8 v8.0.2 // indirect
 	github.com/cosmos/ibc-apps/modules/async-icq/v8 v8.0.0 // indirect
@@ -56,9 +57,9 @@ require (
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.24.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
-	github.com/hashicorp/go-metrics v0.5.3 // indirect
+	github.com/hashicorp/go-metrics v0.5.4 // indirect
 	github.com/hashicorp/go-plugin v1.6.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
@@ -70,8 +71,8 @@ require (
 	github.com/skip-mev/block-sdk/v2 v2.1.5 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.33.0 // indirect
-	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )
@@ -86,7 +87,7 @@ require (
 
 require (
 	cloud.google.com/go v0.115.1 // indirect
-	cloud.google.com/go/compute/metadata v0.5.0 // indirect
+	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	cloud.google.com/go/iam v1.2.1 // indirect
 	cloud.google.com/go/storage v1.43.0 // indirect
 	cosmossdk.io/api v0.7.6
@@ -230,26 +231,26 @@ require (
 	github.com/zondax/ledger-go v0.14.3 // indirect
 	go.etcd.io/bbolt v1.4.0-alpha.0.0.20240404170359-43604f3112c5 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.58.0
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0
-	go.opentelemetry.io/otel/metric v1.33.0 // indirect
-	go.opentelemetry.io/otel/trace v1.33.0
+	go.opentelemetry.io/otel/metric v1.34.0 // indirect
+	go.opentelemetry.io/otel/trace v1.34.0
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
+	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
-	golang.org/x/net v0.32.0 // indirect
+	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/term v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 	google.golang.org/api v0.197.0 // indirect
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241209162323-e6fa225c2576 // indirect
-	google.golang.org/protobuf v1.35.2
+	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
+	google.golang.org/protobuf v1.36.3
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -281,6 +282,10 @@ replace (
 	github.com/osmosis-labs/osmosis/osmomath => github.com/osmosis-labs/osmosis/osmomath v0.0.12-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/osmoutils => github.com/osmosis-labs/osmosis/osmoutils v0.0.12-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/v28 => github.com/osmosis-labs/osmosis/v28 v28.0.2
+
+	// This replacement can be removed once Osmosis v28.0.3 or higher is released
+	// It is required to pull in test cases for BE-676 from backport branch: https://github.com/osmosis-labs/osmosis/pull/8962
+	github.com/osmosis-labs/osmosis/v28 v28.0.2 => github.com/osmosis-labs/osmosis/v28 v28.0.3-0.20250128064600-532afea930f9
 
 	github.com/osmosis-labs/osmosis/x/epochs => github.com/osmosis-labs/osmosis/x/epochs v0.0.5-0.20240825083448-87db4447a1ff
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
