@@ -704,6 +704,9 @@ func TestRouterTestSuite1(t *testing.T) {
 
 func (s *RouterTestSuite1) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 	for name, tc := range optimalQuoteTestCases {
+		if name != "atom for akt" {
+			continue
+		}
 		tc := tc
 		s.Run(name, func() {
 			// Setup mainnet router
@@ -711,10 +714,6 @@ func (s *RouterTestSuite1) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
-
-			if name != "atom for akt" {
-				return
-			}
 
 			// TODO: fix
 			// TokenInDenom is empty
@@ -748,6 +747,63 @@ func (s *RouterTestSuite1) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 
 				// The last route's token out denom must be the output denom of the quote
 				s.Require().Equal(tc.tokenInDenom, r.GetTokenInDenom())
+			}
+
+			// Validate that the quote is not nil
+			s.Require().NotNil(quote.GetAmountOut())
+		})
+	}
+}
+
+type RouterTestSuite2 struct {
+	routertesting.RouterTestHelper
+}
+
+func TestRouterTestSuite2(t *testing.T) {
+	suite.Run(t, new(RouterTestSuite2))
+}
+
+func (s *RouterTestSuite2) TestGetOptimalQuoteExactAmounIn_Mainnet() {
+	for name, tc := range optimalQuoteTestCases {
+		if name != "atom for akt" {
+			continue
+		}
+		tc := tc
+		s.Run(name, func() {
+			// Setup mainnet router
+			mainnetState := s.SetupMainnetState()
+
+			// Mock router use case.
+			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+			quote, err := mainnetUseCase.Router.GetOptimalQuoteOutGivenIn(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
+			s.Require().NoError(err)
+
+			// TODO: update mainnet state and validate the quote for each test stricter.
+			routes := quote.GetRoute()
+			s.Require().Len(routes, tc.expectedRoutesCountExactAmountIn)
+
+			// Validate that the routes are valid
+			for _, r := range routes {
+				input := tc.tokenInDenom
+				for _, p := range r.GetPools() {
+					pool, err := mainnetUseCase.Pools.GetPool(p.GetId())
+					s.Require().NoError(err)
+
+					denoms := pool.GetPoolDenoms()
+
+					// Pool denoms must contain input denom
+					s.Require().Contains(denoms, input)
+
+					// Pool denoms must contain route output denom
+					s.Require().Contains(denoms, p.GetTokenOutDenom())
+
+					// Pool's token out denom becomes input to the next pool
+					input = p.GetTokenOutDenom()
+				}
+
+				// The last route's token out denom must be the output denom of the quote
+				s.Require().Equal(tc.tokenOutDenom, r.GetTokenOutDenom())
 			}
 
 			// Validate that the quote is not nil

@@ -303,10 +303,9 @@ ROUTE_LOOP:
 		}
 
 		lastPool := candidateRoutePools[len(candidateRoutePools)-1]
-		currentRouteTokenOutDenom := lastPool.TokenOutDenom
+		currentRouteTokenInDenom := lastPool.TokenInDenom
 
-		// Validate that route pools do not have the token in denom or token out denom
-		previousTokenOut := tokenOutDenom
+		previousTokenIn := tokenOutDenom
 
 		uniquePoolIDsIntraRoute := make(map[uint64]struct{}, len(candidateRoutePools))
 
@@ -315,7 +314,6 @@ ROUTE_LOOP:
 				uniquePoolIDs[currentPool.ID] = struct{}{}
 			}
 
-			// Skip routes for which we have already seen the pool ID within that route.
 			if _, ok := uniquePoolIDsIntraRoute[currentPool.ID]; ok {
 				continue ROUTE_LOOP
 			} else {
@@ -323,70 +321,61 @@ ROUTE_LOOP:
 			}
 
 			currentPoolDenoms := candidateRoutePools[j].PoolDenoms
-			currentPoolTokenOutDenom := currentPool.TokenOutDenom
+			currentPoolTokenInDenom := currentPool.TokenInDenom
 
-			// Check that token in denom and token out denom are in the pool
-			// Also check that previous token out is in the pool
-			foundPreviousTokenOut := false
-			foundCurrentTokenOut := false
+			foundPreviousTokenIn := false
+			foundCurrentTokenIn := false
 			for _, denom := range currentPoolDenoms {
-				if denom == previousTokenOut {
-					foundPreviousTokenOut = true
+				if denom == previousTokenIn {
+					foundPreviousTokenIn = true
 				}
 
-				if denom == currentPoolTokenOutDenom {
-					foundCurrentTokenOut = true
+				if denom == currentPoolTokenInDenom {
+					foundCurrentTokenIn = true
 				}
 
-				// Validate that intermediary pools do not contain the token in denom or token out denom
 				if j > 0 && j < len(candidateRoutePools)-1 {
 					if denom == tokenOutDenom {
-						logger.Warn("route skipped - found token in intermediary pool", zap.Error(RoutePoolWithTokenInDenomError{RouteIndex: i, TokenInDenom: tokenOutDenom}))
+						logger.Warn("route skipped - found token out in intermediary pool", zap.Error(RoutePoolWithTokenOutDenomError{RouteIndex: i, TokenOutDenom: tokenOutDenom}))
 						continue ROUTE_LOOP
 					}
 
-					if denom == currentRouteTokenOutDenom {
-						logger.Warn("route skipped- found token out in intermediary pool", zap.Error(RoutePoolWithTokenOutDenomError{RouteIndex: i, TokenOutDenom: currentPoolTokenOutDenom}))
+					if denom == currentRouteTokenInDenom {
+						logger.Warn("route skipped - found token in intermediary pool", zap.Error(RoutePoolWithTokenInDenomError{RouteIndex: i, TokenInDenom: currentPoolTokenInDenom}))
 						continue ROUTE_LOOP
 					}
 				}
 			}
 
-			// Ensure that the previous pool token out denom is in the current pool.
-			if !foundPreviousTokenOut {
-				return ingesttypes.CandidateRoutes{}, PreviousTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, PreviousTokenOutDenom: previousTokenOut}
+			if !foundPreviousTokenIn {
+				return ingesttypes.CandidateRoutes{}, PreviousTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, PreviousTokenOutDenom: previousTokenIn}
 			}
 
-			// Ensure that the current pool token out denom is in the current pool.
-			if !foundCurrentTokenOut {
-				return ingesttypes.CandidateRoutes{}, CurrentTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, CurrentTokenOutDenom: currentPoolTokenOutDenom}
+			if !foundCurrentTokenIn {
+				return ingesttypes.CandidateRoutes{}, CurrentTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, CurrentTokenOutDenom: currentPoolTokenInDenom}
 			}
 
-			// Update previous token out denom
-			previousTokenOut = currentPoolTokenOutDenom
+			previousTokenIn = currentPoolTokenInDenom
 		}
 
 		if i > 0 {
-			// Ensure that all routes have the same final token out denom
-			if currentRouteTokenOutDenom != tokenInDenom {
-				return ingesttypes.CandidateRoutes{}, TokenOutMismatchBetweenRoutesError{TokenOutDenomRouteA: tokenInDenom, TokenOutDenomRouteB: currentRouteTokenOutDenom}
+			if currentRouteTokenInDenom != tokenInDenom {
+				return ingesttypes.CandidateRoutes{}, TokenOutMismatchBetweenRoutesError{TokenOutDenomRouteA: tokenInDenom, TokenOutDenomRouteB: currentRouteTokenInDenom}
 			}
 		}
 
-		tokenInDenom = currentRouteTokenOutDenom
+		tokenInDenom = currentRouteTokenInDenom
 
-		// Update filtered routes if this route passed all checks
 		filteredRoute := ingesttypes.CandidateRoute{
 			IsCanonicalOrderboolRoute: candidateRoute.IsCanonicalOrderboolRoute,
 			Pools:                     make([]ingesttypes.CandidatePool, 0, len(candidateRoutePools)),
 		}
 
-		// Convert route to the final output format
 		for _, pool := range candidateRoutePools {
 			filteredRoute.Pools = append(filteredRoute.Pools, ingesttypes.CandidatePool{
 				ID:            pool.ID,
-				TokenOutDenom: pool.TokenOutDenom,
 				TokenInDenom:  pool.TokenInDenom,
+				TokenOutDenom: pool.TokenOutDenom,
 			})
 		}
 

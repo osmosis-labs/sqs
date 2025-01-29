@@ -296,14 +296,14 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 		queue = queue[1:]
 
 		lastPoolID := uint64(0)
-		currenTokenInDenom := tokenOut.Denom
+		currenTokenOutDenom := tokenOut.Denom
 		if len(currentRoute) > 0 {
 			lastPool := currentRoute[len(currentRoute)-1]
 			lastPoolID = lastPool.ID
-			currenTokenInDenom = lastPool.TokenOutDenom
+			currenTokenOutDenom = lastPool.TokenInDenom
 		}
 
-		denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
+		denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenOutDenom) // Get the ranked candidate route search pool data for a given denom
 		if err != nil {
 			return ingesttypes.CandidateRoutes{}, err
 		}
@@ -311,7 +311,7 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 		rankedPools := denomData.SortedPools
 
 		if len(rankedPools) == 0 {
-			c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", currenTokenInDenom))
+			c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", currenTokenOutDenom))
 		}
 
 		for i := 0; i < len(rankedPools) && len(routes) < options.MaxRoutes; i++ {
@@ -342,11 +342,11 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 			hasTokenOut := false
 			shouldSkipPool := false
 			for _, denom := range poolDenoms {
-				if denom == currenTokenInDenom {
-					hasTokenIn = true
+				if denom == currenTokenOutDenom {
+					hasTokenOut = true
 				}
 				if denom == tokenInDenom {
-					hasTokenOut = true
+					hasTokenIn = true
 				}
 
 				// Avoid going through pools that has the initial token in denom twice.
@@ -360,13 +360,13 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 				continue
 			}
 
-			if !hasTokenIn {
+			if !hasTokenOut {
 				continue
 			}
 
 			// Microptimization for the first pool in the route.
 			if len(currentRoute) == 0 {
-				currentTokenInAmount := pool.SQSModel.Balances.AmountOf(currenTokenInDenom)
+				currentTokenInAmount := pool.SQSModel.Balances.AmountOf(currenTokenOutDenom)
 
 				// HACK: alloyed LP share is not contained in balances.
 				// TODO: remove the hack and ingest the LP share balance on the Osmosis side.
@@ -382,15 +382,19 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 			}
 
 			currentPoolID := poolID
+
+			if poolID == 4 {
+				currentPoolID = poolID
+			}
 			for _, denom := range poolDenoms {
-				if denom == currenTokenInDenom {
+				if denom == currenTokenOutDenom { // not token out denom
 					continue
 				}
-				if hasTokenOut && denom != tokenInDenom {
+				if hasTokenIn && denom != tokenInDenom { // since above is not token out, it's token in
 					continue
 				}
 
-				denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
+				denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenOutDenom) // ranked 
 				if err != nil {
 					return ingesttypes.CandidateRoutes{}, err
 				}
@@ -409,8 +413,7 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 					newPath = append(newPath, candidatePoolWrapper{
 						CandidatePool: ingesttypes.CandidatePool{
 							ID:            poolID,
-							TokenOutDenom: denom,
-							TokenInDenom:  tokenInDenom,
+							TokenOutDenom: tokenOut.Denom,
 						},
 						PoolDenoms: poolDenoms,
 					})
@@ -435,7 +438,7 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 		}
 	}
 
-	return validateAndFilterRoutesOutGivenIn(routes, tokenOut.Denom, c.logger)
+	return validateAndFilterRoutesInGivenOut(routes, tokenOut.Denom, c.logger)
 }
 
 // Pool represents a pool in the decentralized exchange.

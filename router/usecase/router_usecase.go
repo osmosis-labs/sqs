@@ -550,7 +550,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx cont
 		PoolFiltersAnyOf:    routingOptions.CandidateRoutesPoolFiltersAnyOf,
 	}
 
-	// If top routes are not present in cache, retrieve unranked candidate routes
+	// If top routes are not present in cache, retrieve unranked candidate 
 	candidateRoutes, err := r.handleCandidateRoutesInGivenOut(ctx, tokenOut, tokenInDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))
