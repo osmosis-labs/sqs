@@ -128,15 +128,15 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 		return nil, nil, errors[0]
 	}
 
-	// Sort by amount in in descending order
+	// Sort by amount out in ascending order
 	sort.Slice(routesWithAmountOut, func(i, j int) bool {
-		return routesWithAmountOut[i].InAmount.GT(routesWithAmountOut[j].InAmount)
+		return routesWithAmountOut[i].InAmount.LT(routesWithAmountOut[j].InAmount)
 	})
 
 	bestRoute := routesWithAmountOut[0]
 
 	finalQuote := &quoteExactAmountOut{
-		AmountIn:  bestRoute.OutAmount,
+		AmountIn:  bestRoute.InAmount,
 		AmountOut: tokenOut,
 		Route:     []domain.SplitRoute{&bestRoute},
 	}

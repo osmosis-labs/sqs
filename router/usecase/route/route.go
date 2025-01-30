@@ -218,7 +218,7 @@ func (r *RouteImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk
 		}
 
 		// Charge taker fee
-		tokenIn = pool.ChargeTakerFeeExactOut(tokenOut)
+		tokenIn = pool.ChargeTakerFeeExactOut(tokenIn)
 
 		tokenInAmt := tokenIn.Amount.ToLegacyDec()
 
