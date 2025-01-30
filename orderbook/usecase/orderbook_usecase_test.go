@@ -603,7 +603,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			expectedOrders: []orderbookdomain.LimitOrder{
 				s.NewLimitOrder().WithOrderID(1).WithOrderbookAddress("A").LimitOrder,
 			},
-			expectedIsBestEffort: false,
+			expectedIsBestEffort: true,
 		},
 	}
 

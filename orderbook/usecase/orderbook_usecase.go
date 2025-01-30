@@ -242,7 +242,7 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 				o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("pool_id", result.PoolID), zap.Any("err", result.Error))
 			}
 
-			isBestEffort = isBestEffort || result.IsBestEffort
+			isBestEffort = isBestEffort || result.IsBestEffort || result.Error != nil
 
 			finalResults = append(finalResults, result.LimitOrders...)
 		case <-ctx.Done():
