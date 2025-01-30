@@ -37,6 +37,8 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 Unreleased
 
+- #608 - BE-682 | Set isBestEffort on error processing orderbook active orders
+
 ## v28.1.0
 
 - #599 - Decouple Node releases from SQS
