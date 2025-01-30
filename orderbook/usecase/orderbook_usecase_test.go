@@ -467,6 +467,20 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			expectedError: &types.FailedGetAllCanonicalOrderbookPoolIDsError{},
 		},
 		{
+			name: "no canonical orderbook pool IDs",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, grpcclient *mocks.OrderbookGRPCClientMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
+				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+					return nil, nil
+				}
+			},
+			address:              "osmo1npsku4qlqav6udkvgfk9eran4s4edzu69vzdm6",
+			expectedError:        nil,
+			expectedIsBestEffort: true,
+		},
+		{
 			name: "context is done before processing all orderbooks",
 			setupContext: func() context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
