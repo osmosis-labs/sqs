@@ -215,7 +215,7 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 		return nil, false, types.FailedGetAllCanonicalOrderbookPoolIDsError{Err: err}
 	}
 
-	// Where there are no orderbooks, return early with best effort flag set to true
+	// When there are no orderbooks, return early with best effort flag set to true
 	// Such cases are not considered an error, but it may indicate that the SQS
 	// is not receiving any orderbook data from the Node.
 	if len(orderbooks) == 0 {
