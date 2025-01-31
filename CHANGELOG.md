@@ -35,7 +35,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-Unreleased
+## v28.2.0
 
 - #609 - BE-682 | Set isBestEffort when there are no orderbooks in the system to process
 - #608 - BE-682 | Set isBestEffort on error processing orderbook active orders
