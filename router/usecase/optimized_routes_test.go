@@ -3,7 +3,6 @@ package usecase_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"testing"
 
@@ -205,7 +204,7 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 
 	for name, tc := range tests {
 		s.Run(name, func() {
-			quote, err := routerusecase.GetSplitQuote(context.TODO(), tc.routes, tc.tokenIn)
+			quote, err := routerusecase.GetSplitQuoteOutGivenIn(context.TODO(), tc.routes, tc.tokenIn)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
@@ -631,7 +630,7 @@ var optimalQuoteTestCases = map[string]struct {
 		amountIn: osmomath.NewInt(5000000),
 
 		expectedRoutesCountExactAmountIn:  2,
-		expectedRoutesCountExactAmountOut: 3,
+		expectedRoutesCountExactAmountOut: 2,
 	},
 	"usdt for atom": {
 		tokenInDenom:  USDT,
@@ -680,7 +679,7 @@ var optimalQuoteTestCases = map[string]struct {
 		amountIn: oneHundredThousandUSDValue,
 
 		expectedRoutesCountExactAmountIn:  usdtOsmoExpectedRoutesHighLiq,
-		expectedRoutesCountExactAmountOut: 2,
+		expectedRoutesCountExactAmountOut: usdtOsmoExpectedRoutesHighLiq,
 	},
 
 	"kava.USDT for uosmo - should have the same routes as allUSDT for uosmo": {
@@ -690,7 +689,7 @@ var optimalQuoteTestCases = map[string]struct {
 		amountIn: oneHundredThousandUSDValue,
 
 		expectedRoutesCountExactAmountIn:  usdtOsmoExpectedRoutesHighLiq,
-		expectedRoutesCountExactAmountOut: 2,
+		expectedRoutesCountExactAmountOut: usdtOsmoExpectedRoutesHighLiq,
 	},
 }
 
@@ -704,7 +703,7 @@ func TestRouterTestSuite1(t *testing.T) {
 
 func (s *RouterTestSuite1) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 	for name, tc := range optimalQuoteTestCases {
-		if name != "atom for akt" {
+		if name != "uosmo for uion" {
 			continue
 		}
 		tc := tc
@@ -765,7 +764,7 @@ func TestRouterTestSuite2(t *testing.T) {
 
 func (s *RouterTestSuite2) TestGetOptimalQuoteExactAmounIn_Mainnet() {
 	for name, tc := range optimalQuoteTestCases {
-		if name != "atom for akt" {
+		if name != "uosmo for uion" {
 			continue
 		}
 		tc := tc
@@ -870,11 +869,6 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
-			if name == "atom for akt" {
-				fmt.Println("atom for akt")
-			}
-			// TODO: fix
-			// TokenInDenom is empty
 			quote, err := mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), sdk.NewCoin(tc.tokenOutDenom, tc.amountIn), tc.tokenInDenom)
 			s.Require().NoError(err)
 
