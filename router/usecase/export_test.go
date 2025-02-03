@@ -61,12 +61,20 @@ func SortPools(pools []ingesttypes.PoolI, transmuterCodeIDs map[uint64]struct{},
 	return sortPools(pools, transmuterCodeIDs, totalTVL, preferredPoolIDsMap, logger)
 }
 
-func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, error) {
-	return getSplitQuote(ctx, routes, tokenIn)
+func GetSplitQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, error) {
+	return getSplitQuoteOutGivenIn(ctx, routes, tokenIn)
 }
 
-func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
+func GetSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin) (domain.Quote, error) {
+	return getSplitQuoteInGivenOut(ctx, routes, tokenOut)
+}
+
+func (r *routerUseCaseImpl) RankRoutesByDirectQuoteOutGivenIn(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
 	return r.rankRoutesByDirectQuoteOutGivenIn(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
+}
+
+func (r *routerUseCaseImpl) RankRoutesByDirectQuoteInGivenOut(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenOut sdk.Coin, tokenInDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
+	return r.rankRoutesByDirectQuoteInGivenOut(ctx, candidateRoutes, tokenOut, tokenInDenom, maxRoutes)
 }
 
 func CutRoutesForSplits(maxSplitRoutes int, routes []route.RouteImpl) []route.RouteImpl {

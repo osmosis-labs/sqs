@@ -162,7 +162,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	}
 
 	// Compute split route quote
-	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenIn)
+	topSplitQuote, err := getSplitQuoteOutGivenIn(ctx, rankedRoutes, tokenIn)
 	if err != nil {
 		// If error occurs in splits, return the single route quote
 		// rather than failing.
@@ -254,10 +254,6 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 		}
 	}
 
-	// ----
-	// TODO
-	// ---
-
 	if len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes {
 		return topSingleRouteQuote, nil
 	}
@@ -271,7 +267,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 	}
 
 	// Compute split route quote
-	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenOut)
+	topSplitQuote, err := getSplitQuoteInGivenOut(ctx, rankedRoutes, tokenOut)
 	if err != nil {
 		// If error occurs in splits, return the single route quote
 		// rather than failing.
