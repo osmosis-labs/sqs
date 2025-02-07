@@ -252,7 +252,7 @@ func getSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, toke
 				noChoice := dp[x][j]
 				choice := dp[x-p][j-1].Add(computeAndCacheOutAmountCb(j-1, p))
 
-				if choice.GT(noChoice) {
+				if choice.LT(noChoice) {
 					dp[x][j] = choice
 					proportions[x][j] = p
 				}
