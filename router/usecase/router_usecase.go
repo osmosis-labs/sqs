@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -55,6 +56,7 @@ const (
 
 var (
 	zero = osmomath.ZeroInt()
+	inf = osmomath.NewInt(math.MaxInt64)
 )
 
 // NewRouterUsecase will create a new pools use case object

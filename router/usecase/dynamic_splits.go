@@ -90,7 +90,7 @@ func getSplitQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, toke
 				// The recurrence relation would be:
 				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
 				noChoice := dp[x][j]
-				choice := dp[x-p][j-1].Add(computeAndCacheOutAmountCb(j-1, p))
+				choice := dp[x-p][j-1].Add(computeAndCacheOutAmountCb(j-1, p)) // x=1,p=1,j=1 dp[0][0],
 
 				if choice.GT(noChoice) {
 					dp[x][j] = choice
@@ -221,7 +221,7 @@ func getSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, toke
 	for i := 0; i < int(totalIncrements+1); i++ {
 		dp[i] = make([]osmomath.Int, len(routes)+1)
 
-		dp[i][0] = zero
+		dp[i][0] = inf
 
 		proportions[i] = make([]uint8, len(routes)+1)
 	}
@@ -410,7 +410,6 @@ func getComputeAndCacheOutAmountCb(ctx context.Context, totalInAmountDec osmomat
 		return curRouteOutAmountIncrement.Amount
 	}
 }
-
 
 // This function computes the inAmountIncrement for a given routeIndex and outAmountIncrement.
 // It caches the result on the stack to avoid recomputing it.
