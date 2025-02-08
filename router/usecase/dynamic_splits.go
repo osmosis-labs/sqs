@@ -68,7 +68,7 @@ func Max(totalRoutes int, calcProfit ProfitFunc) ([][]osmomath.Int, [][]uint8) {
 	return dp, proportions
 }
 
-func MaxBacktrack(totalRoutes int, proportions [][]uint8, calcProfit ProfitFunc) ([]uint8) {
+func MaxBacktrack(totalRoutes int, proportions [][]uint8, calcProfit ProfitFunc) []uint8 {
 	// Step 3: trace back to find the optimal proportions
 	x, j := totalIncrements, totalRoutes
 	optimalProportions := make([]uint8, totalRoutes+1)
@@ -106,7 +106,7 @@ func Min(totalRoutes int, calcProfit ProfitFunc) ([][]osmomath.Int, [][]uint8) {
 	// Step 2: fill the tables
 	for x := uint8(1); x <= totalIncrements; x++ {
 		for j := 1; j <= totalRoutes; j++ {
-			// dp[x][j] = dp[x][j-1] // Not using the j-th route
+			dp[x][j] = dp[x][j-1] // Not using the j-th route
 			proportions[x][j] = 0 // Default increment (0% of the token)
 
 			for p := uint8(0); p <= x; p++ {
@@ -116,11 +116,8 @@ func Min(totalRoutes int, calcProfit ProfitFunc) ([][]osmomath.Int, [][]uint8) {
 				//
 				// The recurrence relation would be:
 				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
-				noChoice := dp[x][j-1]
-				choice := dp[x-p][j-1]
-				if choice.LT(inf) {
-					choice = choice.Add(calcProfit(j-1, p)) // adding to inf will result in inf
-				}
+				noChoice := dp[x][j]
+				choice := dp[x-p][j-1].Add(calcProfit(j-1, p)) // adding to inf will result in inf
 
 				if choice.LT(noChoice) {
 					dp[x][j] = choice
@@ -281,7 +278,6 @@ func getSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, toke
 
 		return quote, nil
 	}
-
 
 	outAmountDec := tokenOut.Amount.ToLegacyDec()
 
