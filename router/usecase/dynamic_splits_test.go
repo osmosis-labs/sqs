@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -11,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -20,6 +22,148 @@ type DynamicSplitsTestSuite struct {
 
 func TestDynamicSplitsTestSuite(t *testing.T) {
 	suite.Run(t, new(DynamicSplitsTestSuite))
+}
+
+var zero = osmomath.NewInt(0)
+var inf = osmomath.NewInt(math.MaxInt64)
+
+func TestMin(t *testing.T) {
+	testCases := []struct {
+		name                string
+		totalRoutes         int
+		profitFunc          usecase.ProfitFunc
+		expectedDP          [][]osmomath.Int
+		expectedProportions [][]uint8
+	}{
+		{
+			name:        "Single route",
+			totalRoutes: 1,
+			profitFunc: func(route int, proportion uint8) osmomath.Int {
+				return osmomath.NewInt(int64(proportion))
+			},
+			expectedDP: [][]osmomath.Int{
+				{zero, zero},
+				{inf, osmomath.NewInt(1)},
+				{inf, osmomath.NewInt(2)},
+				{inf, osmomath.NewInt(3)},
+				{inf, osmomath.NewInt(4)},
+				{inf, osmomath.NewInt(5)},
+				{inf, osmomath.NewInt(6)},
+				{inf, osmomath.NewInt(7)},
+				{inf, osmomath.NewInt(8)},
+				{inf, osmomath.NewInt(9)},
+				{inf, osmomath.NewInt(10)},
+			},
+			expectedProportions: [][]uint8{
+				{0, 0},
+				{0, 1},
+				{0, 2},
+				{0, 3},
+				{0, 4},
+				{0, 5},
+				{0, 6},
+				{0, 7},
+				{0, 8},
+				{0, 9},
+				{0, 10},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dp, proportions := usecase.Min(tc.totalRoutes, tc.profitFunc)
+
+			require.Equal(t, tc.expectedDP, dp, "DP table doesn't match expected")
+			require.Equal(t, tc.expectedProportions, proportions, "Proportions table doesn't match expected")
+		})
+	}
+}
+func TestMax(t *testing.T) {
+	testCases := []struct {
+		name                string
+		totalRoutes         int
+		profitFunc          usecase.ProfitFunc
+		expectedDP          [][]osmomath.Int
+		expectedProportions [][]uint8
+	}{
+		{
+			name:        "Single route",
+			totalRoutes: 1,
+			profitFunc: func(route int, proportion uint8) osmomath.Int {
+				return osmomath.NewInt(int64(proportion))
+			},
+			expectedDP: [][]osmomath.Int{
+				{zero, zero},
+				{zero, osmomath.NewInt(1)},
+				{zero, osmomath.NewInt(2)},
+				{zero, osmomath.NewInt(3)},
+				{zero, osmomath.NewInt(4)},
+				{zero, osmomath.NewInt(5)},
+				{zero, osmomath.NewInt(6)},
+				{zero, osmomath.NewInt(7)},
+				{zero, osmomath.NewInt(8)},
+				{zero, osmomath.NewInt(9)},
+				{zero, osmomath.NewInt(10)},
+			},
+			expectedProportions: [][]uint8{
+				{0, 0},
+				{0, 1},
+				{0, 2},
+				{0, 3},
+				{0, 4},
+				{0, 5},
+				{0, 6},
+				{0, 7},
+				{0, 8},
+				{0, 9},
+				{0, 10},
+			},
+		},
+		{
+			name:        "Two routes with linear profit",
+			totalRoutes: 2,
+			profitFunc: func(route int, proportion uint8) osmomath.Int {
+				return osmomath.NewInt(int64(proportion * uint8(route+1)))
+			},
+			expectedDP: [][]osmomath.Int{
+				{zero, zero, zero},
+				{zero, osmomath.NewInt(1), osmomath.NewInt(2)},
+				{zero, osmomath.NewInt(2), osmomath.NewInt(4)},
+				{zero, osmomath.NewInt(3), osmomath.NewInt(6)},
+				{zero, osmomath.NewInt(4), osmomath.NewInt(8)},
+				{zero, osmomath.NewInt(5), osmomath.NewInt(10)},
+				{zero, osmomath.NewInt(6), osmomath.NewInt(12)},
+				{zero, osmomath.NewInt(7), osmomath.NewInt(14)},
+				{zero, osmomath.NewInt(8), osmomath.NewInt(16)},
+				{zero, osmomath.NewInt(9), osmomath.NewInt(18)},
+				{zero, osmomath.NewInt(10), osmomath.NewInt(20)},
+			},
+			expectedProportions: [][]uint8{
+				{0, 0, 0},
+				{0, 1, 1},
+				{0, 2, 2},
+				{0, 3, 3},
+				{0, 4, 4},
+				{0, 5, 5},
+				{0, 6, 6},
+				{0, 7, 7},
+				{0, 8, 8},
+				{0, 9, 9},
+				{0, 10, 10},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dp, proportions := usecase.Max(tc.totalRoutes, tc.profitFunc)
+
+			optimal := usecase.MaxBacktrack(tc.totalRoutes, proportions, tc.profitFunc)
+			require.Equal(t, tc.expectedDP, dp, "DP table doesn't match expected", optimal)
+			require.Equal(t, tc.expectedProportions, proportions, "Proportions table doesn't match expected")
+		})
+	}
 }
 
 // Sanity check test case to validate get split quote function with a given denom and amount.
@@ -38,7 +182,6 @@ func (s *DynamicSplitsTestSuite) TestGetSplitQuoteOutGivenIn() {
 	s.Require().NotNil(splitQuote)
 	s.Require().NoError(err)
 }
-
 
 // Sanity check test case to validate get split quote function with a given denom and amount.
 // This test case tests InGivenOut swap method.

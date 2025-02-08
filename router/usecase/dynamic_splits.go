@@ -19,6 +19,120 @@ type split struct {
 
 const totalIncrements = uint8(10)
 
+type ProfitFunc func(int, uint8) osmomath.Int
+
+func Max(totalRoutes int, calcProfit ProfitFunc) ([][]osmomath.Int, [][]uint8) {
+	// proportions[x][j] stores the proportion of tokens used for the j-th
+	// route that leads to the optimal value at each state. The proportions slice,
+	// essentially, records the decision made at each step.
+	proportions := make([][]uint8, totalIncrements+1)
+	// dp stores the maximum output values.
+	dp := make([][]osmomath.Int, totalIncrements+1)
+
+	// Step 1: initialize tables
+	for i := 0; i < int(totalIncrements+1); i++ {
+		dp[i] = make([]osmomath.Int, totalRoutes+1)
+
+		dp[i][0] = zero
+
+		proportions[i] = make([]uint8, totalRoutes+1)
+	}
+
+	// Initialize the first column with 0
+	for j := 0; j <= totalRoutes; j++ {
+		dp[0][j] = zero
+	}
+	for x := uint8(1); x <= totalIncrements; x++ {
+		for j := 1; j <= totalRoutes; j++ {
+			dp[x][j] = dp[x][j-1] // Not using the j-th route
+			proportions[x][j] = 0 // Default increment (0% of the token)
+
+			for p := uint8(0); p <= x; p++ {
+				// Consider two scenarios:
+				// 1) Not using the j-th route at all, which would yield an output of dp[x][j-1].
+				// 2) Using the j-th route with a certain proportion p of the input.
+				//
+				// The recurrence relation would be:
+				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
+				noChoice := dp[x][j]
+				choice := dp[x-p][j-1].Add(calcProfit(j-1, p)) // x=1,p=1,j=1 dp[0][0],
+
+				if choice.GT(noChoice) {
+					dp[x][j] = choice
+					proportions[x][j] = p
+				}
+			}
+		}
+	}
+
+	return dp, proportions
+}
+
+func MaxBacktrack(totalRoutes int, proportions [][]uint8, calcProfit ProfitFunc) ([]uint8) {
+	// Step 3: trace back to find the optimal proportions
+	x, j := totalIncrements, totalRoutes
+	optimalProportions := make([]uint8, totalRoutes+1)
+	for j > 0 {
+		optimalProportions[j] = proportions[x][j]
+		x -= proportions[x][j]
+		j -= 1
+	}
+
+	return optimalProportions
+}
+
+func Min(totalRoutes int, calcProfit ProfitFunc) ([][]osmomath.Int, [][]uint8) {
+	// proportions[x][j] stores the proportion of tokens used for the j-th
+	// route that leads to the optimal value at each state. The proportions slice,
+	// essentially, records the decision made at each step.
+	proportions := make([][]uint8, totalIncrements+1)
+	// dp stores the maximum output values.
+	dp := make([][]osmomath.Int, totalIncrements+1)
+
+	// Step 1: initialize tables
+	for i := 0; i < int(totalIncrements+1); i++ {
+		dp[i] = make([]osmomath.Int, totalRoutes+1)
+
+		dp[i][0] = inf
+
+		proportions[i] = make([]uint8, totalRoutes+1)
+	}
+
+	// Initialize the first column with 0
+	for j := 0; j <= totalRoutes; j++ {
+		dp[0][j] = zero
+	}
+
+	// Step 2: fill the tables
+	for x := uint8(1); x <= totalIncrements; x++ {
+		for j := 1; j <= totalRoutes; j++ {
+			// dp[x][j] = dp[x][j-1] // Not using the j-th route
+			proportions[x][j] = 0 // Default increment (0% of the token)
+
+			for p := uint8(0); p <= x; p++ {
+				// Consider two scenarios:
+				// 1) Not using the j-th route at all, which would yield an output of dp[x][j-1].
+				// 2) Using the j-th route with a certain proportion p of the input.
+				//
+				// The recurrence relation would be:
+				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
+				noChoice := dp[x][j-1]
+				choice := dp[x-p][j-1]
+				if choice.LT(inf) {
+					choice = choice.Add(calcProfit(j-1, p)) // adding to inf will result in inf
+				}
+
+				if choice.LT(noChoice) {
+					dp[x][j] = choice
+					proportions[x][j] = p
+				}
+			}
+		}
+	}
+
+	return dp, proportions
+}
+
 // getSplitQuoteOutGivenIn returns the best quote for the given routes and tokenIn.
 // It uses dynamic programming to find the optimal split of the tokenIn among the routes.
 // The algorithm is based on the knapsack problem.
@@ -50,55 +164,13 @@ func getSplitQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, toke
 		return quote, nil
 	}
 
-	// proportions[x][j] stores the proportion of tokens used for the j-th
-	// route that leads to the optimal value at each state. The proportions slice,
-	// essentially, records the decision made at each step.
-	proportions := make([][]uint8, totalIncrements+1)
-	// dp stores the maximum output values.
-	dp := make([][]osmomath.Int, totalIncrements+1)
-
-	// Step 1: initialize tables
-	for i := 0; i < int(totalIncrements+1); i++ {
-		dp[i] = make([]osmomath.Int, len(routes)+1)
-
-		dp[i][0] = zero
-
-		proportions[i] = make([]uint8, len(routes)+1)
-	}
-
-	// Initialize the first column with 0
-	for j := 0; j <= len(routes); j++ {
-		dp[0][j] = zero
-	}
-
 	inAmountDec := tokenIn.Amount.ToLegacyDec()
 
 	// callback with caching capabilities.
 	computeAndCacheOutAmountCb := getComputeAndCacheOutAmountCb(ctx, inAmountDec, tokenIn.Denom, routes)
 
 	// Step 2: fill the tables
-	for x := uint8(1); x <= totalIncrements; x++ {
-		for j := 1; j <= len(routes); j++ {
-			dp[x][j] = dp[x][j-1] // Not using the j-th route
-			proportions[x][j] = 0 // Default increment (0% of the token)
-
-			for p := uint8(0); p <= x; p++ {
-				// Consider two scenarios:
-				// 1) Not using the j-th route at all, which would yield an output of dp[x][j-1].
-				// 2) Using the j-th route with a certain proportion p of the input.
-				//
-				// The recurrence relation would be:
-				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
-				noChoice := dp[x][j]
-				choice := dp[x-p][j-1].Add(computeAndCacheOutAmountCb(j-1, p)) // x=1,p=1,j=1 dp[0][0],
-
-				if choice.GT(noChoice) {
-					dp[x][j] = choice
-					proportions[x][j] = p
-				}
-			}
-		}
-	}
+	dp, proportions := Max(len(routes), computeAndCacheOutAmountCb)
 
 	// Step 3: trace back to find the optimal proportions
 	x, j := totalIncrements, len(routes)
@@ -131,7 +203,7 @@ func getSplitQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, toke
 
 		currentRouteAmtOut := computeAndCacheOutAmountCb(i, currentRouteIncrement)
 
-		currentRouteSplit := osmomath.NewDec(int64(currentRouteIncrement)).QuoInt64Mut(int64(totalIncrements))
+		currentRouteSplit := osmomath.NewDec(int64(currentRouteIncrement)).QuoInt64Mut(int64(totalIncrements)) // 1/10
 
 		inAmount := currentRouteSplit.MulMut(tokenAmountDec).TruncateInt()
 		outAmount := currentRouteAmtOut
@@ -210,55 +282,13 @@ func getSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, toke
 		return quote, nil
 	}
 
-	// proportions[x][j] stores the proportion of tokens used for the j-th
-	// route that leads to the optimal value at each state. The proportions slice,
-	// essentially, records the decision made at each step.
-	proportions := make([][]uint8, totalIncrements+1)
-	// dp stores the maximum output values.
-	dp := make([][]osmomath.Int, totalIncrements+1)
-
-	// Step 1: initialize tables
-	for i := 0; i < int(totalIncrements+1); i++ {
-		dp[i] = make([]osmomath.Int, len(routes)+1)
-
-		dp[i][0] = inf
-
-		proportions[i] = make([]uint8, len(routes)+1)
-	}
-
-	// Initialize the first column with 0
-	for j := 0; j <= len(routes); j++ {
-		dp[0][j] = zero
-	}
 
 	outAmountDec := tokenOut.Amount.ToLegacyDec()
 
 	// callback with caching capabilities.
 	computeAndCacheOutAmountCb := getComputeAndCacheInAmountCb(ctx, outAmountDec, tokenOut.Denom, routes)
 
-	// Step 2: fill the tables
-	for x := uint8(1); x <= totalIncrements; x++ {
-		for j := 1; j <= len(routes); j++ {
-			dp[x][j] = dp[x][j-1] // Not using the j-th route
-			proportions[x][j] = 0 // Default increment (0% of the token)
-
-			for p := uint8(0); p <= x; p++ {
-				// Consider two scenarios:
-				// 1) Not using the j-th route at all, which would yield an output of dp[x][j-1].
-				// 2) Using the j-th route with a certain proportion p of the input.
-				//
-				// The recurrence relation would be:
-				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
-				noChoice := dp[x][j]
-				choice := dp[x-p][j-1].Add(computeAndCacheOutAmountCb(j-1, p))
-
-				if choice.LT(noChoice) {
-					dp[x][j] = choice
-					proportions[x][j] = p
-				}
-			}
-		}
-	}
+	dp, proportions := Min(len(routes), computeAndCacheOutAmountCb)
 
 	// Step 3: trace back to find the optimal proportions
 	x, j := totalIncrements, len(routes)
@@ -289,12 +319,12 @@ func getSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, toke
 	for i, currentRouteIncrement := range bestSplit.routeIncrements {
 		currentRoute := routes[i]
 
-		currentRouteAmtOut := computeAndCacheOutAmountCb(i, currentRouteIncrement)
+		currentRouteAmtIn := computeAndCacheOutAmountCb(i, currentRouteIncrement)
 
 		currentRouteSplit := osmomath.NewDec(int64(currentRouteIncrement)).QuoInt64Mut(int64(totalIncrements))
 
 		inAmount := currentRouteSplit.MulMut(tokenAmountDec).TruncateInt()
-		outAmount := currentRouteAmtOut
+		outAmount := currentRouteAmtIn
 
 		isAmountInNilOrZero := inAmount.IsNil() || inAmount.IsZero()
 		isAmountOutNilOrZero := outAmount.IsNil() || outAmount.IsZero()
@@ -310,14 +340,16 @@ func getSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, toke
 			return nil, fmt.Errorf("out amount is zero when in is not (%s), route index (%d)", inAmount, i)
 		}
 
+		// out uion 5000000
+		// in ?
 		resultRoutes = append(resultRoutes, &RouteWithOutAmount{
 			RouteImpl: currentRoute,
 			InAmount:  inAmount,
-			OutAmount: currentRouteAmtOut,
+			OutAmount: currentRouteAmtIn,
 		})
 
 		totalIncrementsInSplits += currentRouteIncrement
-		totalAmoutOutFromSplits = totalAmoutOutFromSplits.Add(currentRouteAmtOut)
+		totalAmoutOutFromSplits = totalAmoutOutFromSplits.Add(currentRouteAmtIn)
 	}
 
 	if !totalAmoutOutFromSplits.Equal(bestSplit.amountOut) {
@@ -357,7 +389,6 @@ func getComputeAndCacheInAmountIncrementCb(totalInAmountDec osmomath.Dec) func(p
 		return currentIncrement
 	}
 }
-
 
 // This function computes the inAmountIncrement for a given proportion p.
 // It caches the result on the stack to avoid recomputing it.
