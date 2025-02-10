@@ -172,7 +172,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	finalQuote := topSingleRouteQuote
 
 	// If the split route quote is better than the single route quote, return the split route quote
-	if topSplitQuote.GetAmountOut().GT(topSingleRouteQuote.GetAmountOut()) {
+	if topSplitQuote.GetAmountOut().Amount.GT(topSingleRouteQuote.GetAmountOut().Amount) {
 		routes := topSplitQuote.GetRoute()
 
 		r.logger.Debug("split route selected", zap.Int("route_count", len(routes)))
@@ -506,12 +506,12 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolOutGivenIn(ctx context.
 		}
 
 		// the amountOut value is the amount out of last the tokenOutDenom
-		result.AmountOut = quote.GetAmountOut()
+		result.AmountOut = quote.GetAmountOut().Amount
 
 		// append each pool to the route
 		pools = append(pools, poolsInRoute...)
 
-		tokenIn = sdk.NewCoin(tokenOutDenom, quote.GetAmountOut())
+		tokenIn = sdk.NewCoin(tokenOutDenom, quote.GetAmountOut().Amount)
 	}
 
 	// Construct the final multi-hop custom direct quote route.

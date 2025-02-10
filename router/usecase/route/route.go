@@ -145,6 +145,37 @@ func (r *RouteImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.
 	return tokenOut, nil
 }
 
+// CalculateTokenInByTokenOut implements Route.
+func (r *RouteImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (tokenIn sdk.Coin, err error) {
+	defer func() {
+		// TODO: cover this by test
+		if r := recover(); r != nil {
+			tokenIn = sdk.Coin{}
+			err = fmt.Errorf("error when calculating in by out in route: %v", r)
+		}
+	}()
+
+	for _, pool := range r.Pools {
+		tokenIn, err = pool.CalculateTokenInByTokenOut(ctx, tokenOut)
+		if err != nil {
+			return sdk.Coin{}, err
+		}
+
+		// Charge taker fee
+		tokenIn = pool.ChargeTakerFeeExactOut(tokenIn)
+
+		tokenInAmt := tokenIn.Amount.ToLegacyDec()
+
+		if tokenInAmt.IsNil() || tokenInAmt.IsZero() {
+			return sdk.Coin{}, nil
+		}
+
+		tokenOut = tokenIn
+	}
+
+	return tokenIn, nil
+}
+
 // String implements domain.Route.
 func (r *RouteImpl) String() string {
 	var strBuilder strings.Builder

@@ -25,7 +25,7 @@ func (o *orderbookFillerIngestPlugin) estimateCyclicArb(ctx blockctx.BlockCtxI, 
 	}
 
 	// Make it $10 in USDC terms for quoteDenom
-	quoteInCoin := sdk.NewCoin(denomOut, baseInOrderbookQuote.GetAmountOut())
+	quoteInCoin := sdk.NewCoin(denomOut, baseInOrderbookQuote.GetAmountOut().Amount)
 	cyclicArbQuote, err := o.routerUseCase.GetSimpleQuote(goCtx, quoteInCoin, coinIn.Denom, domain.WithDisableSplitRoutes())
 	if err != nil {
 		return osmomath.Int{}, nil, err
@@ -45,7 +45,7 @@ func (o *orderbookFillerIngestPlugin) estimateCyclicArb(ctx blockctx.BlockCtxI, 
 
 	fullCyclicArbRoute := append(routeThere[0].GetPools(), routeBack[0].GetPools()...)
 
-	return inverseAmountIn, fullCyclicArbRoute, nil
+	return inverseAmountIn.Amount, fullCyclicArbRoute, nil
 }
 
 // validateArb validates the arb opportunity by constructing a route from SQS router and then simulating it against chain.

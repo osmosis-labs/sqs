@@ -116,8 +116,8 @@ func (q *quoteExactAmountIn) GetAmountIn() sdk.Coin {
 }
 
 // GetAmountOut implements Quote.
-func (q *quoteExactAmountIn) GetAmountOut() osmomath.Int {
-	return q.AmountOut
+func (q *quoteExactAmountIn) GetAmountOut() sdk.Coin {
+	return sdk.Coin{Amount: q.AmountOut}
 }
 
 // GetRoute implements Quote.
