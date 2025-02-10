@@ -62,7 +62,7 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 					},
 				},
 				RUsecase: &mocks.RouterUsecaseMock{
-					GetOptimalQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+					GetOptimalQuoteOutGivenInFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
 						return s.NewExactAmountInQuote(poolOne, poolTwo, poolThree), nil
 					},
 				},
@@ -87,7 +87,7 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 					},
 				},
 				RUsecase: &mocks.RouterUsecaseMock{
-					GetOptimalQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+					GetOptimalQuoteOutGivenInFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
 						return s.NewExactAmountInQuote(poolOne, poolTwo, poolThree), nil
 					},
 				},
@@ -120,7 +120,7 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 					},
 				},
 				RUsecase: &mocks.RouterUsecaseMock{
-					GetOptimalQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+					GetOptimalQuoteOutGivenInFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
 						return s.NewExactAmountInQuote(poolOne, poolTwo, poolThree), nil
 					},
 
@@ -256,7 +256,7 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 					},
 				},
 				RUsecase: &mocks.RouterUsecaseMock{
-					GetCustomDirectQuoteMultiPoolFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
+					GetCustomDirectQuoteMultiPoolOutGivenInFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom []string, poolIDs []uint64) (domain.Quote, error) {
 						return s.NewExactAmountInQuote(poolOne, poolTwo, poolThree), nil
 					},
 				},

@@ -20,7 +20,7 @@ import (
 // Returns best quote as well as all routes sorted by amount out and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
@@ -82,7 +82,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 	return finalQuote, routesWithAmountOut, nil
 }
 
-// validateAndFilterRoutes validates all routes. Specifically:
+// validateAndFilterRoutesOutGivenIn validates all routes. Specifically:
 // - all routes have at least one pool.
 // - all routes have the same final token out denom.
 // - the final token out denom is not the same as the token in denom.
@@ -90,7 +90,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 // - the previous pool token out denom is in the current pool.
 // - the current pool token out denom is in the current pool.
 // Returns error if not. Nil otherwise.
-func validateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
+func validateAndFilterRoutesOutGivenIn(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
 	var (
 		tokenOutDenom  string
 		filteredRoutes []ingesttypes.CandidateRoute
@@ -194,6 +194,7 @@ ROUTE_LOOP:
 			filteredRoute.Pools = append(filteredRoute.Pools, ingesttypes.CandidatePool{
 				ID:            pool.ID,
 				TokenOutDenom: pool.TokenOutDenom,
+				TokenInDenom:  pool.TokenInDenom,
 			})
 		}
 
@@ -202,6 +203,125 @@ ROUTE_LOOP:
 
 	if tokenOutDenom == tokenInDenom {
 		return ingesttypes.CandidateRoutes{}, TokenOutDenomMatchesTokenInDenomError{Denom: tokenOutDenom}
+	}
+
+	return ingesttypes.CandidateRoutes{
+		Routes:                     filteredRoutes,
+		UniquePoolIDs:              uniquePoolIDs,
+		ContainsCanonicalOrderbook: containsCanonicalOrderbook,
+	}, nil
+}
+
+// validateAndFilterRoutesOutGivenIn validates all routes. Specifically:
+// - all routes have at least one pool.
+// - all routes have the same final token out denom.
+// - the final token out denom is not the same as the token in denom.
+// - intermediary pools in the route do not contain the token in denom or token out denom.
+// - the previous pool token out denom is in the current pool.
+// - the current pool token out denom is in the current pool.
+// Returns error if not. Nil otherwise.
+func validateAndFilterRoutesInGivenOut(candidateRoutes []candidateRouteWrapper, tokenOutDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
+	var (
+		tokenInDenom   string
+		filteredRoutes []ingesttypes.CandidateRoute
+	)
+
+	uniquePoolIDs := make(map[uint64]struct{})
+
+	containsCanonicalOrderbook := false
+
+ROUTE_LOOP:
+	for i, candidateRoute := range candidateRoutes {
+		candidateRoutePools := candidateRoute.Pools
+
+		containsCanonicalOrderbook = containsCanonicalOrderbook || candidateRoute.IsCanonicalOrderboolRoute
+
+		if len(candidateRoute.Pools) == 0 {
+			return ingesttypes.CandidateRoutes{}, NoPoolsInRouteError{RouteIndex: i}
+		}
+
+		lastPool := candidateRoutePools[len(candidateRoutePools)-1]
+		currentRouteTokenInDenom := lastPool.TokenInDenom
+
+		previousTokenIn := tokenOutDenom
+
+		uniquePoolIDsIntraRoute := make(map[uint64]struct{}, len(candidateRoutePools))
+
+		for j, currentPool := range candidateRoutePools {
+			if _, ok := uniquePoolIDs[currentPool.ID]; !ok {
+				uniquePoolIDs[currentPool.ID] = struct{}{}
+			}
+
+			if _, ok := uniquePoolIDsIntraRoute[currentPool.ID]; ok {
+				continue ROUTE_LOOP
+			} else {
+				uniquePoolIDsIntraRoute[currentPool.ID] = struct{}{}
+			}
+
+			currentPoolDenoms := candidateRoutePools[j].PoolDenoms
+			currentPoolTokenInDenom := currentPool.TokenInDenom
+
+			foundPreviousTokenIn := false
+			foundCurrentTokenIn := false
+			for _, denom := range currentPoolDenoms {
+				if denom == previousTokenIn {
+					foundPreviousTokenIn = true
+				}
+
+				if denom == currentPoolTokenInDenom {
+					foundCurrentTokenIn = true
+				}
+
+				if j > 0 && j < len(candidateRoutePools)-1 {
+					if denom == tokenOutDenom {
+						logger.Warn("route skipped - found token out in intermediary pool", zap.Error(RoutePoolWithTokenOutDenomError{RouteIndex: i, TokenOutDenom: tokenOutDenom}))
+						continue ROUTE_LOOP
+					}
+
+					if denom == currentRouteTokenInDenom {
+						logger.Warn("route skipped - found token in intermediary pool", zap.Error(RoutePoolWithTokenInDenomError{RouteIndex: i, TokenInDenom: currentPoolTokenInDenom}))
+						continue ROUTE_LOOP
+					}
+				}
+			}
+
+			if !foundPreviousTokenIn {
+				return ingesttypes.CandidateRoutes{}, PreviousTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, PreviousTokenOutDenom: previousTokenIn}
+			}
+
+			if !foundCurrentTokenIn {
+				return ingesttypes.CandidateRoutes{}, CurrentTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, CurrentTokenOutDenom: currentPoolTokenInDenom}
+			}
+
+			previousTokenIn = currentPoolTokenInDenom
+		}
+
+		if i > 0 {
+			if currentRouteTokenInDenom != tokenInDenom {
+				return ingesttypes.CandidateRoutes{}, TokenOutMismatchBetweenRoutesError{TokenOutDenomRouteA: tokenInDenom, TokenOutDenomRouteB: currentRouteTokenInDenom}
+			}
+		}
+
+		tokenInDenom = currentRouteTokenInDenom
+
+		filteredRoute := ingesttypes.CandidateRoute{
+			IsCanonicalOrderboolRoute: candidateRoute.IsCanonicalOrderboolRoute,
+			Pools:                     make([]ingesttypes.CandidatePool, 0, len(candidateRoutePools)),
+		}
+
+		for _, pool := range candidateRoutePools {
+			filteredRoute.Pools = append(filteredRoute.Pools, ingesttypes.CandidatePool{
+				ID:            pool.ID,
+				TokenInDenom:  pool.TokenInDenom,
+				TokenOutDenom: pool.TokenOutDenom,
+			})
+		}
+
+		filteredRoutes = append(filteredRoutes, filteredRoute)
+	}
+
+	if tokenInDenom == tokenOutDenom {
+		return ingesttypes.CandidateRoutes{}, TokenOutDenomMatchesTokenInDenomError{Denom: tokenInDenom}
 	}
 
 	return ingesttypes.CandidateRoutes{

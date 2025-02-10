@@ -71,7 +71,7 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_HappyPath() {
 			expectedMinPoolLiquidityCapInt := osmomath.NewInt(int64(routerConfig.MinPoolLiquidityCap))
 
 			// System under test
-			candidateRoutes, err := usecase.CandidateRouteSearcher.FindCandidateRoutes(tc.tokenIn, tc.tokenOutDenom, candidateRouteOptions)
+			candidateRoutes, err := usecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(tc.tokenIn, tc.tokenOutDenom, candidateRouteOptions)
 			s.Require().NoError(err)
 
 			// Validate that at least one route found
@@ -146,7 +146,7 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_SkipPoolOption() {
 	const expectedPoolID = uint64(1)
 
 	// System under test #1
-	candidateRoutes, err := usecase.CandidateRouteSearcher.FindCandidateRoutes(oneOSMOIn, ATOM, candidateRouteOptions)
+	candidateRoutes, err := usecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(oneOSMOIn, ATOM, candidateRouteOptions)
 	s.Require().NoError(err)
 
 	// Contains default pool ID
@@ -166,7 +166,7 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_SkipPoolOption() {
 	}
 
 	// System under test #2
-	candidateRoutes, err = usecase.CandidateRouteSearcher.FindCandidateRoutes(oneOSMOIn, ATOM, candidateRouteOptions)
+	candidateRoutes, err = usecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(oneOSMOIn, ATOM, candidateRouteOptions)
 	s.Require().NoError(err)
 
 	didFindExpectedPoolID = foundExpectedPoolID(expectedPoolID, candidateRoutes.Routes)

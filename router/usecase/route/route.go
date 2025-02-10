@@ -41,7 +41,7 @@ var (
 	)
 )
 
-// PrepareResultPools implements domain.Route.
+// PrepareResultPoolsOutGivenIn implements domain.Route.
 // Strips away unnecessary fields from each pool in the route,
 // leaving only the data needed by client
 // The following are the list of fields that are returned to the client in each pool:
@@ -54,7 +54,7 @@ var (
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
 // with token in as base and token out as quote.
-func (r RouteImpl) PrepareResultPools(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
 		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()

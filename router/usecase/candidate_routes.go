@@ -36,8 +36,8 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 	}
 }
 
-// FindCandidateRoutes implements domain.CandidateRouteFinder.
-func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+// FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
+func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
 	// Preallocate constant visited map size to avoid reallocations.
@@ -77,6 +77,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 						{
 							CandidatePool: ingesttypes.CandidatePool{
 								ID:            canonicalOrderbook.GetId(),
+								TokenInDenom:  tokenIn.Denom,
 								TokenOutDenom: tokenOutDenom,
 							},
 							PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
@@ -208,6 +209,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 					newPath = append(newPath, candidatePoolWrapper{
 						CandidatePool: ingesttypes.CandidatePool{
 							ID:            poolID,
+							TokenInDenom:  currenTokenInDenom,
 							TokenOutDenom: denom,
 						},
 						PoolDenoms: poolDenoms,
@@ -233,7 +235,209 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 		}
 	}
 
-	return validateAndFilterRoutes(routes, tokenIn.Denom, c.logger)
+	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
+}
+
+// FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
+func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
+
+	// Preallocate constant visited map size to avoid reallocations.
+	// TODO: choose the best size for the visited map.
+	visited := make(map[uint64]struct{}, 100)
+	// visited := make([]bool, len(pools))
+
+	// Preallocate constant queue size to avoid dynamic reallocations.
+	// TODO: choose the best size for the queue.
+	queue := make([][]candidatePoolWrapper, 0, 100)
+	queue = append(queue, make([]candidatePoolWrapper, 0, options.MaxPoolsPerRoute))
+
+	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenOut.Denom)
+	if err != nil {
+		return ingesttypes.CandidateRoutes{}, err
+	}
+
+	if len(denomData.CanonicalOrderbooks) > 0 {
+		canonicalOrderbook, ok := denomData.CanonicalOrderbooks[tokenInDenom]
+		if ok {
+			shouldSkipCanonicalOrderbook := false
+			// Filter the canonical orderbook pool using the pool filters.
+			for _, filter := range options.PoolFiltersAnyOf {
+				// nolint: forcetypeassert
+				canonicalOrderbookPoolWrapper := (canonicalOrderbook).(*ingesttypes.PoolWrapper)
+				if filter(canonicalOrderbookPoolWrapper) {
+					shouldSkipCanonicalOrderbook = true
+					break
+				}
+			}
+
+			if !shouldSkipCanonicalOrderbook {
+				// Add the canonical orderbook as a route.
+				routes = append(routes, candidateRouteWrapper{
+					IsCanonicalOrderboolRoute: true,
+					Pools: []candidatePoolWrapper{
+						{
+							CandidatePool: ingesttypes.CandidatePool{
+								ID:            canonicalOrderbook.GetId(),
+								TokenInDenom:  tokenInDenom,
+								TokenOutDenom: tokenOut.Denom,
+							},
+							PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
+						},
+					},
+				})
+			}
+
+			visited[canonicalOrderbook.GetId()] = struct{}{}
+		}
+	}
+
+	for len(queue) > 0 && len(routes) < options.MaxRoutes {
+		currentRoute := queue[0]
+		queue[0] = nil // Clear the slice to avoid holding onto references
+		queue = queue[1:]
+
+		lastPoolID := uint64(0)
+		currentTokenOutDenom := tokenOut.Denom
+		if len(currentRoute) > 0 {
+			lastPool := currentRoute[len(currentRoute)-1]
+			lastPoolID = lastPool.ID
+			currentTokenOutDenom = lastPool.TokenInDenom
+		}
+
+		denomData, err := c.candidateRouteDataHolder.GetDenomData(currentTokenOutDenom)
+		if err != nil {
+			return ingesttypes.CandidateRoutes{}, err
+		}
+
+		rankedPools := denomData.SortedPools
+
+		if len(rankedPools) == 0 {
+			c.logger.Debug("no pools found for denom out candidate route search", zap.String("denom", currentTokenOutDenom))
+		}
+
+		for i := 0; i < len(rankedPools) && len(routes) < options.MaxRoutes; i++ {
+			// Unsafe cast for performance reasons.
+			// nolint: forcetypeassert
+			pool := (rankedPools[i]).(*ingesttypes.PoolWrapper)
+			poolID := pool.ChainModel.GetId()
+
+			if _, ok := visited[poolID]; ok {
+				continue
+			}
+
+			// If the option is configured to skip a given pool
+			// We mark it as visited and continue.
+			if options.ShouldSkipPool(pool) {
+				visited[poolID] = struct{}{}
+				continue
+			}
+
+			if pool.GetLiquidityCap().Uint64() < options.MinPoolLiquidityCap {
+				visited[poolID] = struct{}{}
+				// Skip pools that have less liquidity than the minimum required.
+				continue
+			}
+
+			poolDenoms := pool.SQSModel.PoolDenoms
+			hasTokenIn := false
+			hasTokenOut := false
+			shouldSkipPool := false
+			for _, denom := range poolDenoms {
+				if denom == currentTokenOutDenom {
+					hasTokenOut = true
+				}
+				if denom == tokenInDenom {
+					hasTokenIn = true
+				}
+
+				// Avoid going through pools that has the initial token out denom twice.
+				if len(currentRoute) > 0 && denom == tokenOut.Denom {
+					shouldSkipPool = true
+					break
+				}
+			}
+
+			if shouldSkipPool {
+				continue
+			}
+
+			if !hasTokenOut {
+				continue
+			}
+
+			// Microptimization for the first pool in the route.
+			if len(currentRoute) == 0 {
+				currentTokenOutAmount := pool.SQSModel.Balances.AmountOf(currentTokenOutDenom)
+
+				// HACK: alloyed LP share is not contained in balances.
+				// TODO: remove the hack and ingest the LP share balance on the Osmosis side.
+				// https://linear.app/osmosis/issue/DATA-236/bug-alloyed-lp-share-is-not-present-in-balances
+				cosmwasmModel := pool.SQSModel.CosmWasmPoolModel
+				isAlloyed := cosmwasmModel != nil && cosmwasmModel.IsAlloyTransmuter()
+
+				if currentTokenOutAmount.LT(tokenOut.Amount) && !isAlloyed {
+					visited[poolID] = struct{}{}
+					// Not enough tokenOut to swap.
+					continue
+				}
+			}
+
+			currentPoolID := poolID
+			for _, denom := range poolDenoms {
+				if denom == currentTokenOutDenom {
+					continue
+				}
+				if hasTokenIn && denom != tokenInDenom {
+					continue
+				}
+
+				denomData, err := c.candidateRouteDataHolder.GetDenomData(currentTokenOutDenom)
+				if err != nil {
+					return ingesttypes.CandidateRoutes{}, err
+				}
+
+				rankedPools := denomData.SortedPools
+				if len(rankedPools) == 0 {
+					c.logger.Debug("no pools found for denom out candidate route search", zap.String("denom", denom))
+					continue
+				}
+
+				if lastPoolID == uint64(0) || lastPoolID != currentPoolID {
+					newPath := make([]candidatePoolWrapper, len(currentRoute), len(currentRoute)+1)
+
+					copy(newPath, currentRoute)
+
+					newPath = append(newPath, candidatePoolWrapper{
+						CandidatePool: ingesttypes.CandidatePool{
+							ID:            poolID,
+							TokenInDenom:  denom,
+							TokenOutDenom: currentTokenOutDenom,
+						},
+						PoolDenoms: poolDenoms,
+					})
+
+					if len(newPath) <= options.MaxPoolsPerRoute {
+						if hasTokenIn {
+							routes = append(routes, candidateRouteWrapper{
+								Pools:                     newPath,
+								IsCanonicalOrderboolRoute: false,
+							})
+							break
+						} else {
+							queue = append(queue, newPath)
+						}
+					}
+				}
+			}
+		}
+
+		for _, pool := range currentRoute {
+			visited[pool.ID] = struct{}{}
+		}
+	}
+
+	return validateAndFilterRoutesInGivenOut(routes, tokenOut.Denom, c.logger)
 }
 
 // Pool represents a pool in the decentralized exchange.

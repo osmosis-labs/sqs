@@ -112,7 +112,7 @@ func TestSimulateQuote(t *testing.T) {
 			)
 
 			// System under test
-			priceInfo := simulator.SimulateQuote(
+			priceInfo := simulator.SimulateQuoteOutGivenIn(
 				context.Background(),
 				mockQuote,
 				tt.slippageToleranceMultiplier,

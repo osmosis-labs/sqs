@@ -10,7 +10,7 @@ import (
 )
 
 // Microbenchmark for the GetSplitQuote function.
-func BenchmarkCandidateRouteSearcher(b *testing.B) {
+func BenchmarkCandidateRouteSearcherFindCandidateRoutesOutGivenIn(b *testing.B) {
 	// This is a hack to be able to use test suite helpers with the benchmark.
 	// We need to set testing.T for assertings within the helpers. Otherwise, it would block
 	s := RouterTestSuite{}
@@ -38,7 +38,7 @@ func BenchmarkCandidateRouteSearcher(b *testing.B) {
 	// Run the benchmark
 	for i := 0; i < b.N; i++ {
 		// System under test
-		_, err := usecase.CandidateRouteSearcher.FindCandidateRoutes(tokenIn, tokenOutDenom, candidateRouteOptions)
+		_, err := usecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteOptions)
 		s.Require().NoError(err)
 		if err != nil {
 			b.Errorf("FindCandidateRoutes returned an error: %v", err)

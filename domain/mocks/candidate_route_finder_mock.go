@@ -13,7 +13,12 @@ type CandidateRouteFinderMock struct {
 
 var _ domain.CandidateRouteSearcher = CandidateRouteFinderMock{}
 
-// FindCandidateRoutes implements domain.CandidateRouteSearcher.
-func (c CandidateRouteFinderMock) FindCandidateRoutes(tokenIn types.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+// FindCandidateRoutesOutGivenIn implements domain.CandidateRouteSearcher.
+func (c CandidateRouteFinderMock) FindCandidateRoutesOutGivenIn(tokenIn types.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+	return c.Routes, c.Error
+}
+
+// FindCandidateRoutesInGivenOut implements domain.CandidateRouteSearcher.
+func (c CandidateRouteFinderMock) FindCandidateRoutesInGivenOut(tokenOut types.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	return c.Routes, c.Error
 }

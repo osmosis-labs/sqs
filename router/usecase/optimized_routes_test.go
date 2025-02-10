@@ -566,7 +566,7 @@ func (s *RouterTestSuite) TestValidateAndFilterRoutes() {
 		tc := tc
 		s.Run(name, func() {
 
-			filteredCandidateRoutes, err := routerusecase.ValidateAndFilterRoutes(tc.routes, tc.tokenInDenom, noOpLogger)
+			filteredCandidateRoutes, err := routerusecase.ValidateAndFilterRoutesOutGivenIn(tc.routes, tc.tokenInDenom, noOpLogger)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
@@ -703,7 +703,7 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounIn_Mainnet() {
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
-			quote, err := mainnetUseCase.Router.GetOptimalQuote(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
+			quote, err := mainnetUseCase.Router.GetOptimalQuoteOutGivenIn(context.Background(), sdk.NewCoin(tc.tokenInDenom, tc.amountIn), tc.tokenOutDenom)
 			s.Require().NoError(err)
 
 			// TODO: update mainnet state and validate the quote for each test stricter.
@@ -821,7 +821,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	const expectedPoolID = uint64(2)
 
 	// System under test 2
-	quote, err := routerUsecase.GetCustomDirectQuote(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	quote, err := routerUsecase.GetCustomDirectQuoteOutGivenIn(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 }
