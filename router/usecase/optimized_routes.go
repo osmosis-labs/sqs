@@ -214,11 +214,11 @@ ROUTE_LOOP:
 
 // validateAndFilterRoutesOutGivenIn validates all routes. Specifically:
 // - all routes have at least one pool.
-// - all routes have the same final token out denom.
-// - the final token out denom is not the same as the token in denom.
-// - intermediary pools in the route do not contain the token in denom or token out denom.
-// - the previous pool token out denom is in the current pool.
-// - the current pool token out denom is in the current pool.
+// - all routes have the same final token in denom.
+// - the final token in denom is not the same as the token out denom.
+// - intermediary pools in the route do not contain the token out denom or token in denom.
+// - the previous pool token in denom is in the current pool.
+// - the current pool token in denom is in the current pool.
 // Returns error if not. Nil otherwise.
 func validateAndFilterRoutesInGivenOut(candidateRoutes []candidateRouteWrapper, tokenOutDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
 	var (
