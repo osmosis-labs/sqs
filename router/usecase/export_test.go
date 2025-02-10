@@ -29,6 +29,10 @@ func ValidateAndFilterRoutesOutGivenIn(candidateRoutes []candidateRouteWrapper, 
 	return validateAndFilterRoutesOutGivenIn(candidateRoutes, tokenInDenom, logger)
 }
 
+func ValidateAndFilterRoutesInGivenOut(candidateRoutes []candidateRouteWrapper, tokenOutDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
+	return validateAndFilterRoutesInGivenOut(candidateRoutes, tokenOutDenom, logger)
+}
+
 func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
 	return r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 }
