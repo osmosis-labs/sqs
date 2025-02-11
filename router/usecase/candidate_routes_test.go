@@ -35,26 +35,122 @@ func (s *RouterTestSuite) TestCandidateRouteSearcherOutGivenIn_HappyPath() {
 		name          string
 		tokenIn       sdk.Coin
 		tokenOutDenom string
+		uniquePoolIDs map[uint64]struct{}
+		routes        int
 	}{
 		{
 			name:          "UOSMO -> USDT",
 			tokenIn:       sdk.NewCoin(UOSMO, one),
 			tokenOutDenom: USDT,
+			routes:        20,
+			uniquePoolIDs: map[uint64]struct{}{
+				1066: {},
+				1077: {},
+				1078: {},
+				1079: {},
+				1081: {},
+				1094: {},
+				1110: {},
+				1133: {},
+				1134: {},
+				1135: {},
+				1159: {},
+				1189: {},
+				1205: {},
+				1220: {},
+				1221: {},
+				1261: {},
+				1263: {},
+				1265: {},
+				1279: {},
+				1281: {},
+				1399: {},
+				1400: {},
+				1464: {},
+				1477: {},
+				1895: {},
+			},
 		},
 		{
 			name:          "UMEE -> AKT",
 			tokenIn:       sdk.NewCoin(UMEE, one),
 			tokenOutDenom: AKT,
+			routes:        20,
+			uniquePoolIDs: map[uint64]struct{}{
+				1077: {},
+				1078: {},
+				1079: {},
+				1093: {},
+				1104: {},
+				1110: {},
+				1135: {},
+				1205: {},
+				1220: {},
+				1221: {},
+				1263: {},
+				1265: {},
+				1301: {},
+				1368: {},
+				1400: {},
+				1464: {},
+				1480: {},
+				3:    {},
+				4:    {},
+				641:  {},
+				643:  {},
+			},
 		},
 		{
 			name:          "ALLBTC -> USDC",
 			tokenIn:       sdk.NewCoin(ALLBTC, one),
 			tokenOutDenom: USDC,
+			routes:        20,
+			uniquePoolIDs: map[uint64]struct{}{
+				1221: {},
+				1253: {},
+				1263: {},
+				1264: {},
+				1268: {},
+				1277: {},
+				1278: {},
+				1422: {},
+				1433: {},
+				1434: {},
+				1435: {},
+				1436: {},
+				1437: {},
+				1440: {},
+				1441: {},
+				1464: {},
+				1490: {},
+				1705: {},
+				1868: {},
+				1904: {},
+				1930: {},
+				1942: {},
+			},
 		},
 		{
 			name:          "ALLBTC -> TIA",
 			tokenIn:       sdk.NewCoin(ALLBTC, one),
 			tokenOutDenom: TIA,
+			routes:        20,
+			uniquePoolIDs: map[uint64]struct{}{
+				1247: {},
+				1248: {},
+				1249: {},
+				1321: {},
+				1347: {},
+				1433: {},
+				1434: {},
+				1436: {},
+				1437: {},
+				1478: {},
+				1579: {},
+				1868: {},
+				1904: {},
+				1942: {},
+			},
 		},
 	}
 
@@ -74,12 +170,12 @@ func (s *RouterTestSuite) TestCandidateRouteSearcherOutGivenIn_HappyPath() {
 			candidateRoutes, err := usecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(tc.tokenIn, tc.tokenOutDenom, candidateRouteOptions)
 			s.Require().NoError(err)
 
-			// Validate that at least one route found
-			s.Require().Greater(len(candidateRoutes.Routes), 0)
+			// Validate that number of routes found is equal to the expected number of routes.
+			s.Require().Equal(len(candidateRoutes.Routes), tc.routes)
 			// Validate that the number of routes found is less than or equal to the max number of routes.
 			s.Require().LessOrEqual(len(candidateRoutes.Routes), candidateRouteOptions.MaxRoutes)
-			// Validate that the unieque pools are non-empty.
-			s.Require().Greater(len(candidateRoutes.UniquePoolIDs), 0)
+			// Validate that the unieque pools is equal to the expected unique pool IDs.
+			s.Require().Equal(candidateRoutes.UniquePoolIDs, tc.uniquePoolIDs)
 
 			// Validate each route and its pools to be within he configured bounds.
 			for _, route := range candidateRoutes.Routes {
@@ -139,29 +235,125 @@ func (s *RouterTestSuite) TestCandidateRouteSearcherInGivenOut_HappyPath() {
 	usecase := s.SetupRouterAndPoolsUsecase(mainnetState)
 
 	tests := []struct {
-		name         string
-		tokenOut     sdk.Coin
-		tokenInDenom string
+		name          string
+		tokenOut      sdk.Coin
+		tokenInDenom  string
+		uniquePoolIDs map[uint64]struct{}
+		routes        int
 	}{
 		{
 			name:         "UOSMO -> USDT",
 			tokenOut:     sdk.NewCoin(UOSMO, one),
 			tokenInDenom: USDT,
+			routes:       20,
+			uniquePoolIDs: map[uint64]struct{}{
+				1066: {},
+				1077: {},
+				1078: {},
+				1079: {},
+				1081: {},
+				1094: {},
+				1110: {},
+				1133: {},
+				1134: {},
+				1135: {},
+				1159: {},
+				1189: {},
+				1205: {},
+				1220: {},
+				1221: {},
+				1261: {},
+				1263: {},
+				1265: {},
+				1279: {},
+				1281: {},
+				1399: {},
+				1400: {},
+				1464: {},
+				1477: {},
+				1895: {},
+			},
 		},
 		{
 			name:         "UMEE -> AKT",
 			tokenOut:     sdk.NewCoin(UMEE, one),
 			tokenInDenom: AKT,
+			routes:       20,
+			uniquePoolIDs: map[uint64]struct{}{
+				1077: {},
+				1078: {},
+				1079: {},
+				1093: {},
+				1104: {},
+				1110: {},
+				1135: {},
+				1205: {},
+				1220: {},
+				1221: {},
+				1263: {},
+				1265: {},
+				1301: {},
+				1368: {},
+				1400: {},
+				1464: {},
+				1480: {},
+				3:    {},
+				4:    {},
+				641:  {},
+				643:  {},
+			},
 		},
 		{
 			name:         "ALLBTC -> USDC",
 			tokenOut:     sdk.NewCoin(ALLBTC, one),
 			tokenInDenom: USDC,
+			routes:       20,
+			uniquePoolIDs: map[uint64]struct{}{
+				1221: {},
+				1253: {},
+				1263: {},
+				1264: {},
+				1268: {},
+				1277: {},
+				1278: {},
+				1422: {},
+				1433: {},
+				1434: {},
+				1435: {},
+				1436: {},
+				1437: {},
+				1440: {},
+				1441: {},
+				1464: {},
+				1490: {},
+				1705: {},
+				1868: {},
+				1904: {},
+				1930: {},
+				1942: {},
+			},
 		},
 		{
 			name:         "ALLBTC -> TIA",
 			tokenOut:     sdk.NewCoin(ALLBTC, one),
 			tokenInDenom: TIA,
+			routes:       20,
+			uniquePoolIDs: map[uint64]struct{}{
+				1247: {},
+				1248: {},
+				1249: {},
+				1321: {},
+				1347: {},
+				1433: {},
+				1434: {},
+				1436: {},
+				1437: {},
+				1478: {},
+				1579: {},
+				1868: {},
+				1904: {},
+				1942: {},
+			},
 		},
 	}
 
@@ -181,12 +373,12 @@ func (s *RouterTestSuite) TestCandidateRouteSearcherInGivenOut_HappyPath() {
 			candidateRoutes, err := usecase.CandidateRouteSearcher.FindCandidateRoutesInGivenOut(tc.tokenOut, tc.tokenInDenom, candidateRouteOptions)
 			s.Require().NoError(err)
 
-			// Validate that at least one route found
-			s.Require().Greater(len(candidateRoutes.Routes), 0)
+			// Validate that number of routes found is equal to the expected number of routes.
+			s.Require().Equal(len(candidateRoutes.Routes), tc.routes)
 			// Validate that the number of routes found is less than or equal to the max number of routes.
 			s.Require().LessOrEqual(len(candidateRoutes.Routes), candidateRouteOptions.MaxRoutes)
-			// Validate that the unieque pools are non-empty.
-			s.Require().Greater(len(candidateRoutes.UniquePoolIDs), 0)
+			// Validate that the unieque pools is equal to the expected unique pool IDs.
+			s.Require().Equal(candidateRoutes.UniquePoolIDs, tc.uniquePoolIDs)
 
 			// Validate each route and its pools to be within he configured bounds.
 			for _, route := range candidateRoutes.Routes {
