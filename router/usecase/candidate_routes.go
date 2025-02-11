@@ -241,7 +241,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
 func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	// Fetching the candidate routes as for the exact amount of token in swap method
-	// That will be the same as the exact amount out swap method with inverted token denominations.
+	// That will be the same as the exact amount out swap method with inverted token denominations
 	routes, err := c.FindCandidateRoutesOutGivenIn(tokenOut, tokenInDenom, options)
 	if err != nil {
 		return ingesttypes.CandidateRoutes{}, err
@@ -253,7 +253,8 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 			routes.Routes[i].Pools[j].TokenInDenom, routes.Routes[i].Pools[j].TokenOutDenom = routes.Routes[i].Pools[j].TokenOutDenom, routes.Routes[i].Pools[j].TokenInDenom
 		}
 	}
-	return routes, err
+	
+	return routes, nil
 }
 
 // Pool represents a pool in the decentralized exchange.
