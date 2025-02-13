@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -81,53 +82,26 @@ func MaxBacktrack(totalRoutes int, proportions [][]uint8, calcProfit ProfitFunc)
 	return optimalProportions
 }
 
-func Min(totalRoutes int, calcProfit ProfitFunc) ([][]osmomath.Int, [][]uint8) {
-	// proportions[x][j] stores the proportion of tokens used for the j-th
-	// route that leads to the optimal value at each state. The proportions slice,
-	// essentially, records the decision made at each step.
-	proportions := make([][]uint8, totalIncrements+1)
-	// dp stores the maximum output values.
-	dp := make([][]osmomath.Int, totalIncrements+1)
+func mcmkp(w []int64, p []int64, c int64) []int64 {
+	m := make([]int64, c+1)
 
-	// Step 1: initialize tables
-	for i := 0; i < int(totalIncrements+1); i++ {
-		dp[i] = make([]osmomath.Int, totalRoutes+1)
-
-		dp[i][0] = inf
-
-		proportions[i] = make([]uint8, totalRoutes+1)
+	// initialize tables
+	m[0] = 0
+	for i := int64(1); i <= c; i++ {
+		m[i] = math.MaxInt64 // inf means item was not processed yet
 	}
 
-	// Initialize the first column with 0
-	for j := 0; j <= totalRoutes; j++ {
-		dp[0][j] = zero
-	}
-
-	// Step 2: fill the tables
-	for x := uint8(1); x <= totalIncrements; x++ {
-		for j := 1; j <= totalRoutes; j++ {
-			dp[x][j] = dp[x][j-1] // Not using the j-th route
-			proportions[x][j] = 0 // Default increment (0% of the token)
-
-			for p := uint8(0); p <= x; p++ {
-				// Consider two scenarios:
-				// 1) Not using the j-th route at all, which would yield an output of dp[x][j-1].
-				// 2) Using the j-th route with a certain proportion p of the input.
-				//
-				// The recurrence relation would be:
-				// dp[x][j] = max(dp[x][j−1], dp[x−p][j−1] + output from j - th route with proportion p)
-				noChoice := dp[x][j]
-				choice := dp[x-p][j-1].Add(calcProfit(j-1, p)) // adding to inf will result in inf
-
-				if choice.LT(noChoice) {
-					dp[x][j] = choice
-					proportions[x][j] = p
-				}
+	// process items one by one
+	for i := int64(len(w)) - 1; i >= 0; i-- {
+		for k, wi := c, w[i]; k >= wi; k-- {
+			cost := m[k-wi] + p[i]
+			if cost > 0 && cost < m[k] {
+				m[k] = cost
 			}
 		}
 	}
 
-	return dp, proportions
+	return m
 }
 
 // getSplitQuoteOutGivenIn returns the best quote for the given routes and tokenIn.
@@ -166,14 +140,16 @@ func getSplitQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, toke
 	// callback with caching capabilities.
 	computeAndCacheOutAmountCb := getComputeAndCacheOutAmountCb(ctx, inAmountDec, tokenIn.Denom, routes)
 
-	// Step 2: fill the tables
+	// Step 2: fill the
+	// inc,route
+	// proportions[x][j] = p
 	dp, proportions := Max(len(routes), computeAndCacheOutAmountCb)
 
 	// Step 3: trace back to find the optimal proportions
 	x, j := totalIncrements, len(routes)
 	optimalProportions := make([]uint8, len(routes)+1)
 	for j > 0 {
-		optimalProportions[j] = proportions[x][j]
+		optimalProportions[j] = proportions[x][j] // proportions[inc=10][route=3]=p
 		x -= proportions[x][j]
 		j -= 1
 	}
@@ -284,11 +260,31 @@ func getSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, toke
 	// callback with caching capabilities.
 	computeAndCacheOutAmountCb := getComputeAndCacheInAmountCb(ctx, outAmountDec, tokenOut.Denom, routes)
 
-	dp, proportions := Min(len(routes), computeAndCacheOutAmountCb)
+	dp, _ := [][]osmomath.Int{}, [][]uint8{}
+
+	totalRoutes := len(routes)
+	c := int64(totalIncrements)
+	w := make([]int64, 0, totalRoutes*int(totalIncrements)) //
+	p := make([]int64, 0, totalRoutes*int(totalIncrements))
+
+	// Create table:
+	// wi - item weight, start from 1, since 0 weight makes no sense
+	// pi - item profit
+	for wi := 1; wi < int(totalIncrements)+1; wi++ {
+		for i := 0; i < totalRoutes; i++ {
+			w = append(w, int64(wi))
+			p = append(p, computeAndCacheOutAmountCb(i, uint8(wi)).Int64())
+		}
+	}
+
+	m := mcmkp(w, p, c)
+
+	_ = m
 
 	// Step 3: trace back to find the optimal proportions
-	x, j := totalIncrements, len(routes)
-	optimalProportions := make([]uint8, len(routes)+1)
+	proportions := make([][]uint8, totalIncrements+1)
+	x, j := totalIncrements, cap(w)
+	optimalProportions := make([]uint8, cap(w)+1)
 	for j > 0 {
 		optimalProportions[j] = proportions[x][j]
 		x -= proportions[x][j]

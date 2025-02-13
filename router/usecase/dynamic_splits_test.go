@@ -27,58 +27,6 @@ func TestDynamicSplitsTestSuite(t *testing.T) {
 var zero = osmomath.NewInt(0)
 var inf = osmomath.NewInt(math.MaxInt64)
 
-func TestMin(t *testing.T) {
-	testCases := []struct {
-		name                string
-		totalRoutes         int
-		profitFunc          usecase.ProfitFunc
-		expectedDP          [][]osmomath.Int
-		expectedProportions [][]uint8
-	}{
-		{
-			name:        "Single route",
-			totalRoutes: 1,
-			profitFunc: func(route int, proportion uint8) osmomath.Int {
-				return osmomath.NewInt(int64(proportion))
-			},
-			expectedDP: [][]osmomath.Int{
-				{zero, zero},
-				{inf, osmomath.NewInt(1)},
-				{inf, osmomath.NewInt(2)},
-				{inf, osmomath.NewInt(3)},
-				{inf, osmomath.NewInt(4)},
-				{inf, osmomath.NewInt(5)},
-				{inf, osmomath.NewInt(6)},
-				{inf, osmomath.NewInt(7)},
-				{inf, osmomath.NewInt(8)},
-				{inf, osmomath.NewInt(9)},
-				{inf, osmomath.NewInt(10)},
-			},
-			expectedProportions: [][]uint8{
-				{0, 0},
-				{0, 1},
-				{0, 2},
-				{0, 3},
-				{0, 4},
-				{0, 5},
-				{0, 6},
-				{0, 7},
-				{0, 8},
-				{0, 9},
-				{0, 10},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			dp, proportions := usecase.Min(tc.totalRoutes, tc.profitFunc)
-
-			require.Equal(t, tc.expectedDP, dp, "DP table doesn't match expected")
-			require.Equal(t, tc.expectedProportions, proportions, "Proportions table doesn't match expected")
-		})
-	}
-}
 func TestMax(t *testing.T) {
 	testCases := []struct {
 		name                string

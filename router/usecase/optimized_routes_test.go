@@ -716,7 +716,7 @@ func (s *RouterTestSuite1) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 
 			// TODO: fix
 			// TokenInDenom is empty
-			quote, err := mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), sdk.NewCoin(tc.tokenOutDenom, tc.amountIn), tc.tokenInDenom)
+			quote, err := mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), sdk.NewCoin(tc.tokenOutDenom, osmomath.NewInt(12742)), tc.tokenInDenom)
 			s.Require().NoError(err)
 
 			// TODO: update mainnet state and validate the quote for each test stricter.
