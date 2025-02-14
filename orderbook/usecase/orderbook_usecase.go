@@ -27,6 +27,7 @@ type OrderbookUseCaseImpl struct {
 	poolsUsecease       mvc.PoolsUsecase
 	tokensUsecease      mvc.TokensUsecase
 	logger              log.Logger
+	activeOrdersCache   *activeOrdersCache
 }
 
 var _ mvc.OrderBookUsecase = &OrderbookUseCaseImpl{}
@@ -36,6 +37,8 @@ const (
 	maxQueryTicks = 500
 	// Max number of ticks cancels to query at a time
 	maxQueryTicksCancels = 100
+	// Default size for the active orders cache
+	defaultCacheSize = 100_000
 )
 
 // New creates a new orderbook use case.
@@ -46,12 +49,20 @@ func New(
 	tokensUsecease mvc.TokensUsecase,
 	logger log.Logger,
 ) *OrderbookUseCaseImpl {
+	activeOrdersCache, err := newActiveOrdersCache(defaultCacheSize)
+	if err != nil {
+		logger.Error("failed to create active orders cache", zap.Error(err))
+		// Continue without cache
+		activeOrdersCache = nil
+	}
+
 	return &OrderbookUseCaseImpl{
 		orderbookRepository: orderbookRepository,
 		orderBookClient:     orderBookClient,
 		poolsUsecease:       poolsUsecease,
 		tokensUsecease:      tokensUsecease,
 		logger:              logger,
+		activeOrdersCache:   activeOrdersCache,
 	}
 }
 
@@ -78,6 +89,12 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool ingesttypes
 
 	if cosmWasmPoolModel.Data.Orderbook == nil {
 		return fmt.Errorf("pool has no orderbook data %d", poolID)
+	}
+
+	// Invalidate cache entries for this pool since its state is changing
+	// If Active orders time continues to be of importance, we can optimize this.
+	if o.activeOrdersCache != nil {
+		o.activeOrdersCache.invalidatePool(poolID)
 	}
 
 	// Update the orderbook client with the orderbook pool ID.
@@ -227,7 +244,30 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	// Process orderbooks concurrently
 	for _, orderbook := range orderbooks {
 		go func(orderbook domain.CanonicalOrderBooksResult) {
+			// Try to get from cache first
+			if o.activeOrdersCache != nil {
+				if entry, found := o.activeOrdersCache.get(orderbook.PoolID, address); found {
+					results <- orderbookdomain.OrderbookResult{
+						IsBestEffort: entry.IsBestEffort,
+						PoolID:       orderbook.PoolID,
+						LimitOrders:  entry.Orders,
+						Error:        nil,
+					}
+					return
+				}
+			}
+
+			// Cache miss or no cache, fetch from chain
 			limitOrders, isBestEffort, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
+
+			// Cache the result if successful
+			if err == nil && o.activeOrdersCache != nil {
+				o.activeOrdersCache.set(orderbook.PoolID, address, activeOrdersCacheEntry{
+					Orders:       limitOrders,
+					IsBestEffort: isBestEffort,
+				})
+			}
+
 			results <- orderbookdomain.OrderbookResult{
 				IsBestEffort: isBestEffort,
 				PoolID:       orderbook.PoolID,
