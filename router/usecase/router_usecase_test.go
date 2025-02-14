@@ -283,7 +283,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			candidateRouteCache := cache.New()
 
 			if !tc.shouldSkipAddToCache {
-				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(tokenInDenom, tokenOutDenom), tc.repositoryRoutes, time.Hour)
+				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenInDenom, tokenOutDenom), tc.repositoryRoutes, time.Hour)
 			}
 
 			poolsUseCaseMock := &mocks.PoolsUsecaseMock{}
@@ -788,13 +788,13 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// Pre-set candidate route cache
 			if len(tc.preCachedCandidateRoutes.Routes) > 0 {
-				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(defaultTokenInDenom, defaultTokenOutDenom), tc.preCachedCandidateRoutes, tc.cacheExpiryDuration)
+				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, defaultTokenInDenom, defaultTokenOutDenom), tc.preCachedCandidateRoutes, tc.cacheExpiryDuration)
 			}
 
 			// Pre-set ranked route cache
 			if len(tc.preCachedRankedRoutes.Routes) > 0 {
 				tokeInOrderOfMagnitude := usecase.GetPrecomputeOrderOfMagnitude(tc.amountIn)
-				rankedRouteCache.Set(usecase.FormatRankedRouteCacheKey(defaultTokenInDenom, defaultTokenOutDenom, tokeInOrderOfMagnitude), tc.preCachedRankedRoutes, tc.cacheExpiryDuration)
+				rankedRouteCache.Set(usecase.FormatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, defaultTokenInDenom, defaultTokenOutDenom, tokeInOrderOfMagnitude), tc.preCachedRankedRoutes, tc.cacheExpiryDuration)
 			}
 
 			// Mock router use case.

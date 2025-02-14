@@ -59,9 +59,9 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 		// Note: the zero length check occurred at the start of function.
 		tokenOutDenom := routes[0].GetTokenOutDenom()
 
-		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(tokenIn.Denom, tokenOutDenom))
+		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom))
 		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
-		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
 
 		return nil, nil, errors[0]
 	}
@@ -124,9 +124,9 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 		// Note: the zero length check occurred at the start of function.
 		tokenOutDenom := routes[0].GetTokenOutDenom()
 
-		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(tokenOut.Denom, tokenOutDenom))
+		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenOutDenom))
 		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
-		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(tokenOut.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
 
 		return nil, nil, errors[0]
 	}

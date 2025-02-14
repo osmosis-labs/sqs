@@ -832,7 +832,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 // are correctly ranked by amounts out.
 // Lastly, validates, that the candidate and ranked route cache gets invalidated if
 // all routes error.
-func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenOut() {
+func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 	// Setup mock router use case
 	mainnetState := s.SetupMainnetState()
 	usecase := s.SetupRouterAndPoolsUsecase(mainnetState)
@@ -980,8 +980,8 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenOut() {
 		s.Run(tc.name, func() {
 
 			// Pre-set cache
-			routerUseCase.SetCandidateRouteCacheToMock(defaultTokenIn.Denom, tokenOutDenom)
-			routerUseCase.SetRankedRouteCacheToMock(defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
+			routerUseCase.SetCandidateRouteCacheToMock(domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom)
+			routerUseCase.SetRankedRouteCacheToMock(domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
 
 			// Construct routes from mock pools
 			routes := []route.RouteImpl{}
@@ -1182,8 +1182,8 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 		s.Run(tc.name, func() {
 
 			// Pre-set cache
-			routerUseCase.SetCandidateRouteCacheToMock(defaultTokenOut.Denom, tokenOutDenom)
-			routerUseCase.SetRankedRouteCacheToMock(defaultTokenOut.Denom, tokenOutDenom, tokenOutOrderOfMagnitude)
+			routerUseCase.SetCandidateRouteCacheToMock(domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom)
+			routerUseCase.SetRankedRouteCacheToMock(domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom, tokenOutOrderOfMagnitude)
 
 			// Construct routes from mock pools
 			routes := []route.RouteImpl{}
