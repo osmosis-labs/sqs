@@ -181,25 +181,31 @@ func (o *OrderbookUseCaseImpl) GetActiveOrdersStream(ctx context.Context, addres
 
 		for _, orderbook := range orderbooks {
 			go func(orderbook domain.CanonicalOrderBooksResult) {
-				limitOrders, isBestEffort, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
-				if len(limitOrders) == 0 && err == nil {
-					return // skip empty orders
-				}
-
-				if err != nil {
-					telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
-					o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("pool_id", orderbook.PoolID), zap.Any("err", err))
-				}
-
+				// guard for context cancellation
 				select {
-				case c <- orderbookdomain.OrderbookResult{
-					PoolID:       orderbook.PoolID,
-					IsBestEffort: isBestEffort,
-					LimitOrders:  limitOrders,
-					Error:        err,
-				}:
 				case <-ctx.Done():
 					return
+				default:
+					limitOrders, isBestEffort, err := o.processOrderbookActiveOrders(ctx, orderbook, address)
+					if err != nil {
+						telemetry.ProcessingOrderbookActiveOrdersErrorCounter.Inc()
+						o.logger.Error(telemetry.ProcessingOrderbookActiveOrdersErrorMetricName, zap.Any("pool_id", orderbook.PoolID), zap.Any("err", err))
+						c <- orderbookdomain.OrderbookResult{
+							IsBestEffort: false,
+							PoolID:       orderbook.PoolID,
+							LimitOrders:  nil,
+							Error:        err,
+						}
+						return
+					}
+					// if len is 0, skip sending to channel
+					if len(limitOrders) > 0 {
+						c <- orderbookdomain.OrderbookResult{
+							IsBestEffort: isBestEffort,
+							PoolID:       orderbook.PoolID,
+							LimitOrders:  limitOrders,
+						}
+					}
 				}
 			}(orderbook)
 		}
@@ -244,28 +250,15 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	// Process orderbooks concurrently
 	for _, orderbook := range orderbooks {
 		go func(orderbook domain.CanonicalOrderBooksResult) {
-			// Try to get from cache first
-			if o.activeOrdersCache != nil {
-				if entry, found := o.activeOrdersCache.get(orderbook.PoolID, address); found {
-					results <- orderbookdomain.OrderbookResult{
-						IsBestEffort: entry.IsBestEffort,
-						PoolID:       orderbook.PoolID,
-						LimitOrders:  entry.Orders,
-						Error:        nil,
-					}
-					return
-				}
-			}
-
-			// Cache miss or no cache, fetch from chain
-			limitOrders, isBestEffort, err := o.processOrderBookActiveOrders(ctx, orderbook, address)
-
-			// Cache the result if successful
-			if err == nil && o.activeOrdersCache != nil {
-				o.activeOrdersCache.set(orderbook.PoolID, address, activeOrdersCacheEntry{
-					Orders:       limitOrders,
+			limitOrders, isBestEffort, err := o.processOrderbookActiveOrders(ctx, orderbook, address)
+			if err != nil {
+				results <- orderbookdomain.OrderbookResult{
 					IsBestEffort: isBestEffort,
-				})
+					PoolID:       orderbook.PoolID,
+					LimitOrders:  nil,
+					Error:        err,
+				}
+				return
 			}
 
 			results <- orderbookdomain.OrderbookResult{
@@ -300,23 +293,47 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	return finalResults, isBestEffort, nil
 }
 
-// processOrderBookActiveOrders fetches and processes the active orders for a given orderbook.
-// It returns the active formatted limit orders and an error if any.
-// Errors if:
-// - failed to fetch active orders
-// - failed to fetch metadata by chain denom
-// - failed to create limit order
-//
-// For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
-// This is a best-effort process.
-func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
-	if err := orderbook.Validate(); err != nil {
+func (o *OrderbookUseCaseImpl) processOrderbookActiveOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, address string) ([]orderbookdomain.LimitOrder, bool, error) {
+	rawOrders, err := o.getRawActiveOrders(ctx, orderbook, address)
+	if err != nil {
 		return nil, false, err
+	}
+
+	return o.processRawOrders(orderbook, rawOrders)
+}
+
+func (o *OrderbookUseCaseImpl) getRawActiveOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.Order, error) {
+	if o.activeOrdersCache != nil {
+		if entry, found := o.activeOrdersCache.get(orderbook.PoolID, ownerAddress); found {
+			return entry.Orders, nil
+		}
+	}
+
+	rawOrders, err := o.getRawActiveOrdersFromChain(ctx, orderbook, ownerAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the raw orders if successful
+	if o.activeOrdersCache != nil {
+		o.activeOrdersCache.set(orderbook.PoolID, ownerAddress, activeOrdersCacheEntry{
+			Orders: rawOrders,
+		})
+	}
+
+	return rawOrders, nil
+}
+
+// getActiveOrdersFromChain fetches raw active orders from the chain for a given orderbook and address.
+// It returns the raw orders, a best-effort flag, and any error that occurred.
+func (o *OrderbookUseCaseImpl) getRawActiveOrdersFromChain(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.Order, error) {
+	if err := orderbook.Validate(); err != nil {
+		return nil, err
 	}
 
 	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderbook.ContractAddress, ownerAddress)
 	if err != nil {
-		return nil, false, types.FailedToGetActiveOrdersError{
+		return nil, types.FailedToGetActiveOrdersError{
 			ContractAddress: orderbook.ContractAddress,
 			OwnerAddress:    ownerAddress,
 			Err:             err,
@@ -325,9 +342,15 @@ func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 
 	// There are orders to process for given orderbook
 	if count == 0 {
-		return nil, false, nil
+		return nil, nil
 	}
 
+	return orders, nil
+}
+
+// processRawOrders processes raw orders into formatted limit orders.
+// It returns the processed limit orders and any error that occurred.
+func (o *OrderbookUseCaseImpl) processRawOrders(orderbook domain.CanonicalOrderBooksResult, orders []orderbookdomain.Order) ([]orderbookdomain.LimitOrder, bool, error) {
 	// Create a slice to store the results
 	results := make([]orderbookdomain.LimitOrder, 0, len(orders))
 

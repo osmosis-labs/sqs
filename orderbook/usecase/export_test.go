@@ -15,5 +15,9 @@ func (o *OrderbookUseCaseImpl) SetFetchActiveOrdersEveryDuration(duration time.D
 
 // ProcessOrderBookActiveOrders is an alias of processOrderBookActiveOrders for testing purposes
 func (o *OrderbookUseCaseImpl) ProcessOrderBookActiveOrders(ctx context.Context, orderBook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
-	return o.processOrderBookActiveOrders(ctx, orderBook, ownerAddress)
+	return o.processOrderbookActiveOrders(ctx, orderBook, ownerAddress)
+}
+
+func (o *OrderbookUseCaseImpl) DisableCache() {
+	o.activeOrdersCache = nil
 }

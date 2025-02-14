@@ -3,6 +3,7 @@ package orderbookusecase_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -413,6 +414,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
 			if tc.setupMocks != nil {
 				tc.setupMocks(ctx, cancel, usecase, &orderbookrepositorysitory, &client, &poolsUsecase, &tokensusecase, &callcount)
 			}
+			usecase.DisableCache()
 
 			// Call the method under test
 			orders := usecase.GetActiveOrdersStream(ctx, tc.address)
@@ -420,7 +422,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
 			// Wait for the ticker to push the orders
 			if tc.expectedCallCount > 1 {
 				usecase.SetFetchActiveOrdersEveryDuration(tc.tickerDuration)
-				time.Sleep(tc.tickerDuration)
+				time.Sleep(tc.tickerDuration + time.Millisecond*10)
 			}
 
 			// Collect results from the stream
@@ -549,7 +551,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(
 					nil,
 					s.NewCanonicalOrderBooksResult(1, "A"),
-					s.NewCanonicalOrderBooksResult(1, "B"),
+					s.NewCanonicalOrderBooksResult(2, "B"),
 				)
 
 				grpcclient.GetActiveOrdersCb = func(ctx context.Context, contractAddress string, ownerAddress string) (orderbookdomain.Orders, uint64, error) {
@@ -646,6 +648,10 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			sort.SliceStable(orders, func(i, j int) bool {
 				return orders[i].OrderId < orders[j].OrderId
 			})
+			orderDebug := []string{}
+			for _, order := range orders {
+				orderDebug = append(orderDebug, fmt.Sprintf("%s-%d", order.OrderbookAddress, order.OrderId))
+			}
 
 			// Assert the results
 			if tc.expectedError != nil {
@@ -654,7 +660,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 			} else {
 				s.Assert().NoError(err)
 				s.Assert().Equal(tc.expectedIsBestEffort, isBestEffort)
-				s.Assert().Equal(tc.expectedOrders, orders)
+				s.Assert().Equal(tc.expectedOrders, orders, orderDebug)
 			}
 		})
 	}
@@ -697,7 +703,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessOrderBookActiveOrders() {
 			order:                newLimitOrder().WithOrderbookAddress("A"),
 			ownerAddress:         "osmo1h5la3t4y8cljl34lsqdszklvcn053u4ryz9qr78v64rsxezyxwlsdelsdr",
 			expectedError:        nil,
-			expectedOrders:       nil,
+			expectedOrders:       []orderbookdomain.LimitOrder{},
 			expectedIsBestEffort: false,
 		},
 		{

@@ -14,10 +14,9 @@ type cacheKey struct {
 	userAddress string
 }
 
-// activeOrdersCacheEntry represents a single cache entry containing active orders and a best-effort flag
+// activeOrdersCacheEntry represents a single cache entry containing active orders
 type activeOrdersCacheEntry struct {
-	Orders       []orderbookdomain.LimitOrder
-	IsBestEffort bool
+	Orders []orderbookdomain.Order
 }
 
 // activeOrdersCache is a thread-safe LRU cache for active orders
