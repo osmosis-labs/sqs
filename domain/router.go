@@ -30,6 +30,10 @@ type Route interface {
 	// Returns error if the calculation fails.
 	CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error)
 
+	// CalculateTokenInByTokenOut calculates the token out amount given the token in amount.
+	// Returns error if the calculation fails.
+	CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error)
+
 	// Returns token out denom of the last pool in the route.
 	// If route is empty, returns empty string.
 	GetTokenOutDenom() string
@@ -59,7 +63,7 @@ type SplitRoute interface {
 
 type Quote interface {
 	GetAmountIn() sdk.Coin
-	GetAmountOut() osmomath.Int
+	GetAmountOut() sdk.Coin
 	GetRoute() []SplitRoute
 	GetEffectiveFee() osmomath.Dec
 	GetPriceImpact() osmomath.Dec
