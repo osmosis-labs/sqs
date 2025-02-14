@@ -25,7 +25,7 @@ const (
 	NoPoolLiquidityCapError = noPoolLiquidityCapError
 )
 
-func ValidateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
+func ValidateAndFilterRoutesOutGivenIn(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
 	return validateAndFilterRoutesOutGivenIn(candidateRoutes, tokenInDenom, logger)
 }
 
@@ -33,8 +33,12 @@ func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, 
 	return r.handleCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 }
 
-func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
+func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
 	return r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn, logger)
+}
+
+func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
+	return r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, logger)
 }
 
 func FilterDuplicatePoolIDRoutes(rankedRoutes []RouteWithOutAmount) []route.RouteImpl {

@@ -34,26 +34,56 @@ type quoteExactAmountOut struct {
 
 // GetAmountIn implements Quote.
 func (q *quoteExactAmountOut) GetAmountIn() sdk.Coin {
+	// falling back to implementation based on inverting q.quoteExactAmountIn
+	if q.quoteExactAmountIn != nil {
+		return q.quoteExactAmountIn.GetAmountIn()
+	}
+
+	// in a new implementation q.quoteExactAmountIn is no longer set
 	return sdk.Coin{Amount: q.AmountIn}
 }
 
 // GetAmountOut implements Quote.
 func (q *quoteExactAmountOut) GetAmountOut() sdk.Coin {
+	// falling back to implementation based on inverting q.quoteExactAmountIn
+	if q.quoteExactAmountIn != nil {
+		return q.quoteExactAmountIn.GetAmountOut()
+	}
+
+	// in a new implementation q.quoteExactAmountIn is no longer set
 	return q.AmountOut
 }
 
 // GetRoute implements Quote.
 func (q *quoteExactAmountOut) GetRoute() []domain.SplitRoute {
+	// falling back to implementation based on inverting q.quoteExactAmountIn
+	if q.quoteExactAmountIn != nil {
+		return q.quoteExactAmountIn.GetRoute()
+	}
+
+	// in a new implementation q.quoteExactAmountIn is no longer set
 	return q.Route
 }
 
 // GetEffectiveFee implements Quote.
 func (q *quoteExactAmountOut) GetEffectiveFee() osmomath.Dec {
+	// falling back to implementation based on inverting q.quoteExactAmountIn
+	if q.quoteExactAmountIn != nil {
+		return q.quoteExactAmountIn.GetEffectiveFee()
+	}
+
+	// in a new implementation q.quoteExactAmountIn is no longer set
 	return q.EffectiveFee
 }
 
 // String implements domain.Quote.
 func (q *quoteExactAmountOut) String() string {
+	// falling back to implementation based on inverting q.quoteExactAmountIn
+	if q.quoteExactAmountIn != nil {
+		return q.quoteExactAmountIn.String()
+	}
+
+	// in a new implementation q.quoteExactAmountIn is no longer set
 	var builder strings.Builder
 
 	builder.WriteString(fmt.Sprintf("Quote: %s in for %s out \n", q.AmountIn, q.AmountOut))
@@ -67,16 +97,35 @@ func (q *quoteExactAmountOut) String() string {
 
 // GetPriceImpact implements domain.Quote.
 func (q *quoteExactAmountOut) GetPriceImpact() osmomath.Dec {
+	// falling back to implementation based on inverting q.quoteExactAmountIn
+	if q.quoteExactAmountIn != nil {
+		return q.quoteExactAmountIn.GetPriceImpact()
+	}
+
+	// in a new implementation q.quoteExactAmountIn is no longer set
 	return q.PriceImpact
 }
 
 // GetInBaseOutQuoteSpotPrice implements domain.Quote.
 func (q *quoteExactAmountOut) GetInBaseOutQuoteSpotPrice() osmomath.Dec {
+	// falling back to implementation based on inverting q.quoteExactAmountIn
+	if q.quoteExactAmountIn != nil {
+		return q.quoteExactAmountIn.GetInBaseOutQuoteSpotPrice()
+	}
+
+	// in a new implementation q.quoteExactAmountIn is no longer set
 	return q.InBaseOutQuoteSpotPrice
 }
 
 // SetQuotePriceInfo implements domain.Quote.
 func (q *quoteExactAmountOut) SetQuotePriceInfo(info *domain.TxFeeInfo) {
+	// falling back to implementation based on inverting q.quoteExactAmountIn
+	if q.quoteExactAmountIn != nil {
+		q.quoteExactAmountIn.SetQuotePriceInfo(info)
+		return
+	}
+
+	// in a new implementation q.quoteExactAmountIn is no longer set
 	q.PriceInfo = info
 }
 
@@ -150,7 +199,7 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountOutFraction))
 
 		amountOutFraction := q.AmountOut.Amount.ToLegacyDec().MulMut(routeAmountOutFraction).TruncateInt()
-		newPools, routeSpotPriceOutBaseInQuote, effectiveSpotPriceOutBaseInQuote, err := curRoute.PrepareResultPoolsExactAmountOut(ctx, sdk.NewCoin(q.AmountOut.Denom, amountOutFraction), logger)
+		newPools, routeSpotPriceOutBaseInQuote, effectiveSpotPriceOutBaseInQuote, err := curRoute.PrepareResultPoolsInGivenOut(ctx, sdk.NewCoin(q.AmountOut.Denom, amountOutFraction), logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}

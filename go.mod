@@ -2,8 +2,6 @@ module github.com/osmosis-labs/sqs
 
 go 1.22.7
 
-toolchain go1.23.3
-
 require (
 	cosmossdk.io/math v1.5.0
 	cosmossdk.io/store v1.1.1
@@ -113,7 +111,7 @@ require (
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cometbft/cometbft-db v0.14.1 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
-	github.com/cosmos/cosmos-proto v1.0.0-beta.5
+	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.0

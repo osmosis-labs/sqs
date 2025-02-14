@@ -156,7 +156,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	// Only "out given in" swap method is supported for simulation. Thus, we also check for tokenOutDenom being set.
 	simulatorAddress := req.SimulatorAddress
 	if req.SingleRoute && simulatorAddress != "" && req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		priceInfo := a.QuoteSimulator.SimulateQuoteOutGivenIn(ctx, quote, req.SlippageToleranceMultiplier, simulatorAddress) // TODO:
+		priceInfo := a.QuoteSimulator.SimulateQuoteOutGivenIn(ctx, quote, req.SlippageToleranceMultiplier, simulatorAddress)
 
 		// Set the quote price info.
 		quote.SetQuotePriceInfo(&priceInfo)

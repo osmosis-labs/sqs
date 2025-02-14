@@ -11,7 +11,7 @@ type QuoteSimulatorMock struct {
 	SimulateQuoteFn func(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) domain.TxFeeInfo
 }
 
-// SimulateQuote implements domain.QuoteSimulator.
+// SimulateQuoteOutGivenIn implements domain.QuoteSimulator.
 func (q *QuoteSimulatorMock) SimulateQuoteOutGivenIn(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) domain.TxFeeInfo {
 	if q.SimulateQuoteFn != nil {
 		return q.SimulateQuoteFn(ctx, quote, slippageToleranceMultiplier, simulatorAddress)

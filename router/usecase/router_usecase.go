@@ -56,7 +56,7 @@ const (
 
 var (
 	zero = osmomath.ZeroInt()
-	inf = osmomath.NewInt(math.MaxInt64)
+	inf  = osmomath.NewInt(math.MaxInt64)
 )
 
 // NewRouterUsecase will create a new pools use case object
@@ -267,6 +267,8 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 	if len(rankedRoutes) == 1 {
 		return topSingleRouteQuote, nil
 	}
+
+	return topSingleRouteQuote, nil
 
 	// Compute split route quote
 	topSplitQuote, err := getSplitQuoteInGivenOut(ctx, rankedRoutes, tokenOut)

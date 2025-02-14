@@ -82,12 +82,15 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 	return finalQuote, routesWithAmountOut, nil
 }
 
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+// Returns best quote as well as all routes sorted by amount in and error if any.
+// CONTRACT: router repository must be set on the router.
+// CONTRACT: pools reporitory must be set on the router
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) { //nolint:unused
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenOut.Denom)
 	}
 
-	routesWithAmountOut := make([]RouteWithOutAmount, 0, len(routes))
+	routesWithAmountIn := make([]RouteWithOutAmount, 0, len(routes))
 
 	errors := []error{}
 
@@ -103,7 +106,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 			directRouteTokenIn.Amount = osmomath.ZeroInt()
 		}
 
-		routesWithAmountOut = append(routesWithAmountOut, RouteWithOutAmount{
+		routesWithAmountIn = append(routesWithAmountIn, RouteWithOutAmount{
 			RouteImpl: route,
 			InAmount:  directRouteTokenIn.Amount,
 			OutAmount: tokenOut.Amount,
@@ -111,7 +114,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 	}
 
 	// If we skipped all routes due to errors, return the first error
-	if len(routesWithAmountOut) == 0 && len(errors) > 0 {
+	if len(routesWithAmountIn) == 0 && len(errors) > 0 {
 		// If we encounter this problem, we attempte to invalidate all caches to recompute the routes
 		// completely.
 		// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
@@ -129,11 +132,11 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 	}
 
 	// Sort by amount out in ascending order
-	sort.Slice(routesWithAmountOut, func(i, j int) bool {
-		return routesWithAmountOut[i].InAmount.LT(routesWithAmountOut[j].InAmount)
+	sort.Slice(routesWithAmountIn, func(i, j int) bool {
+		return routesWithAmountIn[i].InAmount.LT(routesWithAmountIn[j].InAmount)
 	})
 
-	bestRoute := routesWithAmountOut[0]
+	bestRoute := routesWithAmountIn[0]
 
 	finalQuote := &quoteExactAmountOut{
 		AmountIn:  bestRoute.InAmount,
@@ -141,7 +144,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 		Route:     []domain.SplitRoute{&bestRoute},
 	}
 
-	return finalQuote, routesWithAmountOut, nil
+	return finalQuote, routesWithAmountIn, nil
 }
 
 // validateAndFilterRoutesOutGivenIn validates all routes. Specifically:
@@ -265,125 +268,6 @@ ROUTE_LOOP:
 
 	if tokenOutDenom == tokenInDenom {
 		return ingesttypes.CandidateRoutes{}, TokenOutDenomMatchesTokenInDenomError{Denom: tokenOutDenom}
-	}
-
-	return ingesttypes.CandidateRoutes{
-		Routes:                     filteredRoutes,
-		UniquePoolIDs:              uniquePoolIDs,
-		ContainsCanonicalOrderbook: containsCanonicalOrderbook,
-	}, nil
-}
-
-// validateAndFilterRoutesOutGivenIn validates all routes. Specifically:
-// - all routes have at least one pool.
-// - all routes have the same final token out denom.
-// - the final token out denom is not the same as the token in denom.
-// - intermediary pools in the route do not contain the token in denom or token out denom.
-// - the previous pool token out denom is in the current pool.
-// - the current pool token out denom is in the current pool.
-// Returns error if not. Nil otherwise.
-func validateAndFilterRoutesInGivenOut(candidateRoutes []candidateRouteWrapper, tokenOutDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
-	var (
-		tokenInDenom   string
-		filteredRoutes []ingesttypes.CandidateRoute
-	)
-
-	uniquePoolIDs := make(map[uint64]struct{})
-
-	containsCanonicalOrderbook := false
-
-ROUTE_LOOP:
-	for i, candidateRoute := range candidateRoutes {
-		candidateRoutePools := candidateRoute.Pools
-
-		containsCanonicalOrderbook = containsCanonicalOrderbook || candidateRoute.IsCanonicalOrderboolRoute
-
-		if len(candidateRoute.Pools) == 0 {
-			return ingesttypes.CandidateRoutes{}, NoPoolsInRouteError{RouteIndex: i}
-		}
-
-		lastPool := candidateRoutePools[len(candidateRoutePools)-1]
-		currentRouteTokenInDenom := lastPool.TokenInDenom
-
-		previousTokenIn := tokenOutDenom
-
-		uniquePoolIDsIntraRoute := make(map[uint64]struct{}, len(candidateRoutePools))
-
-		for j, currentPool := range candidateRoutePools {
-			if _, ok := uniquePoolIDs[currentPool.ID]; !ok {
-				uniquePoolIDs[currentPool.ID] = struct{}{}
-			}
-
-			if _, ok := uniquePoolIDsIntraRoute[currentPool.ID]; ok {
-				continue ROUTE_LOOP
-			} else {
-				uniquePoolIDsIntraRoute[currentPool.ID] = struct{}{}
-			}
-
-			currentPoolDenoms := candidateRoutePools[j].PoolDenoms
-			currentPoolTokenInDenom := currentPool.TokenInDenom
-
-			foundPreviousTokenIn := false
-			foundCurrentTokenIn := false
-			for _, denom := range currentPoolDenoms {
-				if denom == previousTokenIn {
-					foundPreviousTokenIn = true
-				}
-
-				if denom == currentPoolTokenInDenom {
-					foundCurrentTokenIn = true
-				}
-
-				if j > 0 && j < len(candidateRoutePools)-1 {
-					if denom == tokenOutDenom {
-						logger.Warn("route skipped - found token out in intermediary pool", zap.Error(RoutePoolWithTokenOutDenomError{RouteIndex: i, TokenOutDenom: tokenOutDenom}))
-						continue ROUTE_LOOP
-					}
-
-					if denom == currentRouteTokenInDenom {
-						logger.Warn("route skipped - found token in intermediary pool", zap.Error(RoutePoolWithTokenInDenomError{RouteIndex: i, TokenInDenom: currentPoolTokenInDenom}))
-						continue ROUTE_LOOP
-					}
-				}
-			}
-
-			if !foundPreviousTokenIn {
-				return ingesttypes.CandidateRoutes{}, PreviousTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, PreviousTokenOutDenom: previousTokenIn}
-			}
-
-			if !foundCurrentTokenIn {
-				return ingesttypes.CandidateRoutes{}, CurrentTokenOutDenomNotInPoolError{RouteIndex: i, PoolId: currentPool.ID, CurrentTokenOutDenom: currentPoolTokenInDenom}
-			}
-
-			previousTokenIn = currentPoolTokenInDenom
-		}
-
-		if i > 0 {
-			if currentRouteTokenInDenom != tokenInDenom {
-				return ingesttypes.CandidateRoutes{}, TokenOutMismatchBetweenRoutesError{TokenOutDenomRouteA: tokenInDenom, TokenOutDenomRouteB: currentRouteTokenInDenom}
-			}
-		}
-
-		tokenInDenom = currentRouteTokenInDenom
-
-		filteredRoute := ingesttypes.CandidateRoute{
-			IsCanonicalOrderboolRoute: candidateRoute.IsCanonicalOrderboolRoute,
-			Pools:                     make([]ingesttypes.CandidatePool, 0, len(candidateRoutePools)),
-		}
-
-		for _, pool := range candidateRoutePools {
-			filteredRoute.Pools = append(filteredRoute.Pools, ingesttypes.CandidatePool{
-				ID:            pool.ID,
-				TokenInDenom:  pool.TokenInDenom,
-				TokenOutDenom: pool.TokenOutDenom,
-			})
-		}
-
-		filteredRoutes = append(filteredRoutes, filteredRoute)
-	}
-
-	if tokenInDenom == tokenOutDenom {
-		return ingesttypes.CandidateRoutes{}, TokenOutDenomMatchesTokenInDenomError{Denom: tokenInDenom}
 	}
 
 	return ingesttypes.CandidateRoutes{

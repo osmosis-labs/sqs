@@ -9,8 +9,8 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 )
 
-// Microbenchmark for the GetSplitQuote function.
-func BenchmarkCandidateRouteSearcher(b *testing.B) {
+// Microbenchmark for the CandidateRouteSearcher's FindCandidateRoutesOutGivenIn method.
+func BenchmarkCandidateRouteSearcherFindCandidateRoutesOutGivenIn(b *testing.B) {
 	// This is a hack to be able to use test suite helpers with the benchmark.
 	// We need to set testing.T for assertings within the helpers. Otherwise, it would block
 	s := RouterTestSuite{}

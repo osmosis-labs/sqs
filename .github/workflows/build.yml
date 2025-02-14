@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone Repository
-        uses: actions/checkout@master
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Download code coverage results
@@ -54,7 +54,7 @@ jobs:
           name: code-coverage-report
 #          path: app
       - name: Analyze with SonarCloud
-        uses: sonarsource/sonarcloud-github-action@master
+        uses: sonarsource/sonarqube-scan-action@v4
         with:
 #          projectBaseDir: app
           args: >
