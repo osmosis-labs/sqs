@@ -19,7 +19,7 @@ func (o *orderbookFillerIngestPlugin) estimateCyclicArb(ctx blockctx.BlockCtxI, 
 
 	goCtx := ctx.AsGoCtx()
 
-	baseInOrderbookQuote, err := o.routerUseCase.GetCustomDirectQuote(goCtx, coinIn, denomOut, canonicalOrderbookPoolId)
+	baseInOrderbookQuote, err := o.routerUseCase.GetCustomDirectQuoteOutGivenIn(goCtx, coinIn, denomOut, canonicalOrderbookPoolId)
 	if err != nil {
 		return osmomath.Int{}, nil, err
 	}

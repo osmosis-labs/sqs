@@ -80,7 +80,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
 		amountInFraction := q.AmountIn.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPools(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), logger)
+		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPoolsOutGivenIn(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}

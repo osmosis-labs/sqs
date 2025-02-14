@@ -86,7 +86,7 @@ var (
 // Based on this fact and only having a testcase with a single balancer pool in the route,
 // or balancer and trasnsmuter, we can validate that spot prices are computed equal to the
 // spot price of the balancer pool.
-func (s *RouterTestSuite) TestPrepareResultPools() {
+func (s *RouterTestSuite) TestPrepareResultPoolsOutGivenIn() {
 	s.Setup()
 
 	const (
@@ -207,7 +207,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 		s.Run(name, func() {
 
 			// Note: token in is chosen arbitrarily since it is irrelevant for this test
-			actualPools, spotPriceBeforeInBaseOutQuote, _, err := tc.route.PrepareResultPools(context.TODO(), tc.tokenIn, &log.NoOpLogger{})
+			actualPools, spotPriceBeforeInBaseOutQuote, _, err := tc.route.PrepareResultPoolsOutGivenIn(context.TODO(), tc.tokenIn, &log.NoOpLogger{})
 			s.Require().NoError(err)
 
 			s.Require().Equal(tc.expectedSpotPriceInBaseOutQuote, spotPriceBeforeInBaseOutQuote)

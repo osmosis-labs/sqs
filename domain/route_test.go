@@ -132,7 +132,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 		s.Run(name, func() {
 
 			// Note: token in is chosen arbitrarily since it is irrelevant for this test
-			actualPools, _, _, err := tc.route.PrepareResultPools(context.TODO(), sdk.NewCoin(DenomTwo, DefaultAmt0), &log.NoOpLogger{})
+			actualPools, _, _, err := tc.route.PrepareResultPoolsOutGivenIn(context.TODO(), sdk.NewCoin(DenomTwo, DefaultAmt0), &log.NoOpLogger{})
 			s.Require().NoError(err)
 
 			s.ValidateRoutePools(tc.expectedPools, actualPools)

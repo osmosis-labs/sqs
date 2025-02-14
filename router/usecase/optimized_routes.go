@@ -20,7 +20,7 @@ import (
 // Returns best quote as well as all routes sorted by amount out and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
@@ -82,7 +82,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 	return finalQuote, routesWithAmountOut, nil
 }
 
-// validateAndFilterRoutes validates all routes. Specifically:
+// validateAndFilterRoutesOutGivenIn validates all routes. Specifically:
 // - all routes have at least one pool.
 // - all routes have the same final token out denom.
 // - the final token out denom is not the same as the token in denom.
@@ -90,7 +90,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuote(ctx context.Context,
 // - the previous pool token out denom is in the current pool.
 // - the current pool token out denom is in the current pool.
 // Returns error if not. Nil otherwise.
-func validateAndFilterRoutes(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
+func validateAndFilterRoutesOutGivenIn(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
 	var (
 		tokenOutDenom  string
 		filteredRoutes []ingesttypes.CandidateRoute
@@ -194,6 +194,7 @@ ROUTE_LOOP:
 			filteredRoute.Pools = append(filteredRoute.Pools, ingesttypes.CandidatePool{
 				ID:            pool.ID,
 				TokenOutDenom: pool.TokenOutDenom,
+				TokenInDenom:  pool.TokenInDenom,
 			})
 		}
 

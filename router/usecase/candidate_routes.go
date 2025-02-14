@@ -36,8 +36,8 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 	}
 }
 
-// FindCandidateRoutes implements domain.CandidateRouteFinder.
-func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+// FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
+func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
 	// Preallocate constant visited map size to avoid reallocations.
@@ -77,6 +77,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 						{
 							CandidatePool: ingesttypes.CandidatePool{
 								ID:            canonicalOrderbook.GetId(),
+								TokenInDenom:  tokenIn.Denom,
 								TokenOutDenom: tokenOutDenom,
 							},
 							PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
@@ -208,6 +209,7 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 					newPath = append(newPath, candidatePoolWrapper{
 						CandidatePool: ingesttypes.CandidatePool{
 							ID:            poolID,
+							TokenInDenom:  currenTokenInDenom,
 							TokenOutDenom: denom,
 						},
 						PoolDenoms: poolDenoms,
@@ -233,7 +235,26 @@ func (c candidateRouteFinder) FindCandidateRoutes(tokenIn sdk.Coin, tokenOutDeno
 		}
 	}
 
-	return validateAndFilterRoutes(routes, tokenIn.Denom, c.logger)
+	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
+}
+
+// FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
+func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+	// Fetching the candidate routes as for the exact amount of token in swap method
+	// That will be the same as the exact amount out swap method with inverted token denominations
+	routes, err := c.FindCandidateRoutesOutGivenIn(tokenOut, tokenInDenom, options)
+	if err != nil {
+		return ingesttypes.CandidateRoutes{}, err
+	}
+
+	// Inverting token denominations for each route to match exact amount out swap method
+	for i, v := range routes.Routes {
+		for j := range v.Pools {
+			routes.Routes[i].Pools[j].TokenInDenom, routes.Routes[i].Pools[j].TokenOutDenom = routes.Routes[i].Pools[j].TokenOutDenom, routes.Routes[i].Pools[j].TokenInDenom
+		}
+	}
+
+	return routes, nil
 }
 
 // Pool represents a pool in the decentralized exchange.

@@ -30,8 +30,8 @@ func NewQuoteSimulator(msgSimulator tx.MsgSimulator, encodingConfig params.Encod
 	}
 }
 
-// SimulateQuote implements domain.QuoteSimulator
-func (q *quoteSimulator) SimulateQuote(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) domain.TxFeeInfo {
+// SimulateQuoteOutGivenIn implements domain.QuoteSimulator
+func (q *quoteSimulator) SimulateQuoteOutGivenIn(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) domain.TxFeeInfo {
 	route := quote.GetRoute()
 	if len(route) != 1 {
 		return domain.TxFeeInfo{Err: fmt.Sprintf("route length must be 1, got %d", len(route))}
