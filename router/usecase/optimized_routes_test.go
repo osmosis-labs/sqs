@@ -993,10 +993,10 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteOutGivenIn(context.Background(), routes, defaultTokenIn, &log.NoOpLogger{})
 
 			// Get cache results
-			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), defaultTokenIn.Denom, tokenOutDenom)
+			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom)
 			s.Require().NoError(err)
 
-			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
+			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
 			s.Require().NoError(err)
 
 			if tc.expectedError != nil {
@@ -1195,10 +1195,10 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteInGivenOut(context.Background(), routes, defaultTokenOut, &log.NoOpLogger{})
 
 			// Get cache results
-			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), defaultTokenOut.Denom, tokenOutDenom)
+			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom)
 			s.Require().NoError(err)
 
-			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), defaultTokenOut.Denom, tokenOutDenom, tokenOutOrderOfMagnitude)
+			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom, tokenOutOrderOfMagnitude)
 			s.Require().NoError(err)
 
 			if tc.expectedError != nil {

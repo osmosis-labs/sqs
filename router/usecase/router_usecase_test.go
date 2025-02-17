@@ -332,7 +332,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 				return
 			}
 
-			cachedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, tokenInDenom, tokenOutDenom)
+			cachedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, tokenInDenom, tokenOutDenom)
 
 			if tc.isCacheConfigDisabled {
 				s.Require().NoError(err)

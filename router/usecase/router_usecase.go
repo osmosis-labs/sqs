@@ -114,7 +114,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 		// This is used for caching ranked routes as these might differ depending on the amount swapped in.
 		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
 
-		candidateRankedRoutes, err = r.GetCachedRankedRoutes(ctx, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
+		candidateRankedRoutes, err = r.GetCachedRankedRoutes(ctx, domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
 		if err != nil {
 			return nil, err
 		}
@@ -602,7 +602,7 @@ func (r *routerUseCaseImpl) GetTakerFee(poolID uint64) ([]ingesttypes.TakerFeeFo
 }
 
 // GetCachedCandidateRoutes implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error) {
+func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error) {
 	if !r.defaultConfig.RouteCacheEnabled {
 		return ingesttypes.CandidateRoutes{}, false, nil
 	}
@@ -613,7 +613,7 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenI
 		return ingesttypes.CandidateRoutes{}, false, err
 	}
 
-	cachedCandidateRoutes, found := r.candidateRouteCache.Get(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenInDenom, tokenOutDenom))
+	cachedCandidateRoutes, found := r.candidateRouteCache.Get(formatCandidateRouteCacheKey(method, tokenInDenom, tokenOutDenom))
 	if !found {
 		// Increase cache misses
 		domain.SQSRoutesCacheMissesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
@@ -635,7 +635,7 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, tokenI
 }
 
 // GetCachedRankedRoutes implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, tokenInDenom string, tokenOutDenom string, tokenInOrderOfMagnitude int) (ingesttypes.CandidateRoutes, error) {
+func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string, tokenInOrderOfMagnitude int) (ingesttypes.CandidateRoutes, error) {
 	if !r.defaultConfig.RouteCacheEnabled {
 		return ingesttypes.CandidateRoutes{}, nil
 	}
@@ -646,7 +646,7 @@ func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, tokenInDe
 		return ingesttypes.CandidateRoutes{}, err
 	}
 
-	cachedRankedRoutes, found := r.rankedRouteCache.Get(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenInDenom, tokenOutDenom, tokenInOrderOfMagnitude))
+	cachedRankedRoutes, found := r.rankedRouteCache.Get(formatRankedRouteCacheKey(method, tokenInDenom, tokenOutDenom, tokenInOrderOfMagnitude))
 	if !found {
 		// Increase cache misses
 		domain.SQSRoutesCacheMissesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
@@ -677,7 +677,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 	// Check cache for routes if enabled
 	var isFoundCached bool
 	if !candidateRouteSearchOptions.DisableCache {
-		candidateRoutes, isFoundCached, err = r.GetCachedCandidateRoutes(ctx, tokenIn.Denom, tokenOutDenom)
+		candidateRoutes, isFoundCached, err = r.GetCachedCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom)
 		if err != nil {
 			return ingesttypes.CandidateRoutes{}, err
 		}
