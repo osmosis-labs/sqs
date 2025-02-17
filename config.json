@@ -1,21 +1,25 @@
 {
-	"flight-record": {
-		"enabled": false
-	},
-	"otel": {
-		"enabled": false,
-		"environment": "sqs-dev"
-	},
-	"grpc-ingester": {
-		"plugins": [
-			{
-				"name": "orderbook-fillbot-plugin",
-				"enabled": false
-			},
-			{
-				"name": "orderbook-claimbot-plugin",
-				"enabled": false
-			}
-		]
-	}
+  "flight-record": {
+    "enabled": false
+  },
+  "otel": {
+    "enabled": false,
+    "environment": "sqs-dev"
+  },
+  "grpc-ingester": {
+    "plugins": [
+      {
+        "name": "orderbook-orders-cache-plugin",
+        "enabled": false
+      },
+      {
+        "name": "orderbook-fillbot-plugin",
+        "enabled": false
+      },
+      {
+        "name": "orderbook-claimbot-plugin",
+        "enabled": false
+      }
+    ]
+  }
 }

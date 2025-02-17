@@ -274,17 +274,16 @@ func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context,
 		return nil, false, err
 	}
 
-	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderbook.ContractAddress, ownerAddress)
-	if err != nil {
-		return nil, false, types.FailedToGetActiveOrdersError{
-			ContractAddress: orderbook.ContractAddress,
-			OwnerAddress:    ownerAddress,
-			Err:             err,
+	allOrders, _ := o.orderbookRepository.GetOrders(orderbook.PoolID)
+	var orders []orderbookdomain.Order
+	for _, order := range allOrders {
+		if order.Owner == ownerAddress {
+			orders = append(orders, order)
 		}
 	}
 
 	// There are orders to process for given orderbook
-	if count == 0 {
+	if len(orders) == 0 {
 		return nil, false, nil
 	}
 
@@ -494,7 +493,6 @@ func (o *OrderbookUseCaseImpl) CreateFormattedLimitOrder(orderbook domain.Canoni
 		Owner:            order.Owner,
 		Quantity:         quantity,
 		Etas:             order.Etas,
-		ClaimBounty:      order.ClaimBounty,
 		PlacedQuantity:   placedQuantity,
 		PercentClaimed:   percentClaimed,
 		TotalFilled:      totalFilled,

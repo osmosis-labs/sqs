@@ -22,7 +22,6 @@ var defaultOrder = orderbookdomain.Order{
 	Quantity:       "1000",
 	PlacedQuantity: "1500",
 	Etas:           "500",
-	ClaimBounty:    "10",
 	PlacedAt:       "1634764800000",
 }
 

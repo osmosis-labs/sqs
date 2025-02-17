@@ -28,6 +28,7 @@ import (
 	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/basefee"
 	orderbookclaimbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
 	orderbookfillbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot"
+	orderbookorderscache "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/orderscache"
 	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
 	"github.com/osmosis-labs/sqs/quotesimulator"
@@ -293,6 +294,10 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		for _, plugin := range grpcIngesterConfig.Plugins {
 			if plugin.IsEnabled() {
 				var currentPlugin domain.EndBlockProcessPlugin
+
+				if plugin.GetName() == orderbookplugindomain.OrderbookOrdersCachePlugin {
+					currentPlugin = orderbookorderscache.New(orderBookRepository, poolsUseCase, logger, passthroughGRPCClient)
+				}
 
 				if plugin.GetName() == orderbookplugindomain.OrderbookFillbotPlugin {
 					// Create keyring
