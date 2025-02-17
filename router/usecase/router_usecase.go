@@ -365,7 +365,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	}
 
 	// If top routes are not present in cache, retrieve unranked candidate routes
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+	candidateRoutes, err := r.handleCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))
 		return nil, nil, err
@@ -561,7 +561,7 @@ func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenIn sdk.
 		candidateRouteSearchOptions.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
 	}
 
-	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+	candidateRoutes, err := r.handleCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		return ingesttypes.CandidateRoutes{}, err
 	}
@@ -664,14 +664,14 @@ func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, method do
 	return rankedRoutes, nil
 }
 
-// handleCandidateRoutes attempts to retrieve candidate routes from the cache. If no routes are cached, it will
+// handleCandidateRoutesOutGivenIn attempts to retrieve candidate routes from the cache. If no routes are cached, it will
 // compute, persist in cache and return them.
 // Returns routes on success
 // Errors if:
 // - there is an error retrieving routes from cache
 // - there are no routes cached and there is an error computing them
 // - fails to persist the computed routes in cache
-func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
+func (r *routerUseCaseImpl) handleCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
 	r.logger.Debug("getting routes")
 
 	// Check cache for routes if enabled
@@ -708,6 +708,56 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 
 			r.logger.Debug("persisting routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
 			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(cacheDurationSeconds)*time.Second)
+		}
+	}
+
+	return candidateRoutes, nil
+}
+
+// handleCandidateRoutesInGivenOut attempts to retrieve candidate routes from the cache. If no routes are cached, it will
+// compute, persist in cache and return them.
+// Returns routes on success
+// Errors if:
+// - there is an error retrieving routes from cache
+// - there are no routes cached and there is an error computing them
+// - fails to persist the computed routes in cache
+func (r *routerUseCaseImpl) handleCandidateRoutesInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) { // nolint:unused
+	r.logger.Debug("getting routes")
+
+	// Check cache for routes if enabled
+	var isFoundCached bool
+	if !candidateRouteSearchOptions.DisableCache {
+		candidateRoutes, isFoundCached, err = r.GetCachedCandidateRoutes(ctx, domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom)
+		if err != nil {
+			return ingesttypes.CandidateRoutes{}, err
+		}
+	}
+
+	r.logger.Debug("cached routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
+
+	// If no routes are cached, find them
+	if !isFoundCached {
+		r.logger.Debug("calculating routes")
+
+		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesInGivenOut(tokenOut, tokenInDenom, candidateRouteSearchOptions)
+		if err != nil {
+			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
+			return ingesttypes.CandidateRoutes{}, err
+		}
+
+		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
+
+		// Persist routes
+		if !candidateRouteSearchOptions.DisableCache {
+			cacheDurationSeconds := r.defaultConfig.CandidateRouteCacheExpirySeconds
+			if len(candidateRoutes.Routes) == 0 {
+				// If there are no routes, we want to cache the result for a shorter duration
+				// Add 1 to ensure that it is never 0 as zero signifies never clearing.
+				cacheDurationSeconds = cacheDurationSeconds/4 + 1
+			}
+
+			r.logger.Debug("persisting routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom), candidateRoutes, time.Duration(cacheDurationSeconds)*time.Second)
 		}
 	}
 
