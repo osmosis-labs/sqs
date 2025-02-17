@@ -343,7 +343,7 @@ func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []route.RouteWithO
 }
 
 // rankRoutesByDirectQuoteOutGivenIn ranks the given candidate routes by estimating direct quotes over each route.
-// Additionally, it fileters out routes with duplicate pool IDs and cuts them for splits
+// Additionally, it filters out routes with duplicate pool IDs and cuts them for splits
 // based on the value of maxSplitRoutes.
 // Returns the top quote as well as the ranked routes in decrease order of amount out.
 // Returns error if:
@@ -380,7 +380,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuoteOutGivenIn(ctx context.Contex
 // - fails to read taker fees
 // - fails to convert candidate routes to routes
 // - fails to estimate direct quotes
-func (r *routerUseCaseImpl) rankRoutesByDirectQuoteInGivenOut(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenOut sdk.Coin, tokenInDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) rankRoutesByDirectQuoteInGivenOut(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenOut sdk.Coin, tokenInDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) { // nolint:unused
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenOut.Denom, tokenInDenom)
