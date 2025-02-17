@@ -28,7 +28,7 @@ type RouterUsecaseMock struct {
 	GetCandidateRoutesFunc                       func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (ingesttypes.CandidateRoutes, error)
 	GetTakerFeeFunc                              func(poolID uint64) ([]ingesttypes.TakerFeeForPair, error)
 	SetTakerFeesFunc                             func(takerFees ingesttypes.TakerFeeMap)
-	GetCachedCandidateRoutesFunc                 func(ctx context.Context, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error)
+	GetCachedCandidateRoutesFunc                 func(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error)
 	StoreRouterStateFilesFunc                    func() error
 	GetRouterStateFunc                           func() (domain.RouterState, error)
 	GetSortedPoolsFunc                           func() []ingesttypes.PoolI
@@ -136,9 +136,9 @@ func (m *RouterUsecaseMock) SetTakerFees(takerFees ingesttypes.TakerFeeMap) {
 	}
 }
 
-func (m *RouterUsecaseMock) GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error) {
+func (m *RouterUsecaseMock) GetCachedCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error) {
 	if m.GetCachedCandidateRoutesFunc != nil {
-		return m.GetCachedCandidateRoutesFunc(ctx, tokenInDenom, tokenOutDenom)
+		return m.GetCachedCandidateRoutesFunc(ctx, method, tokenInDenom, tokenOutDenom)
 	}
 	return ingesttypes.CandidateRoutes{}, false, nil
 }
