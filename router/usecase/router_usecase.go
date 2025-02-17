@@ -478,6 +478,81 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteOutGivenIn(ctx cont
 	return topSingleRouteQuote, rankedRoutes, nil
 }
 
+func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) { // nolint:unused
+	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
+
+	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           routingOptions.MaxRoutes,
+		MaxPoolsPerRoute:    routingOptions.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: routingOptions.MinPoolLiquidityCap,
+		DisableCache:        routingOptions.DisableCache,
+		PoolFiltersAnyOf:    routingOptions.CandidateRoutesPoolFiltersAnyOf,
+	}
+
+	// If top routes are not present in cache, retrieve unranked candidate
+	candidateRoutes, err := r.handleCandidateRoutesInGivenOut(ctx, tokenOut, tokenInDenom, candidateRouteSearchOptions)
+	if err != nil {
+		r.logger.Error("error handling routes", zap.Error(err))
+		return nil, nil, err
+	}
+
+	// Get request path for metrics
+	requestURLPath, err := domain.GetURLPathFromContext(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if !routingOptions.DisableCache {
+		if len(candidateRoutes.Routes) > 0 {
+			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
+
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds)*time.Second)
+		} else {
+			// If no candidate routes found, cache them for quarter of the duration
+			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds/4)*time.Second)
+
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
+
+			return nil, nil, fmt.Errorf("no candidate routes found")
+		}
+	}
+
+	// Rank candidate routes by estimating direct quotes
+	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuoteInGivenOut(ctx, candidateRoutes, tokenOut, tokenInDenom, routingOptions.MaxSplitRoutes)
+	if err != nil {
+		r.logger.Error("error getting ranked routes", zap.Error(err))
+		return nil, nil, err
+	}
+
+	if len(rankedRoutes) == 0 {
+		return nil, nil, fmt.Errorf("no ranked routes found")
+	}
+
+	// Convert ranked routes back to candidate for caching
+	convertedCandidateRoutes := convertRankedToCandidateRoutes(rankedRoutes)
+
+	if len(rankedRoutes) > 0 {
+		// We would like to always consider the canonical orderbook route so that if new limits appear
+		// we can detect them. Oterwise, our cache would have to expire to detect them.
+		if !convertedCandidateRoutes.ContainsCanonicalOrderbook && candidateRoutes.ContainsCanonicalOrderbook {
+			// Find the canonical orderbook route and add it to the converted candidate routes.
+			for _, candidateRoute := range candidateRoutes.Routes {
+				if candidateRoute.IsCanonicalOrderboolRoute {
+					convertedCandidateRoutes.Routes = append(convertedCandidateRoutes.Routes, candidateRoute)
+					break
+				}
+			}
+		}
+
+		if !routingOptions.DisableCache {
+			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
+		}
+	}
+
+	return topSingleRouteQuote, rankedRoutes, nil
+}
+
 var (
 	ErrTokenInDenomPoolNotFound  = fmt.Errorf("token in denom not found in pool")
 	ErrTokenOutDenomPoolNotFound = fmt.Errorf("token out denom not found in pool")
