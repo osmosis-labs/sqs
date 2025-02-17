@@ -472,6 +472,53 @@ func (s *RouterTestSuite) TestCandidateRouteSearcherOutGivenIn_SkipPoolOption() 
 	s.Require().False(didFindExpectedPoolID)
 }
 
+// This test validates that the skip pool candidate route option works as intended
+// by setting up a test between OSMO and ATOM and excluding pool ID 1 via an option filter.
+func (s *RouterTestSuite) TestCandidateRouteSearcherInGivenOut_SkipPoolOption() {
+	mainnetState := s.SetupMainnetState()
+
+	usecase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+	oneOSMOIn := sdk.NewCoin(UOSMO, defaultAmount)
+
+	routerConfig := usecase.Router.GetConfig()
+	candidateRouteOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           routerConfig.MaxRoutes,
+		MaxPoolsPerRoute:    routerConfig.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: routerConfig.MinPoolLiquidityCap,
+	}
+
+	// OSMO/ATOM pool
+	const expectedPoolID = uint64(1)
+
+	// System under test #1
+	candidateRoutes, err := usecase.CandidateRouteSearcher.FindCandidateRoutesInGivenOut(oneOSMOIn, ATOM, candidateRouteOptions)
+	s.Require().NoError(err)
+
+	// Contains default pool ID
+	didFindExpectedPoolID := foundExpectedPoolID(expectedPoolID, candidateRoutes.Routes)
+
+	s.Require().True(didFindExpectedPoolID)
+
+	// Now, add a filter
+	candidateRoutePoolIDFilter := domain.CandidateRoutePoolIDFilterOptionCb{
+		PoolIDsToSkip: map[uint64]struct{}{
+			expectedPoolID: {},
+		},
+	}
+
+	candidateRouteOptions.PoolFiltersAnyOf = []domain.CandidateRoutePoolFiltrerCb{
+		candidateRoutePoolIDFilter.ShouldSkipPool,
+	}
+
+	// System under test #2
+	candidateRoutes, err = usecase.CandidateRouteSearcher.FindCandidateRoutesInGivenOut(oneOSMOIn, ATOM, candidateRouteOptions)
+	s.Require().NoError(err)
+
+	didFindExpectedPoolID = foundExpectedPoolID(expectedPoolID, candidateRoutes.Routes)
+	s.Require().False(didFindExpectedPoolID)
+}
+
 func (s *RouterTestSuite) validateExpectedPoolIDOneHopRoute(route ingesttypes.CandidateRoute, expectedPoolID uint64) {
 	routePools := route.Pools
 	s.Require().Equal(1, len(routePools))
