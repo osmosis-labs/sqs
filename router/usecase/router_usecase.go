@@ -470,7 +470,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 	}
 
 	// create candidate routes with given token out denom and pool ID.
-	candidateRoutes := r.createCandidateRouteByPoolID(tokenOutDenom, poolID)
+	candidateRoutes := r.createCandidateRouteByPoolID(tokenIn.Denom, tokenOutDenom, poolID)
 
 	// Convert candidate route into a route with all the pool data
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
@@ -480,6 +480,40 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 
 	// Compute direct quote
 	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
+	if err != nil {
+		return nil, err
+	}
+
+	return bestSingleRouteQuote, nil
+}
+
+// GetCustomDirectQuoteOutGivenIn implements mvc.RouterUsecase.
+func (r *routerUseCaseImpl) GetCustomDirectQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, poolID uint64) (domain.Quote, error) {
+	pool, err := r.poolsUsecase.GetPool(poolID)
+	if err != nil {
+		return nil, err
+	}
+
+	poolDenoms := pool.GetPoolDenoms()
+
+	if !osmoutils.Contains(poolDenoms, tokenOut.Denom) {
+		return nil, fmt.Errorf("denom %s in pool %d: %w", tokenOut.Denom, poolID, ErrTokenInDenomPoolNotFound)
+	}
+	if !osmoutils.Contains(poolDenoms, tokenInDenom) {
+		return nil, fmt.Errorf("denom %s in pool %d: %w", tokenInDenom, poolID, ErrTokenOutDenomPoolNotFound)
+	}
+
+	// create candidate routes with given token out denom and pool ID.
+	candidateRoutes := r.createCandidateRouteByPoolID(tokenInDenom, tokenOut.Denom, poolID)
+
+	// Convert candidate route into a route with all the pool data
+	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenOut.Denom, tokenInDenom)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute direct quote
+	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenOut, r.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -1038,7 +1072,7 @@ func filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes []route.RouteImpl) []ro
 }
 
 // createCandidateRouteByPoolID constructs a candidate route with the desired pool.
-func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenOutDenom string, poolID uint64) ingesttypes.CandidateRoutes {
+func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenInDenom string, tokenOutDenom string, poolID uint64) ingesttypes.CandidateRoutes {
 	// Create a candidate route with the desired pool
 	return ingesttypes.CandidateRoutes{
 		Routes: []ingesttypes.CandidateRoute{
@@ -1046,6 +1080,7 @@ func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenOutDenom string, p
 				Pools: []ingesttypes.CandidatePool{
 					{
 						ID:            poolID,
+						TokenInDenom:  tokenInDenom,
 						TokenOutDenom: tokenOutDenom,
 					},
 				},
