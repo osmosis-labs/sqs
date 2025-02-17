@@ -790,7 +790,7 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 // Validates custom quotes for UOSMO to UION.
 // That is, with the given pool ID, we expect the quote to be routed through the route
 // that matches these pool IDs. Errors otherwise.
-func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOUION() {
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteOutGivenIn_Mainnet_UOSMOUION() {
 	config := routertesting.DefaultRouterConfig
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
@@ -822,6 +822,42 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 
 	// System under test 2
 	quote, err := routerUsecase.GetCustomDirectQuoteOutGivenIn(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	s.Require().NoError(err)
+	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
+}
+
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteInGivenOut_Mainnet_UOSMOUION() {
+	config := routertesting.DefaultRouterConfig
+	config.MaxPoolsPerRoute = 5
+	config.MaxRoutes = 10
+
+	var (
+		amountIn = osmomath.NewInt(5000000)
+	)
+
+	mainnetState := s.SetupMainnetState()
+
+	// Setup router repository mock
+	tokensRepositoryMock := routerrepo.New(&log.NoOpLogger{})
+	tokensRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+
+	// Setup pools usecase mock.
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", tokensRepositoryMock, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	poolsUsecase.StorePools(mainnetState.Pools)
+
+	tokenMetaDataHolderMock := &mocks.TokenMetadataHolderMock{}
+	candidateRouteFinderMock := &mocks.CandidateRouteFinderMock{}
+
+	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+
+	// This pool ID is second best: https://app.osmosis.zone/pool/2
+	// The top one is https://app.osmosis.zone/pool/1110 which is not selected
+	// due to custom parameter.
+	const expectedPoolID = uint64(2)
+
+	// System under test 2
+	quote, err := routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 }
