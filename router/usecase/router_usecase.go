@@ -250,7 +250,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 		}
 	} else {
 		// Otherwise, simply compute quotes over cached ranked routes
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuoteOutGivenIn(ctx, candidateRankedRoutes, tokenOut, tokenInDenom, options.MaxSplitRoutes)
+		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuoteInGivenOut(ctx, candidateRankedRoutes, tokenOut, tokenInDenom, options.MaxSplitRoutes)
 		if err != nil {
 			return nil, err
 		}
