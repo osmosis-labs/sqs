@@ -110,6 +110,75 @@ func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk
 	return newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, nil
 }
 
+// PrepareResultPoolsOutGivenIn implements domain.Route.
+// Strips away unnecessary fields from each pool in the route,
+// leaving only the data needed by client
+// The following are the list of fields that are returned to the client in each pool:
+// - ID
+// - Type
+// - Balances
+// - Spread Factor
+// - Token Out Denom
+// - Taker Fee
+// Note that it mutates the route.
+// Returns spot price before swap and the effective spot price
+// with token out as base and token in as quote.
+func (r RouteImpl) PrepareResultPoolsInGivenOut(ctx context.Context, tokenOut sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+	var (
+		routeSpotPriceOutBaseInQuote     = osmomath.OneDec()
+		effectiveSpotPriceOutBaseInQuote = osmomath.OneDec()
+	)
+
+	newPools := make([]domain.RoutablePool, 0, len(r.Pools))
+
+	for _, pool := range r.Pools {
+		// Compute spot price before swap.
+		spotPriceOutBaseInQuote, err := pool.CalcSpotPrice(ctx, tokenOut.Denom, pool.GetTokenInDenom())
+		if err != nil {
+			logger.Error("failed to calculate spot price for pool", zap.Error(err))
+
+			// We don't want to fail the entire quote if one pool fails to calculate spot price.
+			// This might cause miestimaions downsream but we a
+			spotPriceOutBaseInQuote = osmomath.ZeroBigDec()
+
+			// Increment the counter for the error
+			spotPriceErrorResultCounter.WithLabelValues(
+				tokenOut.Denom,
+				pool.GetTokenOutDenom(),
+				r.Pools[len(r.Pools)-1].GetTokenOutDenom(),
+			).Inc()
+		}
+
+		tokenIn, err := pool.CalculateTokenInByTokenOut(ctx, tokenOut)
+		if err != nil {
+			return nil, osmomath.Dec{}, osmomath.Dec{}, err
+		}
+
+		// Charge taker fee
+		tokenIn = pool.ChargeTakerFeeExactOut(tokenIn)
+
+		// Update effective spot price
+		effectiveSpotPriceOutBaseInQuote.MulMut(tokenIn.Amount.ToLegacyDec().QuoMut(tokenOut.Amount.ToLegacyDec()))
+
+		// Note, in the future we may want to increase the precision of the spot price
+		routeSpotPriceOutBaseInQuote.MulMut(spotPriceOutBaseInQuote.Dec())
+
+		newPool := pools.NewExactAmountOutRoutableResultPool(
+			pool.GetId(),
+			pool.GetType(),
+			pool.GetSpreadFactor(),
+			pool.GetTokenInDenom(),
+			pool.GetTakerFee(),
+			pool.GetCodeID(),
+		)
+
+		newPools = append(newPools, newPool)
+
+		tokenOut = tokenIn
+	}
+	return newPools, routeSpotPriceOutBaseInQuote, effectiveSpotPriceOutBaseInQuote, nil
+}
+
 // GetPools implements Route.
 func (r *RouteImpl) GetPools() []domain.RoutablePool {
 	return r.Pools

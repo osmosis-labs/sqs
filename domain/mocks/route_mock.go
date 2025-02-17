@@ -10,15 +10,15 @@ import (
 )
 
 type RouteMock struct {
-	CalculateTokenOutByTokenInFunc       func(ctx context.Context, tokenIn types.Coin) (types.Coin, error)
-	CalculateTokenInByTokenOutFunc       func(ctx context.Context, tokenOut types.Coin) (types.Coin, error)
-	ContainsGeneralizedCosmWasmPoolFunc  func() bool
-	GetPoolsFunc                         func() []domain.RoutablePool
-	GetTokenOutDenomFunc                 func() string
-	GetTokenInDenomFunc                  func() string
-	PrepareResultPoolsExactAmountInFunc  func(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
-	PrepareResultPoolsExactAmountOutFunc func(ctx context.Context, tokenOut types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
-	StringFunc                           func() string
+	CalculateTokenOutByTokenInFunc      func(ctx context.Context, tokenIn types.Coin) (types.Coin, error)
+	CalculateTokenInByTokenOutFunc      func(ctx context.Context, tokenOut types.Coin) (types.Coin, error)
+	ContainsGeneralizedCosmWasmPoolFunc func() bool
+	GetPoolsFunc                        func() []domain.RoutablePool
+	GetTokenOutDenomFunc                func() string
+	GetTokenInDenomFunc                 func() string
+	PrepareResultPoolsOutGivenInFunc    func(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
+	PrepareResultPoolsInGivenOutFunc    func(ctx context.Context, tokenOut types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
+	StringFunc                          func() string
 
 	GetAmountInFunc  func() math.Int
 	GetAmountOutFunc func() math.Int
@@ -80,15 +80,16 @@ func (r *RouteMock) GetTokenInDenom() string {
 
 // PrepareResultPoolsOutGivenIn implements domain.Route.
 func (r *RouteMock) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
-	if r.PrepareResultPoolsExactAmountInFunc != nil {
-		return r.PrepareResultPoolsExactAmountInFunc(ctx, tokenIn, logger)
+	if r.PrepareResultPoolsOutGivenInFunc != nil {
+		return r.PrepareResultPoolsOutGivenInFunc(ctx, tokenIn, logger)
 	}
 
 	panic("unimplemented")
 }
-func (r *RouteMock) PrepareResultPoolsExactAmountOut(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
-	if r.PrepareResultPoolsExactAmountOutFunc != nil {
-		return r.PrepareResultPoolsExactAmountOutFunc(ctx, tokenIn, logger)
+
+func (r *RouteMock) PrepareResultPoolsInGivenOut(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
+	if r.PrepareResultPoolsInGivenOutFunc != nil {
+		return r.PrepareResultPoolsInGivenOutFunc(ctx, tokenIn, logger)
 	}
 
 	panic("unimplemented")
