@@ -350,13 +350,12 @@ func (s *RouterTestSuite) TestHandleRoutesOutGivenIn() {
 	}
 }
 
-
 func (s *RouterTestSuite) TestHandleRoutesInGivenOut() {
 	const (
 		defaultTimeoutDuration = time.Second * 10
 
-		tokenOutDenom  = "uosmo"
-		tokenInDenom = "uion"
+		tokenOutDenom = "uosmo"
+		tokenInDenom  = "uion"
 
 		minPoolLiquidityCap = 100
 	)

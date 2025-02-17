@@ -841,7 +841,6 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteOutGivenIn_Main
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 }
 
-
 func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteInGivenOut_Mainnet_UOSMOUION() {
 	config := routertesting.DefaultRouterConfig
 	config.MaxPoolsPerRoute = 5

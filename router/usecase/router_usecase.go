@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
@@ -56,7 +55,6 @@ const (
 
 var (
 	zero = osmomath.ZeroInt()
-	inf  = osmomath.NewInt(math.MaxInt64)
 )
 
 // NewRouterUsecase will create a new pools use case object
@@ -271,7 +269,8 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 	return topSingleRouteQuote, nil
 
 	// Compute split route quote
-	topSplitQuote, err := getSplitQuoteInGivenOut(ctx, rankedRoutes, tokenOut)
+	// Split routes are not implemented yet:
+	topSplitQuote, err := getSplitQuoteInGivenOut(ctx, rankedRoutes, tokenOut) // nolint:govet
 	if err != nil {
 		// If error occurs in splits, return the single route quote
 		// rather than failing.
