@@ -13,11 +13,12 @@ var DefaultConfig = domain.Config{
 	LoggerIsProduction: true,
 	LoggerLevel:        "info",
 
-	ChainTendermintRPCEndpoint: "http://localhost:26657",
-	ChainGRPCGatewayEndpoint:   "http://localhost:9090",
-	ChainID:                    "osmosis-1",
-	ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
-	UpdateAssetsHeightInterval: 200,
+	ChainTendermintRPCEndpoint:    "http://localhost:26657",
+	ChainGRPCGatewayEndpoint:      "http://localhost:9090",
+	ChainID:                       "osmosis-1",
+	ChainRegistryAssetsFileURL:    "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+	ChainRegistryTokenFeesFileURL: "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/chain.json",
+	UpdateAssetsHeightInterval:    200,
 
 	Router: &domain.RouterConfig{
 		PreferredPoolIDs:                 []uint64{},

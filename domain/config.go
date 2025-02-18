@@ -35,6 +35,9 @@ type Config struct {
 	// Chain registry assets URL.
 	ChainRegistryAssetsFileURL string `mapstructure:"chain-registry-assets-url"`
 
+	// Chain registry token fees URL.
+	ChainRegistryTokenFeesFileURL string `mapstructure:"chain-registry-token-fees-url"`
+
 	// Defines the block interval at which the assets are updated.
 	UpdateAssetsHeightInterval int `mapstructure:"update-assets-height-interval"`
 
@@ -65,15 +68,16 @@ const envPrefix = "SQS"
 
 var (
 	DefaultConfig = Config{
-		ServerAddress:              ":9092",
-		LoggerFilename:             "sqs.log",
-		LoggerIsProduction:         false,
-		LoggerLevel:                "info",
-		ChainTendermintRPCEndpoint: "http://localhost:26657",
-		ChainGRPCGatewayEndpoint:   "localhost:9090",
-		ChainID:                    "osmosis-1",
-		ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
-		UpdateAssetsHeightInterval: 200,
+		ServerAddress:                 ":9092",
+		LoggerFilename:                "sqs.log",
+		LoggerIsProduction:            false,
+		LoggerLevel:                   "info",
+		ChainTendermintRPCEndpoint:    "http://localhost:26657",
+		ChainGRPCGatewayEndpoint:      "localhost:9090",
+		ChainID:                       "osmosis-1",
+		ChainRegistryAssetsFileURL:    "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+		ChainRegistryTokenFeesFileURL: "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/chain.json",
+		UpdateAssetsHeightInterval:    200,
 		FlightRecord: &FlightRecordConfig{
 			Enabled:          true,
 			TraceThresholdMS: 1000,
