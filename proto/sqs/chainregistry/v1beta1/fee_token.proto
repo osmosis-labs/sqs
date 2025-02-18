@@ -1,0 +1,21 @@
+syntax = "proto3";
+package sqs.chainregistry.v1beta1;
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1/chainregistry";
+
+message FeeToken {
+  // Denom is the denomination of the fee token.
+  string denom = 1;
+
+  // FixedMinGasPrice is the fixed minimum gas price for the fee token.
+  float fixed_min_gas_price = 2;
+
+  // LowGasPrice is the low gas price for the fee token.
+  float low_gas_price = 3;
+
+  // AverageGasPrice is the average gas price for the fee token.
+  float average_gas_price = 4;
+
+  // HighGasPrice is the high gas price for the fee token.
+  float high_gas_price = 5;
+}
