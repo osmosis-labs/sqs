@@ -11,12 +11,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// RouterHandler  represent the httphandler for the router
-type RouterHandler struct {
-	usecase mvc.ChainregistryUsecase
-	logger  log.Logger
-}
-
 const chainregistryResource = "/chainregistry"
 
 func formatRouterResource(resource string) string {
@@ -25,17 +19,20 @@ func formatRouterResource(resource string) string {
 
 // RouterHandler  represent the httphandler for the router
 type ChainregistryHandler struct {
+	usecase mvc.ChainregistryUsecase
+	logger  log.Logger
 }
 
 // NewRouterHandler will initialize the pools/ resources endpoint
-func NewRouterHandler(e *echo.Echo, logger log.Logger) {
-	handler := &RouterHandler{
-		logger: logger,
+func NewChainregistryHandler(e *echo.Echo, chainregistryUseCase mvc.ChainregistryUsecase, logger log.Logger) {
+	handler := &ChainregistryHandler{
+		usecase: chainregistryUseCase,
+		logger:  logger,
 	}
-	e.GET(formatRouterResource("/feetokens"), handler.GetFeeTokens)
+	e.GET(formatRouterResource("/fee_tokens"), handler.GetFeeTokens)
 }
 
-func (a *RouterHandler) GetFeeTokens(c echo.Context) (err error) {
+func (a *ChainregistryHandler) GetFeeTokens(c echo.Context) (err error) {
 	tokens, err := a.usecase.GetFeeTokens(c.Request().Context())
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
