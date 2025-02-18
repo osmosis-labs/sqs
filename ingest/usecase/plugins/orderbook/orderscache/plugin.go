@@ -2,12 +2,13 @@ package orderbookorderscache
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	"github.com/osmosis-labs/sqs/domain/orderbook"
-	"github.com/osmosis-labs/sqs/domain/passthrough"
+	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 
 	"encoding/json"
@@ -74,7 +75,7 @@ func (o *ordersCache) fetchAndCacheOrdersForOrderbook(ctx context.Context, order
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("Fetcing orders...")
 	orders := make([]orderbookdomain.Order, 0, len(ordersBz))
 	for _, orderBz := range ordersBz {
 		var order orderbookdomain.Order

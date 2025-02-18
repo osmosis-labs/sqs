@@ -199,11 +199,11 @@ func (p *passthroughGRPCClient) DelegationRewards(ctx context.Context, address s
 }
 
 func (p *passthroughGRPCClient) GetOrderbookOrdersRaw(ctx context.Context, poolID uint64) ([][]byte, error) {
-	response, err := p.cosmwasmpoolClient.OrderbookOrdersRaw(ctx, &cosmwasmpool.OrderbookOrdersRawRequest{PoolId: poolID})
+	response, err := p.cosmwasmpoolClient.PoolRawFilteredState(ctx, &cosmwasmpool.PoolRawFilteredStateRequest{PoolId: poolID, KeyFilter: "order", ValueFilter: "order_id"})
 	if err != nil {
 		return nil, err
 	}
-	return response.Orders, nil
+	return response.Values, nil
 }
 
 // GetChainGRPCClient implements PassthroughGRPCClient.
