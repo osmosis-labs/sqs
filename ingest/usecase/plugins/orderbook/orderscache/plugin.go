@@ -2,7 +2,6 @@ package orderbookorderscache
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -75,7 +74,7 @@ func (o *ordersCache) fetchAndCacheOrdersForOrderbook(ctx context.Context, order
 	if err != nil {
 		return err
 	}
-	fmt.Println("Fetcing orders...")
+
 	orders := make([]orderbookdomain.Order, 0, len(ordersBz))
 	for _, orderBz := range ordersBz {
 		var order orderbookdomain.Order
