@@ -83,6 +83,8 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 	}
 
+	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
+
 	// equal base and quote yield the price of one
 	if baseDenom == quoteDenom {
 		return osmomath.OneBigDec(), nil

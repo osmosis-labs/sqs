@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
@@ -68,7 +70,7 @@ type CandidateRouteSearcher interface {
 	// FindCandidateRoutesOutGivenIn finds candidate routes for a given tokenIn and tokenOutDenom
 	// using the given options.
 	// Returns the candidate routes and an error if any.
-	FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, tokenOutDenom string, options CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error)
+	FindCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, options CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error)
 
 	// FindCandidateRoutesInGivenOut finds candidate routes for a given tokenOut and tokenInDenom
 	// using the given options.

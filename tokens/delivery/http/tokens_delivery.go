@@ -1,10 +1,12 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -198,10 +200,19 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
+	// ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C
+	ctx = context.WithValue(ctx, "baseDenom", "")
 	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{quoteDenom}, pricingSourceType)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
+
+	p, _ := prices["ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C"]["ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"]
+	if p.LT(osmomath.MustNewBigDecFromStr("0.8")) {
+			fmt.Println("Prices not ok: ", prices)
+			os.Exit(0)
+	} 
+
 	return c.JSON(http.StatusOK, prices)
 }
 
