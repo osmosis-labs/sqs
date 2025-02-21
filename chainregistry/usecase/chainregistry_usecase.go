@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
@@ -90,16 +91,6 @@ func (p *chainregistryUseCase) fetchFeeTokens(ctx context.Context) {
 }
 
 func (p *chainregistryUseCase) processFeeTokens(ctx context.Context) error {
-	tokens, hash, err := GetFeeTokensFromChainRegistry(p.chainRegistryFileURL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch fee tokens from chain registry: %v", err)
-	}
-
-	baseDenomFee := tokens.GetByDenom(p.baseHumanDenom)
-	if baseDenomFee == nil {
-		return fmt.Errorf("failed to get fee token for base denom %s", p.baseHumanDenom)
-	}
-
 	quoteDenom, err := p.tokensUseCase.GetChainDenom(p.quoteHumanDenom)
 	if err != nil {
 		return fmt.Errorf("failed to get default quote chain denom: %v", err)
@@ -115,11 +106,29 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context) error {
 		return fmt.Errorf("failed to get prices: %v", err)
 	}
 
-	// fee in quote denom
+	// Get the price of the base token in the quote token
+	// for example: 0.34268372560282894800000000000000000
 	fee, ok := prices[baseDenom][quoteDenom]
 	if !ok {
 		return fmt.Errorf("failed to get price for %s/%s", baseDenom, quoteDenom)
 	}
+
+	tokens, hash, err := GetFeeTokensFromChainRegistry(p.chainRegistryFileURL)
+	if err != nil {
+		return fmt.Errorf("failed to fetch fee tokens from chain registry: %v", err)
+	}
+
+	baseDenomFee := tokens.GetByDenom(p.baseHumanDenom)
+	if baseDenomFee == nil {
+		return fmt.Errorf("failed to get fee token for base denom %s", p.baseHumanDenom)
+	}
+
+	// For example:
+	// "fixed_min_gas_price": 0.0025,
+	// "low_gas_price": 0.0025,
+	// "average_gas_price": 0.025,
+	// "high_gas_price": 0.04
+	osmomath.NewDec(baseDenomFee.FixedMinGasPrice)
 
 	_ = fee
 	_ = hash
