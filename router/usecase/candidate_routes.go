@@ -45,7 +45,8 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 	// Preallocate constant visited map size to avoid reallocations.
 	// TODO: choose the best size for the visited map.
-	visited := make(map[uint64]struct{}, 100)
+	var visit int
+	visited := make(map[uint64]int, 100)
 	// visited := make([]bool, len(pools))
 
 	// Preallocate constant queue size to avoid dynamic reallocations.
@@ -89,7 +90,8 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				})
 			}
 
-			visited[canonicalOrderbook.GetId()] = struct{}{}
+			visited[canonicalOrderbook.GetId()] = visit
+			visit++
 		}
 	}
 
@@ -134,12 +136,14 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 			// If the option is configured to skip a given pool
 			// We mark it as visited and continue.
 			if options.ShouldSkipPool(pool) {
-				visited[poolID] = struct{}{}
+				visited[poolID] = visit
+				visit++
 				continue
 			}
 
 			if pool.GetLiquidityCap().Uint64() < options.MinPoolLiquidityCap {
-				visited[poolID] = struct{}{}
+				visited[poolID] = visit
+				visit++
 				// Skip pools that have less liquidity than the minimum required.
 				continue
 			}
@@ -182,7 +186,8 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				isAlloyed := cosmwasmModel != nil && cosmwasmModel.IsAlloyTransmuter()
 
 				if currentTokenInAmount.LT(tokenIn.Amount) && !isAlloyed {
-					visited[poolID] = struct{}{}
+					visited[poolID] = visit
+					visit++
 					// Not enough tokenIn to swap.
 					continue
 				}
@@ -238,7 +243,8 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 		}
 
 		for _, pool := range currentRoute {
-			visited[pool.ID] = struct{}{}
+			visited[pool.ID] = visit
+			visit++
 		}
 	}
 

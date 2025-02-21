@@ -208,7 +208,7 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 	}
 
 	p, _ := prices["ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C"]["ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"]
-	if p.LT(osmomath.MustNewBigDecFromStr("0.8")) {
+	if p.GT(osmomath.MustNewBigDecFromStr("0.8")) {
 			fmt.Println("Prices not ok: ", prices)
 			os.Exit(0)
 	} 
