@@ -112,12 +112,12 @@ func NewLogger(isProduction bool, fileName string, logLevelStr string) (Logger, 
 		}
 
 		core = zapcore.NewTee(
-			zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zapcore.InfoLevel),
-			zapcore.NewCore(fileEncoder, zapcore.AddSync(f), zapcore.InfoLevel),
+			zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), loggerConfig.Level),
+			zapcore.NewCore(fileEncoder, zapcore.AddSync(f), loggerConfig.Level),
 		)
 	} else {
 		core = zapcore.NewTee(
-			zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zapcore.InfoLevel),
+			zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), loggerConfig.Level),
 		)
 	}
 
