@@ -4,8 +4,12 @@
 package chainregistry
 
 import (
-	encoding_binary "encoding/binary"
+	cosmossdk_io_math "cosmossdk.io/math"
 	fmt "fmt"
+	_ "github.com/cosmos/cosmos-proto"
+	_ "github.com/cosmos/cosmos-sdk/codec/types"
+	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
+	_ "github.com/cosmos/gogoproto/gogoproto"
 	proto "github.com/cosmos/gogoproto/proto"
 	io "io"
 	math "math"
@@ -27,13 +31,13 @@ type FeeToken struct {
 	// Denom is the denomination of the fee token.
 	Denom string `protobuf:"bytes,1,opt,name=denom,proto3" json:"denom,omitempty"`
 	// FixedMinGasPrice is the fixed minimum gas price for the fee token.
-	FixedMinGasPrice float32 `protobuf:"fixed32,2,opt,name=fixed_min_gas_price,json=fixedMinGasPrice,proto3" json:"fixed_min_gas_price,omitempty"`
+	FixedMinGasPrice cosmossdk_io_math.LegacyDec `protobuf:"bytes,2,opt,name=fixed_min_gas_price,json=fixedMinGasPrice,proto3,customtype=cosmossdk.io/math.LegacyDec" json:"fixed_min_gas_price"`
 	// LowGasPrice is the low gas price for the fee token.
-	LowGasPrice float32 `protobuf:"fixed32,3,opt,name=low_gas_price,json=lowGasPrice,proto3" json:"low_gas_price,omitempty"`
+	LowGasPrice cosmossdk_io_math.LegacyDec `protobuf:"bytes,3,opt,name=low_gas_price,json=lowGasPrice,proto3,customtype=cosmossdk.io/math.LegacyDec" json:"low_gas_price"`
 	// AverageGasPrice is the average gas price for the fee token.
-	AverageGasPrice float32 `protobuf:"fixed32,4,opt,name=average_gas_price,json=averageGasPrice,proto3" json:"average_gas_price,omitempty"`
+	AverageGasPrice cosmossdk_io_math.LegacyDec `protobuf:"bytes,4,opt,name=average_gas_price,json=averageGasPrice,proto3,customtype=cosmossdk.io/math.LegacyDec" json:"average_gas_price"`
 	// HighGasPrice is the high gas price for the fee token.
-	HighGasPrice float32 `protobuf:"fixed32,5,opt,name=high_gas_price,json=highGasPrice,proto3" json:"high_gas_price,omitempty"`
+	HighGasPrice cosmossdk_io_math.LegacyDec `protobuf:"bytes,5,opt,name=high_gas_price,json=highGasPrice,proto3,customtype=cosmossdk.io/math.LegacyDec" json:"high_gas_price"`
 }
 
 func (m *FeeToken) Reset()         { *m = FeeToken{} }
@@ -76,34 +80,6 @@ func (m *FeeToken) GetDenom() string {
 	return ""
 }
 
-func (m *FeeToken) GetFixedMinGasPrice() float32 {
-	if m != nil {
-		return m.FixedMinGasPrice
-	}
-	return 0
-}
-
-func (m *FeeToken) GetLowGasPrice() float32 {
-	if m != nil {
-		return m.LowGasPrice
-	}
-	return 0
-}
-
-func (m *FeeToken) GetAverageGasPrice() float32 {
-	if m != nil {
-		return m.AverageGasPrice
-	}
-	return 0
-}
-
-func (m *FeeToken) GetHighGasPrice() float32 {
-	if m != nil {
-		return m.HighGasPrice
-	}
-	return 0
-}
-
 func init() {
 	proto.RegisterType((*FeeToken)(nil), "sqs.chainregistry.v1beta1.FeeToken")
 }
@@ -113,25 +89,31 @@ func init() {
 }
 
 var fileDescriptor_3d3b6ba24fbcdbb1 = []byte{
-	// 273 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0xd0, 0xbf, 0x4e, 0xc2, 0x50,
-	0x14, 0xc7, 0xf1, 0x5e, 0x14, 0xa3, 0xd7, 0xff, 0xd5, 0x01, 0x97, 0x1b, 0x42, 0x1c, 0xd0, 0x84,
-	0xde, 0x10, 0x27, 0x57, 0x07, 0x9d, 0x4c, 0x0c, 0x3a, 0xb9, 0x34, 0xb7, 0xe5, 0x70, 0x7b, 0x42,
-	0xdb, 0x5b, 0x7a, 0x2a, 0xe8, 0x5b, 0xf8, 0x52, 0x26, 0x8e, 0x8c, 0x8e, 0xa6, 0x7d, 0x11, 0xd3,
-	0x0a, 0x4d, 0x19, 0xcf, 0xf9, 0x7d, 0xa6, 0x2f, 0xbf, 0xa2, 0x19, 0x49, 0x3f, 0x50, 0x18, 0xa7,
-	0xa0, 0x91, 0xb2, 0xf4, 0x43, 0xce, 0x87, 0x1e, 0x64, 0x6a, 0x28, 0x27, 0x00, 0x6e, 0x66, 0xa6,
-	0x10, 0x3b, 0x49, 0x6a, 0x32, 0x63, 0x5f, 0xd0, 0x8c, 0x9c, 0x0d, 0xea, 0xac, 0x68, 0xef, 0x8b,
-	0xf1, 0xdd, 0x7b, 0x80, 0x97, 0x52, 0xdb, 0xe7, 0xbc, 0x3d, 0x86, 0xd8, 0x44, 0x1d, 0xd6, 0x65,
-	0xfd, 0xbd, 0xd1, 0xff, 0x61, 0x0f, 0xf8, 0xd9, 0x04, 0xdf, 0x61, 0xec, 0x46, 0x18, 0xbb, 0x5a,
-	0x91, 0x9b, 0xa4, 0xe8, 0x43, 0xa7, 0xd5, 0x65, 0xfd, 0xd6, 0xe8, 0xa4, 0x9a, 0x1e, 0x31, 0x7e,
-	0x50, 0xf4, 0x54, 0xfe, 0xed, 0x1e, 0x3f, 0x0c, 0xcd, 0xa2, 0x01, 0xb7, 0x2a, 0xb8, 0x1f, 0x9a,
-	0x45, 0x6d, 0xae, 0xf9, 0xa9, 0x9a, 0x43, 0xaa, 0x34, 0x34, 0xdc, 0x76, 0xe5, 0x8e, 0x57, 0x43,
-	0x6d, 0x2f, 0xf9, 0x51, 0x80, 0x3a, 0x68, 0xc0, 0x76, 0x05, 0x0f, 0xca, 0xef, 0x5a, 0xdd, 0x3d,
-	0x7f, 0xe7, 0x82, 0x2d, 0x73, 0xc1, 0x7e, 0x73, 0xc1, 0x3e, 0x0b, 0x61, 0x2d, 0x0b, 0x61, 0xfd,
-	0x14, 0xc2, 0x7a, 0xbd, 0xd5, 0x98, 0x05, 0x6f, 0x9e, 0xe3, 0x9b, 0x48, 0x1a, 0x8a, 0x0c, 0x21,
-	0x0d, 0x42, 0xe5, 0x91, 0x2c, 0xfb, 0x25, 0x53, 0x2d, 0x55, 0x82, 0x75, 0xb9, 0x8d, 0x48, 0xde,
-	0x4e, 0x95, 0xef, 0xe6, 0x2f, 0x00, 0x00, 0xff, 0xff, 0x37, 0xa5, 0x9b, 0xa5, 0x6b, 0x01, 0x00,
-	0x00,
+	// 374 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x92, 0xcd, 0x6a, 0xea, 0x40,
+	0x14, 0xc7, 0x93, 0xeb, 0xf5, 0x72, 0xef, 0xdc, 0x7e, 0x99, 0xba, 0x50, 0x0b, 0xb1, 0x74, 0xd5,
+	0x16, 0xcc, 0x20, 0x85, 0x42, 0xb7, 0x22, 0xed, 0xa6, 0x85, 0x62, 0xbb, 0x92, 0x42, 0x98, 0xc4,
+	0xe3, 0x64, 0x30, 0xc9, 0xd1, 0x4c, 0xd4, 0xfa, 0x16, 0x7d, 0x89, 0x42, 0x97, 0x5d, 0xf4, 0x21,
+	0x5c, 0x4a, 0x57, 0xa5, 0x0b, 0x29, 0xba, 0xe8, 0x6b, 0x94, 0x7c, 0x28, 0xba, 0x76, 0x13, 0x72,
+	0x38, 0xff, 0xf9, 0xfd, 0xce, 0xe2, 0x4f, 0x4e, 0x64, 0x4f, 0x52, 0xdb, 0x61, 0xc2, 0x0f, 0x80,
+	0x0b, 0x19, 0x06, 0x23, 0x3a, 0xa8, 0x5a, 0x10, 0xb2, 0x2a, 0x6d, 0x03, 0x98, 0x21, 0x76, 0xc0,
+	0x37, 0xba, 0x01, 0x86, 0xa8, 0x15, 0x65, 0x4f, 0x1a, 0x6b, 0x51, 0x23, 0x8d, 0x96, 0xf2, 0x1c,
+	0x39, 0xc6, 0x29, 0x1a, 0xfd, 0x25, 0x0f, 0x4a, 0x45, 0x1b, 0xa5, 0x87, 0xd2, 0x4c, 0x16, 0xc9,
+	0x90, 0xae, 0x72, 0xcc, 0x13, 0x3e, 0xd2, 0xf8, 0xbb, 0x48, 0x73, 0x44, 0xee, 0x02, 0x8d, 0x27,
+	0xab, 0xdf, 0xa6, 0xcc, 0x1f, 0x25, 0xab, 0xa3, 0xe7, 0x0c, 0xf9, 0x7b, 0x09, 0x70, 0x1f, 0x1d,
+	0xa3, 0xe5, 0x49, 0xb6, 0x05, 0x3e, 0x7a, 0x05, 0xf5, 0x50, 0x3d, 0xfe, 0xd7, 0x48, 0x06, 0x0d,
+	0xc8, 0x7e, 0x5b, 0x3c, 0x42, 0xcb, 0xf4, 0x84, 0x6f, 0x72, 0x16, 0x49, 0x85, 0x0d, 0x85, 0x5f,
+	0x51, 0xa6, 0x76, 0x3e, 0x9e, 0x96, 0x95, 0xcf, 0x69, 0xf9, 0x20, 0xb9, 0x41, 0xb6, 0x3a, 0x86,
+	0x40, 0xea, 0xb1, 0xd0, 0x31, 0xae, 0x81, 0x33, 0x7b, 0x54, 0x07, 0xfb, 0xfd, 0xad, 0x42, 0xd2,
+	0x13, 0xeb, 0x60, 0xbf, 0x7c, 0xbf, 0x9e, 0xaa, 0x8d, 0xbd, 0x18, 0x79, 0x23, 0xfc, 0x2b, 0x26,
+	0x6f, 0x23, 0x9e, 0xd6, 0x24, 0xdb, 0x2e, 0x0e, 0x57, 0x04, 0x99, 0x8d, 0x04, 0xff, 0x5d, 0x1c,
+	0x2e, 0xd9, 0x16, 0xc9, 0xb1, 0x01, 0x04, 0x8c, 0xc3, 0x0a, 0xff, 0xf7, 0x46, 0xfc, 0xdd, 0x14,
+	0xb8, 0x74, 0x3c, 0x90, 0x1d, 0x47, 0x70, 0x67, 0x45, 0x90, 0xdd, 0x48, 0xb0, 0x15, 0xd1, 0x16,
+	0xf4, 0xda, 0xdd, 0x78, 0xa6, 0xab, 0x93, 0x99, 0xae, 0x7e, 0xcd, 0x74, 0xf5, 0x69, 0xae, 0x2b,
+	0x93, 0xb9, 0xae, 0x7c, 0xcc, 0x75, 0xa5, 0x79, 0xc1, 0x45, 0xe8, 0xf4, 0x2d, 0xc3, 0x46, 0x8f,
+	0xc6, 0x08, 0x21, 0x2b, 0x2e, 0xb3, 0x24, 0x8d, 0xea, 0xd7, 0xed, 0x70, 0xca, 0xba, 0x62, 0x59,
+	0xbc, 0xb5, 0x8e, 0x59, 0x7f, 0xe2, 0x0e, 0x9c, 0xfd, 0x04, 0x00, 0x00, 0xff, 0xff, 0x01, 0xc3,
+	0x8a, 0x6f, 0xaa, 0x02, 0x00, 0x00,
 }
 
 func (m *FeeToken) Marshal() (dAtA []byte, err error) {
@@ -154,30 +136,46 @@ func (m *FeeToken) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.HighGasPrice != 0 {
-		i -= 4
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.HighGasPrice))))
-		i--
-		dAtA[i] = 0x2d
+	{
+		size := m.HighGasPrice.Size()
+		i -= size
+		if _, err := m.HighGasPrice.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintFeeToken(dAtA, i, uint64(size))
 	}
-	if m.AverageGasPrice != 0 {
-		i -= 4
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.AverageGasPrice))))
-		i--
-		dAtA[i] = 0x25
+	i--
+	dAtA[i] = 0x2a
+	{
+		size := m.AverageGasPrice.Size()
+		i -= size
+		if _, err := m.AverageGasPrice.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintFeeToken(dAtA, i, uint64(size))
 	}
-	if m.LowGasPrice != 0 {
-		i -= 4
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.LowGasPrice))))
-		i--
-		dAtA[i] = 0x1d
+	i--
+	dAtA[i] = 0x22
+	{
+		size := m.LowGasPrice.Size()
+		i -= size
+		if _, err := m.LowGasPrice.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintFeeToken(dAtA, i, uint64(size))
 	}
-	if m.FixedMinGasPrice != 0 {
-		i -= 4
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.FixedMinGasPrice))))
-		i--
-		dAtA[i] = 0x15
+	i--
+	dAtA[i] = 0x1a
+	{
+		size := m.FixedMinGasPrice.Size()
+		i -= size
+		if _, err := m.FixedMinGasPrice.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintFeeToken(dAtA, i, uint64(size))
 	}
+	i--
+	dAtA[i] = 0x12
 	if len(m.Denom) > 0 {
 		i -= len(m.Denom)
 		copy(dAtA[i:], m.Denom)
@@ -209,18 +207,14 @@ func (m *FeeToken) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovFeeToken(uint64(l))
 	}
-	if m.FixedMinGasPrice != 0 {
-		n += 5
-	}
-	if m.LowGasPrice != 0 {
-		n += 5
-	}
-	if m.AverageGasPrice != 0 {
-		n += 5
-	}
-	if m.HighGasPrice != 0 {
-		n += 5
-	}
+	l = m.FixedMinGasPrice.Size()
+	n += 1 + l + sovFeeToken(uint64(l))
+	l = m.LowGasPrice.Size()
+	n += 1 + l + sovFeeToken(uint64(l))
+	l = m.AverageGasPrice.Size()
+	n += 1 + l + sovFeeToken(uint64(l))
+	l = m.HighGasPrice.Size()
+	n += 1 + l + sovFeeToken(uint64(l))
 	return n
 }
 
@@ -292,49 +286,141 @@ func (m *FeeToken) Unmarshal(dAtA []byte) error {
 			m.Denom = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 2:
-			if wireType != 5 {
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field FixedMinGasPrice", wireType)
 			}
-			var v uint32
-			if (iNdEx + 4) > l {
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFeeToken
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFeeToken
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthFeeToken
+			}
+			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
-			iNdEx += 4
-			m.FixedMinGasPrice = float32(math.Float32frombits(v))
+			if err := m.FixedMinGasPrice.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		case 3:
-			if wireType != 5 {
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field LowGasPrice", wireType)
 			}
-			var v uint32
-			if (iNdEx + 4) > l {
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFeeToken
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFeeToken
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthFeeToken
+			}
+			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
-			iNdEx += 4
-			m.LowGasPrice = float32(math.Float32frombits(v))
+			if err := m.LowGasPrice.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		case 4:
-			if wireType != 5 {
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field AverageGasPrice", wireType)
 			}
-			var v uint32
-			if (iNdEx + 4) > l {
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFeeToken
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFeeToken
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthFeeToken
+			}
+			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
-			iNdEx += 4
-			m.AverageGasPrice = float32(math.Float32frombits(v))
+			if err := m.AverageGasPrice.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		case 5:
-			if wireType != 5 {
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field HighGasPrice", wireType)
 			}
-			var v uint32
-			if (iNdEx + 4) > l {
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFeeToken
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFeeToken
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthFeeToken
+			}
+			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
-			iNdEx += 4
-			m.HighGasPrice = float32(math.Float32frombits(v))
+			if err := m.HighGasPrice.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipFeeToken(dAtA[iNdEx:])

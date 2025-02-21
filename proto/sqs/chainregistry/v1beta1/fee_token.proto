@@ -1,6 +1,11 @@
 syntax = "proto3";
 package sqs.chainregistry.v1beta1;
 
+import "gogoproto/gogo.proto";
+import "cosmos_proto/cosmos.proto";
+import "amino/amino.proto";
+import "google/protobuf/any.proto";
+
 option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1/chainregistry";
 
 message FeeToken {
@@ -8,14 +13,34 @@ message FeeToken {
   string denom = 1;
 
   // FixedMinGasPrice is the fixed minimum gas price for the fee token.
-  float fixed_min_gas_price = 2;
+  string fixed_min_gas_price = 2 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
 
   // LowGasPrice is the low gas price for the fee token.
-  float low_gas_price = 3;
+  string low_gas_price = 3 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
 
   // AverageGasPrice is the average gas price for the fee token.
-  float average_gas_price = 4;
+  string average_gas_price = 4 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
 
   // HighGasPrice is the high gas price for the fee token.
-  float high_gas_price = 5;
+  string high_gas_price = 5 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
 }
