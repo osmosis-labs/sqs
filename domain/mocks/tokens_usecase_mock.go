@@ -31,6 +31,7 @@ type TokensUsecaseMock struct {
 	UpdateAssetsAtHeightIntervalSyncFunc func(height uint64) error
 	SetTokenRegistryLoaderFunc           func(loader domain.TokenRegistryLoader)
 	ClearPoolDenomMetadataFunc           func()
+	StoreTokensStateFilesFunc            func() error
 }
 
 var _ mvc.TokensUsecase = &TokensUsecaseMock{}
@@ -169,6 +170,14 @@ func (m *TokensUsecaseMock) SetTokenRegistryLoader(loader domain.TokenRegistryLo
 func (m *TokensUsecaseMock) ClearPoolDenomMetadata() {
 	if m.ClearPoolDenomMetadataFunc != nil {
 		m.ClearPoolDenomMetadataFunc()
+	}
+	panic("unimplemented")
+}
+
+// StoreTokensStateFiles implements mvc.TokensUsecase.
+func (m *TokensUsecaseMock) StoreTokensStateFiles() error {
+	if m.StoreTokensStateFilesFunc != nil {
+		return m.StoreTokensStateFilesFunc()
 	}
 	panic("unimplemented")
 }

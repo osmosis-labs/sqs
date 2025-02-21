@@ -105,7 +105,8 @@ func main() {
 
 	chainClient, err := client.NewClient(config.ChainID, config.ChainTendermintRPCEndpoint)
 	if err != nil {
-		panic(err)
+		log.Print(err)
+		// panic(err)
 	}
 
 	encCfg := app.MakeEncodingConfig()
@@ -119,12 +120,13 @@ func main() {
 
 	// If fails, it means that the node is not reachable
 	if _, err := chainClient.GetLatestHeight(ctx); err != nil {
-		panic(err)
+		logger.Error("failed to connect to chain", zap.Error(err))
+		// panic(err)
 	}
 
 	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, *config, logger)
 	if err != nil {
-		panic(err)
+		logger.Error("failed to create sidecar query server", zap.Error(err))
 	}
 
 	go func() {

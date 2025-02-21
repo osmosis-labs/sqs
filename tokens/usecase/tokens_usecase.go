@@ -468,6 +468,24 @@ func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, e
 	return v, nil
 }
 
+func (r *tokensUseCase) LoadTokensStateFiles() error {
+	tokensMetadata, err := parsing.ReadTokensMetadata("tokens.json")
+	if err != nil {
+		return err
+	}
+	r.LoadTokens(tokensMetadata)
+
+	poolDenomsMetaData, err := parsing.ReadPoolDenomsMetaData("pool_denom_metadata.json")
+	if err != nil {
+		return err
+	}
+
+
+	r.UpdatePoolDenomMetadata(poolDenomsMetaData)
+
+	return nil
+}
+
 func (r *tokensUseCase) StoreTokensStateFiles() error {
 	tokensMetadata, err := r.GetFullTokenMetadata()
 	if err != nil {

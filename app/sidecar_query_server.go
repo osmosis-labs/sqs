@@ -141,10 +141,13 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	)
 
 	tokensUseCase.SetTokenRegistryLoader(chainRegistryHTTPFetcher)
+	if err := tokensUseCase.LoadTokensStateFiles() ; err != nil {
+		panic(err)
+	}
 
 	// Check the status of the grpc gateway
 	if err := checkGRPCGatewayStatus(config.ChainGRPCGatewayEndpoint); err != nil {
-		return nil, err
+		// return nil, err // TODO
 	}
 
 	// Initialize pools repository, usecase and HTTP handler
@@ -164,10 +167,13 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, logger)
 
 	// Initialize router repository, usecase
-	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	routerusecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	if err := routerusecase.LoadRouterStateFiles(); err != nil {
+		panic(err)
+	}
 
 	// Initialize state dumper
-	stateDumperUseCase := statedumperUseCase.NewStateDumper(routerUsecase, tokensUseCase)
+	stateDumperUseCase := statedumperUseCase.NewStateDumper(routerusecase, tokensUseCase)
 	candidateRouteSearcher = candidateRouteSearcher.SetStateDumpUseCase(stateDumperUseCase)
 
 	// Initialize system handler
@@ -237,7 +243,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, logger)
+	routerHttpDelivery.NewRouterHandler(e, routerusecase, tokensUseCase, quoteSimulator, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough
@@ -279,7 +285,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		// Initialize ingest handler and usecase
 		ingestUseCase, err := ingestusecase.NewIngestUsecase(
 			poolsUseCase,
-			routerUsecase,
+			routerusecase,
 			pricingSimpleRouterUsecase,
 			tokensUseCase,
 			chainInfoUseCase,
@@ -307,7 +313,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					}
 
 					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
-					currentPlugin = orderbookfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
+					currentPlugin = orderbookfillbot.New(poolsUseCase, routerusecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
 				}
 
 				if plugin.GetName() == orderbookplugindomain.OrderbookClaimbotPlugin {
@@ -346,7 +352,8 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig, logger)
 		if err != nil {
-			panic(err)
+			logger.Error("failed to create grpc ingest handler", zap.Error(err))
+			// panic(err)
 		}
 
 		go func() {
@@ -354,10 +361,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 			lis, err := net.Listen("tcp", grpcIngesterConfig.ServerAddress)
 			if err != nil {
-				panic(err)
+				logger.Error("failed to listen", zap.Error(err))
+				// panic(err)
 			}
 			if err := grpcIngestHandler.Serve(lis); err != nil {
-				panic(err)
+				logger.Error("failed to serve", zap.Error(err))
+				// panic(err)
 			}
 		}()
 	}

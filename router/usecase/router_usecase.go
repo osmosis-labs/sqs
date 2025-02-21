@@ -723,6 +723,29 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 	return candidateRoutes, nil
 }
 
+func (r *routerUseCaseImpl) LoadRouterStateFiles() error {
+	pools, _, err := parsing.ReadPools("pools.json")
+	if err := r.poolsUsecase.StorePools(pools); err != nil {
+		return err
+	}
+
+	takerFeeMap, err := parsing.ReadTakerFees("taker_fees.json")
+	if err != nil {
+		return err
+	}
+
+	r.SetTakerFees(takerFeeMap)
+
+	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchData("candidate_route_search_data.json")
+	if err != nil {
+		return err
+	}
+
+	r.routerRepository.SetCandidateRouteSearchData(candidateRouteSearchData)
+
+	return nil
+}
+
 // StoreRouterStateFiles implements domain.RouterUsecase.
 // TODO: clean up
 func (r *routerUseCaseImpl) StoreRouterStateFiles() error {
