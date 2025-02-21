@@ -26,6 +26,7 @@ type candidateRouteWrapper struct {
 
 type candidateRouteFinder struct {
 	candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder
+	stateDumpUseCase         mvc.StateDumpUsecase
 	logger                   log.Logger
 }
 
@@ -36,6 +37,11 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 		candidateRouteDataHolder: candidateRouteDataHolder,
 		logger:                   logger,
 	}
+}
+
+func (c candidateRouteFinder) SetStateDumpUseCase(stateDumpUseCase mvc.StateDumpUsecase) candidateRouteFinder  {
+	c.stateDumpUseCase = stateDumpUseCase
+	return c
 }
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
@@ -246,6 +252,10 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 			visited[pool.ID] = visit
 			visit++
 		}
+	}
+
+	if err := c.stateDumpUseCase.DumpAll(); err != nil {
+		c.logger.Error("failed to dump state", zap.Error(err))
 	}
 
 	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)

@@ -10,6 +10,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -465,4 +466,22 @@ func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, e
 	}
 
 	return v, nil
+}
+
+func (r *tokensUseCase) StoreTokensStateFiles() error {
+	tokensMetadata, err := r.GetFullTokenMetadata()
+	if err != nil {
+		return err
+	}
+
+	err = parsing.StoreTokensMetadata(tokensMetadata, "tokens.json")
+	if err != nil {
+		return err
+	}
+
+	poolDenomMetaData := r.GetFullPoolDenomMetadata()
+
+	err = parsing.StorePoolDenomMetaData(poolDenomMetaData, "pool_denom_metadata.json")
+
+	return err
 }

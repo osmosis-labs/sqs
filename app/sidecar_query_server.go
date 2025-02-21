@@ -60,6 +60,7 @@ import (
 
 	routerHttpDelivery "github.com/osmosis-labs/sqs/router/delivery/http"
 	routerUseCase "github.com/osmosis-labs/sqs/router/usecase"
+	statedumperUseCase "github.com/osmosis-labs/sqs/statedumper/usecase"
 
 	systemhttpdelivery "github.com/osmosis-labs/sqs/system/delivery/http"
 )
@@ -164,6 +165,10 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Initialize router repository, usecase
 	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+
+	// Initialize state dumper
+	stateDumperUseCase := statedumperUseCase.NewStateDumper(routerUsecase, tokensUseCase)
+	candidateRouteSearcher = candidateRouteSearcher.SetStateDumpUseCase(stateDumperUseCase)
 
 	// Initialize system handler
 	chainInfoRepository := chaininforepo.New()
