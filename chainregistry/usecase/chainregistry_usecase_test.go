@@ -15,7 +15,7 @@ func TestGetTokensFromChainRegistry(t *testing.T) {
 		name             string
 		responseBody     string
 		expectedChecksum string
-		expectedTokens   []*api.FeeToken
+		expectedTokens   api.FeeTokens
 		expectedError    bool
 	}{
 		{
@@ -48,7 +48,7 @@ func TestGetTokensFromChainRegistry(t *testing.T) {
 					]
 				}
 			}`,
-			expectedTokens: []*api.FeeToken{
+			expectedTokens: api.FeeTokens{
 				{
 					Denom:            "uosmo",
 					FixedMinGasPrice: 0.0025,
