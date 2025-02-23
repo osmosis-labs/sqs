@@ -11,7 +11,7 @@ var DefaultConfig = domain.Config{
 
 	LoggerFilename:     "sqs.log",
 	LoggerIsProduction: true,
-	LoggerLevel:        "info",
+	LoggerLevel:        "debug",
 
 	ChainTendermintRPCEndpoint: "http://localhost:26657",
 	ChainGRPCGatewayEndpoint:   "http://localhost:9090",

@@ -141,9 +141,9 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	)
 
 	tokensUseCase.SetTokenRegistryLoader(chainRegistryHTTPFetcher)
-	if err := tokensUseCase.LoadTokensStateFiles() ; err != nil {
-		panic(err)
-	}
+	// if err := tokensUseCase.LoadTokensStateFiles() ; err != nil {
+	// 	panic(err)
+	// }
 
 	// Check the status of the grpc gateway
 	if err := checkGRPCGatewayStatus(config.ChainGRPCGatewayEndpoint); err != nil {
@@ -168,9 +168,9 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 
 	// Initialize router repository, usecase
 	routerusecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
-	if err := routerusecase.LoadRouterStateFiles(); err != nil {
-		panic(err)
-	}
+	// if err := routerusecase.LoadRouterStateFiles(); err != nil {
+	// 	panic(err)
+	// }
 
 	// Initialize state dumper
 	stateDumperUseCase := statedumperUseCase.NewStateDumper(routerusecase, tokensUseCase)

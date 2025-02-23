@@ -150,6 +150,8 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	p.sortAndStorePools(allPools)
 
+	// p.logger.Info("ValidateAndSortPools total pools", zap.Int("pool_id", len(allPools)))
+
 	// If an error occurs, we should return it and not proceed with the next steps.
 	// The pricing relies on the search data. As a result, by returnining an error we trigger a fallback mechanism
 	// Note that compute search data is always synchronous because it is needed for all subsequent pre-computations within a block.
@@ -166,27 +168,30 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		defer p.firstBlockWg.Done()
 
 		// Pre-compute the prices for all tokens
-		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
+		// p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
 
 		// Completely reprice the pool liquidity for the first block asyncronously
 		// second time.
 		// This is necessary because the initial pricing is computed within min liquidity capitalization.
 		// That results in a suboptimal price.
-		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+		// p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
 
 		// Recompute search data given the availability of pool liquidity pricing.
-		if err := p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata); err != nil {
-			p.logger.Error("failed to compute search data", zap.Error(err))
-			return err
-		}
+		// if err := p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata); err != nil {
+		// 	p.logger.Error("failed to compute search data", zap.Error(err))
+		// 	return err
+		// }
 	} else {
 		// Wait for the first block to be processed before
 		// updating the prices for the next block.
 		p.firstBlockWg.Wait()
 
+		// p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
 		// For any block after the first block, we can update the prices asynchronously.
-		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+		// p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
 	}
+
+	// p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
 
 	// Store the latest ingested height.
 	p.chainInfoUseCase.StoreLatestHeight(height)
