@@ -8,11 +8,12 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/chainregistry"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
 // It returns a map of tokens by chain denom.
@@ -90,6 +91,46 @@ func (p *chainregistryUseCase) fetchFeeTokens(ctx context.Context) {
 	}()
 }
 
+// calculateFeeTokenMarketValue calculates the market values of gas fees for given gas fee token.
+func calculateFeeTokenMarketValue(ctx context.Context, gasFeeToken *api.FeeToken, unitPrice osmomath.BigDec) (fixedMinGasMarketValue, lowGasMarketValue, averageGasMarketValue, highGasMarketValue osmomath.BigDec, err error) {
+	fixedMinGasMarketValue, err = calculateMarketValue(ctx, gasFeeToken.FixedMinGasPrice, unitPrice)
+	if err != nil {
+		err = fmt.Errorf("failed to calculate fixed min gas price: %v", err)
+		return
+	}
+
+	lowGasMarketValue, err = calculateMarketValue(ctx, gasFeeToken.LowGasPrice, unitPrice)
+	if err != nil {
+		err = fmt.Errorf("failed to calculate low gas price: %v", err)
+		return
+	}
+
+	averageGasMarketValue, err = calculateMarketValue(ctx, gasFeeToken.AverageGasPrice, unitPrice)
+	if err != nil {
+		err = fmt.Errorf("failed to calculate average gas price: %v", err)
+		return
+	}
+
+	highGasMarketValue, err = calculateMarketValue(ctx, gasFeeToken.HighGasPrice, unitPrice)
+	if err != nil {
+		err = fmt.Errorf("failed to calculate high gas price: %v", err)
+		return
+	}
+
+	return
+}
+
+// calculateMarketValue calculates the market value of a token quantity.
+func calculateMarketValue(_ context.Context, tokenQuantity float32, unitPrice osmomath.BigDec) (osmomath.BigDec, error) {
+	tokenQuantityDec, err := osmomath.NewBigDecFromStr(fmt.Sprintf("%f", tokenQuantity))
+	if err != nil {
+		return osmomath.ZeroBigDec(), fmt.Errorf("failed to convert gas price to decimal: %v", err)
+	}
+	tokenQuantityDec = tokenQuantityDec.Mul(unitPrice)
+
+	return tokenQuantityDec, nil
+}
+
 func (p *chainregistryUseCase) processFeeTokens(ctx context.Context) error {
 	quoteDenom, err := p.tokensUseCase.GetChainDenom(p.quoteHumanDenom)
 	if err != nil {
@@ -123,12 +164,15 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context) error {
 		return fmt.Errorf("failed to get fee token for base denom %s", p.baseHumanDenom)
 	}
 
+	// fixedMinGasPrice, lowGasPrice, averageGasPrice, highGasPrice, err := p.calculateFeeTokenPrices(ctx, baseDenomFee, fee)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to calculate fee token prices: %v", err)
+	// }
 	// For example:
 	// "fixed_min_gas_price": 0.0025,
 	// "low_gas_price": 0.0025,
 	// "average_gas_price": 0.025,
 	// "high_gas_price": 0.04
-	osmomath.NewDec(baseDenomFee.FixedMinGasPrice)
 
 	_ = fee
 	_ = hash
