@@ -201,3 +201,53 @@ func TestCalculateFeeTokenMarketValue(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateTokenQuantity(t *testing.T) {
+	tests := []struct {
+		name           string
+		amount         string
+		unitPrice      string
+		expectedResult string
+		expectError    bool
+	}{
+		{
+			name:           "Normal case",
+			amount:         "0.1",
+			unitPrice:      "0.6479",
+			expectedResult: "0.154344806297268096928538354684364871",
+			expectError:    false,
+		},
+		{
+			name:           "Zero amount",
+			amount:         "0",
+			unitPrice:      "2",
+			expectedResult: "0",
+			expectError:    false,
+		},
+		{
+			name:           "Zero unit price",
+			amount:         "10",
+			unitPrice:      "0",
+			expectedResult: "0",
+			expectError:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			amount := osmomath.MustNewBigDecFromStr(tt.amount)
+			unitPrice := osmomath.MustNewBigDecFromStr(tt.unitPrice)
+
+			result, err := calculateTokenQuantity(ctx, amount, unitPrice)
+			if tt.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				expected := osmomath.MustNewBigDecFromStr(tt.expectedResult)
+				assert.True(t, expected.Equal(result), "Expected %s, but got %s", expected, result)
+			}
+		})
+	}
+}

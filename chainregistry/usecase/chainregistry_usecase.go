@@ -131,6 +131,17 @@ func calculateMarketValue(_ context.Context, tokenQuantity float32, unitPrice os
 	return tokenQuantityDec, nil
 }
 
+// calculateTokenQuantity calculates the token quantity for a given amount and unit price.
+func calculateTokenQuantity(_ context.Context, amount osmomath.BigDec, unitPrice osmomath.BigDec) (osmomath.BigDec, error) {
+	if unitPrice.IsZero() {
+		return osmomath.ZeroBigDec(), nil
+	}
+
+	tokenQuantity := amount.Quo(unitPrice)
+
+	return tokenQuantity, nil
+}
+
 func (p *chainregistryUseCase) processFeeTokens(ctx context.Context) error {
 	quoteDenom, err := p.tokensUseCase.GetChainDenom(p.quoteHumanDenom)
 	if err != nil {
