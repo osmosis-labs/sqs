@@ -5,9 +5,8 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 
+	sqshttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
@@ -16,47 +15,11 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
-// It returns a map of tokens by chain denom.
-func GetFeeTokensFromChainRegistry(chainRegistryTokenFeesFileURL string) (api.FeeTokens, string, error) {
-	// Fetch the JSON data from the URL
-	body, err := http.Get(chainRegistryTokenFeesFileURL)
-	if err != nil {
-		return nil, "", err
-	}
-	defer body.Body.Close()
-
-	// read the response body once to be used for
-	// decoding and for checksum
-	data, err := io.ReadAll(body.Body)
-	if err != nil {
-		return nil, "", err
-	}
-
-	// calculate the MD5 checksum of the data
-	checksum := fmt.Sprintf("%x", md5.Sum(data))
-
-	// define the response struct
-	var response struct {
-		Fees struct {
-			FeeTokens []*api.FeeToken `json:"fee_tokens"`
-		} `json:"fees"`
-	}
-
-	// decode the JSON data
-	err = json.Unmarshal(data, &response)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return response.Fees.FeeTokens, checksum, nil
-}
-
 type chainregistryUseCase struct {
 	tokensUseCase        mvc.TokensUsecase
 	quoteHumanDenom      string
 	baseHumanDenom       string
 	chainRegistryFileURL string
-	httpChan             chan *http.Response
 	hash                 string
 	tokens               []*api.FeeToken
 	logger               log.Logger
@@ -92,7 +55,7 @@ func NewChainregistryUseCase(chainRegistryTokenFeesFileURL string, tokensUseCase
 
 // GetFeeTokens implements mvc.ChainregistryUsecase.
 func (p *chainregistryUseCase) GetFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
-	tokens, hash, err := GetFeeTokensFromChainRegistry(p.chainRegistryFileURL)
+	tokens, hash, err := getFeeTokensFromChainRegistry(ctx, p.chainRegistryFileURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch fee tokens from chain registry: %v", err)
 	}
@@ -167,6 +130,32 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.
 	}
 
 	return nil
+}
+
+// getFeeTokensFromChainRegistry fetches the fee tokens from the chain registry.
+func getFeeTokensFromChainRegistry(ctx context.Context, chainRegistryTokenFeesFileURL string) (api.FeeTokens, string, error) {
+	body, err := sqshttp.Get(ctx, chainRegistryTokenFeesFileURL)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// calculate the MD5 checksum of the data
+	checksum := fmt.Sprintf("%x", md5.Sum(body))
+
+	// define the response struct
+	var response struct {
+		Fees struct {
+			FeeTokens []*api.FeeToken `json:"fee_tokens"`
+		} `json:"fees"`
+	}
+
+	// decode the JSON data
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return response.Fees.FeeTokens, checksum, nil
 }
 
 // calculateFeeTokenMarketValue calculates the market values of gas fees for given gas fee token.

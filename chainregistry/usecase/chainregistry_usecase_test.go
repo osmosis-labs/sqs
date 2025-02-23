@@ -82,7 +82,7 @@ func TestGetTokensFromChainRegistry(t *testing.T) {
 			defer server.Close()
 
 			// Call the function with the mock server URL
-			tokens, checksum, err := GetFeeTokensFromChainRegistry(server.URL)
+			tokens, checksum, err := getFeeTokensFromChainRegistry(context.TODO(), server.URL)
 
 			if tc.expectedError {
 				require.Error(t, err)
