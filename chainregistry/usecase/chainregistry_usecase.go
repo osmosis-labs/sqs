@@ -64,7 +64,6 @@ type chainregistryUseCase struct {
 
 // NewChainregistryUseCase creates a new chainregistry use case.
 func NewChainregistryUseCase(chainRegistryTokenFeesFileURL string, tokensUseCase mvc.TokensUsecase, logger log.Logger) (*chainregistryUseCase, error) {
-
 	// Pull fees periodically based on duration
 	// go func() {
 	// 	ticker := time.NewTicker(5 * time.Minute)
@@ -85,15 +84,89 @@ func NewChainregistryUseCase(chainRegistryTokenFeesFileURL string, tokensUseCase
 	// }
 	return &chainregistryUseCase{
 		chainRegistryFileURL: chainRegistryTokenFeesFileURL,
+		tokensUseCase:        tokensUseCase,
 		baseHumanDenom:       "uosmo",
-		quoteHumanDenom:      "usdc",
+		quoteHumanDenom:      "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", // USDC
 	}, nil
 }
 
-func (p *chainregistryUseCase) fetchFeeTokens(ctx context.Context) {
-	// Fetch fees immediately on start
-	go func() {
-	}()
+// GetFeeTokens implements mvc.ChainregistryUsecase.
+func (p *chainregistryUseCase) GetFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
+	tokens, hash, err := GetFeeTokensFromChainRegistry(p.chainRegistryFileURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch fee tokens from chain registry: %v", err)
+	}
+
+	if err := p.processFeeTokens(ctx, tokens); err != nil {
+		return nil, fmt.Errorf("failed to process fee tokens: %v", err)
+
+	}
+	p.tokens = tokens
+	p.hash = hash
+
+	return p.tokens, nil
+}
+
+// processFeeTokens processes the fee tokens by updating their fee values.
+func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.FeeTokens) error {
+	prices, err := p.tokensUseCase.GetPrices(ctx, []string{p.baseHumanDenom}, []string{p.quoteHumanDenom}, domain.ChainPricingSourceType)
+	if err != nil {
+		return fmt.Errorf("failed to get prices: %v", err)
+	}
+
+	fee, ok := prices[p.baseHumanDenom][p.quoteHumanDenom]
+	if !ok {
+		return fmt.Errorf("failed to get price for %s/%s", p.baseHumanDenom, p.quoteHumanDenom)
+	}
+
+	baseDenomFee := tokens.GetByDenom(p.baseHumanDenom)
+	if baseDenomFee == nil {
+		return fmt.Errorf("failed to get fee token for base denom %s", p.baseHumanDenom)
+	}
+
+	fixedMinGasPrice, lowGasPrice, averageGasPrice, highGasPrice, err := calculateFeeTokenMarketValue(ctx, baseDenomFee, fee)
+	if err != nil {
+		return fmt.Errorf("failed to calculate fee token prices: %v", err)
+	}
+
+	for i, token := range tokens {
+		if token.Denom == p.baseHumanDenom {
+			continue // skip the base token we use to derive the gas prices
+		}
+
+		// Get the price of the token
+		prices, err := p.tokensUseCase.GetPrices(ctx, []string{token.Denom}, []string{p.quoteHumanDenom}, domain.ChainPricingSourceType)
+		if err != nil {
+			return fmt.Errorf("failed to get prices: %v", err)
+		}
+
+		pricePerToken, ok := prices[token.Denom][p.quoteHumanDenom]
+		if !ok {
+			return fmt.Errorf("failed to get price for %s/%s", token.Denom, p.quoteHumanDenom)
+		}
+
+		tokens[i].FixedMinGasPrice, err = calculateTokenQuantity(ctx, fixedMinGasPrice, pricePerToken).Float64()
+		if err != nil {
+			return fmt.Errorf("failed to calculate fixed min gas price: %v", err)
+		}
+
+		tokens[i].LowGasPrice, err = calculateTokenQuantity(ctx, lowGasPrice, pricePerToken).Float64()
+		if err != nil {
+			return fmt.Errorf("failed to calculate low gas price: %v", err)
+		}
+
+		tokens[i].AverageGasPrice, err = calculateTokenQuantity(ctx, averageGasPrice, pricePerToken).Float64()
+		if err != nil {
+			return fmt.Errorf("failed to calculate average gas price: %v", err)
+		}
+
+		tokens[i].HighGasPrice, err = calculateTokenQuantity(ctx, highGasPrice, pricePerToken).Float64()
+		if err != nil {
+			return fmt.Errorf("failed to calculate high gas price: %v", err)
+		}
+	}
+
+	return nil
 }
 
 // calculateFeeTokenMarketValue calculates the market values of gas fees for given gas fee token.
@@ -145,82 +218,4 @@ func calculateTokenQuantity(_ context.Context, amount osmomath.BigDec, unitPrice
 	tokenQuantity := amount.Quo(unitPrice)
 
 	return tokenQuantity
-}
-
-func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.FeeTokens, hash string) error {
-	quoteDenom, err := p.tokensUseCase.GetChainDenom(p.quoteHumanDenom)
-	if err != nil {
-		return fmt.Errorf("failed to get default quote chain denom: %v", err)
-	}
-
-	baseDenom, err := p.tokensUseCase.GetChainDenom(p.baseHumanDenom)
-	if err != nil {
-		return fmt.Errorf("failed to get default base chain denom: %v", err)
-	}
-
-	prices, err := p.tokensUseCase.GetPrices(ctx, []string{baseDenom}, []string{quoteDenom}, domain.ChainPricingSourceType)
-	if err != nil {
-		return fmt.Errorf("failed to get prices: %v", err)
-	}
-
-	fee, ok := prices[baseDenom][quoteDenom]
-	if !ok {
-		return fmt.Errorf("failed to get price for %s/%s", baseDenom, quoteDenom)
-	}
-
-	baseDenomFee := tokens.GetByDenom(p.baseHumanDenom)
-	if baseDenomFee == nil {
-		return fmt.Errorf("failed to get fee token for base denom %s", p.baseHumanDenom)
-	}
-
-	fixedMinGasPrice, lowGasPrice, averageGasPrice, highGasPrice, err := calculateFeeTokenMarketValue(ctx, baseDenomFee, fee)
-	if err != nil {
-		return fmt.Errorf("failed to calculate fee token prices: %v", err)
-	}
-
-	for _, token := range tokens {
-		if token.Denom == p.baseHumanDenom {
-			continue // skip the base token we use to derive the gas prices
-		}
-
-		// Get the price of the token
-		prices, err := p.tokensUseCase.GetPrices(ctx, []string{token.Denom}, []string{quoteDenom}, domain.ChainPricingSourceType)
-		if err != nil {
-			return fmt.Errorf("failed to get prices: %v", err)
-		}
-
-		pricePerToken, ok := prices[token.Denom][quoteDenom]
-		if !ok {
-			return fmt.Errorf("failed to get price for %s/%s", baseDenom, quoteDenom)
-		}
-
-		token.FixedMinGasPrice, err = calculateTokenQuantity(ctx, fixedMinGasPrice, pricePerToken).Float64()
-		if err != nil {
-			return fmt.Errorf("failed to calculate fixed min gas price: %v", err)
-		}
-
-		token.LowGasPrice, err = calculateTokenQuantity(ctx, lowGasPrice, pricePerToken).Float64()
-		if err != nil {
-			return fmt.Errorf("failed to calculate low gas price: %v", err)
-		}
-
-		token.AverageGasPrice, err = calculateTokenQuantity(ctx, averageGasPrice, pricePerToken).Float64()
-		if err != nil {
-			return fmt.Errorf("failed to calculate average gas price: %v", err)
-		}
-
-		token.HighGasPrice, err = calculateTokenQuantity(ctx, highGasPrice, pricePerToken).Float64()
-		if err != nil {
-			return fmt.Errorf("failed to calculate high gas price: %v", err)
-		}
-	}
-
-	_ = hash
-
-	return nil
-}
-
-// GetFeeTokens implements mvc.ChainregistryUsecase.
-func (p *chainregistryUseCase) GetFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
-	return nil, nil
 }
