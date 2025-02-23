@@ -110,7 +110,7 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 }
 
 // NewSideCarQueryServer creates a new sidecar query server (SQS).
-func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
+func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
 	middleware := middleware.InitMiddleware(config.CORS, config.FlightRecord, logger)
@@ -202,7 +202,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	}
 
 	// Initialize passthrough query use case
-	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(config.ChainRegistryTokenFeesFileURL, tokensUseCase, logger)
+	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(ctx, config.ChainRegistryTokenFeesFileURL, tokensUseCase, logger)
 	if err != nil {
 		return nil, err
 	}

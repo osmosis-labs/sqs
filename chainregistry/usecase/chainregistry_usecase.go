@@ -5,12 +5,14 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	sqshttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/chainregistry"
+	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -26,52 +28,76 @@ type chainregistryUseCase struct {
 }
 
 // NewChainregistryUseCase creates a new chainregistry use case.
-func NewChainregistryUseCase(chainRegistryTokenFeesFileURL string, tokensUseCase mvc.TokensUsecase, logger log.Logger) (*chainregistryUseCase, error) {
-	// Pull fees periodically based on duration
-	// go func() {
-	// 	ticker := time.NewTicker(5 * time.Minute)
-	// 	defer ticker.Stop()
-	// 	for {
-	// 		select {
-	// 		case <-ticker.C:
-	// 			GetFeeTokensFromChainRegistry(chainRegistryTokenFeesFileURL)
-	// 		case <-ctx.Done():
-	// 			return
-	// 		}
-	// 	}
-	// }()
-
-	// tokens, hash, err := GetFeeTokensFromChainRegistry(p.chainRegistryFileURL)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to fetch fee tokens from chain registry: %v", err)
-	// }
-	return &chainregistryUseCase{
+func NewChainregistryUseCase(ctx context.Context, chainRegistryTokenFeesFileURL string, tokensUseCase mvc.TokensUsecase, logger log.Logger) (*chainregistryUseCase, error) {
+	us := chainregistryUseCase{
 		chainRegistryFileURL: chainRegistryTokenFeesFileURL,
 		tokensUseCase:        tokensUseCase,
 		baseHumanDenom:       "uosmo",
-		quoteHumanDenom:      "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", // USDC
-	}, nil
+		quoteHumanDenom:      "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+	}
+
+	go func() {
+		// Fetch tokens initially
+		if err := (&us).fetchTokens(ctx); err != nil {
+			logger.Error("initial fetch tokens failed ", zap.Error(err))
+		}
+
+		// Fetch tokens periodically
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := (&us).fetchTokens(ctx); err != nil {
+					logger.Error("periodical fetch tokens failed", zap.Error(err))
+					continue
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return &us, nil
+}
+
+func (p *chainregistryUseCase) fetchTokens(ctx context.Context) error {
+	tokens, hash, err := getFeeTokensFromChainRegistry(ctx, p.chainRegistryFileURL)
+	if err != nil {
+		return fmt.Errorf("failed to fetch fee tokens from chain registry: %v", err)
+	}
+
+	if hash == p.hash {
+		return nil // nothing to do
+	}
+
+	// refresh the token prices
+	if err := p.processFeeTokens(ctx, tokens); err != nil {
+		return fmt.Errorf("failed to process fee tokens: %v", err)
+	}
+
+	// update state
+	p.tokens = tokens
+	p.hash = hash
+
+	return nil
 }
 
 // GetFeeTokens implements mvc.ChainregistryUsecase.
 func (p *chainregistryUseCase) GetFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
-	tokens, hash, err := getFeeTokensFromChainRegistry(ctx, p.chainRegistryFileURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch fee tokens from chain registry: %v", err)
-	}
-
-	if err := p.processFeeTokens(ctx, tokens); err != nil {
+	if err := p.processFeeTokens(ctx, p.tokens); err != nil {
 		return nil, fmt.Errorf("failed to process fee tokens: %v", err)
-
 	}
-	p.tokens = tokens
-	p.hash = hash
 
 	return p.tokens, nil
 }
 
 // processFeeTokens processes the fee tokens by updating their fee values.
 func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.FeeTokens) error {
+	if len(tokens) == 0 {
+		return nil // nothing to do
+	}
+
 	prices, err := p.tokensUseCase.GetPrices(ctx, []string{p.baseHumanDenom}, []string{p.quoteHumanDenom}, domain.ChainPricingSourceType)
 	if err != nil {
 		return fmt.Errorf("failed to get prices: %v", err)
