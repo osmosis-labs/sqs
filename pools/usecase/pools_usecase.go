@@ -392,7 +392,7 @@ var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pip
 	"minLiquidityCap": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
 		if f != nil && f.MinLiquidityCap > 0 {
 			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap
+				return pool.GetLiquidityCap().GTE(osmomath.NewIntFromUint64(f.MinLiquidityCap))
 			})
 		}
 	},
