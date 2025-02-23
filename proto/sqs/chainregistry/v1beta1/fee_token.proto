@@ -8,14 +8,14 @@ message FeeToken {
   string denom = 1;
 
   // FixedMinGasPrice is the fixed minimum gas price for the fee token.
-  float fixed_min_gas_price = 2;
+  double fixed_min_gas_price = 2;
 
   // LowGasPrice is the low gas price for the fee token.
-  float low_gas_price = 3;
+  double low_gas_price = 3;
 
   // AverageGasPrice is the average gas price for the fee token.
-  float average_gas_price = 4;
+  double average_gas_price = 4;
 
   // HighGasPrice is the high gas price for the fee token.
-  float high_gas_price = 5;
+  double high_gas_price = 5;
 }
