@@ -438,3 +438,75 @@ func TestCalculateTokenQuantity(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateMarketValue(t *testing.T) {
+	tests := []struct {
+		name          string
+		tokenQuantity float64
+		unitPrice     string
+		expected      string
+		expectedError bool
+	}{
+		{
+			name:          "Simple calculation",
+			tokenQuantity: 100,
+			unitPrice:     "2.5",
+			expected:      "250",
+			expectedError: false,
+		},
+		{
+			name:          "Zero token quantity",
+			tokenQuantity: 0,
+			unitPrice:     "1.5",
+			expected:      "0",
+			expectedError: false,
+		},
+		{
+			name:          "Zero unit price",
+			tokenQuantity: 100,
+			unitPrice:     "0",
+			expected:      "0",
+			expectedError: false,
+		},
+		{
+			name:          "Large numbers",
+			tokenQuantity: 1000000,
+			unitPrice:     "1000000",
+			expected:      "1000000000000",
+			expectedError: false,
+		},
+		{
+			name:          "Small numbers",
+			tokenQuantity: 0.0001,
+			unitPrice:     "0.0001",
+			expected:      "0.00000001",
+			expectedError: false,
+		},
+		{
+			name:          "Invalid token quantity",
+			tokenQuantity: -100,
+			unitPrice:     "1.5",
+			expected:      "-150",
+			expectedError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			unitPrice, err := osmomath.NewBigDecFromStr(tt.unitPrice)
+			require.NoError(t, err)
+
+			result, err := calculateMarketValue(ctx, tt.tokenQuantity, unitPrice)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				expected, err := osmomath.NewBigDecFromStr(tt.expected)
+				require.NoError(t, err)
+				assert.True(t, result.Equal(expected), "Expected %s, got %s", expected, result)
+			}
+		})
+	}
+}
