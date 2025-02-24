@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	sqshttp "github.com/osmosis-labs/sqs/delivery/http"
@@ -18,48 +17,110 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+var (
+	fetchTokensInterval      = 5 * time.Minute
+	processFeeTokensInterval = 1 * time.Second
+)
+
+// cmd is an interface for command types
+type cmd any
+
+// updateCommand is a command for updating the state
+type updateCommand struct {
+	tokens []*api.FeeToken
+	hash   string
+	resp   chan error
+}
+
+// getTokensCommand is a command for reading tokens from the state
+type getTokensCommand struct {
+	result chan []*api.FeeToken
+}
+
+// chainregistryUseCase is a use case for managing chain registry data.
 type chainregistryUseCase struct {
 	tokensUseCase        mvc.TokensUsecase
 	quoteDenom           string
 	baseDenom            string
 	chainRegistryFileURL string
-	hash                 string
-	tokens               []*api.FeeToken
-	mu                   sync.RWMutex // protects tokens and hash
 	logger               log.Logger
+
+	// command is a channel for sending commands to the run loop.
+	command chan cmd
+
+	// internal state managed only by the run loop.
+	tokens []*api.FeeToken
+	hash   string
 }
 
-// NewChainregistryUseCase creates a new chainregistry use case.
+// NewChainregistryUseCase creates a new use case and starts the run loop.
 func NewChainregistryUseCase(ctx context.Context, chainRegistryTokenFeesFileURL string, tokensUseCase mvc.TokensUsecase, logger log.Logger) (*chainregistryUseCase, error) {
-	us := chainregistryUseCase{
+	us := &chainregistryUseCase{
 		chainRegistryFileURL: chainRegistryTokenFeesFileURL,
 		tokensUseCase:        tokensUseCase,
 		baseDenom:            "uosmo",
 		quoteDenom:           "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
 		logger:               logger,
+		command:              make(chan cmd),
 	}
 
-	go (&us).fetchTokensPeriodically(ctx)
-	go (&us).processTokensPeriodically(ctx)
+	// start state management loop
+	go us.run()
 
-	return &us, nil
+	// Start background tasks.
+	go us.fetchTokensPeriodically(ctx)
+	go us.processTokensPeriodically(ctx)
+
+	return us, nil
 }
 
-func (p *chainregistryUseCase) processTokensPeriodically(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			if err := p.processAndUpdateFeeTokens(ctx, p.tokens); err != nil {
-				p.logger.Error("failed to process fee tokens", zap.Error(err))
+// GetFeeTokens implements mvc.ChainregistryUsecase.
+func (p *chainregistryUseCase) GetFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
+	respChan := make(chan []*api.FeeToken)
+	select {
+	case p.command <- getTokensCommand{result: respChan}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	select {
+	case tokens := <-respChan:
+		return tokens, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// run is responsible for managing the internal state of the use case
+// by listening for commands on the command channel.
+func (p *chainregistryUseCase) run() {
+	for cmd := range p.command {
+		switch c := cmd.(type) {
+		case updateCommand:
+			// Skip update if hash is unchanged.
+			if c.hash != "" && c.hash == p.hash {
+				c.resp <- nil
+				continue
 			}
-		case <-ctx.Done():
-			return
+
+			// Process the new tokens.
+			result, err := p.processFeeTokens(context.Background(), c.tokens)
+			if err != nil {
+				c.resp <- fmt.Errorf("failed to process fee tokens: %w", err)
+				continue
+			}
+
+			// Update the state
+			p.tokens = result
+			p.hash = c.hash
+			c.resp <- nil
+		case getTokensCommand:
+			c.result <- p.tokens
 		}
 	}
 }
 
+// fetchTokensPeriodically fetches the tokens from the chain registry periodically.
 func (p *chainregistryUseCase) fetchTokensPeriodically(ctx context.Context) {
 	// Fetch tokens initially
 	if err := p.fetchTokens(ctx); err != nil {
@@ -67,7 +128,7 @@ func (p *chainregistryUseCase) fetchTokensPeriodically(ctx context.Context) {
 	}
 
 	// Fetch tokens periodically
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(fetchTokensInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -83,50 +144,56 @@ func (p *chainregistryUseCase) fetchTokensPeriodically(ctx context.Context) {
 }
 
 func (p *chainregistryUseCase) fetchTokens(ctx context.Context) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	tokens, hash, err := getFeeTokensFromChainRegistry(ctx, p.chainRegistryFileURL)
 	if err != nil {
-		return fmt.Errorf("failed to fetch fee tokens from chain registry: %w", err)
+		return fmt.Errorf("failed to fetch fee tokens: %w", err)
 	}
 
-	if hash == p.hash {
-		return nil // nothing to do
+	respChan := make(chan error)
+
+	p.command <- updateCommand{
+		tokens: tokens,
+		hash:   hash,
+		resp:   respChan,
 	}
-
-	// refresh the token prices
-	result, err := p.processFeeTokens(ctx, tokens)
-	if err != nil {
-		return fmt.Errorf("failed to process fee tokens: %w", err)
-	}
-
-	p.tokens = result
-	p.hash = hash
-
-	return nil
+	return <-respChan
 }
 
-// GetFeeTokens implements mvc.ChainregistryUsecase.
-func (p *chainregistryUseCase) GetFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.tokens, nil
+// processTokensPeriodically remains largely unchanged.
+func (p *chainregistryUseCase) processTokensPeriodically(ctx context.Context) {
+	ticker := time.NewTicker(processFeeTokensInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			tokens, err := p.GetFeeTokens(ctx)
+			if err != nil {
+				p.logger.Error("failed to get fee tokens", zap.Error(err))
+				continue
+			}
+			if err := p.processAndUpdateFeeTokens(ctx, tokens); err != nil {
+				p.logger.Error("failed to process fee tokens", zap.Error(err))
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
+// processAndUpdateFeeTokens now sends an update command via the channel.
 func (p *chainregistryUseCase) processAndUpdateFeeTokens(ctx context.Context, tokens api.FeeTokens) error {
-	// update state
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	result, err := p.processFeeTokens(ctx, tokens)
 	if err != nil {
 		return fmt.Errorf("failed to process fee tokens: %w", err)
 	}
 
-	p.tokens = result
+	respChan := make(chan error)
 
-	return nil
+	p.command <- updateCommand{
+		tokens: result,
+		resp:   respChan,
+	}
+	return <-respChan
 }
 
 // processFeeTokens processes the fee tokens by calculating the market values for each token.
