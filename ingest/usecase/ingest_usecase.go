@@ -134,6 +134,10 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		return err
 	}
 
+	if len(pools) == 0 {
+		return nil // No pools to process
+	}
+
 	// Store the pools
 	if err := p.poolsUseCase.StorePools(pools); err != nil {
 		return err

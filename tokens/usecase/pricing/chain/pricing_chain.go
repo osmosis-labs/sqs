@@ -77,6 +77,8 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		opt(&options)
 	}
 
+	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
+
 	// Recompute prices if desired by configuration.
 	// Otherwise, look into cache first.
 	if options.RecomputePrices {

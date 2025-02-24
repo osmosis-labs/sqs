@@ -256,7 +256,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 	}
 	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
-		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
+		r.logger.Error("GetSimpleQuote: error getting candidate routes for pricing", zap.Error(err))
 		return nil, err
 	}
 

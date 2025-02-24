@@ -57,7 +57,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 	// Preallocate constant queue size to avoid dynamic reallocations.
 	// TODO: choose the best size for the queue.
-	queue := make([][]candidatePoolWrapper, 0, 100)
+	queue := make([][]candidatePoolWrapper, 0, 1000)
 	queue = append(queue, make([]candidatePoolWrapper, 0, options.MaxPoolsPerRoute))
 
 	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenIn.Denom)
@@ -258,7 +258,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 		c.logger.Error("failed to dump state", zap.Error(err))
 	}
 
-	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
+	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, tokenOutDenom, c.logger)
 }
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.

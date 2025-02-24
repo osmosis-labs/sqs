@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -58,6 +59,7 @@ func (p *pricingWorker) UpdatePricesSync(height uint64, uniqueBlockPoolMetaData 
 	// Min osmo liquidity must be zero. The reason is that some pools have TVL incorrectly calculated as zero.
 	// For example, BRNCH / STRDST (1288). As a result, they are incorrectly excluded despite having appropriate liquidity.
 	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.minLiquidityCap))
+	p.logger.Info("starting pricing pre-computation", zap.Uint64("height", height), zap.Int("num_base_denoms", len(baseDenoms)))
 	if err != nil {
 		// Increase error counter
 		p.logger.Error(domain.SQSPricingWorkerComputeDurationMetricName, zap.Error(err), zap.Uint64("height", height))
@@ -66,8 +68,10 @@ func (p *pricingWorker) UpdatePricesSync(height uint64, uniqueBlockPoolMetaData 
 
 	// Update listeners
 	for _, listener := range p.updateListeners {
-		// Ignore errors
-		_ = listener.OnPricingUpdate(ctx, height, uniqueBlockPoolMetaData, prices, p.quoteDenom)
+		err := listener.OnPricingUpdate(ctx, height, uniqueBlockPoolMetaData, prices, p.quoteDenom)
+		if err != nil {
+			p.logger.Error("listener error on updating pricing", zap.Error(err), zap.String("listener", fmt.Sprintf("%v", listener)), zap.Uint64("height", height))
+		}
 	}
 
 	// Measure duration

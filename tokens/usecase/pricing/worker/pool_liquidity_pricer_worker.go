@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -128,6 +129,15 @@ func (p *poolLiquidityPricerWorker) RepriceDenomsMetadata(updateHeight uint64, b
 // CreatePoolDenomMetaData implements domain.PoolLiquidityPricerWorker
 func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom string, updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockPoolMetadata domain.BlockPoolMetadata) (domain.PoolDenomMetaData, error) {
 	price := blockPriceUpdates.GetPriceForDenom(updatedBlockDenom, quoteDenom)
+
+	denoms := []string{
+		"ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C",
+		"ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C",
+
+	}
+	if slices.Contains(denoms, updatedBlockDenom) {
+		p.logger.Info("CreatePoolDenomMetaData", zap.String("denom", updatedBlockDenom), zap.String("price", price.String()))
+	}
 
 	// Retrieve liquidity from block pool metadata.
 	// Assummed zero if does not exist.
