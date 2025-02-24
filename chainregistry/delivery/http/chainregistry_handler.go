@@ -33,6 +33,10 @@ func NewChainregistryHandler(e *echo.Echo, chainregistryUseCase mvc.Chainregistr
 }
 
 func (a *ChainregistryHandler) GetFeeTokens(c echo.Context) (err error) {
+	if err := c.Request().Context().Err(); err != nil {
+		return c.JSON(http.StatusServiceUnavailable, domain.ResponseError{Message: "request cancelled"})
+	}
+
 	tokens, err := a.usecase.GetFeeTokens(c.Request().Context())
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
