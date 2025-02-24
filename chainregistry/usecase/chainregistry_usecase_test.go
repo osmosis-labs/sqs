@@ -5,13 +5,122 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/log"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/chainregistry"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGetFeeTokens(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupUseCase   func() *chainregistryUseCase
+		ctx            context.Context
+		expectedTokens []*api.FeeToken
+		expectedError  bool
+	}{
+		{
+			name: "Success - Returns tokens",
+			setupUseCase: func() *chainregistryUseCase {
+				uc := &chainregistryUseCase{
+					command: make(chan cmd),
+					tokens: []*api.FeeToken{
+						{Denom: "uosmo", FixedMinGasPrice: 0.0025},
+						{Denom: "uatom", FixedMinGasPrice: 0.0015},
+					},
+					logger: &log.NoOpLogger{},
+				}
+				go uc.run()
+				return uc
+			},
+			ctx: context.Background(),
+			expectedTokens: []*api.FeeToken{
+				{Denom: "uosmo", FixedMinGasPrice: 0.0025},
+				{Denom: "uatom", FixedMinGasPrice: 0.0015},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Success - Empty tokens",
+			setupUseCase: func() *chainregistryUseCase {
+				uc := &chainregistryUseCase{
+					command: make(chan cmd),
+					tokens:  []*api.FeeToken{},
+					logger:  &log.NoOpLogger{},
+				}
+				go uc.run()
+				return uc
+			},
+			ctx:            context.Background(),
+			expectedTokens: []*api.FeeToken{},
+			expectedError:  false,
+		},
+		{
+			name: "Failure - Context cancelled",
+			setupUseCase: func() *chainregistryUseCase {
+				uc := &chainregistryUseCase{
+					command: make(chan cmd),
+					tokens: []*api.FeeToken{
+						{Denom: "uosmo", FixedMinGasPrice: 0.0025},
+					},
+					logger: &log.NoOpLogger{},
+				}
+				go uc.run()
+				return uc
+			},
+			ctx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel() // Cancel immediately
+				return ctx
+			}(),
+			expectedTokens: nil,
+			expectedError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := tt.setupUseCase()
+
+			tokens, err := uc.GetFeeTokens(tt.ctx)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedTokens, tokens)
+			}
+
+			// Clean up
+			close(uc.command)
+		})
+	}
+}
+
+func TestGetFeeTokensTimeout(t *testing.T) {
+	uc := &chainregistryUseCase{
+		command: make(chan cmd),
+		tokens: []*api.FeeToken{
+			{Denom: "uosmo", FixedMinGasPrice: 0.0025},
+		},
+		logger: &log.NoOpLogger{},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
+
+	_, err := uc.GetFeeTokens(ctx)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "context deadline exceeded")
+
+	// Clean up
+	close(uc.command)
+}
 
 func TestGetTokensFromChainRegistry(t *testing.T) {
 	tests := []struct {
