@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/chainregistry"
 
@@ -120,6 +122,90 @@ func TestGetFeeTokensTimeout(t *testing.T) {
 
 	// Clean up
 	close(uc.command)
+}
+
+func TestProcessFeeTokens(t *testing.T) {
+	tests := []struct {
+		name           string
+		inputTokens    api.FeeTokens
+		mockPrices     domain.PricesResult
+		expectedTokens api.FeeTokens
+		expectedError  string
+	}{
+		{
+			name: "Success - Process multiple tokens",
+			inputTokens: api.FeeTokens{
+				{Denom: "uosmo", FixedMinGasPrice: 0.0025, LowGasPrice: 0.0025, AverageGasPrice: 0.0025, HighGasPrice: 0.0025},
+				{Denom: "uatom", FixedMinGasPrice: 0.0, LowGasPrice: 0.0, AverageGasPrice: 0.0, HighGasPrice: 0.0},
+			},
+			mockPrices: domain.PricesResult{
+				"uosmo": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": osmomath.MustNewBigDecFromStr("1.0")},
+				"uatom": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": osmomath.MustNewBigDecFromStr("2.0")},
+			},
+			expectedTokens: api.FeeTokens{
+				{Denom: "uosmo", FixedMinGasPrice: 0.0025, LowGasPrice: 0.0025, AverageGasPrice: 0.0025, HighGasPrice: 0.0025},
+				{Denom: "uatom", FixedMinGasPrice: 0.00125, LowGasPrice: 0.00125, AverageGasPrice: 0.00125, HighGasPrice: 0.00125},
+			},
+			expectedError: "",
+		},
+		{
+			name:           "Empty input tokens",
+			inputTokens:    api.FeeTokens{},
+			mockPrices:     domain.PricesResult{},
+			expectedTokens: nil,
+			expectedError:  "",
+		},
+		{
+			name: "Missing base denom price",
+			inputTokens: api.FeeTokens{
+				{Denom: "uosmo", FixedMinGasPrice: 0.0025, LowGasPrice: 0.0025, AverageGasPrice: 0.0025, HighGasPrice: 0.0025},
+			},
+			mockPrices: domain.PricesResult{
+				"uosmo": {},
+			},
+			expectedTokens: nil,
+			expectedError:  "failed to get price for uosmo/ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+		},
+		{
+			name: "Missing token price",
+			inputTokens: api.FeeTokens{
+				{Denom: "uosmo", FixedMinGasPrice: 0.0025, LowGasPrice: 0.0025, AverageGasPrice: 0.0025, HighGasPrice: 0.0025},
+				{Denom: "uatom", FixedMinGasPrice: 0.0, LowGasPrice: 0.0, AverageGasPrice: 0.0, HighGasPrice: 0.0},
+			},
+			mockPrices: domain.PricesResult{
+				"uosmo": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": osmomath.MustNewBigDecFromStr("1.0")},
+				"uatom": {},
+			},
+			expectedTokens: nil,
+			expectedError:  "failed to get price for uatom/ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockTokensUsecase := &mocks.TokensUsecaseMock{
+				GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+					return tt.mockPrices, nil
+				},
+			}
+
+			uc := &chainregistryUseCase{
+				tokensUseCase: mockTokensUsecase,
+				baseDenom:     "uosmo",
+				quoteDenom:    "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+				logger:        &log.NoOpLogger{},
+			}
+
+			result, err := uc.processFeeTokens(context.Background(), tt.inputTokens)
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedTokens, result)
+			}
+		})
+	}
 }
 
 func TestGetTokensFromChainRegistry(t *testing.T) {
