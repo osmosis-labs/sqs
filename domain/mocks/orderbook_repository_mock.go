@@ -64,6 +64,12 @@ func (m *OrderbookRepositoryMock) StoreOrders(poolID uint64, orders []orderbookd
 	panic("StoreOrders not implemented")
 }
 
+func (m *OrderbookRepositoryMock) WithGetOrdersFunc(orders []orderbookdomain.Order, ok bool) {
+	m.GetOrdersFunc = func(poolID uint64, ownerAddress string) ([]orderbookdomain.Order, bool) {
+		return orders, ok
+	}
+}
+
 // GetOrders implements OrderBookRepository.
 func (m *OrderbookRepositoryMock) GetOrders(poolID uint64, ownerAddress string) ([]orderbookdomain.Order, bool) {
 	if m.GetOrdersFunc != nil {
