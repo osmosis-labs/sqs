@@ -1,6 +1,6 @@
 module github.com/osmosis-labs/sqs
 
-go 1.22.7
+go 1.22.11
 
 require (
 	cosmossdk.io/math v1.5.0
