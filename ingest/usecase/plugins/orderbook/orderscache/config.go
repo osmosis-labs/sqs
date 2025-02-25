@@ -2,8 +2,8 @@ package orderbookorderscache
 
 import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	"github.com/osmosis-labs/sqs/domain/orderbook"
-	"github.com/osmosis-labs/sqs/domain/passthrough"
+	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 )
 
