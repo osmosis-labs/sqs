@@ -26,6 +26,7 @@ type Order struct {
 	Owner          string `json:"owner"`
 	Quantity       string `json:"quantity"`
 	Etas           string `json:"etas"`
+	ClaimBounty    string `json:"claim_bounty"`
 	PlacedQuantity string `json:"placed_quantity"`
 	PlacedAt       string `json:"placed_at"`
 }

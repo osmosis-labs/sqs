@@ -123,7 +123,7 @@ func (o *orderbookRepositoryImpl) StoreOrders(poolID uint64, orders []orderbookd
 	o.ordersByPoolIDLock.Unlock()
 }
 
-func (o *orderbookRepositoryImpl) GetOrders(poolID uint64) ([]orderbookdomain.Order, bool) {
+func (o *orderbookRepositoryImpl) GetOrders(poolID uint64, ownerAddress string) ([]orderbookdomain.Order, bool) {
 	o.ordersByPoolIDLock.RLock()
 	orders, ok := o.ordersByPoolID[poolID]
 	o.ordersByPoolIDLock.RUnlock()
@@ -131,5 +131,12 @@ func (o *orderbookRepositoryImpl) GetOrders(poolID uint64) ([]orderbookdomain.Or
 		return nil, false
 	}
 
-	return orders, true
+	var result []orderbookdomain.Order
+	for _, order := range orders {
+		if order.Owner == ownerAddress {
+			result = append(result, order)
+		}
+	}
+
+	return result, true
 }

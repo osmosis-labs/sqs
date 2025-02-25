@@ -9,6 +9,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+var _ passthroughdomain.PassthroughGRPCClient = &PassthroughGRPCClientMock{}
+
 type PassthroughGRPCClientMock struct {
 	MockAllBalancesCb                   func(ctx context.Context, address string) (sdk.Coins, error)
 	MockAccountLockedCoinsCb            func(ctx context.Context, address string) (sdk.Coins, error)
@@ -16,6 +18,7 @@ type PassthroughGRPCClientMock struct {
 	MockDelegatorDelegationsCb          func(ctx context.Context, address string) (sdk.Coins, error)
 	MockDelegatorUnbondingDelegationsCb func(ctx context.Context, address string) (sdk.Coins, error)
 	MockUserPositionsBalancesCb         func(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error)
+	MockGetOrderbookOrdersRawCb         func(ctx context.Context, poolID uint64) ([][]byte, error)
 	MockDelegationRewardsCb             func(ctx context.Context, address string) (sdk.Coins, error)
 }
 
@@ -78,6 +81,14 @@ func (p *PassthroughGRPCClientMock) AccountUnlockingCoins(ctx context.Context, a
 	return nil, errors.New("MockAccountLockedCoinsCb is not implemented")
 }
 
+// GetOrderbookOrdersRaw implements passthroughdomain.PassthroughGRPCClient.
+func (p *PassthroughGRPCClientMock) GetOrderbookOrdersRaw(ctx context.Context, poolID uint64) ([][]byte, error) {
+	if p.MockGetOrderbookOrdersRawCb != nil {
+		return p.MockGetOrderbookOrdersRawCb(ctx, poolID)
+	}
+	return nil, errors.New("MockGetOrderbookOrdersRawCb is not implemented")
+}
+
 // DelegationRewards implements passthroughdomain.PassthroughGRPCClient.
 func (p *PassthroughGRPCClientMock) DelegationRewards(ctx context.Context, address string) (sdk.Coins, error) {
 	if p.MockDelegationRewardsCb != nil {
@@ -86,5 +97,3 @@ func (p *PassthroughGRPCClientMock) DelegationRewards(ctx context.Context, addre
 
 	return nil, errors.New("MockDelegationRewardsCb is not implemented")
 }
-
-var _ passthroughdomain.PassthroughGRPCClient = &PassthroughGRPCClientMock{}

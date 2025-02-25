@@ -20,5 +20,5 @@ type OrderBookRepository interface {
 	StoreOrders(poolID uint64, orders []Order)
 
 	// GetOrders returns the orders for a given orderbook pool id.
-	GetOrders(poolID uint64) ([]Order, bool)
+	GetOrders(poolID uint64, ownerAddress string) ([]Order, bool)
 }
