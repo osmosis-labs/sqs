@@ -2,7 +2,6 @@ package orderbookorderscache
 
 import (
 	"context"
-	"sync/atomic"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -16,11 +15,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// claimbot is a claim bot that processes and claims eligible orderbook orders at the end of each block.
-// Claimable orders are determined based on order filled percentage that is handled with fillThreshold package level variable.
+// ordersCache is a plugin that caches orderbook orders at the end of each block.
+// Plugin fetches changed orderbook orders from the Node at each block and stores it for later efficient retrieval.
 type ordersCache struct {
-	config     *Config
-	atomicBool atomic.Bool
+	config *Config
 }
 
 var _ domain.EndBlockProcessPlugin = &ordersCache{}
@@ -43,8 +41,7 @@ func New(
 	config := NewConfig(orderbookRepository, poolsUsecase, logger, passthroughGRPCClient)
 
 	return &ordersCache{
-		config:     config,
-		atomicBool: atomic.Bool{},
+		config: config,
 	}
 }
 
