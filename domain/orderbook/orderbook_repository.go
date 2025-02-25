@@ -17,7 +17,7 @@ type OrderBookRepository interface {
 	GetTickByID(poolID uint64, tickID int64) (OrderbookTick, bool)
 
 	// StoreOrders stores the orders for a given orderbook pool id.
-	StoreOrders(poolID uint64, orders []Order)
+	StoreOrders(poolID uint64, orders []Order) error
 
 	// GetOrders returns the orders for a given orderbook pool id.
 	GetOrders(poolID uint64, ownerAddress string) ([]Order, bool)

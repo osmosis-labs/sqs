@@ -12,7 +12,7 @@ type OrderbookRepositoryMock struct {
 	GetAllTicksFunc func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool)
 	GetTicksFunc    func(poolID uint64, tickIDs []int64) (map[int64]orderbookdomain.OrderbookTick, error)
 	GetTickByIDFunc func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool)
-	StoreOrdersFunc func(poolID uint64, orders []orderbookdomain.Order)
+	StoreOrdersFunc func(poolID uint64, orders []orderbookdomain.Order) error
 	GetOrdersFunc   func(poolID uint64, ownerAddress string) ([]orderbookdomain.Order, bool)
 }
 
@@ -55,11 +55,16 @@ func (m *OrderbookRepositoryMock) GetTickByID(poolID uint64, tickID int64) (orde
 	panic("GetTickByID not implemented")
 }
 
+func (m *OrderbookRepositoryMock) WithStoreOrders(err error) {
+	m.StoreOrdersFunc = func(poolID uint64, orders []orderbookdomain.Order) error {
+		return err
+	}
+}
+
 // StoreOrders implements OrderBookRepository.
-func (m *OrderbookRepositoryMock) StoreOrders(poolID uint64, orders []orderbookdomain.Order) {
+func (m *OrderbookRepositoryMock) StoreOrders(poolID uint64, orders []orderbookdomain.Order) error {
 	if m.StoreOrdersFunc != nil {
-		m.StoreOrdersFunc(poolID, orders)
-		return
+		return m.StoreOrdersFunc(poolID, orders)
 	}
 	panic("StoreOrders not implemented")
 }

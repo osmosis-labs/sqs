@@ -85,7 +85,5 @@ func (o *ordersCache) fetchAndCacheOrdersForOrderbook(ctx context.Context, order
 		orders = append(orders, order)
 	}
 
-	o.config.OrderbookRepository.StoreOrders(orderbook.PoolID, orders)
-
-	return nil
+	return o.config.OrderbookRepository.StoreOrders(orderbook.PoolID, orders)
 }

@@ -117,10 +117,11 @@ func (o *orderbookRepositoryImpl) StoreTicks(poolID uint64, ticksMap map[int64]o
 	o.tickMapByPoolIDLock.Unlock()
 }
 
-func (o *orderbookRepositoryImpl) StoreOrders(poolID uint64, orders []orderbookdomain.Order) {
+func (o *orderbookRepositoryImpl) StoreOrders(poolID uint64, orders []orderbookdomain.Order) error {
 	o.ordersByPoolIDLock.Lock()
 	o.ordersByPoolID[poolID] = orders
 	o.ordersByPoolIDLock.Unlock()
+	return nil
 }
 
 func (o *orderbookRepositoryImpl) GetOrders(poolID uint64, ownerAddress string) ([]orderbookdomain.Order, bool) {
