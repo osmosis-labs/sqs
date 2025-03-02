@@ -77,17 +77,11 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		opt(&options)
 	}
 
-	// always recalculate prices
-	// why this still returns correct price while in ingest usecase it returns wrong price?
-	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
-
 	// Recompute prices if desired by configuration.
 	// Otherwise, look into cache first.
 	if options.RecomputePrices {
 		return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 	}
-
-	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 
 	// equal base and quote yield the price of one
 	if baseDenom == quoteDenom {
@@ -153,11 +147,6 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 
 	// Compute a quote for one quote coin.
 	quote, err := c.RUsecase.GetSimpleQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
-	isHTTPRequest := ctx.Value("baseDenom") != nil
-	if isHTTPRequest {
-		isHTTPRequest = true
-		// c.logger.Info("getPricesForBaseDenom", zap.String("baseDenom", baseDenom))
-	}
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -237,10 +226,6 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		c.cache.Set(cacheKey, chainPrice, expirationTTL)
 	}
 
-	if isHTTPRequest {
-		isHTTPRequest = true
-		// c.logger.Info("getPricesForBaseDenom", zap.String("baseDenom", baseDenom))
-	}
 	return chainPrice, nil
 }
 
