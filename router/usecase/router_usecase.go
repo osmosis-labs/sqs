@@ -96,7 +96,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 		CandidateRouteCacheExpirySeconds: r.defaultConfig.CandidateRouteCacheExpirySeconds,
 		RankedRouteCacheExpirySeconds:    r.defaultConfig.RankedRouteCacheExpirySeconds,
 		MaxSplitRoutes:                   r.defaultConfig.MaxSplitRoutes,
-		DisableCache:                     true,
+		DisableCache:                     !r.defaultConfig.RouteCacheEnabled,
 		CandidateRoutesPoolFiltersAnyOf:  []domain.CandidateRoutePoolFiltrerCb{},
 	}
 	// Apply options
@@ -220,7 +220,6 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 // GetSimpleQuote implements mvc.RouterUsecase.
 // TODO: cover with a simple test.
 func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
-	isHTTPRequest := ctx.Value("baseDenom") != nil
 	options := domain.RouterOptions{
 		MaxPoolsPerRoute:    r.defaultConfig.MaxPoolsPerRoute,
 		MaxRoutes:           r.defaultConfig.MaxRoutes,
@@ -233,11 +232,6 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 	}
 
 	dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenIn.Denom, tokenOutDenom)
-
-	if isHTTPRequest {
-		ctx = context.WithValue(ctx, "baseDenom", "")
-	}
-
 	if err == nil {
 		// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
 		// Oterwise, use default.
@@ -257,14 +251,10 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		MaxPoolsPerRoute:    options.MaxPoolsPerRoute,
 		MinPoolLiquidityCap: options.MinPoolLiquidityCap,
 	}
-	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
-		r.logger.Error("GetSimpleQuote: error getting candidate routes for pricing", zap.Error(err))
+		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 		return nil, err
-	}
-
-	if isHTTPRequest {
-		ctx = context.WithValue(ctx, "baseDenom", "")
 	}
 
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
@@ -701,7 +691,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 	if !isFoundCached {
 		r.logger.Debug("calculating routes")
 
-		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 		if err != nil {
 			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return ingesttypes.CandidateRoutes{}, err
@@ -891,7 +881,6 @@ func (r *routerUseCaseImpl) ConvertMinTokensPoolLiquidityCapToFilter(minTokensPo
 // Returns the min liquidity cap filter and an error if any.
 func (r *routerUseCaseImpl) GetMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom string) (uint64, error) {
 	defaultMinLiquidityCap := r.defaultConfig.MinPoolLiquidityCap
-	return defaultMinLiquidityCap, nil
 
 	minPoolLiquidityCapBetweenTokens, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenInDenom, tokenOutDenom)
 	if err != nil {
