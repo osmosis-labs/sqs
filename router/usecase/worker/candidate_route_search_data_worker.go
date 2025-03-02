@@ -64,11 +64,10 @@ func (c *candidateRouteSearchDataWorker) ComputeSearchDataSync(ctx context.Conte
 	return nil
 }
 
-// [debug-adapter stdout] 2025-02-24T12:05:26.247+0200	ERROR	error validating and filtering routes	{"error": "previous token out denom (ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4) not found in pool (2549), route index (0)", "token_in_denom": "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", "token_out_denom": "ibc/D79E7D83AB399BFFF93433E54FAA480C191248FC556924A2A8351AE2638B3877"}
 func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockPoolMetadata) error {
 	mu := sync.Mutex{}
 
-	candidateRouteData := c.candidateRouteDataHolder.GetCandidateRouteSearchData()
+	candidateRouteData := make(map[string]domain.CandidateRouteDenomData, len(blockPoolMetaData.UpdatedDenoms))
 
 	wg := sync.WaitGroup{}
 
@@ -78,7 +77,6 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 		go func(denom string) {
 			defer wg.Done()
 
-			// Does this denomLiquidityData represents all pools for this denom or just ones that have change in their liquidity?
 			denomLiquidityData, ok := blockPoolMetaData.DenomPoolLiquidityMap[denom]
 			if !ok {
 				// TODO: add counter
@@ -87,16 +85,6 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 			}
 
 			denomPoolsIDs := domain.KeysFromMap(denomLiquidityData.Pools)
-			if denom == "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C" {
-				c.logger.Info("831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C", zap.Int("num_pools", len(denomPoolsIDs)))
-			}
-
-			if denom == "ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C" {
-				c.logger.Info("ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C", zap.Int("num_pools", len(denomPoolsIDs)))
-			}
-
-
-			c.logger.Info(denom, zap.String("debug denom number of pools", ""), zap.Int("num_pools", len(denomPoolsIDs)))
 
 			unsortedDenomPools, _, err := c.poolsHandler.GetPools(
 				domain.WithPoolIDFilter(denomPoolsIDs),
@@ -109,24 +97,6 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 
 			// Sort pools
 			sortedDenomPools, orderbookPools := routerusecase.ValidateAndSortPools(unsortedDenomPools, c.cosmWasmPoolConfig, c.preferredPoolIDs, c.logger)
-			for i, pool := range sortedDenomPools {
-				if pool.GetId() == uint64(1423) || pool.GetId() == uint64(1570) {
-					c.logger.Info("1570_1423", zap.Uint64("pool_id", pool.GetId()), zap.String("denom", denom), zap.Int("index", i))
-				}
-			}
-
-			c.logger.Info("candidateRouteSearchDataWorker compute was called", zap.String("denom", denom), zap.Int("num_pools", len(sortedDenomPools)))
-
-			// if denom == "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C" {
-			// 	sortedDenomPools[8], sortedDenomPools[9] = sortedDenomPools[9], sortedDenomPools[8]
-			// }
-			// if denom == "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4" {
-			// 	p397 := sortedDenomPools[397]
-			// 	p381 := sortedDenomPools[381]
-			//
-			// 	sortedDenomPools[381] = p397
-			// 	sortedDenomPools[397] = p381
-			// }
 
 			canonicalOrderbookPoolMapByPairToken := make(map[string]ingesttypes.PoolI, len(orderbookPools))
 			for _, pool := range orderbookPools {
