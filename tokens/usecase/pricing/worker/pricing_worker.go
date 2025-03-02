@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -58,29 +57,17 @@ func (p *pricingWorker) UpdatePricesSync(height uint64, uniqueBlockPoolMetaData 
 	// Note that we recompute prices entirely.
 	// Min osmo liquidity must be zero. The reason is that some pools have TVL incorrectly calculated as zero.
 	// For example, BRNCH / STRDST (1288). As a result, they are incorrectly excluded despite having appropriate liquidity.
-	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(1000))
-	p.logger.Info("starting pricing pre-computation", zap.Uint64("height", height), zap.Int("num_base_denoms", len(baseDenoms)))
+	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.minLiquidityCap))
 	if err != nil {
 		// Increase error counter
 		p.logger.Error(domain.SQSPricingWorkerComputeDurationMetricName, zap.Error(err), zap.Uint64("height", height))
 		domain.SQSPricingWorkerComputeErrorCounter.Inc()
-		return
 	}
-
-	if v, ok := prices["ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C"]["ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"] ; ok {
-		p.logger.Info("pricing ingester:", zap.Any("price", v.String()))
-	}
-
-
-	// _ = prices
-	// return
 
 	// Update listeners
 	for _, listener := range p.updateListeners {
-		err := listener.OnPricingUpdate(ctx, height, uniqueBlockPoolMetaData, prices, p.quoteDenom)
-		if err != nil {
-			p.logger.Error("listener error on updating pricing", zap.Error(err), zap.String("listener", fmt.Sprintf("%v", listener)), zap.Uint64("height", height))
-		}
+		// Ignore errors
+		_ = listener.OnPricingUpdate(ctx, height, uniqueBlockPoolMetaData, prices, p.quoteDenom)
 	}
 
 	// Measure duration
