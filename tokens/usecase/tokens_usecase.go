@@ -349,7 +349,7 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 		if err != nil { // Check if we should fallback to another pricing source
 			fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
 			if fallbackSourceType != domain.NoneSourceType {
-				t.logger.Info(domain.SQSPricingFallbackCounterMetricName, zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom))
+				t.logger.Info(domain.SQSPricingFallbackCounterMetricName, zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom), zap.Error(err))
 				domain.SQSPricingFallbackCounter.Inc()
 				fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
 				if ok {
@@ -423,6 +423,13 @@ func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
 
 // GetMinPoolLiquidityCap implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error) {
+	// return 0, domain.PoolDenomMetaDataNotPresentError{
+	// 	ChainDenom: "",
+	// }
+	if denomB == "ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C" {
+		denomB = "ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C"
+	}
+
 	// Get the pool denoms metadata
 	poolDenomMetadataA, err := t.GetPoolDenomMetadata(denomA)
 	if err != nil {
@@ -479,7 +486,6 @@ func (r *tokensUseCase) LoadTokensStateFiles() error {
 	if err != nil {
 		return err
 	}
-
 
 	r.UpdatePoolDenomMetadata(poolDenomsMetaData)
 

@@ -232,15 +232,18 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		opt(&options)
 	}
 
+	dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenIn.Denom, tokenOutDenom)
+
 	if isHTTPRequest {
 		ctx = context.WithValue(ctx, "baseDenom", "")
 	}
 
-	dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenIn.Denom, tokenOutDenom)
 	if err == nil {
 		// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
 		// Oterwise, use default.
-		options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+		if filter := r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap); filter > options.MinPoolLiquidityCap {
+			options.MinPoolLiquidityCap = filter
+		}
 	}
 
 	// If this is pricing worker precomputation, we need to be able to call this as
@@ -888,6 +891,7 @@ func (r *routerUseCaseImpl) ConvertMinTokensPoolLiquidityCapToFilter(minTokensPo
 // Returns the min liquidity cap filter and an error if any.
 func (r *routerUseCaseImpl) GetMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom string) (uint64, error) {
 	defaultMinLiquidityCap := r.defaultConfig.MinPoolLiquidityCap
+	return defaultMinLiquidityCap, nil
 
 	minPoolLiquidityCapBetweenTokens, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenInDenom, tokenOutDenom)
 	if err != nil {

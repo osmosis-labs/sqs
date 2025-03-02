@@ -78,6 +78,7 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 		go func(denom string) {
 			defer wg.Done()
 
+			// Does this denomLiquidityData represents all pools for this denom or just ones that have change in their liquidity?
 			denomLiquidityData, ok := blockPoolMetaData.DenomPoolLiquidityMap[denom]
 			if !ok {
 				// TODO: add counter
@@ -86,6 +87,16 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 			}
 
 			denomPoolsIDs := domain.KeysFromMap(denomLiquidityData.Pools)
+			if denom == "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C" {
+				c.logger.Info("831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C", zap.Int("num_pools", len(denomPoolsIDs)))
+			}
+
+			if denom == "ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C" {
+				c.logger.Info("ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C", zap.Int("num_pools", len(denomPoolsIDs)))
+			}
+
+
+			c.logger.Info(denom, zap.String("debug denom number of pools", ""), zap.Int("num_pools", len(denomPoolsIDs)))
 
 			unsortedDenomPools, _, err := c.poolsHandler.GetPools(
 				domain.WithPoolIDFilter(denomPoolsIDs),
@@ -104,16 +115,18 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 				}
 			}
 
-			if denom == "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C" {
-				sortedDenomPools[8], sortedDenomPools[9] = sortedDenomPools[9], sortedDenomPools[8]
-			}
-			if denom == "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4" {
-				p397 := sortedDenomPools[397]
-				p381 := sortedDenomPools[381]
+			c.logger.Info("candidateRouteSearchDataWorker compute was called", zap.String("denom", denom), zap.Int("num_pools", len(sortedDenomPools)))
 
-				sortedDenomPools[381] = p397
-				sortedDenomPools[397] = p381
-			}
+			// if denom == "ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C" {
+			// 	sortedDenomPools[8], sortedDenomPools[9] = sortedDenomPools[9], sortedDenomPools[8]
+			// }
+			// if denom == "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4" {
+			// 	p397 := sortedDenomPools[397]
+			// 	p381 := sortedDenomPools[381]
+			//
+			// 	sortedDenomPools[381] = p397
+			// 	sortedDenomPools[397] = p381
+			// }
 
 			canonicalOrderbookPoolMapByPairToken := make(map[string]ingesttypes.PoolI, len(orderbookPools))
 			for _, pool := range orderbookPools {

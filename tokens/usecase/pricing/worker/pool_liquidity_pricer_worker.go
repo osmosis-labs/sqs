@@ -67,6 +67,12 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 		domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
 	}()
 
+	repricedTokenMetadata := p.RepriceDenomsMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
+
+	// return
+	// Update the pool denom metadata.
+	p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
+
 	wg := sync.WaitGroup{}
 
 	wg.Add(1)
@@ -74,10 +80,6 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 		defer wg.Done()
 		// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
 		// for concurrency.
-		repricedTokenMetadata := p.RepriceDenomsMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
-
-		// Update the pool denom metadata.
-		p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
 	}()
 
 	wg.Add(1)
@@ -86,17 +88,17 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 
 		// Note: the error is propagated to the caller because
 		// the callee only errors on fatal issues that should invalidate health check.
-		err = p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates)
+		// err = p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates)
 	}()
 
 	// Wait for goroutines to finish processing.
 	wg.Wait()
 
 	// Notify listeners.
-	for _, listener := range p.updateListeners {
-		// Avoid checking error since we want to execute all listeners.
-		_ = listener.OnPoolLiquidityCompute(ctx, height, blockPoolMetadata)
-	}
+	// for _, listener := range p.updateListeners {
+	// 	// Avoid checking error since we want to execute all listeners.
+	// 	_ = listener.OnPoolLiquidityCompute(ctx, height, blockPoolMetadata)
+	// }
 
 	return nil
 }
@@ -114,6 +116,7 @@ func (p *poolLiquidityPricerWorker) RepriceDenomsMetadata(updateHeight uint64, b
 		poolDenomMetaData, err := p.CreatePoolDenomMetaData(updatedBlockDenom, updateHeight, blockPriceUpdates, quoteDenom, blockPoolMetadata)
 		if err != nil {
 			p.logger.Debug("error creating denom meta data", zap.Error(err))
+			continue
 		}
 
 		blockTokenMetadataUpdates.Set(updatedBlockDenom, poolDenomMetaData)
@@ -133,13 +136,12 @@ func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom st
 	denoms := []string{
 		"ibc/831F0B1BBB1D08A2B75311892876D71565478C532967545476DF4C2D7492E48C",
 		"ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C",
-
 	}
 	if slices.Contains(denoms, updatedBlockDenom) {
 		p.logger.Info("CreatePoolDenomMetaData", zap.String("denom", updatedBlockDenom), zap.String("price", price.String()))
 	}
 
-	// Retrieve liquidity from block pool metadata.
+	// Retrieve liquidity from block pool metadata. TODO: compare with Node
 	// Assummed zero if does not exist.
 	totalLiquidityForDenom := osmomath.ZeroInt()
 	blockPoolDenomLiquidityData, ok := blockPoolMetadata.DenomPoolLiquidityMap[updatedBlockDenom]

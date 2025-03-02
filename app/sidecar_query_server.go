@@ -273,7 +273,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		candidateRouteSearchDataWorker := routerWorker.NewCandidateRouteSearchDataWorker(poolsUseCase, routerRepository, config.Router.PreferredPoolIDs, cosmWasmPoolConfig, logger)
 
 		// Register chain info use case (healthcheck) as a listener to the candidate route search data worker.
-		candidateRouteSearchDataWorker.RegisterListener(chainInfoUseCase)
+		// candidateRouteSearchDataWorker.RegisterListener(chainInfoUseCase)
 
 		// chain info use case acts as the healthcheck. It receives updates from the pricing worker.
 		// It then passes the healthcheck as long as updates are received at the appropriate intervals.

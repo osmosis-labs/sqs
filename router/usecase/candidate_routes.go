@@ -39,7 +39,7 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 	}
 }
 
-func (c candidateRouteFinder) SetStateDumpUseCase(stateDumpUseCase mvc.StateDumpUsecase) candidateRouteFinder  {
+func (c candidateRouteFinder) SetStateDumpUseCase(stateDumpUseCase mvc.StateDumpUsecase) candidateRouteFinder {
 	c.stateDumpUseCase = stateDumpUseCase
 	return c
 }
@@ -53,6 +53,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 	// TODO: choose the best size for the visited map.
 	var visit int
 	visited := make(map[uint64]int, 100)
+	// skipped := make(map[uint64]int)
 	// visited := make([]bool, len(pools))
 
 	// Preallocate constant queue size to avoid dynamic reallocations.
@@ -149,6 +150,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 			if pool.GetLiquidityCap().Uint64() < options.MinPoolLiquidityCap {
 				visited[poolID] = visit
+				// skipped[poolID] = visit
 				visit++
 				// Skip pools that have less liquidity than the minimum required.
 				continue
@@ -252,6 +254,10 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 			visited[pool.ID] = visit
 			visit++
 		}
+	}
+
+	if isHTTPRequest {
+		isHTTPRequest = true
 	}
 
 	if err := c.stateDumpUseCase.DumpAll(); err != nil {
