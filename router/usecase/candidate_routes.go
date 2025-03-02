@@ -26,7 +26,6 @@ type candidateRouteWrapper struct {
 
 type candidateRouteFinder struct {
 	candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder
-	stateDumpUseCase         mvc.StateDumpUsecase
 	logger                   log.Logger
 }
 
@@ -39,26 +38,18 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 	}
 }
 
-func (c candidateRouteFinder) SetStateDumpUseCase(stateDumpUseCase mvc.StateDumpUsecase) candidateRouteFinder {
-	c.stateDumpUseCase = stateDumpUseCase
-	return c
-}
-
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
 func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
-	isHTTPRequest := ctx.Value("baseDenom") != nil
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
 	// Preallocate constant visited map size to avoid reallocations.
 	// TODO: choose the best size for the visited map.
-	var visit int
-	visited := make(map[uint64]int, 100)
-	// skipped := make(map[uint64]int)
+	visited := make(map[uint64]struct{}, 100)
 	// visited := make([]bool, len(pools))
 
 	// Preallocate constant queue size to avoid dynamic reallocations.
 	// TODO: choose the best size for the queue.
-	queue := make([][]candidatePoolWrapper, 0, 1000)
+	queue := make([][]candidatePoolWrapper, 0, 100)
 	queue = append(queue, make([]candidatePoolWrapper, 0, options.MaxPoolsPerRoute))
 
 	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenIn.Denom)
@@ -97,8 +88,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				})
 			}
 
-			visited[canonicalOrderbook.GetId()] = visit
-			visit++
+			visited[canonicalOrderbook.GetId()] = struct{}{}
 		}
 	}
 
@@ -132,10 +122,6 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 			pool := (rankedPools[i]).(*ingesttypes.PoolWrapper)
 			poolID := pool.ChainModel.GetId()
 
-			if isHTTPRequest /* && (poolID == 1570 || poolID == 1423)*/ {
-				ctx = context.WithValue(ctx, "baseDenom", "")
-			}
-
 			if _, ok := visited[poolID]; ok {
 				continue
 			}
@@ -143,15 +129,12 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 			// If the option is configured to skip a given pool
 			// We mark it as visited and continue.
 			if options.ShouldSkipPool(pool) {
-				visited[poolID] = visit
-				visit++
+				visited[poolID] = struct{}{}
 				continue
 			}
 
 			if pool.GetLiquidityCap().Uint64() < options.MinPoolLiquidityCap {
-				visited[poolID] = visit
-				// skipped[poolID] = visit
-				visit++
+				visited[poolID] = struct{}{}
 				// Skip pools that have less liquidity than the minimum required.
 				continue
 			}
@@ -194,8 +177,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				isAlloyed := cosmwasmModel != nil && cosmwasmModel.IsAlloyTransmuter()
 
 				if currentTokenInAmount.LT(tokenIn.Amount) && !isAlloyed {
-					visited[poolID] = visit
-					visit++
+					visited[poolID] = struct{}{}
 					// Not enough tokenIn to swap.
 					continue
 				}
@@ -251,27 +233,18 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 		}
 
 		for _, pool := range currentRoute {
-			visited[pool.ID] = visit
-			visit++
+			visited[pool.ID] = struct{}{}
 		}
 	}
 
-	if isHTTPRequest {
-		isHTTPRequest = true
-	}
-
-	if err := c.stateDumpUseCase.DumpAll(); err != nil {
-		c.logger.Error("failed to dump state", zap.Error(err))
-	}
-
-	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, tokenOutDenom, c.logger)
+	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
 }
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
 func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	// Fetching the candidate routes as for the exact amount of token in swap method
 	// That will be the same as the exact amount out swap method with inverted token denominations
-	routes, err := c.FindCandidateRoutesOutGivenIn(context.TODO(), tokenOut, tokenInDenom, options)
+	routes, err := c.FindCandidateRoutesOutGivenIn(context.Background(), tokenOut, tokenInDenom, options)
 	if err != nil {
 		return ingesttypes.CandidateRoutes{}, err
 	}

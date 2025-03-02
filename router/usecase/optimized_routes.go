@@ -155,7 +155,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 // - the previous pool token out denom is in the current pool.
 // - the current pool token out denom is in the current pool.
 // Returns error if not. Nil otherwise.
-func validateAndFilterRoutesOutGivenIn(candidateRoutes []candidateRouteWrapper, tokenInDenom string, tokenOutDenom1 string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
+func validateAndFilterRoutesOutGivenIn(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
 	var (
 		tokenOutDenom  string
 		filteredRoutes []ingesttypes.CandidateRoute
