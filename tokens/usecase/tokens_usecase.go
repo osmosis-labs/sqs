@@ -10,7 +10,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -423,13 +422,6 @@ func (t *tokensUseCase) IsValidChainDenom(chainDenom string) bool {
 
 // GetMinPoolLiquidityCap implements mvc.TokensUsecase.
 func (t *tokensUseCase) GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error) {
-	// return 0, domain.PoolDenomMetaDataNotPresentError{
-	// 	ChainDenom: "",
-	// }
-	if denomB == "ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C" {
-		denomB = "ibc/980E82A9F8E7CA8CD480F4577E73682A6D3855A267D1831485D7EBEF0E7A6C2C"
-	}
-
 	// Get the pool denoms metadata
 	poolDenomMetadataA, err := t.GetPoolDenomMetadata(denomA)
 	if err != nil {
@@ -473,39 +465,4 @@ func (t *tokensUseCase) GetCoingeckoIdByChainDenom(chainDenom string) (string, e
 	}
 
 	return v, nil
-}
-
-func (r *tokensUseCase) LoadTokensStateFiles() error {
-	tokensMetadata, err := parsing.ReadTokensMetadata("tokens.json")
-	if err != nil {
-		return err
-	}
-	r.LoadTokens(tokensMetadata)
-
-	poolDenomsMetaData, err := parsing.ReadPoolDenomsMetaData("pool_denom_metadata.json")
-	if err != nil {
-		return err
-	}
-
-	r.UpdatePoolDenomMetadata(poolDenomsMetaData)
-
-	return nil
-}
-
-func (r *tokensUseCase) StoreTokensStateFiles() error {
-	tokensMetadata, err := r.GetFullTokenMetadata()
-	if err != nil {
-		return err
-	}
-
-	err = parsing.StoreTokensMetadata(tokensMetadata, "tokens.json")
-	if err != nil {
-		return err
-	}
-
-	poolDenomMetaData := r.GetFullPoolDenomMetadata()
-
-	err = parsing.StorePoolDenomMetaData(poolDenomMetaData, "pool_denom_metadata.json")
-
-	return err
 }
