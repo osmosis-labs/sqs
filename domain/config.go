@@ -141,7 +141,7 @@ var (
 			MinPoolLiquidityCap:       1000,
 			CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
 			CoingeckoQuoteCurrency:    "usd",
-			WorkerMinPoolLiquidityCap: 1,
+			WorkerMinPoolLiquidityCap: 1000,
 		},
 		Passthrough: &passthroughdomain.PassthroughConfig{
 			NumiaURL:                     "https://data.app.osmosis.zone",
