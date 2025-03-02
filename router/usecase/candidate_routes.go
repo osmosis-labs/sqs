@@ -38,17 +38,17 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
 func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
-	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
+	routes := make([]candidateRouteWrapper, 0, 1000)
 
 	// Preallocate constant visited map size to avoid reallocations.
 	// TODO: choose the best size for the visited map.
-	visited := make(map[uint64]struct{}, 100)
+	visited := make(map[uint64]struct{}, 100000)
 	// visited := make([]bool, len(pools))
 
 	// Preallocate constant queue size to avoid dynamic reallocations.
 	// TODO: choose the best size for the queue.
-	queue := make([][]candidatePoolWrapper, 0, 100)
-	queue = append(queue, make([]candidatePoolWrapper, 0, options.MaxPoolsPerRoute))
+	queue := make([][]candidatePoolWrapper, 0, 100000)
+	queue = append(queue, make([]candidatePoolWrapper, 0, 1000))
 
 	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenIn.Denom)
 	if err != nil {
@@ -90,7 +90,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 		}
 	}
 
-	for len(queue) > 0 && len(routes) < options.MaxRoutes {
+	for len(queue) > 0 && len(routes) < 10000 {
 		currentRoute := queue[0]
 		queue[0] = nil // Clear the slice to avoid holding onto references
 		queue = queue[1:]
@@ -114,7 +114,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 			c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", currenTokenInDenom))
 		}
 
-		for i := 0; i < len(rankedPools) && len(routes) < options.MaxRoutes; i++ {
+		for i := 0; i < len(rankedPools) && len(routes) < 10000; i++ {
 			// Unsafe cast for performance reasons.
 			// nolint: forcetypeassert
 			pool := (rankedPools[i]).(*ingesttypes.PoolWrapper)
@@ -215,7 +215,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 						PoolDenoms: poolDenoms,
 					})
 
-					if len(newPath) <= options.MaxPoolsPerRoute {
+					if len(newPath) <= 10000 {
 						if hasTokenOut {
 							routes = append(routes, candidateRouteWrapper{
 								Pools:                     newPath,
