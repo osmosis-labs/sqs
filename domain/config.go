@@ -31,6 +31,7 @@ type Config struct {
 	ChainTendermintRPCEndpoint string `mapstructure:"grpc-tendermint-rpc-endpoint"`
 	ChainGRPCGatewayEndpoint   string `mapstructure:"grpc-gateway-endpoint"`
 	ChainID                    string `mapstructure:"chain-id"`
+	SkipChainAvailabilityCheck bool   `mapstructure:"skip-chain-availability-check"`
 
 	// Chain registry assets URL.
 	ChainRegistryAssetsFileURL string `mapstructure:"chain-registry-assets-url"`
@@ -72,6 +73,7 @@ var (
 		ChainTendermintRPCEndpoint: "http://localhost:26657",
 		ChainGRPCGatewayEndpoint:   "localhost:9090",
 		ChainID:                    "osmosis-1",
+		SkipChainAvailabilityCheck: false,
 		ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
 		UpdateAssetsHeightInterval: 200,
 		FlightRecord: &FlightRecordConfig{
