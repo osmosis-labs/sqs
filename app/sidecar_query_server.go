@@ -332,6 +332,19 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					}
 				}
 
+				// Note: you can implement your own plugin, add it as submodule and register here
+				if plugin.GetName() == orderbookplugindomain.CustomSubmodulePlugin {
+					signer, err := initializeCosmosSigner()
+					if err != nil {
+						return nil, err
+					}
+
+					logger.Info("Using keyring with address", zap.String("address", signer.GetAddressString()))
+
+					// Note: uncomment your plugin here
+					// currentPlugin = customfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, signer, defaultQuoteDenom, logger)
+				}
+
 				// Register the plugin with the ingest use case
 				ingestUseCase.RegisterEndBlockProcessPlugin(currentPlugin)
 			}
@@ -405,7 +418,7 @@ func initializeCosmosSigner() (cosmosbroadcast.CosmosSigner, error) {
 
 	osmosisConfig := broadcasttypes.OsmosisClientConfig
 
-	osmosisRest, err := cosmosbroadcast.NewCosmosRestClient("localhost:1317")
+	osmosisRest, err := cosmosbroadcast.NewCosmosRestClient("http://localhost:1317")
 	if err != nil {
 		return nil, err
 	}

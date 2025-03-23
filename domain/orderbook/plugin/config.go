@@ -4,4 +4,5 @@ package orderbookplugindomain
 const (
 	OrderbookFillbotPlugin  = "orderbook-fillbot-plugin"
 	OrderbookClaimbotPlugin = "orderbook-claimbot-plugin"
+	CustomSubmodulePlugin   = "custom-submodule-plugin"
 )
