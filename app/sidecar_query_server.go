@@ -19,6 +19,7 @@ import (
 	cosmosbroadcast "github.com/osmosis-labs/osmoutil-go/tx/broadcast/cosmos"
 
 	broadcasttypes "github.com/osmosis-labs/osmoutil-go/tx/broadcast/types"
+	// nolint: staticcheck
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
