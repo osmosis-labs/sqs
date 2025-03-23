@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
+	"os"
 
 	"time"
 
@@ -13,6 +15,10 @@ import (
 
 	// nolint: staticcheck
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	// nolint: staticcheck
+	cosmosbroadcast "github.com/osmosis-labs/osmoutil-go/tx/broadcast/cosmos"
+
+	broadcasttypes "github.com/osmosis-labs/osmoutil-go/tx/broadcast/types"
 	// nolint: staticcheck
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -295,14 +301,13 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 				var currentPlugin domain.EndBlockProcessPlugin
 
 				if plugin.GetName() == orderbookplugindomain.OrderbookFillbotPlugin {
-					// Create keyring
-					keyring, err := keyring.New()
+					signer, err := initializeCosmosSigner()
 					if err != nil {
 						return nil, err
 					}
 
-					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
-					currentPlugin = orderbookfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
+					logger.Info("Using keyring with address", zap.String("address", signer.GetAddressString()))
+					currentPlugin = orderbookfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, signer, defaultQuoteDenom, logger)
 				}
 
 				if plugin.GetName() == orderbookplugindomain.OrderbookClaimbotPlugin {
@@ -391,4 +396,30 @@ func checkGRPCGatewayStatus(grpcGatewayEndpoint string) error {
 	}
 
 	return nil
+}
+
+// initializeCosmosSigner initializes a cosmos signer using the private key from the SQS_PRIVATE_KEY environment variable.
+// Assumes that the rest endpoint is localhost:1317 (node running locally)
+func initializeCosmosSigner() (cosmosbroadcast.CosmosSigner, error) {
+	ctx := context.Background()
+
+	osmosisConfig := broadcasttypes.OsmosisClientConfig
+
+	osmosisRest, err := cosmosbroadcast.NewCosmosRestClient("localhost:1317")
+	if err != nil {
+		return nil, err
+	}
+
+	privKey := os.Getenv("SQS_PRIVATE_KEY")
+
+	if privKey == "" {
+		return nil, errors.New("SQS_PRIVATE_KEY is not set")
+	}
+
+	signer, err := cosmosbroadcast.InitializeCosmosSigner(ctx, privKey, osmosisConfig, osmosisRest)
+	if err != nil {
+		return nil, err
+	}
+
+	return signer, nil
 }

@@ -8,7 +8,7 @@ require (
 	cosmossdk.io/x/tx v0.13.7
 	github.com/CosmWasm/wasmd v0.53.2
 	github.com/cometbft/cometbft v0.38.13
-	github.com/cosmos/cosmos-sdk v0.50.11
+	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/osmosis-labs/osmosis/osmomath v0.0.16
 	github.com/osmosis-labs/osmosis/osmoutils v0.0.16
@@ -65,6 +65,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
 	github.com/oklog/run v1.1.0 // indirect
+	github.com/osmosis-labs/osmoutil-go v0.0.17 // indirect
 	github.com/shamaton/msgpack/v2 v2.2.0 // indirect
 	github.com/skip-mev/block-sdk/v2 v2.1.5 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -118,7 +119,7 @@ require (
 	github.com/cosmos/iavl v1.2.4 // indirect
 	github.com/cosmos/ibc-go/v8 v8.5.2 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
-	github.com/cosmos/ledger-cosmos-go v0.13.3 // indirect
+	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
 	github.com/danieljoos/wincred v1.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect

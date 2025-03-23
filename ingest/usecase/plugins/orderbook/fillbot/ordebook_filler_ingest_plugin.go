@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	cosmosbroadcast "github.com/osmosis-labs/osmoutil-go/tx/broadcast/cosmos"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
@@ -37,7 +37,7 @@ type orderbookFillerIngestPlugin struct {
 	atomicBool atomic.Bool
 
 	orderMapByPoolID  sync.Map
-	keyring           keyring.Keyring
+	signer            cosmosbroadcast.CosmosSigner
 	defaultQuoteDenom string
 
 	logger log.Logger
@@ -58,7 +58,7 @@ var (
 	tracer = otel.Tracer(tracerName)
 )
 
-func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, orderBookCWAPIClient orderbookplugindomain.OrderbookCWAPIClient, keyring keyring.Keyring, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
+func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, orderBookCWAPIClient orderbookplugindomain.OrderbookCWAPIClient, signer cosmosbroadcast.CosmosSigner, defaultQuoteDenom string, logger log.Logger) *orderbookFillerIngestPlugin {
 	liquidityPricer := worker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
 
 	return &orderbookFillerIngestPlugin{
@@ -73,10 +73,11 @@ func New(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, tokensU
 
 		orderMapByPoolID: sync.Map{},
 
-		keyring:           keyring,
 		defaultQuoteDenom: defaultQuoteDenom,
 
 		liquidityPricer: liquidityPricer,
+
+		signer: signer,
 
 		logger: logger,
 	}
@@ -116,7 +117,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 	uniqueOrderBookDenoms := o.getUniqueOrderbookDenoms(canonicalOrderbooks)
 
 	// Get bot balances
-	balances, err := o.passthroughGRPCClient.AllBalances(ctx, o.keyring.GetAddress().String())
+	balances, err := o.passthroughGRPCClient.AllBalances(ctx, o.signer.Address().String())
 	if err != nil {
 		return err
 	}
