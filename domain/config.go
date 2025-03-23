@@ -385,6 +385,8 @@ func PluginFactory(name string) Plugin {
 		return &OrderBookPluginConfig{}
 	case orderbookplugindomain.OrderbookClaimbotPlugin:
 		return &OrderBookPluginConfig{}
+	case orderbookplugindomain.CustomSubmodulePlugin:
+		return &OrderBookPluginConfig{}
 	// Add cases for other plugins as needed
 	default:
 		return nil
