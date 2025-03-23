@@ -14,7 +14,8 @@
         "OSMOSIS_KEYRING_PATH":"/root/.osmosisd/keyring-test",
         "OSMOSIS_KEYRING_PASSWORD": "test",
 	    "OSMOSIS_KEYRING_KEY_NAME": "local.info",
-        "SQS_OTEL_ENVIRONMENT": "sqs-local-debugger"
+        "SQS_OTEL_ENVIRONMENT": "sqs-local-debugger",
+        "SQS_CYCLIC_ARB_COSMOS_PRIVATE_KEY": "680aa5a83b6f70d8b71c53f84cc283e98bfd91f88f4662d0dbedcb6fadba8826"
       },
       "args": [
         "--config",

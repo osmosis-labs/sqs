@@ -137,7 +137,7 @@ func httpGet(ctx context.Context, url string) ([]byte, error) {
 // It waits for 5 seconds before returning.
 // It returns an error and avoids executing the transaction if the tx fee capitalization is greater than the max allowed.
 func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
-	key := o.keyring.GetKey()
+	key := o.signer.GetPayer()
 	keyBytes := key.Bytes()
 
 	privKey := &secp256k1.PrivKey{Key: keyBytes}
@@ -182,7 +182,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (re
 
 	// First round: we gather all the signer infos. We use the "set empty
 	// signature" hack to do that.
-	accSequence, accNumber := getInitialSequence(blockCtx.AsGoCtx(), o.keyring.GetAddress().String())
+	accSequence, accNumber := getInitialSequence(blockCtx.AsGoCtx(), o.signer.GetAddressString())
 	signMode := encodingConfig.TxConfig.SignModeHandler().DefaultMode()
 	protoSignMode, _ := authsigning.APISignModeToInternal(signMode)
 
@@ -264,7 +264,7 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 	slippageBound := tokenIn.Amount.ToLegacyDec().Mul(osmomath.MustNewDecFromStr("0.9995")).TruncateInt()
 
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
-		Sender:            o.keyring.GetAddress().String(),
+		Sender:            o.signer.GetAddressString(),
 		Routes:            poolManagerRoute,
 		TokenIn:           tokenIn,
 		TokenOutMinAmount: slippageBound,
@@ -313,7 +313,7 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 }
 
 func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
-	accSeq, accNum := getInitialSequence(ctx, o.keyring.GetAddress().String())
+	accSeq, accNum := getInitialSequence(ctx, o.signer.GetAddressString())
 
 	txFactory := tx.Factory{}
 	txFactory = txFactory.WithTxConfig(encodingConfig.TxConfig)
