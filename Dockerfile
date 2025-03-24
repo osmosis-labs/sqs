@@ -28,6 +28,12 @@ RUN ARCH=$(uname -m) && WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm/v
     wget https://github.com/CosmWasm/wasmvm/releases/download/$WASMVM_VERSION/checksums.txt -O /tmp/checksums.txt && \
     sha256sum /lib/libwasmvm_muslc.$ARCH.a | grep $(cat /tmp/checksums.txt | grep libwasmvm_muslc.$ARCH | cut -d ' ' -f 1)
 
+# --------------------------------------------------------
+# sqsd
+# --------------------------------------------------------
+
+FROM builder AS sqsd
+
 RUN BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
     -tags "netgo,ledger,muslc" \
     -ldflags \
@@ -40,7 +46,7 @@ RUN BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
 # --------------------------------------------------------
 
 FROM ${RUNNER_IMAGE}
-COPY --from=builder /osmosis/build/sqsd /bin/sqsd
+COPY --from=sqsd /osmosis/build/sqsd /bin/sqsd
 ENV HOME /osmosis
 WORKDIR $HOME
 EXPOSE 9092
