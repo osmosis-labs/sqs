@@ -146,7 +146,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	}
 
 	// Sort and store pools.
-	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
+	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Int("num_pools", len(allPools)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
 	p.sortAndStorePools(allPools)
 
@@ -164,6 +164,9 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		// and let any subsequent block wait before starting its computation
 		// to avoid overloading the system.
 		defer p.firstBlockWg.Done()
+
+		// Set the first block flag.
+		uniqueBlockPoolMetadata.IsFirstBlock = true
 
 		// Pre-compute the prices for all tokens
 		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
