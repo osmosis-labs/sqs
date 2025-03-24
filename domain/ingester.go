@@ -29,6 +29,8 @@ type BlockPoolMetadata struct {
 	UpdatedDenoms map[string]struct{}
 	// PoolIDs are the IDs of all pools updated within a block.
 	PoolIDs map[uint64]struct{}
+	// IsFirstBlock is true if this is the first block being processed after the ingester starts.
+	IsFirstBlock bool
 }
 
 // EndBlockProcessPlugin is a plugin that is called at the end of the block.
