@@ -41,6 +41,8 @@ import (
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
+	chainregistryHttpDelivery "github.com/osmosis-labs/sqs/chainregistry/delivery/http"
+	chainregistryUseCase "github.com/osmosis-labs/sqs/chainregistry/usecase"
 	passthroughHttpDelivery "github.com/osmosis-labs/sqs/passthrough/delivery/http"
 	passthroughUseCase "github.com/osmosis-labs/sqs/passthrough/usecase"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
@@ -114,7 +116,7 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 }
 
 // NewSideCarQueryServer creates a new sidecar query server (SQS).
-func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
+func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
 	middleware := middleware.InitMiddleware(config.CORS, config.FlightRecord, logger)
@@ -205,6 +207,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
+	// Initialize passthrough query use case
+	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(ctx, config.ChainRegistryTokenFeesFileURL, tokensUseCase, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	// Use the same config to initialize coingecko pricing strategy
 	coingeckPricingConfig := *config.Pricing
 	coingeckPricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
@@ -225,6 +233,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase, logger)
+	chainregistryHttpDelivery.NewChainregistryHandler(e, chainregistryUseCase, logger)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
 		return nil, err
