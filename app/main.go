@@ -123,7 +123,7 @@ func main() {
 	}
 
 	encCfg := app.MakeEncodingConfig()
-	sidecarQueryServer, err := NewSideCarQueryServer(encCfg.Marshaler, *config, logger)
+	sidecarQueryServer, err := NewSideCarQueryServer(ctx, encCfg.Marshaler, *config, logger)
 	if err != nil {
 		panic(err)
 	}

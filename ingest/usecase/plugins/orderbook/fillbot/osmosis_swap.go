@@ -2,17 +2,10 @@ package fillbot
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"net"
-	"net/http"
 	"os"
-	"strconv"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"go.uber.org/zap"
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
@@ -21,8 +14,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v28/app"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
@@ -30,7 +21,6 @@ import (
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
 	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/msg"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const (
@@ -71,76 +61,11 @@ func init() {
 	}
 }
 
-func getInitialSequence(ctx context.Context, address string) (uint64, uint64) {
-	resp, err := httpGet(ctx, LCD+"/cosmos/auth/v1beta1/accounts/"+address)
-	if err != nil {
-		log.Printf("Failed to get initial sequence: %v", err)
-		return 0, 0
-	}
-
-	var accountRes AccountResult
-	err = json.Unmarshal(resp, &accountRes)
-	if err != nil {
-		log.Printf("Failed to unmarshal account result: %v", err)
-		return 0, 0
-	}
-
-	seqint, err := strconv.ParseUint(accountRes.Account.Sequence, 10, 64)
-	if err != nil {
-		log.Printf("Failed to convert sequence to int: %v", err)
-		return 0, 0
-	}
-
-	accnum, err := strconv.ParseUint(accountRes.Account.AccountNumber, 10, 64)
-	if err != nil {
-		log.Printf("Failed to convert account number to int: %v", err)
-		return 0, 0
-	}
-
-	return seqint, accnum
-}
-
-var client = &http.Client{
-	Timeout:   10 * time.Second, // Adjusted timeout to 10 seconds
-	Transport: otelhttp.NewTransport(http.DefaultTransport),
-}
-
-func httpGet(ctx context.Context, url string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		netErr, ok := err.(net.Error)
-		if ok && netErr.Timeout() {
-			log.Printf("Request to %s timed out, continuing...", url)
-			return nil, nil
-		}
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return body, nil
-}
-
 // executeTx executes a transaction with the given tx context and block gas price.
 // It returns the response, the transaction body and an error if any.
 // It waits for 5 seconds before returning.
 // It returns an error and avoids executing the transaction if the tx fee capitalization is greater than the max allowed.
 func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
-	key := o.keyring.GetKey()
-	keyBytes := key.Bytes()
-
-	privKey := &secp256k1.PrivKey{Key: keyBytes}
 	// Create a new TxBuilder.
 	txBuilder := encodingConfig.TxConfig.NewTxBuilder()
 
@@ -182,41 +107,12 @@ func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (re
 
 	// First round: we gather all the signer infos. We use the "set empty
 	// signature" hack to do that.
-	accSequence, accNumber := getInitialSequence(blockCtx.AsGoCtx(), o.keyring.GetAddress().String())
-	signMode := encodingConfig.TxConfig.SignModeHandler().DefaultMode()
-	protoSignMode, _ := authsigning.APISignModeToInternal(signMode)
-
-	sigV2 := signing.SignatureV2{
-		PubKey: privKey.PubKey(),
-		Data: &signing.SingleSignatureData{
-			SignMode:  protoSignMode,
-			Signature: nil,
-		},
-		Sequence: accSequence,
-	}
-
-	err = txBuilder.SetSignatures(sigV2)
+	nonceResponse, err := o.signer.GetNonceTracker().ForceRefetch(blockCtx.AsGoCtx())
 	if err != nil {
-		fmt.Println("error setting signatures")
 		return nil, "", err
 	}
 
-	signerData := authsigning.SignerData{
-		ChainID:       chainID,
-		AccountNumber: accNumber,
-		Sequence:      accSequence,
-	}
-
-	signed, err := tx.SignWithPrivKey(
-		blockCtx.AsGoCtx(),
-		protoSignMode, signerData,
-		txBuilder, privKey, encodingConfig.TxConfig, accSequence)
-	if err != nil {
-		fmt.Println("couldn't sign")
-		return nil, "", err
-	}
-
-	err = txBuilder.SetSignatures(signed)
+	err = o.signer.SignTransaction(blockCtx.AsGoCtx(), txBuilder, encodingConfig.TxConfig, nonceResponse.Nonce, nonceResponse.Accnum)
 	if err != nil {
 		return nil, "", err
 	}
@@ -264,7 +160,7 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 	slippageBound := tokenIn.Amount.ToLegacyDec().Mul(osmomath.MustNewDecFromStr("0.9995")).TruncateInt()
 
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
-		Sender:            o.keyring.GetAddress().String(),
+		Sender:            o.signer.GetAddressString(),
 		Routes:            poolManagerRoute,
 		TokenIn:           tokenIn,
 		TokenOutMinAmount: slippageBound,
@@ -313,12 +209,15 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 }
 
 func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
-	accSeq, accNum := getInitialSequence(ctx, o.keyring.GetAddress().String())
+	nonceResponse, err := o.signer.GetNonceTracker().ForceRefetch(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	txFactory := tx.Factory{}
 	txFactory = txFactory.WithTxConfig(encodingConfig.TxConfig)
-	txFactory = txFactory.WithAccountNumber(accNum)
-	txFactory = txFactory.WithSequence(accSeq)
+	txFactory = txFactory.WithAccountNumber(nonceResponse.Accnum)
+	txFactory = txFactory.WithSequence(nonceResponse.Nonce)
 	txFactory = txFactory.WithChainID(chainID)
 	txFactory = txFactory.WithGasAdjustment(1.02)
 

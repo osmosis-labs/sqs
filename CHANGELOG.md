@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+- Remove dependency on keyring, wire in CosmosSigner and grab private key from SQS_PRIVATE_KEY environment variable.
+
 ## v28.2.0
 
 - #609 - BE-682 | Set isBestEffort when there are no orderbooks in the system to process

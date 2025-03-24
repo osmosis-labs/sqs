@@ -35,3 +35,8 @@ ingest/usecase/plugins/orderbook/fillbot/.env
 config_orderbook_fill_plugin.json
 
 .envrc
+
+
+# Ignore gitmodules
+.gitmodules
+

@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
+	"os"
 
 	"time"
 
@@ -13,6 +15,10 @@ import (
 
 	// nolint: staticcheck
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	// nolint: staticcheck
+	cosmosbroadcast "github.com/osmosis-labs/osmoutil-go/tx/broadcast/cosmos"
+
+	broadcasttypes "github.com/osmosis-labs/osmoutil-go/tx/broadcast/types"
 	// nolint: staticcheck
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -35,6 +41,8 @@ import (
 
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
+	chainregistryHttpDelivery "github.com/osmosis-labs/sqs/chainregistry/delivery/http"
+	chainregistryUseCase "github.com/osmosis-labs/sqs/chainregistry/usecase"
 	passthroughHttpDelivery "github.com/osmosis-labs/sqs/passthrough/delivery/http"
 	passthroughUseCase "github.com/osmosis-labs/sqs/passthrough/usecase"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
@@ -108,7 +116,7 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 }
 
 // NewSideCarQueryServer creates a new sidecar query server (SQS).
-func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
+func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
 	middleware := middleware.InitMiddleware(config.CORS, config.FlightRecord, logger)
@@ -199,6 +207,12 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 		return nil, err
 	}
 
+	// Initialize passthrough query use case
+	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(ctx, config.ChainRegistryTokenFeesFileURL, tokensUseCase, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	// Use the same config to initialize coingecko pricing strategy
 	coingeckPricingConfig := *config.Pricing
 	coingeckPricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
@@ -219,6 +233,7 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase, logger)
+	chainregistryHttpDelivery.NewChainregistryHandler(e, chainregistryUseCase, logger)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
 		return nil, err
@@ -295,14 +310,13 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 				var currentPlugin domain.EndBlockProcessPlugin
 
 				if plugin.GetName() == orderbookplugindomain.OrderbookFillbotPlugin {
-					// Create keyring
-					keyring, err := keyring.New()
+					signer, err := initializeCosmosSigner()
 					if err != nil {
 						return nil, err
 					}
 
-					logger.Info("Using keyring with address", zap.Stringer("address", keyring.GetAddress()))
-					currentPlugin = orderbookfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, keyring, defaultQuoteDenom, logger)
+					logger.Info("Using keyring with address", zap.String("address", signer.GetAddressString()))
+					currentPlugin = orderbookfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, signer, defaultQuoteDenom, logger)
 				}
 
 				if plugin.GetName() == orderbookplugindomain.OrderbookClaimbotPlugin {
@@ -325,6 +339,19 @@ func NewSideCarQueryServer(appCodec codec.Codec, config domain.Config, logger lo
 					if err != nil {
 						return nil, err
 					}
+				}
+
+				// Note: you can implement your own plugin, add it as submodule and register here
+				if plugin.GetName() == orderbookplugindomain.CustomSubmodulePlugin {
+					signer, err := initializeCosmosSigner()
+					if err != nil {
+						return nil, err
+					}
+
+					logger.Info("Using keyring with address", zap.String("address", signer.GetAddressString()))
+
+					// Note: uncomment your plugin here
+					// currentPlugin = customfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, signer, defaultQuoteDenom, logger)
 				}
 
 				// Register the plugin with the ingest use case
@@ -391,4 +418,30 @@ func checkGRPCGatewayStatus(grpcGatewayEndpoint string) error {
 	}
 
 	return nil
+}
+
+// initializeCosmosSigner initializes a cosmos signer using the private key from the SQS_PRIVATE_KEY environment variable.
+// Assumes that the rest endpoint is localhost:1317 (node running locally)
+func initializeCosmosSigner() (cosmosbroadcast.CosmosSigner, error) {
+	ctx := context.Background()
+
+	osmosisConfig := broadcasttypes.OsmosisClientConfig
+
+	osmosisRest, err := cosmosbroadcast.NewCosmosRestClient("http://localhost:1317")
+	if err != nil {
+		return nil, err
+	}
+
+	privKey := os.Getenv("SQS_PRIVATE_KEY")
+
+	if privKey == "" {
+		return nil, errors.New("SQS_PRIVATE_KEY is not set")
+	}
+
+	signer, err := cosmosbroadcast.InitializeCosmosSigner(ctx, privKey, osmosisConfig, osmosisRest)
+	if err != nil {
+		return nil, err
+	}
+
+	return signer, nil
 }
