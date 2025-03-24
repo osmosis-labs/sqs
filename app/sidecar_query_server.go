@@ -151,7 +151,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 
 	// Check the status of the grpc gateway
 	if err := checkGRPCGatewayStatus(config.ChainGRPCGatewayEndpoint); err != nil {
-		return nil, err
+		logger.Error("Error checking grpc gateway status", zap.Error(err))
 	}
 
 	// Initialize pools repository, usecase and HTTP handler

@@ -103,13 +103,6 @@ func main() {
 		}()
 	}
 
-	chainClient, err := client.NewClient(config.ChainID, config.ChainTendermintRPCEndpoint)
-	if err != nil {
-		panic(err)
-	}
-
-	encCfg := app.MakeEncodingConfig()
-
 	// logger
 	logger, err := sqslog.NewLogger(config.LoggerIsProduction, config.LoggerFilename, config.LoggerLevel)
 	if err != nil {
@@ -117,11 +110,19 @@ func main() {
 	}
 	logger.Info("Starting sidecar query server")
 
-	// If fails, it means that the node is not reachable
-	if _, err := chainClient.GetLatestHeight(ctx); err != nil {
+	chainClient, err := client.NewClient(config.ChainID, config.ChainTendermintRPCEndpoint)
+	if err != nil {
 		panic(err)
 	}
 
+	if _, err := chainClient.GetLatestHeight(ctx); err != nil {
+		if !config.SkipChainAvailabilityCheck {
+			panic(err)
+		}
+		logger.Error("Error getting latest height from chain client", zap.Error(err))
+	}
+
+	encCfg := app.MakeEncodingConfig()
 	sidecarQueryServer, err := NewSideCarQueryServer(ctx, encCfg.Marshaler, *config, logger)
 	if err != nil {
 		panic(err)
@@ -140,7 +141,7 @@ func main() {
 	}()
 
 	if err := sidecarQueryServer.Start(ctx); err != nil {
-		panic(err)
+		logger.Error("Error starting sidecar query server", zap.Error(err))
 	}
 }
 
