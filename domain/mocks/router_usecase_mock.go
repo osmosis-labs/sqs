@@ -36,8 +36,8 @@ type RouterUsecaseMock struct {
 	ConvertMinTokensPoolLiquidityCapToFilterFunc func(minTokensPoolLiquidityCap uint64) uint64
 	SetSortedPoolsFunc                           func(pools []ingesttypes.PoolI)
 	GetMinPoolLiquidityCapFilterFunc             func(tokenInDenom string, tokenOutDenom string) (uint64, error)
-
-	BaseFee domain.BaseFee
+	LoadRouterStateFilesFunc                     func() error
+	BaseFee                                      domain.BaseFee
 }
 
 // GetBaseFee implements mvc.RouterUsecase.
@@ -182,4 +182,11 @@ func (m *RouterUsecaseMock) SetSortedPools(pools []ingesttypes.PoolI) {
 	if m.SetSortedPoolsFunc != nil {
 		m.SetSortedPoolsFunc(pools)
 	}
+}
+
+func (m *RouterUsecaseMock) LoadRouterStateFiles() error {
+	if m.GetRouterStateFunc != nil {
+		return m.LoadRouterStateFilesFunc()
+	}
+	panic("unimplemented")
 }
