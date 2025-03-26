@@ -38,6 +38,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Unreleased
 
 - Remove dependency on keyring, wire in CosmosSigner and grab private key from SQS_PRIVATE_KEY environment variable.
+- #632 - E-697 | Increase max routes for pricing worker
 
 ## v28.2.0
 
