@@ -142,7 +142,7 @@ var DefaultConfig = Config{
 		DefaultSource:             0,
 		DefaultQuoteHumanDenom:    "usdc",
 		MaxPoolsPerRoute:          4,
-		MaxRoutes:                 3,
+		MaxRoutes:                 20,
 		MinPoolLiquidityCap:       1000,
 		CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
 		CoingeckoQuoteCurrency:    "usd",
