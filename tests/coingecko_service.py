@@ -1,7 +1,7 @@
 import requests
 import os
 
-COINGECKO_URL = "https://prices.osmosis.zone/api/v3/simple/price"
+COINGECKO_URL = "https://api.coingecko.com/api/v3/simple/price"
 USD_CURRENCY = "usd"
 
 class CoingeckoService:
