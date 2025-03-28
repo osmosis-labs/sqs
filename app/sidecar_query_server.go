@@ -247,7 +247,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, logger)
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough

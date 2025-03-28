@@ -16,6 +16,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/delivery/http/middleware"
 	"github.com/osmosis-labs/sqs/router/types"
 )
 
@@ -29,23 +30,22 @@ type RouterHandler struct {
 
 const routerResource = "/router"
 
-var (
-	oneDec = osmomath.OneDec()
-)
+var oneDec = osmomath.OneDec()
 
 func formatRouterResource(resource string) string {
 	return routerResource + resource
 }
 
 // NewRouterHandler will initialize the pools/ resources endpoint
-func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, qs domain.QuoteSimulator, logger log.Logger) {
+func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, qs domain.QuoteSimulator, chainUsecase mvc.ChainInfoUsecase, logger log.Logger) {
 	handler := &RouterHandler{
 		RUsecase:       us,
 		TUsecase:       tu,
 		QuoteSimulator: qs,
 		logger:         logger,
 	}
-	e.GET(formatRouterResource("/quote"), handler.GetOptimalQuote)
+
+	e.GET(formatRouterResource("/quote"), handler.GetOptimalQuote, middleware.QuoteChainStateValidatorMiddleware(chainUsecase))
 	e.GET(formatRouterResource("/routes"), handler.GetCandidateRoutes)
 	e.GET(formatRouterResource("/cached-routes"), handler.GetCachedCandidateRoutes)
 	e.GET(formatRouterResource("/spot-price-pool/:id"), handler.GetSpotPriceForPool)
