@@ -2,6 +2,7 @@ import requests
 
 SQS_STAGE = "https://sqs.stage.osmosis.zone"
 SQS_PROD = "https://sqs.osmosis.zone"
+SQS_INTEGRATORS = "https://sqs.integrators.osmosis.zone"
 SQS_LOCAL = "http://localhost:9092"
 
 ROUTER_ROUTES_URL = "/router/routes"
@@ -31,6 +32,7 @@ class SQSService:
         headers={}
         if api_key is not None:
             headers["x-api-key"] = api_key
+            headers["x-api-token"] = api_key
 
         self.headers = headers
 
