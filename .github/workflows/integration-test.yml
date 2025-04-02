@@ -44,7 +44,7 @@ jobs:
         env:
           SQS_ENVIRONMENTS: ${{ github.event.inputs.environment }}
           SQS_API_KEY: ${{ secrets.SQS_API_KEY }}
-          COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
+          # COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
           
   scheduled_integration_test:
     if: github.event_name == 'schedule'
@@ -73,4 +73,4 @@ jobs:
         env:
           SQS_ENVIRONMENTS: ${{ matrix.environment }}
           SQS_API_KEY: ${{ secrets.SQS_API_KEY }}
-          COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
+          # COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
