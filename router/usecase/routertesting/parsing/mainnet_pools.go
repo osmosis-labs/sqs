@@ -156,7 +156,7 @@ type candidateRouteOrderbookSearchData struct {
 }
 
 // StoreCandidateRouteSearchData stores the candidate route search data to disk at the given path.
-func StoreCandidateRouteSearchData(candidateRouteSearchData map[string]domain.CandidateRouteDenomData, candidateRouteSearchDataFile string) error {
+func StoreCandidateRouteSearchData(candidateRouteSearchData map[string]*domain.CandidateRouteDenomData, candidateRouteSearchDataFile string) error {
 	_, err := os.Stat(candidateRouteSearchDataFile)
 	if os.IsNotExist(err) {
 		file, err := os.Create(candidateRouteSearchDataFile)

@@ -67,10 +67,11 @@ func (c *candidateRouteSearchDataWorker) ComputeSearchDataSync(ctx context.Conte
 func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockPoolMetadata) error {
 	mu := sync.Mutex{}
 
-	candidateRouteData := make(map[string]domain.CandidateRouteDenomData, len(blockPoolMetaData.UpdatedDenoms))
+	candidateRouteData := make(map[string]*domain.CandidateRouteDenomData, len(blockPoolMetaData.UpdatedDenoms))
 
 	wg := sync.WaitGroup{}
 
+	c.logger.Info("computing candidate route data", zap.Any("denoms", (blockPoolMetaData.UpdatedDenoms)))
 	for denom := range blockPoolMetaData.UpdatedDenoms {
 		wg.Add(1)
 
@@ -110,7 +111,7 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 			}
 
 			mu.Lock()
-			candidateRouteData[denom] = domain.CandidateRouteDenomData{
+			candidateRouteData[denom] = &domain.CandidateRouteDenomData{
 				SortedPools:         sortedDenomPools,
 				CanonicalOrderbooks: canonicalOrderbookPoolMapByPairToken,
 			}

@@ -141,7 +141,7 @@ type RouterState struct {
 	TakerFees                ingesttypes.TakerFeeMap
 	TickMap                  map[uint64]*ingesttypes.TickModel
 	AlloyedDataMap           map[uint64]*cosmwasmpool.AlloyTransmuterData
-	CandidateRouteSearchData map[string]CandidateRouteDenomData
+	CandidateRouteSearchData map[string]*CandidateRouteDenomData
 }
 
 // RouterOptions defines the options for the router
