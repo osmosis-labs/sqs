@@ -3,6 +3,8 @@ package domain
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
 // CandidateRoutePoolFiltrerCb defines a candidate route pool filter
@@ -53,15 +55,13 @@ func (c CandidateRoutePoolIDFilterOptionCb) ShouldSkipPool(pool *ingesttypes.Poo
 	return ok
 }
 
-var (
-	// ShouldSkipOrderbookPool skips orderbook pools
-	// by returning true if pool.SQSModel.CosmWasmPoolModel is not nil
-	// and pool.SQSModel.CosmWasmPoolModel.IsOrderbook() returns true.
-	ShouldSkipOrderbookPool CandidateRoutePoolFiltrerCb = func(pool *ingesttypes.PoolWrapper) bool {
-		cosmWasmPoolModel := pool.SQSModel.CosmWasmPoolModel
-		return cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook()
-	}
-)
+// ShouldSkipOrderbookPool skips orderbook pools
+// by returning true if pool.SQSModel.CosmWasmPoolModel is not nil
+// and pool.SQSModel.CosmWasmPoolModel.IsOrderbook() returns true.
+var ShouldSkipOrderbookPool CandidateRoutePoolFiltrerCb = func(pool *ingesttypes.PoolWrapper) bool {
+	cosmWasmPoolModel := pool.SQSModel.CosmWasmPoolModel
+	return cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook()
+}
 
 // CandidateRouteSearcher is the interface for finding candidate routes.
 type CandidateRouteSearcher interface {
@@ -77,11 +77,31 @@ type CandidateRouteSearcher interface {
 }
 
 // CandidateRouteDenomData represents the data for a candidate route for a given denom.
-type CandidateRouteDenomData struct {
+// TODO: This should contain minimum data
+type CandidateRouteDenomDataOld struct {
 	// SortedPools is the sorted list of pools for the denom.
 	SortedPools []ingesttypes.PoolI
 	// CanonicalOrderbooks is the map of canonical orderbooks keyed by the pair token.
 	// For example if this is candidate route denom data for OSMO and there is a canonical orderbook with ID 23
 	// for ATOM/OSMO, we would have an entry from ATOM to 23 in this map.
 	CanonicalOrderbooks map[string]ingesttypes.PoolI
+}
+
+type CandidatePoolWrapper struct {
+	ID                uint64
+	TokenInDenom      string
+	TokenOutDenom     string
+	PoolDenoms        []string
+	PoolLiquidityCap  osmomath.Int
+	Balances          sdk.Coins
+	IsAlloyTransmuter bool
+}
+
+type CandidateRouteDenomData struct {
+	// SortedPools is the sorted list of pools for the denom.
+	SortedPools []CandidatePoolWrapper
+	// CanonicalOrderbooks is the map of canonical orderbooks keyed by the pair token.
+	// For example if this is candidate route denom data for OSMO and there is a canonical orderbook with ID 23
+	// for ATOM/OSMO, we would have an entry from ATOM to 23 in this map.
+	CanonicalOrderbooks map[string]CandidatePoolWrapper
 }

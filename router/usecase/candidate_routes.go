@@ -60,14 +60,14 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 		if ok {
 			shouldSkipCanonicalOrderbook := false
 			// Filter the canonical orderbook pool using the pool filters.
-			for _, filter := range options.PoolFiltersAnyOf {
-				// nolint: forcetypeassert
-				canonicalOrderbookPoolWrapper := (canonicalOrderbook).(*ingesttypes.PoolWrapper)
-				if filter(canonicalOrderbookPoolWrapper) {
-					shouldSkipCanonicalOrderbook = true
-					break
-				}
-			}
+			// for _, filter := range options.PoolFiltersAnyOf {
+			// 	// nolint: forcetypeassert
+			// 	canonicalOrderbookPoolWrapper := (canonicalOrderbook).(*ingesttypes.PoolWrapper)
+			// 	if filter(canonicalOrderbookPoolWrapper) {
+			// 		shouldSkipCanonicalOrderbook = true
+			// 		break
+			// 	}
+			// }
 
 			if !shouldSkipCanonicalOrderbook {
 				// Add the canonical orderbook as a route.
@@ -76,17 +76,17 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 					Pools: []*candidatePoolWrapper{
 						{
 							CandidatePool: ingesttypes.CandidatePool{
-								ID:            canonicalOrderbook.GetId(),
+								ID:            canonicalOrderbook.ID,
 								TokenInDenom:  tokenIn.Denom,
 								TokenOutDenom: tokenOutDenom,
 							},
-							PoolDenoms: canonicalOrderbook.GetSQSPoolModel().PoolDenoms,
+							PoolDenoms: canonicalOrderbook.PoolDenoms,
 						},
 					},
 				})
 			}
 
-			visited[canonicalOrderbook.GetId()] = true
+			visited[canonicalOrderbook.ID] = true
 		}
 	}
 
@@ -108,17 +108,15 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 			return ingesttypes.CandidateRoutes{}, err
 		}
 
-		rankedPools := denomData.SortedPools
-
-		if len(rankedPools) == 0 {
+		if len(denomData.SortedPools) == 0 {
 			c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", currenTokenInDenom))
 		}
 
-		for i := 0; i < len(rankedPools) && len(routes) < options.MaxRoutes; i++ {
+		for i := 0; i < len(denomData.SortedPools) && len(routes) < options.MaxRoutes; i++ {
 			// Unsafe cast for performance reasons.
 			// nolint: forcetypeassert
-			pool := (rankedPools[i]).(*ingesttypes.PoolWrapper)
-			poolID := pool.ChainModel.GetId()
+			pool := (denomData.SortedPools[i])
+			poolID := denomData.SortedPools[i].ID
 
 			if ok := visited[poolID]; ok {
 				continue
@@ -126,18 +124,18 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 
 			// If the option is configured to skip a given pool
 			// We mark it as visited and continue.
-			if options.ShouldSkipPool(pool) {
-				visited[poolID] = true
-				continue
-			}
+			// if options.ShouldSkipPool(pool) {
+			// 	visited[poolID] = true
+			// 	continue
+			// }
 
-			if pool.GetLiquidityCap().Uint64() < options.MinPoolLiquidityCap {
+			if denomData.SortedPools[i].PoolLiquidityCap.Uint64() < options.MinPoolLiquidityCap {
 				visited[poolID] = true
 				// Skip pools that have less liquidity than the minimum required.
 				continue
 			}
 
-			poolDenoms := pool.SQSModel.PoolDenoms
+			poolDenoms := pool.PoolDenoms
 			hasTokenIn := false
 			hasTokenOut := false
 			shouldSkipPool := false
@@ -166,15 +164,12 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 
 			// Microptimization for the first pool in the route.
 			if len(currentRoute) == 0 {
-				currentTokenInAmount := pool.SQSModel.Balances.AmountOf(currenTokenInDenom)
+				currentTokenInAmount := pool.Balances.AmountOf(currenTokenInDenom)
 
 				// HACK: alloyed LP share is not contained in balances.
 				// TODO: remove the hack and ingest the LP share balance on the Osmosis side.
 				// https://linear.app/osmosis/issue/DATA-236/bug-alloyed-lp-share-is-not-present-in-balances
-				cosmwasmModel := pool.SQSModel.CosmWasmPoolModel
-				isAlloyed := cosmwasmModel != nil && cosmwasmModel.IsAlloyTransmuter()
-
-				if currentTokenInAmount.LT(tokenIn.Amount) && !isAlloyed {
+				if currentTokenInAmount.LT(tokenIn.Amount) && !pool.IsAlloyTransmuter {
 					visited[poolID] = true
 					// Not enough tokenIn to swap.
 					continue
@@ -195,8 +190,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 					return ingesttypes.CandidateRoutes{}, err
 				}
 
-				rankedPools := denomData.SortedPools
-				if len(rankedPools) == 0 {
+				if len(denomData.SortedPools) == 0 {
 					c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", denom))
 					continue
 				}
