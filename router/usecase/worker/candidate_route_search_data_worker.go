@@ -6,13 +6,10 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	// ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
-
-	// sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/log"
-	"go.uber.org/zap"
-
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
+
+	"go.uber.org/zap"
 )
 
 type candidateRouteSearchDataWorker struct {
@@ -100,33 +97,27 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 			sortedDenomPools, orderbookPools := routerusecase.ValidateAndSortPools(unsortedDenomPools, c.cosmWasmPoolConfig, c.preferredPoolIDs, c.logger)
 
 			canonicalOrderbookPoolMapByPairToken := make(map[string]domain.CandidatePoolWrapper, len(orderbookPools))
-			for _, pool := range orderbookPools {
-				if c.poolsHandler.IsCanonicalOrderbookPool(pool.GetId()) {
-					poolModel := pool.GetSQSPoolModel()
+			for i := range orderbookPools {
+				id := orderbookPools[i].GetId()
+				if c.poolsHandler.IsCanonicalOrderbookPool(id) {
+					poolModel := orderbookPools[i].GetSQSPoolModel()
 					poolDenoms := poolModel.PoolDenoms
 					for _, poolDenom := range poolDenoms {
-						canonicalOrderbookPoolMapByPairToken[poolDenom] = domain.CandidatePoolWrapper{
-							ID:                pool.GetUnderlyingPool().GetId(),
-							PoolDenoms:        poolDenoms,
-							PoolLiquidityCap:  poolModel.PoolLiquidityCap,
-							Balances:          poolModel.Balances,
-							IsAlloyTransmuter: poolModel.CosmWasmPoolModel != nil && poolModel.CosmWasmPoolModel.IsAlloyTransmuter(),
-						}
+						canonicalOrderbookPoolMapByPairToken[poolDenom] = domain.NewCandidatePoolWrapper(
+							id,
+							poolModel,
+						)
 					}
 				}
 			}
 
 			mu.Lock()
-			var sortedPools []domain.CandidatePoolWrapper
+			sortedPools := make([]domain.CandidatePoolWrapper, len(sortedDenomPools), len(sortedDenomPools))
 			for i := range sortedDenomPools {
-				poolModel := sortedDenomPools[i].GetSQSPoolModel()
-				sortedPools = append(sortedPools, domain.CandidatePoolWrapper{
-					ID:                sortedDenomPools[i].GetId(),
-					PoolDenoms:        poolModel.PoolDenoms,
-					PoolLiquidityCap:  poolModel.PoolLiquidityCap,
-					Balances:          poolModel.Balances,
-					IsAlloyTransmuter: poolModel.CosmWasmPoolModel != nil && poolModel.CosmWasmPoolModel.IsAlloyTransmuter(),
-				})
+				sortedPools[i] = domain.NewCandidatePoolWrapper(
+					sortedDenomPools[i].GetId(),
+					sortedDenomPools[i].GetSQSPoolModel(),
+				)
 			}
 			candidateRouteData[denom] = &domain.CandidateRouteDenomData{
 				SortedPools:         sortedPools,

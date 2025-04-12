@@ -18,7 +18,7 @@ type candidatePoolWrapper struct {
 }
 
 type candidateRouteWrapper struct {
-	Pools                     []*candidatePoolWrapper
+	Pools                     []candidatePoolWrapper
 	IsCanonicalOrderboolRoute bool
 }
 
@@ -42,13 +42,12 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 
 	// Preallocate constant visited map size to avoid reallocations.
 	// TODO: choose the best size for the visited map.
-	// visited := make(map[uint64]struct{}, 100)
-	visited := make([]bool, 1000000)
+	visited := make([]bool, 100_000)
 
 	// Preallocate constant queue size to avoid dynamic reallocations.
 	// TODO: choose the best size for the queue.
-	queue := make([][]*candidatePoolWrapper, 0, 100)
-	queue = append(queue, make([]*candidatePoolWrapper, 0, options.MaxPoolsPerRoute))
+	queue := make([][]candidatePoolWrapper, 0, 100)
+	queue = append(queue, make([]candidatePoolWrapper, 0, options.MaxPoolsPerRoute))
 
 	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenIn.Denom)
 	if err != nil {
@@ -60,20 +59,18 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 		if ok {
 			shouldSkipCanonicalOrderbook := false
 			// Filter the canonical orderbook pool using the pool filters.
-			// for _, filter := range options.PoolFiltersAnyOf {
-			// 	// nolint: forcetypeassert
-			// 	canonicalOrderbookPoolWrapper := (canonicalOrderbook).(*ingesttypes.PoolWrapper)
-			// 	if filter(canonicalOrderbookPoolWrapper) {
-			// 		shouldSkipCanonicalOrderbook = true
-			// 		break
-			// 	}
-			// }
+			for _, filter := range options.PoolFiltersAnyOf {
+				if filter(canonicalOrderbook) {
+					shouldSkipCanonicalOrderbook = true
+					break
+				}
+			}
 
 			if !shouldSkipCanonicalOrderbook {
 				// Add the canonical orderbook as a route.
 				routes = append(routes, candidateRouteWrapper{
 					IsCanonicalOrderboolRoute: true,
-					Pools: []*candidatePoolWrapper{
+					Pools: []candidatePoolWrapper{
 						{
 							CandidatePool: ingesttypes.CandidatePool{
 								ID:            canonicalOrderbook.ID,
@@ -113,24 +110,21 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 		}
 
 		for i := 0; i < len(denomData.SortedPools) && len(routes) < options.MaxRoutes; i++ {
-			// Unsafe cast for performance reasons.
-			// nolint: forcetypeassert
-			pool := (denomData.SortedPools[i])
-			poolID := denomData.SortedPools[i].ID
-
-			if ok := visited[poolID]; ok {
+			if ok := visited[denomData.SortedPools[i].ID]; ok {
 				continue
 			}
 
+			pool := (denomData.SortedPools[i])
+
 			// If the option is configured to skip a given pool
 			// We mark it as visited and continue.
-			// if options.ShouldSkipPool(pool) {
-			// 	visited[poolID] = true
-			// 	continue
-			// }
+			if options.ShouldSkipPool(pool) {
+				visited[pool.ID] = true
+				continue
+			}
 
-			if denomData.SortedPools[i].PoolLiquidityCap.Uint64() < options.MinPoolLiquidityCap {
-				visited[poolID] = true
+			if pool.PoolLiquidityCap < options.MinPoolLiquidityCap {
+				visited[pool.ID] = true
 				// Skip pools that have less liquidity than the minimum required.
 				continue
 			}
@@ -170,13 +164,12 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 				// TODO: remove the hack and ingest the LP share balance on the Osmosis side.
 				// https://linear.app/osmosis/issue/DATA-236/bug-alloyed-lp-share-is-not-present-in-balances
 				if currentTokenInAmount.LT(tokenIn.Amount) && !pool.IsAlloyTransmuter {
-					visited[poolID] = true
+					visited[pool.ID] = true
 					// Not enough tokenIn to swap.
 					continue
 				}
 			}
 
-			currentPoolID := poolID
 			for _, denom := range poolDenoms {
 				if denom == currenTokenInDenom {
 					continue
@@ -195,17 +188,14 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 					continue
 				}
 
-				if lastPoolID == uint64(0) || lastPoolID != currentPoolID {
-					newPath := make([]*candidatePoolWrapper, len(currentRoute), len(currentRoute)+1)
+				if lastPoolID == uint64(0) || lastPoolID != pool.ID {
+					newPath := make([]candidatePoolWrapper, len(currentRoute), len(currentRoute)+1)
 
-					// copy
-					for i := 0; i < len(currentRoute); i++ {
-						newPath[i] = currentRoute[i]
-					}
+					copy(newPath, currentRoute)
 
-					newPath = append(newPath, &candidatePoolWrapper{
+					newPath = append(newPath, candidatePoolWrapper{
 						CandidatePool: ingesttypes.CandidatePool{
-							ID:            poolID,
+							ID:            pool.ID,
 							TokenInDenom:  currenTokenInDenom,
 							TokenOutDenom: denom,
 						},
@@ -252,11 +242,4 @@ func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, t
 	}
 
 	return routes, nil
-}
-
-// Pool represents a pool in the decentralized exchange.
-type Pool struct {
-	ID       int
-	TokenIn  string
-	TokenOut string
 }

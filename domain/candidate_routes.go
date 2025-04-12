@@ -1,15 +1,17 @@
 package domain
 
 import (
-	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/domain/osmomath"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
+
+	osmoingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // CandidateRoutePoolFiltrerCb defines a candidate route pool filter
 // that takes in a pool and returns true if the pool should be skipped.
-type CandidateRoutePoolFiltrerCb func(*ingesttypes.PoolWrapper) bool
+type CandidateRoutePoolFiltrerCb func(CandidatePoolWrapper) bool
 
 // CandidateRouteSearchOptions represents the options for finding candidate routes.
 type CandidateRouteSearchOptions struct {
@@ -32,7 +34,7 @@ type CandidateRouteSearchOptions struct {
 
 // ShouldSkipPool returns true if the candidate route algorithm should skip
 // a given pool by matching at least one of the pool filters
-func (c CandidateRouteSearchOptions) ShouldSkipPool(pool *ingesttypes.PoolWrapper) bool {
+func (c CandidateRouteSearchOptions) ShouldSkipPool(pool CandidatePoolWrapper) bool {
 	for _, filter := range c.PoolFiltersAnyOf {
 		if filter(pool) {
 			return true
@@ -59,9 +61,8 @@ func (c CandidateRoutePoolIDFilterOptionCb) ShouldSkipPool(pool *ingesttypes.Poo
 // by returning true if pool.SQSModel.CosmWasmPoolModel is not nil
 // and pool.SQSModel.CosmWasmPoolModel.IsOrderbook() returns true.
 var (
-	ShouldSkipOrderbookPool CandidateRoutePoolFiltrerCb = func(pool *ingesttypes.PoolWrapper) bool {
-		cosmWasmPoolModel := pool.SQSModel.CosmWasmPoolModel
-		return cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook()
+	ShouldSkipOrderbookPool CandidateRoutePoolFiltrerCb = func(pool CandidatePoolWrapper) bool {
+		return pool.IsOrderbook
 	}
 )
 
@@ -82,12 +83,22 @@ type CandidateRouteSearcher interface {
 // required for the candidate route algorithm.
 type CandidatePoolWrapper struct {
 	ID                uint64
-	TokenInDenom      string
-	TokenOutDenom     string
 	PoolDenoms        []string
-	PoolLiquidityCap  osmomath.Int
+	PoolLiquidityCap  uint64 // Note: the value is truncated if it is larger than uint64
 	Balances          sdk.Coins
 	IsAlloyTransmuter bool
+	IsOrderbook       bool
+}
+
+func NewCandidatePoolWrapper(id uint64, p osmoingesttypes.SQSPool) CandidatePoolWrapper {
+	return CandidatePoolWrapper{
+		ID:                id,
+		PoolDenoms:        p.PoolDenoms,
+		PoolLiquidityCap:  osmomath.SafeUint64(p.PoolLiquidityCap),
+		Balances:          p.Balances,
+		IsAlloyTransmuter: p.CosmWasmPoolModel != nil && p.CosmWasmPoolModel.IsAlloyTransmuter(),
+		IsOrderbook:       p.CosmWasmPoolModel != nil && p.CosmWasmPoolModel.IsOrderbook(),
+	}
 }
 
 type CandidateRouteDenomData struct {
