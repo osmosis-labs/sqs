@@ -167,37 +167,37 @@ func StoreCandidateRouteSearchData(candidateRouteSearchData map[string]*domain.C
 
 		serializedResult := make([]candidateRouteSerializedData, 0, len(candidateRouteSearchData))
 
-		// for denom, candidateRouteSearchData := range candidateRouteSearchData {
-		// 	serializedPools := make([]json.RawMessage, 0)
-		// 	// for _, pool := range candidateRouteSearchData.SortedPools {
-		// 	// 	// serializedPool, err := MarshalPool(pool)
-		// 	// 	if err != nil {
-		// 	// 		return err
-		// 	// 	}
-		// 	// 	// serializedPools = append(serializedPools, serializedPool)
-		// 	// }
-		//
-		// 	serializedOrderbooks := make([]candidateRouteOrderbookSearchData, 0)
-		// 	// for pairDenom, orderbook := range candidateRouteSearchData.CanonicalOrderbooks {
-		// 	// 	// serializedOrderbook, err := MarshalPool(orderbook)
-		// 	// 	// if err != nil {
-		// 	// 	// 	return err
-		// 	// 	// }
-		// 	// 	//
-		// 	// 	// orderbookData := candidateRouteOrderbookSearchData{
-		// 	// 	// 	PairDenom: pairDenom,
-		// 	// 	// 	Orderbook: serializedOrderbook,
-		// 	// 	// }
-		// 	// 	//
-		// 	// 	// serializedOrderbooks = append(serializedOrderbooks, orderbookData)
-		// 	// }
-		//
-		// 	serializedResult = append(serializedResult, candidateRouteSerializedData{
-		// 		Denom:      denom,
-		// 		Pool:       serializedPools,
-		// 		Orderbooks: serializedOrderbooks,
-		// 	})
-		// }
+		for denom, candidateRouteSearchData := range candidateRouteSearchData {
+			serializedPools := make([]json.RawMessage, 0)
+			for _, pool := range candidateRouteSearchData.SortedPools {
+				serializedPool, err := json.Marshal(pool)
+				if err != nil {
+					return err
+				}
+				serializedPools = append(serializedPools, serializedPool)
+			}
+
+			serializedOrderbooks := make([]candidateRouteOrderbookSearchData, 0)
+			for pairDenom, orderbook := range candidateRouteSearchData.CanonicalOrderbooks {
+				serializedOrderbook, err := json.Marshal(orderbook)
+				if err != nil {
+					return err
+				}
+
+				orderbookData := candidateRouteOrderbookSearchData{
+					PairDenom: pairDenom,
+					Orderbook: serializedOrderbook,
+				}
+
+				serializedOrderbooks = append(serializedOrderbooks, orderbookData)
+			}
+
+			serializedResult = append(serializedResult, candidateRouteSerializedData{
+				Denom:      denom,
+				Pool:       serializedPools,
+				Orderbooks: serializedOrderbooks,
+			})
+		}
 
 		candidateRouteSearchDataJSON, err := json.Marshal(serializedResult)
 		if err != nil {
