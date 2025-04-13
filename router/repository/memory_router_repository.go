@@ -54,7 +54,7 @@ type routerRepo struct {
 	logger log.Logger
 }
 
-func New(denoms map[string]domain.Token, logger log.Logger) RouterRepository {
+func New(logger log.Logger) RouterRepository {
 	repository := &routerRepo{
 		takerFeeMap:                   sync.Map{},
 		candidateRouteSearchWriteData: make(map[string]*domain.CandidateRouteDenomData),

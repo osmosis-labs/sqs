@@ -124,6 +124,8 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	e.Use(middleware.InstrumentMiddleware)
 	e.Use(otelecho.Middleware("sqs"), middleware.TraceWithParamsMiddleware())
 
+	routerRepository := routerrepo.New(logger)
+
 	// Compute token metadata from chain denom.
 	tokenMetadataByChainDenom, _, err := tokensusecase.GetTokensFromChainRegistry(config.ChainRegistryAssetsFileURL)
 	if err != nil {
@@ -151,8 +153,6 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	if err := checkGRPCGatewayStatus(config.ChainGRPCGatewayEndpoint); err != nil {
 		logger.Error("Error checking grpc gateway status", zap.Error(err))
 	}
-
-	routerRepository := routerrepo.New(tokenMetadataByChainDenom, logger)
 
 	// Initialize pools repository, usecase and HTTP handler
 	poolsUseCase, err := poolsUseCase.NewPoolsUsecase(
