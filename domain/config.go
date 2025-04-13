@@ -111,7 +111,7 @@ var DefaultConfig = Config{
 		MaxRoutes:                        20,
 		MaxSplitRoutes:                   3,
 		MinPoolLiquidityCap:              0,
-		RouteCacheEnabled:                false,
+		RouteCacheEnabled:                true,
 		CandidateRouteCacheExpirySeconds: 1200,
 		RankedRouteCacheExpirySeconds:    45,
 		DynamicMinLiquidityCapFiltersDesc: []DynamicMinLiquidityCapFilterEntry{
