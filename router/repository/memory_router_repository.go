@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"cosmossdk.io/math"
 	"github.com/osmosis-labs/sqs/domain"
@@ -173,6 +174,15 @@ func (r *routerRepo) GetDenomData(denom string) (*domain.CandidateRouteDenomData
 func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.CandidateRouteDenomData) {
 	if len(data) == 0 {
 		return // no data to update
+	}
+
+	// If the candidate route search data is being updated, wait for it to finish
+	// We can get at most 5 recursions per block, in future we should use a channel
+	// instead.
+	if r.candidateRouteSearchUpdating.Load() {
+		time.Sleep(200 * time.Millisecond)
+		r.SetCandidateRouteSearchData(data)
+		return 
 	}
 
 	r.candidateRouteSearchUpdating.Store(true)
