@@ -182,7 +182,7 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 	if r.candidateRouteSearchUpdating.Load() {
 		time.Sleep(200 * time.Millisecond)
 		r.SetCandidateRouteSearchData(data)
-		return 
+		return
 	}
 
 	r.candidateRouteSearchUpdating.Store(true)
