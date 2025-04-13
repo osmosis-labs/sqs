@@ -694,6 +694,8 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 
 		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)), zap.Duration("duration", time.Since(start)))
 
+		domain.SQSCandidateRoutesComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
+
 		// Persist routes
 		if !candidateRouteSearchOptions.DisableCache {
 			cacheDurationSeconds := r.defaultConfig.CandidateRouteCacheExpirySeconds
