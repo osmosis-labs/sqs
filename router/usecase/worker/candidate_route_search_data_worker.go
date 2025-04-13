@@ -112,7 +112,7 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 			}
 
 			mu.Lock()
-			sortedPools := make([]domain.CandidatePoolWrapper, len(sortedDenomPools), len(sortedDenomPools))
+			sortedPools := make([]domain.CandidatePoolWrapper, len(sortedDenomPools))
 			for i := range sortedDenomPools {
 				sortedPools[i] = domain.NewCandidatePoolWrapper(
 					sortedDenomPools[i].GetId(),

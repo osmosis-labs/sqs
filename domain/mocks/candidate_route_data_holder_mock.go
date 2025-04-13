@@ -7,13 +7,14 @@ import (
 
 type CandidateRouteSearchDataHolderMock struct {
 	CandidateRouteSearchData map[string]*domain.CandidateRouteDenomData
+	Error                    error
 }
 
 var _ mvc.CandidateRouteSearchDataHolder = &CandidateRouteSearchDataHolderMock{}
 
 // GetCandidateRouteSearchData implements mvc.CandidateRouteSearchDataHolder.
-func (c *CandidateRouteSearchDataHolderMock) GetCandidateRouteSearchData() map[string]*domain.CandidateRouteDenomData {
-	return c.CandidateRouteSearchData
+func (c *CandidateRouteSearchDataHolderMock) GetCandidateRouteSearchData() (map[string]*domain.CandidateRouteDenomData, error) {
+	return c.CandidateRouteSearchData, c.Error
 }
 
 // SetCandidateRouteSearchData implements mvc.CandidateRouteSearchDataHolder.

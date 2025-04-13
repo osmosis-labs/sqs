@@ -761,7 +761,10 @@ func (r *routerUseCaseImpl) GetRouterState() (domain.RouterState, error) {
 
 	takerFeesMap := r.routerRepository.GetAllTakerFees()
 
-	candidateRouteSearchData := r.routerRepository.GetCandidateRouteSearchData()
+	candidateRouteSearchData, err := r.routerRepository.GetCandidateRouteSearchData()
+	if err != nil {
+		return domain.RouterState{}, err
+	}
 
 	return domain.RouterState{
 		Pools:                    pools,

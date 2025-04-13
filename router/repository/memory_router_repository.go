@@ -134,11 +134,15 @@ func (r *routerRepo) SetTakerFees(takerFees ingesttypes.TakerFeeMap) {
 }
 
 // GetCandidateRouteSearchData implements mvc.RouterUsecase.
-func (r *routerRepo) GetCandidateRouteSearchData() map[string]*domain.CandidateRouteDenomData {
+func (r *routerRepo) GetCandidateRouteSearchData() (map[string]*domain.CandidateRouteDenomData, error) {
 	if !r.candidateRouteSearchUpdating.Load() {
-		return r.candidateRouteSearchWriteData
+		return r.candidateRouteSearchWriteData, nil
 	}
-	return r.candidateRouteSearchReadData.Load().(map[string]*domain.CandidateRouteDenomData)
+	data, ok := r.candidateRouteSearchReadData.Load().(map[string]*domain.CandidateRouteDenomData)
+	if !ok {
+		return make(map[string]*domain.CandidateRouteDenomData), fmt.Errorf("failed to cast candidate route search data")
+	}
+	return data, nil
 }
 
 // GetRankedPoolsByDenom implements mvc.CandidateRouteSearchDataHolder.

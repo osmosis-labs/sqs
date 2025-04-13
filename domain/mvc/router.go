@@ -17,7 +17,7 @@ type CandidateRouteSearchDataHolder interface {
 	SetCandidateRouteSearchData(candidateRouteSearchData map[string]*domain.CandidateRouteDenomData)
 
 	// GetCandidateRouteSearchData gets the candidate route search data from the holder
-	GetCandidateRouteSearchData() map[string]*domain.CandidateRouteDenomData
+	GetCandidateRouteSearchData() (map[string]*domain.CandidateRouteDenomData, error)
 
 	// GetDenomData returns the ranked candidate route search pool data for a given denom.
 	// Returns an empty struct if the denom is not found.
