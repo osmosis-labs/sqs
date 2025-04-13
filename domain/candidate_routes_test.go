@@ -18,7 +18,6 @@ import (
 // It then validates that if at least one of the filters is matched, ShouldSkipPool()
 // would return true
 func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
-
 	const (
 		defaultPoolID = uint64(1)
 	)
@@ -39,7 +38,6 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
 					},
 					Data: cosmwasmpool.CosmWasmPoolData{
-
 						Orderbook: &cosmwasmpool.OrderbookData{},
 					},
 				},
@@ -110,11 +108,15 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-
 			// Set up pool ID filter
 			poolIDFilter := domain.CandidateRoutePoolIDFilterOptionCb{
 				PoolIDsToSkip: tc.poolIDsToFilter,
 			}
+
+			pool := domain.NewCandidatePoolWrapper(
+				tc.poolToTest.GetId(),
+				tc.poolToTest.GetSQSPoolModel(),
+			)
 
 			// Initialize options with 2 filters:
 			// 1. By pool ID
@@ -127,7 +129,7 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 			}
 
 			// System under test.
-			shouldSkip := opts.ShouldSkipPool(&tc.poolToTest)
+			shouldSkip := opts.ShouldSkipPool(pool)
 
 			// Validate result.
 			require.Equal(t, tc.expectedShouldSkip, shouldSkip)

@@ -295,7 +295,7 @@ func ReadPoolDenomsMetaData(poolDenomMetaData string) (domain.PoolDenomMetaDataM
 }
 
 // ReadCandidateRouteSearchData reads the candidate route search data from disk at the
-func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string]domain.CandidateRouteDenomData, error) {
+func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string]*domain.CandidateRouteDenomData, error) {
 	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -307,10 +307,10 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
-	candidateRouteSearchData := make(map[string]domain.CandidateRouteDenomData, len(serialized))
+	candidateRouteSearchData := make(map[string]*domain.CandidateRouteDenomData, len(serialized))
 
 	for _, data := range serialized {
-		pools := make([]ingesttypes.PoolI, 0, len(data.Pool))
+		pools := make([]domain.CandidatePoolWrapper, 0, len(data.Pool))
 		for _, poolData := range data.Pool {
 			var serializedPool SerializedPool
 
@@ -323,10 +323,13 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 				return nil, fmt.Errorf("failed to unmarshal pool: %w", err)
 			}
 
-			pools = append(pools, pool)
+			pools = append(pools, domain.NewCandidatePoolWrapper(
+				pool.GetId(),
+				pool.GetSQSPoolModel(),
+			))
 		}
 
-		orderbooks := make(map[string]ingesttypes.PoolI)
+		orderbooks := make(map[string]domain.CandidatePoolWrapper)
 		for _, orderbookData := range data.Orderbooks {
 			var serializedPool SerializedPool
 
@@ -339,12 +342,15 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 				return nil, fmt.Errorf("failed to unmarshal pool: %w", err)
 			}
 
-			orderbooks[orderbookData.PairDenom] = pool
+			orderbooks[orderbookData.PairDenom] = domain.NewCandidatePoolWrapper(
+				pool.GetId(),
+				pool.GetSQSPoolModel(),
+			)
 		}
 
-		candidateRouteSearchData[data.Denom] = domain.CandidateRouteDenomData{
-			// SortedPools:         pools,
-			// CanonicalOrderbooks: orderbooks,
+		candidateRouteSearchData[data.Denom] = &domain.CandidateRouteDenomData{
+			SortedPools:         pools,
+			CanonicalOrderbooks: orderbooks,
 		}
 	}
 
@@ -387,9 +393,7 @@ func MarshalPool(pool ingesttypes.PoolI) (json.RawMessage, error) {
 
 // UnmarshalPool unmarshals a pool from JSON.
 func UnmarshalPool(serializedPool SerializedPool) (ingesttypes.PoolI, error) {
-	var (
-		chainModel poolmanagertypes.PoolI
-	)
+	var chainModel poolmanagertypes.PoolI
 
 	switch serializedPool.Type {
 	case poolmanagertypes.Concentrated:

@@ -51,8 +51,8 @@ type CandidateRoutePoolIDFilterOptionCb struct {
 }
 
 // ShouldSkipPool returns true of the given pool has ID that is present in c.PoolIDsToSkip
-func (c CandidateRoutePoolIDFilterOptionCb) ShouldSkipPool(pool *ingesttypes.PoolWrapper) bool {
-	poolID := pool.GetId()
+func (c CandidateRoutePoolIDFilterOptionCb) ShouldSkipPool(pool CandidatePoolWrapper) bool {
+	poolID := pool.ID
 	_, ok := c.PoolIDsToSkip[poolID]
 	return ok
 }
