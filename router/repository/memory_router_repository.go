@@ -2,9 +2,9 @@ package routerrepo
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"cosmossdk.io/math"
 	"github.com/osmosis-labs/sqs/domain"
@@ -43,11 +43,12 @@ var (
 	_ mvc.CandidateRouteSearchDataHolder = &routerRepo{}
 )
 
+type candidateRoutes map[string]*domain.CandidateRouteDenomData
+
 type routerRepo struct {
-	takerFeeMap                   sync.Map
-	candidateRouteSearchWriteData map[string]*domain.CandidateRouteDenomData
-	candidateRouteSearchReadData  atomic.Value
-	candidateRouteSearchUpdating  atomic.Bool
+	takerFeeMap              sync.Map
+	candidateRouteSearchData atomic.Value
+	mu                       sync.Mutex
 
 	baseFeeMx sync.RWMutex
 	baseFee   domain.BaseFee
@@ -57,14 +58,13 @@ type routerRepo struct {
 
 func New(logger log.Logger) RouterRepository {
 	repository := &routerRepo{
-		takerFeeMap:                   sync.Map{},
-		candidateRouteSearchWriteData: make(map[string]*domain.CandidateRouteDenomData),
-		baseFeeMx:                     sync.RWMutex{},
-		baseFee:                       domain.BaseFee{},
-		logger:                        logger,
+		takerFeeMap: sync.Map{},
+		baseFeeMx:   sync.RWMutex{},
+		baseFee:     domain.BaseFee{},
+		logger:      logger,
 	}
 
-	repository.candidateRouteSearchReadData.Store(make(map[string]*domain.CandidateRouteDenomData))
+	repository.candidateRouteSearchData.Store(make(candidateRoutes))
 
 	return repository
 }
@@ -136,38 +136,26 @@ func (r *routerRepo) SetTakerFees(takerFees ingesttypes.TakerFeeMap) {
 
 // GetCandidateRouteSearchData implements mvc.RouterUsecase.
 func (r *routerRepo) GetCandidateRouteSearchData() (map[string]*domain.CandidateRouteDenomData, error) {
-	if !r.candidateRouteSearchUpdating.Load() {
-		return r.candidateRouteSearchWriteData, nil
-	}
-	data, ok := r.candidateRouteSearchReadData.Load().(map[string]*domain.CandidateRouteDenomData)
+	data, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
 	if !ok {
-		return make(map[string]*domain.CandidateRouteDenomData), fmt.Errorf("failed to cast candidate route search data")
+		return make(candidateRoutes), fmt.Errorf("failed to cast candidate route search data")
 	}
 	return data, nil
 }
 
 // GetRankedPoolsByDenom implements mvc.CandidateRouteSearchDataHolder.
 func (r *routerRepo) GetDenomData(denom string) (*domain.CandidateRouteDenomData, error) {
-	var (
-		data   *domain.CandidateRouteDenomData
-		exists bool
-	)
-
-	if !r.candidateRouteSearchUpdating.Load() {
-		data, exists = r.candidateRouteSearchWriteData[denom]
-	} else {
-		readData, ok := r.candidateRouteSearchReadData.Load().(map[string]*domain.CandidateRouteDenomData)
-		if !ok {
-			return nil, fmt.Errorf("failed to cat candidate route search data")
-		}
-		data, exists = readData[denom]
+	data, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
+	if !ok {
+		return nil, fmt.Errorf("failed to cast candidate route search data")
 	}
 
-	if !exists || data == nil {
+	result, exists := data[denom]
+	if !exists {
 		return &domain.CandidateRouteDenomData{}, nil
 	}
 
-	return data, nil
+	return result, nil
 }
 
 // SetCandidateRouteSearchData implements mvc.RouterUsecase.
@@ -176,27 +164,22 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 		return // no data to update
 	}
 
-	// If the candidate route search data is being updated, wait for it to finish
-	// We can get at most 5 recursions per block, in future we should use a channel
-	// instead.
-	if r.candidateRouteSearchUpdating.Load() {
-		time.Sleep(200 * time.Millisecond)
-		r.SetCandidateRouteSearchData(data)
+	r.mu.Lock() // for writers
+	defer r.mu.Unlock()
+
+	oldData, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
+	if !ok {
+		r.candidateRouteSearchData.Store(make(candidateRoutes))
 		return
 	}
 
-	r.candidateRouteSearchUpdating.Store(true)
+	newData := make(candidateRoutes)
 
-	for denom, pools := range data {
-		r.candidateRouteSearchWriteData[denom] = pools
+	maps.Copy(newData, oldData)
+
+	for denom, value := range data {
+		newData[denom] = value
 	}
 
-	candidateRouteSearchData := make(map[string]*domain.CandidateRouteDenomData)
-	for denom, pools := range r.candidateRouteSearchWriteData {
-		candidateRouteSearchData[denom] = pools
-	}
-
-	r.candidateRouteSearchReadData.Store(candidateRouteSearchData)
-
-	r.candidateRouteSearchUpdating.Store(false)
+	r.candidateRouteSearchData.Store(newData)
 }
