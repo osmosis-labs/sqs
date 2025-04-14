@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v28.3.1
+
+- #637 - BE-714 | Optimize route finding algorithm
+
 ## v28.3.0
 
 - Remove dependency on keyring, wire in CosmosSigner and grab private key from SQS_PRIVATE_KEY environment variable.
