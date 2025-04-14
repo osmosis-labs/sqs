@@ -5,7 +5,6 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/mocks"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -186,22 +185,20 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestGetRankedPoolsByDenom_HappyPat
 	)
 
 	var (
-		denomOnePools = []ingesttypes.PoolI{
-			&ingesttypes.PoolWrapper{
-				ChainModel: &mocks.ChainPoolMock{
-					ID: defaultPoolID,
-				},
-			}}
+		denomOnePools = []domain.CandidatePoolWrapper{
+			{
+				ID: defaultPoolID,
+			},
+		}
 
-		denomTwoPools = []ingesttypes.PoolI{
-			&ingesttypes.PoolWrapper{
-				ChainModel: &mocks.ChainPoolMock{
-					ID: defaultPoolID + 1,
-				},
-			}}
+		denomTwoPools = []domain.CandidatePoolWrapper{
+			{
+				ID: defaultPoolID + 1,
+			},
+		}
 	)
 
-	candidateRouteSearchData := map[string]domain.CandidateRouteDenomData{
+	candidateRouteSearchData := map[string]*domain.CandidateRouteDenomData{
 		denomA: {
 			SortedPools: denomOnePools,
 		},

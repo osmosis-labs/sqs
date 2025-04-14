@@ -23,9 +23,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 )
 
-var (
-	_ mvc.RouterUsecase = &routerUseCaseImpl{}
-)
+var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 
 type routerUseCaseImpl struct {
 	routerRepository       mvc.RouterRepository
@@ -53,9 +51,7 @@ const (
 	denomSeparatorChar = "|"
 )
 
-var (
-	zero = osmomath.ZeroInt()
-)
+var zero = osmomath.ZeroInt()
 
 // NewRouterUsecase will create a new pools use case object
 func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, candidateRouteSearcher domain.CandidateRouteSearcher, tokenMetadataHolder mvc.TokenMetadataHolder, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
@@ -689,13 +685,16 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 	if !isFoundCached {
 		r.logger.Debug("calculating routes")
 
+		start := time.Now()
 		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 		if err != nil {
 			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return ingesttypes.CandidateRoutes{}, err
 		}
 
-		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
+		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)), zap.Duration("duration", time.Since(start)))
+
+		domain.SQSCandidateRoutesComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
 
 		// Persist routes
 		if !candidateRouteSearchOptions.DisableCache {
@@ -742,7 +741,6 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles() error {
 func (r *routerUseCaseImpl) GetRouterState() (domain.RouterState, error) {
 	// These pools do not contain tick model
 	pools, err := r.poolsUsecase.GetAllPools()
-
 	if err != nil {
 		return domain.RouterState{}, err
 	}
@@ -765,7 +763,10 @@ func (r *routerUseCaseImpl) GetRouterState() (domain.RouterState, error) {
 
 	takerFeesMap := r.routerRepository.GetAllTakerFees()
 
-	candidateRouteSearchData := r.routerRepository.GetCandidateRouteSearchData()
+	candidateRouteSearchData, err := r.routerRepository.GetCandidateRouteSearchData()
+	if err != nil {
+		return domain.RouterState{}, err
+	}
 
 	return domain.RouterState{
 		Pools:                    pools,

@@ -6,11 +6,10 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	"go.uber.org/zap"
-
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
+
+	"go.uber.org/zap"
 )
 
 type candidateRouteSearchDataWorker struct {
@@ -22,9 +21,7 @@ type candidateRouteSearchDataWorker struct {
 	logger                   log.Logger
 }
 
-var (
-	_ domain.CandidateRouteSearchDataWorker = &candidateRouteSearchDataWorker{}
-)
+var _ domain.CandidateRouteSearchDataWorker = &candidateRouteSearchDataWorker{}
 
 func NewCandidateRouteSearchDataWorker(poolHandler mvc.CandidateRouteSearchPoolHandler, candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder, preferredPoolIDs []uint64, cosmWasmPoolConfig domain.CosmWasmPoolRouterConfig, logger log.Logger) *candidateRouteSearchDataWorker {
 	return &candidateRouteSearchDataWorker{
@@ -67,10 +64,11 @@ func (c *candidateRouteSearchDataWorker) ComputeSearchDataSync(ctx context.Conte
 func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockPoolMetadata) error {
 	mu := sync.Mutex{}
 
-	candidateRouteData := make(map[string]domain.CandidateRouteDenomData, len(blockPoolMetaData.UpdatedDenoms))
+	candidateRouteData := make(map[string]*domain.CandidateRouteDenomData, len(blockPoolMetaData.UpdatedDenoms))
 
 	wg := sync.WaitGroup{}
 
+	c.logger.Info("computing candidate route data", zap.Any("denoms", (blockPoolMetaData.UpdatedDenoms)))
 	for denom := range blockPoolMetaData.UpdatedDenoms {
 		wg.Add(1)
 
@@ -98,20 +96,31 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 			// Sort pools
 			sortedDenomPools, orderbookPools := routerusecase.ValidateAndSortPools(unsortedDenomPools, c.cosmWasmPoolConfig, c.preferredPoolIDs, c.logger)
 
-			canonicalOrderbookPoolMapByPairToken := make(map[string]ingesttypes.PoolI, len(orderbookPools))
-			for _, pool := range orderbookPools {
-				if c.poolsHandler.IsCanonicalOrderbookPool(pool.GetId()) {
-					poolDenoms := pool.GetPoolDenoms()
-
+			canonicalOrderbookPoolMapByPairToken := make(map[string]domain.CandidatePoolWrapper, len(orderbookPools))
+			for i := range orderbookPools {
+				id := orderbookPools[i].GetId()
+				if c.poolsHandler.IsCanonicalOrderbookPool(id) {
+					poolModel := orderbookPools[i].GetSQSPoolModel()
+					poolDenoms := poolModel.PoolDenoms
 					for _, poolDenom := range poolDenoms {
-						canonicalOrderbookPoolMapByPairToken[poolDenom] = pool
+						canonicalOrderbookPoolMapByPairToken[poolDenom] = domain.NewCandidatePoolWrapper(
+							id,
+							poolModel,
+						)
 					}
 				}
 			}
 
 			mu.Lock()
-			candidateRouteData[denom] = domain.CandidateRouteDenomData{
-				SortedPools:         sortedDenomPools,
+			sortedPools := make([]domain.CandidatePoolWrapper, len(sortedDenomPools))
+			for i := range sortedDenomPools {
+				sortedPools[i] = domain.NewCandidatePoolWrapper(
+					sortedDenomPools[i].GetId(),
+					sortedDenomPools[i].GetSQSPoolModel(),
+				)
+			}
+			candidateRouteData[denom] = &domain.CandidateRouteDenomData{
+				SortedPools:         sortedPools,
 				CanonicalOrderbooks: canonicalOrderbookPoolMapByPairToken,
 			}
 			mu.Unlock()
