@@ -14,15 +14,15 @@ import (
 // CandidateRouteSearchDataUpdateListener is the interface for the candidate route search data holder.
 type CandidateRouteSearchDataHolder interface {
 	// SetCandidateRouteSearchData sets the candidate route search data on the holder
-	SetCandidateRouteSearchData(candidateRouteSearchData map[string]domain.CandidateRouteDenomData)
+	SetCandidateRouteSearchData(candidateRouteSearchData map[string]*domain.CandidateRouteDenomData)
 
 	// GetCandidateRouteSearchData gets the candidate route search data from the holder
-	GetCandidateRouteSearchData() map[string]domain.CandidateRouteDenomData
+	GetCandidateRouteSearchData() (map[string]*domain.CandidateRouteDenomData, error)
 
 	// GetDenomData returns the ranked candidate route search pool data for a given denom.
 	// Returns an empty struct if the denom is not found.
 	// Returns error if retrieved pools are not of type ingesttypes.PoolI.
-	GetDenomData(denom string) (domain.CandidateRouteDenomData, error)
+	GetDenomData(denom string) (*domain.CandidateRouteDenomData, error)
 }
 
 // RouterRepository represents the contract for a repository handling tokens information
@@ -88,7 +88,7 @@ type RouterUsecase interface {
 	// It does not recompute the routes if they are not present in cache.
 	// Since we may cache zero routes, it returns false if the routes are not present in cache. Returns true otherwise.
 	// Returns error if cache is disabled.
-	GetCachedCandidateRoutes(ctx context.Context, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error)
+	GetCachedCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error)
 	// StoreRoutes stores all router state in the files locally. Used for debugging.
 	StoreRouterStateFiles() error
 

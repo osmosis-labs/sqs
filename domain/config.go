@@ -31,9 +31,13 @@ type Config struct {
 	ChainTendermintRPCEndpoint string `mapstructure:"grpc-tendermint-rpc-endpoint"`
 	ChainGRPCGatewayEndpoint   string `mapstructure:"grpc-gateway-endpoint"`
 	ChainID                    string `mapstructure:"chain-id"`
+	SkipChainAvailabilityCheck bool   `mapstructure:"skip-chain-availability-check"`
 
 	// Chain registry assets URL.
 	ChainRegistryAssetsFileURL string `mapstructure:"chain-registry-assets-url"`
+
+	// Chain registry token fees URL.
+	ChainRegistryTokenFeesFileURL string `mapstructure:"chain-registry-token-fees-url"`
 
 	// Defines the block interval at which the assets are updated.
 	UpdateAssetsHeightInterval int `mapstructure:"update-assets-height-interval"`
@@ -63,123 +67,123 @@ type Config struct {
 
 const envPrefix = "SQS"
 
-var (
-	DefaultConfig = Config{
-		ServerAddress:              ":9092",
-		LoggerFilename:             "sqs.log",
-		LoggerIsProduction:         false,
-		LoggerLevel:                "info",
-		ChainTendermintRPCEndpoint: "http://localhost:26657",
-		ChainGRPCGatewayEndpoint:   "localhost:9090",
-		ChainID:                    "osmosis-1",
-		ChainRegistryAssetsFileURL: "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
-		UpdateAssetsHeightInterval: 200,
-		FlightRecord: &FlightRecordConfig{
-			Enabled:          true,
-			TraceThresholdMS: 1000,
-			TraceFileName:    "/tmp/sqs-flight-record.trace",
+var DefaultConfig = Config{
+	ServerAddress:                 ":9092",
+	LoggerFilename:                "sqs.log",
+	LoggerIsProduction:            false,
+	LoggerLevel:                   "info",
+	ChainTendermintRPCEndpoint:    "http://localhost:26657",
+	ChainGRPCGatewayEndpoint:      "localhost:9090",
+	ChainID:                       "osmosis-1",
+	SkipChainAvailabilityCheck:    false,
+	ChainRegistryAssetsFileURL:    "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+	ChainRegistryTokenFeesFileURL: "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/chain.json",
+	UpdateAssetsHeightInterval:    200,
+	FlightRecord: &FlightRecordConfig{
+		Enabled:          true,
+		TraceThresholdMS: 1000,
+		TraceFileName:    "/tmp/sqs-flight-record.trace",
+	},
+	Pools: &PoolsConfig{
+		TransmuterCodeIDs: []uint64{
+			148,
+			254,
 		},
-		Pools: &PoolsConfig{
-			TransmuterCodeIDs: []uint64{
-				148,
-				254,
-			},
-			AlloyedTransmuterCodeIDs: []uint64{
-				814,
-				867,
-				996,
-			},
-			OrderbookCodeIDs: []uint64{
-				885,
-			},
-			GeneralCosmWasmCodeIDs: []uint64{
-				503,
-				572,
-				773,
-				641,
-				842,
-			},
+		AlloyedTransmuterCodeIDs: []uint64{
+			814,
+			867,
+			996,
 		},
-		Router: &RouterConfig{
-			PreferredPoolIDs:                 []uint64{},
-			MaxPoolsPerRoute:                 4,
-			MaxRoutes:                        20,
-			MaxSplitRoutes:                   3,
-			MinPoolLiquidityCap:              0,
-			RouteCacheEnabled:                true,
-			CandidateRouteCacheExpirySeconds: 1200,
-			RankedRouteCacheExpirySeconds:    45,
-			DynamicMinLiquidityCapFiltersDesc: []DynamicMinLiquidityCapFilterEntry{
-				{
-					MinTokensCap: 1000000,
-					FilterValue:  40000,
-				},
-				{
-					MinTokensCap: 250000,
-					FilterValue:  15000,
-				},
-				{
-					MinTokensCap: 10000,
-					FilterValue:  1000,
-				},
-				{
-					MinTokensCap: 1000,
-					FilterValue:  10,
-				},
-				{
-					MinTokensCap: 1,
-					FilterValue:  1,
-				},
+		OrderbookCodeIDs: []uint64{
+			885,
+		},
+		GeneralCosmWasmCodeIDs: []uint64{
+			503,
+			572,
+			773,
+			641,
+			842,
+		},
+	},
+	Router: &RouterConfig{
+		PreferredPoolIDs:                 []uint64{},
+		MaxPoolsPerRoute:                 4,
+		MaxRoutes:                        20,
+		MaxSplitRoutes:                   3,
+		MinPoolLiquidityCap:              0,
+		RouteCacheEnabled:                true,
+		CandidateRouteCacheExpirySeconds: 1200,
+		RankedRouteCacheExpirySeconds:    45,
+		DynamicMinLiquidityCapFiltersDesc: []DynamicMinLiquidityCapFilterEntry{
+			{
+				MinTokensCap: 1000000,
+				FilterValue:  40000,
 			},
-		},
-		Pricing: &PricingConfig{
-			CacheExpiryMs:             2000,
-			DefaultSource:             0,
-			DefaultQuoteHumanDenom:    "usdc",
-			MaxPoolsPerRoute:          4,
-			MaxRoutes:                 3,
-			MinPoolLiquidityCap:       1000,
-			CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
-			CoingeckoQuoteCurrency:    "usd",
-			WorkerMinPoolLiquidityCap: 1,
-		},
-		Passthrough: &passthroughdomain.PassthroughConfig{
-			NumiaURL:                     "https://data.app.osmosis.zone",
-			TimeseriesURL:                "https://data.stage.osmosis.zone",
-			APRFetchIntervalMinutes:      5,
-			PoolFeesFetchIntervalMinutes: 5,
-		},
-		GRPCIngester: &GRPCIngesterConfig{
-			Enabled:                        true,
-			MaxReceiveMsgSizeBytes:         16777216,
-			ServerAddress:                  ":50051",
-			ServerConnectionTimeoutSeconds: 10,
-			Plugins: []Plugin{
-				&OrderBookPluginConfig{
-					Enabled: false,
-					Name:    orderbookplugindomain.OrderbookOrdersCachePlugin,
-				},
-				&OrderBookPluginConfig{
-					Enabled: false,
-					Name:    orderbookplugindomain.OrderbookFillbotPlugin,
-				},
-				&OrderBookPluginConfig{
-					Enabled: false,
-					Name:    orderbookplugindomain.OrderbookClaimbotPlugin,
-				},
+			{
+				MinTokensCap: 250000,
+				FilterValue:  15000,
+			},
+			{
+				MinTokensCap: 10000,
+				FilterValue:  1000,
+			},
+			{
+				MinTokensCap: 1000,
+				FilterValue:  10,
+			},
+			{
+				MinTokensCap: 1,
+				FilterValue:  1,
 			},
 		},
-		OTEL: &OTELConfig{
-			Enabled:     true,
-			Environment: "sqs-dev",
+	},
+	Pricing: &PricingConfig{
+		CacheExpiryMs:             2000,
+		DefaultSource:             0,
+		DefaultQuoteHumanDenom:    "usdc",
+		MaxPoolsPerRoute:          4,
+		MaxRoutes:                 20,
+		MinPoolLiquidityCap:       1000,
+		CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency:    "usd",
+		WorkerMinPoolLiquidityCap: 1,
+	},
+	Passthrough: &passthroughdomain.PassthroughConfig{
+		NumiaURL:                     "https://data.app.osmosis.zone",
+		TimeseriesURL:                "https://data.stage.osmosis.zone",
+		APRFetchIntervalMinutes:      5,
+		PoolFeesFetchIntervalMinutes: 5,
+	},
+	GRPCIngester: &GRPCIngesterConfig{
+		Enabled:                        true,
+		MaxReceiveMsgSizeBytes:         16777216,
+		ServerAddress:                  ":50051",
+		ServerConnectionTimeoutSeconds: 10,
+		Plugins: []Plugin{
+			&OrderBookPluginConfig{
+				Enabled: false,
+				Name:    orderbookplugindomain.OrderbookOrdersCachePlugin,
+			},
+			&OrderBookPluginConfig{
+				Enabled: false,
+				Name:    orderbookplugindomain.OrderbookFillbotPlugin,
+			},
+			&OrderBookPluginConfig{
+				Enabled: false,
+				Name:    orderbookplugindomain.OrderbookClaimbotPlugin,
+			},
 		},
-		CORS: &CORSConfig{
-			AllowedHeaders: "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
-			AllowedMethods: "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
-			AllowedOrigin:  "*",
-		},
-	}
-)
+	},
+	OTEL: &OTELConfig{
+		Enabled:     true,
+		Environment: "sqs-dev",
+	},
+	CORS: &CORSConfig{
+		AllowedHeaders: "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
+		AllowedMethods: "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
+		AllowedOrigin:  "*",
+	},
+}
 
 // UnmarshalConfig handles the custom unmarshaling for the Config struct.
 // Additionally, it sets up environment variable mappings using reflection.
@@ -390,6 +394,8 @@ func PluginFactory(name string) Plugin {
 	case orderbookplugindomain.OrderbookFillbotPlugin:
 		return &OrderBookPluginConfig{}
 	case orderbookplugindomain.OrderbookClaimbotPlugin:
+		return &OrderBookPluginConfig{}
+	case orderbookplugindomain.CustomSubmodulePlugin:
 		return &OrderBookPluginConfig{}
 	// Add cases for other plugins as needed
 	default:

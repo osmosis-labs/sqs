@@ -1,0 +1,26 @@
+syntax = "proto3";
+package sqs.chainregistry.v1beta1;
+
+import "google/api/annotations.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "google/protobuf/duration.proto";
+import "cosmos/msg/v1/msg.proto";
+
+import "sqs/chainregistry/v1beta1/fee_token.proto";
+
+option go_package = "github.com/osmosis-labs/sqs/pkg/api/v1beta1/chainregistry";
+
+// GetFeeTokensRequest is the request type for the Service.Get RPC method.
+message GetFeeTokensRequest {}
+
+// GetFeeTokensResponse is the response type for the Service.Get RPC method.
+message GetFeeTokensResponse { repeated FeeToken fee_tokens = 1; }
+
+// Query defines the gRPC querier service.
+service Query {
+  // FeeTokens lists all the existing fee tokens.
+  rpc FeeTokens(GetFeeTokensRequest) returns (GetFeeTokensResponse) {
+    option (google.api.http).get = "/feetokens";
+  }
+}

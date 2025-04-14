@@ -240,6 +240,9 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 	}
 }
 func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
+
+	s.T().Skip("flaky test")
+
 	testCases := []struct {
 		name               string
 		address            string

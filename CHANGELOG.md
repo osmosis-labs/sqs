@@ -35,6 +35,16 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v28.3.1
+
+- #637 - BE-714 | Optimize route finding algorithm
+
+## v28.3.0
+
+- Remove dependency on keyring, wire in CosmosSigner and grab private key from SQS_PRIVATE_KEY environment variable.
+- #632 - E-697 | Increase max routes for pricing worker
+- #633 - BE-707 | Skip processing quote requests when system is not healthy 
+
 ## v28.2.0
 
 - #609 - BE-682 | Set isBestEffort when there are no orderbooks in the system to process

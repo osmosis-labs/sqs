@@ -2,7 +2,9 @@ package routerrepo
 
 import (
 	"fmt"
+	"maps"
 	"sync"
+	"sync/atomic"
 
 	"cosmossdk.io/math"
 	"github.com/osmosis-labs/sqs/domain"
@@ -41,9 +43,12 @@ var (
 	_ mvc.CandidateRouteSearchDataHolder = &routerRepo{}
 )
 
+type candidateRoutes map[string]*domain.CandidateRouteDenomData
+
 type routerRepo struct {
 	takerFeeMap              sync.Map
-	candidateRouteSearchData sync.Map
+	candidateRouteSearchData atomic.Value
+	mu                       sync.Mutex
 
 	baseFeeMx sync.RWMutex
 	baseFee   domain.BaseFee
@@ -52,14 +57,16 @@ type routerRepo struct {
 }
 
 func New(logger log.Logger) RouterRepository {
-	return &routerRepo{
-		takerFeeMap:              sync.Map{},
-		candidateRouteSearchData: sync.Map{},
-		baseFeeMx:                sync.RWMutex{},
-		baseFee:                  domain.BaseFee{},
-
-		logger: logger,
+	repository := &routerRepo{
+		takerFeeMap: sync.Map{},
+		baseFeeMx:   sync.RWMutex{},
+		baseFee:     domain.BaseFee{},
+		logger:      logger,
 	}
+
+	repository.candidateRouteSearchData.Store(make(candidateRoutes))
+
+	return repository
 }
 
 // GetBaseFee implements RouterRepository.
@@ -128,49 +135,51 @@ func (r *routerRepo) SetTakerFees(takerFees ingesttypes.TakerFeeMap) {
 }
 
 // GetCandidateRouteSearchData implements mvc.RouterUsecase.
-func (r *routerRepo) GetCandidateRouteSearchData() map[string]domain.CandidateRouteDenomData {
-	candidateRouteSearchData := make(map[string]domain.CandidateRouteDenomData)
-
-	r.candidateRouteSearchData.Range(func(key, value interface{}) bool {
-		denom, ok := key.(string)
-		if !ok {
-			// Note: should never happen.
-			r.logger.Error("error casting key to string in GetCandidateRouteSearchData")
-			return false
-		}
-
-		candidateRouteDenomData, ok := value.(domain.CandidateRouteDenomData)
-		if !ok {
-			// Note: should never happen.
-			r.logger.Error("error casting value to []ingesttypes.PoolI in GetCandidateRouteSearchData")
-			return false
-		}
-
-		candidateRouteSearchData[denom] = candidateRouteDenomData
-		return true
-	})
-
-	return candidateRouteSearchData
+func (r *routerRepo) GetCandidateRouteSearchData() (map[string]*domain.CandidateRouteDenomData, error) {
+	data, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
+	if !ok {
+		return make(candidateRoutes), fmt.Errorf("failed to cast candidate route search data")
+	}
+	return data, nil
 }
 
 // GetRankedPoolsByDenom implements mvc.CandidateRouteSearchDataHolder.
-func (r *routerRepo) GetDenomData(denom string) (domain.CandidateRouteDenomData, error) {
-	denomRawData, ok := r.candidateRouteSearchData.Load(denom)
+func (r *routerRepo) GetDenomData(denom string) (*domain.CandidateRouteDenomData, error) {
+	data, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
 	if !ok {
-		return domain.CandidateRouteDenomData{}, nil
+		return nil, fmt.Errorf("failed to cast candidate route search data")
 	}
 
-	denomData, ok := denomRawData.(domain.CandidateRouteDenomData)
-	if !ok {
-		return domain.CandidateRouteDenomData{}, fmt.Errorf("error casting value to domain.CandidateRouteDenomData in GetByDenom")
+	result, exists := data[denom]
+	if !exists {
+		return &domain.CandidateRouteDenomData{}, nil
 	}
 
-	return denomData, nil
+	return result, nil
 }
 
 // SetCandidateRouteSearchData implements mvc.RouterUsecase.
-func (r *routerRepo) SetCandidateRouteSearchData(candidateRouteSearchData map[string]domain.CandidateRouteDenomData) {
-	for denom, pools := range candidateRouteSearchData {
-		r.candidateRouteSearchData.Store(denom, pools)
+func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.CandidateRouteDenomData) {
+	if len(data) == 0 {
+		return // no data to update
 	}
+
+	r.mu.Lock() // for writers
+	defer r.mu.Unlock()
+
+	oldData, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
+	if !ok {
+		r.candidateRouteSearchData.Store(make(candidateRoutes))
+		return
+	}
+
+	newData := make(candidateRoutes)
+
+	maps.Copy(newData, oldData)
+
+	for denom, value := range data {
+		newData[denom] = value
+	}
+
+	r.candidateRouteSearchData.Store(newData)
 }

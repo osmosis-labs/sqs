@@ -151,6 +151,11 @@ var (
 	// counter that measures the number of pricing coingecko cache misses
 	SQSPricingCoingeckoCacheMissesCounterMetricName = "sqs_pricing_coingecko_cache_misses_total"
 
+	// sqs_pool_liq_pricing_worker_compute_duration
+	//
+	// gauge that tracks duration of candidate routes computation
+	SQSCandidateRoutesComputeDurationMetricName = "sqs_candidate_routes_compute_duration"
+
 	SQSIngestHandlerProcessBlockHeightGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockHeightMetricName,
@@ -305,6 +310,13 @@ var (
 			Help: "Total number of pricing coingecko cache misses",
 		},
 	)
+
+	SQSCandidateRoutesComputeDurationGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: SQSCandidateRoutesComputeDurationMetricName,
+			Help: "gauge that tracks duration of candidate routes computation",
+		},
+	)
 )
 
 func init() {
@@ -330,4 +342,5 @@ func init() {
 	prometheus.MustRegister(SQSPricingSpotPriceError)
 	prometheus.MustRegister(SQSPricingCoingeckoCacheHitsCounter)
 	prometheus.MustRegister(SQSPricingCoingeckoCacheMissesCounter)
+	prometheus.MustRegister(SQSCandidateRoutesComputeDurationGauge)
 }
