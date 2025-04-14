@@ -22,7 +22,7 @@
 			},
 			{
 				"name": "orderbook-orders-cache-plugin",
-				"enabled": false
+				"enabled": true
 			}
 		]
 	}
