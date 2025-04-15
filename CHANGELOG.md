@@ -35,9 +35,13 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## Unreleased
+## v28.3.3
 
 - #622 - feat: orderbook orders cache plugin
+
+## v28.3.2
+
+- #638 - BE-714 | Fix candidate_routes_compute_duration gauge call
 
 ## v28.3.1
 
