@@ -10,6 +10,8 @@ import (
 type orderbookRepositoryImpl struct {
 	tickMapByPoolIDLock sync.RWMutex
 	tickMapByPoolID     map[uint64]*sync.Map
+	ordersByPoolIDLock  sync.RWMutex
+	ordersByPoolID      map[uint64][]orderbookdomain.Order
 }
 
 var _ orderbookdomain.OrderBookRepository = &orderbookRepositoryImpl{}
@@ -18,6 +20,8 @@ func New() *orderbookRepositoryImpl {
 	return &orderbookRepositoryImpl{
 		tickMapByPoolID:     map[uint64]*sync.Map{},
 		tickMapByPoolIDLock: sync.RWMutex{},
+		ordersByPoolID:      map[uint64][]orderbookdomain.Order{},
+		ordersByPoolIDLock:  sync.RWMutex{},
 	}
 }
 
@@ -111,4 +115,29 @@ func (o *orderbookRepositoryImpl) StoreTicks(poolID uint64, ticksMap map[int64]o
 	o.tickMapByPoolIDLock.Lock()
 	o.tickMapByPoolID[poolID] = tickMap
 	o.tickMapByPoolIDLock.Unlock()
+}
+
+func (o *orderbookRepositoryImpl) StoreOrders(poolID uint64, orders []orderbookdomain.Order) error {
+	o.ordersByPoolIDLock.Lock()
+	o.ordersByPoolID[poolID] = orders
+	o.ordersByPoolIDLock.Unlock()
+	return nil
+}
+
+func (o *orderbookRepositoryImpl) GetOrders(poolID uint64, ownerAddress string) ([]orderbookdomain.Order, bool) {
+	o.ordersByPoolIDLock.RLock()
+	orders, ok := o.ordersByPoolID[poolID]
+	o.ordersByPoolIDLock.RUnlock()
+	if !ok {
+		return nil, false
+	}
+
+	var result []orderbookdomain.Order
+	for _, order := range orders {
+		if order.Owner == ownerAddress {
+			result = append(result, order)
+		}
+	}
+
+	return result, true
 }

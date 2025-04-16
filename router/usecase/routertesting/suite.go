@@ -42,7 +42,7 @@ type MockMainnetState struct {
 	TakerFeeMap              ingesttypes.TakerFeeMap
 	TokensMetadata           map[string]domain.Token
 	PricingConfig            domain.PricingConfig
-	CandidateRouteSearchData map[string]domain.CandidateRouteDenomData
+	CandidateRouteSearchData map[string]*domain.CandidateRouteDenomData
 	PoolDenomsMetaData       domain.PoolDenomMetaDataMap
 }
 

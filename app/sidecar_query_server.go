@@ -34,6 +34,7 @@ import (
 	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/basefee"
 	orderbookclaimbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
 	orderbookfillbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot"
+	orderbookorderscache "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/orderscache"
 	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
 	"github.com/osmosis-labs/sqs/quotesimulator"
@@ -247,7 +248,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, logger)
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough
@@ -308,6 +309,10 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		for _, plugin := range grpcIngesterConfig.Plugins {
 			if plugin.IsEnabled() {
 				var currentPlugin domain.EndBlockProcessPlugin
+
+				if plugin.GetName() == orderbookplugindomain.OrderbookOrdersCachePlugin {
+					currentPlugin = orderbookorderscache.New(orderBookRepository, poolsUseCase, logger, passthroughGRPCClient)
+				}
 
 				if plugin.GetName() == orderbookplugindomain.OrderbookFillbotPlugin {
 					signer, err := initializeCosmosSigner()

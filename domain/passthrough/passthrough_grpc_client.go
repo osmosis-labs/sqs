@@ -10,6 +10,7 @@ import (
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	math "github.com/osmosis-labs/osmosis/osmomath"
 	concentratedLiquidity "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/client/queryproto"
+	cosmwasmpool "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/client/queryproto"
 	lockup "github.com/osmosis-labs/osmosis/v28/x/lockup/types"
 	polarisgrpc "github.com/osmosis-labs/sqs/delivery/grpc"
 	"google.golang.org/grpc"
@@ -39,6 +40,9 @@ type PassthroughGRPCClient interface {
 	// DelegationTotalRewards returns the total unclaimed staking rewards accrued of the user with the given address.
 	DelegationRewards(ctx context.Context, address string) (sdk.Coins, error)
 
+	// GetOrderbookOrdersRaw returns the raw orderbook orders for the given pool ID.
+	GetOrderbookOrdersRaw(ctx context.Context, poolID uint64) ([][]byte, error)
+
 	GetChainGRPCClient() grpc.ClientConnInterface
 }
 
@@ -55,8 +59,8 @@ type passthroughGRPCClient struct {
 	lockupQueryClient                lockup.QueryClient
 	concentratedLiquidityQueryClient concentratedLiquidity.QueryClient
 	distributionClient               distribution.QueryClient
-
-	chainGRPCClient grpc.ClientConnInterface
+	cosmwasmpoolClient               cosmwasmpool.QueryClient
+	chainGRPCClient                  grpc.ClientConnInterface
 }
 
 const (
@@ -79,6 +83,7 @@ func NewPassthroughGRPCClient(grpcURI string) (PassthroughGRPCClient, error) {
 		lockupQueryClient:                lockup.NewQueryClient(grpcClient),
 		concentratedLiquidityQueryClient: concentratedLiquidity.NewQueryClient(grpcClient),
 		distributionClient:               distribution.NewQueryClient(grpcClient),
+		cosmwasmpoolClient:               cosmwasmpool.NewQueryClient(grpcClient),
 
 		chainGRPCClient: grpcClient,
 	}, nil
@@ -89,7 +94,6 @@ func (p *passthroughGRPCClient) AccountLockedCoins(ctx context.Context, address 
 	if err != nil {
 		return nil, err
 	}
-
 	return response.Coins, nil
 }
 
@@ -192,6 +196,14 @@ func (p *passthroughGRPCClient) DelegationRewards(ctx context.Context, address s
 	}
 
 	return rewardCoins, nil
+}
+
+func (p *passthroughGRPCClient) GetOrderbookOrdersRaw(ctx context.Context, poolID uint64) ([][]byte, error) {
+	response, err := p.cosmwasmpoolClient.PoolRawFilteredState(ctx, &cosmwasmpool.PoolRawFilteredStateRequest{PoolId: poolID, KeyFilter: "order", ValueFilter: "order_id"})
+	if err != nil {
+		return nil, err
+	}
+	return response.Values, nil
 }
 
 // GetChainGRPCClient implements PassthroughGRPCClient.

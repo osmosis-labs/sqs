@@ -16,9 +16,13 @@
 				"name": "orderbook-claimbot-plugin",
 				"enabled": false
 			},
-            {
+			{
 				"name": "custom-submodule-plugin",
 				"enabled": false
+			},
+			{
+				"name": "orderbook-orders-cache-plugin",
+				"enabled": true
 			}
 		]
 	}

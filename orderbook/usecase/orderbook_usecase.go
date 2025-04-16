@@ -269,23 +269,14 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 //
 // For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
 // This is a best-effort process.
-func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(ctx context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(_ context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
 	if err := orderbook.Validate(); err != nil {
 		return nil, false, err
 	}
 
-	orders, count, err := o.orderBookClient.GetActiveOrders(ctx, orderbook.ContractAddress, ownerAddress)
-	if err != nil {
-		return nil, false, types.FailedToGetActiveOrdersError{
-			ContractAddress: orderbook.ContractAddress,
-			OwnerAddress:    ownerAddress,
-			Err:             err,
-		}
-	}
-
-	// There are orders to process for given orderbook
-	if count == 0 {
-		return nil, false, nil
+	orders, ok := o.orderbookRepository.GetOrders(orderbook.PoolID, ownerAddress)
+	if len(orders) == 0 || !ok {
+		return nil, false, nil // no orders to process for given orderbook
 	}
 
 	// Create a slice to store the results
