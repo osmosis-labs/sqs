@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -37,7 +39,7 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 }
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
-func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
 	// Preallocate constant visited map size to avoid reallocations.
@@ -226,10 +228,10 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 }
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
-func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	// Fetching the candidate routes as for the exact amount of token in swap method
 	// That will be the same as the exact amount out swap method with inverted token denominations
-	routes, err := c.FindCandidateRoutesOutGivenIn(tokenOut, tokenInDenom, options)
+	routes, err := c.FindCandidateRoutesOutGivenIn(ctx, tokenOut, tokenInDenom, options)
 	if err != nil {
 		return ingesttypes.CandidateRoutes{}, err
 	}

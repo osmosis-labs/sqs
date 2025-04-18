@@ -13,6 +13,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	sqsosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
 )
 
 // BaseFeeRepository represents the contract for a repository handling base fee information
@@ -48,6 +49,7 @@ type candidateRoutes map[string]*domain.CandidateRouteDenomData
 type routerRepo struct {
 	takerFeeMap              sync.Map
 	candidateRouteSearchData atomic.Value
+	poolHandler              mvc.PoolHandler
 	mu                       sync.Mutex
 
 	baseFeeMx sync.RWMutex
@@ -56,7 +58,7 @@ type routerRepo struct {
 	logger log.Logger
 }
 
-func New(logger log.Logger) RouterRepository {
+func New(logger log.Logger) *routerRepo {
 	repository := &routerRepo{
 		takerFeeMap: sync.Map{},
 		baseFeeMx:   sync.RWMutex{},
@@ -67,6 +69,10 @@ func New(logger log.Logger) RouterRepository {
 	repository.candidateRouteSearchData.Store(make(candidateRoutes))
 
 	return repository
+}
+
+func (r *routerRepo) SetPoolHandler(poolHandler mvc.PoolHandler) {
+	r.poolHandler = poolHandler
 }
 
 // GetBaseFee implements RouterRepository.
@@ -167,7 +173,7 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 	r.mu.Lock() // for writers
 	defer r.mu.Unlock()
 
-	oldData, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
+	oldData, ok := r.candidateRouteSearchData.Load().(candidateRoutes) // oldData["factory/osmo10pk4crey8fpdyqd62rsau0y02e3rk055w5u005ah6ly7k849k5tsf72x40/alloyed/allDOGE"]
 	if !ok {
 		r.candidateRouteSearchData.Store(make(candidateRoutes))
 		return
@@ -177,7 +183,30 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 
 	maps.Copy(newData, oldData)
 
+	for denom, value := range newData {
+		for i := range value.SortedPools {
+			if value.SortedPools[i].PoolLiquidityCap == 0 {
+				p, _, err := r.poolHandler.GetPools(domain.WithPoolIDFilter([]uint64{value.SortedPools[i].ID}))
+				if len(p) == 0 || err != nil {
+					continue
+				}
+
+				if p[0].GetLiquidityCap().GT(osmomath.ZeroInt()) {
+					newData[denom].SortedPools[i].PoolLiquidityCap = sqsosmomath.SafeUint64(p[0].GetLiquidityCap())
+				}
+			}
+		}
+	}
+
 	for denom, value := range data {
+		for i := range value.SortedPools {
+			if value.SortedPools[i].ID == 2242 {
+				value.SortedPools[i].ID = 2242
+			}
+		}
+		if denom == "ibc/B3DFDC2958A2BE482532DA3B6B5729B469BE7475598F7487D98B1B3E085245DE" {
+			denom = "ibc/B3DFDC2958A2BE482532DA3B6B5729B469BE7475598F7487D98B1B3E085245DE"
+		}
 		newData[denom] = value
 	}
 

@@ -577,6 +577,14 @@ func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 	for _, pool := range pools {
 		// Store pool
 		poolID := pool.GetId()
+		oldPool, err := p.GetPool(poolID)
+		if err == nil {
+			liquidityCap := pool.GetLiquidityCap()
+			if liquidityCap.IsNil() || liquidityCap.Equal(osmomath.ZeroInt()) {
+				pool.SetLiquidityCap(oldPool.GetLiquidityCap())
+			}
+		}
+
 		p.pools.Store(poolID, pool)
 
 		// If orderbook, update top liquidity pool for base and quote denom if it has higher liquidity capitalization.
