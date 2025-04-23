@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-
 	"time"
 
 	tenderminapi "cosmossdk.io/api/cosmos/base/tendermint/v1beta1"
@@ -167,6 +166,8 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	if err != nil {
 		return nil, err
 	}
+
+	routerRepository.SetPoolHandler(poolsUseCase)
 
 	// Initialize candidate route searcher
 	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, logger)

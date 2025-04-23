@@ -13,6 +13,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	sqsosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
 )
 
 // BaseFeeRepository represents the contract for a repository handling base fee information
@@ -48,6 +49,7 @@ type candidateRoutes map[string]*domain.CandidateRouteDenomData
 type routerRepo struct {
 	takerFeeMap              sync.Map
 	candidateRouteSearchData atomic.Value
+	poolHandler              mvc.PoolHandler
 	mu                       sync.Mutex
 
 	baseFeeMx sync.RWMutex
@@ -56,7 +58,7 @@ type routerRepo struct {
 	logger log.Logger
 }
 
-func New(logger log.Logger) RouterRepository {
+func New(logger log.Logger) *routerRepo {
 	repository := &routerRepo{
 		takerFeeMap: sync.Map{},
 		baseFeeMx:   sync.RWMutex{},
@@ -67,6 +69,10 @@ func New(logger log.Logger) RouterRepository {
 	repository.candidateRouteSearchData.Store(make(candidateRoutes))
 
 	return repository
+}
+
+func (r *routerRepo) SetPoolHandler(poolHandler mvc.PoolHandler) {
+	r.poolHandler = poolHandler
 }
 
 // GetBaseFee implements RouterRepository.
@@ -177,6 +183,25 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 
 	maps.Copy(newData, oldData)
 
+	// Some of the pools from the block data may not have a liquidity cap set or it's set to 0.
+	// Here we manually update the liquidity cap for such candidate routes based on the pool data so
+	// that we can still route over such pools.
+	for denom, value := range newData {
+		for i := range value.SortedPools {
+			if value.SortedPools[i].PoolLiquidityCap == 0 {
+				p, _, err := r.poolHandler.GetPools(domain.WithPoolIDFilter([]uint64{value.SortedPools[i].ID}))
+				if len(p) == 0 || err != nil {
+					continue // no pool found
+				}
+
+				if p[0].GetLiquidityCap().GT(osmomath.ZeroInt()) {
+					newData[denom].SortedPools[i].PoolLiquidityCap = sqsosmomath.SafeUint64(p[0].GetLiquidityCap())
+				}
+			}
+		}
+	}
+
+	// Update new data with block data
 	for denom, value := range data {
 		newData[denom] = value
 	}
