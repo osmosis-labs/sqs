@@ -245,7 +245,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		MaxPoolsPerRoute:    options.MaxPoolsPerRoute,
 		MinPoolLiquidityCap: options.MinPoolLiquidityCap,
 	}
-	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 		return nil, err
@@ -686,7 +686,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 		r.logger.Debug("calculating routes")
 
 		start := time.Now()
-		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 		if err != nil {
 			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return ingesttypes.CandidateRoutes{}, err

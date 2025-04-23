@@ -55,7 +55,7 @@ func (s *RouterTestSuite) setupSplitsMainnetTestCase(displayDenomIn string, amou
 		MinPoolLiquidityCap: config.MinPoolLiquidityCap,
 	}
 	// Get candidate routes
-	candidateRoutes, err := useCases.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, chainDenomOut, options)
+	candidateRoutes, err := useCases.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(context.Background(), tokenIn, chainDenomOut, options)
 	s.Require().NoError(err)
 
 	// TODO: consider moving to interface.
