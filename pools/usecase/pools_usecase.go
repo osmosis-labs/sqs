@@ -575,8 +575,18 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 // StorePools implements mvc.PoolsUsecase.
 func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 	for _, pool := range pools {
-		// Store pool
+		// Set liquidity capitalization for the pool to previous value if it is nil or zero.
+		// This value will be used for candidate route search and will be recomputed later.
 		poolID := pool.GetId()
+		oldPool, err := p.GetPool(poolID)
+		if err == nil {
+			liquidityCap := pool.GetLiquidityCap()
+			if liquidityCap.IsNil() || liquidityCap.Equal(osmomath.ZeroInt()) {
+				pool.SetLiquidityCap(oldPool.GetLiquidityCap())
+				pool.SetLiquidityCapError(oldPool.GetLiquidityCapError())
+			}
+		}
+
 		p.pools.Store(poolID, pool)
 
 		// If orderbook, update top liquidity pool for base and quote denom if it has higher liquidity capitalization.
