@@ -1,6 +1,7 @@
 package usecase_test
 
 import (
+	"context"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -35,10 +36,12 @@ func BenchmarkCandidateRouteSearcherFindCandidateRoutesOutGivenIn(b *testing.B) 
 
 	b.ResetTimer()
 
+	ctx := context.Background()
+
 	// Run the benchmark
 	for i := 0; i < b.N; i++ {
 		// System under test
-		_, err := usecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, candidateRouteOptions)
+		_, err := usecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteOptions)
 		s.Require().NoError(err)
 		if err != nil {
 			b.Errorf("FindCandidateRoutes returned an error: %v", err)
@@ -72,10 +75,12 @@ func BenchmarkCandidateRouteSearcherFindCandidateRoutesInGivenOut(b *testing.B) 
 
 	b.ResetTimer()
 
+	ctx := context.Background()
+
 	// Run the benchmark
 	for i := 0; i < b.N; i++ {
 		// System under test
-		_, err := usecase.CandidateRouteSearcher.FindCandidateRoutesInGivenOut(tokenIn, tokenOutDenom, candidateRouteOptions)
+		_, err := usecase.CandidateRouteSearcher.FindCandidateRoutesInGivenOut(ctx, tokenIn, tokenOutDenom, candidateRouteOptions)
 		s.Require().NoError(err)
 		if err != nil {
 			b.Errorf("FindCandidateRoutes returned an error: %v", err)

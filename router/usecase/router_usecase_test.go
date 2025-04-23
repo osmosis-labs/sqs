@@ -892,7 +892,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 			MaxPoolsPerRoute:    config.Router.MaxPoolsPerRoute,
 		}
 
-		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(sdk.NewCoin(chainDenom, one), USDC, options)
+		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(context.Background(), sdk.NewCoin(chainDenom, one), USDC, options)
 		if err != nil {
 			fmt.Printf("Error for %s  -- %s -- %v\n", chainDenom, tokenMeta.HumanDenom, err)
 			errorCounter++
@@ -932,7 +932,7 @@ func (s *RouterTestSuite) TestGetCandidateRoutes_Chain_FindUnsupportedRoutes() {
 			continue
 		}
 
-		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(sdk.NewCoin(chainDenom, one), USDC, options)
+		routes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(context.Background(), sdk.NewCoin(chainDenom, one), USDC, options)
 		if err != nil {
 			fmt.Printf("Error for %s  -- %s -- %v\n", chainDenom, tokenMeta.HumanDenom, err)
 			errorCounter++
