@@ -173,7 +173,7 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 	r.mu.Lock() // for writers
 	defer r.mu.Unlock()
 
-	oldData, ok := r.candidateRouteSearchData.Load().(candidateRoutes) // oldData["factory/osmo10pk4crey8fpdyqd62rsau0y02e3rk055w5u005ah6ly7k849k5tsf72x40/alloyed/allDOGE"]
+	oldData, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
 	if !ok {
 		r.candidateRouteSearchData.Store(make(candidateRoutes))
 		return
@@ -183,12 +183,15 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 
 	maps.Copy(newData, oldData)
 
+	// Some of the pools from the block data may not have a liquidity cap set or it's set to 0.
+	// Here we manually update the liquidity cap for such candidate routes based on the pool data so
+	// that we can still route over such pools.
 	for denom, value := range newData {
 		for i := range value.SortedPools {
 			if value.SortedPools[i].PoolLiquidityCap == 0 {
 				p, _, err := r.poolHandler.GetPools(domain.WithPoolIDFilter([]uint64{value.SortedPools[i].ID}))
 				if len(p) == 0 || err != nil {
-					continue
+					continue // no pool found
 				}
 
 				if p[0].GetLiquidityCap().GT(osmomath.ZeroInt()) {
@@ -198,15 +201,8 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 		}
 	}
 
+	// Update new data with block data
 	for denom, value := range data {
-		for i := range value.SortedPools {
-			if value.SortedPools[i].ID == 2242 {
-				value.SortedPools[i].ID = 2242
-			}
-		}
-		if denom == "ibc/B3DFDC2958A2BE482532DA3B6B5729B469BE7475598F7487D98B1B3E085245DE" {
-			denom = "ibc/B3DFDC2958A2BE482532DA3B6B5729B469BE7475598F7487D98B1B3E085245DE"
-		}
 		newData[denom] = value
 	}
 
