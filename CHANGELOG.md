@@ -35,6 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v28.3.4
+
+- #641 - BE-723 | Edge case fix for pool liquidity
+- #643 - BE-723 | Fix 0 liquidity pools for candidate routes
+
 ## v28.3.3
 
 - #622 - feat: orderbook orders cache plugin
