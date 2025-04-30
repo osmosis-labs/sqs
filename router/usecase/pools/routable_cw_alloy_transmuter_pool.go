@@ -155,6 +155,10 @@ func (r *routableAlloyTransmuterPoolImpl) CalcSpotPrice(ctx context.Context, bas
 	return r.CalcTokenOutAmt(sdk.Coin{Denom: baseDenom, Amount: osmomath.OneInt()}, quoteDenom)
 }
 
+func (r *routableAlloyTransmuterPoolImpl) CalcSpotPriceInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenDenomOut string) (osmomath.BigDec, error) {
+	return r.CalcSpotPrice(ctx, tokenIn.Denom, tokenDenomOut)
+}
+
 // GetSQSType implements domain.RoutablePool.
 func (*routableAlloyTransmuterPoolImpl) GetSQSType() domain.SQSPoolType {
 	return domain.AlloyedTransmuter

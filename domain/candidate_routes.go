@@ -66,6 +66,10 @@ var (
 	ShouldSkipOrderbookPool CandidateRoutePoolFiltrerCb = func(pool CandidatePoolWrapper) bool {
 		return pool.IsOrderbook
 	}
+
+	ShouldSkipNonOrderbookPool CandidateRoutePoolFiltrerCb = func(pool CandidatePoolWrapper) bool {
+		return !pool.IsOrderbook
+	}
 )
 
 // CandidateRouteSearcher is the interface for finding candidate routes.

@@ -227,6 +227,10 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 	return osmomath.MustNewBigDecFromStr(response.SpotPrice), nil
 }
 
+func (r *routableCosmWasmPoolImpl) CalcSpotPriceInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenDenomOut string) (osmomath.BigDec, error) {
+	return r.CalcSpotPrice(ctx, tokenIn.Denom, tokenDenomOut)
+}
+
 // GetSQSType implements domain.RoutablePool.
 func (*routableCosmWasmPoolImpl) GetSQSType() domain.SQSPoolType {
 	return domain.GeneralizedCosmWasm

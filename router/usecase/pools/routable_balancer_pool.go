@@ -118,6 +118,10 @@ func (r *routableBalancerPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 	return spotPrice, nil
 }
 
+func (r *routableBalancerPoolImpl) CalcSpotPriceInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenDenomOut string) (osmomath.BigDec, error) {
+	return r.CalcSpotPrice(ctx, tokenIn.Denom, tokenDenomOut)
+}
+
 // GetSQSType implements domain.RoutablePool.
 func (*routableBalancerPoolImpl) GetSQSType() domain.SQSPoolType {
 	return domain.Balancer

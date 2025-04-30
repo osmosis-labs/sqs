@@ -21,6 +21,10 @@ import (
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
 func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+	if v := ctx.Value(domain.DebugKey); v != nil {
+		tokenIn.Denom = tokenIn.Denom
+	}
+
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}

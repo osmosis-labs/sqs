@@ -191,6 +191,10 @@ func (r *routableResultPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom st
 	panic("not implemented")
 }
 
+func (r *routableResultPoolImpl) CalcSpotPriceInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenDenomOut string) (osmomath.BigDec, error) {
+	return r.CalcSpotPrice(ctx, tokenIn.Denom, tokenDenomOut)
+}
+
 // GetSQSType implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetSQSType() domain.SQSPoolType {
 	return domain.Result

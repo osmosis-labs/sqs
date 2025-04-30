@@ -14,13 +14,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-var (
-	one = osmomath.OneDec()
-)
+var one = osmomath.OneDec()
 
-var (
-	_ domain.Quote = &quoteExactAmountIn{}
-)
+var _ domain.Quote = &quoteExactAmountIn{}
 
 // NOTE: This is because structs in alias declaration are not exported
 type (
@@ -64,7 +60,8 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 
 	for _, curRoute := range q.Route {
 		routeTotalFee := osmomath.ZeroDec()
-		routeAmountInFraction := curRoute.GetAmountIn().ToLegacyDec().Quo(totalAmountIn)
+		currentRouteAmountIn := curRoute.GetAmountIn().ToLegacyDec()
+		routeAmountInFraction := currentRouteAmountIn.Quo(totalAmountIn)
 
 		// Calculate the spread factor across pools in the route
 		for _, pool := range curRoute.GetPools() {

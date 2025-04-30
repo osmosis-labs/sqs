@@ -357,8 +357,11 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		MaxPoolsPerRoute:    routingOptions.MaxPoolsPerRoute,
 		MinPoolLiquidityCap: routingOptions.MinPoolLiquidityCap,
 		DisableCache:        routingOptions.DisableCache,
+		// PoolFiltersAnyOf:    append(routingOptions.CandidateRoutesPoolFiltersAnyOf, domain.ShouldSkipNonOrderbookPool), // TODO: remove this append
 		PoolFiltersAnyOf:    routingOptions.CandidateRoutesPoolFiltersAnyOf,
 	}
+
+	ctx = context.WithValue(ctx, domain.DebugKey, 2242)
 
 	// If top routes are not present in cache, retrieve unranked candidate routes
 	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)

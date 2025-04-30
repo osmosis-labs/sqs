@@ -68,7 +68,6 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 
 	wg := sync.WaitGroup{}
 
-	c.logger.Info("computing candidate route data", zap.Any("denoms", (blockPoolMetaData.UpdatedDenoms)))
 	for denom := range blockPoolMetaData.UpdatedDenoms {
 		wg.Add(1)
 

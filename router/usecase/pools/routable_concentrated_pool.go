@@ -20,8 +20,10 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
-var _ domain.RoutablePool = &routableConcentratedPoolImpl{}
-var smallestDec = osmomath.BigDecFromDec(osmomath.SmallestDec())
+var (
+	_           domain.RoutablePool = &routableConcentratedPoolImpl{}
+	smallestDec                     = osmomath.BigDecFromDec(osmomath.SmallestDec())
+)
 
 type routableConcentratedPoolImpl struct {
 	ChainPool     *concentratedmodel.Pool `json:"cl_pool"`
@@ -361,6 +363,10 @@ func (r *routableConcentratedPoolImpl) CalcSpotPrice(ctx context.Context, baseDe
 		return osmomath.BigDec{}, err
 	}
 	return spotPrice, nil
+}
+
+func (r *routableConcentratedPoolImpl) CalcSpotPriceInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenDenomOut string) (osmomath.BigDec, error) {
+	return r.CalcSpotPrice(ctx, tokenIn.Denom, tokenDenomOut)
 }
 
 // GetSQSType implements domain.RoutablePool.

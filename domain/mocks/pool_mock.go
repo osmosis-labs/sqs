@@ -78,6 +78,11 @@ func (mp *MockRoutablePool) CalcSpotPrice(ctx context.Context, baseDenom string,
 	return spotPrice, nil
 }
 
+func (mp *MockRoutablePool) CalcSpotPriceInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenDenomOut string) (osmomath.BigDec, error) {
+	return mp.CalcSpotPrice(ctx, tokenIn.Denom, tokenDenomOut)
+}
+
+
 // GetSpreadFactor implements domain.RoutablePool.
 func (mp *MockRoutablePool) GetSpreadFactor() math.LegacyDec {
 	return mp.SpreadFactor

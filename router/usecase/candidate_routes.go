@@ -117,6 +117,13 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 			}
 
 			pool := (denomData.SortedPools[i])
+			if v := ctx.Value(domain.DebugKey); v != nil && pool.ID == 1986 {
+				pool.ID = 1986
+			}
+
+			if !pool.IsOrderbook {
+				// continue // TODO: temp
+			}
 
 			// If the option is configured to skip a given pool
 			// We mark it as visited and continue.
@@ -158,8 +165,8 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				continue
 			}
 
-			// Microptimization for the first pool in the route.
-			if len(currentRoute) == 0 {
+			// Micro-optimization for the first pool in the route.
+			if len(currentRoute) == 0 && len(routes) > options.MaxRoutes-1 {
 				currentTokenInAmount := pool.Balances.AmountOf(currenTokenInDenom)
 
 				// HACK: alloyed LP share is not contained in balances.

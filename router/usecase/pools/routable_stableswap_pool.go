@@ -118,6 +118,10 @@ func (r *routableStableswapPoolImpl) CalcSpotPrice(ctx context.Context, baseDeno
 	return spotPrice, nil
 }
 
+func (r *routableStableswapPoolImpl) CalcSpotPriceInGivenOut(ctx context.Context, tokenIn sdk.Coin, tokenDenomOut string) (osmomath.BigDec, error) {
+	return r.CalcSpotPrice(ctx, tokenIn.Denom, tokenDenomOut)
+}
+
 // GetSQSType implements domain.RoutablePool.
 func (*routableStableswapPoolImpl) GetSQSType() domain.SQSPoolType {
 	return domain.StableSwap

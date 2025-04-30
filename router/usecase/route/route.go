@@ -31,14 +31,12 @@ type RouteImpl struct {
 	HasCanonicalOrderbookPool bool "json:\"-\""
 }
 
-var (
-	spotPriceErrorResultCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_routes_spot_price_error_total",
-			Help: "Spot price error when preparing result pools",
-		},
-		[]string{"token_in", "cur_token_out_denom", "route_token_out_denom"},
-	)
+var spotPriceErrorResultCounter = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "sqs_routes_spot_price_error_total",
+		Help: "Spot price error when preparing result pools",
+	},
+	[]string{"token_in", "cur_token_out_denom", "route_token_out_denom"},
 )
 
 // PrepareResultPoolsOutGivenIn implements domain.Route.
@@ -63,8 +61,12 @@ func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk
 	newPools := make([]domain.RoutablePool, 0, len(r.Pools))
 
 	for _, pool := range r.Pools {
+		if v := ctx.Value(domain.DebugKey); v != nil && pool.GetId() == 2140 {
+			tokenIn.Denom = tokenIn.Denom
+		}
+
 		// Compute spot price before swap.
-		spotPriceInBaseOutQuote, err := pool.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
+		spotPriceInBaseOutQuote, err := pool.CalcSpotPriceInGivenOut(ctx, tokenIn, pool.GetTokenOutDenom())
 		if err != nil {
 			logger.Error("failed to calculate spot price for pool", zap.Error(err))
 
