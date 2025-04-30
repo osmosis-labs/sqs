@@ -203,6 +203,8 @@ func (r *routableOrderbookPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 }
 
 // CalcSpotPrice implements domain.RoutablePool.
+// If base asset is the TokenIn of the pool, we use the current tick price of the pool.
+// If not, we calculate the inverse of the current tick price of the pool.
 func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	// Get the expected order directionIn
 	directionIn, err := r.OrderbookData.GetDirection(baseDenom, quoteDenom)
@@ -212,7 +214,6 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 
 	directionOut := directionIn.Opposite()
 	tickIdx, err := r.OrderbookData.GetStartTickIndex(directionOut)
-
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -235,12 +236,22 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 	tick := r.OrderbookData.Ticks[tickIdx]
 
 	// Calculate the price for the current tick
+	// Tick price represents quote denom per base denom
 	tickPrice, err := clmath.TickToPrice(tick.TickId)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 
-	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, *directionIn, cosmwasmpool.ROUND_DOWN), nil
+	// For same swap direction, spot price is the same as the tick price
+	if r.OrderbookData.BaseDenom == baseDenom && r.OrderbookData.QuoteDenom == quoteDenom {
+		return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, *directionIn, cosmwasmpool.ROUND_DOWN), nil
+	}
+
+	// In the opposite direction, we need to invert the tick price.
+	// For example, orderbook with base denom TRX and quote denom USDC, and tick price is 10.
+	// When quote token in is USDC and token out is TRX, the spot price is 0.1, since 1 TRX - 10 USDC,
+	// but here we want spot price in terms of USDC, not TRX, thus we invert 0.1 to 10.
+	return cosmwasmpool.OrderbookValueInOppositeDirection(oneBigDec, tickPrice, directionIn.Opposite(), cosmwasmpool.ROUND_DOWN), nil
 }
 
 // IsGeneralizedCosmWasmPool implements domain.RoutablePool.

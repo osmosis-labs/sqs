@@ -342,7 +342,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook() {
 		"BID: change in spot price": {
 			baseDenom:         QUOTE_DENOM,
 			quoteDenom:        BASE_DENOM,
-			expectedSpotPrice: osmomath.NewBigDecWithPrec(5, 1),
+			expectedSpotPrice: osmomath.NewBigDec(2),
 			nextBidTickIndex:  -1, // no next bid tick
 			nextAskTickIndex:  1,
 			ticks: []cosmwasmpool.OrderbookTick{
