@@ -44,6 +44,9 @@ type tokensUseCase struct {
 	// TokenRegistryLoader fetches tokens from the chain registry into the tokens use case
 	tokenLoader domain.TokenRegistryLoader
 
+	// Default quote denom to use for pricing
+	defaultQuoteDenom string
+
 	// Logger instance
 	logger log.Logger
 }
@@ -87,6 +90,11 @@ func NewTokensUsecase(tokenMetadataByChainDenom map[string]domain.Token, updateA
 // SetTokenRegistryLoader sets the token registry loader for the tokens use case
 func (t *tokensUseCase) SetTokenRegistryLoader(loader domain.TokenRegistryLoader) {
 	t.tokenLoader = loader
+}
+
+// SetDefaultQuoteDenom sets the default quote denom for the tokens use case
+func (t *tokensUseCase) SetDefaultQuoteDenom(denom string) {
+	t.defaultQuoteDenom = denom
 }
 
 // LoadTokensFunc is a function signature for LoadTokens.
@@ -368,6 +376,37 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 	}
 
 	return byQuoteDenomForGivenBaseResult, nil
+}
+
+// CalcSpotPrice calculates the spot price between two denoms.
+// Price is derived from the chain prices across all pools between the two denoms.
+// Returns error if any of the prices is not found or if the quote denom price is zero.
+func (t *tokensUseCase) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	baseDenomPrice, err := t.GetPrices(ctx, []string{baseDenom}, []string{t.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	quoteDenomPrice, err := t.GetPrices(ctx, []string{quoteDenom}, []string{t.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	baseDenomPriceDec := baseDenomPrice[baseDenom][t.defaultQuoteDenom]
+	if baseDenomPriceDec.IsNil() {
+		return osmomath.BigDec{}, fmt.Errorf("base denom price is nil")
+	}
+
+	quoteDenomPriceDec := quoteDenomPrice[quoteDenom][t.defaultQuoteDenom]
+	if quoteDenomPriceDec.IsNil() {
+		return osmomath.BigDec{}, fmt.Errorf("quote denom price is nil")
+	}
+
+	if quoteDenomPriceDec.IsZero() {
+		return osmomath.BigDec{}, fmt.Errorf("quote denom price is zero")
+	}
+
+	return baseDenomPriceDec.Quo(quoteDenomPriceDec), nil
 }
 
 // UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.

@@ -50,6 +50,11 @@ type TokensUsecase interface {
 	// GetSpotPriceScalingFactorByDenomMut returns the scaling factor for spot price.
 	GetSpotPriceScalingFactorByDenom(baseDenom, quoteDenom string) (osmomath.Dec, error)
 
+	// CalcSpotPrice calculates the spot price between two denoms.
+	// Price is derived from the chain prices across all pools between the two denoms.
+	// Returns error if any of the prices is not found or if the quote denom price is zero.
+	CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
+
 	// GetPrices returns prices for all given base and quote denoms given a pricing source type or, otherwise, error, if any.
 	// The options configure some customization with regards to how prices are computed.
 	// By default, the prices are computes by using cache and the default min liquidity parameter set via config.

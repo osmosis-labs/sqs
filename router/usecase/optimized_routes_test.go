@@ -137,7 +137,8 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 			routes: []route.RouteImpl{
 				WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					mocks.WithChainPoolModel(mocks.WithTokenOutDenom(DefaultMockPool, DenomOne), defaultBalancerPool),
-				})},
+				}),
+			},
 			tokenIn: sdk.NewCoin(DenomTwo, osmomath.NewInt(100)),
 
 			expectedTokenOutDenom: DenomOne,
@@ -270,7 +271,6 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 // This test ensures strict route validation.
 // See individual test cases for details.
 func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
-
 	defaultDenomOneTwoOutTwoPool := usecase.CandidatePoolWrapper{
 		CandidatePool: ingesttypes.CandidatePool{
 			ID:            defaultPoolID,
@@ -565,7 +565,6 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 	for name, tc := range tests {
 		tc := tc
 		s.Run(name, func() {
-
 			filteredCandidateRoutes, err := routerusecase.ValidateAndFilterRoutesOutGivenIn(tc.routes, tc.tokenInDenom, noOpLogger)
 
 			if tc.expectError != nil {
@@ -753,7 +752,7 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 			s.Require().NoError(err)
 
 			// TODO: update mainnet state and validate the quote for each test stricter.
-			routes, _, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0), &log.NoOpLogger{}) //  we are not checking the scaling factor
+			routes, _, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0), nil, &log.NoOpLogger{}) //  we are not checking the scaling factor
 			s.Require().NoError(err)
 
 			s.Require().Len(routes, tc.expectedRoutesCountExactAmountOut)
@@ -795,9 +794,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
 
-	var (
-		amountIn = osmomath.NewInt(5000000)
-	)
+	amountIn := osmomath.NewInt(5000000)
 
 	mainnetState := s.SetupMainnetState()
 
@@ -978,7 +975,6 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 	for _, tc := range testCases {
 		tc := tc
 		s.Run(tc.name, func() {
-
 			// Pre-set cache
 			routerUseCase.SetCandidateRouteCacheToMock(domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom)
 			routerUseCase.SetRankedRouteCacheToMock(domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
@@ -1023,7 +1019,6 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 			// Validate cache did not get invalidated
 			s.Require().True(foundcandidateRoutes)
 			s.Require().NotEmpty(cachedRankedRoutes)
-
 		})
 	}
 }
@@ -1180,7 +1175,6 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 	for _, tc := range testCases {
 		tc := tc
 		s.Run(tc.name, func() {
-
 			// Pre-set cache
 			routerUseCase.SetCandidateRouteCacheToMock(domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom)
 			routerUseCase.SetRankedRouteCacheToMock(domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom, tokenOutOrderOfMagnitude)
@@ -1225,7 +1219,6 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 			// Validate cache did not get invalidated
 			s.Require().True(foundcandidateRoutes)
 			s.Require().NotEmpty(cachedRankedRoutes)
-
 		})
 	}
 }

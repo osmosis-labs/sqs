@@ -16,8 +16,8 @@ type RouteMock struct {
 	GetPoolsFunc                         func() []domain.RoutablePool
 	GetTokenOutDenomFunc                 func() string
 	GetTokenInDenomFunc                  func() string
-	PrepareResultPoolsExactAmountInFunc  func(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
-	PrepareResultPoolsExactAmountOutFunc func(ctx context.Context, tokenOut types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
+	PrepareResultPoolsExactAmountInFunc  func(ctx context.Context, tokenIn types.Coin, spotPriceCalcultor domain.SpotPriceCalcultor, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
+	PrepareResultPoolsExactAmountOutFunc func(ctx context.Context, tokenOut types.Coin, spotPriceCalcultor domain.SpotPriceCalcultor, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error)
 	StringFunc                           func() string
 
 	GetAmountInFunc  func() math.Int
@@ -79,16 +79,17 @@ func (r *RouteMock) GetTokenInDenom() string {
 }
 
 // PrepareResultPoolsOutGivenIn implements domain.Route.
-func (r *RouteMock) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
+func (r *RouteMock) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn types.Coin, spotPriceCalcultor domain.SpotPriceCalcultor, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
 	if r.PrepareResultPoolsExactAmountInFunc != nil {
-		return r.PrepareResultPoolsExactAmountInFunc(ctx, tokenIn, logger)
+		return r.PrepareResultPoolsExactAmountInFunc(ctx, tokenIn, spotPriceCalcultor, logger)
 	}
 
 	panic("unimplemented")
 }
-func (r *RouteMock) PrepareResultPoolsExactAmountOut(ctx context.Context, tokenIn types.Coin, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
+
+func (r *RouteMock) PrepareResultPoolsExactAmountOut(ctx context.Context, tokenIn types.Coin, spotPriceCalcultor domain.SpotPriceCalcultor, logger log.Logger) ([]domain.RoutablePool, math.LegacyDec, math.LegacyDec, error) {
 	if r.PrepareResultPoolsExactAmountOutFunc != nil {
-		return r.PrepareResultPoolsExactAmountOutFunc(ctx, tokenIn, logger)
+		return r.PrepareResultPoolsExactAmountOutFunc(ctx, tokenIn, spotPriceCalcultor, logger)
 	}
 
 	panic("unimplemented")
@@ -119,5 +120,7 @@ func (r *RouteMock) GetAmountOut() math.Int {
 	panic("unimplemented")
 }
 
-var _ domain.Route = &RouteMock{}
-var _ domain.SplitRoute = &RouteMock{}
+var (
+	_ domain.Route      = &RouteMock{}
+	_ domain.SplitRoute = &RouteMock{}
+)

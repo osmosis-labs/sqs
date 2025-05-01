@@ -14,9 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-var (
-	_ domain.Quote = &quoteExactAmountOut{}
-)
+var _ domain.Quote = &quoteExactAmountOut{}
 
 // quoteExactAmountOut is a quote wrapper for exact out quotes.
 // Note that only the PrepareResult method is different from the quoteExactAmountIn.
@@ -136,9 +134,9 @@ func (q *quoteExactAmountOut) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceCalcultor, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	// Prepare exact out in the quote for inputs inversion
-	if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, logger); err != nil {
+	if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, spotPriceCalculator, logger); err != nil {
 		return nil, osmomath.Dec{}, err
 	}
 
