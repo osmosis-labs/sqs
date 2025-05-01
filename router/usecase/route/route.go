@@ -52,7 +52,7 @@ var spotPriceErrorResultCounter = prometheus.NewCounterVec(
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
 // with token in as base and token out as quote.
-func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk.Coin, spotPriceCalculator domain.SpotPriceCalcultor, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk.Coin, spotPriceCalculator domain.SpotPriceQuoteCalculator, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
 		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()

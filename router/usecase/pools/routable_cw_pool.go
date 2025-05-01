@@ -211,7 +211,7 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 	codeID := r.ChainPool.CodeId
 	if codeID == astroportCodeID {
 		// Attempt to Calculate the spot price using quote
-		spotPriceFromQuote, err := r.spotPriceQuoteCalculator.Calculate(ctx, baseDenom, quoteDenom)
+		spotPriceFromQuote, err := r.spotPriceQuoteCalculator.CalcSpotPrice(ctx, baseDenom, quoteDenom)
 		// If no error return immediately
 		if err == nil {
 			return spotPriceFromQuote, nil

@@ -32,17 +32,9 @@ type ScalingFactorGetterCb func(denom string) (osmomath.Dec, error)
 type QuoteEstimatorCb func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string) (sdk.Coin, error)
 
 // SpotPriceQuoteCalculator is an interface that defines a contract for computing spot price using
-// the quote method. Using this method, the calculator swaps 1 precision-scaled unit of the quote denom
-// For majority of the spot prices with USDC as a quote, this is a reliable method for computing spot price.
-// There are edge cases where this method might prove unreliable. For example, swaping 1 WBTC, might lead
-// to a severe price impact and an unreliable estimation method. On the other hand, swapping 1 PEPE might
-// be too small of an amount, leading to an output of zero.
-// To deal with these issues, we might introduce custom overwrites based on denom down the road.
-//
-// This method primarily exists to workaround a bug with Astroport PCL pools that fail to compute spot price
-// correctly due to downstream issues.
+// the quote method.
 type SpotPriceQuoteCalculator interface {
-	// Calculate returns spot price for base denom and quote denom.
+	// CalcSpotPrice returns spot price for base denom and quote denom.
 	// Returns error if:
 	// * Fails to retrieve scaling factor for the quote denom.
 	// * Quote fails to be computed.
@@ -50,7 +42,7 @@ type SpotPriceQuoteCalculator interface {
 	// * Quoute outputs coin with nil amount.
 	// * Quote outputs coin with zero amount
 	// * Truncation in intermediary calculations happens, leading to spot price of zero.
-	Calculate(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
+	CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
 }
 
 // UnsetScalingFactorGetterCb is a callback that is used to unset the scaling factor getter callback.

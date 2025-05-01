@@ -8,6 +8,16 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 )
 
+// spotPriceQuoteCalculator implements domain.SpotPriceQuoteCalculator to compute spot price using the quote method.
+// Using this method, the calculator swaps 1 precision-scaled unit of the quote denom
+// For majority of the spot prices with USDC as a quote, this is a reliable method for computing spot price.
+// There are edge cases where this method might prove unreliable. For example, swaping 1 WBTC, might lead
+// to a severe price impact and an unreliable estimation method. On the other hand, swapping 1 PEPE might
+// be too small of an amount, leading to an output of zero.
+// To deal with these issues, we might introduce custom overwrites based on denom down the road.
+//
+// This method primarily exists to workaround a bug with Astroport PCL pools that fail to compute spot price
+// correctly due to downstream issues.
 type spotPriceQuoteCalculator struct {
 	scalingFactorGetterCb domain.ScalingFactorGetterCb
 	quoteEstimatorCb      domain.QuoteEstimatorCb
@@ -23,8 +33,8 @@ func NewSpotPriceQuoteComputer(scalingFactorGetterCb domain.ScalingFactorGetterC
 	}
 }
 
-// Calculate implements domain.SpotPriceQuoteCalculator
-func (s *spotPriceQuoteCalculator) Calculate(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+// CalcSpotPrice implements domain.SpotPriceQuoteCalculator
+func (s *spotPriceQuoteCalculator) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	quoteScalingFactor, err := s.scalingFactorGetterCb(quoteDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err

@@ -134,7 +134,7 @@ func (q *quoteExactAmountOut) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceCalcultor, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceQuoteCalculator, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	// Prepare exact out in the quote for inputs inversion
 	if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, spotPriceCalculator, logger); err != nil {
 		return nil, osmomath.Dec{}, err

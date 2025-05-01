@@ -49,7 +49,7 @@ type quoteExactAmountIn struct {
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalcultor domain.SpotPriceCalcultor, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalcultor domain.SpotPriceQuoteCalculator, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
