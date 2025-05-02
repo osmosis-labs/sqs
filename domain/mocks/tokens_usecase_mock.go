@@ -31,6 +31,8 @@ type TokensUsecaseMock struct {
 	UpdateAssetsAtHeightIntervalSyncFunc func(height uint64) error
 	SetTokenRegistryLoaderFunc           func(loader domain.TokenRegistryLoader)
 	ClearPoolDenomMetadataFunc           func()
+	CalcSpotPriceFunc                    func(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
+	CalcScalingFactorFunc                func(baseDenom string, quoteDenom string) (osmomath.BigDec, error)
 }
 
 var _ mvc.TokensUsecase = &TokensUsecaseMock{}
@@ -171,4 +173,20 @@ func (m *TokensUsecaseMock) ClearPoolDenomMetadata() {
 		m.ClearPoolDenomMetadataFunc()
 	}
 	panic("unimplemented")
+}
+
+// CalcSpotPrice implements mvc.TokensUsecase.
+func (m *TokensUsecaseMock) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	if m.CalcSpotPriceFunc != nil {
+		return m.CalcSpotPriceFunc(ctx, baseDenom, quoteDenom)
+	}
+	return osmomath.BigDec{}, nil
+}
+
+// CalcScalingFactor implements mvc.TokensUsecase.
+func (m *TokensUsecaseMock) CalcScalingFactor(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	if m.CalcScalingFactorFunc != nil {
+		return m.CalcScalingFactorFunc(baseDenom, quoteDenom)
+	}
+	return osmomath.BigDec{}, nil
 }

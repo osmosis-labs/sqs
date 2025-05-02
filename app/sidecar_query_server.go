@@ -194,6 +194,9 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		return nil, err
 	}
 
+	// Set the default quote denom on the tokens use case
+	tokensUseCase.SetDefaultQuoteDenom(defaultQuoteDenom)
+
 	// Get liquidity pricer
 	liquidityPricer := pricingWorker.NewLiquidityPricer(defaultQuoteDenom, tokensUseCase.GetChainScalingFactorByDenomMut)
 

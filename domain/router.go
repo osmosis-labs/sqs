@@ -50,7 +50,7 @@ type Route interface {
 	// Computes the spot price of the route.
 	// Returns the spot price before swap and effective spot price.
 	// The token in is the base token and the token out is the quote token.
-	PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
+	PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk.Coin, spotPriceCalculator SpotPriceQuoteCalculator, logger log.Logger) ([]RoutablePool, osmomath.Dec, osmomath.Dec, error)
 
 	String() string
 }
@@ -74,7 +74,7 @@ type Quote interface {
 	// scalingFactor is the spot price scaling factor according to chain precision.
 	// scalingFactor of zero is a valid value. It might occur if we do not have precision information
 	// for the tokens. In that case, we invalidate spot price by setting it to zero.
-	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]SplitRoute, osmomath.Dec, error)
+	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator SpotPriceQuoteCalculator, logger log.Logger) ([]SplitRoute, osmomath.Dec, error)
 
 	// SetQuotePriceInfo sets the quote price info.
 	SetQuotePriceInfo(info *TxFeeInfo)

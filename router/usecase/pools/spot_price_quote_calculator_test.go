@@ -201,7 +201,7 @@ func (s *RoutablePoolTestSuite) TestSpotPriceQuoteCalculator_Calculate() {
 			spotPriceQuoteCalculator := pools.NewSpotPriceQuoteComputer(mockScalingFactorGetter, mockQuoteEstimator)
 
 			// System under test
-			actualSpotPrice, err := spotPriceQuoteCalculator.Calculate(context.TODO(), tc.baseDenom, tc.quoteDenom)
+			actualSpotPrice, err := spotPriceQuoteCalculator.CalcSpotPrice(context.TODO(), tc.baseDenom, tc.quoteDenom)
 
 			if tc.expectedError != nil {
 				s.Require().Error(err)

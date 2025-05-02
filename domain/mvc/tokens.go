@@ -1,7 +1,6 @@
 package mvc
 
 import (
-	"context"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -50,14 +49,11 @@ type TokensUsecase interface {
 	// GetSpotPriceScalingFactorByDenomMut returns the scaling factor for spot price.
 	GetSpotPriceScalingFactorByDenom(baseDenom, quoteDenom string) (osmomath.Dec, error)
 
+	// CalcSpotPrice calculates the spot price between two denoms.
+	domain.SpotPriceQuoteCalculator
+
 	// GetPrices returns prices for all given base and quote denoms given a pricing source type or, otherwise, error, if any.
-	// The options configure some customization with regards to how prices are computed.
-	// By default, the prices are computes by using cache and the default min liquidity parameter set via config.
-	// The options are capable of overriding the defaults.
-	// The outer map consists of base denoms as keys.
-	// The inner map consists of quote denoms as keys.
-	// The result of the inner map is prices of the outer base and inner quote.
-	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
+	domain.TokensPriceFetcher
 
 	// GetPoolDenomMetadata returns the pool denom metadata of a pool denom.
 	// This metadata is accumulated from all pools.

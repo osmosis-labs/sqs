@@ -187,7 +187,6 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Coingecko() {
 // Additionally, for sanity check it confirms that for WBTC / USDC the price is within 15% of 50K
 // (approximately the real price at the time of writing)
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
-
 	// Set up mainnet mock state.
 	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
 
@@ -254,7 +253,6 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
 // Currently, only tests recompute pricing options. In the future, we also add pricing options for the source,
 // once more sources are supported.
 func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
-
 	var (
 		defaultBase  = ATOM
 		defaultQuote = USDC
@@ -329,7 +327,6 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 	for _, tt := range tests {
 		tt := tt
 		s.Run(tt.name, func() {
-
 			// Initialize pricing cache.
 			pricingCache := cache.New()
 
@@ -369,7 +366,6 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 // Additionally, it valides that for the getter with multiple chain denoms, if the requested chain denom metadata is not present, it is nullified without erroring.
 // it will be nullified without error.
 func (s *TokensUseCaseTestSuite) TestPoolDenomMetadata() {
-
 	var (
 		xAmount       = osmomath.NewInt(1000)
 		doubleXAmount = xAmount.Add(xAmount)
@@ -927,6 +923,128 @@ func (s *TokensUseCaseTestSuite) TestUpdateAssetsAtHeightIntervalSync() {
 				callCount = tt.loader.CallCount() // panics for nil loader  test
 			}
 			s.Assert().Equal(tt.expectedCallCount, callCount)
+		})
+	}
+}
+
+func (s *TokensUseCaseTestSuite) TestCalcSpotPrice() {
+	tests := []struct {
+		name       string
+		baseDenom  string
+		quoteDenom string
+		setupMock  func(*tokensusecase.TokensUseCase, *mocks.TokensUsecaseMock)
+		expected   osmomath.BigDec
+		expectErr  bool
+	}{
+		{
+			name:       "Successful calculation",
+			baseDenom:  "uatom",
+			quoteDenom: "uosmo",
+			setupMock: func(uc *tokensusecase.TokensUseCase, m *mocks.TokensUsecaseMock) {
+				uc.SetTokenMetadataByChainDenom("uatom", domain.Token{Precision: 6})
+				uc.SetTokenMetadataByChainDenom("uosmo", domain.Token{Precision: 6})
+
+				m.GetPricesFunc = func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+					result := make(domain.PricesResult)
+					if baseDenoms[0] == "uatom" {
+						result["uatom"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(10)}
+					} else if baseDenoms[0] == "uosmo" {
+						result["uosmo"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(2)}
+					}
+					return result, nil
+				}
+				m.CalcScalingFactorFunc = func(baseDenom, quoteDenom string) (osmomath.BigDec, error) {
+					return osmomath.NewBigDec(1), nil
+				}
+			},
+			expected:  osmomath.NewBigDec(5), // 10 / 2 = 5
+			expectErr: false,
+		},
+		{
+			name:       "Error getting base price",
+			baseDenom:  "uatom",
+			quoteDenom: "uosmo",
+			setupMock: func(uc *tokensusecase.TokensUseCase, m *mocks.TokensUsecaseMock) {
+				m.GetPricesFunc = func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+					if baseDenoms[0] == "uatom" {
+						return nil, fmt.Errorf("error getting base price")
+					}
+					return make(domain.PricesResult), nil
+				}
+			},
+			expectErr: true,
+		},
+		{
+			name:       "Error getting quote price",
+			baseDenom:  "uatom",
+			quoteDenom: "uosmo",
+			setupMock: func(uc *tokensusecase.TokensUseCase, m *mocks.TokensUsecaseMock) {
+				m.GetPricesFunc = func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+					if baseDenoms[0] == "uosmo" {
+						return nil, fmt.Errorf("error getting quote price")
+					}
+					result := make(domain.PricesResult)
+					result["uatom"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(10)}
+					return result, nil
+				}
+			},
+			expectErr: true,
+		},
+		{
+			name:       "Zero quote price",
+			baseDenom:  "uatom",
+			quoteDenom: "uosmo",
+			setupMock: func(uc *tokensusecase.TokensUseCase, m *mocks.TokensUsecaseMock) {
+				m.GetPricesFunc = func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+					result := make(domain.PricesResult)
+					if baseDenoms[0] == "uatom" {
+						result["uatom"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(10)}
+					} else if baseDenoms[0] == "uosmo" {
+						result["uosmo"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(0)}
+					}
+					return result, nil
+				}
+			},
+			expectErr: true,
+		},
+		{
+			name:       "Error calculating scaling factor",
+			baseDenom:  "uatom",
+			quoteDenom: "uosmo",
+			setupMock: func(uc *tokensusecase.TokensUseCase, m *mocks.TokensUsecaseMock) {
+				m.GetPricesFunc = func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+					result := make(domain.PricesResult)
+					if baseDenoms[0] == "uatom" {
+						result["uatom"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(10)}
+					} else if baseDenoms[0] == "uosmo" {
+						result["uosmo"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(2)}
+					}
+					return result, nil
+				}
+				m.CalcScalingFactorFunc = func(baseDenom, quoteDenom string) (osmomath.BigDec, error) {
+					return osmomath.BigDec{}, fmt.Errorf("error calculating scaling factor")
+				}
+			},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			mock := &mocks.TokensUsecaseMock{}
+			uc := &tokensusecase.TokensUseCase{}
+			tt.setupMock(uc, mock)
+
+			uc.SetDefaultQuoteDenom("usd")
+			uc.SetTokensPriceFetcher(mock)
+
+			result, err := uc.CalcSpotPrice(context.Background(), tt.baseDenom, tt.quoteDenom)
+			if tt.expectErr {
+				s.Assert().Error(err)
+			} else {
+				s.Assert().NoError(err)
+				s.Assert().True(result.Equal(tt.expected), "Expected %s, got %s", tt.expected.String(), result.String())
+			}
 		})
 	}
 }

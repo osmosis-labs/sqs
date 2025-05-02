@@ -182,7 +182,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
 			// System under test
-			routes, effectiveFee, err := tc.quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, &log.NoOpLogger{})
+			routes, effectiveFee, err := tc.quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, &log.NoOpLogger{})
 			s.Require().NoError(err)
 
 			// Validate JSON representation, which is used for output to the client
@@ -265,7 +265,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	}
 
 	// System under test.
-	testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, &log.NoOpLogger{})
+	testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, &log.NoOpLogger{})
 
 	// Validate price impact.
 	s.Require().Equal(expectedPriceImpact.String(), testQuote.GetPriceImpact().String())

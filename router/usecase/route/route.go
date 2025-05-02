@@ -31,14 +31,12 @@ type RouteImpl struct {
 	HasCanonicalOrderbookPool bool "json:\"-\""
 }
 
-var (
-	spotPriceErrorResultCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "sqs_routes_spot_price_error_total",
-			Help: "Spot price error when preparing result pools",
-		},
-		[]string{"token_in", "cur_token_out_denom", "route_token_out_denom"},
-	)
+var spotPriceErrorResultCounter = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "sqs_routes_spot_price_error_total",
+		Help: "Spot price error when preparing result pools",
+	},
+	[]string{"token_in", "cur_token_out_denom", "route_token_out_denom"},
 )
 
 // PrepareResultPoolsOutGivenIn implements domain.Route.
@@ -54,7 +52,7 @@ var (
 // Note that it mutates the route.
 // Returns spot price before swap and the effective spot price
 // with token in as base and token out as quote.
-func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk.Coin, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
+func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk.Coin, spotPriceCalculator domain.SpotPriceQuoteCalculator, logger log.Logger) ([]domain.RoutablePool, osmomath.Dec, osmomath.Dec, error) {
 	var (
 		routeSpotPriceInBaseOutQuote     = osmomath.OneDec()
 		effectiveSpotPriceInBaseOutQuote = osmomath.OneDec()
@@ -64,7 +62,15 @@ func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk
 
 	for _, pool := range r.Pools {
 		// Compute spot price before swap.
-		spotPriceInBaseOutQuote, err := pool.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
+		var (
+			spotPriceInBaseOutQuote osmomath.BigDec
+			err                     error
+		)
+		if pool.GetSQSType() == domain.Orderbook {
+			spotPriceInBaseOutQuote, err = spotPriceCalculator.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
+		} else {
+			spotPriceInBaseOutQuote, err = pool.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
+		}
 		if err != nil {
 			logger.Error("failed to calculate spot price for pool", zap.Error(err))
 

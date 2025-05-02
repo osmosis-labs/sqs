@@ -14,13 +14,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-var (
-	one = osmomath.OneDec()
-)
+var one = osmomath.OneDec()
 
-var (
-	_ domain.Quote = &quoteExactAmountIn{}
-)
+var _ domain.Quote = &quoteExactAmountIn{}
 
 // NOTE: This is because structs in alias declaration are not exported
 type (
@@ -53,7 +49,7 @@ type quoteExactAmountIn struct {
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceQuoteCalculator, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
@@ -80,7 +76,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
 		amountInFraction := q.AmountIn.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPoolsOutGivenIn(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), logger)
+		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPoolsOutGivenIn(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), spotPriceCalculator, logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}
