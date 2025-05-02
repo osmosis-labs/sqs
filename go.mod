@@ -266,6 +266,9 @@ replace (
 	// Needs to be replaced due to iavlFastNodeModuleWhitelist feature
 	cosmossdk.io/store => github.com/osmosis-labs/cosmos-sdk/store v1.1.1-v0.50.11-v28-osmo-2
 
+	// coinbase/rosetta-sdk-go is not longer maintained/available, we use the mesh-sdk-go fork instead
+	github.com/coinbase/rosetta-sdk-go/types v1.0.0 => github.com/coinbase/mesh-sdk-go/types v1.0.0-beta1
+
 	// Direct cometbft branch link: https://github.com/osmosis-labs/cometbft/tree/osmo-v27/0.38.15, current branch: osmo-v27/v0.38.15
 	// Direct commit link: https://github.com/osmosis-labs/cometbft/commit/fcd17cea479fcb1cf6eb5c0541cc9585b97004f1
 	// Direct tag link: https://github.com/osmosis-labs/cometbft/releases/tag/v0.38.15-v27-osmo-2
@@ -290,6 +293,7 @@ replace (
 	github.com/osmosis-labs/osmosis/x/ibc-hooks => github.com/osmosis-labs/osmosis/x/ibc-hooks v0.0.0-20240825083448-87db4447a1ff
 
 	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
+	// We can omit this once https://github.com/osmosis-labs/osmosis/pull/9396 is merged.
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 )
 
