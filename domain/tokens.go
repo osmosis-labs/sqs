@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"context"
+
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
@@ -71,3 +73,15 @@ const (
 	// Unknown swap method, used for error handling.
 	TokenSwapMethodInvalid
 )
+
+// TokensPriceFetcher is the contract for fetching prices of base and quote tokens from different sources.
+type TokensPriceFetcher interface {
+	// GetPrices returns prices for all given base and quote denoms given a pricing source type or, otherwise, error, if any.
+	// The options configure some customization with regards to how prices are computed.
+	// By default, the prices are computes by using cache and the default min liquidity parameter set via config.
+	// The options are capable of overriding the defaults.
+	// The outer map consists of base denoms as keys.
+	// The inner map consists of quote denoms as keys.
+	// The result of the inner map is prices of the outer base and inner quote.
+	GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType PricingSourceType, opts ...PricingOption) (PricesResult, error)
+}
