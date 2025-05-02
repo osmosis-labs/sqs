@@ -379,34 +379,75 @@ func (t *tokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 }
 
 // CalcSpotPrice calculates the spot price between two denoms.
-// Price is derived from the chain prices across all pools between the two denoms.
+// Spot price is derived from the chain prices across all pools between the two denoms and
+// normalized by the scaling factor derived from CalcScalingFactor.
+// Formula is: spotPrice = (base denom price / quote denom price) * scaling factor
 // Returns error if any of the prices is not found or if the quote denom price is zero.
 func (t *tokensUseCase) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	baseDenomPrice, err := t.GetPrices(ctx, []string{baseDenom}, []string{t.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	// Get the price of base denom in the default quote denom
+	basePrices, err := t.GetPrices(ctx, []string{baseDenom}, []string{t.defaultQuoteDenom}, domain.ChainPricingSourceType)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 
-	quoteDenomPrice, err := t.GetPrices(ctx, []string{quoteDenom}, []string{t.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	// Get the price of base denom in the default quote denom
+	quotePrices, err := t.GetPrices(ctx, []string{quoteDenom}, []string{t.defaultQuoteDenom}, domain.ChainPricingSourceType)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 
-	baseDenomPriceDec := baseDenomPrice[baseDenom][t.defaultQuoteDenom]
-	if baseDenomPriceDec.IsNil() {
+	basePrice := basePrices[baseDenom][t.defaultQuoteDenom]
+	if basePrice.IsNil() {
 		return osmomath.BigDec{}, fmt.Errorf("base denom price is nil")
 	}
 
-	quoteDenomPriceDec := quoteDenomPrice[quoteDenom][t.defaultQuoteDenom]
-	if quoteDenomPriceDec.IsNil() {
+	quotePrice := quotePrices[quoteDenom][t.defaultQuoteDenom]
+	if quotePrice.IsNil() {
 		return osmomath.BigDec{}, fmt.Errorf("quote denom price is nil")
 	}
 
-	if quoteDenomPriceDec.IsZero() {
+	if quotePrice.IsZero() {
 		return osmomath.BigDec{}, fmt.Errorf("quote denom price is zero")
 	}
 
-	return baseDenomPriceDec.Quo(quoteDenomPriceDec), nil
+	// Calculate raw spot price
+	p := basePrice.Quo(quotePrice)
+
+	scaleFactor, err := t.CalcScalingFactor(baseDenom, quoteDenom)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	// Normalize using scaling factor
+	p = p.MulMut(scaleFactor)
+
+	return p, nil
+}
+
+// CalcScalingFactor calculates the scaling factor between two denoms.
+// Formula is: scaleFactor = (10^quote_decimals) / (10^base_decimals)
+// Returns error if any of the denoms is not found in the token metadata.
+func (t *tokensUseCase) CalcScalingFactor(baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	// Retrieve metadata for base denom
+	baseDenomMetadata, err := t.GetMetadataByChainDenom(baseDenom)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	// Retrieve metadata for quote denom
+	quoteDenomMetadata, err := t.GetMetadataByChainDenom(quoteDenom)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	tenDec := osmomath.NewBigDec(10)
+
+	// Calculate scaling factors based on token precision
+	baseScale := tenDec.Power(osmomath.NewBigDec(int64(baseDenomMetadata.Precision)))
+	quoteScale := tenDec.Power(osmomath.NewBigDec(int64(quoteDenomMetadata.Precision)))
+
+	// Calculate scale factor between quote and base
+	return quoteScale.Quo(baseScale), nil
 }
 
 // UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
