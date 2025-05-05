@@ -9,6 +9,7 @@ export OSTYPE := $(shell uname -s)
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT := $(shell git log -1 --format='%H')
 GO_VERSION := $(shell cat go.mod | grep -E 'go [0-9].[0-9]+' | cut -d ' ' -f 2)
+GOTOOLCHAIN := go$(GO_VERSION)
 PACKAGES_UNIT=$(shell go list ./...)
 DOCKER := $(shell which docker)
 BUILDDIR ?= $(CURDIR)/build
@@ -58,7 +59,7 @@ all-start: osmosis-start run
 
 lint:
 	@echo "--> Running linter"
-	golangci-lint run --timeout=10m
+	GOTOOLCHAIN=$(GOTOOLCHAIN) golangci-lint run --timeout=10m
 
 test-unit:
 	@VERSION=$(VERSION) go test -mod=readonly $(PACKAGES_UNIT)
