@@ -37,9 +37,9 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## v28.3.5
 
-#648 - BE-729 | Disable route cache by default
-#647 - BE-727 | Fix missing coinbase/rosetta-sdk-go/types dependency
-#646 - BE-724 | Fix spot price calculation for orderbooks
+- #648 - BE-729 | Disable route cache by default
+- #647 - BE-727 | Fix missing coinbase/rosetta-sdk-go/types dependency
+- #646 - BE-724 | Fix spot price calculation for orderbooks
 
 ## v28.3.4
 
