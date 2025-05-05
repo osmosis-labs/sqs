@@ -35,6 +35,12 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v28.3.5
+
+- #648 - BE-729 | Disable route cache by default
+- #647 - BE-727 | Fix missing coinbase/rosetta-sdk-go/types dependency
+- #646 - BE-724 | Fix spot price calculation for orderbooks
+
 ## v28.3.4
 
 - #641 - BE-723 | Edge case fix for pool liquidity
