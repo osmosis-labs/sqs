@@ -451,21 +451,9 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 // parsePool parses the pool data and returns the pool object
 // For concentrated pools, it also processes the tick model
 func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, error) {
-	poolWrapper := sqsingesttypes.PoolWrapper{}
 	var chainModel poolmanagertypes.PoolI
 	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, &chainModel); err != nil {
 		return nil, err
-	}
-	poolWrapper.SetUnderlyingPool(chainModel)
-
-	if poolWrapper.GetType() == poolmanagertypes.Concentrated {
-		var tickModel ingesttypes.TickModel
-		if err := json.Unmarshal(pool.TickModel, &tickModel); err != nil {
-			return nil, err
-		}
-		if err := poolWrapper.SetTickModel(&tickModel); err != nil {
-			return nil, err
-		}
 	}
 
 	var sqsModel ingesttypes.SQSPool
@@ -478,9 +466,18 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, e
 		p.logger.Error("error processing SQS model", zap.Error(err))
 	}
 
-	poolWrapper.SetSQSPoolModel(sqsModel)
+	poolWrapper := sqsingesttypes.NewPool(chainModel, sqsModel)
+	if poolWrapper.GetType() == poolmanagertypes.Concentrated {
+		var tickModel ingesttypes.TickModel
+		if err := json.Unmarshal(pool.TickModel, &tickModel); err != nil {
+			return nil, err
+		}
+		if err := poolWrapper.SetTickModel(&tickModel); err != nil {
+			return nil, err
+		}
+	}
 
-	return &poolWrapper, nil
+	return poolWrapper, nil
 }
 
 // executeEndBlockProcessPlugins executes the end block process plugins.

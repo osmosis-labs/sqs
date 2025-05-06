@@ -103,7 +103,9 @@ func (p *PoolWrapper) GetPoolLiquidityCap() osmomath.Int {
 
 // GetPoolDenoms implements PoolI.
 func (p *PoolWrapper) GetPoolDenoms() []string {
-	denoms := p.GetSQSPoolModel().PoolDenoms
+	denoms := make([]string, len(p.GetSQSPoolModel().PoolDenoms))
+	copy(denoms, p.GetSQSPoolModel().PoolDenoms)
+
 	sort.Strings(denoms)
 	return denoms
 }
