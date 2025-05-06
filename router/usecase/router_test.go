@@ -106,14 +106,11 @@ func (s *RouterTestSuite) TestRouterSorting() {
 	thirdBalancerPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, thirdBalancerPoolID)
 	s.Require().NoError(err)
 
-	poolWrapperWithTicks := &ingesttypes.PoolWrapper{}
-
-	poolWrapperWithTicks.SetSQSPoolModel(ingesttypes.SQSPool{
+	poolWrapperWithTicks := ingesttypes.NewPool(concentratedPool, ingesttypes.SQSPool{
 		PoolLiquidityCap: osmomath.NewInt(4 * OsmoPrecisionMultiplier), // 4
 		PoolDenoms:       defaultDenoms,
 	})
 
-	poolWrapperWithTicks.SetUnderlyingPool(concentratedPool)
 	poolWrapperWithTicks.SetTickModel(&ingesttypes.TickModel{
 		Ticks: []ingesttypes.LiquidityDepthsWithRange{
 			{
