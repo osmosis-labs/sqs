@@ -428,14 +428,13 @@ func UnmarshalPool(serializedPool SerializedPool) (ingesttypes.PoolI, error) {
 		return nil, domain.InvalidPoolTypeError{PoolType: int32(serializedPool.Type)}
 	}
 
-	poolWrapper := ingesttypes.PoolWrapper{
-		ChainModel: chainModel,
-		SQSModel:   serializedPool.SQSModel,
-	}
+	poolWrapper := &ingesttypes.PoolWrapper{}
+	poolWrapper.SetUnderlyingPool(chainModel)
+	poolWrapper.SetSQSPoolModel(serializedPool.SQSModel)
 
 	if err := poolWrapper.SetTickModel(serializedPool.TickModel); err != nil {
 		return nil, err
 	}
 
-	return &poolWrapper, nil
+	return poolWrapper, nil
 }

@@ -72,56 +72,75 @@ type PoolI interface {
 var _ PoolI = &PoolWrapper{}
 
 type PoolWrapper struct {
-	ChainModel  poolmanagertypes.PoolI
-	SQSModel    ingesttypes.SQSPool
-	aprData     atomic.Value
-	aprDataMu   sync.Mutex
-	feesData    atomic.Value
-	feesDataMu  sync.Mutex
-	tickModel   atomic.Value
-	tickModelMu sync.Mutex
+	chainModel   atomic.Value
+	chainModelMu sync.Mutex
+	sqsModel     atomic.Value
+	sqsModelMu   sync.Mutex
+	aprData      atomic.Value
+	aprDataMu    sync.Mutex
+	feesData     atomic.Value
+	feesDataMu   sync.Mutex
+	tickModel    atomic.Value
+	tickModelMu  sync.Mutex
 }
 
 func NewPool(model poolmanagertypes.PoolI, spreadFactor osmomath.Dec, balances sdk.Coins) *PoolWrapper {
-	return &PoolWrapper{
-		ChainModel: model,
-		SQSModel: SQSPool{
-			SpreadFactor: spreadFactor,
-			Balances:     balances,
-		},
-	}
+	pool := &PoolWrapper{}
+	pool.SetUnderlyingPool(model)
+	pool.SetSQSPoolModel(SQSPool{
+		SpreadFactor: spreadFactor,
+		Balances:     balances,
+	})
+
+	return pool
 }
 
 // GetId implements PoolI.
 func (p *PoolWrapper) GetId() uint64 {
-	return p.ChainModel.GetId()
+	return p.GetUnderlyingPool().GetId()
 }
 
 // GetType implements PoolI.
 func (p *PoolWrapper) GetType() poolmanagertypes.PoolType {
-	return p.ChainModel.GetType()
+	return p.GetUnderlyingPool().GetType()
 }
 
 // GetPoolLiquidityCap implements PoolI.
 func (p *PoolWrapper) GetPoolLiquidityCap() osmomath.Int {
-	return p.SQSModel.PoolLiquidityCap
+	return p.GetSQSPoolModel().PoolLiquidityCap
 }
 
 // GetPoolDenoms implements PoolI.
 func (p *PoolWrapper) GetPoolDenoms() []string {
-	// sort pool denoms
-	sort.Strings(p.SQSModel.PoolDenoms)
-	return p.SQSModel.PoolDenoms
+	denoms := p.GetSQSPoolModel().PoolDenoms
+	sort.Strings(denoms)
+	return denoms
+}
+
+// GetUnderlyingPool implements PoolI.
+func (p *PoolWrapper) SetUnderlyingPool(model poolmanagertypes.PoolI) {
+	p.chainModelMu.Lock() // sync with the writers
+	defer p.chainModelMu.Unlock()
+
+	p.chainModel.Store(model)
 }
 
 // GetUnderlyingPool implements PoolI.
 func (p *PoolWrapper) GetUnderlyingPool() poolmanagertypes.PoolI {
-	return p.ChainModel
+	return p.chainModel.Load().(poolmanagertypes.PoolI)
+}
+
+// GetSQSPoolModel implements PoolI.
+func (p *PoolWrapper) SetSQSPoolModel(model SQSPool) {
+	p.sqsModelMu.Lock() // sync with the writers
+	defer p.sqsModelMu.Unlock()
+
+	p.sqsModel.Store(model)
 }
 
 // GetSQSPoolModel implements PoolI.
 func (p *PoolWrapper) GetSQSPoolModel() SQSPool {
-	return p.SQSModel
+	return p.sqsModel.Load().(SQSPool)
 }
 
 // GetTickModel implements PoolI.
@@ -183,7 +202,7 @@ func (p *PoolWrapper) Validate(minPoolLiquidityCapitalization osmomath.Int) erro
 	// Validate pool liquidity capitalization.
 	// If there is no pool liquidity capitalization error set and the pool liquidity capitalization is nil or zero, return an error. This implies
 	// That pool has no liquidity.
-	poolLiquidityCapError := strings.TrimSpace(p.SQSModel.PoolLiquidityCapError)
+	poolLiquidityCapError := strings.TrimSpace(p.GetSQSPoolModel().PoolLiquidityCapError)
 	if poolLiquidityCapError == "" && (sqsModel.PoolLiquidityCap.IsNil() || sqsModel.PoolLiquidityCap.IsZero()) {
 		return fmt.Errorf("pool (%d) has no liquidity, minimum pool liquidity capitalization (%s)", p.GetId(), minPoolLiquidityCapitalization)
 	}
@@ -193,22 +212,34 @@ func (p *PoolWrapper) Validate(minPoolLiquidityCapitalization osmomath.Int) erro
 
 // GetLiquidityCap implements PoolI.
 func (p *PoolWrapper) GetLiquidityCap() osmomath.Int {
-	return p.SQSModel.PoolLiquidityCap
+	return p.GetSQSPoolModel().PoolLiquidityCap
 }
 
 // SetLiquidityCap implements PoolI.
 func (p *PoolWrapper) SetLiquidityCap(liquidityCap math.Int) {
-	p.SQSModel.PoolLiquidityCap = liquidityCap
+	p.sqsModelMu.Lock() // sync with the writers
+	defer p.sqsModelMu.Unlock()
+
+	sqsModel := p.GetSQSPoolModel()
+	sqsModel.PoolLiquidityCap = liquidityCap
+
+	p.sqsModel.Store(sqsModel)
 }
 
 // GetLiquidityCapError implements PoolI.
 func (p *PoolWrapper) GetLiquidityCapError() string {
-	return p.SQSModel.PoolLiquidityCapError
+	return p.GetSQSPoolModel().PoolLiquidityCapError
 }
 
 // SetLiquidityCapError implements PoolI.
 func (p *PoolWrapper) SetLiquidityCapError(liquidityCapError string) {
-	p.SQSModel.PoolLiquidityCapError = liquidityCapError
+	sqsModel := p.GetSQSPoolModel()
+	sqsModel.PoolLiquidityCapError = liquidityCapError
+
+	p.sqsModelMu.Lock() // sync with the writers
+	defer p.sqsModelMu.Unlock()
+
+	p.sqsModel.Store(sqsModel)
 }
 
 // SetAPRData implements PoolI.
