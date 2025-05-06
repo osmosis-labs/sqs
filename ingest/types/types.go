@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
@@ -70,11 +72,12 @@ type PoolI interface {
 var _ PoolI = &PoolWrapper{}
 
 type PoolWrapper struct {
-	ChainModel poolmanagertypes.PoolI                   `json:"underlying_pool"`
-	SQSModel   ingesttypes.SQSPool                      `json:"sqs_model"`
-	APRData    passthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
-	FeesData   passthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
-	TickModel  *ingesttypes.TickModel                   `json:"tick_model,omitempty"`
+	ChainModel  poolmanagertypes.PoolI                   `json:"underlying_pool"`
+	SQSModel    ingesttypes.SQSPool                      `json:"sqs_model"`
+	APRData     passthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
+	FeesData    passthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
+	TickModel   atomic.Value                             `json:"tick_model,omitempty"` // TODO: json
+	tickModelMu sync.Mutex                               `json:"-"`
 }
 
 func NewPool(model poolmanagertypes.PoolI, spreadFactor osmomath.Dec, balances sdk.Coins) *PoolWrapper {
@@ -125,11 +128,12 @@ func (p *PoolWrapper) GetTickModel() (*TickModel, error) {
 		return nil, fmt.Errorf("pool (%d) is not a concentrated pool, type (%d)", p.GetId(), p.GetType())
 	}
 
-	if p.TickModel == nil {
+	m, ok := p.TickModel.Load().(*TickModel)
+	if m == nil || !ok {
 		return nil, ingesttypes.ConcentratedPoolNoTickModelError{PoolId: p.GetId()}
 	}
 
-	return p.TickModel, nil
+	return m, nil
 }
 
 // Incentive implements PoolI.
@@ -156,11 +160,10 @@ func (p *PoolWrapper) Incentive() api.IncentiveType {
 
 // SetTickModel implements PoolI.
 func (p *PoolWrapper) SetTickModel(tickModel *TickModel) error {
-	if p.GetType() != poolmanagertypes.Concentrated {
-		return fmt.Errorf("pool (%d) is not a concentrated pool, type (%d)", p.GetId(), p.GetType())
-	}
+	p.tickModelMu.Lock() // sync with the writers
+	defer p.tickModelMu.Unlock()
 
-	p.TickModel = tickModel
+	p.TickModel.Store(tickModel)
 
 	return nil
 }

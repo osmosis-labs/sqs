@@ -77,11 +77,6 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 
 			poolWrapper := &ingesttypes.PoolWrapper{
 				ChainModel: concentratedPool,
-				TickModel: &ingesttypes.TickModel{
-					Ticks:            ticks,
-					CurrentTickIndex: currentTickIndex,
-					HasNoLiquidity:   false,
-				},
 				SQSModel: ingesttypes.SQSPool{
 					PoolLiquidityCap:      osmomath.NewInt(100),
 					PoolLiquidityCapError: "",
@@ -89,6 +84,14 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 					PoolDenoms:            []string{"foo", "bar"},
 				},
 			}
+
+			err = poolWrapper.SetTickModel(&ingesttypes.TickModel{
+				Ticks:            ticks,
+				CurrentTickIndex: currentTickIndex,
+				HasNoLiquidity:   false,
+			})
+			s.Require().NoError(err)
+
 			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
@@ -136,11 +139,6 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Concentrated_Succ
 
 			poolWrapper := &ingesttypes.PoolWrapper{
 				ChainModel: concentratedPool,
-				TickModel: &ingesttypes.TickModel{
-					Ticks:            ticks,
-					CurrentTickIndex: currentTickIndex,
-					HasNoLiquidity:   false,
-				},
 				SQSModel: ingesttypes.SQSPool{
 					PoolLiquidityCap:      osmomath.NewInt(100),
 					PoolLiquidityCapError: "",
@@ -148,6 +146,13 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Concentrated_Succ
 					PoolDenoms:            []string{"foo", "bar"},
 				},
 			}
+
+			poolWrapper.SetTickModel(&ingesttypes.TickModel{
+				Ticks:            ticks,
+				CurrentTickIndex: currentTickIndex,
+				HasNoLiquidity:   false,
+			})
+
 			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
@@ -310,7 +315,6 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Erro
 
 			if tc.tickModelOverwrite != nil {
 				tickModel = tc.tickModelOverwrite
-
 			} else if tc.isTickModelNil {
 				// For clarity:
 				tickModel = nil
@@ -494,7 +498,6 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Concentrated_Erro
 
 			if tc.tickModelOverwrite != nil {
 				tickModel = tc.tickModelOverwrite
-
 			} else if tc.isTickModelNil {
 				// For clarity:
 				tickModel = nil

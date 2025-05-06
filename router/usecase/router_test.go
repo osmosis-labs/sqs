@@ -106,6 +106,26 @@ func (s *RouterTestSuite) TestRouterSorting() {
 	thirdBalancerPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, thirdBalancerPoolID)
 	s.Require().NoError(err)
 
+	poolWrapperWithTicks := &ingesttypes.PoolWrapper{
+		ChainModel: concentratedPool,
+		SQSModel: ingesttypes.SQSPool{
+			PoolLiquidityCap: osmomath.NewInt(4 * OsmoPrecisionMultiplier), // 4
+			PoolDenoms:       defaultDenoms,
+		},
+	}
+
+	poolWrapperWithTicks.SetTickModel(&ingesttypes.TickModel{
+		Ticks: []ingesttypes.LiquidityDepthsWithRange{
+			{
+				LowerTick:       0,
+				UpperTick:       100,
+				LiquidityAmount: osmomath.NewDec(100),
+			},
+		},
+		CurrentTickIndex: 0,
+		HasNoLiquidity:   false,
+	})
+
 	var (
 		// Inputs
 		minPoolLiquidityCap = 2
@@ -125,24 +145,7 @@ func (s *RouterTestSuite) TestRouterSorting() {
 					PoolDenoms:       defaultDenoms,
 				},
 			},
-			&ingesttypes.PoolWrapper{
-				ChainModel: concentratedPool,
-				SQSModel: ingesttypes.SQSPool{
-					PoolLiquidityCap: osmomath.NewInt(4 * OsmoPrecisionMultiplier), // 4
-					PoolDenoms:       defaultDenoms,
-				},
-				TickModel: &ingesttypes.TickModel{
-					Ticks: []ingesttypes.LiquidityDepthsWithRange{
-						{
-							LowerTick:       0,
-							UpperTick:       100,
-							LiquidityAmount: osmomath.NewDec(100),
-						},
-					},
-					CurrentTickIndex: 0,
-					HasNoLiquidity:   false,
-				},
-			},
+			poolWrapperWithTicks,
 			&ingesttypes.PoolWrapper{
 				ChainModel: cosmWasmPool,
 				SQSModel: ingesttypes.SQSPool{

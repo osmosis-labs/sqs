@@ -79,13 +79,9 @@ const (
 	tracerName = "sqs-ingest-usecase"
 )
 
-var (
-	tracer = otel.Tracer(tracerName)
-)
+var tracer = otel.Tracer(tracerName)
 
-var (
-	_ mvc.IngestUsecase = &ingestUseCase{}
-)
+var _ mvc.IngestUsecase = &ingestUseCase{}
 
 // NewIngestUsecase will create a new pools use case object
 func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, orderBookUseCase mvc.OrderBookUsecase, logger log.Logger) (mvc.IngestUsecase, error) {
@@ -466,8 +462,11 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, e
 	}
 
 	if poolWrapper.GetType() == poolmanagertypes.Concentrated {
-		poolWrapper.TickModel = &ingesttypes.TickModel{}
-		if err := json.Unmarshal(pool.TickModel, poolWrapper.TickModel); err != nil {
+		var tickModel ingesttypes.TickModel
+		if err := json.Unmarshal(pool.TickModel, &tickModel); err != nil {
+			return nil, err
+		}
+		if err := poolWrapper.SetTickModel(&tickModel); err != nil {
 			return nil, err
 		}
 	}

@@ -431,7 +431,10 @@ func UnmarshalPool(serializedPool SerializedPool) (ingesttypes.PoolI, error) {
 	poolWrapper := ingesttypes.PoolWrapper{
 		ChainModel: chainModel,
 		SQSModel:   serializedPool.SQSModel,
-		TickModel:  serializedPool.TickModel,
+	}
+
+	if err := poolWrapper.SetTickModel(serializedPool.TickModel); err != nil {
+		return nil, err
 	}
 
 	return &poolWrapper, nil

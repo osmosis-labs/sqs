@@ -230,7 +230,12 @@ func (p *poolsUseCase) GetTickModelMap(poolIDs []uint64) (map[uint64]*ingesttype
 			}
 		}
 
-		tickModelMap[poolID] = poolWrapper.TickModel
+		tickModel, err := poolWrapper.GetTickModel()
+		if err != nil {
+			tickModel = nil
+		}
+
+		tickModelMap[poolID] = tickModel
 	}
 
 	return tickModelMap, nil
