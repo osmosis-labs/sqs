@@ -75,16 +75,14 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Concentrated_Succ
 			ticks, currentTickIndex, err := s.App.ConcentratedLiquidityKeeper.GetTickLiquidityForFullRange(s.Ctx, concentratedPool.GetId())
 			s.Require().NoError(err)
 
-			poolWrapper := &ingesttypes.PoolWrapper{
-				ChainModel: concentratedPool,
-				SQSModel: ingesttypes.SQSPool{
-					PoolLiquidityCap:      osmomath.NewInt(100),
-					PoolLiquidityCapError: "",
-					Balances:              sdk.Coins{},
-					PoolDenoms:            []string{"foo", "bar"},
-				},
-			}
-
+			poolWrapper := &ingesttypes.PoolWrapper{}
+			poolWrapper.SetUnderlyingPool(concentratedPool)
+			poolWrapper.SetSQSPoolModel(ingesttypes.SQSPool{
+				PoolLiquidityCap:      osmomath.NewInt(100),
+				PoolLiquidityCapError: "",
+				Balances:              sdk.Coins{},
+				PoolDenoms:            []string{"foo", "bar"},
+			})
 			err = poolWrapper.SetTickModel(&ingesttypes.TickModel{
 				Ticks:            ticks,
 				CurrentTickIndex: currentTickIndex,
@@ -137,16 +135,14 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Concentrated_Succ
 			ticks, currentTickIndex, err := s.App.ConcentratedLiquidityKeeper.GetTickLiquidityForFullRange(s.Ctx, concentratedPool.GetId())
 			s.Require().NoError(err)
 
-			poolWrapper := &ingesttypes.PoolWrapper{
-				ChainModel: concentratedPool,
-				SQSModel: ingesttypes.SQSPool{
-					PoolLiquidityCap:      osmomath.NewInt(100),
-					PoolLiquidityCapError: "",
-					Balances:              sdk.Coins{},
-					PoolDenoms:            []string{"foo", "bar"},
-				},
-			}
-
+			poolWrapper := &ingesttypes.PoolWrapper{}
+			poolWrapper.SetUnderlyingPool(concentratedPool)
+			poolWrapper.SetSQSPoolModel(ingesttypes.SQSPool{
+				PoolLiquidityCap:      osmomath.NewInt(100),
+				PoolLiquidityCapError: "",
+				Balances:              sdk.Coins{},
+				PoolDenoms:            []string{"foo", "bar"},
+			})
 			poolWrapper.SetTickModel(&ingesttypes.TickModel{
 				Ticks:            ticks,
 				CurrentTickIndex: currentTickIndex,

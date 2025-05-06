@@ -82,7 +82,6 @@ func TestPoolsUsecaseTestSuite(t *testing.T) {
 // - taker fee is correctly set.
 // - token out denom is correctly set.
 func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
-
 	s.Setup()
 
 	// Setup default chain pool
@@ -350,7 +349,6 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 	for _, tc := range testCases {
 		tc := tc
 		s.Run(tc.name, func() {
-
 			poolsUsecase := s.newDefaultPoolsUseCase()
 
 			// Pre-set invalid data for the base/quote
@@ -393,7 +391,6 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 // for orderbook pools, we also update the canonical orderbook pool ID.
 // We also validate that any errors stemming from orderbook handling logic are silently skipped
 func (s *PoolsUsecaseTestSuite) TestStorePools() {
-
 	const (
 		validOrderBookPoolID   = defaultPoolID + 1
 		invalidOrderBookPoolID = defaultPoolID + 2
@@ -499,7 +496,6 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 // if they are correctly set. The correctness of setting them is ensured
 // by the StorePools and ProcessOrderbookPoolIDForBaseQuote tests.
 func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbooks_HappyPath() {
-
 	poolsUseCase := s.newDefaultPoolsUseCase()
 
 	// Denom one and denom two
@@ -532,14 +528,12 @@ func (s *PoolsUsecaseTestSuite) TestGetAllCanonicalOrderbooks_HappyPath() {
 
 	// Validate that the correct canonical orderbook pool IDs are returned
 	s.Require().Equal(expectedCanonicalOrderbookPoolIDs, canonicalOrderbooks)
-
 }
 
 // Happy path test to vaidate that no panics/errors occur and coins are returned
 // as intended.
 // The correctness of math is ensured at a different layer of abstraction.
 func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
-
 	s.Setup()
 
 	// Create pool
@@ -552,7 +546,10 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
 	s.Require().NoError(err)
 
 	// Create sqs pool
-	sqsPool := ingesttypes.NewPool(cfmmPool, cfmmPool.GetSpreadFactor(s.Ctx), poolBalances)
+	sqsPool := ingesttypes.NewPool(cfmmPool, ingesttypes.SQSPool{
+		SpreadFactor: cfmmPool.GetSpreadFactor(s.Ctx),
+		Balances:     poolBalances,
+	})
 
 	// Create default use case
 	poolsUseCase := s.newDefaultPoolsUseCase()
@@ -1025,7 +1022,6 @@ func (s *PoolsUsecaseTestSuite) newRoutablePool(pool ingesttypes.PoolI, tokenInD
 }
 
 func (s *PoolsUsecaseTestSuite) TestetPoolAPRAndFeeDataIfConfigured() {
-
 }
 
 func (s *PoolsUsecaseTestSuite) newDefaultPoolsUseCase() *usecase.PoolsUsecase {

@@ -108,15 +108,15 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	balancerPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
 	s.Require().NoError(err)
 
-	defaultPool := &ingesttypes.PoolWrapper{
-		ChainModel: balancerPool,
-		SQSModel: ingesttypes.SQSPool{
+	defaultPool := ingesttypes.NewPool(
+		balancerPool,
+		ingesttypes.SQSPool{
 			PoolLiquidityCap: osmomath.NewInt(int64(minPoolLiquidityCap*OsmoPrecisionMultiplier + 1)),
 			PoolDenoms:       []string{tokenInDenom, tokenOutDenom},
 			Balances:         balancerCoins,
 			SpreadFactor:     DefaultSpreadFactor,
 		},
-	}
+	)
 
 	var (
 		defaultRoute = WithCandidateRoutePools(
@@ -277,7 +277,6 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	for _, tc := range testCases {
 		tc := tc
 		s.Run(tc.name, func() {
-
 			routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
 
 			candidateRouteCache := cache.New()
@@ -551,7 +550,6 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 	for name, tc := range tests {
 		tc := tc
 		s.Run(name, func() {
-
 			actualRoutes := usecase.FilterDuplicatePoolIDRoutes(tc.routes)
 
 			s.Require().Equal(len(tc.expectedRoutes), len(actualRoutes))
@@ -560,7 +558,6 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 }
 
 func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
-
 	tests := map[string]struct {
 		rankedRoutes []route.RouteImpl
 
@@ -636,7 +633,6 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 	for name, tc := range tests {
 		tc := tc
 		s.Run(name, func() {
-
 			actualCandidateRoutes := usecase.ConvertRankedToCandidateRoutes(tc.rankedRoutes)
 
 			s.Require().Equal(tc.expectedCandidateRoutes, actualCandidateRoutes)
@@ -1152,9 +1148,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
 
-	var (
-		amountIn = osmomath.NewInt(5000000)
-	)
+	amountIn := osmomath.NewInt(5000000)
 
 	mainnetState := s.SetupMainnetState()
 
@@ -1298,9 +1292,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mai
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
 
-	var (
-		amountOut = osmomath.NewInt(5000000)
-	)
+	amountOut := osmomath.NewInt(5000000)
 
 	mainnetState := s.SetupMainnetState()
 
@@ -1442,9 +1434,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Order
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
 
-	var (
-		orderbookCodeId = uint64(885)
-	)
+	orderbookCodeId := uint64(885)
 
 	mainnetState := s.SetupMainnetState()
 
@@ -1510,7 +1500,6 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Order
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			quote, err := routerUsecase.GetCustomDirectQuoteOutGivenIn(context.Background(), tc.tokenIn, tc.tokenOutDenom, tc.poolID)
-
 			if err != nil {
 				s.Require().EqualError(tc.err, err.Error())
 				return // nothing else to do
@@ -1524,7 +1513,6 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Order
 }
 
 func (s *RouterTestSuite) TestCutRoutesForSplits() {
-
 	// Note: contents are irrelevant. Only count of routes matters for this test.
 	var (
 		defaultRoute = route.RouteImpl{}
@@ -1610,7 +1598,6 @@ func (s *RouterTestSuite) TestCutRoutesForSplits() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-
 			routes := usecase.CutRoutesForSplits(tc.maxSplitRoutes, tc.routes)
 
 			s.Require().Len(routes, tc.expectedRoutesLen)
@@ -1619,7 +1606,6 @@ func (s *RouterTestSuite) TestCutRoutesForSplits() {
 }
 
 func (s *RouterTestSuite) TestGetMinPoolLiquidityCapFilter() {
-
 	const (
 		dynamicFilterValue = 10_000
 		defaultFilterValue = 100

@@ -2,8 +2,10 @@ package domain
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/osmosis-labs/sqs/domain/osmomath"
+	sqsatomic "github.com/osmosis-labs/sqs/domain/sync/atomic"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	osmoingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
@@ -86,7 +88,7 @@ type CandidateRouteSearcher interface {
 type CandidatePoolWrapper struct {
 	ID                uint64
 	PoolDenoms        []string
-	PoolLiquidityCap  uint64 // Note: the value is truncated if it is larger than uint64
+	PoolLiquidityCap  *atomic.Uint64 // Note: the value is truncated if it is larger than uint64
 	Balances          sdk.Coins
 	IsAlloyTransmuter bool
 	IsOrderbook       bool
@@ -96,11 +98,19 @@ func NewCandidatePoolWrapper(id uint64, p osmoingesttypes.SQSPool) CandidatePool
 	return CandidatePoolWrapper{
 		ID:                id,
 		PoolDenoms:        p.PoolDenoms,
-		PoolLiquidityCap:  osmomath.SafeUint64(p.PoolLiquidityCap),
+		PoolLiquidityCap:  sqsatomic.NewUint64(osmomath.SafeUint64(p.PoolLiquidityCap)),
 		Balances:          p.Balances,
 		IsAlloyTransmuter: p.CosmWasmPoolModel != nil && p.CosmWasmPoolModel.IsAlloyTransmuter(),
 		IsOrderbook:       p.CosmWasmPoolModel != nil && p.CosmWasmPoolModel.IsOrderbook(),
 	}
+}
+
+func (c CandidatePoolWrapper) SetPoolLiquidityCap(liquidityCap uint64) {
+	c.PoolLiquidityCap.Store(liquidityCap)
+}
+
+func (c CandidatePoolWrapper) GetPoolLiquidityCap() uint64 {
+	return c.PoolLiquidityCap.Load()
 }
 
 type CandidateRouteDenomData struct {
