@@ -82,9 +82,8 @@ func TestPoolWrapper_Incentive(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pool := &PoolWrapper{
-				APRData: tt.aprData,
-			}
+			pool := &PoolWrapper{}
+			pool.SetAPRData(tt.aprData)
 			assert.Equal(t, tt.expected, pool.Incentive())
 		})
 	}
