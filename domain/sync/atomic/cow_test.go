@@ -8,19 +8,19 @@ import (
 func TestAtomicCopyOnWrite(t *testing.T) {
 	tests := []struct {
 		name     string
-		op       func(*AtomicCopyOnWrite[int])
+		op       func(*CopyOnWrite[int])
 		expected int
 	}{
 		{
 			name: "Store and Load single value",
-			op: func(cow *AtomicCopyOnWrite[int]) {
+			op: func(cow *CopyOnWrite[int]) {
 				cow.Store(42)
 			},
 			expected: 42,
 		},
 		{
 			name: "Store and Load multiple values",
-			op: func(cow *AtomicCopyOnWrite[int]) {
+			op: func(cow *CopyOnWrite[int]) {
 				cow.Store(1)
 				cow.Store(2)
 				cow.Store(3)
@@ -29,12 +29,12 @@ func TestAtomicCopyOnWrite(t *testing.T) {
 		},
 		{
 			name:     "Load without Store",
-			op:       func(cow *AtomicCopyOnWrite[int]) {},
+			op:       func(cow *CopyOnWrite[int]) {},
 			expected: 0,
 		},
 		{
 			name: "Concurrent Store and Load",
-			op: func(cow *AtomicCopyOnWrite[int]) {
+			op: func(cow *CopyOnWrite[int]) {
 				var wg sync.WaitGroup
 				for i := range 100 {
 					wg.Add(2)

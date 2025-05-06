@@ -70,11 +70,11 @@ type PoolI interface {
 var _ PoolI = &PoolWrapper{}
 
 type PoolWrapper struct {
-	chainModel atomic.AtomicCopyOnWrite[poolmanagertypes.PoolI]
-	sqsModel   atomic.AtomicCopyOnWrite[SQSPool]
-	aprData    atomic.AtomicCopyOnWrite[passthroughdomain.PoolAPRDataStatusWrap]
-	feesData   atomic.AtomicCopyOnWrite[passthroughdomain.PoolFeesDataStatusWrap]
-	tickModel  atomic.AtomicCopyOnWrite[*TickModel]
+	chainModel atomic.CopyOnWrite[poolmanagertypes.PoolI]
+	sqsModel   atomic.CopyOnWrite[SQSPool]
+	aprData    atomic.CopyOnWrite[passthroughdomain.PoolAPRDataStatusWrap]
+	feesData   atomic.CopyOnWrite[passthroughdomain.PoolFeesDataStatusWrap]
+	tickModel  atomic.CopyOnWrite[*TickModel]
 }
 
 func NewPool(chainModel poolmanagertypes.PoolI, sqsModel SQSPool) *PoolWrapper {
