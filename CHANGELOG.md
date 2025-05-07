@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v28.3.6
+
+- #651 - BE-719 | Fix race conditions for PoolWrapper
+
 ## v28.3.5
 
 - #648 - BE-729 | Disable route cache by default
