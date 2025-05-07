@@ -22,16 +22,16 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 		defaultPoolID = uint64(1)
 	)
 
+	defaultNonOrderBookPool := ingesttypes.PoolWrapper{}
+	defaultNonOrderBookPool.SetUnderlyingPool(&mocks.ChainPoolMock{
+		ID: defaultPoolID,
+	})
+
 	var (
-		defaultNonOrderBookPool = ingesttypes.PoolWrapper{
-			ChainModel: &mocks.ChainPoolMock{
-				ID: defaultPoolID,
-			},
-		}
 
 		// instruments the given pool with orderbook data, returning new copy.
 		withOrderBookPool = func(pool ingesttypes.PoolWrapper) ingesttypes.PoolWrapper {
-			pool.SQSModel = ingesttypes.SQSPool{
+			pool.SetSQSPoolModel(ingesttypes.SQSPool{
 				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
 					ContractInfo: cosmwasmpool.ContractInfo{
 						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
@@ -41,15 +41,15 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 						Orderbook: &cosmwasmpool.OrderbookData{},
 					},
 				},
-			}
+			})
 			return pool
 		}
 
 		// instruments the given pool with a new id returning new copy
 		withPoolID = func(pool ingesttypes.PoolWrapper, newPoolID uint64) ingesttypes.PoolWrapper {
-			pool.ChainModel = &mocks.ChainPoolMock{
+			pool.SetUnderlyingPool(&mocks.ChainPoolMock{
 				ID: newPoolID,
-			}
+			})
 			return pool
 		}
 

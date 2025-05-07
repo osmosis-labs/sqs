@@ -188,14 +188,14 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 	// that we can still route over such pools.
 	for denom, value := range newData {
 		for i := range value.SortedPools {
-			if value.SortedPools[i].PoolLiquidityCap == 0 {
+			if value.SortedPools[i].GetPoolLiquidityCap() == 0 {
 				p, _, err := r.poolHandler.GetPools(domain.WithPoolIDFilter([]uint64{value.SortedPools[i].ID}))
 				if len(p) == 0 || err != nil {
 					continue // no pool found
 				}
 
 				if p[0].GetLiquidityCap().GT(osmomath.ZeroInt()) {
-					newData[denom].SortedPools[i].PoolLiquidityCap = sqsosmomath.SafeUint64(p[0].GetLiquidityCap())
+					newData[denom].SortedPools[i].SetPoolLiquidityCap(sqsosmomath.SafeUint64(p[0].GetLiquidityCap()))
 				}
 			}
 		}

@@ -125,7 +125,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				continue
 			}
 
-			if pool.PoolLiquidityCap < options.MinPoolLiquidityCap {
+			if pool.GetPoolLiquidityCap() < options.MinPoolLiquidityCap {
 				visited[pool.ID] = true
 				// Skip pools that have less liquidity than the minimum required.
 				continue

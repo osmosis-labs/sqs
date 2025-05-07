@@ -79,13 +79,9 @@ const (
 	tracerName = "sqs-ingest-usecase"
 )
 
-var (
-	tracer = otel.Tracer(tracerName)
-)
+var tracer = otel.Tracer(tracerName)
 
-var (
-	_ mvc.IngestUsecase = &ingestUseCase{}
-)
+var _ mvc.IngestUsecase = &ingestUseCase{}
 
 // NewIngestUsecase will create a new pools use case object
 func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, orderBookUseCase mvc.OrderBookUsecase, logger log.Logger) (mvc.IngestUsecase, error) {
@@ -455,29 +451,33 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 // parsePool parses the pool data and returns the pool object
 // For concentrated pools, it also processes the tick model
 func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, error) {
-	poolWrapper := sqsingesttypes.PoolWrapper{}
-
-	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, &poolWrapper.ChainModel); err != nil {
+	var chainModel poolmanagertypes.PoolI
+	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, &chainModel); err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(pool.SqsModel, &poolWrapper.SQSModel); err != nil {
+	var sqsModel ingesttypes.SQSPool
+	if err := json.Unmarshal(pool.SqsModel, &sqsModel); err != nil {
 		return nil, err
 	}
 
+	// Process the SQS model
+	if err := processSQSModelMut(&sqsModel); err != nil {
+		p.logger.Error("error processing SQS model", zap.Error(err))
+	}
+
+	poolWrapper := sqsingesttypes.NewPool(chainModel, sqsModel)
 	if poolWrapper.GetType() == poolmanagertypes.Concentrated {
-		poolWrapper.TickModel = &ingesttypes.TickModel{}
-		if err := json.Unmarshal(pool.TickModel, poolWrapper.TickModel); err != nil {
+		var tickModel ingesttypes.TickModel
+		if err := json.Unmarshal(pool.TickModel, &tickModel); err != nil {
+			return nil, err
+		}
+		if err := poolWrapper.SetTickModel(&tickModel); err != nil {
 			return nil, err
 		}
 	}
 
-	// Process the SQS model
-	if err := processSQSModelMut(&poolWrapper.SQSModel); err != nil {
-		p.logger.Error("error processing SQS model", zap.Error(err))
-	}
-
-	return &poolWrapper, nil
+	return poolWrapper, nil
 }
 
 // executeEndBlockProcessPlugins executes the end block process plugins.
