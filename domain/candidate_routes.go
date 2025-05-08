@@ -110,6 +110,9 @@ func (c CandidatePoolWrapper) SetPoolLiquidityCap(liquidityCap uint64) {
 }
 
 func (c CandidatePoolWrapper) GetPoolLiquidityCap() uint64 {
+	if c.PoolLiquidityCap == nil {
+		return 0
+	}
 	return c.PoolLiquidityCap.Load()
 }
 

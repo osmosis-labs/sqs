@@ -173,13 +173,19 @@ func (r *routerRepo) SetCandidateRouteSearchData(data domain.CandidateRouteSearc
 
 	oldData, ok := r.candidateRouteSearchData.Load().(domain.CandidateRouteSearchData)
 	if !ok {
-		r.candidateRouteSearchData.Store(make(domain.CandidateRouteSearchData))
+		r.candidateRouteSearchData.Store(data)
 		return
 	}
 
 	newData := make(domain.CandidateRouteSearchData)
 
+	// Copy old data to new data
 	maps.Copy(newData, oldData)
+
+	// Update new data with block data
+	for denom, value := range data {
+		newData[denom] = value
+	}
 
 	// Some of the pools from the block data may not have a liquidity cap set or it's set to 0.
 	// Here we manually update the liquidity cap for such candidate routes based on the pool data so
@@ -203,11 +209,6 @@ func (r *routerRepo) SetCandidateRouteSearchData(data domain.CandidateRouteSearc
 				}
 			}
 		}
-	}
-
-	// Update new data with block data
-	for denom, value := range data {
-		newData[denom] = value
 	}
 
 	r.candidateRouteSearchData.Store(newData)
