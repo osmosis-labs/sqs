@@ -5,6 +5,8 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
+	sqsatomic "github.com/osmosis-labs/sqs/domain/sync/atomic"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -224,4 +226,151 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestGetRankedPoolsByDenom_HappyPat
 	actualNoDenomPools, err := suite.repository.GetDenomData(denomNoPools)
 	suite.Require().NoError(err)
 	suite.Require().Empty(actualNoDenomPools.SortedPools)
+}
+
+func (suite *RouteRepositoryChatGPTTestSuite) TestSetCandidateRouteSearchData() {
+	tests := []struct {
+		name                 string
+		initialData          domain.CandidateRouteSearchData
+		inputData            domain.CandidateRouteSearchData
+		mockPools            []ingesttypes.PoolI
+		expectedResult       domain.CandidateRouteSearchData
+		expectedLiquidityCap uint64
+	}{
+		{
+			name:        "Empty initial data, new data added",
+			initialData: domain.CandidateRouteSearchData{},
+			inputData: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(1000)},
+					},
+				},
+			},
+			expectedResult: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(1000)},
+					},
+				},
+			},
+		},
+		{
+			name: "Existing data updated",
+			initialData: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(1000)},
+					},
+				},
+			},
+			inputData: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(2000)},
+					},
+				},
+			},
+			expectedResult: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(2000)},
+					},
+				},
+			},
+		},
+		{
+			name: "New token added to existing data",
+			initialData: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(1000)},
+					},
+				},
+			},
+			inputData: domain.CandidateRouteSearchData{
+				"tokenB": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 2, PoolLiquidityCap: sqsatomic.NewUint64(3000)},
+					},
+				},
+			},
+			expectedResult: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(1000)},
+					},
+				},
+				"tokenB": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 2, PoolLiquidityCap: sqsatomic.NewUint64(3000)},
+					},
+				},
+			},
+		},
+		{
+			name: "Update liquidity cap for pool with zero cap",
+			initialData: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(0)},
+					},
+				},
+			},
+			inputData: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(0)},
+					},
+				},
+			},
+			mockPools: []ingesttypes.PoolI{
+				&mocks.MockRoutablePool{ID: 1, PoolLiquidityCap: osmomath.NewInt(5000)},
+			},
+			expectedResult: domain.CandidateRouteSearchData{
+				"tokenA": {
+					SortedPools: []domain.CandidatePoolWrapper{
+						{ID: 1, PoolLiquidityCap: sqsatomic.NewUint64(5000)},
+					},
+				},
+			},
+			expectedLiquidityCap: 5000,
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			repo := routerrepo.New(&log.NoOpLogger{})
+
+			// Set up mock pool handler
+			mockPoolHandler := &mocks.PoolHandlerMock{
+				Pools: tt.mockPools,
+			}
+			repo.SetPoolHandler(mockPoolHandler)
+
+			// Set initial data
+			repo.SetCandidateRouteSearchData(tt.initialData)
+
+			// Call the method under test
+			repo.SetCandidateRouteSearchData(tt.inputData)
+
+			// Get the result
+			result, err := repo.GetCandidateRouteSearchData()
+			suite.Require().NoError(err)
+
+			// Check the result
+			suite.Equal(tt.expectedResult, result)
+
+			// Check if liquidity cap was updated for pools with zero cap
+			if tt.expectedLiquidityCap > 0 {
+				for _, denomData := range result {
+					for _, pool := range denomData.SortedPools {
+						if pool.GetPoolLiquidityCap() == 0 {
+							suite.Equal(tt.expectedLiquidityCap, pool.GetPoolLiquidityCap())
+						}
+					}
+				}
+			}
+		})
+	}
 }

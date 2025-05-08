@@ -14,10 +14,10 @@ import (
 // CandidateRouteSearchDataUpdateListener is the interface for the candidate route search data holder.
 type CandidateRouteSearchDataHolder interface {
 	// SetCandidateRouteSearchData sets the candidate route search data on the holder
-	SetCandidateRouteSearchData(candidateRouteSearchData map[string]*domain.CandidateRouteDenomData)
+	SetCandidateRouteSearchData(candidateRouteSearchData domain.CandidateRouteSearchData)
 
 	// GetCandidateRouteSearchData gets the candidate route search data from the holder
-	GetCandidateRouteSearchData() (map[string]*domain.CandidateRouteDenomData, error)
+	GetCandidateRouteSearchData() (domain.CandidateRouteSearchData, error)
 
 	// GetDenomData returns the ranked candidate route search pool data for a given denom.
 	// Returns an empty struct if the denom is not found.

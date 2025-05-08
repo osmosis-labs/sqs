@@ -113,6 +113,9 @@ func (c CandidatePoolWrapper) GetPoolLiquidityCap() uint64 {
 	return c.PoolLiquidityCap.Load()
 }
 
+// CandidateRouteSearchData defines data structure for candidate route search data
+type CandidateRouteSearchData map[string]*CandidateRouteDenomData
+
 type CandidateRouteDenomData struct {
 	// SortedPools is the sorted list of pools for the denom.
 	SortedPools []CandidatePoolWrapper

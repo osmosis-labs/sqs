@@ -44,8 +44,6 @@ var (
 	_ mvc.CandidateRouteSearchDataHolder = &routerRepo{}
 )
 
-type candidateRoutes map[string]*domain.CandidateRouteDenomData
-
 type routerRepo struct {
 	takerFeeMap              sync.Map
 	candidateRouteSearchData atomic.Value
@@ -66,7 +64,7 @@ func New(logger log.Logger) *routerRepo {
 		logger:      logger,
 	}
 
-	repository.candidateRouteSearchData.Store(make(candidateRoutes))
+	repository.candidateRouteSearchData.Store(make(domain.CandidateRouteSearchData))
 
 	return repository
 }
@@ -93,7 +91,7 @@ func (r *routerRepo) SetBaseFee(baseFee domain.BaseFee) {
 func (r *routerRepo) GetAllTakerFees() ingesttypes.TakerFeeMap {
 	takerFeeMap := ingesttypes.TakerFeeMap{}
 
-	r.takerFeeMap.Range(func(key, value interface{}) bool {
+	r.takerFeeMap.Range(func(key, value any) bool {
 		takerFee, ok := value.(osmomath.Dec)
 		if !ok {
 			return false
@@ -141,17 +139,17 @@ func (r *routerRepo) SetTakerFees(takerFees ingesttypes.TakerFeeMap) {
 }
 
 // GetCandidateRouteSearchData implements mvc.RouterUsecase.
-func (r *routerRepo) GetCandidateRouteSearchData() (map[string]*domain.CandidateRouteDenomData, error) {
-	data, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
+func (r *routerRepo) GetCandidateRouteSearchData() (domain.CandidateRouteSearchData, error) {
+	data, ok := r.candidateRouteSearchData.Load().(domain.CandidateRouteSearchData)
 	if !ok {
-		return make(candidateRoutes), fmt.Errorf("failed to cast candidate route search data")
+		return make(domain.CandidateRouteSearchData), fmt.Errorf("failed to cast candidate route search data")
 	}
 	return data, nil
 }
 
 // GetRankedPoolsByDenom implements mvc.CandidateRouteSearchDataHolder.
 func (r *routerRepo) GetDenomData(denom string) (*domain.CandidateRouteDenomData, error) {
-	data, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
+	data, ok := r.candidateRouteSearchData.Load().(domain.CandidateRouteSearchData)
 	if !ok {
 		return nil, fmt.Errorf("failed to cast candidate route search data")
 	}
@@ -165,7 +163,7 @@ func (r *routerRepo) GetDenomData(denom string) (*domain.CandidateRouteDenomData
 }
 
 // SetCandidateRouteSearchData implements mvc.RouterUsecase.
-func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.CandidateRouteDenomData) {
+func (r *routerRepo) SetCandidateRouteSearchData(data domain.CandidateRouteSearchData) {
 	if len(data) == 0 {
 		return // no data to update
 	}
@@ -173,19 +171,25 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 	r.mu.Lock() // for writers
 	defer r.mu.Unlock()
 
-	oldData, ok := r.candidateRouteSearchData.Load().(candidateRoutes)
+	oldData, ok := r.candidateRouteSearchData.Load().(domain.CandidateRouteSearchData)
 	if !ok {
-		r.candidateRouteSearchData.Store(make(candidateRoutes))
+		r.candidateRouteSearchData.Store(make(domain.CandidateRouteSearchData))
 		return
 	}
 
-	newData := make(candidateRoutes)
+	newData := make(domain.CandidateRouteSearchData)
 
 	maps.Copy(newData, oldData)
 
 	// Some of the pools from the block data may not have a liquidity cap set or it's set to 0.
 	// Here we manually update the liquidity cap for such candidate routes based on the pool data so
 	// that we can still route over such pools.
+	if r.poolHandler == nil {
+		r.logger.Error("pool handler is not set, skipping liquidity cap update")
+		r.candidateRouteSearchData.Store(newData)
+		return
+	}
+
 	for denom, value := range newData {
 		for i := range value.SortedPools {
 			if value.SortedPools[i].GetPoolLiquidityCap() == 0 {
