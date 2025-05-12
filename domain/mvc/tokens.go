@@ -21,6 +21,7 @@ type TokenMetadataHolder interface {
 	// Returns error if there is no pool liquidity metadata for one of the tokens.
 	// Returns error if pool liquidity metadata is large enough to cause overflow.
 	GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error)
+	GetMinPoolEffectiveLiquidityCap(denomA, denomB string) (uint64, error)
 }
 
 // TokensUsecase defines an interface for the tokens usecase.

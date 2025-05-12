@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	domainsdk "github.com/osmosis-labs/sqs/domain/cosmos"
 )
 
 // Token represents the token's domain model
@@ -30,9 +31,15 @@ type PoolDenomMetaData struct {
 	// If it is set to zero, that there was a failure in fetching the price.
 	// @Type string
 	TotalLiquidityCap osmomath.Int `json:"total_liquidity_cap"`
+
+	TotalEffectiveLiquidityCap osmomath.Int `json:"total_liquidity_cap"`
 	// Price represents the price of the token.
 	// @Type string
 	Price osmomath.BigDec `json:"price"`
+
+	Pools map[uint64]osmomath.Int `json:"pools"`
+
+	Pools2 map[uint64]domainsdk.Coins `json:"pools2"`
 }
 
 // DenomPoolLiquidityMap is a map of denoms to their pool liquidity data.
@@ -43,10 +50,13 @@ type DenomPoolLiquidityMap map[string]DenomPoolLiquidityData
 // pools with their individual contributions to the total.
 type DenomPoolLiquidityData struct {
 	// Total liquidity for this denom
-	TotalLiquidity osmomath.Int
+	TotalLiquidity          osmomath.Int
+	EffectiveTotalLiquidity osmomath.BigDec
 	// Mapping from pool ID to denom liquidity
 	// in that pool
 	Pools map[uint64]osmomath.Int
+
+	Pools2 map[uint64]domainsdk.Coins
 }
 
 // GAMMSharePrefix is the prefix for the GAMM share

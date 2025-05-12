@@ -1,7 +1,9 @@
 package worker
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -26,7 +28,7 @@ var (
 )
 
 type poolLiquidityPricerWorker struct {
-	tokenPoolLiquidityHandler mvc.TokensPoolLiquidityHandler
+	tokenPoolLiquidityHandler mvc.TokensUsecase
 	poolHandler               mvc.PoolHandler
 
 	updateListeners []domain.PoolLiquidityComputeListener
@@ -42,7 +44,7 @@ type poolLiquidityPricerWorker struct {
 	latestHeightForDenom sync.Map
 }
 
-func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler, poolHandler mvc.PoolHandler, liquidityPricer domain.LiquidityPricer, logger log.Logger) *poolLiquidityPricerWorker {
+func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensUsecase, poolHandler mvc.PoolHandler, liquidityPricer domain.LiquidityPricer, logger log.Logger) *poolLiquidityPricerWorker {
 	return &poolLiquidityPricerWorker{
 		tokenPoolLiquidityHandler: tokensPoolLiquidityHandler,
 		poolHandler:               poolHandler,
@@ -125,6 +127,56 @@ func (p *poolLiquidityPricerWorker) RepriceDenomsMetadata(updateHeight uint64, b
 	return blockTokenMetadataUpdates
 }
 
+func uniq[T cmp.Ordered](list []T) []T {
+	if list == nil {
+		return nil
+	}
+	out := make([]T, len(list))
+	copy(out, list)
+	slices.Sort(out)
+	uniq := out[:0]
+	for _, x := range out {
+		if len(uniq) == 0 || uniq[len(uniq)-1] != x {
+			uniq = append(uniq, x)
+		}
+	}
+	return uniq
+}
+
+type Coin struct {
+	Denom  string
+	Amount osmomath.BigDec
+}
+
+// Coins is a set of Coin
+type Coins []Coin
+
+func (c Coins) Min() Coin {
+	if len(c) == 0 {
+		return Coin{}
+	}
+	min := c[0]
+	for _, coin := range c {
+		if coin.Amount.LT(min.Amount) {
+			min = coin
+		}
+	}
+	return min
+}
+
+func (c Coins) Max() Coin {
+	if len(c) == 0 {
+		return Coin{}
+	}
+	max := c[0]
+	for _, coin := range c {
+		if coin.Amount.GTE(max.Amount) {
+			max = coin
+		}
+	}
+	return max
+}
+
 // CreatePoolDenomMetaData implements domain.PoolLiquidityPricerWorker
 func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom string, updateHeight uint64, blockPriceUpdates domain.PricesResult, quoteDenom string, blockPoolMetadata domain.BlockPoolMetadata) (domain.PoolDenomMetaData, error) {
 	price := blockPriceUpdates.GetPriceForDenom(updatedBlockDenom, quoteDenom)
@@ -140,10 +192,108 @@ func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom st
 	liquidityCapitalization := p.liquidityPricer.PriceCoin(sdk.NewCoin(updatedBlockDenom, totalLiquidityForDenom), price)
 
 	result := domain.PoolDenomMetaData{
-		TotalLiquidity:    totalLiquidityForDenom,
-		TotalLiquidityCap: liquidityCapitalization.TruncateInt(),
-		Price:             price,
+		TotalLiquidity:             totalLiquidityForDenom,
+		TotalLiquidityCap:          liquidityCapitalization.TruncateInt(),
+		TotalEffectiveLiquidityCap: osmomath.ZeroInt(),
+		Price:                      price,
+		Pools:                      blockPoolDenomLiquidityData.Pools,
+		Pools2:                     blockPoolDenomLiquidityData.Pools2,
 	}
+
+	totalEffectiveLiquidityCap := osmomath.ZeroDec()
+	for poolID, balance := range blockPoolDenomLiquidityData.Pools {
+		pool, _, err := p.poolHandler.GetPools(domain.WithPoolIDFilter([]uint64{poolID}))
+		if err != nil || len(pool) == 0 {
+			continue
+		}
+
+		var balances Coins
+		for _, coin := range pool[0].GetSQSPoolModel().Balances {
+			metadata, err := p.tokenPoolLiquidityHandler.GetMetadataByChainDenom(coin.Denom)
+			if err != nil {
+			}
+			amount, err := osmomath.NewBigDecFromStr(coin.Amount.String())
+			if err != nil {
+			}
+
+			price := blockPriceUpdates.GetPriceForDenom(coin.Denom, quoteDenom)
+
+			normalized := amount.Quo(osmomath.NewBigDec(10).Power(osmomath.NewBigDec(int64(metadata.Precision)))).Mul(price)
+
+			balances = append(balances, Coin{
+				Denom:  coin.Denom,
+				Amount: normalized,
+			})
+		}
+
+		min := balances.Min()
+		max := balances.Max()
+		if max.Amount.IsZero() {
+			continue // skip if max is zero
+		}
+
+		ratio := min.Amount.Quo(max.Amount)
+		threshold := osmomath.NewBigDecWithPrec(1, 2)
+		if ratio.LTE(threshold) {
+			continue // skip if ratio is less than 0.01
+		}
+
+		liquidityCapitalization := p.liquidityPricer.PriceCoin(sdk.NewCoin(updatedBlockDenom, balance), price)
+		totalEffectiveLiquidityCap = totalEffectiveLiquidityCap.Add(liquidityCapitalization)
+	}
+
+	result.TotalEffectiveLiquidityCap = totalEffectiveLiquidityCap.TruncateInt()
+
+	// var balances []Coins
+	// for pool := range blockPoolDenomLiquidityData.Pools2 {
+	// 	var poolBalances Coins
+	// 	for _, coin := range blockPoolDenomLiquidityData.Pools2[pool] {
+	// 		amount, err := osmomath.NewBigDecFromStr(coin.Amount.String())
+	// 		if err != nil {
+	// 		}
+	//
+	// 		price := blockPriceUpdates.GetPriceForDenom(coin.Denom, quoteDenom)
+	//
+	// 		normalized := amount.Quo(osmomath.NewBigDec(10).Power(osmomath.NewBigDec(int64(coin.Decimals)))).Mul(price)
+	//
+	// 		poolBalances = append(poolBalances, Coin{
+	// 			Denom:  coin.Denom,
+	// 			Amount: normalized,
+	// 		})
+	// 	}
+	//
+	// 	balances = append(balances, poolBalances)
+	// }
+	//
+	// denomTotalEffectiveLiquidityCap := osmomath.ZeroBigDec()
+	// for _, balance := range balances {
+	// 	if len(balance) == 0 {
+	// 		continue
+	// 	}
+	//
+	// 	min := balance.Min()
+	// 	max := balance.Max()
+	//
+	// 	if max.Amount.IsZero() {
+	// 		continue // skip if max is zero
+	// 	}
+	//
+	// 	ratio := min.Amount.Quo(max.Amount)
+	// 	threshold := osmomath.NewBigDecWithPrec(1, 2)
+	// 	if ratio.LTE(threshold) {
+	// 		continue // skip if ratio is less than 0.01
+	// 	}
+	//
+	// 	for _, coin := range balance {
+	// 		if coin.Denom == updatedBlockDenom {
+	// 			denomTotalEffectiveLiquidityCap = denomTotalEffectiveLiquidityCap.Add(coin.Amount)
+	// 		}
+	// 	}
+	// }
+	//
+	// result.TotalEffectiveLiquidityCap = denomTotalEffectiveLiquidityCap.TruncateInt()
+
+	// TODO: here?
 
 	if !ok {
 		return result, domain.DenomPoolLiquidityDataNotFoundError{
@@ -158,6 +308,58 @@ func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom st
 	}
 
 	return result, nil
+}
+
+func MinCoin(a ...sdk.Coin) sdk.Coin {
+	if len(a) == 0 {
+		return sdk.Coin{}
+	}
+	min := a[0]
+	for _, b := range a {
+		if b.IsLT(min) {
+			min = b
+		}
+	}
+	return min
+}
+
+func MaxCoin(a ...sdk.Coin) sdk.Coin {
+	if len(a) == 0 {
+		return sdk.Coin{}
+	}
+	max := a[0]
+	for _, b := range a {
+		if b.IsGTE(max) {
+			max = b
+		}
+	}
+	return max
+}
+
+func Min(a ...osmomath.BigDec) osmomath.BigDec {
+	if len(a) == 0 {
+		return osmomath.BigDec{}
+	}
+	min := a[0]
+	for _, b := range a {
+		if b.LT(min) {
+			min = b
+		}
+	}
+	return min
+}
+
+func Max(a ...osmomath.BigDec) osmomath.BigDec {
+	if len(a) == 0 {
+		return osmomath.BigDec{}
+	}
+	max := a[0]
+	for _, b := range a {
+		if b.GT(max) {
+			max = b
+		}
+	}
+	return max
 }
 
 // shouldSkipDenomRepricing returns true if the denom repricing should be skipped.

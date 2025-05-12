@@ -505,6 +505,27 @@ func (t *TokensUseCase) IsValidChainDenom(chainDenom string) bool {
 	return !v.IsUnlisted
 }
 
+func (t *TokensUseCase) GetMinPoolEffectiveLiquidityCap(denomA, denomB string) (uint64, error) {
+	// Get the pool denoms metadata
+	poolDenomMetadataA, err := t.GetPoolDenomMetadata(denomA)
+	if err != nil {
+		return 0, err
+	}
+
+	poolDenomMetadataB, err := t.GetPoolDenomMetadata(denomB)
+	if err != nil {
+		return 0, err
+	}
+
+	// Get min liquidity
+	minLiquidityCapBetweenTokens := osmomath.MinInt(poolDenomMetadataA.TotalEffectiveLiquidityCap, poolDenomMetadataB.TotalEffectiveLiquidityCap)
+	if !minLiquidityCapBetweenTokens.IsUint64() {
+		return 0, fmt.Errorf("min liquidity cap is greater than uint64, denomA: %s (%s), denomB: %s (%s)", denomA, poolDenomMetadataA.TotalLiquidity, denomB, poolDenomMetadataB.TotalLiquidity)
+	}
+
+	return minLiquidityCapBetweenTokens.Uint64(), nil
+}
+
 // GetMinPoolLiquidityCap implements mvc.TokensUsecase.
 func (t *TokensUseCase) GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error) {
 	// Get the pool denoms metadata
