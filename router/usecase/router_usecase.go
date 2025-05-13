@@ -257,7 +257,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		return nil, err
 	}
 
-	topQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn, r.logger)
+	topQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 	if err != nil {
 		return nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -270,7 +270,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 // Additionally, the routes are converted into route.Route.Impl type.
 // CONTRACT: rankedRoutes are sorted in decreasing order by amount out
 // from first to last.
-func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []RouteWithOutAmount) []route.RouteImpl {
+func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []route.RouteWithOutAmount) []route.RouteImpl {
 	// We use two maps for all routes and for the current route.
 	// This is so that if a route ends up getting filtered, its pool IDs are not added to the combined map.
 	combinedPoolIDsMap := make(map[uint64]struct{})
@@ -334,7 +334,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 		return nil, nil, err
 	}
 
-	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn, r.logger)
+	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -455,7 +455,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 	}
 
 	// Compute direct quote
-	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn, r.logger)
+	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 	if err != nil {
 		return nil, err
 	}
@@ -512,7 +512,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolOutGivenIn(ctx context.
 
 	// Construct the final multi-hop custom direct quote route.
 	result.Route = []domain.SplitRoute{
-		&RouteWithOutAmount{
+		&route.RouteWithOutAmount{
 			RouteImpl: route.RouteImpl{
 				Pools: pools,
 			},

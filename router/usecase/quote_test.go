@@ -78,7 +78,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			quote: s.NewExactAmountInQuote(poolOne, poolTwo, poolThree),
 			expectedRoutes: []domain.SplitRoute{
 				// Route 1
-				&usecase.RouteWithOutAmount{
+				&route.RouteWithOutAmount{
 					RouteImpl: route.RouteImpl{
 						Pools: []domain.RoutablePool{
 							pools.NewRoutableResultPool(
@@ -105,7 +105,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 				},
 
 				// Route 2
-				&usecase.RouteWithOutAmount{
+				&route.RouteWithOutAmount{
 					RouteImpl: route.RouteImpl{
 						Pools: []domain.RoutablePool{
 							pools.NewRoutableResultPool(
@@ -131,7 +131,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			name:  "exact amount out",
 			quote: s.NewExactAmountOutQuote(poolOne, poolTwo, poolThree),
 			expectedRoutes: []domain.SplitRoute{
-				&usecase.RouteWithOutAmount{
+				&route.RouteWithOutAmount{
 					RouteImpl: route.RouteImpl{
 						Pools: []domain.RoutablePool{
 							pools.NewExactAmountOutRoutableResultPool(
@@ -156,7 +156,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 					InAmount:  totalOutAmount.QuoRaw(3),
 					OutAmount: totalInAmount.QuoRaw(2),
 				},
-				&usecase.RouteWithOutAmount{
+				&route.RouteWithOutAmount{
 					RouteImpl: route.RouteImpl{
 						Pools: []domain.RoutablePool{
 							pools.NewExactAmountOutRoutableResultPool(
@@ -244,9 +244,8 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 
 		// 2 routes with 50-50 split, each single hop
 		Route: []domain.SplitRoute{
-
 			// Route 1
-			&usecase.RouteWithOutAmount{
+			&route.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						mocks.WithMockedTokenOut(

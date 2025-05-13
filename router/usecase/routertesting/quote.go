@@ -60,7 +60,7 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 		// 2 routes with 50-50 split, each single hop
 		Route: []domain.SplitRoute{
 			// Route 1
-			&usecase.RouteWithOutAmount{
+			&route.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
@@ -89,7 +89,7 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 			},
 
 			// Route 2
-			&usecase.RouteWithOutAmount{
+			&route.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
@@ -121,7 +121,7 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 
 		// 2 routes with 50-50 split, each single hop
 		Route: []domain.SplitRoute{
-			&usecase.RouteWithOutAmount{
+			&route.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
@@ -148,7 +148,7 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 				InAmount:  totalInAmount.QuoRaw(2),
 				OutAmount: totalOutAmount.QuoRaw(3),
 			},
-			&usecase.RouteWithOutAmount{
+			&route.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
