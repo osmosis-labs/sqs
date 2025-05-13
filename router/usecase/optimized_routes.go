@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -25,27 +26,54 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
 
+	type result struct {
+		index int
+		data  RouteWithOutAmount
+		err   error
+	}
+
 	routesWithAmountOut := make([]RouteWithOutAmount, 0, len(routes))
+	results := make(chan result, len(routes))
 
-	errors := []error{}
+	var wg sync.WaitGroup
+	for i, r := range routes {
+		wg.Add(1)
+		go func(i int, r route.RouteImpl) {
+			defer wg.Done()
 
-	for _, route := range routes {
-		directRouteTokenOut, err := route.CalculateTokenOutByTokenIn(ctx, tokenIn)
-		if err != nil {
+			directRouteTokenOut, err := r.CalculateTokenOutByTokenIn(ctx, tokenIn)
+			if err != nil {
+				results <- result{index: i, err: err}
+				return
+			}
+
+			if directRouteTokenOut.Amount.IsNil() {
+				directRouteTokenOut.Amount = osmomath.ZeroInt()
+			}
+
+			results <- result{
+				index: i,
+				data: RouteWithOutAmount{
+					RouteImpl: r,
+					InAmount:  tokenIn.Amount,
+					OutAmount: directRouteTokenOut.Amount,
+				},
+			}
+		}(i, r)
+	}
+
+	wg.Wait() // wait for all goroutines to finish
+	close(results)
+
+	var errors []error
+	for range len(routes) {
+		res := <-results
+		if res.err != nil {
+			errors = append(errors, res.err)
 			logger.Debug("skipping single route due to error in estimate", zap.Error(err))
-			errors = append(errors, err)
 			continue
 		}
-
-		if directRouteTokenOut.Amount.IsNil() {
-			directRouteTokenOut.Amount = osmomath.ZeroInt()
-		}
-
-		routesWithAmountOut = append(routesWithAmountOut, RouteWithOutAmount{
-			RouteImpl: route,
-			InAmount:  tokenIn.Amount,
-			OutAmount: directRouteTokenOut.Amount,
-		})
+		routesWithAmountOut = append(routesWithAmountOut, res.data)
 	}
 
 	// If we skipped all routes due to errors, return the first error
