@@ -31,8 +31,8 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	}
 	// If only one route, return the best single route quote
 	if len(routes) == 1 {
-		route := routes[0]
-		coinOut, err := route.CalculateTokenOutByTokenIn(ctx, tokenIn)
+		r := routes[0]
+		coinOut, err := r.CalculateTokenOutByTokenIn(ctx, tokenIn)
 		if err != nil {
 			return nil, err
 		}
@@ -40,8 +40,8 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		quote := &quoteExactAmountIn{
 			AmountIn:  tokenIn,
 			AmountOut: coinOut.Amount,
-			Route: []domain.SplitRoute{&RouteWithOutAmount{
-				RouteImpl: route,
+			Route: []domain.SplitRoute{&route.RouteWithOutAmount{
+				RouteImpl: r,
 				OutAmount: coinOut.Amount,
 				InAmount:  tokenIn.Amount,
 			}},
@@ -150,7 +150,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 			return nil, fmt.Errorf("out amount is zero when in is not (%s), route index (%d)", inAmount, i)
 		}
 
-		resultRoutes = append(resultRoutes, &RouteWithOutAmount{
+		resultRoutes = append(resultRoutes, &route.RouteWithOutAmount{
 			RouteImpl: currentRoute,
 			InAmount:  inAmount,
 			OutAmount: currentRouteAmtOut,
