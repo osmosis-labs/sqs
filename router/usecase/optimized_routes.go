@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"sync"
 
-	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
 
@@ -21,60 +19,13 @@ import (
 // Returns best quote as well as all routes sorted by amount out and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) {
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes route.RouteImpls, tokenIn sdk.Coin) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
 
-	type result struct {
-		index int
-		data  RouteWithOutAmount
-		err   error
-	}
-
-	routesWithAmountOut := make([]RouteWithOutAmount, 0, len(routes))
-	results := make(chan result, len(routes))
-
-	var wg sync.WaitGroup
-	for i, r := range routes {
-		wg.Add(1)
-		go func(i int, r route.RouteImpl) {
-			defer wg.Done()
-
-			directRouteTokenOut, err := r.CalculateTokenOutByTokenIn(ctx, tokenIn)
-			if err != nil {
-				results <- result{index: i, err: err}
-				return
-			}
-
-			if directRouteTokenOut.Amount.IsNil() {
-				directRouteTokenOut.Amount = osmomath.ZeroInt()
-			}
-
-			results <- result{
-				index: i,
-				data: RouteWithOutAmount{
-					RouteImpl: r,
-					InAmount:  tokenIn.Amount,
-					OutAmount: directRouteTokenOut.Amount,
-				},
-			}
-		}(i, r)
-	}
-
-	wg.Wait() // wait for all goroutines to finish
-	close(results)
-
-	var errors []error
-	for range len(routes) {
-		res := <-results
-		if res.err != nil {
-			errors = append(errors, res.err)
-			logger.Debug("skipping single route due to error in estimate", zap.Error(err))
-			continue
-		}
-		routesWithAmountOut = append(routesWithAmountOut, res.data)
-	}
+	// Compute token out for each route
+	routesWithAmountOut, errors := routes.CalculateTokenOutByTokenIn(ctx, tokenIn)
 
 	// If we skipped all routes due to errors, return the first error
 	if len(routesWithAmountOut) == 0 && len(errors) > 0 {
@@ -113,17 +64,17 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 // Returns best quote as well as all routes sorted by amount in and error if any.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []RouteWithOutAmount, err error) { //nolint:unused
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, err error) { //nolint:unused
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenOut.Denom)
 	}
 
-	routesWithAmountIn := make([]RouteWithOutAmount, 0, len(routes))
+	routesWithAmountIn := make([]route.RouteWithOutAmount, 0, len(routes))
 
 	errors := []error{}
 
-	for _, route := range routes {
-		directRouteTokenIn, err := route.CalculateTokenInByTokenOut(ctx, tokenOut)
+	for _, r := range routes {
+		directRouteTokenIn, err := r.CalculateTokenInByTokenOut(ctx, tokenOut)
 		if err != nil {
 			logger.Debug("skipping single route due to error in estimate", zap.Error(err))
 			errors = append(errors, err)
@@ -134,8 +85,8 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 			directRouteTokenIn.Amount = osmomath.ZeroInt()
 		}
 
-		routesWithAmountIn = append(routesWithAmountIn, RouteWithOutAmount{
-			RouteImpl: route,
+		routesWithAmountIn = append(routesWithAmountIn, route.RouteWithOutAmount{
+			RouteImpl: r,
 			InAmount:  directRouteTokenIn.Amount,
 			OutAmount: tokenOut.Amount,
 		})
@@ -303,27 +254,4 @@ ROUTE_LOOP:
 		UniquePoolIDs:              uniquePoolIDs,
 		ContainsCanonicalOrderbook: containsCanonicalOrderbook,
 	}, nil
-}
-
-type RouteWithOutAmount struct {
-	route.RouteImpl
-	OutAmount osmomath.Int "json:\"out_amount\""
-	InAmount  osmomath.Int "json:\"in_amount\""
-}
-
-var _ domain.SplitRoute = &RouteWithOutAmount{}
-
-// GetAmountIn implements domain.SplitRoute.
-func (r RouteWithOutAmount) GetAmountIn() osmomath.Int {
-	return r.InAmount
-}
-
-// GetAmountOut implements domain.SplitRoute.
-func (r RouteWithOutAmount) GetAmountOut() math.Int {
-	return r.OutAmount
-}
-
-type Split struct {
-	Routes          []domain.SplitRoute
-	CurrentTotalOut osmomath.Int
 }

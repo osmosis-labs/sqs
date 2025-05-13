@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/types"
+	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
@@ -148,8 +149,8 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	q.PriceImpact = q.quoteExactAmountIn.PriceImpact
 	q.InBaseOutQuoteSpotPrice = q.quoteExactAmountIn.InBaseOutQuoteSpotPrice
 
-	for i, route := range q.Route {
-		route, ok := route.(*RouteWithOutAmount)
+	for i, r := range q.Route {
+		route, ok := r.(*route.RouteWithOutAmount)
 		if !ok {
 			return nil, osmomath.Dec{}, types.ErrInvalidRouteType
 		}

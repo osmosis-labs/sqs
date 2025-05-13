@@ -986,7 +986,7 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 			}
 
 			// System under test
-			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteOutGivenIn(context.Background(), routes, defaultTokenIn, &log.NoOpLogger{})
+			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteOutGivenIn(context.Background(), routes, defaultTokenIn)
 
 			// Get cache results
 			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom)

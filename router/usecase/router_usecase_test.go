@@ -391,25 +391,25 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		})
 	)
 
-	wrapRoute := func(r route.RouteImpl) usecase.RouteWithOutAmount {
-		return usecase.RouteWithOutAmount{
+	wrapRoute := func(r route.RouteImpl) route.RouteWithOutAmount {
+		return route.RouteWithOutAmount{
 			RouteImpl: r,
 			// Note: amount is not relevant for this test
 		}
 	}
 
 	tests := map[string]struct {
-		routes []usecase.RouteWithOutAmount
+		routes []route.RouteWithOutAmount
 
 		expectedRoutes []route.RouteImpl
 	}{
 		"empty routes": {
-			routes:         []usecase.RouteWithOutAmount{},
+			routes:         []route.RouteWithOutAmount{},
 			expectedRoutes: []route.RouteImpl{},
 		},
 
 		"single route single pool": {
-			routes: []usecase.RouteWithOutAmount{
+			routes: []route.RouteWithOutAmount{
 				wrapRoute(defaultSingleRoute),
 			},
 
@@ -419,7 +419,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"single route two different pools": {
-			routes: []usecase.RouteWithOutAmount{
+			routes: []route.RouteWithOutAmount{
 				wrapRoute(WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					deafaultPool,
 					otherPool,
@@ -438,7 +438,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		// Duplicate pool IDs within the same route are filtered out at a different step
 		// in the router logic.
 		"single route two same pools (have no effect on filtering)": {
-			routes: []usecase.RouteWithOutAmount{
+			routes: []route.RouteWithOutAmount{
 				wrapRoute(WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
 					deafaultPool,
 					deafaultPool,
@@ -454,7 +454,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"two single hop routes and no duplicates": {
-			routes: []usecase.RouteWithOutAmount{
+			routes: []route.RouteWithOutAmount{
 				wrapRoute(defaultSingleRoute),
 
 				wrapRoute(WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
@@ -472,7 +472,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"two single hop routes with duplicates (second filtered)": {
-			routes: []usecase.RouteWithOutAmount{
+			routes: []route.RouteWithOutAmount{
 				wrapRoute(defaultSingleRoute),
 
 				wrapRoute(defaultSingleRoute),
@@ -484,7 +484,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"three route. first and second overlap. second and third overlap. second is filtered out but not third": {
-			routes: []usecase.RouteWithOutAmount{
+			routes: []route.RouteWithOutAmount{
 				wrapRoute(defaultSingleRoute),
 
 				wrapRoute(WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{
@@ -507,7 +507,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"two routes with duplicate alloy -> not filtered": {
-			routes: []usecase.RouteWithOutAmount{
+			routes: []route.RouteWithOutAmount{
 				wrapRoute(alloyRouteOne),
 
 				wrapRoute(alloyRouteTwo),
@@ -521,7 +521,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"two routes with duplicate transmuter -> not filtered": {
-			routes: []usecase.RouteWithOutAmount{
+			routes: []route.RouteWithOutAmount{
 				wrapRoute(transmuterRouteOne),
 
 				wrapRoute(transmuterRouteTwo),
@@ -535,7 +535,7 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 		},
 
 		"two exact routes with alloy and transmuter -> filtered": {
-			routes: []usecase.RouteWithOutAmount{
+			routes: []route.RouteWithOutAmount{
 				wrapRoute(alloyTransmuterV1Route),
 				wrapRoute(alloyTransmuterV1Route),
 			},

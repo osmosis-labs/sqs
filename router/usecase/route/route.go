@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/prometheus/client_golang/prometheus"
+	"sync"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
@@ -14,6 +12,8 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -29,6 +29,79 @@ type RouteImpl struct {
 	HasGeneralizedCosmWasmPool bool "json:\"has-cw-pool\""
 	// HasCanonicalOrderbookPool is true if the route contains a canonical orderbook pool.
 	HasCanonicalOrderbookPool bool "json:\"-\""
+}
+
+type RouteImpls []RouteImpl
+
+type RouteWithOutAmount struct {
+	RouteImpl
+	OutAmount osmomath.Int "json:\"out_amount\""
+	InAmount  osmomath.Int "json:\"in_amount\""
+}
+
+var _ domain.SplitRoute = &RouteWithOutAmount{}
+
+// GetAmountIn implements domain.SplitRoute.
+func (r RouteWithOutAmount) GetAmountIn() osmomath.Int {
+	return r.InAmount
+}
+
+// GetAmountOut implements domain.SplitRoute.
+func (r RouteWithOutAmount) GetAmountOut() osmomath.Int {
+	return r.OutAmount
+}
+
+func (r RouteImpls) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) ([]RouteWithOutAmount, []error) {
+	type result struct {
+		index int
+		data  RouteWithOutAmount
+		err   error
+	}
+
+	routesWithAmountOut := make([]RouteWithOutAmount, 0, len(r))
+	results := make(chan result, len(r))
+
+	var wg sync.WaitGroup
+	for i, route := range r {
+		wg.Add(1)
+		go func(i int, r RouteImpl) {
+			defer wg.Done()
+
+			directRouteTokenOut, err := r.CalculateTokenOutByTokenIn(ctx, tokenIn)
+			if err != nil {
+				results <- result{index: i, err: err}
+				return
+			}
+
+			if directRouteTokenOut.Amount.IsNil() {
+				directRouteTokenOut.Amount = osmomath.ZeroInt()
+			}
+
+			results <- result{
+				index: i,
+				data: RouteWithOutAmount{
+					RouteImpl: r,
+					InAmount:  tokenIn.Amount,
+					OutAmount: directRouteTokenOut.Amount,
+				},
+			}
+		}(i, route)
+	}
+
+	wg.Wait()      // wait for all goroutines to finish
+	close(results) // close the channel so we can range over it
+
+	var errors []error
+	for range len(r) {
+		res := <-results
+		if res.err != nil {
+			errors = append(errors, res.err)
+			continue
+		}
+		routesWithAmountOut = append(routesWithAmountOut, res.data)
+	}
+
+	return routesWithAmountOut, errors
 }
 
 var spotPriceErrorResultCounter = prometheus.NewCounterVec(

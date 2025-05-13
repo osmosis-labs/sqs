@@ -33,15 +33,15 @@ func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, 
 	return r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 }
 
-func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
-	return r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn, logger)
+func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []route.RouteWithOutAmount, error) {
+	return r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 }
 
-func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (domain.Quote, []RouteWithOutAmount, error) {
+func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (domain.Quote, []route.RouteWithOutAmount, error) {
 	return r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, logger)
 }
 
-func FilterDuplicatePoolIDRoutes(rankedRoutes []RouteWithOutAmount) []route.RouteImpl {
+func FilterDuplicatePoolIDRoutes(rankedRoutes []route.RouteWithOutAmount) []route.RouteImpl {
 	return filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes)
 }
 
