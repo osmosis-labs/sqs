@@ -20,23 +20,23 @@ import (
 var _ domain.Route = &RouteImpl{}
 
 type RouteImpl struct {
-	Pools []domain.RoutablePool "json:\"pools\""
+	Pools []domain.RoutablePool `json:"pools"`
 	// HasGeneralizedCosmWasmPool is true if the route contains a generalized cosmwasm pool.
 	// We track whether a route contains a generalized cosmwasm pool
 	// so that we can exclude it from split quote logic.
 	// The reason for this is that making network requests to chain is expensive.
 	// As a result, we want to minimize the number of requests we make.
-	HasGeneralizedCosmWasmPool bool "json:\"has-cw-pool\""
+	HasGeneralizedCosmWasmPool bool `json:"has-cw-pool"`
 	// HasCanonicalOrderbookPool is true if the route contains a canonical orderbook pool.
-	HasCanonicalOrderbookPool bool "json:\"-\""
+	HasCanonicalOrderbookPool bool `json:"-"`
 }
 
 type RouteImpls []RouteImpl
 
 type RouteWithOutAmount struct {
 	RouteImpl
-	OutAmount osmomath.Int "json:\"out_amount\""
-	InAmount  osmomath.Int "json:\"in_amount\""
+	OutAmount osmomath.Int `json:"out_amount"`
+	InAmount  osmomath.Int `json:"in_amount"`
 }
 
 var _ domain.SplitRoute = &RouteWithOutAmount{}
@@ -51,6 +51,8 @@ func (r RouteWithOutAmount) GetAmountOut() osmomath.Int {
 	return r.OutAmount
 }
 
+// CalculateTokenOutByTokenIn calculates the token out amount given the token in amount for each route in r.
+// Returns slice errors for each route than failed to calculate token out.
 func (r RouteImpls) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) ([]RouteWithOutAmount, []error) {
 	type result struct {
 		index int
@@ -61,6 +63,7 @@ func (r RouteImpls) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.
 	routesWithAmountOut := make([]RouteWithOutAmount, 0, len(r))
 	results := make(chan result, len(r))
 
+	// spin up goroutines to calculate token out for each route
 	var wg sync.WaitGroup
 	for i, route := range r {
 		wg.Add(1)
@@ -91,6 +94,7 @@ func (r RouteImpls) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.
 	wg.Wait()      // wait for all goroutines to finish
 	close(results) // close the channel so we can range over it
 
+	// collect results
 	var errors []error
 	for range len(r) {
 		res := <-results
