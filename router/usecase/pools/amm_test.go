@@ -74,3 +74,14 @@ func TestSolveConstantFunctionInvariant(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkSolveConstantFunctionInvariant(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		solveConstantFunctionInvariant(osmomath.NewDec(386971117259),
+			osmomath.NewDec(386971331294),
+			osmomath.NewDec(536870912000000),
+			osmomath.NewDec(7773284087995),
+			osmomath.NewDec(536870912000000),
+		)
+	}
+}
