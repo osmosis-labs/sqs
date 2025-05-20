@@ -47,6 +47,25 @@ func TestSolveConstantFunctionInvariant(t *testing.T) {
 			tokenWeightUnknown:      osmomath.NewDec(0), // Should panic
 			expectPanic:             true,
 		},
+		{
+			name:                    "change",
+			tokenBalanceFixedBefore: osmomath.NewDec(386971117259),
+			tokenBalanceFixedAfter:  osmomath.NewDec(386971331294),
+			tokenWeightFixed:        osmomath.NewDec(536870912000000),
+			tokenBalanceUnknown:     osmomath.NewDec(7773284087995),
+			tokenWeightUnknown:      osmomath.NewDec(536870912000000),
+			expectedResult:          osmomath.MustNewDecFromStr("4299426.663416173517055000"),
+			expectPanic:             false,
+		},
+		{
+			name:                    "overflow handling",
+			tokenBalanceFixedBefore: osmomath.MustNewDecFromStr("1000000000000000000000000000000"),
+			tokenBalanceFixedAfter:  osmomath.NewDec(1),
+			tokenWeightFixed:        osmomath.MustNewDecFromStr("1000000000000000000000000000000"),
+			tokenBalanceUnknown:     osmomath.MustNewDecFromStr("1000000000000000000000000000000"),
+			tokenWeightUnknown:      osmomath.NewDec(1),
+			expectPanic:             true,
+		},
 	}
 
 	for _, tc := range tests {

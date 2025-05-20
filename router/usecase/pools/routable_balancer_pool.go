@@ -30,8 +30,17 @@ type routableBalancerPoolImpl struct {
 type PoolAsset = balancer.PoolAsset
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
-func (p *routableBalancerPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-	tokenOut, err := p.CalcOutAmtGivenIn(sdk.Context{}.WithContext(ctx), sdk.Coins{tokenIn}, p.TokenOutDenom, p.GetSpreadFactor())
+func (p *routableBalancerPoolImpl) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.Coin) (tokenOut sdk.Coin, err error) {
+	defer func() {
+		if perr := recover(); perr != nil {
+			// If the invariant calculation fails, we try to use the chain pool's implementation.
+			// That usually means that the invariant calculation panicked due to an overflow.
+			tokenOut, err = p.ChainPool.CalcOutAmtGivenIn(sdk.Context{}.WithContext(ctx), sdk.Coins{tokenIn}, p.TokenOutDenom, p.GetSpreadFactor())
+		}
+	}()
+
+	// Attempt to calculate the token out amount using local implementation.
+	tokenOut, err = p.CalcOutAmtGivenIn(sdk.Context{}.WithContext(ctx), sdk.Coins{tokenIn}, p.TokenOutDenom, p.GetSpreadFactor())
 	if err != nil {
 		return sdk.Coin{}, err
 	}

@@ -31,7 +31,12 @@ func solveConstantFunctionInvariant(
 	y := tokenBalanceFixedBefore.Quo(tokenBalanceFixedAfter)
 
 	// amountY = balanceY * (1 - (y ^ weightRatio))
-	yToWeightRatio := osmomath.MustNewDecFromStr(fmt.Sprintf("%v", math.Pow(y.MustFloat64(), weightRatio.MustFloat64())))
+	yWeightRatio := math.Pow(y.MustFloat64(), weightRatio.MustFloat64())
+	if math.IsInf(yWeightRatio, 0) || math.IsNaN(yWeightRatio) {
+		panic("constant-function invariant: overflow while exponentiating y ^ weightRatio")
+	}
+
+	yToWeightRatio := osmomath.MustNewDecFromStr(fmt.Sprintf("%v", yWeightRatio))
 	paranthetical := oneDec.Sub(yToWeightRatio)
 
 	amountY := paranthetical.MulMut(tokenBalanceUnknownBefore)
