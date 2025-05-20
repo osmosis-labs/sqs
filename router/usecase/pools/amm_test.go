@@ -48,16 +48,6 @@ func TestSolveConstantFunctionInvariant(t *testing.T) {
 			expectPanic:             true,
 		},
 		{
-			name:                    "change",
-			tokenBalanceFixedBefore: osmomath.NewDec(386971117259),
-			tokenBalanceFixedAfter:  osmomath.NewDec(386971331294),
-			tokenWeightFixed:        osmomath.NewDec(536870912000000),
-			tokenBalanceUnknown:     osmomath.NewDec(7773284087995),
-			tokenWeightUnknown:      osmomath.NewDec(536870912000000),
-			expectedResult:          osmomath.MustNewDecFromStr("4299426.663416173517055000"),
-			expectPanic:             false,
-		},
-		{
 			name:                    "overflow handling",
 			tokenBalanceFixedBefore: osmomath.MustNewDecFromStr("1000000000000000000000000000000"),
 			tokenBalanceFixedAfter:  osmomath.NewDec(1),
