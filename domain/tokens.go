@@ -40,8 +40,6 @@ type PoolDenomMetaData struct {
 	// Price represents the price of the token.
 	// @Type string
 	Price osmomath.BigDec `json:"price"`
-
-	Pools map[uint64]osmomath.Int `json:"pools"`
 }
 
 // DenomPoolLiquidityMap is a map of denoms to their pool liquidity data.

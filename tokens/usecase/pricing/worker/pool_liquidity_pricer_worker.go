@@ -145,7 +145,6 @@ func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom st
 		TotalLiquidityCap:          liquidityCapitalization.TruncateInt(),
 		TotalEffectiveLiquidityCap: osmomath.ZeroInt(),
 		Price:                      price,
-		Pools:                      blockPoolDenomLiquidityData.Pools,
 	}
 
 	if price.IsZero() {
