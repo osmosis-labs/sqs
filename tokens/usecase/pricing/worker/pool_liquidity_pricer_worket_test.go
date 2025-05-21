@@ -93,9 +93,7 @@ var (
 	defaultATOMBalance = sdk.NewCoin(ATOM, defaultLiquidity)
 )
 
-var (
-	stableCoinDenoms = []string{"usdc", "usdt", "dai", "ist"}
-)
+var stableCoinDenoms = []string{"usdc", "usdt", "dai", "ist"}
 
 func TestPoolLiquidityComputeWorkerSuite(t *testing.T) {
 	suite.Run(t, new(PoolLiquidityComputeWorkerSuite))
@@ -132,7 +130,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestOnPricingUpdate() {
 	}
 
 	// Create the worker
-	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, &poolHandlerMock, liquidityPricer, &log.NoOpLogger{})
+	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, &poolLiquidityHandlerMock, &poolHandlerMock, liquidityPricer, &log.NoOpLogger{})
 
 	// Create & register mock listener
 	mockListener := &mocks.PoolLiquidityPricingMock{}
@@ -269,7 +267,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestHasLaterUpdateThanHeight() {
 	for _, tt := range tests {
 		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
-
 			poolLiquidityPricerWorker := &worker.PoolLiquidityPricerWorker{}
 
 			// Initialize the height for each denom.
@@ -309,7 +306,8 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 				Price:          zeroPrice,
 				TotalLiquidity: defaultLiquidity,
 				// Note: set to zero
-				TotalLiquidityCap: zeroCapitalization,
+				TotalLiquidityCap:          zeroCapitalization,
+				TotalEffectiveLiquidityCap: zeroCapitalization,
 			},
 		}
 	)
@@ -339,9 +337,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 
 			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{
 				UOSMO: {
-					Price:             defaultPrice,
-					TotalLiquidity:    defaultLiquidity,
-					TotalLiquidityCap: defaultLiquidityCap,
+					Price:                      defaultPrice,
+					TotalLiquidity:             defaultLiquidity,
+					TotalLiquidityCap:          defaultLiquidityCap,
+					TotalEffectiveLiquidityCap: osmomath.ZeroInt(),
 				},
 			},
 
@@ -447,16 +446,18 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 
 			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{
 				UOSMO: {
-					Price:             defaultPrice,
-					TotalLiquidity:    defaultLiquidity,
-					TotalLiquidityCap: defaultLiquidityCap,
+					Price:                      defaultPrice,
+					TotalLiquidity:             defaultLiquidity,
+					TotalLiquidityCap:          defaultLiquidityCap,
+					TotalEffectiveLiquidityCap: zeroCapitalization,
 				},
 				ATOM: {
 					Price:          defaultPrice.QuoRaw(2),
 					TotalLiquidity: defaultLiquidity.Add(defaultLiquidity),
 					// 0.5 price * 2 default liquidity yields the same capitalization
 					// result as UOSMO.
-					TotalLiquidityCap: defaultLiquidityCap,
+					TotalLiquidityCap:          defaultLiquidityCap,
+					TotalEffectiveLiquidityCap: zeroCapitalization,
 				},
 			},
 
@@ -482,9 +483,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 			// Note: empty result
 			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{
 				UOSMO: {
-					Price:             defaultPrice,
-					TotalLiquidity:    osmomath.ZeroInt(),
-					TotalLiquidityCap: zeroCapitalization,
+					Price:                      defaultPrice,
+					TotalLiquidity:             osmomath.ZeroInt(),
+					TotalLiquidityCap:          zeroCapitalization,
+					TotalEffectiveLiquidityCap: zeroCapitalization,
 				},
 			},
 
@@ -512,7 +514,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 	for _, tt := range tests {
 		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
-
 			// Create liquidity pricer
 			liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
 
@@ -522,7 +523,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 			}
 
 			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer, &log.NoOpLogger{})
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, &poolLiquidityHandlerMock, nil, liquidityPricer, &log.NoOpLogger{})
 
 			// Pre-set the height for each denom.
 			for denom, height := range tt.preSetUpdateHeightForDenom {
@@ -569,9 +570,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestCreatePoolDenomMetaData() {
 			blockPoolMetadata: defaultBlockPoolMetaData,
 
 			expectedPoolDenomMetadData: domain.PoolDenomMetaData{
-				Price:             defaultPrice,
-				TotalLiquidity:    defaultLiquidity,
-				TotalLiquidityCap: defaultLiquidityCap,
+				Price:                      defaultPrice,
+				TotalLiquidity:             defaultLiquidity,
+				TotalLiquidityCap:          defaultLiquidityCap,
+				TotalEffectiveLiquidityCap: osmomath.ZeroInt(),
 			},
 		},
 		{
@@ -608,7 +610,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestCreatePoolDenomMetaData() {
 	for _, tt := range tests {
 		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
-
 			// Create liquidity pricer
 			liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
 
@@ -618,7 +619,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestCreatePoolDenomMetaData() {
 			}
 
 			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&poolLiquidityHandlerMock, nil, liquidityPricer, &log.NoOpLogger{})
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, &poolLiquidityHandlerMock, nil, liquidityPricer, &log.NoOpLogger{})
 
 			// Pre-set the height for the denom.
 			poolLiquidityPricerWorker.StoreHeightForDenom(tt.updatedBlockDenom, tt.preSetUpdateHeight)
@@ -685,7 +686,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestShouldSkipDenomRepricing() {
 		s.T().Run(tt.name, func(t *testing.T) {
 			// Create the worker
 			// Note: all inputs are irrelevant for this test.
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, nil, nil, &log.NoOpLogger{})
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, nil, nil, nil, &log.NoOpLogger{})
 
 			// Pre-set the height for the denom.
 			poolLiquidityPricerWorker.StoreHeightForDenom(tt.updatedBlockDenom, tt.preSetUpdateHeight)
@@ -843,7 +844,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 	for _, tt := range tests {
 		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
-
 			// Create liquidity pricer
 			liquidityPricer := worker.NewLiquidityPricer(tt.quoteDenom, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
 
@@ -853,7 +853,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 			}
 
 			// Create the worker
-			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, poolHandlerMock, liquidityPricer, &log.NoOpLogger{})
+			poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(nil, nil, poolHandlerMock, liquidityPricer, &log.NoOpLogger{})
 
 			// System under test
 			err := poolLiquidityPricerWorker.RepricePoolLiquidityCap(tt.poolIDs, tt.blockPriceUpdates)

@@ -130,6 +130,13 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 			// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
 			// Otherwise, use the default.
 			options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+		} else {
+			// Fallback
+			// Get the dynamic min pool liquidity cap for the given token in and token out denoms.
+			dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenIn.Denom, tokenOutDenom)
+			if err == nil {
+				options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+			}
 		}
 
 		// Find candidate routes and rank them by direct quotes.

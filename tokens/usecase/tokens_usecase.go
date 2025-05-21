@@ -518,6 +518,10 @@ func (t *TokensUseCase) GetMinPoolEffectiveLiquidityCap(denomA, denomB string) (
 		return 0, err
 	}
 
+	if poolDenomMetadataA.TotalEffectiveLiquidityCap.IsNil() || poolDenomMetadataB.TotalEffectiveLiquidityCap.IsNil() {
+		return 0, fmt.Errorf("effective caps are nil")
+	}
+
 	// Get min liquidity
 	minLiquidityCapBetweenTokens := osmomath.MinInt(poolDenomMetadataA.TotalEffectiveLiquidityCap, poolDenomMetadataB.TotalEffectiveLiquidityCap)
 	if !minLiquidityCapBetweenTokens.IsUint64() {

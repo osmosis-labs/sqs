@@ -27,7 +27,8 @@ var (
 )
 
 type poolLiquidityPricerWorker struct {
-	tokenPoolLiquidityHandler mvc.TokensUsecase
+	tokenPoolLiquidityHandler mvc.TokensPoolLiquidityHandler
+	tokensUsecase             mvc.TokensUsecase
 	poolHandler               mvc.PoolHandler
 
 	updateListeners []domain.PoolLiquidityComputeListener
@@ -43,10 +44,17 @@ type poolLiquidityPricerWorker struct {
 	latestHeightForDenom sync.Map
 }
 
-func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensUsecase, poolHandler mvc.PoolHandler, liquidityPricer domain.LiquidityPricer, logger log.Logger) *poolLiquidityPricerWorker {
+func NewPoolLiquidityWorker(
+	tokensUsecase mvc.TokensUsecase,
+	tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler,
+	poolHandler mvc.PoolHandler,
+	liquidityPricer domain.LiquidityPricer,
+	logger log.Logger,
+) *poolLiquidityPricerWorker {
 	return &poolLiquidityPricerWorker{
 		tokenPoolLiquidityHandler: tokensPoolLiquidityHandler,
 		poolHandler:               poolHandler,
+		tokensUsecase:             tokensUsecase,
 
 		updateListeners: []domain.PoolLiquidityComputeListener{},
 
@@ -147,6 +155,12 @@ func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom st
 		Price:                      price,
 	}
 
+	if !ok {
+		return result, domain.DenomPoolLiquidityDataNotFoundError{
+			Denom: updatedBlockDenom,
+		}
+	}
+
 	if price.IsZero() {
 		return result, domain.PriceNotFoundForPoolLiquidityCapError{
 			Denom: updatedBlockDenom,
@@ -182,7 +196,7 @@ func (p *poolLiquidityPricerWorker) computeEffectiveLiquidityCap(
 
 		var balances []osmomath.BigDec
 		for _, coin := range pool[0].GetSQSPoolModel().Balances {
-			metadata, err := p.tokenPoolLiquidityHandler.GetMetadataByChainDenom(coin.Denom)
+			metadata, err := p.tokensUsecase.GetMetadataByChainDenom(coin.Denom)
 			if err != nil {
 				continue
 			}

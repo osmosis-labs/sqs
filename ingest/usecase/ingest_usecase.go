@@ -353,9 +353,8 @@ func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.
 		if !ok {
 			// Initialize if does not exist
 			denomData = domain.DenomPoolLiquidityData{
-				TotalLiquidity:          osmomath.ZeroInt(),
-				EffectiveTotalLiquidity: osmomath.ZeroBigDec(),
-				Pools:                   map[uint64]osmomath.Int{},
+				TotalLiquidity: osmomath.ZeroInt(),
+				Pools:          map[uint64]osmomath.Int{},
 			}
 		}
 
