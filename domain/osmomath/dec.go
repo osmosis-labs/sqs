@@ -1,11 +1,11 @@
 package osmomath
 
-import "github.com/osmosis-labs/osmosis/osmomath"
+import cosmosmath "github.com/osmosis-labs/osmosis/osmomath"
 
 // MinBigDec returns the minimum value from a slice of osmomath.BigDec.
-func MinBigDec(a ...osmomath.BigDec) osmomath.BigDec {
+func MinBigDec(a ...cosmosmath.BigDec) cosmosmath.BigDec {
 	if len(a) == 0 {
-		return osmomath.BigDec{}
+		return cosmosmath.BigDec{}
 	}
 	min := a[0]
 	for _, b := range a {
@@ -17,9 +17,9 @@ func MinBigDec(a ...osmomath.BigDec) osmomath.BigDec {
 }
 
 // MaxBigDec returns the maximum value from a slice of osmomath.BigDec.
-func MaxBigDec(a ...osmomath.BigDec) osmomath.BigDec {
+func MaxBigDec(a ...cosmosmath.BigDec) cosmosmath.BigDec {
 	if len(a) == 0 {
-		return osmomath.BigDec{}
+		return cosmosmath.BigDec{}
 	}
 	max := a[0]
 	for _, b := range a {
