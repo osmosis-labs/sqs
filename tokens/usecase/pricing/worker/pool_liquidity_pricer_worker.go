@@ -200,8 +200,8 @@ func (p *poolLiquidityPricerWorker) computeEffectiveLiquidityCap(
 			balances = append(balances, normalized)
 		}
 
-		min := stdosmomath.Min(balances...)
-		max := stdosmomath.Max(balances...)
+		min := stdosmomath.MinBigDec(balances...)
+		max := stdosmomath.MaxBigDec(balances...)
 		if max.IsZero() {
 			continue // skip if max is zero
 		}
