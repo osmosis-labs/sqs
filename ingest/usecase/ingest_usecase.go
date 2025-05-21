@@ -19,7 +19,6 @@ import (
 	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
-	domainsdk "github.com/osmosis-labs/sqs/domain/cosmos"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	sqsingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
@@ -380,8 +379,6 @@ func updateCurrentBlockLiquidityMapFromBalances(tokensUsecase mvc.TokensUsecase,
 		return currentBlockLiquidityMap
 	}
 
-	var balances domainsdk.Coins
-
 	// For evey coin in balance
 	for _, coin := range currentPoolBalances {
 		if coin.Validate() != nil {
@@ -399,23 +396,11 @@ func updateCurrentBlockLiquidityMapFromBalances(tokensUsecase mvc.TokensUsecase,
 				TotalLiquidity:          osmomath.ZeroInt(),
 				EffectiveTotalLiquidity: osmomath.ZeroBigDec(),
 				Pools:                   map[uint64]osmomath.Int{},
-				Pools2:                  map[uint64]domainsdk.Coins{},
 			}
 		}
 
 		// Set the denom liquidity contribution from the given pool
 		denomData.Pools[poolID] = coin.Amount
-
-		metadata, err := tokensUsecase.GetMetadataByChainDenom(coin.Denom)
-		if err != nil {
-		}
-
-		balances = append(balances, domainsdk.Coin{
-			Decimals: metadata.Precision,
-			Coin:     coin,
-		})
-
-		denomData.Pools2[poolID] = balances
 
 		// Update total liquidity
 		denomData.TotalLiquidity = denomData.TotalLiquidity.Add(coin.Amount)
@@ -423,59 +408,6 @@ func updateCurrentBlockLiquidityMapFromBalances(tokensUsecase mvc.TokensUsecase,
 		// Update the block liquidity map
 		currentBlockLiquidityMap[coin.Denom] = denomData
 	}
-
-	// if len(currentPoolBalances) < 2 {
-	// 	return currentBlockLiquidityMap
-	// }
-	//
-	// for _, coin := range currentPoolBalances {
-	// 	if coin.Amount.IsNil() || coin.Amount.IsZero() {
-	// 		return currentBlockLiquidityMap
-	// 	}
-	// }
-	//
-	// coinA := currentPoolBalances[0]
-	// coinB := currentPoolBalances[1]
-	//
-	// // Convert to BigDec for precision
-	// amountA, _ := osmomath.NewBigDecFromStr(coinA.Amount.String())
-	// amountB, _ := osmomath.NewBigDecFromStr(coinB.Amount.String())
-	//
-	// decimalsA, err := tokensUsecase.GetMetadataByChainDenom(coinA.Denom)
-	// if err != nil {
-	// }
-	//
-	// decimalsB, err := tokensUsecase.GetMetadataByChainDenom(coinB.Denom)
-	// if err != nil {
-	// }
-	//
-	// // Normalize the amounts based on their decimals
-	// normalizedA := amountA.Quo(osmomath.NewBigDec(10).Power(osmomath.NewBigDec(int64(decimalsA.Precision))))
-	// normalizedB := amountB.Quo(osmomath.NewBigDec(10).Power(osmomath.NewBigDec(int64(decimalsB.Precision))))
-	//
-	// minAmount := Min(normalizedA, normalizedB)
-	// maxAmount := Max(normalizedA, normalizedB)
-	//
-	// if minAmount.IsNil() || maxAmount.IsNil() {
-	// 	fmt.Println("min or max amount is nil")
-	// }
-	//
-	// ratio := osmomath.ZeroBigDec()
-	// if maxAmount.IsPositive() {
-	// 	ratio = minAmount.Quo(maxAmount)
-	// }
-	//
-	// threshold := osmomath.NewBigDecWithPrec(1, 3)
-	// if ratio.GT(threshold) {
-	// 	geometricMean, err := normalizedA.Mul(normalizedB).ApproxSqrt()
-	// 	if err != nil {
-	// 	}
-	//
-	// 	currentBlockLiquidityMap[coinA.Denom].EffectiveTotalLiquidity.AddMut(geometricMean)
-	// 	currentBlockLiquidityMap[coinB.Denom].EffectiveTotalLiquidity.AddMut(geometricMean)
-	// }
-	//
-	// // TODO: update the effective total liquidity
 
 	return currentBlockLiquidityMap
 }
@@ -506,7 +438,6 @@ func updateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap domain.Denom
 			Pools: map[uint64]osmomath.Int{
 				poolID: osmomath.ZeroInt(),
 			},
-			Pools2: map[uint64]domainsdk.Coins{},
 		}
 	}
 
