@@ -31,8 +31,10 @@ type PoolDenomMetaData struct {
 	// @Type string
 	TotalLiquidityCap osmomath.Int `json:"total_liquidity_cap"`
 
-	// TotalEffectiveLiquidityCap represents the total effective liquidity capitalization of the token
-	// across all pools.
+	// TotalEffectiveLiquidityCap is a sum of liquidity of the denom across all pools
+	// that are balanced.
+	// For example:
+	// A pool that has 99% token A and 1% token B in USD value is considered as not balanced.
 	TotalEffectiveLiquidityCap osmomath.Int `json:"total_effective_liquidity_cap"`
 
 	// Price represents the price of the token.
