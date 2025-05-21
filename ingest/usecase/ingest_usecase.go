@@ -276,7 +276,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 			poolID := poolResult.pool.GetId()
 
 			// Update block liquidity map.
-			currentBlockLiquidityMap = updateCurrentBlockLiquidityMapFromBalances(p.tokensUsecase, currentBlockLiquidityMap, currentPoolBalances, poolID)
+			currentBlockLiquidityMap = updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap, currentPoolBalances, poolID)
 
 			// Separately update unique denoms.
 			for _, balance := range currentPoolBalances {
@@ -334,7 +334,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 // For each denom, if there is pre-existent denom data, it is updated, if there is no denom dat, it is initialized to the given balances.
 // CONTRACT: if thehere is a liqudiity entry for a denom, it must have been previously initialized by calling this function.
 // Returns the updated map.
-func updateCurrentBlockLiquidityMapFromBalances(tokensUsecase mvc.TokensUsecase, currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
+func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	if len(currentPoolBalances) == 0 {
 		return currentBlockLiquidityMap
 	}

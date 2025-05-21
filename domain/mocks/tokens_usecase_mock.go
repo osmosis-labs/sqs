@@ -20,6 +20,7 @@ type TokensUsecaseMock struct {
 	GetSpotPriceScalingFactorByDenomFunc func(baseDenom, quoteDenom string) (osmomath.Dec, error)
 	GetPricesFunc                        func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error)
 	GetMinPoolLiquidityCapFunc           func(denomA, denomB string) (uint64, error)
+	GetMinPoolEffectiveLiquidityCapFunc  func(denomA, denomB string) (uint64, error)
 	GetPoolDenomMetadataFunc             func(chainDenom string) (domain.PoolDenomMetaData, error)
 	GetPoolLiquidityCapFunc              func(chainDenom string) (osmomath.Int, error)
 	GetPoolDenomsMetadataFunc            func(chainDenoms []string) domain.PoolDenomMetaDataMap
@@ -94,6 +95,13 @@ func (m *TokensUsecaseMock) GetPrices(ctx context.Context, baseDenoms []string, 
 func (m *TokensUsecaseMock) GetMinPoolLiquidityCap(denomA, denomB string) (uint64, error) {
 	if m.GetMinPoolLiquidityCapFunc != nil {
 		return m.GetMinPoolLiquidityCapFunc(denomA, denomB)
+	}
+	return 0, nil
+}
+
+func (m *TokensUsecaseMock) GetMinPoolEffectiveLiquidityCap(denomA, denomB string) (uint64, error) {
+	if m.GetMinPoolEffectiveLiquidityCapFunc != nil {
+		return m.GetMinPoolEffectiveLiquidityCapFunc(denomA, denomB)
 	}
 	return 0, nil
 }
