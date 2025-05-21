@@ -505,6 +505,7 @@ func (t *TokensUseCase) IsValidChainDenom(chainDenom string) bool {
 	return !v.IsUnlisted
 }
 
+// GetMinPoolEffectiveLiquidityCap implements mvc.TokensUsecase.
 func (t *TokensUseCase) GetMinPoolEffectiveLiquidityCap(denomA, denomB string) (uint64, error) {
 	// Get the pool denoms metadata
 	poolDenomMetadataA, err := t.GetPoolDenomMetadata(denomA)

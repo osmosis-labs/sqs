@@ -330,46 +330,6 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 	return parsedPools, uniqueData, nil
 }
 
-func Min(a, b osmomath.BigDec) osmomath.BigDec {
-	if a.LT(b) {
-		return a
-	}
-	return b
-}
-
-func Max(a, b osmomath.BigDec) osmomath.BigDec {
-	if a.GT(b) {
-		return a
-	}
-	return b
-}
-
-func MinCoin(coins sdk.Coins) sdk.Coin {
-	if len(coins) == 0 {
-		return sdk.Coin{}
-	}
-	min := coins[0]
-	for _, coin := range coins[1:] {
-		if coin.Amount.LT(min.Amount) {
-			min = coin
-		}
-	}
-	return min
-}
-
-func MaxCoin(coins sdk.Coins) sdk.Coin {
-	if len(coins) == 0 {
-		return sdk.Coin{}
-	}
-	max := coins[0]
-	for _, coin := range coins[1:] {
-		if coin.Amount.GT(max.Amount) {
-			max = coin
-		}
-	}
-	return max
-}
-
 // updateCurrentBlockLiquidityMapFromBalances updates the current block liquidity map with the balance from the pool of the supplied ID.
 // For each denom, if there is pre-existent denom data, it is updated, if there is no denom dat, it is initialized to the given balances.
 // CONTRACT: if thehere is a liqudiity entry for a denom, it must have been previously initialized by calling this function.
