@@ -306,8 +306,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 				Price:          zeroPrice,
 				TotalLiquidity: defaultLiquidity,
 				// Note: set to zero
-				TotalLiquidityCap:          zeroCapitalization,
-				TotalEffectiveLiquidityCap: zeroCapitalization,
+				TotalLiquidityCap: zeroCapitalization,
 			},
 		}
 	)
@@ -483,10 +482,9 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 			// Note: empty result
 			expectedUpdatedDenomMetadata: domain.PoolDenomMetaDataMap{
 				UOSMO: {
-					Price:                      defaultPrice,
-					TotalLiquidity:             osmomath.ZeroInt(),
-					TotalLiquidityCap:          zeroCapitalization,
-					TotalEffectiveLiquidityCap: zeroCapitalization,
+					Price:             defaultPrice,
+					TotalLiquidity:    osmomath.ZeroInt(),
+					TotalLiquidityCap: zeroCapitalization,
 				},
 			},
 

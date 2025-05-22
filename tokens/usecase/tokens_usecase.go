@@ -519,7 +519,7 @@ func (t *TokensUseCase) GetMinPoolEffectiveLiquidityCap(denomA, denomB string) (
 	}
 
 	if poolDenomMetadataA.TotalEffectiveLiquidityCap.IsNil() || poolDenomMetadataB.TotalEffectiveLiquidityCap.IsNil() {
-		return 0, fmt.Errorf("effective caps are nil")
+		return 0, fmt.Errorf("effective capitalizations are not computed")
 	}
 
 	// Get min liquidity
