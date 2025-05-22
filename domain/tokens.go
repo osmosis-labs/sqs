@@ -30,6 +30,13 @@ type PoolDenomMetaData struct {
 	// If it is set to zero, that there was a failure in fetching the price.
 	// @Type string
 	TotalLiquidityCap osmomath.Int `json:"total_liquidity_cap"`
+
+	// TotalEffectiveLiquidityCap is a sum of liquidity of the denom across all pools
+	// that are balanced.
+	// For example:
+	// A pool that has 99% token A and 1% token B in USD value is considered as not balanced.
+	TotalEffectiveLiquidityCap osmomath.Int `json:"total_effective_liquidity_cap"`
+
 	// Price represents the price of the token.
 	// @Type string
 	Price osmomath.BigDec `json:"price"`
@@ -43,7 +50,8 @@ type DenomPoolLiquidityMap map[string]DenomPoolLiquidityData
 // pools with their individual contributions to the total.
 type DenomPoolLiquidityData struct {
 	// Total liquidity for this denom
-	TotalLiquidity osmomath.Int
+	TotalLiquidity          osmomath.Int
+	EffectiveTotalLiquidity osmomath.BigDec
 	// Mapping from pool ID to denom liquidity
 	// in that pool
 	Pools map[uint64]osmomath.Int

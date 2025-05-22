@@ -12,6 +12,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	stdosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
 	"github.com/osmosis-labs/sqs/log"
 	"go.uber.org/zap"
 )
@@ -27,6 +28,7 @@ var (
 
 type poolLiquidityPricerWorker struct {
 	tokenPoolLiquidityHandler mvc.TokensPoolLiquidityHandler
+	tokensUsecase             mvc.TokensUsecase
 	poolHandler               mvc.PoolHandler
 
 	updateListeners []domain.PoolLiquidityComputeListener
@@ -42,10 +44,17 @@ type poolLiquidityPricerWorker struct {
 	latestHeightForDenom sync.Map
 }
 
-func NewPoolLiquidityWorker(tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler, poolHandler mvc.PoolHandler, liquidityPricer domain.LiquidityPricer, logger log.Logger) *poolLiquidityPricerWorker {
+func NewPoolLiquidityWorker(
+	tokensUsecase mvc.TokensUsecase,
+	tokensPoolLiquidityHandler mvc.TokensPoolLiquidityHandler,
+	poolHandler mvc.PoolHandler,
+	liquidityPricer domain.LiquidityPricer,
+	logger log.Logger,
+) *poolLiquidityPricerWorker {
 	return &poolLiquidityPricerWorker{
 		tokenPoolLiquidityHandler: tokensPoolLiquidityHandler,
 		poolHandler:               poolHandler,
+		tokensUsecase:             tokensUsecase,
 
 		updateListeners: []domain.PoolLiquidityComputeListener{},
 
@@ -157,7 +166,84 @@ func (p *poolLiquidityPricerWorker) CreatePoolDenomMetaData(updatedBlockDenom st
 		}
 	}
 
+	totalEffectiveLiquidityCap, err := p.computeEffectiveLiquidityCap(blockPoolDenomLiquidityData, blockPriceUpdates, quoteDenom, updatedBlockDenom, price)
+	if err != nil {
+		return result, nil // on error we just skip the effective liquidity cap
+	}
+
+	result.TotalEffectiveLiquidityCap = totalEffectiveLiquidityCap.TruncateInt()
+
 	return result, nil
+}
+
+// computeEffectiveLiquidityCap computes the effective liquidity cap for the given denom.
+// Effective liquidity cap is the sum of the liquidity capitalization for each pool
+// where the ratio of the minimum to maximum balance is greater than 0.01.
+// If an error occurs preventing the calculation of the effective liquidity cap,
+// the function returns the first error encountered.
+func (p *poolLiquidityPricerWorker) computeEffectiveLiquidityCap(
+	blockPoolDenomLiquidityData domain.DenomPoolLiquidityData,
+	blockPriceUpdates domain.PricesResult,
+	quoteDenom string,
+	updatedBlockDenom string,
+	price osmomath.BigDec,
+) (osmomath.Dec, error) {
+	var errors []error
+	totalEffectiveLiquidityCap := osmomath.ZeroDec()
+	for poolID, balance := range blockPoolDenomLiquidityData.Pools {
+		pool, _, err := p.poolHandler.GetPools(domain.WithPoolIDFilter([]uint64{poolID}))
+		if err != nil {
+			errors = append(errors, err)
+			continue
+		}
+		if len(pool) == 0 {
+			continue
+		}
+
+		var balances []osmomath.BigDec
+		for _, coin := range pool[0].GetSQSPoolModel().Balances {
+			metadata, err := p.tokensUsecase.GetMetadataByChainDenom(coin.Denom)
+			if err != nil {
+				errors = append(errors, err)
+				continue
+			}
+
+			amount, err := osmomath.NewBigDecFromStr(coin.Amount.String())
+			if err != nil {
+				errors = append(errors, err)
+				continue
+			}
+
+			price := blockPriceUpdates.GetPriceForDenom(coin.Denom, quoteDenom)
+
+			normalized := amount.Quo(osmomath.NewBigDec(10).Power(osmomath.NewBigDec(int64(metadata.Precision)))).Mul(price)
+
+			balances = append(balances, normalized)
+		}
+
+		min := stdosmomath.MinBigDec(balances...)
+		max := stdosmomath.MaxBigDec(balances...)
+		if max.IsZero() {
+			continue // skip if max is zero
+		}
+
+		ratio := min.Quo(max)
+		threshold := osmomath.NewBigDecWithPrec(1, 2) // 0.01
+		if ratio.LTE(threshold) {
+			continue // skip if ratio is less than 0.01
+		}
+
+		liquidityCapitalization := p.liquidityPricer.PriceCoin(sdk.NewCoin(updatedBlockDenom, balance), price)
+		totalEffectiveLiquidityCap = totalEffectiveLiquidityCap.Add(liquidityCapitalization)
+	}
+
+	// If there are errors and the total effective liquidity cap is zero,
+	// return the first error.
+	if len(errors) > 0 && totalEffectiveLiquidityCap.IsZero() {
+		return osmomath.ZeroDec(), errors[0]
+	}
+
+	return totalEffectiveLiquidityCap, nil
 }
 
 // shouldSkipDenomRepricing returns true if the denom repricing should be skipped.

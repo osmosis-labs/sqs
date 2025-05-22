@@ -277,7 +277,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	if grpcIngesterConfig.Enabled {
 		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, logger)
 
-		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, poolsUseCase, liquidityPricer, logger)
+		poolLiquidityComputeWorker := pricingWorker.NewPoolLiquidityWorker(tokensUseCase, tokensUseCase, poolsUseCase, liquidityPricer, logger)
 
 		candidateRouteSearchDataWorker := routerWorker.NewCandidateRouteSearchDataWorker(poolsUseCase, routerRepository, config.Router.PreferredPoolIDs, cosmWasmPoolConfig, logger)
 

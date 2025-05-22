@@ -335,6 +335,10 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 // CONTRACT: if thehere is a liqudiity entry for a denom, it must have been previously initialized by calling this function.
 // Returns the updated map.
 func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
+	if len(currentPoolBalances) == 0 {
+		return currentBlockLiquidityMap
+	}
+
 	// For evey coin in balance
 	for _, coin := range currentPoolBalances {
 		if coin.Validate() != nil {
@@ -364,7 +368,6 @@ func updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.
 		currentBlockLiquidityMap[coin.Denom] = denomData
 	}
 
-	// Return for idiomacy despite param mutation.
 	return currentBlockLiquidityMap
 }
 
