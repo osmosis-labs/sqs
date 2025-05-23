@@ -35,7 +35,7 @@ func solveConstantFunctionInvariant(
 	// amountY = balanceY * (1 - (y ^ weightRatio))
 	yWeightRatio := bigfloat.Pow(y, weightRatio)
 	if yWeightRatio.IsInf() {
-		panic("yWeightRatio owerflow")
+		panic("yWeightRatio overflow")
 	}
 
 	paranthetical := new(big.Float).Sub(oneDec, yWeightRatio)
