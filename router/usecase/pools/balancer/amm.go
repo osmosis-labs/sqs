@@ -26,7 +26,7 @@ func solveConstantFunctionInvariant(
 	// weightRatio = (weightX/weightY)
 	weightRatio := new(big.Float).Quo(tokenWeightFixed, tokenWeightUnknown)
 	if weightRatio.IsInf() || weightRatio.Cmp(big.NewFloat(0)) == 0 {
-		panic("weight ratio is zero")
+		panic("weight ratio is zero or overflow")
 	}
 
 	// y = balanceXBefore/balanceXAfter
