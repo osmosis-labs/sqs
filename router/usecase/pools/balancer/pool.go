@@ -36,7 +36,7 @@ func New(p poolmanagertypes.PoolI, tokenInDenom string, tokenOutDenom string, ta
 	var assets []PoolAsset
 	for _, asset := range pool.PoolAssets {
 		assets = append(assets, PoolAsset{
-			Token:  sqssdk.NewCoin(asset.Token),
+			Token:  sqssdk.NewCoin(asset.Token.Denom, asset.Token.Amount),
 			Weight: new(big.Float).SetInt(asset.Weight.BigInt()),
 		})
 	}
@@ -124,7 +124,7 @@ func (p *Pool) CalcOutAmtGivenIn(
 	minusSpread := new(big.Float).Sub(oneDec, spreadFactor)
 	tokenInBFloat := new(big.Float).SetInt(tokenIn.Amount.BigInt())
 	tokenAmountInAfterFee := new(big.Float).Mul(tokenInBFloat, minusSpread)
-	poolTokenInBalance := poolAssetIn.Token.Sqs.Amount
+	poolTokenInBalance := &poolAssetIn.Token.AmountFloat
 	poolPostSwapInBalance := new(big.Float).Add(tokenAmountInAfterFee, poolTokenInBalance)
 
 	// deduct spread factor on the tokensIn
@@ -133,7 +133,7 @@ func (p *Pool) CalcOutAmtGivenIn(
 		poolTokenInBalance,
 		poolPostSwapInBalance,
 		poolAssetIn.Weight,
-		poolAssetOut.Token.Sqs.Amount,
+		&poolAssetOut.Token.AmountFloat,
 		poolAssetOut.Weight,
 	)
 
@@ -165,7 +165,7 @@ func (p *Pool) parsePoolAssetsByDenoms(tokenADenom, tokenBDenom string) (
 
 func getPoolAssetByDenom(assets []PoolAsset, denom string) (PoolAsset, bool) {
 	for _, asset := range assets {
-		if asset.Token.Sqs.Denom == denom {
+		if asset.Token.Denom == denom {
 			return asset, true
 		}
 	}
