@@ -1,10 +1,9 @@
-package pools
+package balancer
 
 import (
-	"fmt"
-	"math"
+	"math/big"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/ALTree/bigfloat"
 )
 
 // solveConstantFunctionInvariant solves the constant function of an AMM
@@ -22,23 +21,25 @@ func solveConstantFunctionInvariant(
 	tokenBalanceFixedAfter,
 	tokenWeightFixed,
 	tokenBalanceUnknownBefore,
-	tokenWeightUnknown osmomath.Dec,
-) osmomath.Dec {
+	tokenWeightUnknown *big.Float,
+) *big.Float {
 	// weightRatio = (weightX/weightY)
-	weightRatio := tokenWeightFixed.Quo(tokenWeightUnknown)
-
-	// y = balanceXBefore/balanceXAfter
-	y := tokenBalanceFixedBefore.Quo(tokenBalanceFixedAfter)
-
-	// amountY = balanceY * (1 - (y ^ weightRatio))
-	yWeightRatio := math.Pow(y.MustFloat64(), weightRatio.MustFloat64())
-	if math.IsInf(yWeightRatio, 0) || math.IsNaN(yWeightRatio) {
-		panic("constant-function invariant: overflow while exponentiating y ^ weightRatio")
+	weightRatio := new(big.Float).Quo(tokenWeightFixed, tokenWeightUnknown)
+	if weightRatio.IsInf() || weightRatio.Cmp(big.NewFloat(0)) == 0 {
+		panic("weight ratio is zero or overflow")
 	}
 
-	yToWeightRatio := osmomath.MustNewDecFromStr(fmt.Sprintf("%v", yWeightRatio))
-	paranthetical := oneDec.Sub(yToWeightRatio)
+	// y = balanceXBefore/balanceXAfter
+	y := new(big.Float).Quo(tokenBalanceFixedBefore, tokenBalanceFixedAfter)
 
-	amountY := paranthetical.MulMut(tokenBalanceUnknownBefore)
+	// amountY = balanceY * (1 - (y ^ weightRatio))
+	yWeightRatio := bigfloat.Pow(y, weightRatio)
+	if yWeightRatio.IsInf() {
+		panic("yWeightRatio overflow")
+	}
+
+	paranthetical := new(big.Float).Sub(oneDec, yWeightRatio)
+	amountY := new(big.Float).Mul(paranthetical, tokenBalanceUnknownBefore)
+
 	return amountY
 }
