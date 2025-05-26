@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	dbm "github.com/cosmos/cosmos-db"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
 
@@ -18,10 +15,6 @@ import (
 // - zeroForOneStrategy to provide implementations when swapping token 0 for token 1.
 // - oneForZeroStrategy to provide implementations when swapping token 1 for token 0.
 type SwapStrategy interface {
-	// GetSqrtTargetPrice returns the target square root price given the next tick square root price
-	// upon comparing it to sqrt price limit.
-	// See oneForZeroStrategy or zeroForOneStrategy for implementation details.
-	GetSqrtTargetPrice(nextTickSqrtPrice float64) float64
 	// ComputeSwapWithinBucketOutGivenIn calculates the next sqrt price, the amount of token in consumed, the amount out to return to the user, and total spread reward charge on token in.
 	// This assumes swapping over a single bucket where the liqudiity stays constant until we cross the next initialized tick of the next bucket.
 	// Parameters:
@@ -58,38 +51,6 @@ type SwapStrategy interface {
 	//   * spreadRewardChargeTotal is the total spread reward charge. The spread reward is charged on the amount of token in.
 	// See oneForZeroStrategy or zeroForOneStrategy for implementation details.
 	ComputeSwapWithinBucketInGivenOut(sqrtPriceCurrent, sqrtPriceTarget, liquidity, amountRemainingOut float64) (sqrtPriceNext, amountOutConsumed, amountInComputed, spreadRewardChargeTotal float64)
-	// InitializeNextTickIterator returns iterator that seeks to the next tick from the given tickIndex.
-	// If nex tick relative to tickINdex does not exist in the store, it will return an invalid iterator.
-	// See oneForZeroStrategy or zeroForOneStrategy for implementation details.
-	InitializeNextTickIterator(ctx sdk.Context, poolId uint64, tickIndex int64) dbm.Iterator
-	// SetLiquidityDeltaSign sets the liquidity delta sign for the given liquidity delta.
-	// This is called when consuming all liquidity.
-	// When a position is created, we add liquidity to lower tick
-	// and subtract from the upper tick to reflect that this new
-	// liquidity would be added when the price crosses the lower tick
-	// going up, and subtracted when the price crosses the upper tick
-	// going up. As a result, the sign depends on the direction we are moving.
-	// See oneForZeroStrategy or zeroForOneStrategy for implementation details.
-	SetLiquidityDeltaSign(liquidityDelta float64) float64
-	// UpdateTickAfterCrossing updates the next tick after crossing
-	// to satisfy our "position in-range" invariant which is:
-	// lower tick <= current tick < upper tick
-	// When crossing a tick in zero for one direction, we move
-	// left on the range. As a result, we end up crossing the lower tick
-	// that is inclusive. Therefore, we must decrease the next tick
-	// by 1 additional unit so that it falls under the current range.
-	// When crossing a tick in one for zero direction, we move
-	// right on the range. As a result, we end up crossing the upper tick
-	// that is exclusive. Therefore, we leave the next tick as is since
-	// it is already excluded from the current range.
-	UpdateTickAfterCrossing(nextTick int64) (updatedNextTick int64)
-	// ValidateSqrtPrice validates the given square root price
-	// relative to the current square root price on one side of the bound
-	// and the min/max sqrt price on the other side.
-	// See oneForZeroStrategy or zeroForOneStrategy for implementation details.
-	ValidateSqrtPrice(sqrtPriceLimit, currentSqrtPrice float64) error
-
-	ZeroForOne() bool
 }
 
 var (

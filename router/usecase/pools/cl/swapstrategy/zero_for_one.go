@@ -1,15 +1,7 @@
 package swapstrategy
 
 import (
-	"fmt"
 	"math"
-
-	"cosmossdk.io/store/prefix"
-	dbm "github.com/cosmos/cosmos-db"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
 
 	storetypes "cosmossdk.io/store/types"
 )
@@ -29,20 +21,6 @@ type zeroForOneStrategy struct {
 	oneMinusSpreadFactor float64
 	// spfOverOneMinusSpf is spreadFactor / (1 - spreadFactor)
 	spfOverOneMinusSpf float64
-}
-
-var _ SwapStrategy = (*zeroForOneStrategy)(nil)
-
-func (s zeroForOneStrategy) ZeroForOne() bool { return true }
-
-// GetSqrtTargetPrice returns the target square root price given the next tick square root price.
-// If the given nextTickSqrtPrice is less than the sqrt price limit, the sqrt price limit is returned.
-// Otherwise, the input nextTickSqrtPrice is returned.
-func (s zeroForOneStrategy) GetSqrtTargetPrice(nextTickSqrtPrice float64) float64 {
-	if nextTickSqrtPrice < s.sqrtPriceLimit {
-		return s.sqrtPriceLimit
-	}
-	return nextTickSqrtPrice
 }
 
 // ComputeSwapWithinBucketOutGivenIn calculates the next sqrt price, the amount of token in consumed, the amount out to return to the user, and total spread reward charge on token in.
@@ -196,89 +174,4 @@ func (s zeroForOneStrategy) getSpfOverOneMinusSpf() float64 {
 		s.spfOverOneMinusSpf = math.Ceil((s.spreadFactor/oneMinusSpf)*1e18) / 1e18
 	}
 	return s.spfOverOneMinusSpf
-}
-
-// InitializeNextTickIterator returns iterator that searches for the next tick given currentTickIndex.
-// In zero for one direction, the search is INCLUSIVE of the current tick index.
-// If next tick relative to currentTickIndex is not initialized (does not exist in the store),
-// it will return an invalid iterator.
-//
-// zeroForOneStrategy assumes moving to the left of the current square root price.
-// As a result, we use a reverse iterator to seek to the next tick index relative to the currentTickIndex.
-// Since end key of the reverse iterator is exclusive, we search from currentTickIndex + 1 tick index
-// in decreasing lexicographic order until a tick one smaller than current is found.
-// We add 1 so that the current tick index is included in the search. This is a requirement to satisfy our
-// "active range" invariant of "lower tick <= current tick < upper tick". If we swapr right (zfo) and
-// cross tick X, then immediately start swapping left (zfo), we should be able to cross tick X in the other direction.
-// Returns an invalid iterator if no ticks smaller than currentTickIndex are initialized in the the store.
-// Panics if fails to parse tick index from bytes.
-// The caller is responsible for closing the iterator on success.
-func (s zeroForOneStrategy) InitializeNextTickIterator(ctx sdk.Context, poolId uint64, currentTickIndex int64) dbm.Iterator {
-	store := ctx.KVStore(s.storeKey)
-	prefixBz := types.KeyTickPrefixByPoolId(poolId)
-	prefixStore := prefix.NewStore(store, prefixBz)
-	startKey := types.TickIndexToBytes(currentTickIndex + 1)
-
-	iter := prefixStore.ReverseIterator(nil, startKey)
-
-	for ; iter.Valid(); iter.Next() {
-		// Since, we constructed our prefix store with <TickPrefix | poolID>, the
-		// key is the encoding of a tick index.
-		tick, err := types.TickIndexFromBytes(iter.Key())
-		if err != nil {
-			iter.Close()
-			panic(fmt.Errorf("invalid tick index (%s): %v", string(iter.Key()), err))
-		}
-		if tick <= currentTickIndex {
-			break
-		}
-	}
-	return iter
-}
-
-// SetLiquidityDeltaSign sets the liquidity delta sign for the given liquidity delta.
-// This is called when consuming all liquidity.
-// When a position is created, we add liquidity to lower tick
-// and subtract from the upper tick to reflect that this new
-// liquidity would be added when the price crosses the lower tick
-// going up, and subtracted when the price crosses the upper tick
-// going up. As a result, the sign depend on the direction we are moving.
-//
-// zeroForOneStrategy assumes moving to the left of the current square root price.
-// When we move to the left, we must be crossing upper ticks first where
-// liquidity delta tracks the amount of liquidity being removed. So the sign must be
-// negative.
-func (s zeroForOneStrategy) SetLiquidityDeltaSign(deltaLiquidity float64) float64 {
-	return -deltaLiquidity
-}
-
-// UpdateTickAfterCrossing updates the next tick after crossing
-// to satisfy our "position in-range" invariant which is:
-// lower tick <= current tick < upper tick
-// When crossing a tick in zero for one direction, we move
-// left on the range. As a result, we end up crossing the lower tick
-// that is inclusive. Therefore, we must decrease the next tick
-// by 1 additional unit so that it falls under the current range.
-func (s zeroForOneStrategy) UpdateTickAfterCrossing(nextTick int64) int64 {
-	return nextTick - 1
-}
-
-// ValidateSqrtPrice validates the given square root price
-// relative to the current square root price on one side of the bound
-// and the min/max sqrt price on the other side.
-//
-// zeroForOneStrategy assumes moving to the left of the current square root price.
-// Therefore, the following invariant must hold:
-// types.MinSqrtRatio <= sqrtPrice <= current square root price
-func (s zeroForOneStrategy) ValidateSqrtPrice(sqrtPrice, currentSqrtPrice float64) error {
-	minSqrtPrice := 1e-6 // MinSqrtPrice equivalent
-	// check that the price limit is below the current sqrt price but not lower than the minimum sqrt price if we are swapping asset0 for asset1
-	if sqrtPrice > currentSqrtPrice || sqrtPrice < minSqrtPrice {
-		// Convert float64 back to osmomath types for error reporting
-		sqrtPriceDec := osmomath.BigDecFromDec(osmomath.MustNewDecFromStr(fmt.Sprintf("%.18f", sqrtPrice)))
-		minSqrtPriceDec := osmomath.BigDecFromDec(osmomath.MustNewDecFromStr(fmt.Sprintf("%.18f", minSqrtPrice)))
-		currentSqrtPriceDec := osmomath.BigDecFromDec(osmomath.MustNewDecFromStr(fmt.Sprintf("%.18f", currentSqrtPrice)))
-		return types.SqrtPriceValidationError{SqrtPriceLimit: sqrtPriceDec, LowerBound: minSqrtPriceDec, UpperBound: currentSqrtPriceDec}
-	}
-	return nil
 }

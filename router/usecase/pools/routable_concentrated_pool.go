@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	_           domain.RoutablePool = &routableConcentratedPoolImpl{}
-	smallestDec                     = osmomath.BigDecFromDec(osmomath.SmallestDec()).MustFloat64()
+	_                domain.RoutablePool = &routableConcentratedPoolImpl{}
+	smallestDec                          = osmomath.BigDecFromDec(osmomath.SmallestDec())
+	smallestDecFloat                     = osmomath.SmallestDec().MustFloat64()
 )
 
 func decToFloat64(d osmomath.Dec) float64 {
@@ -137,7 +138,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	}
 
 	// Initialize the swap strategy.
-	swapStrategy := swapstrategy.New(isZeroForOne, smallestDec, &storetypes.KVStoreKey{}, decToFloat64(concentratedPool.SpreadFactor))
+	swapStrategy := swapstrategy.New(isZeroForOne, smallestDecFloat, &storetypes.KVStoreKey{}, decToFloat64(concentratedPool.SpreadFactor))
 
 	var (
 		// Swap state
@@ -258,7 +259,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenInByTokenOut(ctx context.Co
 	}
 
 	// Initialize the swap strategy.
-	swapStrategy := swapstrategy.New(isZeroForOne, smallestDec, &storetypes.KVStoreKey{}, decToFloat64(concentratedPool.SpreadFactor))
+	swapStrategy := swapstrategy.New(isZeroForOne, smallestDecFloat, &storetypes.KVStoreKey{}, decToFloat64(concentratedPool.SpreadFactor))
 
 	var (
 		// Swap state
