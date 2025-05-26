@@ -3,7 +3,7 @@ package pools
 import (
 	"context"
 	"fmt"
-	"math/big"
+	"math"
 
 	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -11,7 +11,7 @@ import (
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	"github.com/osmosis-labs/sqs/domain"
-	"github.com/osmosis-labs/sqs/domain/math"
+	nomath "github.com/osmosis-labs/sqs/domain/math"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	clmath "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/math"
@@ -20,8 +20,6 @@ import (
 	cltypes "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
 	"github.com/osmosis-labs/osmosis/v28/x/poolmanager"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
-
-	"github.com/ALTree/bigfloat"
 )
 
 var (
@@ -38,82 +36,69 @@ type routableConcentratedPoolImpl struct {
 }
 
 var (
-	sdkOneDec      = mustBigFloatFromDec(osmomath.OneDec())
-	sdkTenDec      = mustBigFloatFromDec(osmomath.NewDec(10))
-	powersOfTen    []big.Float
-	negPowersOfTen []big.Float
+	sdkOneDec      = osmomath.OneDec().MustFloat64()
+	sdkTenDec      = osmomath.NewDec(10).MustFloat64()
+	powersOfTen    []float64
+	negPowersOfTen []float64
 
 	osmomathBigOneDec = osmomath.NewBigDec(1)
 	osmomathBigTenDec = osmomath.NewBigDec(10)
-	bigPowersOfTen    []big.Float
-	bigNegPowersOfTen []big.Float
+	bigPowersOfTen    []float64
+	bigNegPowersOfTen []float64
 
 	// 9 * 10^(-types.ExponentAtPriceOne), where types.ExponentAtPriceOne is non-positive and is s.t.
 	// this answer fits well within an int64.
 	geometricExponentIncrementDistanceInTicks = 9 * osmomath.NewDec(10).PowerMut(uint64(-cltypes.ExponentAtPriceOne)).TruncateInt64()
 )
 
-var MaxSpotPrice = mustBigFloatFromDec(cltypes.MaxSpotPrice)
-
-func mustBigFloatFromBigDec(dec osmomath.BigDec) big.Float {
-	f, ok := new(big.Float).SetString(dec.String())
-	if !ok {
-		panic(fmt.Sprintf("failed to parse %s", dec.String()))
-	}
-	return *f
-}
-
-func mustBigFloatFromDec(dec osmomath.Dec) big.Float {
-	f, ok := new(big.Float).SetString(dec.String())
-	if !ok {
-		panic(fmt.Sprintf("failed to parse %s", dec.String()))
-	}
-	return *f
-}
+var MaxSpotPrice = cltypes.MaxSpotPrice.MustFloat64()
 
 // Set precision multipliers
 func init() {
-	// Initialize negPowersOfTen using big.Float
-	negPowersOfTen = make([]big.Float, osmomath.DecPrecision+1)
-	one := big.NewFloat(1)
-	ten := big.NewFloat(10)
+	// Initialize negPowersOfTen using float64
+	negPowersOfTen = make([]float64, osmomath.DecPrecision+1)
+	one := 1.0
+	ten := 10.0
 
 	for i := 0; i <= osmomath.DecPrecision; i++ {
 		// Calculate 10^i using bigfloat.Pow
-		exponent := big.NewFloat(float64(i))
-		power := bigfloat.Pow(ten, exponent)
+		exponent := float64(i)
+		power := math.Pow(ten, exponent)
 
 		// Calculate 1 / 10^i
-		negPowersOfTen[i] = *new(big.Float).Quo(one, power)
+		negPowersOfTen[i] = one / power
 	}
 
 	// 10^77 < osmomath.MaxInt < 10^78
-	powersOfTen = make([]big.Float, 77)
+	powersOfTen = make([]float64, 77)
 	for i := 0; i <= 76; i++ {
 		// Calculate 10^i using bigfloat.Pow
-		exponent := big.NewFloat(float64(i))
-		powersOfTen[i] = *bigfloat.Pow(ten, exponent)
+		exponent := float64(i)
+		powersOfTen[i] = math.Pow(ten, exponent)
 	}
 
-	// Initialize bigNegPowersOfTen using big.Float
-	bigNegPowersOfTen = make([]big.Float, osmomath.BigDecPrecision+1)
+	// Initialize bigNegPowersOfTen using float64
+	bigNegPowersOfTen = make([]float64, osmomath.BigDecPrecision+1)
 	for i := 0; i <= osmomath.BigDecPrecision; i++ {
 		// Calculate 10^i using bigfloat.Pow
-		exponent := big.NewFloat(float64(i))
-		power := bigfloat.Pow(ten, exponent)
+		exponent := float64(i)
+		power := math.Pow(ten, exponent)
 
 		// Calculate 1 / 10^i
-		bigNegPowersOfTen[i] = *new(big.Float).Quo(one, power)
+		bigNegPowersOfTen[i] = one / power
 	}
 
 	// 10^308 < osmomath.MaxInt < 10^309
-	bigPowersOfTen = make([]big.Float, 309)
+	bigPowersOfTen = make([]float64, 309)
 	for i := 0; i <= 308; i++ {
 		// Calculate 10^i using bigfloat.Pow
-		exponent := big.NewFloat(float64(i))
-		bigPowersOfTen[i] = *bigfloat.Pow(ten, exponent)
+		exponent := float64(i)
+		bigPowersOfTen[i] = math.Pow(ten, exponent)
 	}
+
+	buildTickExpCache()
 }
+
 
 // Builds metadata for every additive tickspacing exponent, namely:
 // * what is the first price this tick spacing applies to
@@ -127,12 +112,12 @@ func init() {
 // -1 => (0.1, 10^(types.ExponentAtPriceOne - 1), 9 * (types.ExponentAtPriceOne - 1))
 type tickExpIndexData struct {
 	// if price < initialPrice, we are not in this exponent range.
-	initialPrice big.Float
+	initialPrice float64
 	// if price >= maxPrice, we are not in this exponent range.
-	maxPrice big.Float
+	maxPrice float64
 	// TODO: Change to normal Dec, if min spot price increases.
 	// additive increment per tick here.
-	additiveIncrementPerTick big.Float
+	additiveIncrementPerTick float64
 	// the tick that corresponds to initial price
 	initialTick int64
 }
@@ -141,13 +126,13 @@ var tickExpCache map[int64]*tickExpIndexData = make(map[int64]*tickExpIndexData)
 
 func buildTickExpCache() {
 	// build positive indices first
-	maxPrice := mustBigFloatFromBigDec(osmomathBigOneDec)
+	maxPrice := osmomathBigOneDec.MustFloat64()
 	curExpIndex := int64(0)
-	for maxPrice.Cmp(&MaxSpotPrice) < 0 { // LT
+	for maxPrice < MaxSpotPrice { // LT
 		tickExpCache[curExpIndex] = &tickExpIndexData{
 			// price range 10^curExpIndex to 10^(curExpIndex + 1). (10, 100)
-			initialPrice:             mustBigFloatFromBigDec(osmomathBigTenDec.PowerInteger(uint64(curExpIndex))),
-			maxPrice:                 mustBigFloatFromBigDec(osmomathBigTenDec.PowerInteger(uint64(curExpIndex + 1))),
+			initialPrice:             osmomathBigTenDec.PowerInteger(uint64(curExpIndex)).MustFloat64(),
+			maxPrice:                 osmomathBigTenDec.PowerInteger(uint64(curExpIndex + 1)).MustFloat64(),
 			additiveIncrementPerTick: powTenBigDec(cltypes.ExponentAtPriceOne + curExpIndex),
 			initialTick:              geometricExponentIncrementDistanceInTicks * curExpIndex,
 		}
@@ -155,10 +140,10 @@ func buildTickExpCache() {
 		curExpIndex += 1
 	}
 
-	minPrice := mustBigFloatFromBigDec(osmomathBigOneDec)
+	minPrice := osmomathBigOneDec.MustFloat64()
 	curExpIndex = -1
-	minSpotPrice := mustBigFloatFromBigDec(osmomath.NewBigDecWithPrec(1, 30))
-	for minPrice.Cmp(&minSpotPrice) > 0 { // GT
+	minSpotPrice := osmomath.NewBigDecWithPrec(1, 30).MustFloat64() // 10^-30
+	for minPrice > minSpotPrice { // GT
 		tickExpCache[curExpIndex] = &tickExpIndexData{
 			// price range 10^curExpIndex to 10^(curExpIndex + 1). (0.001, 0.01)
 			initialPrice:             powTenBigDec(curExpIndex),
@@ -171,18 +156,18 @@ func buildTickExpCache() {
 	}
 }
 
-var oneBigFloat = big.NewFloat(1)
+var oneBigFloat = 1.0
 
 var (
-	MinSpotPriceV2     = mustBigFloatFromBigDec(cltypes.MinSpotPriceV2)
-	MaxSpotPriceBigDec = mustBigFloatFromBigDec(cltypes.MaxSpotPriceBigDec)
+	MinSpotPriceV2     = cltypes.MinSpotPriceV2.MustFloat64()
+	MaxSpotPriceBigDec = cltypes.MaxSpotPriceBigDec.MustFloat64()
 )
 
 // TickToPrice returns the price given a tickIndex
 // If tickIndex is zero, the function returns osmomath.OneDec().
-func TickToPrice(tickIndex int64) (big.Float, error) {
+func TickToPrice(tickIndex int64) (float64, error) {
 	if tickIndex == 0 {
-		return *oneBigFloat, nil
+		return oneBigFloat, nil
 	}
 
 	// N.B. We special case MinInitializedTickV2 and MinCurrentTickV2 since MinInitializedTickV2
@@ -196,7 +181,7 @@ func TickToPrice(tickIndex int64) (big.Float, error) {
 
 	numAdditiveTicks, geometricExponentDelta, err := clmath.TickToAdditiveGeometricIndices(tickIndex)
 	if err != nil {
-		return big.Float{}, err
+		return 0, err
 	}
 
 	// price = 10^geometricExponentDelta + numAdditiveTicks * 10^exponentAtCurrentTick
@@ -217,34 +202,22 @@ func TickToPrice(tickIndex int64) (big.Float, error) {
 	}
 	unscaledPrice += numAdditiveTicks
 	pw := powTenBigDec(exponentAtCurrentTick)
-	price := new(big.Float).Mul(&pw, big.NewFloat(float64(unscaledPrice)))
+	price := pw * float64(unscaledPrice)
 
 	// defense in depth, this logic would not be reached due to use having checked if given tick is in between
 	// min tick and max tick.
-	if price.Cmp(&MaxSpotPriceBigDec) > 0 || price.Cmp(&MinSpotPriceV2) < 0 {
-		return big.Float{}, cltypes.PriceBoundError{}
-		// return big.Float{}, cltypes.PriceBoundError{ProvidedPrice: price, MinSpotPrice: cltypes.MinSpotPriceV2, MaxSpotPrice: cltypes.MaxSpotPrice}
+	if price > MaxSpotPriceBigDec || price < MinSpotPriceV2 {
+		return 0, cltypes.PriceBoundError{} // TODO
+		// return float64{}, cltypes.PriceBoundError{ProvidedPrice: price, MinSpotPrice: cltypes.MinSpotPriceV2, MaxSpotPrice: cltypes.MaxSpotPrice}
 	}
-	return *price, nil
+	return price, nil
 }
 
-func powTenBigDec(exponent int64) big.Float {
+func powTenBigDec(exponent int64) float64 {
 	if exponent >= 0 {
 		return bigPowersOfTen[exponent]
 	}
 	return bigNegPowersOfTen[-exponent]
-}
-
-// TickToSqrtPrice returns the sqrtPrice given a tickIndex
-// If tickIndex is zero, the function returns osmomath.OneDec().
-// It is the combination of calling TickToPrice followed by Sqrt.
-func TickToSqrtPrice_(tickIndex int64) (big.Float, error) {
-	priceBigFloat, err := TickToPrice(tickIndex)
-	if err != nil {
-		return big.Float{}, err
-	}
-
-	return *new(big.Float).Sqrt(&priceBigFloat), nil
 }
 
 func TickToSqrtPrice(tickIndex int64) (osmomath.BigDec, error) {
@@ -253,9 +226,9 @@ func TickToSqrtPrice(tickIndex int64) (osmomath.BigDec, error) {
 		return osmomath.BigDec{}, err
 	}
 
-	sqrtPriceFloat := *new(big.Float).Sqrt(&priceBigFloat)
+	sqrtPriceFloat := math.Sqrt(priceBigFloat)
 
-	sqrtPrice, err := math.BigFloatToBigDec(sqrtPriceFloat)
+	sqrtPrice, err := nomath.ParseScientificNotation(fmt.Sprintf("%v", sqrtPriceFloat))
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -266,20 +239,6 @@ func TickToSqrtPrice(tickIndex int64) (osmomath.BigDec, error) {
 // Size is roughly `keys * (2.5 * Key_size + 2*value_size)`. (Plus whatever excess overhead hashmaps internally have)
 // key is 8 bytes, value is ~152 bytes
 // so at 100k keys its max RAM of ~30MB
-var tickToSqrtPriceCache1, _ = lru.New2Q[int64, big.Float](1000000)
-
-// func getTickToSqrtPrice1(tick int64) (big.Float, error) {
-// 	if sqrtPrice, ok := tickToSqrtPriceCache1.Get(tick); ok {
-// 		return sqrtPrice, nil
-// 	}
-//
-// 	sqrtPrice, err := TickToSqrtPrice_(tick)
-// 	if err != nil {
-// 		tickToSqrtPriceCache.Add(tick, sqrtPrice)
-// 	}
-// 	return sqrtPrice, err
-// }
-
 var tickToSqrtPriceCache, _ = lru.New2Q[int64, osmomath.BigDec](1000000)
 
 func getTickToSqrtPrice(tick int64) (osmomath.BigDec, error) {
