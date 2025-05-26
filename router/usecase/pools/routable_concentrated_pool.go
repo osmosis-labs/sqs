@@ -3,7 +3,6 @@ package pools
 import (
 	"context"
 	"fmt"
-	"math"
 
 	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -11,21 +10,24 @@ import (
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	"github.com/osmosis-labs/sqs/domain"
-	nomath "github.com/osmosis-labs/sqs/domain/math"
+	"github.com/osmosis-labs/sqs/router/usecase/pools/cl/math"
+	"github.com/osmosis-labs/sqs/router/usecase/pools/cl/swapstrategy"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	clmath "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/math"
 	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
-	"github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/swapstrategy"
-	cltypes "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
 	"github.com/osmosis-labs/osmosis/v28/x/poolmanager"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
 var (
 	_           domain.RoutablePool = &routableConcentratedPoolImpl{}
-	smallestDec                     = osmomath.BigDecFromDec(osmomath.SmallestDec())
+	smallestDec                     = osmomath.BigDecFromDec(osmomath.SmallestDec()).MustFloat64()
 )
+
+func decToFloat64(d osmomath.Dec) float64 {
+	f, _ := d.Float64()
+	return f
+}
 
 type routableConcentratedPoolImpl struct {
 	ChainPool     *concentratedmodel.Pool `json:"cl_pool"`
@@ -35,218 +37,17 @@ type routableConcentratedPoolImpl struct {
 	TakerFee      osmomath.Dec            `json:"taker_fee"`
 }
 
-var (
-	sdkOneDec      = osmomath.OneDec().MustFloat64()
-	sdkTenDec      = osmomath.NewDec(10).MustFloat64()
-	powersOfTen    []float64
-	negPowersOfTen []float64
-
-	osmomathBigOneDec = osmomath.NewBigDec(1)
-	osmomathBigTenDec = osmomath.NewBigDec(10)
-	bigPowersOfTen    []float64
-	bigNegPowersOfTen []float64
-
-	// 9 * 10^(-types.ExponentAtPriceOne), where types.ExponentAtPriceOne is non-positive and is s.t.
-	// this answer fits well within an int64.
-	geometricExponentIncrementDistanceInTicks = 9 * osmomath.NewDec(10).PowerMut(uint64(-cltypes.ExponentAtPriceOne)).TruncateInt64()
-)
-
-var MaxSpotPrice = cltypes.MaxSpotPrice.MustFloat64()
-
-// Set precision multipliers
-func init() {
-	// Initialize negPowersOfTen using float64
-	negPowersOfTen = make([]float64, osmomath.DecPrecision+1)
-	one := 1.0
-	ten := 10.0
-
-	for i := 0; i <= osmomath.DecPrecision; i++ {
-		// Calculate 10^i using bigfloat.Pow
-		exponent := float64(i)
-		power := math.Pow(ten, exponent)
-
-		// Calculate 1 / 10^i
-		negPowersOfTen[i] = one / power
-	}
-
-	// 10^77 < osmomath.MaxInt < 10^78
-	powersOfTen = make([]float64, 77)
-	for i := 0; i <= 76; i++ {
-		// Calculate 10^i using bigfloat.Pow
-		exponent := float64(i)
-		powersOfTen[i] = math.Pow(ten, exponent)
-	}
-
-	// Initialize bigNegPowersOfTen using float64
-	bigNegPowersOfTen = make([]float64, osmomath.BigDecPrecision+1)
-	for i := 0; i <= osmomath.BigDecPrecision; i++ {
-		// Calculate 10^i using bigfloat.Pow
-		exponent := float64(i)
-		power := math.Pow(ten, exponent)
-
-		// Calculate 1 / 10^i
-		bigNegPowersOfTen[i] = one / power
-	}
-
-	// 10^308 < osmomath.MaxInt < 10^309
-	bigPowersOfTen = make([]float64, 309)
-	for i := 0; i <= 308; i++ {
-		// Calculate 10^i using bigfloat.Pow
-		exponent := float64(i)
-		bigPowersOfTen[i] = math.Pow(ten, exponent)
-	}
-
-	buildTickExpCache()
-}
-
-
-// Builds metadata for every additive tickspacing exponent, namely:
-// * what is the first price this tick spacing applies to
-// * what is the first tick this applies for
-// * (saves on pre-compute) what is the additive increment per tick.
-//
-// This would be stored in a map, keyed by:
-// 0 => (1.00, 10^(types.ExponentAtPriceOne), 0)
-// 1 => (10, 10^(1 + types.ExponentAtPriceOne), 9 * types.ExponentAtPriceOne)
-// 2 => (100, 10^(2 + types.ExponentAtPriceOne), 9 * (types.ExponentAtPriceOne + 1))
-// -1 => (0.1, 10^(types.ExponentAtPriceOne - 1), 9 * (types.ExponentAtPriceOne - 1))
-type tickExpIndexData struct {
-	// if price < initialPrice, we are not in this exponent range.
-	initialPrice float64
-	// if price >= maxPrice, we are not in this exponent range.
-	maxPrice float64
-	// TODO: Change to normal Dec, if min spot price increases.
-	// additive increment per tick here.
-	additiveIncrementPerTick float64
-	// the tick that corresponds to initial price
-	initialTick int64
-}
-
-var tickExpCache map[int64]*tickExpIndexData = make(map[int64]*tickExpIndexData)
-
-func buildTickExpCache() {
-	// build positive indices first
-	maxPrice := osmomathBigOneDec.MustFloat64()
-	curExpIndex := int64(0)
-	for maxPrice < MaxSpotPrice { // LT
-		tickExpCache[curExpIndex] = &tickExpIndexData{
-			// price range 10^curExpIndex to 10^(curExpIndex + 1). (10, 100)
-			initialPrice:             osmomathBigTenDec.PowerInteger(uint64(curExpIndex)).MustFloat64(),
-			maxPrice:                 osmomathBigTenDec.PowerInteger(uint64(curExpIndex + 1)).MustFloat64(),
-			additiveIncrementPerTick: powTenBigDec(cltypes.ExponentAtPriceOne + curExpIndex),
-			initialTick:              geometricExponentIncrementDistanceInTicks * curExpIndex,
-		}
-		maxPrice = tickExpCache[curExpIndex].maxPrice
-		curExpIndex += 1
-	}
-
-	minPrice := osmomathBigOneDec.MustFloat64()
-	curExpIndex = -1
-	minSpotPrice := osmomath.NewBigDecWithPrec(1, 30).MustFloat64() // 10^-30
-	for minPrice > minSpotPrice { // GT
-		tickExpCache[curExpIndex] = &tickExpIndexData{
-			// price range 10^curExpIndex to 10^(curExpIndex + 1). (0.001, 0.01)
-			initialPrice:             powTenBigDec(curExpIndex),
-			maxPrice:                 powTenBigDec(curExpIndex + 1),
-			additiveIncrementPerTick: powTenBigDec(cltypes.ExponentAtPriceOne + curExpIndex),
-			initialTick:              geometricExponentIncrementDistanceInTicks * curExpIndex,
-		}
-		minPrice = tickExpCache[curExpIndex].initialPrice
-		curExpIndex -= 1
-	}
-}
-
-var oneBigFloat = 1.0
-
-var (
-	MinSpotPriceV2     = cltypes.MinSpotPriceV2.MustFloat64()
-	MaxSpotPriceBigDec = cltypes.MaxSpotPriceBigDec.MustFloat64()
-)
-
-// TickToPrice returns the price given a tickIndex
-// If tickIndex is zero, the function returns osmomath.OneDec().
-func TickToPrice(tickIndex int64) (float64, error) {
-	if tickIndex == 0 {
-		return oneBigFloat, nil
-	}
-
-	// N.B. We special case MinInitializedTickV2 and MinCurrentTickV2 since MinInitializedTickV2
-	// is the first one that requires taking 10 to the exponent of (-31 + -6) = -37
-	// Given BigDec's precision of 36, that cannot be supported.
-	// The fact that MinInitializedTickV2 and MinCurrentTickV2 translate to the same
-	// price is acceptable since MinCurrentTickV2 cannot be initialized.
-	if tickIndex == cltypes.MinInitializedTickV2 || tickIndex == cltypes.MinCurrentTickV2 {
-		return MinSpotPriceV2, nil
-	}
-
-	numAdditiveTicks, geometricExponentDelta, err := clmath.TickToAdditiveGeometricIndices(tickIndex)
-	if err != nil {
-		return 0, err
-	}
-
-	// price = 10^geometricExponentDelta + numAdditiveTicks * 10^exponentAtCurrentTick
-	// exponent at current tick = types.ExponentAtPriceOne + geometricExponentDelta + conditional
-	// where conditional = -1 if tickIndex < 0, 0 otherwise
-	// so we compute the price as (10**(geometricExponentDelta - exponentAtCurrentTick) + numAdditiveTicks) * 10**exponentAtCurrentTick
-	// notice that geometricExponentDelta - exponentAtCurrentTick is either 6 or 7
-	// so we compute this as unscaledPrice = (10**(geometricExponentDelta - exponentAtCurrentTick) + numAdditiveTicks)
-
-	// Calculate the exponentAtCurrentTick from the starting exponentAtPriceOne and the geometricExponentDelta
-	exponentAtCurrentTick := cltypes.ExponentAtPriceOne + geometricExponentDelta
-	var unscaledPrice int64 = 1_000_000
-	if tickIndex < 0 {
-		// We must decrement the exponentAtCurrentTick when entering the negative tick range in order to constantly step up in precision when going further down in ticks
-		// Otherwise, from tick 0 to tick -(geometricExponentIncrementDistanceInTicks), we would use the same exponent as the exponentAtPriceOne
-		exponentAtCurrentTick = exponentAtCurrentTick - 1
-		unscaledPrice *= 10
-	}
-	unscaledPrice += numAdditiveTicks
-	pw := powTenBigDec(exponentAtCurrentTick)
-	price := pw * float64(unscaledPrice)
-
-	// defense in depth, this logic would not be reached due to use having checked if given tick is in between
-	// min tick and max tick.
-	if price > MaxSpotPriceBigDec || price < MinSpotPriceV2 {
-		return 0, cltypes.PriceBoundError{} // TODO
-		// return float64{}, cltypes.PriceBoundError{ProvidedPrice: price, MinSpotPrice: cltypes.MinSpotPriceV2, MaxSpotPrice: cltypes.MaxSpotPrice}
-	}
-	return price, nil
-}
-
-func powTenBigDec(exponent int64) float64 {
-	if exponent >= 0 {
-		return bigPowersOfTen[exponent]
-	}
-	return bigNegPowersOfTen[-exponent]
-}
-
-func TickToSqrtPrice(tickIndex int64) (osmomath.BigDec, error) {
-	priceBigFloat, err := TickToPrice(tickIndex)
-	if err != nil {
-		return osmomath.BigDec{}, err
-	}
-
-	sqrtPriceFloat := math.Sqrt(priceBigFloat)
-
-	sqrtPrice, err := nomath.ParseScientificNotation(fmt.Sprintf("%v", sqrtPriceFloat))
-	if err != nil {
-		return osmomath.BigDec{}, err
-	}
-
-	return sqrtPrice, nil
-}
-
 // Size is roughly `keys * (2.5 * Key_size + 2*value_size)`. (Plus whatever excess overhead hashmaps internally have)
 // key is 8 bytes, value is ~152 bytes
 // so at 100k keys its max RAM of ~30MB
-var tickToSqrtPriceCache, _ = lru.New2Q[int64, osmomath.BigDec](1000000)
+var tickToSqrtPriceCache, _ = lru.New2Q[int64, float64](1000000)
 
-func getTickToSqrtPrice(tick int64) (osmomath.BigDec, error) {
+func getTickToSqrtPrice(tick int64) (float64, error) {
 	if sqrtPrice, ok := tickToSqrtPriceCache.Get(tick); ok {
 		return sqrtPrice, nil
 	}
 
-	sqrtPrice, err := TickToSqrtPrice(tick)
+	sqrtPrice, err := math.TickToSqrtPrice(tick)
 	if err != nil {
 		tickToSqrtPriceCache.Add(tick, sqrtPrice)
 	}
@@ -336,24 +137,24 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 	}
 
 	// Initialize the swap strategy.
-	swapStrategy := swapstrategy.New(isZeroForOne, smallestDec, &storetypes.KVStoreKey{}, concentratedPool.SpreadFactor)
+	swapStrategy := swapstrategy.New(isZeroForOne, smallestDec, &storetypes.KVStoreKey{}, decToFloat64(concentratedPool.SpreadFactor))
 
 	var (
 		// Swap state
-		currentSqrtPrice = concentratedPool.GetCurrentSqrtPrice()
+		currentSqrtPrice = concentratedPool.GetCurrentSqrtPrice().MustFloat64()
 
-		amountRemainingIn = tokenIn.Amount.ToLegacyDec()
-		amountOutTotal    = osmomath.ZeroDec()
+		amountRemainingIn = tokenIn.Amount.ToLegacyDec().MustFloat64()
+		amountOutTotal    = 0.0
 	)
 
-	if currentSqrtPrice.IsZero() {
+	if currentSqrtPrice == 0 {
 		return sdk.Coin{}, domain.ConcentratedZeroCurrentSqrtPriceError{
 			PoolId: concentratedPool.Id,
 		}
 	}
 
 	// Compute swap over all buckets.
-	for amountRemainingIn.IsPositive() {
+	for amountRemainingIn > 0 {
 		if currentBucketIndex >= int64(len(tickModel.Ticks)) || currentBucketIndex < 0 {
 			// This happens when there is not enough liquidity in the pool to complete the swap
 			// for a given amount of token in.
@@ -384,11 +185,11 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 		}
 
 		// Compute the swap within current bucket
-		sqrtPriceNext, amountInConsumed, amountOutComputed, spreadRewardChargeTotal := swapStrategy.ComputeSwapWithinBucketOutGivenIn(currentSqrtPrice, sqrtPriceTarget, currentBucket.LiquidityAmount, amountRemainingIn)
+		sqrtPriceNext, amountInConsumed, amountOutComputed, spreadRewardChargeTotal := swapStrategy.ComputeSwapWithinBucketOutGivenIn(currentSqrtPrice, sqrtPriceTarget, decToFloat64(currentBucket.LiquidityAmount), amountRemainingIn)
 
 		// Update swap state for next iteration
-		amountRemainingIn = amountRemainingIn.SubMut(amountInConsumed).SubMut(spreadRewardChargeTotal)
-		amountOutTotal = amountOutTotal.AddMut(amountOutComputed)
+		amountRemainingIn = amountRemainingIn - amountInConsumed - spreadRewardChargeTotal
+		amountOutTotal = amountOutTotal + amountOutComputed
 
 		// Update current sqrt price
 		currentSqrtPrice = sqrtPriceNext
@@ -396,7 +197,7 @@ func (r *routableConcentratedPoolImpl) CalculateTokenOutByTokenIn(ctx context.Co
 
 	// Return the total amount out.
 
-	return sdk.Coin{Denom: tokenOutDenom, Amount: amountOutTotal.TruncateInt()}, nil
+	return sdk.Coin{Denom: tokenOutDenom, Amount: osmomath.NewInt(int64(amountOutTotal))}, nil
 }
 
 // CalculateTokenInByTokenOut implements domain.RoutablePool.
@@ -457,24 +258,24 @@ func (r *routableConcentratedPoolImpl) CalculateTokenInByTokenOut(ctx context.Co
 	}
 
 	// Initialize the swap strategy.
-	swapStrategy := swapstrategy.New(isZeroForOne, smallestDec, &storetypes.KVStoreKey{}, concentratedPool.SpreadFactor)
+	swapStrategy := swapstrategy.New(isZeroForOne, smallestDec, &storetypes.KVStoreKey{}, decToFloat64(concentratedPool.SpreadFactor))
 
 	var (
 		// Swap state
-		currentSqrtPrice = concentratedPool.GetCurrentSqrtPrice()
+		currentSqrtPrice = concentratedPool.GetCurrentSqrtPrice().MustFloat64()
 
-		amountRemainingOut = tokenOut.Amount.ToLegacyDec()
-		amountInTotal      = osmomath.ZeroDec()
+		amountRemainingOut = tokenOut.Amount.ToLegacyDec().MustFloat64()
+		amountInTotal      = 0.0
 	)
 
-	if currentSqrtPrice.IsZero() {
+	if currentSqrtPrice == 0 {
 		return sdk.Coin{}, domain.ConcentratedZeroCurrentSqrtPriceError{
 			PoolId: concentratedPool.Id,
 		}
 	}
 
 	// Compute swap over all buckets.
-	for amountRemainingOut.IsPositive() {
+	for amountRemainingOut > 0 {
 		if currentBucketIndex >= int64(len(tickModel.Ticks)) || currentBucketIndex < 0 {
 			// This happens when there is not enough liquidity in the pool to complete the swap
 			// for a given amount of token in.
@@ -505,18 +306,18 @@ func (r *routableConcentratedPoolImpl) CalculateTokenInByTokenOut(ctx context.Co
 		}
 
 		// Compute the swap within current bucket
-		sqrtPriceNext, amountOutConsumed, amountInComputed, spreadRewardChargeTotal := swapStrategy.ComputeSwapWithinBucketInGivenOut(currentSqrtPrice, sqrtPriceTarget, currentBucket.LiquidityAmount, amountRemainingOut)
+		sqrtPriceNext, amountOutConsumed, amountInComputed, spreadRewardChargeTotal := swapStrategy.ComputeSwapWithinBucketInGivenOut(currentSqrtPrice, sqrtPriceTarget, decToFloat64(currentBucket.LiquidityAmount), amountRemainingOut)
 
 		// Update swap state for next iteration
-		amountRemainingOut = amountRemainingOut.SubMut(amountOutConsumed).SubMut(spreadRewardChargeTotal)
-		amountInTotal = amountInTotal.AddMut(amountInComputed)
+		amountRemainingOut = amountRemainingOut - amountOutConsumed - spreadRewardChargeTotal
+		amountInTotal = amountInTotal + amountInComputed
 
 		// Update current sqrt price
 		currentSqrtPrice = sqrtPriceNext
 	}
 
 	// Return the total amount in.
-	return sdk.Coin{Denom: tokenInDenom, Amount: amountInTotal.TruncateInt()}, nil
+	return sdk.Coin{Denom: tokenInDenom, Amount: osmomath.NewInt(int64(amountInTotal))}, nil
 }
 
 // GetTokenOutDenom implements RoutablePool.
