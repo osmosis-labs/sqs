@@ -1,5 +1,3 @@
 package balancer
 
-import "math/big"
-
-var oneDec = big.NewFloat(1)
+const oneDec = 1.0
