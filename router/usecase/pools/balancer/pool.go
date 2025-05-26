@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
@@ -35,20 +34,21 @@ func New(p poolmanagertypes.PoolI, tokenInDenom string, tokenOutDenom string, ta
 
 	var assets []PoolAsset
 	for _, asset := range pool.PoolAssets {
+		weightFloat, _ := asset.Weight.BigInt().Float64()
 		assets = append(assets, PoolAsset{
 			Token:  sqssdk.NewCoin(asset.Token.Denom, asset.Token.Amount),
-			Weight: new(big.Float).SetInt(asset.Weight.BigInt()),
+			Weight: weightFloat,
 		})
 	}
 
-	swapFee, ok := new(big.Float).SetString(pool.PoolParams.SwapFee.String())
-	if !ok {
-		panic("failed to parse swap fee")
+	swapFee, err := pool.PoolParams.SwapFee.Float64()
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse swap fee: %v", err))
 	}
 
-	exitFee, ok := new(big.Float).SetString(pool.PoolParams.ExitFee.String())
-	if !ok {
-		panic("failed to parse exit fee")
+	exitFee, err := pool.PoolParams.ExitFee.Float64()
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse exit fee: %v", err))
 	}
 
 	return &Pool{
@@ -69,11 +69,11 @@ func New(p poolmanagertypes.PoolI, tokenInDenom string, tokenOutDenom string, ta
 // governance. Instead they will be managed by the token holders of the pool.
 // The pool's token holders are specified in future_pool_governor.
 type PoolParams struct {
-	SwapFee *big.Float
+	SwapFee float64
 	// N.B.: exit fee is disabled during pool creation in x/poolmanager. While old
 	// pools can maintain a non-zero fee. No new pool can be created with non-zero
 	// fee anymore
-	ExitFee *big.Float
+	ExitFee float64
 }
 
 // Pool asset is an internal struct that combines the amount of the
@@ -85,7 +85,7 @@ type PoolAsset struct {
 	// the denomination must be unique amongst all PoolAssets for this pool.
 	Token sqssdk.Coin
 	// Weight that is not normalized. This weight must be less than 2^50
-	Weight *big.Float
+	Weight float64
 }
 
 // Pool is a wrapper around the balancer pool model.
@@ -114,18 +114,18 @@ func (p *Pool) CalcOutAmtGivenIn(
 	ctx sdk.Context,
 	tokensIn sdk.Coins,
 	tokenOutDenom string,
-	spreadFactor *big.Float,
+	spreadFactor float64,
 ) (sdk.Coin, error) {
 	tokenIn, poolAssetIn, poolAssetOut, err := p.parsePoolAssets(tokensIn, tokenOutDenom)
 	if err != nil {
 		return sdk.Coin{}, err
 	}
 
-	minusSpread := new(big.Float).Sub(oneDec, spreadFactor)
-	tokenInBFloat := new(big.Float).SetInt(tokenIn.Amount.BigInt())
-	tokenAmountInAfterFee := new(big.Float).Mul(tokenInBFloat, minusSpread)
-	poolTokenInBalance := &poolAssetIn.Token.AmountFloat
-	poolPostSwapInBalance := new(big.Float).Add(tokenAmountInAfterFee, poolTokenInBalance)
+	minusSpread := oneDec - spreadFactor
+	tokenInFloat, _ := tokenIn.Amount.BigInt().Float64()
+	tokenAmountInAfterFee := tokenInFloat * minusSpread
+	poolTokenInBalance := poolAssetIn.Token.AmountFloat
+	poolPostSwapInBalance := tokenAmountInAfterFee + poolTokenInBalance
 
 	// deduct spread factor on the tokensIn
 	// delta balanceOut is positive(tokens inside the pool decreases)
@@ -133,19 +133,18 @@ func (p *Pool) CalcOutAmtGivenIn(
 		poolTokenInBalance,
 		poolPostSwapInBalance,
 		poolAssetIn.Weight,
-		&poolAssetOut.Token.AmountFloat,
+		poolAssetOut.Token.AmountFloat,
 		poolAssetOut.Weight,
 	)
 
 	// We ignore the decimal component, as we round down the token amount out.
-	if tokenAmountOut.Sign() < 0 {
+	if tokenAmountOut < 0 {
 		return sdk.Coin{}, errorsmod.Wrapf(types.ErrInvalidMathApprox, "token amount must be positive")
 	}
 
-	bigInt := new(big.Int)
-	tokenAmountOut.Int(bigInt) // convert to big int ( truncated )
+	tokenAmountOutTruncated := int64(tokenAmountOut)
 
-	return sdk.Coin{Denom: tokenOutDenom, Amount: osmomath.NewIntFromBigInt(bigInt)}, nil
+	return sdk.Coin{Denom: tokenOutDenom, Amount: osmomath.NewInt(tokenAmountOutTruncated)}, nil
 }
 
 func (p *Pool) parsePoolAssetsByDenoms(tokenADenom, tokenBDenom string) (
