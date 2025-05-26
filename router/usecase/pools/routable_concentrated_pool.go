@@ -238,6 +238,15 @@ func powTenBigDec(exponent int64) big.Float {
 // TickToSqrtPrice returns the sqrtPrice given a tickIndex
 // If tickIndex is zero, the function returns osmomath.OneDec().
 // It is the combination of calling TickToPrice followed by Sqrt.
+func TickToSqrtPrice_(tickIndex int64) (big.Float, error) {
+	priceBigFloat, err := TickToPrice(tickIndex)
+	if err != nil {
+		return big.Float{}, err
+	}
+
+	return *new(big.Float).Sqrt(&priceBigFloat), nil
+}
+
 func TickToSqrtPrice(tickIndex int64) (osmomath.BigDec, error) {
 	priceBigFloat, err := TickToPrice(tickIndex)
 	if err != nil {
@@ -257,6 +266,20 @@ func TickToSqrtPrice(tickIndex int64) (osmomath.BigDec, error) {
 // Size is roughly `keys * (2.5 * Key_size + 2*value_size)`. (Plus whatever excess overhead hashmaps internally have)
 // key is 8 bytes, value is ~152 bytes
 // so at 100k keys its max RAM of ~30MB
+var tickToSqrtPriceCache1, _ = lru.New2Q[int64, big.Float](1000000)
+
+// func getTickToSqrtPrice1(tick int64) (big.Float, error) {
+// 	if sqrtPrice, ok := tickToSqrtPriceCache1.Get(tick); ok {
+// 		return sqrtPrice, nil
+// 	}
+//
+// 	sqrtPrice, err := TickToSqrtPrice_(tick)
+// 	if err != nil {
+// 		tickToSqrtPriceCache.Add(tick, sqrtPrice)
+// 	}
+// 	return sqrtPrice, err
+// }
+
 var tickToSqrtPriceCache, _ = lru.New2Q[int64, osmomath.BigDec](1000000)
 
 func getTickToSqrtPrice(tick int64) (osmomath.BigDec, error) {
