@@ -1,9 +1,7 @@
 package balancer
 
 import (
-	"math/big"
-
-	"github.com/ALTree/bigfloat"
+	"math"
 )
 
 // solveConstantFunctionInvariant solves the constant function of an AMM
@@ -21,25 +19,24 @@ func solveConstantFunctionInvariant(
 	tokenBalanceFixedAfter,
 	tokenWeightFixed,
 	tokenBalanceUnknownBefore,
-	tokenWeightUnknown *big.Float,
-) *big.Float {
-	// weightRatio = (weightX/weightY)
-	weightRatio := new(big.Float).Quo(tokenWeightFixed, tokenWeightUnknown)
-	if weightRatio.IsInf() || weightRatio.Cmp(big.NewFloat(0)) == 0 {
+	tokenWeightUnknown float64,
+) float64 {
+	weightRatio := tokenWeightFixed / tokenWeightUnknown
+	if math.IsInf(weightRatio, 0) || weightRatio == 0 {
 		panic("weight ratio is zero or overflow")
 	}
 
 	// y = balanceXBefore/balanceXAfter
-	y := new(big.Float).Quo(tokenBalanceFixedBefore, tokenBalanceFixedAfter)
+	y := tokenBalanceFixedBefore / tokenBalanceFixedAfter
 
 	// amountY = balanceY * (1 - (y ^ weightRatio))
-	yWeightRatio := bigfloat.Pow(y, weightRatio)
-	if yWeightRatio.IsInf() {
+	yWeightRatio := math.Pow(y, weightRatio)
+	if math.IsInf(yWeightRatio, 0) {
 		panic("yWeightRatio overflow")
 	}
 
-	paranthetical := new(big.Float).Sub(oneDec, yWeightRatio)
-	amountY := new(big.Float).Mul(paranthetical, tokenBalanceUnknownBefore)
+	paranthetical := oneDec - yWeightRatio
+	amountY := paranthetical * tokenBalanceUnknownBefore
 
 	return amountY
 }

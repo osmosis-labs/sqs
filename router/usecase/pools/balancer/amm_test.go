@@ -1,67 +1,58 @@
 package balancer
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func mustBigFloat(s string) *big.Float {
-	f, _, err := big.ParseFloat(s, 10, 256, big.ToNearestEven)
-	if err != nil {
-		panic(err)
-	}
-	return f
-}
-
 func TestSolveConstantFunctionInvariant(t *testing.T) {
 	tests := []struct {
 		name                    string
-		tokenBalanceFixedBefore *big.Float
-		tokenBalanceFixedAfter  *big.Float
-		tokenWeightFixed        *big.Float
-		tokenBalanceUnknown     *big.Float
-		tokenWeightUnknown      *big.Float
-		expectedResult          *big.Float
+		tokenBalanceFixedBefore float64
+		tokenBalanceFixedAfter  float64
+		tokenWeightFixed        float64
+		tokenBalanceUnknown     float64
+		tokenWeightUnknown      float64
+		expectedResult          float64
 		expectPanic             bool
 	}{
 		{
 			name:                    "change",
-			tokenBalanceFixedBefore: mustBigFloat("386971117259"),
-			tokenBalanceFixedAfter:  mustBigFloat("386971331294"),
-			tokenWeightFixed:        mustBigFloat("536870912000000"),
-			tokenBalanceUnknown:     mustBigFloat("7773284087995"),
-			tokenWeightUnknown:      mustBigFloat("536870912000000"),
-			expectedResult:          mustBigFloat("4299426.663496108929920041"),
+			tokenBalanceFixedBefore: 386971117259,
+			tokenBalanceFixedAfter:  386971331294,
+			tokenWeightFixed:        536870912000000,
+			tokenBalanceUnknown:     7773284087995,
+			tokenWeightUnknown:      536870912000000,
+			expectedResult:          4299426.663496108929920041,
 			expectPanic:             false,
 		},
 		{
 			name:                    "no change",
-			tokenBalanceFixedBefore: mustBigFloat("100"),
-			tokenBalanceFixedAfter:  mustBigFloat("100"),
-			tokenWeightFixed:        mustBigFloat("1"),
-			tokenBalanceUnknown:     mustBigFloat("100"),
-			tokenWeightUnknown:      mustBigFloat("1"),
-			expectedResult:          mustBigFloat("0"),
+			tokenBalanceFixedBefore: 100,
+			tokenBalanceFixedAfter:  100,
+			tokenWeightFixed:        1,
+			tokenBalanceUnknown:     100,
+			tokenWeightUnknown:      1,
+			expectedResult:          0,
 			expectPanic:             false,
 		},
 		{
 			name:                    "panic on zero weight",
-			tokenBalanceFixedBefore: mustBigFloat("100"),
-			tokenBalanceFixedAfter:  mustBigFloat("90"),
-			tokenWeightFixed:        mustBigFloat("0.5"),
-			tokenBalanceUnknown:     mustBigFloat("200"),
-			tokenWeightUnknown:      mustBigFloat("0"),
+			tokenBalanceFixedBefore: 100,
+			tokenBalanceFixedAfter:  90,
+			tokenWeightFixed:        0.5,
+			tokenBalanceUnknown:     200,
+			tokenWeightUnknown:      0,
 			expectPanic:             true,
 		},
 		{
 			name:                    "overflow handling",
-			tokenBalanceFixedBefore: mustBigFloat("1000000000000000000000000000000"),
-			tokenBalanceFixedAfter:  mustBigFloat("1"),
-			tokenWeightFixed:        mustBigFloat("1000000000000000000000000000000"),
-			tokenBalanceUnknown:     mustBigFloat("1000000000000000000000000000000"),
-			tokenWeightUnknown:      mustBigFloat("1"),
+			tokenBalanceFixedBefore: 1000000000000000000000000000000,
+			tokenBalanceFixedAfter:  1,
+			tokenWeightFixed:        1000000000000000000000000000000,
+			tokenBalanceUnknown:     1000000000000000000000000000000,
+			tokenWeightUnknown:      1,
 			expectPanic:             true,
 		},
 	}
@@ -85,7 +76,7 @@ func TestSolveConstantFunctionInvariant(t *testing.T) {
 			)
 
 			if !tc.expectPanic {
-				require.Equal(t, tc.expectedResult.String(), result.String())
+				require.InDelta(t, tc.expectedResult, result, 0.001) // Allow small floating point errors
 			}
 		})
 	}
@@ -94,11 +85,11 @@ func TestSolveConstantFunctionInvariant(t *testing.T) {
 func BenchmarkSolveConstantFunctionInvariant(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		solveConstantFunctionInvariant(
-			big.NewFloat(386971117259),
-			big.NewFloat(386971331294),
-			big.NewFloat(536870912000000),
-			big.NewFloat(7773284087995),
-			big.NewFloat(536870912000000),
+			386971117259,
+			386971331294,
+			536870912000000,
+			7773284087995,
+			536870912000000,
 		)
 	}
 }

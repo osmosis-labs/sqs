@@ -1,17 +1,14 @@
 package types
 
-import (
-	"math/big"
-
-	"github.com/osmosis-labs/osmosis/osmomath"
-)
+import "github.com/osmosis-labs/osmosis/osmomath"
 
 // NewCoin returns a new coin with a denomination and amount.
 func NewCoin(denom string, amount osmomath.Int) Coin {
+	amountFloat, _ := amount.BigInt().Float64()
 	return Coin{
 		Denom:       denom,
 		AmountInt:   amount,
-		AmountFloat: *new(big.Float).SetInt(amount.BigInt()),
+		AmountFloat: amountFloat,
 	}
 }
 
@@ -22,5 +19,5 @@ type Coins []Coin
 type Coin struct {
 	Denom       string
 	AmountInt   osmomath.Int
-	AmountFloat big.Float
+	AmountFloat float64
 }
