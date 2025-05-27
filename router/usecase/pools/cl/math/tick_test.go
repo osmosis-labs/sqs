@@ -1,6 +1,7 @@
 package math_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/osmosis-labs/sqs/router/usecase/pools/cl/math"
@@ -290,6 +291,17 @@ func TestTickToPrice_SuccessCases(t *testing.T) {
 			expectedPrice: osmomath.NewBigDecWithPrec(9876544, 6+19), // 6 for number of digits after, 18 for geometric multiplier and 1 for negative ticks
 		},
 	}
+
+	isEqual := func(a, b string) bool {
+		aFloat := new(big.Float)
+		bFloat := new(big.Float)
+
+		aFloat.SetString(a)
+		bFloat.SetString(b)
+
+		return aFloat.Cmp(bFloat) == 0
+	}
+
 	for name, tc := range testCases {
 		tc := tc
 
@@ -302,7 +314,7 @@ func TestTickToPrice_SuccessCases(t *testing.T) {
 
 			require.NoError(t, err)
 
-			require.Equal(t, tc.expectedPrice.String(), price.String())
+			require.True(t, isEqual(tc.expectedPrice.String(), price.String()))
 		})
 	}
 }

@@ -18,7 +18,9 @@ var (
 func init() {
 	bigNegPowersOfTen = make([]*decimal.Big, osmomath.BigDecPrecision+1)
 	for i := 0; i <= osmomath.BigDecPrecision; i++ {
-		bigNegPowersOfTen[i] = new(decimal.Big).Quo(osmomathBigOneDec, math.Pow(new(decimal.Big), osmomathBigTenDec, decimal.New(int64(i), 0)))
+		pow := math.Pow(new(decimal.Big), osmomathBigTenDec, decimal.New(int64(i), 0))
+		quo := new(decimal.Big).Quo(osmomathBigOneDec, pow)
+		bigNegPowersOfTen[i] = quo
 	}
 	// 10^308 < osmomath.MaxInt < 10^309
 	bigPowersOfTen = make([]*decimal.Big, 309)
