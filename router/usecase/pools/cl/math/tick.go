@@ -1,11 +1,12 @@
 package math
 
 import (
+	"github.com/osmosis-labs/osmosis/osmomath"
 	clmath "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/math"
 	"github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
 
 	"github.com/ericlagergren/decimal"
-	"github.com/ericlagergren/decimal/math"
+	"github.com/ericlagergren/decimal/math" // nolint: staticcheck
 )
 
 var MaxSpotPrice = mustDecFromString(types.MaxSpotPrice.String())
@@ -26,7 +27,10 @@ func TickToSqrtPrice(tickIndex int64) (*decimal.Big, error) {
 		return nil, err
 	}
 
-	sqrtPrice := math.Sqrt(new(decimal.Big), priceBigDec)
+	z := new(decimal.Big)
+	z.Context.Precision = osmomath.BigDecPrecision // Set the precision to match osmomath.BigDecPrecision
+
+	sqrtPrice := math.Sqrt(z, priceBigDec)
 
 	return sqrtPrice, nil
 }

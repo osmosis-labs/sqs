@@ -4,7 +4,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 
 	"github.com/ericlagergren/decimal"
-	"github.com/ericlagergren/decimal/math"
+	"github.com/ericlagergren/decimal/math" // nolint: staticcheck
 )
 
 var (

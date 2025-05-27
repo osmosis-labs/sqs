@@ -28,6 +28,17 @@ var (
 	bigTenDec      = osmomath.NewBigDec(10)
 )
 
+// isEqual compares two strings representing decimal numbers and returns true if they are equal.
+func isEqual(a, b string) bool {
+	aFloat := new(big.Float)
+	bFloat := new(big.Float)
+
+	aFloat.SetString(a)
+	bFloat.SetString(b)
+
+	return aFloat.Cmp(bFloat) == 0
+}
+
 // use following equations to test testing vectors using sage
 // geometricExponentIncrementDistanceInTicks(exponentAtPriceOne) = (9 * (10^(-exponentAtPriceOne)))
 // geometricExponentDelta(tickIndex, exponentAtPriceOne)  = floor(tickIndex / geometricExponentIncrementDistanceInTicks(exponentAtPriceOne))
@@ -234,7 +245,7 @@ func TestTickToSqrtPrice(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, expectedSqrtPrice.String(), sqrtPrice.String())
+			require.True(t, isEqual(expectedSqrtPrice.String(), sqrtPrice.String()), "expected: %s, got: %s", expectedSqrtPrice.String(), sqrtPrice.String())
 		})
 	}
 }
@@ -292,16 +303,6 @@ func TestTickToPrice_SuccessCases(t *testing.T) {
 		},
 	}
 
-	isEqual := func(a, b string) bool {
-		aFloat := new(big.Float)
-		bFloat := new(big.Float)
-
-		aFloat.SetString(a)
-		bFloat.SetString(b)
-
-		return aFloat.Cmp(bFloat) == 0
-	}
-
 	for name, tc := range testCases {
 		tc := tc
 
@@ -314,7 +315,7 @@ func TestTickToPrice_SuccessCases(t *testing.T) {
 
 			require.NoError(t, err)
 
-			require.True(t, isEqual(tc.expectedPrice.String(), price.String()))
+			require.True(t, isEqual(tc.expectedPrice.String(), price.String()), "expected: %s, got: %s", tc.expectedPrice.String(), price.String())
 		})
 	}
 }
