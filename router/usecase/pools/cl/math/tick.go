@@ -20,18 +20,15 @@ var (
 // TickToSqrtPrice returns the sqrtPrice given a tickIndex
 // If tickIndex is zero, the function returns osmomath.OneDec().
 // It is the combination of calling TickToPrice followed by Sqrt.
-func TickToSqrtPrice(tickIndex int64) (float64, error) {
+func TickToSqrtPrice(tickIndex int64) (*decimal.Big, error) {
 	priceBigDec, err := TickToPrice(tickIndex)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	sqrtPriceDec := math.Sqrt(new(decimal.Big), priceBigDec)
-	sqrtPriceFloat, _ := sqrtPriceDec.Float64()
+	sqrtPrice := math.Sqrt(new(decimal.Big), priceBigDec)
 
-	// sqrtPrice := math.Sqrt(priceFloat)
-
-	return sqrtPriceFloat, nil
+	return sqrtPrice, nil
 }
 
 // TickToPrice returns the price given a tickIndex

@@ -50,9 +50,13 @@ func getTickToSqrtPrice(tick int64) (float64, error) {
 
 	sqrtPrice, err := math.TickToSqrtPrice(tick)
 	if err != nil {
-		tickToSqrtPriceCache.Add(tick, sqrtPrice)
+		f, _ := sqrtPrice.Float64()
+		tickToSqrtPriceCache.Add(tick, f)
 	}
-	return sqrtPrice, err
+
+	f, _ := sqrtPrice.Float64()
+
+	return f, err
 }
 
 // GetPoolDenoms implements domain.RoutablePool.
