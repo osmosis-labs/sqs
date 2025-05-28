@@ -2,7 +2,8 @@ package pipeline
 
 import (
 	"fmt"
-	"sync"
+
+	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 )
 
 // Iterator interface defines methods for filtering, sorting, and chunked access
@@ -14,7 +15,7 @@ type Iterator[K, V any] interface {
 }
 
 // NewMapIterator creates an iterator over map data
-func NewSyncMapIterator[K, V any](data *sync.Map, keys []K) *SyncMapIterator[K, V] {
+func NewSyncMapIterator[K comparable, V any](data *atomic.Map[K, V], keys []K) *SyncMapIterator[K, V] {
 	return &SyncMapIterator[K, V]{
 		data:  data,
 		keys:  keys,
@@ -23,8 +24,8 @@ func NewSyncMapIterator[K, V any](data *sync.Map, keys []K) *SyncMapIterator[K, 
 }
 
 // SyncMapIterator is a sample iterator for a map data structure
-type SyncMapIterator[K, V any] struct {
-	data  *sync.Map
+type SyncMapIterator[K comparable, V any] struct {
+	data  *atomic.Map[K, V]
 	keys  []K
 	index int
 }
@@ -35,17 +36,12 @@ func (it *SyncMapIterator[K, V]) Next() (V, error) {
 	if it.HasNext() {
 		key := it.keys[it.index]
 		it.index++
-		mp, ok := it.data.Load(key)
+		mp, ok := it.data.Get(key)
 		if !ok {
 			return *new(V), fmt.Errorf("key %v not found", key)
 		}
 
-		value, ok := mp.(V)
-		if !ok {
-			return *new(V), fmt.Errorf("invalid type assertion for key %v", key)
-		}
-
-		return value, nil
+		return mp, nil
 	}
 
 	return *new(V), fmt.Errorf("no more elements")

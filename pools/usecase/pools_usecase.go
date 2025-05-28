@@ -16,6 +16,7 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/pipeline"
+	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
@@ -54,7 +55,7 @@ type orderBookEntry struct {
 }
 
 type poolsUseCase struct {
-	pools               sync.Map
+	pools               *atomic.Map[uint64, ingesttypes.PoolI]
 	routerRepository    routerrepo.RouterRepository
 	tokenMetadataHolder TokenMetadataHolder
 
@@ -111,7 +112,7 @@ func NewPoolsUsecase(
 	}
 
 	return &poolsUseCase{
-		pools:               sync.Map{},
+		pools:               &atomic.Map[uint64, ingesttypes.PoolI]{},
 		routerRepository:    routerRepository,
 		tokenMetadataHolder: tokenMetadataHolder,
 
@@ -135,16 +136,18 @@ func NewPoolsUsecase(
 
 // GetAllPools returns all pools from the repository.
 func (p *poolsUseCase) GetAllPools() (pools []ingesttypes.PoolI, err error) {
-	p.pools.Range(func(key, value interface{}) bool {
-		pool, ok := value.(ingesttypes.PoolI)
-		if !ok {
-			err = fmt.Errorf("failed to cast pool with value %v", value)
-			return false
-		}
+	data, err := p.pools.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load pools: %w", err)
+	}
 
-		pools = append(pools, pool)
-		return true
-	})
+	for _, pool := range data {
+		poolI, ok := pool.(ingesttypes.PoolI)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast pool with value %v", pool)
+		}
+		pools = append(pools, poolI)
+	}
 
 	return pools, nil
 }
@@ -243,7 +246,7 @@ func (p *poolsUseCase) GetTickModelMap(poolIDs []uint64) (map[uint64]*ingesttype
 
 // GetPool implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetPool(poolID uint64) (ingesttypes.PoolI, error) {
-	poolObj, ok := p.pools.Load(poolID)
+	poolObj, ok := p.pools.Get(poolID)
 	if !ok {
 		return nil, domain.PoolNotFoundError{PoolID: poolID}
 	}
@@ -490,7 +493,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 		return nil, 0, nil
 	}
 
-	transformer := pipeline.NewSyncMapTransformer[uint64, ingesttypes.PoolI](&p.pools)
+	transformer := pipeline.NewSyncMapTransformer(p.pools)
 
 	// Apply filters
 	for _, applyFilter := range poolFilters {
@@ -569,7 +572,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 	if pagination := options.Pagination; pagination == nil {
 		pools = transformer.Data()
 	} else {
-		iterator := pipeline.NewSyncMapIterator[uint64, ingesttypes.PoolI](&p.pools, transformer.Keys())
+		iterator := pipeline.NewSyncMapIterator(p.pools, transformer.Keys())
 		paginator := pipeline.NewPaginator[uint64](iterator, pagination)
 		pools = paginator.GetPage()
 	}
@@ -592,7 +595,7 @@ func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 			}
 		}
 
-		p.pools.Store(poolID, pool)
+		p.pools.Set(poolID, pool)
 
 		// If orderbook, update top liquidity pool for base and quote denom if it has higher liquidity capitalization.
 		sqsModel := pool.GetSQSPoolModel()
