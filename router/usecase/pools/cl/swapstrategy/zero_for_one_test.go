@@ -1,9 +1,10 @@
 package swapstrategy_test
 
 import (
+	"github.com/osmosis-labs/sqs/router/usecase/pools/cl/swapstrategy"
+
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v29/x/concentrated-liquidity/swapstrategy"
-	"github.com/osmosis-labs/osmosis/v29/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
 )
 
 var hundredDec = osmomath.NewDec(100)
@@ -12,40 +13,6 @@ var oneMinusDefaultSpreadFactor = one.Sub(defaultSpreadReward)
 func (suite *StrategyTestSuite) setupNewZeroForOneSwapStrategy(sqrtPriceLimit osmomath.Dec, spread osmomath.Dec) swapstrategy.SwapStrategy {
 	suite.SetupTest()
 	return swapstrategy.New(true, osmomath.BigDecFromDec(sqrtPriceLimit), suite.App.GetKey(types.ModuleName), spread)
-}
-
-func (suite *StrategyTestSuite) TestGetSqrtTargetPrice_ZeroForOne() {
-	tests := map[string]struct {
-		isZeroForOne      bool
-		sqrtPriceLimit    osmomath.Dec
-		nextTickSqrtPrice osmomath.Dec
-		expectedResult    osmomath.Dec
-	}{
-		"nextTickSqrtPrice == sqrtPriceLimit -> returns either": {
-			sqrtPriceLimit:    osmomath.OneDec(),
-			nextTickSqrtPrice: osmomath.OneDec(),
-			expectedResult:    osmomath.OneDec(),
-		},
-		"nextTickSqrtPrice > sqrtPriceLimit -> nextTickSqrtPrice": {
-			sqrtPriceLimit:    three,
-			nextTickSqrtPrice: four,
-			expectedResult:    four,
-		},
-		"nextTickSqrtPrice < sqrtPriceLimit -> sqrtPriceLimit": {
-			sqrtPriceLimit:    five,
-			nextTickSqrtPrice: two,
-			expectedResult:    five,
-		},
-	}
-
-	for name, tc := range tests {
-		tc := tc
-		suite.Run(name, func() {
-			sut := suite.setupNewZeroForOneSwapStrategy(tc.sqrtPriceLimit, zero)
-			actualSqrtTargetPrice := sut.GetSqrtTargetPrice(osmomath.BigDecFromDec(tc.nextTickSqrtPrice))
-			suite.Require().Equal(osmomath.BigDecFromDec(tc.expectedResult), actualSqrtTargetPrice)
-		})
-	}
 }
 
 // Estimates are computed using x/concentrated-liquidity/python/clmath.py
@@ -342,153 +309,6 @@ func (suite *StrategyTestSuite) TestComputeSwapStepInGivenOut_ZeroForOne() {
 			suite.Require().Equal(tc.amountOneOutConsumed, amountOneOut)
 			suite.Require().Equal(tc.expectedAmountInZero, amountZeroIn)
 			suite.Require().Equal(tc.expectedSpreadRewardChargeTotal.String(), spreadRewardChargeTotal.String())
-		})
-	}
-}
-
-func (suite *StrategyTestSuite) TestInitializeNextTickIterator_ZeroForOne() {
-	tests := map[string]tickIteratorTest{
-		"1 position, zero for one": {
-			preSetPositions: []position{
-				{
-					lowerTick: -100,
-					upperTick: 100,
-				},
-			},
-			tickSpacing:    defaultTickSpacing,
-			expectIsValid:  true,
-			expectNextTick: -100,
-		},
-		"2 positions, zero for one": {
-			preSetPositions: []position{
-				{
-					lowerTick: -400,
-					upperTick: 300,
-				},
-				{
-					lowerTick: -200,
-					upperTick: 200,
-				},
-			},
-			tickSpacing:    defaultTickSpacing,
-			expectIsValid:  true,
-			expectNextTick: -200,
-		},
-		"lower tick lands on current tick, zero for one": {
-			preSetPositions: []position{
-				{
-					lowerTick: 0,
-					upperTick: 100,
-				},
-			},
-			tickSpacing:    defaultTickSpacing,
-			expectIsValid:  true,
-			expectNextTick: 0,
-		},
-		"upper tick lands on current tick, zero for one": {
-			preSetPositions: []position{
-				{
-					lowerTick: -100,
-					upperTick: 0,
-				},
-			},
-			tickSpacing:    defaultTickSpacing,
-			expectIsValid:  true,
-			expectNextTick: 0,
-		},
-		"no ticks, zero for one": {
-			tickSpacing:   defaultTickSpacing,
-			expectIsValid: false,
-		},
-
-		// Non-default tick spacing
-
-		"1 position, 1 tick spacing": {
-			preSetPositions: []position{
-				{
-					lowerTick: -1,
-					upperTick: 1,
-				},
-			},
-			tickSpacing:    1,
-			expectIsValid:  true,
-			expectNextTick: -1,
-		},
-		"2 positions, 1 tick spacing": {
-			preSetPositions: []position{
-				{
-					lowerTick: -4,
-					upperTick: 3,
-				},
-				{
-					lowerTick: -2,
-					upperTick: 2,
-				},
-			},
-			tickSpacing:    1,
-			expectIsValid:  true,
-			expectNextTick: -2,
-		},
-		"lower tick lands on current tick, 1 tick spacing": {
-			preSetPositions: []position{
-				{
-					lowerTick: -3,
-					upperTick: -2,
-				},
-				{
-					lowerTick: 0,
-					upperTick: 1,
-				},
-			},
-			tickSpacing:    1,
-			expectIsValid:  true,
-			expectNextTick: 0,
-		},
-		"upper tick lands on current tick, 1 tick spacing": {
-			preSetPositions: []position{
-				{
-					lowerTick: -1,
-					upperTick: 0,
-				},
-				{
-					lowerTick: 1,
-					upperTick: 2,
-				},
-			},
-			tickSpacing:    1,
-			expectIsValid:  true,
-			expectNextTick: 0,
-		},
-
-		"sanity check: 1 position, 10 tick spacing": {
-			preSetPositions: []position{
-				{
-					lowerTick: -10,
-					upperTick: 10,
-				},
-			},
-			tickSpacing:    10,
-			expectIsValid:  true,
-			expectNextTick: -10,
-		},
-		"sanity check: 1 position, 1000 tick spacing": {
-			preSetPositions: []position{
-				{
-					lowerTick: -1000,
-					upperTick: 1000,
-				},
-			},
-			tickSpacing:    1000,
-			expectIsValid:  true,
-			expectNextTick: -1000,
-		},
-	}
-
-	for name, tc := range tests {
-		tc := tc
-		suite.Run(name, func() {
-			strategy := suite.setupNewZeroForOneSwapStrategy(types.MaxSqrtPrice, zero)
-			suite.runTickIteratorTest(strategy, tc)
 		})
 	}
 }

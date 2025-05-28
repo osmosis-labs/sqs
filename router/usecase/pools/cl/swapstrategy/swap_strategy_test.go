@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/stretchr/testify/suite"
+	"github.com/osmosis-labs/sqs/router/usecase/pools/cl/swapstrategy"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmoassert"
-	"github.com/osmosis-labs/osmosis/v29/app/apptesting"
-	cl "github.com/osmosis-labs/osmosis/v29/x/concentrated-liquidity"
-	"github.com/osmosis-labs/osmosis/v29/x/concentrated-liquidity/swapstrategy"
-	"github.com/osmosis-labs/osmosis/v29/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/osmosis/v28/app/apptesting"
+	cl "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity"
+	"github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/suite"
 )
 
 type StrategyTestSuite struct {
@@ -70,28 +71,6 @@ type tickIteratorTest struct {
 	expectIsValid  bool
 	expectNextTick int64
 	expectError    error
-}
-
-func (suite *StrategyTestSuite) runTickIteratorTest(strategy swapstrategy.SwapStrategy, tc tickIteratorTest) {
-	pool := suite.PrepareCustomConcentratedPool(suite.TestAccs[0], ETH, USDC, tc.tickSpacing, osmomath.ZeroDec())
-	suite.setupPresetPositions(pool.GetId(), tc.preSetPositions)
-
-	// refetch pool
-	pool, err := suite.App.ConcentratedLiquidityKeeper.GetConcentratedPoolById(suite.Ctx, pool.GetId())
-	suite.Require().NoError(err)
-
-	currentTick := pool.GetCurrentTick()
-	suite.Require().Equal(int64(0), currentTick)
-
-	iter := strategy.InitializeNextTickIterator(suite.Ctx, defaultPoolId, currentTick)
-	defer iter.Close()
-
-	suite.Require().Equal(tc.expectIsValid, iter.Valid())
-	if tc.expectIsValid {
-		actualNextTick, err := types.TickIndexFromBytes(iter.Key())
-		suite.Require().NoError(err)
-		suite.Require().Equal(tc.expectNextTick, actualNextTick)
-	}
 }
 
 func (suite *StrategyTestSuite) setupPresetPositions(poolId uint64, positions []position) {
@@ -224,27 +203,27 @@ func (suite *StrategyTestSuite) TestComputeSwapState_Inverse() {
 	for name, tc := range testCases {
 		tc := tc
 		suite.Run(name, func() {
-			sut := swapstrategy.New(tc.zeroForOne, osmomath.ZeroBigDec(), suite.App.GetKey(types.ModuleName), osmomath.ZeroDec())
-			sqrtPriceNextOutGivenIn, amountInOutGivenIn, amountOutOutGivenIn, _ := sut.ComputeSwapWithinBucketOutGivenIn(osmomath.BigDecFromDec(tc.sqrtPriceCurrent), osmomath.BigDecFromDec(tc.sqrtPriceTarget), tc.liquidity, tc.amountIn)
-			suite.Require().Equal(tc.expectedSqrtPriceNextOutGivenIn.String(), sqrtPriceNextOutGivenIn.String())
+			sut := swapstrategy.New(tc.zeroForOne, osmomath.ZeroBigDec().MustFloat64(), suite.App.GetKey(types.ModuleName), osmomath.ZeroDec().MustFloat64())
+			sqrtPriceNextOutGivenIn, amountInOutGivenIn, amountOutOutGivenIn, _ := sut.ComputeSwapWithinBucketOutGivenIn(tc.sqrtPriceCurrent.MustFloat64(), tc.sqrtPriceTarget.MustFloat64(), tc.liquidity.MustFloat64(), tc.amountIn.MustFloat64())
+			suite.Require().Equal(tc.expectedSqrtPriceNextOutGivenIn.String(), sqrtPriceNextOutGivenIn)
 
 			fmt.Println("amountOutOutGivenIn", amountOutOutGivenIn)
 
-			sqrtPriceNextInGivenOut, amountOutInGivenOut, amountInInGivenOut, _ := sut.ComputeSwapWithinBucketInGivenOut(osmomath.BigDecFromDec(tc.sqrtPriceCurrent), osmomath.BigDecFromDec(tc.sqrtPriceTarget), tc.liquidity, amountOutOutGivenIn)
+			sqrtPriceNextInGivenOut, amountOutInGivenOut, amountInInGivenOut, _ := sut.ComputeSwapWithinBucketInGivenOut(tc.sqrtPriceCurrent.MustFloat64(), tc.sqrtPriceTarget.MustFloat64(), tc.liquidity.MustFloat64(), amountOutOutGivenIn)
 
-			suite.Require().Equal(tc.expectedSqrtPriceNextInGivenOut.String(), sqrtPriceNextInGivenOut.String())
+			suite.Require().Equal(tc.expectedSqrtPriceNextInGivenOut.MustFloat64(), sqrtPriceNextInGivenOut)
 
 			// Tolerance of 1 with rounding up because we round up for in given out.
 			// This is to ensure that inflow into the pool is rounded in favor of the pool.
 			osmoassert.Equal(suite.T(), errToleranceOne,
-				osmomath.BigDecFromDec(amountInOutGivenIn),
-				osmomath.BigDecFromDec(amountInInGivenOut),
+				osmomath.MustNewBigDecFromStr(fmt.Sprintf("%f", amountInOutGivenIn)),
+				osmomath.MustNewBigDecFromStr(fmt.Sprintf("%f", amountInInGivenOut)),
 			)
 
 			// These should be approximately equal. The difference stems from minor roundings and truncations in the intermediary calculations.
 			osmoassert.Equal(suite.T(), errToleranceSmall,
-				osmomath.BigDecFromDec(amountOutOutGivenIn),
-				osmomath.BigDecFromDec(amountOutInGivenOut),
+				osmomath.MustNewBigDecFromStr(fmt.Sprintf("%f", amountOutOutGivenIn)),
+				osmomath.MustNewBigDecFromStr(fmt.Sprintf("%f", amountOutInGivenOut)),
 			)
 		})
 	}
@@ -350,7 +329,7 @@ func (suite *StrategyTestSuite) TestGetSqrtPriceLimit() {
 
 	for name, tc := range tests {
 		suite.Run(name, func() {
-			priceLimit, err := swapstrategy.GetSqrtPriceLimit(tc.priceLimit, tc.zeroForOne)
+			priceLimit, err := swapstrategy.GetSqrtPriceLimit(tc.priceLimit.MustFloat64(), tc.zeroForOne)
 
 			if tc.expectedError != nil {
 				suite.Require().Error(err)

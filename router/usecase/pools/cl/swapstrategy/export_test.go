@@ -1,14 +1,12 @@
 package swapstrategy
 
-import "github.com/osmosis-labs/osmosis/osmomath"
-
-func ComputeSpreadRewardChargePerSwapStepOutGivenIn(hasReachedTarget bool, amountIn, amountSpecifiedRemaining, spreadFactor osmomath.Dec) osmomath.Dec {
-	spreadFactorOverOneMinusSpreadFactorGetter := func() osmomath.Dec {
-		return spreadFactor.QuoRoundUp(oneDec.Sub(spreadFactor))
+func ComputeSpreadRewardChargePerSwapStepOutGivenIn(hasReachedTarget bool, amountIn, amountSpecifiedRemaining, spreadFactor float64) float64 {
+	spreadFactorOverOneMinusSpreadFactorGetter := func() float64 {
+		return spreadFactor / (1 - spreadFactor)
 	}
 	return computeSpreadRewardChargePerSwapStepOutGivenIn(hasReachedTarget, amountIn, amountSpecifiedRemaining, spreadFactor, spreadFactorOverOneMinusSpreadFactorGetter)
 }
 
-func ComputeSpreadRewardChargeFromAmountIn(amountIn, spreadFactor osmomath.Dec) osmomath.Dec {
-	return computeSpreadRewardChargeFromAmountIn(amountIn, spreadFactor.QuoRoundUp(oneDec.Sub(spreadFactor)))
+func ComputeSpreadRewardChargeFromAmountIn(amountIn, spreadFactor float64) float64 {
+	return computeSpreadRewardChargeFromAmountIn(amountIn, spreadFactor/(1-spreadFactor))
 }

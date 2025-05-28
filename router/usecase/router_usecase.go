@@ -699,7 +699,15 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, tokenIn s
 			return ingesttypes.CandidateRoutes{}, err
 		}
 
-		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)), zap.Duration("duration", time.Since(start)))
+		r.logger.Info("calculated routes", zap.Int("num_routes", len(candidateRoutes.Routes)), zap.Int("num_of_pools", candidateRoutes.NumOfPools()), zap.Duration("duration", time.Since(start)))
+		if time.Since(start) >= time.Second {
+			r.logger.Error(
+				"calculated routes out of allowed threshold",
+				zap.Int("num_routes", len(candidateRoutes.Routes)),
+				zap.Int("num_of_pools", candidateRoutes.NumOfPools()),
+				zap.Duration("duration", time.Since(start)),
+			)
+		}
 
 		domain.SQSCandidateRoutesComputeDurationGauge.Set(float64(time.Since(start).Milliseconds()))
 
