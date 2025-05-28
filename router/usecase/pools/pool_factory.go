@@ -6,9 +6,9 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/router/usecase/pools/balancer"
+	"github.com/osmosis-labs/sqs/router/usecase/pools/cl"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
 	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/stableswap"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
@@ -20,27 +20,7 @@ func NewRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom 
 	poolType := pool.GetType()
 	chainPool := pool.GetUnderlyingPool()
 	if poolType == poolmanagertypes.Concentrated {
-		// Check if pools is concentrated
-		concentratedPool, ok := chainPool.(*concentratedmodel.Pool)
-		if !ok {
-			panic(domain.FailedToCastPoolModelError{
-				ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Concentrated)],
-				ActualModel:   poolmanagertypes.PoolType_name[int32(poolType)],
-			})
-		}
-
-		tickModel, err := pool.GetTickModel()
-		if err != nil {
-			panic(err)
-		}
-
-		return &routableConcentratedPoolImpl{
-			ChainPool:     concentratedPool,
-			TickModel:     tickModel,
-			TokenInDenom:  tokenInDenom,
-			TokenOutDenom: tokenOutDenom,
-			TakerFee:      takerFee,
-		}, nil
+		return cl.New(pool, tokenInDenom, tokenOutDenom, takerFee), nil
 	}
 
 	if poolType == poolmanagertypes.Balancer {

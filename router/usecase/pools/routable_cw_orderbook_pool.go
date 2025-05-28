@@ -18,7 +18,10 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
-var oneBigDec = osmomath.OneBigDec()
+var (
+	oneBigDec   = osmomath.OneBigDec()
+	smallestDec = osmomath.BigDecFromDec(osmomath.SmallestDec())
+)
 
 var _ domain.RoutablePool = &routableOrderbookPoolImpl{}
 
@@ -212,7 +215,6 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 
 	directionOut := directionIn.Opposite()
 	tickIdx, err := r.OrderbookData.GetStartTickIndex(directionOut)
-
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}

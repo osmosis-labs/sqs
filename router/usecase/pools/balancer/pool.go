@@ -29,6 +29,7 @@ func New(p poolmanagertypes.PoolI, tokenInDenom string, tokenOutDenom string, ta
 	if !ok {
 		panic(domain.FailedToCastPoolModelError{
 			ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Balancer)],
+			ActualModel:   poolmanagertypes.PoolType_name[int32(p.GetType())],
 		})
 	}
 
