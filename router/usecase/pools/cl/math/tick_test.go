@@ -1,6 +1,7 @@
 package math_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -245,7 +246,7 @@ func TestTickToSqrtPrice(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.True(t, isEqual(expectedSqrtPrice.String(), sqrtPrice.String()), "expected: %s, got: %s", expectedSqrtPrice.String(), sqrtPrice.String())
+			require.True(t, isEqual(expectedSqrtPrice.String(), fmt.Sprintf("%v", sqrtPrice)), "expected: %s, got: %v", expectedSqrtPrice.String(), sqrtPrice)
 		})
 	}
 }

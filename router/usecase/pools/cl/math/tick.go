@@ -1,12 +1,13 @@
 package math
 
 import (
+	"fmt"
+
 	"github.com/osmosis-labs/osmosis/osmomath"
 	clmath "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/math"
 	"github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
 
 	"github.com/ericlagergren/decimal"
-	"github.com/ericlagergren/decimal/math" // nolint: staticcheck
 )
 
 var MaxSpotPrice = mustDecFromString(types.MaxSpotPrice.String())
@@ -21,17 +22,51 @@ var (
 // TickToSqrtPrice returns the sqrtPrice given a tickIndex
 // If tickIndex is zero, the function returns osmomath.OneDec().
 // It is the combination of calling TickToPrice followed by Sqrt.
-func TickToSqrtPrice(tickIndex int64) (*decimal.Big, error) {
-	priceBigDec, err := TickToPrice(tickIndex)
+func TickToSqrtPrice(tickIndex int64) (osmomath.BigDec, error) {
+	priceDec, err := TickToPrice(tickIndex)
 	if err != nil {
-		return nil, err
+		return osmomath.BigDec{}, err
 	}
 
-	z := new(decimal.Big)
-	z.Context.Precision = osmomath.BigDecPrecision // Set the precision to match osmomath.BigDecPrecision
+	// Format the priceDec to a string with appropriate precision besed on the tickIndex.
+	// See below for the explanation of the precision.
+	var precision int
+	if tickIndex >= types.MinInitializedTick {
+		precision = osmomath.DecPrecision
+	} else {
+		precision = osmomath.BigDecPrecision
+	}
 
-	sqrtPrice := math.Sqrt(z, priceBigDec)
+	priceFloatStr := fmt.Sprintf(fmt.Sprintf("%%.%df", precision), priceDec)
 
+	priceBigDec, err := osmomath.NewBigDecFromStr(priceFloatStr)
+	if err != nil {
+		return osmomath.BigDec{}, fmt.Errorf("failed to convert string to BigDec: %w", err)
+	}
+
+	// N.B. at launch, we only supported price range
+	// of [tick(10^-12), tick(MaxSpotPrice)].
+	// To maintain backwards state-compatibility, we use the original
+	// math based on 18 precision decimal on the at the launch tick range.
+	if tickIndex >= types.MinInitializedTick {
+		// It is acceptable to truncate here as TickToPrice() function converts
+		// from osmomath.Dec to osmomath.BigDec before returning specifically for this range.
+		// As a result, there is no data loss.
+		price := priceBigDec.Dec()
+
+		sqrtPrice, err := osmomath.MonotonicSqrtMut(price)
+		if err != nil {
+			return osmomath.BigDec{}, err
+		}
+		return osmomath.BigDecFromDecMut(sqrtPrice), nil
+	}
+
+	// For the newly extended range of [tick(MinSpotPriceV2), MinInitializedTick), we use the new math
+	// based on 36 precision decimal.
+	sqrtPrice, err := osmomath.MonotonicSqrtBigDec(priceBigDec)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
 	return sqrtPrice, nil
 }
 
