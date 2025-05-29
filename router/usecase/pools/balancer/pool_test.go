@@ -268,3 +268,41 @@ func (s *PoolTestSuite) TestChargeTakerFeeExactOut_CCFM() {
 		})
 	}
 }
+
+func BenchmarkCalculateTokenOutByTokenIn(b *testing.B) {
+	s := apptesting.ConcentratedKeeperTestHelper{}
+	s.SetT(&testing.T{})
+	s.Setup()
+
+	tc := struct {
+		tokenIn          sdk.Coin
+		tokenOutDenom    string
+		poolType         poolmanagertypes.PoolType
+		expectedTokenOut sdk.Coin
+		expectError      error
+	}{
+		tokenIn:       sdk.NewCoin(Denom0, osmomath.NewInt(100)),
+		tokenOutDenom: Denom0,
+		poolType:      poolmanagertypes.Balancer,
+	}
+
+	balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoins(
+		sdk.NewCoin(Denom0, osmomath.NewInt(1000000000000000000)),
+		sdk.NewCoin(Denom1, osmomath.MustNewDecFromStr("100000000000000000000000").TruncateInt()),
+	)...)
+
+	pool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
+	s.Require().NoError(err)
+
+	mock := &mocks.MockRoutablePool{ChainPoolModel: pool, PoolType: tc.poolType}
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
+		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+	}
+
+	routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)
+	s.Require().NoError(err)
+
+	for i := 0; i < b.N; i++ {
+		routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
+	}
+}
