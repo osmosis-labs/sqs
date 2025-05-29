@@ -32,7 +32,7 @@ func (m *Map[K, V]) Store(data map[K]V) {
 
 	oldData, ok := m.data.Load().(map[K]V)
 	if !ok {
-		m.data.Store(make(map[K]V))
+		oldData = make(map[K]V)
 	}
 
 	newData := make(map[K]V)
@@ -52,7 +52,7 @@ func (m *Map[K, V]) Set(id K, v V) {
 
 	oldData, ok := m.data.Load().(map[K]V)
 	if !ok {
-		m.data.Store(make(map[K]V))
+		oldData = make(map[K]V)
 	}
 
 	newData := make(map[K]V)
