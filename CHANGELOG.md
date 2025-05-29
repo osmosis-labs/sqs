@@ -37,11 +37,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## v28.3.7
 
-- #658 - BE-748 | Migrate from big.Float to float64 for balancer pools 
-- #657 - BE-745 | Optimize balancer pool 
-- #656 - BE-737 | Fix edge case in a router encountering imbalanced pools 
-- #655 - BE-742 | Optimize CalculateTokenOutByTokenIn for balancer pool 
-- #654 - BE-741 | Parallelize calls to CalculateTokenOutByTokenIn for routes 
+- #658 - BE-748 | Migrate from big.Float to float64 for balancer pools
+- #657 - BE-745 | Optimize balancer pool
+- #656 - BE-737 | Fix edge case in a router encountering imbalanced pools
+- #655 - BE-742 | Optimize CalculateTokenOutByTokenIn for balancer pool
+- #654 - BE-741 | Parallelize calls to CalculateTokenOutByTokenIn for routes
 
 ## v28.3.6
 
