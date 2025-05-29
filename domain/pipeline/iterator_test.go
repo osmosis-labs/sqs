@@ -2,8 +2,9 @@ package pipeline
 
 import (
 	"fmt"
-	"sync"
 	"testing"
+
+	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 
 	"github.com/stretchr/testify/require"
 )
@@ -64,15 +65,15 @@ func TestSyncMapIteratorNext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := sync.Map{}
+			m := &atomic.Map[string, testdata]{}
 			var keys []string
 
 			for _, v := range tt.data {
-				m.Store(v.key, v)
+				m.Set(v.key, v)
 				keys = append(keys, v.key)
 			}
 
-			it := NewSyncMapIterator[string, testdata](&m, keys)
+			it := NewSyncMapIterator(m, keys)
 
 			var result []testdata
 			for {
@@ -135,12 +136,12 @@ func TestSyncMapIteratorSetOffset(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := sync.Map{}
+			m := &atomic.Map[string, testdata]{}
 			for _, v := range tt.data {
-				m.Store(v.key, v)
+				m.Set(v.key, v)
 			}
 
-			it := NewSyncMapIterator[string, testdata](&m, tt.keys)
+			it := NewSyncMapIterator(m, tt.keys)
 			it.SetOffset(tt.offset)
 
 			var result []testdata
@@ -253,7 +254,7 @@ func TestSyncMapIterator_Reset(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			it := &SyncMapIterator[string, int]{
-				data:  &sync.Map{},
+				data:  &atomic.Map[string, int]{},
 				keys:  tt.keys,
 				index: tt.initialIndex,
 			}

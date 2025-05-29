@@ -142,11 +142,7 @@ func (p *poolsUseCase) GetAllPools() (pools []ingesttypes.PoolI, err error) {
 	}
 
 	for _, pool := range data {
-		poolI, ok := pool.(ingesttypes.PoolI)
-		if !ok {
-			return nil, fmt.Errorf("failed to cast pool with value %v", pool)
-		}
-		pools = append(pools, poolI)
+		pools = append(pools, pool)
 	}
 
 	return pools, nil
@@ -246,14 +242,9 @@ func (p *poolsUseCase) GetTickModelMap(poolIDs []uint64) (map[uint64]*ingesttype
 
 // GetPool implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetPool(poolID uint64) (ingesttypes.PoolI, error) {
-	poolObj, ok := p.pools.Get(poolID)
+	pool, ok := p.pools.Get(poolID)
 	if !ok {
 		return nil, domain.PoolNotFoundError{PoolID: poolID}
-	}
-
-	pool, ok := poolObj.(ingesttypes.PoolI)
-	if !ok {
-		return nil, fmt.Errorf("failed to cast pool with ID %d", poolID)
 	}
 
 	return pool, nil
@@ -344,27 +335,27 @@ var getPoolsSortFuncs = map[string]func(a, b ingesttypes.PoolI, desc bool) bool{
 	},
 	"market.feesSpent7dUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
-			return a.GetFeesData().PoolFee.FeesSpent7d > b.GetFeesData().PoolFee.FeesSpent7d
+			return a.GetFeesData().FeesSpent7d > b.GetFeesData().FeesSpent7d
 		}
-		return a.GetFeesData().PoolFee.FeesSpent7d < b.GetFeesData().PoolFee.FeesSpent7d
+		return a.GetFeesData().FeesSpent7d < b.GetFeesData().FeesSpent7d
 	},
 	"market.feesSpent24hUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
-			return a.GetFeesData().PoolFee.FeesSpent24h > b.GetFeesData().PoolFee.FeesSpent24h
+			return a.GetFeesData().FeesSpent24h > b.GetFeesData().FeesSpent24h
 		}
-		return a.GetFeesData().PoolFee.FeesSpent24h < b.GetFeesData().PoolFee.FeesSpent24h
+		return a.GetFeesData().FeesSpent24h < b.GetFeesData().FeesSpent24h
 	},
 	"market.volume7dUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
-			return a.GetFeesData().PoolFee.Volume7d > b.GetFeesData().PoolFee.Volume7d
+			return a.GetFeesData().Volume7d > b.GetFeesData().Volume7d
 		}
-		return a.GetFeesData().PoolFee.Volume7d < b.GetFeesData().PoolFee.Volume7d
+		return a.GetFeesData().Volume7d < b.GetFeesData().Volume7d
 	},
 	"market.volume24hUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
-			return a.GetFeesData().PoolFee.Volume24h > b.GetFeesData().PoolFee.Volume24h
+			return a.GetFeesData().Volume24h > b.GetFeesData().Volume24h
 		}
-		return a.GetFeesData().PoolFee.Volume24h < b.GetFeesData().PoolFee.Volume24h
+		return a.GetFeesData().Volume24h < b.GetFeesData().Volume24h
 	},
 	"incentives.aprBreakdown.total.upper": func(a, b ingesttypes.PoolI, desc bool) bool {
 		if desc {
@@ -465,7 +456,7 @@ var filterPartialMatchSearch = func(tokenMetadataHolder TokenMetadataHolder, sea
 
 		poolNameByDenom = strings.Join(humanDenoms, "/")
 
-		search = strings.Replace(strings.ToLower(search), " ", "", -1)
+		search = strings.ReplaceAll(strings.ToLower(search), " ", "")
 
 		if strings.Contains(strings.ToLower(poolNameByDenom), search) {
 			return true

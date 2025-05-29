@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"sort"
-	// "sync"
 
 	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 )
@@ -24,11 +23,10 @@ type SyncMapTransformer[K comparable, V any] struct {
 func NewSyncMapTransformer[K comparable, V any](m *atomic.Map[K, V]) *SyncMapTransformer[K, V] {
 	var keys []K
 	data, err := m.Load()
-	if err != nil {
-	}
-
-	for key := range data {
-		keys = append(keys, key)
+	if err == nil {
+		for key := range data {
+			keys = append(keys, key)
+		}
 	}
 
 	return &SyncMapTransformer[K, V]{data: m, keys: keys}

@@ -7,6 +7,16 @@ import (
 	"sync/atomic"
 )
 
+// NewMap initializes a new Map with the provided data.
+func NewMap[K comparable, V any](data map[K]V) *Map[K, V] {
+	m := &Map[K, V]{}
+	for k, v := range data {
+		m.Set(k, v)
+	}
+	return m
+}
+
+// Map is a thread-safe map that allows concurrent read and write operations.
 type Map[K comparable, V any] struct {
 	data atomic.Value
 	mu   sync.Mutex

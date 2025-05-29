@@ -2,11 +2,21 @@ package pipeline
 
 import (
 	"slices"
-	"sync"
 	"testing"
+
+	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 
 	"github.com/stretchr/testify/require"
 )
+
+func newMap(data []int) *atomic.Map[int, int] {
+	m := map[int]int{}
+	for k, v := range data {
+		m[k] = v
+	}
+
+	return atomic.NewMap(m)
+}
 
 func TestSyncMapTransformer_Count(t *testing.T) {
 	tests := []struct {
@@ -33,12 +43,8 @@ func TestSyncMapTransformer_Count(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var m sync.Map
-			for k, v := range tt.data {
-				m.Store(k, v)
-			}
-
-			transformer := NewSyncMapTransformer[int, int](&m)
+			m := newMap(tt.data)
+			transformer := NewSyncMapTransformer(m)
 			got := transformer.Count()
 
 			require.Equal(t, tt.expected, got, "Expected count %d, but got %d", tt.expected, got)
@@ -112,17 +118,18 @@ func TestSyncMapTransformerRange(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Construct sync.Map and populate with initial data
-			m := sync.Map{}
+			m := &atomic.Map[string, int]{}
+
 			var keys []string
 
 			for _, v := range tc.initialData {
-				m.Store(v.key, v.value)
+				m.Set(v.key, v.value)
 				keys = append(keys, v.key)
 			}
 
 			// Create transformer, we are not using NewSyncMapTransformer because
 			// we want to keep the keys in a specific order
-			transformer := &SyncMapTransformer[string, int]{data: &m, keys: keys}
+			transformer := &SyncMapTransformer[string, int]{data: m, keys: keys}
 
 			// Collect keys and values during Range
 			var collectedKeys []string
@@ -196,12 +203,8 @@ func TestTransformerFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var m sync.Map
-			for k, v := range tt.data {
-				m.Store(k, v)
-			}
-
-			transformer := NewSyncMapTransformer[int, int](&m)
+			m := newMap(tt.data)
+			transformer := NewSyncMapTransformer(m)
 			transformer.Sort(func(a, b int) bool { return a < b }) // Sort the data to ensure the order is consistent
 			transformer.Filter(tt.filter)
 
@@ -240,11 +243,8 @@ func TestMapTransformerSort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var m sync.Map
-			for k, v := range tt.data {
-				m.Store(k, v)
-			}
-			transformer := NewSyncMapTransformer[int, int](&m)
+			m := newMap(tt.data)
+			transformer := NewSyncMapTransformer(m)
 			transformer.Sort(tt.less)
 
 			got := transformer.Data()
@@ -331,17 +331,17 @@ func TestSyncMapTransformerData(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Construct sync.Map and populate with initial data
-			m := sync.Map{}
+			m := &atomic.Map[string, int]{}
 			var keys []string
 
 			for _, v := range tc.initialData {
-				m.Store(v.key, v.value)
+				m.Set(v.key, v.value)
 				keys = append(keys, v.key)
 			}
 
 			// Create transformer, we are not using NewSyncMapTransformer because
 			// we want to keep the keys in a specific order
-			transformer := &SyncMapTransformer[string, int]{data: &m, keys: keys}
+			transformer := &SyncMapTransformer[string, int]{data: m, keys: keys}
 
 			// Collect values
 			collectedValues := transformer.Data()
@@ -397,17 +397,17 @@ func TestSyncMapTransformerClone(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Construct sync.Map and populate with initial data
-			m := sync.Map{}
+			m := &atomic.Map[string, int]{}
 			var keys []string
 
 			for _, v := range tc.initialData {
-				m.Store(v.key, v.value)
+				m.Set(v.key, v.value)
 				keys = append(keys, v.key)
 			}
 
 			// Create transformer, we are not using NewSyncMapTransformer because
 			// we want to keep the keys in a specific order
-			transformer := &SyncMapTransformer[string, int]{data: &m, keys: keys}
+			transformer := &SyncMapTransformer[string, int]{data: m, keys: keys}
 
 			// Clone the transformer
 			clonedTransformer := transformer.Clone()
