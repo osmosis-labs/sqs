@@ -19,12 +19,12 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
-type RoutablePoolTestSuite struct {
+type PoolTestSuite struct {
 	apptesting.ConcentratedKeeperTestHelper
 }
 
 func TestRoutablePoolTestSuite(t *testing.T) {
-	suite.Run(t, new(RoutablePoolTestSuite))
+	suite.Run(t, new(PoolTestSuite))
 }
 
 const (
@@ -60,13 +60,13 @@ var (
 	noTakerFee = osmomath.ZeroDec()
 )
 
-func (s *RoutablePoolTestSuite) PrepareCustomTransmuterPool(owner sdk.AccAddress, denoms []string) cosmwasmpooltypes.CosmWasmExtension {
+func (s *PoolTestSuite) PrepareCustomTransmuterPool(owner sdk.AccAddress, denoms []string) cosmwasmpooltypes.CosmWasmExtension {
 	return s.PrepareCustomTransmuterPoolCustomProject(owner, denoms, "sqs", "scripts")
 }
 
 // Test quote logic over a specific pool that is of CFMM type.
 // CFMM pools are balancer and stableswap.
-func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
+func (s *PoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 	tests := map[string]struct {
 		tokenIn          sdk.Coin
 		tokenOutDenom    string
@@ -122,7 +122,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 
 // Test quote logic over a specific pool that is of CFMM type.
 // CFMM pools are balancer and stableswap.
-func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_CFMM() {
+func (s *PoolTestSuite) TestCalculateTokenInByTokenOut_CFMM() {
 	tests := map[string]struct {
 		tokenOut         sdk.Coin
 		tokenInDenom     string
@@ -169,7 +169,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_CFMM() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_CCFM() {
+func (s *PoolTestSuite) TestChargeTakerFeeExactIn_CCFM() {
 	tests := map[string]struct {
 		poolType      poolmanagertypes.PoolType
 		tokenIn       sdk.Coin
@@ -219,7 +219,7 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_CCFM() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactOut_CCFM() {
+func (s *PoolTestSuite) TestChargeTakerFeeExactOut_CCFM() {
 	tests := map[string]struct {
 		poolType      poolmanagertypes.PoolType
 		tokenIn       sdk.Coin
