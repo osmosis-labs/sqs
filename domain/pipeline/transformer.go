@@ -2,7 +2,8 @@ package pipeline
 
 import (
 	"sort"
-	"sync"
+
+	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 )
 
 // Transformer defines a generic interface for filtering and sorting data.
@@ -13,21 +14,21 @@ type Transformer[K, V any] interface {
 }
 
 // SyncMapTransformer is a generic data transformer for map data
-type SyncMapTransformer[K, V any] struct {
-	data *sync.Map
+type SyncMapTransformer[K comparable, V any] struct {
+	data *atomic.Map[K, V]
 	keys []K
 }
 
 // NewDataTransformer initializes a transformer with raw data.
-func NewSyncMapTransformer[K, V any](m *sync.Map) *SyncMapTransformer[K, V] {
+func NewSyncMapTransformer[K comparable, V any](m *atomic.Map[K, V]) *SyncMapTransformer[K, V] {
 	var keys []K
-	m.Range(func(key, value any) bool {
-		k, ok := key.(K)
-		if ok {
-			keys = append(keys, k)
+	data, err := m.Load()
+	if err == nil {
+		for key := range data {
+			keys = append(keys, key)
 		}
-		return true // keep iterating
-	})
+	}
+
 	return &SyncMapTransformer[K, V]{data: m, keys: keys}
 }
 
@@ -126,15 +127,10 @@ func (dt *SyncMapTransformer[K, V]) Clone() *SyncMapTransformer[K, V] {
 // load returns the value associated with the key.
 // If the key is not found, it returns a zero value of the value type and false.
 func (dt *SyncMapTransformer[K, V]) load(key K) (V, bool) {
-	mv, ok := dt.data.Load(key)
+	mv, ok := dt.data.Get(key)
 	if !ok {
 		return *new(V), false
 	}
 
-	v, ok := mv.(V)
-	if !ok {
-		return *new(V), false
-	}
-
-	return v, true
+	return mv, true
 }
