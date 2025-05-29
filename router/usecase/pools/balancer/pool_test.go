@@ -1,4 +1,4 @@
-package pools_test
+package balancer_test
 
 import (
 	"context"
@@ -19,12 +19,12 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
-type RoutablePoolTestSuite struct {
+type PoolTestSuite struct {
 	apptesting.ConcentratedKeeperTestHelper
 }
 
 func TestRoutablePoolTestSuite(t *testing.T) {
-	suite.Run(t, new(RoutablePoolTestSuite))
+	suite.Run(t, new(PoolTestSuite))
 }
 
 const (
@@ -60,13 +60,13 @@ var (
 	noTakerFee = osmomath.ZeroDec()
 )
 
-func (s *RoutablePoolTestSuite) PrepareCustomTransmuterPool(owner sdk.AccAddress, denoms []string) cosmwasmpooltypes.CosmWasmExtension {
+func (s *PoolTestSuite) PrepareCustomTransmuterPool(owner sdk.AccAddress, denoms []string) cosmwasmpooltypes.CosmWasmExtension {
 	return s.PrepareCustomTransmuterPoolCustomProject(owner, denoms, "sqs", "scripts")
 }
 
 // Test quote logic over a specific pool that is of CFMM type.
 // CFMM pools are balancer and stableswap.
-func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
+func (s *PoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 	tests := map[string]struct {
 		tokenIn          sdk.Coin
 		tokenOutDenom    string
@@ -74,10 +74,15 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 		expectedTokenOut sdk.Coin
 		expectError      error
 	}{
-		"stableswap pool - valid calculation": {
-			tokenIn:       sdk.NewCoin("foo", osmomath.NewInt(100)),
-			tokenOutDenom: "bar",
-			poolType:      poolmanagertypes.Stableswap,
+		"balancer pool - valid calculation": {
+			tokenIn:       sdk.NewCoin(Denom0, osmomath.NewInt(100)),
+			tokenOutDenom: Denom0,
+			poolType:      poolmanagertypes.Balancer,
+		},
+		"balancer pool - amount out bigger than int64": {
+			tokenIn:       sdk.NewCoin(Denom1, osmomath.MustNewDecFromStr("10000000000000000000").TruncateInt()),
+			tokenOutDenom: Denom1,
+			poolType:      poolmanagertypes.Balancer,
 		},
 	}
 
@@ -85,8 +90,12 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 		s.Run(name, func() {
 			s.Setup()
 
-			poolID := s.CreatePoolFromType(tc.poolType)
-			pool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, poolID)
+			balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoins(
+				sdk.NewCoin(Denom0, osmomath.NewInt(1000000000000000000)),
+				sdk.NewCoin(Denom1, osmomath.MustNewDecFromStr("100000000000000000000000").TruncateInt()),
+			)...)
+
+			pool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
 			s.Require().NoError(err)
 
 			mock := &mocks.MockRoutablePool{ChainPoolModel: pool, PoolType: tc.poolType}
@@ -97,7 +106,6 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 			s.Require().NoError(err)
 
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
-
 			if tc.expectError != nil {
 				s.Require().Error(err)
 				return
@@ -114,7 +122,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 
 // Test quote logic over a specific pool that is of CFMM type.
 // CFMM pools are balancer and stableswap.
-func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_CFMM() {
+func (s *PoolTestSuite) TestCalculateTokenInByTokenOut_CFMM() {
 	tests := map[string]struct {
 		tokenOut         sdk.Coin
 		tokenInDenom     string
@@ -122,10 +130,10 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_CFMM() {
 		expectedTokenOut sdk.Coin
 		expectError      error
 	}{
-		"stableswap pool - valid calculation": {
+		"balancer pool - valid calculation": {
 			tokenOut:     sdk.NewCoin("foo", osmomath.NewInt(100)),
 			tokenInDenom: "bar",
-			poolType:     poolmanagertypes.Stableswap,
+			poolType:     poolmanagertypes.Balancer,
 		},
 	}
 
@@ -141,6 +149,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_CFMM() {
 			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
 			}
+
 			routablePool, err := pools.NewRoutablePool(mock, tc.tokenInDenom, tc.tokenOut.Denom, noTakerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
@@ -160,27 +169,27 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_CFMM() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_CCFM() {
+func (s *PoolTestSuite) TestChargeTakerFeeExactIn_CCFM() {
 	tests := map[string]struct {
 		poolType      poolmanagertypes.PoolType
 		tokenIn       sdk.Coin
 		takerFee      osmomath.Dec
 		expectedToken sdk.Coin
 	}{
-		"stableswap pool - no taker fee": {
-			poolType:      poolmanagertypes.Stableswap,
+		"balancer pool - no taker fee": {
+			poolType:      poolmanagertypes.Balancer,
 			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDec(0),
 			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(100)),
 		},
-		"stableswap pool - small taker fee": {
-			poolType:      poolmanagertypes.Stableswap,
+		"balancer pool - small taker fee": {
+			poolType:      poolmanagertypes.Balancer,
 			tokenIn:       sdk.NewCoin(USDT, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDecWithPrec(1, 2),          // 1%
 			expectedToken: sdk.NewCoin(USDT, osmomath.NewInt(99)), // 100 - 1 = 99
 		},
-		"stableswap pool - large taker fee": {
-			poolType:      poolmanagertypes.Stableswap,
+		"balancer pool - large taker fee": {
+			poolType:      poolmanagertypes.Balancer,
 			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDecWithPrec(5, 1),          // 50%
 			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(50)), // 100 - 50 = 50
@@ -210,27 +219,27 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_CCFM() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactOut_CCFM() {
+func (s *PoolTestSuite) TestChargeTakerFeeExactOut_CCFM() {
 	tests := map[string]struct {
 		poolType      poolmanagertypes.PoolType
 		tokenIn       sdk.Coin
 		takerFee      osmomath.Dec
 		expectedToken sdk.Coin
 	}{
-		"stableswap pool - no taker fee": {
-			poolType:      poolmanagertypes.Stableswap,
+		"balancer pool - no taker fee": {
+			poolType:      poolmanagertypes.Balancer,
 			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDec(0),
 			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(100)),
 		},
-		"stableswap pool - small taker fee": {
-			poolType:      poolmanagertypes.Stableswap,
+		"balancer pool - small taker fee": {
+			poolType:      poolmanagertypes.Balancer,
 			tokenIn:       sdk.NewCoin(USDT, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDecWithPrec(1, 2),           // 1%
 			expectedToken: sdk.NewCoin(USDT, osmomath.NewInt(102)), // 100 + 1 = 101.01  = 102 (round up)
 		},
-		"stableswap pool - large taker fee": {
-			poolType:      poolmanagertypes.Stableswap,
+		"balancer pool - large taker fee": {
+			poolType:      poolmanagertypes.Balancer,
 			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			takerFee:      osmomath.NewDecWithPrec(5, 1),           // 50%
 			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(200)), // 100 + 100 = 200
@@ -257,5 +266,43 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactOut_CCFM() {
 
 			s.Require().Equal(tc.expectedToken, tokenAfterFee)
 		})
+	}
+}
+
+func BenchmarkCalculateTokenOutByTokenIn(b *testing.B) {
+	s := apptesting.ConcentratedKeeperTestHelper{}
+	s.SetT(&testing.T{})
+	s.Setup()
+
+	tc := struct {
+		tokenIn          sdk.Coin
+		tokenOutDenom    string
+		poolType         poolmanagertypes.PoolType
+		expectedTokenOut sdk.Coin
+		expectError      error
+	}{
+		tokenIn:       sdk.NewCoin(Denom0, osmomath.NewInt(100)),
+		tokenOutDenom: Denom0,
+		poolType:      poolmanagertypes.Balancer,
+	}
+
+	balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoins(
+		sdk.NewCoin(Denom0, osmomath.NewInt(1000000000000000000)),
+		sdk.NewCoin(Denom1, osmomath.MustNewDecFromStr("100000000000000000000000").TruncateInt()),
+	)...)
+
+	pool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
+	s.Require().NoError(err)
+
+	mock := &mocks.MockRoutablePool{ChainPoolModel: pool, PoolType: tc.poolType}
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
+		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+	}
+
+	routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)
+	s.Require().NoError(err)
+
+	for i := 0; i < b.N; i++ {
+		routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
 	}
 }

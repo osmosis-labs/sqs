@@ -142,9 +142,15 @@ func (p *Pool) CalcOutAmtGivenIn(
 		return sdk.Coin{}, errorsmod.Wrapf(types.ErrInvalidMathApprox, "token amount must be positive")
 	}
 
-	tokenAmountOutTruncated := int64(tokenAmountOut)
+	amountOutDec, err := osmomath.NewDecFromStr(fmt.Sprintf("%f", tokenAmountOut))
+	if err != nil {
+		return sdk.Coin{}, errorsmod.Wrapf(err, "failed to parse token amount out: %s", fmt.Sprintf("%f", tokenAmountOut))
+	}
 
-	return sdk.Coin{Denom: tokenOutDenom, Amount: osmomath.NewInt(tokenAmountOutTruncated)}, nil
+	return sdk.Coin{
+		Denom:  tokenOutDenom,
+		Amount: amountOutDec.TruncateInt(),
+	}, nil
 }
 
 func (p *Pool) parsePoolAssetsByDenoms(tokenADenom, tokenBDenom string) (
