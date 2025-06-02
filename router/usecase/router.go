@@ -15,9 +15,9 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 )
 
-type ratedPool struct {
-	pool   ingesttypes.PoolI
-	rating float64
+type RatedPool struct {
+	Pool   ingesttypes.PoolI
+	Rating float64
 }
 
 const (
@@ -43,7 +43,7 @@ func FilterPoolsByMinLiquidity(pools []ingesttypes.PoolI, minPoolLiquidityCap ui
 // according to the given configuration.
 // Filters out pools that have no tvl error set and have zero liquidity.
 // As a second return value, it returns the orderbook pools.
-func ValidateAndSortPools(pools []ingesttypes.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) ([]ingesttypes.PoolI, []ingesttypes.PoolI) {
+func ValidateAndSortPools(pools []ingesttypes.PoolI, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, preferredPoolIDs []uint64, logger log.Logger) ([]RatedPool, []ingesttypes.PoolI) {
 	filteredPools := make([]ingesttypes.PoolI, 0, len(pools))
 
 	totalTVL := osmomath.ZeroInt()
@@ -116,11 +116,11 @@ func ValidateAndSortPools(pools []ingesttypes.PoolI, cosmWasmPoolsConfig domain.
 // - Pools with no error in TVL are prioritized by getting an even smaller boost.
 //
 // These heuristics are imperfect and subject to change.
-func sortPools(pools []ingesttypes.PoolI, transmuterCodeIDs map[uint64]struct{}, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []ingesttypes.PoolI {
+func sortPools(pools []ingesttypes.PoolI, transmuterCodeIDs map[uint64]struct{}, totalTVL osmomath.Int, preferredPoolIDsMap map[uint64]struct{}, logger log.Logger) []RatedPool {
 	logger.Debug("total tvl", zap.Stringer("total_tvl", totalTVL))
 	totalTVLFloat, _ := totalTVL.BigIntMut().Float64()
 
-	ratedPools := make([]ratedPool, 0, len(pools))
+	ratedPools := make([]RatedPool, 0, len(pools))
 	for _, pool := range pools {
 		// Initialize rating to TVL.
 		rating, _ := pool.GetPoolLiquidityCap().BigIntMut().Float64()
@@ -170,25 +170,27 @@ func sortPools(pools []ingesttypes.PoolI, transmuterCodeIDs map[uint64]struct{},
 			}
 		}
 
-		ratedPools = append(ratedPools, ratedPool{
-			pool:   pool,
-			rating: rating,
+		ratedPools = append(ratedPools, RatedPool{
+			Pool:   pool,
+			Rating: rating,
 		})
 	}
 
 	// Sort all pools by the rating score
 	sort.Slice(ratedPools, func(i, j int) bool {
-		return ratedPools[i].rating > ratedPools[j].rating
+		return ratedPools[i].Rating > ratedPools[j].Rating
 	})
 
-	logger.Debug("sorted pools", zap.Int("pool_count", len(ratedPools)))
-	// Convert back to pools
-	for i, ratedPool := range ratedPools {
-		pool := ratedPool.pool
+	return ratedPools
 
-		sqsModel := pool.GetSQSPoolModel()
-		logger.Debug("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Float64("rate", ratedPool.rating), zap.Stringer("pool_liquidity_cap", sqsModel.PoolLiquidityCap), zap.String("pool_liquidity_cap_error", sqsModel.PoolLiquidityCapError))
-		pools[i] = ratedPool.pool
-	}
-	return pools
+	// logger.Debug("sorted pools", zap.Int("pool_count", len(ratedPools)))
+	// // Convert back to pools
+	// for i, ratedPool := range ratedPools {
+	// 	pool := ratedPool.Pool
+	//
+	// 	sqsModel := pool.GetSQSPoolModel()
+	// 	logger.Debug("pool", zap.Int("index", i), zap.Any("pool", pool.GetId()), zap.Float64("rate", ratedPool.Rating), zap.Stringer("pool_liquidity_cap", sqsModel.PoolLiquidityCap), zap.String("pool_liquidity_cap_error", sqsModel.PoolLiquidityCapError))
+	// 	pools[i] = ratedPool.Pool
+	// }
+	// return pools
 }

@@ -89,9 +89,23 @@ type CandidatePoolWrapper struct {
 	ID                uint64
 	PoolDenoms        []string
 	PoolLiquidityCap  *atomic.Uint64 // Note: the value is truncated if it is larger than uint64
+	Rating            float64
 	Balances          sdk.Coins
 	IsAlloyTransmuter bool
 	IsOrderbook       bool
+}
+
+
+func NewCandidatePoolWrapperWithRating(id uint64, p osmoingesttypes.SQSPool, rating float64) CandidatePoolWrapper {
+	return CandidatePoolWrapper{
+		ID:                id,
+		PoolDenoms:        p.PoolDenoms,
+		Rating:            rating,
+		PoolLiquidityCap:  sqsatomic.NewUint64(osmomath.SafeUint64(p.PoolLiquidityCap)),
+		Balances:          p.Balances,
+		IsAlloyTransmuter: p.CosmWasmPoolModel != nil && p.CosmWasmPoolModel.IsAlloyTransmuter(),
+		IsOrderbook:       p.CosmWasmPoolModel != nil && p.CosmWasmPoolModel.IsOrderbook(),
+	}
 }
 
 func NewCandidatePoolWrapper(id uint64, p osmoingesttypes.SQSPool) CandidatePoolWrapper {

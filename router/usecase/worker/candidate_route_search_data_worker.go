@@ -114,9 +114,10 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 			mu.Lock()
 			sortedPools := make([]domain.CandidatePoolWrapper, len(sortedDenomPools))
 			for i := range sortedDenomPools {
-				sortedPools[i] = domain.NewCandidatePoolWrapper(
-					sortedDenomPools[i].GetId(),
-					sortedDenomPools[i].GetSQSPoolModel(),
+				sortedPools[i] = domain.NewCandidatePoolWrapperWithRating(
+					sortedDenomPools[i].Pool.GetId(),
+					sortedDenomPools[i].Pool.GetSQSPoolModel(),
+					sortedDenomPools[i].Rating,
 				)
 			}
 			candidateRouteData[denom] = &domain.CandidateRouteDenomData{

@@ -229,9 +229,16 @@ func (p *ingestUseCase) sortAndStorePools(pools []sqsingesttypes.PoolI) {
 
 	sortedPools, _ := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
 
+	result := make([]sqsingesttypes.PoolI, len(sortedPools))
+	// Convert back to pools
+	for i, ratedPool := range sortedPools {
+		pool := ratedPool.Pool
+		result[i] = pool
+	}
+
 	// Sort the pools and store them in the router.
-	p.routerUsecase.SetSortedPools(sortedPools)
-	p.pricingRouterUsecase.SetSortedPools(sortedPools)
+	p.routerUsecase.SetSortedPools(result)
+	p.pricingRouterUsecase.SetSortedPools(result)
 }
 
 // parsePoolData parses the pool data and returns the pool objects.
