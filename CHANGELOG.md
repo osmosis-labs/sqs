@@ -35,6 +35,11 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v28.3.8
+
+- #661 - BE-750 | Fix out amount overflow for Balancer pools
+- #660 - BE-749 | Address pricing computation latency regression
+
 ## v28.3.7
 
 - #658 - BE-748 | Migrate from big.Float to float64 for balancer pools
