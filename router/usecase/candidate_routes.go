@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
@@ -110,6 +111,11 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 		if len(denomData.SortedPools) == 0 {
 			c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", currenTokenInDenom))
 		}
+
+		// Sort the pools by liquidity cap so that pools with higher liquidity cap are processed first
+		sort.Slice(denomData.SortedPools, func(i, j int) bool {
+			return denomData.SortedPools[i].GetPoolLiquidityCap() > denomData.SortedPools[j].GetPoolLiquidityCap()
+		})
 
 		for i := 0; i < len(denomData.SortedPools) && len(routes) < options.MaxRoutes; i++ {
 			if ok := visited[denomData.SortedPools[i].ID]; ok {
