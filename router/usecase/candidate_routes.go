@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
@@ -113,8 +114,31 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 		// Sort the pools by liquidity cap so that pools with higher liquidity cap are processed first
 		// sort.Slice(denomData.SortedPools, func(i, j int) bool {
-		// 	return denomData.SortedPools[i].GetPoolLiquidityCap() > denomData.SortedPools[j].GetPoolLiquidityCap()
+		// 	return uint64(denomData.SortedPools[i].Rating) < uint64(denomData.SortedPools[j].Rating)
 		// })
+
+		if ctx.Value(domain.DebugKey) != nil { // let's cut off not relevant pools to figure out where 1283 gets lost
+			if len(queue) == 0 && len(currentRoute) == 0 {
+				// cp := make([]domain.CandidatePoolWrapper, len(denomData.SortedPools))
+				// copy(cp, denomData.SortedPools)
+				// cp = cp[:2]
+				// var pools []domain.CandidatePoolWrapper
+				// for _, pool := range denomData.SortedPools {
+				// 	if pool.ID == 2002 { // 1283
+				// 		pools = append(pools, pool)
+				// 	}
+				// }
+				// denomData.SortedPools = cp
+				tokenIn.Denom = tokenIn.Denom
+			}
+			tokenIn.Denom = tokenIn.Denom
+		}
+		// 9990000
+		// 238121189
+
+		if ctx.Value(domain.DebugKey) != nil {
+			tokenIn.Denom = tokenIn.Denom
+		}
 
 		for i := 0; i < len(denomData.SortedPools) && len(routes) < options.MaxRoutes; i++ {
 			if ok := visited[denomData.SortedPools[i].ID]; ok {
@@ -122,6 +146,10 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 			}
 
 			pool := (denomData.SortedPools[i])
+
+			if ctx.Value(domain.DebugKey) != nil && pool.ID == 1282 {
+				tokenIn.Denom = tokenIn.Denom
+			}
 
 			// If the option is configured to skip a given pool
 			// We mark it as visited and continue.
@@ -172,6 +200,9 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				// https://linear.app/osmosis/issue/DATA-236/bug-alloyed-lp-share-is-not-present-in-balances
 				if currentTokenInAmount.LT(tokenIn.Amount) && !pool.IsAlloyTransmuter {
 					visited[pool.ID] = true
+					if ctx.Value(domain.DebugKey) != nil {
+						continue
+					}
 					// Not enough tokenIn to swap.
 					continue
 				}
@@ -205,6 +236,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 							ID:            pool.ID,
 							TokenInDenom:  currenTokenInDenom,
 							TokenOutDenom: denom,
+							Rating:        pool.Rating,
 						},
 						PoolDenoms: poolDenoms,
 					})
@@ -224,11 +256,122 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 			}
 		}
 
+		if ctx.Value(domain.DebugKey) != nil && len(routes) >= options.MaxRoutes {
+			for i, route := range queue {
+				var is1283 bool
+				var is1282 bool
+				var is1224 bool
+				for _, pool := range route {
+					if pool.ID == 1283 {
+						is1283 = true
+					}
+					if pool.ID == 1282 {
+						is1282 = true
+					}
+
+					if pool.ID == 1224 {
+						is1224 = true
+					}
+				}
+
+				if is1283 && is1282 && is1224 {
+					tokenIn.Denom = tokenIn.Denom
+				}
+
+				_ = i // just to avoid unused variable error
+			}
+			tokenIn.Denom = tokenIn.Denom
+		}
+
 		for _, pool := range currentRoute {
 			visited[pool.ID] = true
 		}
 	}
 
+	if ctx.Value(domain.DebugKey) != nil {
+		tokenIn.Denom = tokenIn.Denom
+	}
+
+	if ctx.Value(domain.DebugKey) != nil { // && len(routes) >= options.MaxRoutes
+		for i, route := range routes {
+			var is1283 bool
+			var is1282 bool
+			var is1224 bool
+			for _, pool := range route.Pools {
+				if pool.ID == 1283 {
+					is1283 = true
+				}
+				if pool.ID == 1282 {
+					is1282 = true
+				}
+
+				if pool.ID == 1224 {
+					is1224 = true
+				}
+			}
+
+			if is1283 && is1282 && is1224 {
+				tokenIn.Denom = tokenIn.Denom
+			}
+
+			_ = i // just to avoid unused variable error
+		}
+		tokenIn.Denom = tokenIn.Denom
+	}
+
+	sort.Slice(routes, func(i, j int) bool {
+		var sumi float64
+		var sumj float64
+		var numi int
+		var numj int
+
+		for ip := range routes[i].Pools {
+			sumi += routes[i].Pools[ip].Rating
+			numi++
+		}
+
+		for ip := range routes[j].Pools {
+			sumj += routes[j].Pools[ip].Rating
+			numj++
+		}
+
+		avgi := sumi / float64(numi)
+		avgj := sumj / float64(numj)
+
+		return sumi > sumj
+		return avgi > avgj
+	})
+
+	if ctx.Value(domain.DebugKey) != nil {
+		for i, route := range routes {
+			var is1283 bool
+			var is1282 bool
+			var is1224 bool
+			for _, pool := range route.Pools {
+				if pool.ID == 1283 {
+					is1283 = true
+				}
+				if pool.ID == 1282 {
+					is1282 = true
+				}
+
+				if pool.ID == 1224 {
+					is1224 = true
+				}
+			}
+
+			if is1283 && is1282 && is1224 {
+				tokenIn.Denom = tokenIn.Denom
+			}
+
+			_ = i // just to avoid unused variable error
+		}
+		tokenIn.Denom = tokenIn.Denom
+	}
+
+	if len(routes) > 20 {
+		routes = routes[:20]
+	}
 	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
 }
 

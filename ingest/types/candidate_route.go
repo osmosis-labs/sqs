@@ -6,6 +6,7 @@ type CandidatePool struct {
 	ID            uint64
 	TokenInDenom  string
 	TokenOutDenom string
+	Rating        float64
 }
 
 // CandidateRoute is a data structure representing a
@@ -23,4 +24,12 @@ type CandidateRoutes struct {
 	Routes                     []CandidateRoute
 	UniquePoolIDs              map[uint64]struct{}
 	ContainsCanonicalOrderbook bool
+}
+
+func (cr *CandidateRoutes) NumOfPools() int {
+	var numOfPools int
+	for _, route := range cr.Routes {
+		numOfPools += len(route.Pools)
+	}
+	return numOfPools
 }

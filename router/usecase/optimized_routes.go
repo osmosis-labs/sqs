@@ -239,6 +239,7 @@ ROUTE_LOOP:
 				ID:            pool.ID,
 				TokenOutDenom: pool.TokenOutDenom,
 				TokenInDenom:  pool.TokenInDenom,
+				Rating:        pool.Rating,
 			})
 		}
 

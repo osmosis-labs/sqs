@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -125,6 +126,8 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	if req.SingleRoute {
 		routerOpts = append(routerOpts, domain.WithMaxSplitRoutes(domain.DisableSplitRoutes))
 	}
+
+	ctx = context.WithValue(ctx, domain.DebugKey, "debug")
 
 	var quote domain.Quote
 	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
@@ -278,6 +281,8 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 	// Update the tokenIn and tokenOutDenom with the chain denoms if they were translated from human to chain.
 	tokenIn = chainDenoms[0]
 	tokenOutDenom = chainDenoms[1]
+
+	ctx = context.WithValue(ctx, domain.DebugKey, "debug")
 
 	routes, err := a.RUsecase.GetCandidateRoutes(ctx, sdk.NewCoin(tokenIn, osmomath.OneInt()), tokenOutDenom)
 	if err != nil {

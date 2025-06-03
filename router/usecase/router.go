@@ -170,8 +170,10 @@ func sortPools(pools []ingesttypes.PoolI, transmuterCodeIDs map[uint64]struct{},
 			}
 		}
 
+		p := pool
+
 		ratedPools = append(ratedPools, RatedPool{
-			Pool:   pool,
+			Pool:   p,
 			Rating: rating,
 		})
 	}
