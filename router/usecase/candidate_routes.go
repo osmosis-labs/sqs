@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"math"
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -319,28 +320,52 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 		tokenIn.Denom = tokenIn.Denom
 	}
 
-	sort.Slice(routes, func(i, j int) bool {
-		var sumi float64
-		var sumj float64
-		var numi int
-		var numj int
-
-		for ip := range routes[i].Pools {
-			sumi += routes[i].Pools[ip].Rating
-			numi++
+	ScoreRoute := func(route candidateRouteWrapper, hopPenalty float64) float64 {
+		var logSum float64
+		for _, rating := range route.Pools {
+			if rating.Rating <= 0 {
+				continue // skip invalid ratings
+			}
+			logSum += math.Log(rating.Rating)
 		}
+		numHops := len(route.Pools) - 1
+		score := logSum - hopPenalty*float64(numHops)
+		return score
+	}
 
-		for ip := range routes[j].Pools {
-			sumj += routes[j].Pools[ip].Rating
-			numj++
-		}
+	if ctx.Value(domain.DebugKey) != nil {
+		sort.Slice(routes, func(i, j int) bool {
+			var sumi float64
+			var sumj float64
+			var numi int
+			var numj int
 
-		avgi := sumi / float64(numi)
-		avgj := sumj / float64(numj)
+			for ip := range routes[i].Pools {
+				sumi += routes[i].Pools[ip].Rating
+				numi++
+			}
 
-		return sumi > sumj
-		return avgi > avgj
-	})
+			for ip := range routes[j].Pools {
+				sumj += routes[j].Pools[ip].Rating
+				numj++
+			}
+
+			avgi := sumi / math.Pow(float64(numi), 1.2)
+			avgj := sumj / math.Pow(float64(numj), 1.2)
+
+			if i == 9 {
+				tokenIn.Denom = tokenIn.Denom
+			}
+
+			hopPenalty := 1.5 // tunable value
+			scorei := ScoreRoute(routes[i], hopPenalty)
+			scorej := ScoreRoute(routes[j], hopPenalty)
+			return scorei > scorej
+
+			// return sumi > sumj
+			return avgi > avgj
+		})
+	}
 
 	if ctx.Value(domain.DebugKey) != nil {
 		for i, route := range routes {
@@ -369,9 +394,12 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 		tokenIn.Denom = tokenIn.Denom
 	}
 
-	if len(routes) > 20 {
-		routes = routes[:20]
+	if ctx.Value(domain.DebugKey) != nil {
+		if len(routes) > 20 {
+			routes = routes[:20]
+		}
 	}
+
 	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
 }
 
