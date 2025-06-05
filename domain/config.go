@@ -156,7 +156,7 @@ var DefaultConfig = Config{
 	},
 	GRPCIngester: &GRPCIngesterConfig{
 		Enabled:                        true,
-		MaxReceiveMsgSizeBytes:         16777216,
+		MaxReceiveMsgSizeBytes:         20971520, // 20 MB
 		ServerAddress:                  ":50051",
 		ServerConnectionTimeoutSeconds: 10,
 		Plugins: []Plugin{
