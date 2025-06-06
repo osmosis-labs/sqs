@@ -1,6 +1,9 @@
 package atomic
 
-import "sync/atomic"
+import (
+	"encoding/json"
+	"sync/atomic"
+)
 
 // Uint64 returns a pointer to an atomic.Uint64 initialized with the given value.
 //
@@ -11,8 +14,31 @@ import "sync/atomic"
 //
 //	counter := Uint64(42)
 //	fmt.Println(counter.Load()) // Output: 42
-func NewUint64(i uint64) *atomic.Uint64 {
-	v := &atomic.Uint64{}
+func NewUint64(i uint64) *Uint64 {
+	v := &Uint64{}
 	v.Store(i)
 	return v
+}
+
+// Uint64 is a wrapper around atomic.Uint64
+// that provides JSON marshaling and unmarshaling capabilities.
+type Uint64 struct {
+	atomic.Uint64
+}
+
+// MarshalJSON implements json.Marshaler
+func (a *Uint64) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.Load())
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (a *Uint64) UnmarshalJSON(data []byte) error {
+	var val uint64
+	if err := json.Unmarshal(data, &val); err != nil {
+		return err
+	}
+
+	a.Store(val)
+
+	return nil
 }

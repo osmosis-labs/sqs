@@ -23,7 +23,7 @@ run-default:
 	$(GO_RUN_CMD)
 
 run-state:
-	SQS_SERVE_FROM_STATE=true $(GO_RUN_CMD)
+	SQS_SKIP_CHAIN_AVAILABILITY_CHECK=true SQS_SERVE_FROM_STATE=true $(GO_RUN_CMD)
 
 run-docker:
 	$(DOCKER) rm -f sqs

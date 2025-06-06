@@ -295,7 +295,7 @@ func ReadPoolDenomsMetaData(poolDenomMetaData string) (domain.PoolDenomMetaDataM
 }
 
 // ReadCandidateRouteSearchData reads the candidate route search data from disk at the
-func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string]*domain.CandidateRouteDenomData, error) {
+func ReadCandidateRouteSearchDataOld(candidateRouteSearchDataFile string) (map[string]*domain.CandidateRouteDenomData, error) {
 	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -346,6 +346,51 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 				pool.GetId(),
 				pool.GetSQSPoolModel(),
 			)
+		}
+
+		candidateRouteSearchData[data.Denom] = &domain.CandidateRouteDenomData{
+			SortedPools:         pools,
+			CanonicalOrderbooks: orderbooks,
+		}
+	}
+
+	return candidateRouteSearchData, nil
+}
+
+// ReadCandidateRouteSearchData reads the candidate route search data from disk at the
+func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string]*domain.CandidateRouteDenomData, error) {
+	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	serialized := make([]candidateRouteSerializedData, 0)
+	err = json.Unmarshal(candidateRouteSearchDataBytes, &serialized)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	candidateRouteSearchData := make(map[string]*domain.CandidateRouteDenomData, len(serialized))
+
+	for _, data := range serialized {
+		pools := make([]domain.CandidatePoolWrapper, 0, len(data.Pool))
+		for _, poolData := range data.Pool {
+			var pool domain.CandidatePoolWrapper
+			if err := json.Unmarshal(poolData, &pool); err != nil {
+				return nil, err
+			}
+
+			pools = append(pools, pool)
+		}
+
+		orderbooks := make(map[string]domain.CandidatePoolWrapper)
+		for _, orderbookData := range data.Orderbooks {
+			var pool domain.CandidatePoolWrapper
+			if err := json.Unmarshal(orderbookData.Orderbook, &pool); err != nil {
+				return nil, err
+			}
+
+			pools = append(pools, pool)
 		}
 
 		candidateRouteSearchData[data.Denom] = &domain.CandidateRouteDenomData{
