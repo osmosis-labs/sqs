@@ -1,47 +1,53 @@
 #!/usr/bin/env bash
 
-set -e
-
-# Function to make a POST request and move the resulting file
-post_and_move() {
-	local HOSTNAME=$1
-	local ENDPOINT=$2
-	local FILE=$3
-	local DEST=$4
-
-	if [[ -z "$HOSTNAME" || -z "$ENDPOINT" || -z "$FILE" || -z "$DEST" ]]; then
-		echo "Usage: post_and_move <hostname> <endpoint> <file> <destination_file>" >&2
-		return 1
-	fi
-
-	if ! curl -sS -X POST "${HOSTNAME}${ENDPOINT}" -o /dev/null; then
-		echo "Error: curl request to ${HOSTNAME}${ENDPOINT} failed." >&2
-		return 1
-	fi
-
-	if [[ ! -f "$FILE" ]]; then
-		echo "Error: File '$FILE' not found after curl." >&2
-		return 1
-	fi
-
-	mv "$FILE" "$DEST"
-	echo "Moved $FILE to $DEST"
-}
+set -euo pipefail
 
 HOSTNAME="http://localhost:9092"
 ROUTER_ENDPOINT="/router/store-state"
 TOKENS_ENDPOINT="/tokens/store-state"
 OUTPUT_DIR="${1:-./state}"
 
-echo "Starting state dump..."
+EXPECTED_ROUTER_FILES=(
+    "pools.json"
+    "taker_fees.json"
+    "candidate_route_search_data.json"
+)
 
+EXPECTED_TOKENS_FILES=(
+    "tokens.json"
+    "pool_denom_metadata.json"
+)
+
+echo "Starting state dump..."
 mkdir -p "$OUTPUT_DIR"
 
-post_and_move "$HOSTNAME" "$ROUTER_ENDPOINT" "pools.json" "${OUTPUT_DIR}/pools.json"
-post_and_move "$HOSTNAME" "$ROUTER_ENDPOINT" "taker_fees.json" "${OUTPUT_DIR}/taker_fees.json"
-post_and_move "$HOSTNAME" "$ROUTER_ENDPOINT" "candidate_route_search_data.json" "${OUTPUT_DIR}/candidate_route_search_data.json"
+# Function to move expected files
+move_files() {
+    local files=("$@")
+    for file in "${files[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            echo "Error: Expected file '$file' not found." >&2
+            exit 1
+        fi
+        mv "$file" "${OUTPUT_DIR}/$file"
+        echo "Moved $file to ${OUTPUT_DIR}/$file"
+    done
+}
 
-post_and_move "$HOSTNAME" "$TOKENS_ENDPOINT" "tokens.json" "${OUTPUT_DIR}/tokens.json"
-post_and_move "$HOSTNAME" "$TOKENS_ENDPOINT" "pool_denom_metadata.json" "${OUTPUT_DIR}/pool_denom_metadata.json"
+# Request router state once
+echo "Requesting router state..."
+if ! curl -sS -X POST "${HOSTNAME}${ROUTER_ENDPOINT}" -o /dev/null; then
+    echo "Error: curl request to ${HOSTNAME}${ROUTER_ENDPOINT} failed." >&2
+    exit 1
+fi
+move_files "${EXPECTED_ROUTER_FILES[@]}"
+
+# Request tokens state once
+echo "Requesting tokens state..."
+if ! curl -sS -X POST "${HOSTNAME}${TOKENS_ENDPOINT}" -o /dev/null; then
+    echo "Error: curl request to ${HOSTNAME}${TOKENS_ENDPOINT} failed." >&2
+    exit 1
+fi
+move_files "${EXPECTED_TOKENS_FILES[@]}"
 
 echo "State dump completed successfully."

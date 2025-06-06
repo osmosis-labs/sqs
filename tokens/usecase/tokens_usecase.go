@@ -144,14 +144,14 @@ func (t *TokensUseCase) StoreTokensStateFiles() error {
 
 // LoadTokenStateFiles implements mvc.TokensUsecase.
 func (t *TokensUseCase) LoadTokensStateFiles() error {
-	tokensMetadata, err := parsing.ReadTokensMetadata("tokens.json")
+	tokensMetadata, err := parsing.ReadTokensMetadata("./state/tokens.json")
 	if err != nil {
 		return err
 	}
 
 	t.LoadTokens(tokensMetadata)
 
-	poolDenomMetaData, err := parsing.ReadPoolDenomsMetaData("pool_denom_metadata.json")
+	poolDenomMetaData, err := parsing.ReadPoolDenomsMetaData("./state/pool_denom_metadata.json")
 	if err != nil {
 		return err
 	}

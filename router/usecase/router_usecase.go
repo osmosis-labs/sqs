@@ -745,7 +745,7 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles() error {
 }
 
 func (r *routerUseCaseImpl) LoadRouterStateFiles() error {
-	pools, _, err := parsing.ReadPools("pools.json")
+	pools, _, err := parsing.ReadPools("./state/pools.json")
 	if err != nil {
 		return err
 	}
@@ -754,14 +754,14 @@ func (r *routerUseCaseImpl) LoadRouterStateFiles() error {
 		return err
 	}
 
-	takerFeeMap, err := parsing.ReadTakerFees("taker_fees.json")
+	takerFeeMap, err := parsing.ReadTakerFees("./state/taker_fees.json")
 	if err != nil {
 		return err
 	}
 
 	r.SetTakerFees(takerFeeMap)
 
-	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchData("candidate_route_search_data.json")
+	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchData("./state/candidate_route_search_data.json")
 	if err != nil {
 		return err
 	}

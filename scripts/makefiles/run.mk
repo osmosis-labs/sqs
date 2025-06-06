@@ -23,7 +23,7 @@ run-default:
 	$(GO_RUN_CMD)
 
 run-state:
-	$(GO_RUN_CMD) --serve-from-state
+	SQS_SERVE_FROM_STATE=true $(GO_RUN_CMD)
 
 run-docker:
 	$(DOCKER) rm -f sqs
