@@ -16,7 +16,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
-	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 
 	_ "github.com/osmosis-labs/sqs/docs"
 )
@@ -312,21 +311,8 @@ func (a *TokensHandler) GetUSDPriceTest(c echo.Context) (err error) {
 }
 
 func (a *TokensHandler) StoreTokensStateInFiles(c echo.Context) error {
-	tokensMetadata, err := a.TUsecase.GetFullTokenMetadata()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
-	}
-
-	err = parsing.StoreTokensMetadata(tokensMetadata, "tokens.json")
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
-	}
-
-	poolDenomMetaData := a.TUsecase.GetFullPoolDenomMetadata()
-
-	err = parsing.StorePoolDenomMetaData(poolDenomMetaData, "pool_denom_metadata.json")
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
+	if err := a.TUsecase.StoreTokensStateFiles(); err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, "Tokens metadata state stored in files")

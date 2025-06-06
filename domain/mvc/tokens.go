@@ -95,6 +95,14 @@ type TokensUsecase interface {
 
 	// SetTokenRegistryLoader sets the token registry loader.
 	SetTokenRegistryLoader(loader domain.TokenRegistryLoader)
+
+	// StoreTokenStateFiles stores all token state in the files locally.
+	// Used for debugging.
+	StoreTokensStateFiles() error
+
+	// LoadTokenStateFiles loads the token state from the files.
+	// Used for debugging.
+	LoadTokensStateFiles() error
 }
 
 // ValidateChainDenomQueryParam validates the chain denom query parameter.

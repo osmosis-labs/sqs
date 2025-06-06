@@ -10,6 +10,8 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/domain/workerpool"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
+
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -119,6 +121,44 @@ func (t *TokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.T
 
 		t.coingeckoIds.Store(chainDenom, tokenMetadata.CoingeckoID)
 	}
+}
+
+// StoreTokenStateFiles implements mvc.TokensUsecase.
+func (t *TokensUseCase) StoreTokensStateFiles() error {
+	tokensMetadata, err := t.GetFullTokenMetadata()
+	if err != nil {
+		return err
+	}
+
+	if err = parsing.StoreTokensMetadata(tokensMetadata, "tokens.json"); err != nil {
+		return err
+	}
+
+	poolDenomMetaData := t.GetFullPoolDenomMetadata()
+	if err = parsing.StorePoolDenomMetaData(poolDenomMetaData, "pool_denom_metadata.json"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// LoadTokenStateFiles implements mvc.TokensUsecase.
+func (t *TokensUseCase) LoadTokensStateFiles() error {
+	tokensMetadata, err := parsing.ReadTokensMetadata("tokens.json")
+	if err != nil {
+		return err
+	}
+
+	t.LoadTokens(tokensMetadata)
+
+	poolDenomMetaData, err := parsing.ReadPoolDenomsMetaData("pool_denom_metadata.json")
+	if err != nil {
+		return err
+	}
+
+	t.UpdatePoolDenomMetadata(poolDenomMetaData)
+
+	return nil
 }
 
 // UpdatePoolDenomMetadata implements mvc.TokensUsecase.
