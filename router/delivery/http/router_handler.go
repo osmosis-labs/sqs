@@ -25,7 +25,6 @@ type RouterHandler struct {
 	RUsecase       mvc.RouterUsecase
 	TUsecase       mvc.TokensUsecase
 	QuoteSimulator domain.QuoteSimulator
-	config         *Config
 	logger         log.Logger
 }
 
