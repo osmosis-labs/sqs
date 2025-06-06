@@ -294,7 +294,10 @@ func ReadPoolDenomsMetaData(poolDenomMetaData string) (domain.PoolDenomMetaDataM
 	return tokensMetadata, nil
 }
 
-// ReadCandidateRouteSearchData reads the candidate route search data from disk at the
+// ReadCandidateRouteSearchData reads the candidate route search data from disk at the given path.
+// This function is used to read the candidate route search data in the old format in the test suite for the backwards compatibility.
+// ReadCandidateRouteSearchData is used to read the candidate route search data in the new format.
+// At some point, this function should be removed once the old format is migrated to the new format.
 func ReadCandidateRouteSearchDataOld(candidateRouteSearchDataFile string) (map[string]*domain.CandidateRouteDenomData, error) {
 	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
 	if err != nil {
@@ -357,7 +360,7 @@ func ReadCandidateRouteSearchDataOld(candidateRouteSearchDataFile string) (map[s
 	return candidateRouteSearchData, nil
 }
 
-// ReadCandidateRouteSearchData reads the candidate route search data from disk at the
+// ReadCandidateRouteSearchData reads the candidate route search data from disk at the given path.
 func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string]*domain.CandidateRouteDenomData, error) {
 	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
 	if err != nil {

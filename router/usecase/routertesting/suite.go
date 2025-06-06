@@ -346,7 +346,7 @@ func (s *RouterTestHelper) SetupMainnetState() MockMainnetState {
 	poolDenomsMetaData, err := parsing.ReadPoolDenomsMetaData(absolutePathToStateFiles + poolDenomsMetaDataFileName)
 	s.Require().NoError(err)
 
-	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchData(absolutePathToStateFiles + candidateRouteFileName)
+	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchDataOld(absolutePathToStateFiles + candidateRouteFileName)
 	s.Require().NoError(err)
 
 	return MockMainnetState{
