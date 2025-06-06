@@ -14,23 +14,27 @@ import (
 func TestQuoteChainStateValidatorMiddleware(t *testing.T) {
 	tests := []struct {
 		name                 string
+		enableValidation     bool
 		getLatestHeightErr   error
 		validateUpdatesErr   error
 		expectedStatusCode   int
 		expectedResponseBody string
 	}{
 		{
-			name:               "Success",
+			name:               "Skip Validation",
+			enableValidation:   false,
 			expectedStatusCode: http.StatusOK,
 		},
 		{
 			name:                 "GetLatestHeight Error",
+			enableValidation:     true,
 			getLatestHeightErr:   errors.New("failed to get latest height"),
 			expectedStatusCode:   http.StatusInternalServerError,
 			expectedResponseBody: `{"message":"no candidate routes found"}`,
 		},
 		{
 			name:                 "ValidateCandidateRouteSearchDataUpdates Error",
+			enableValidation:     true,
 			validateUpdatesErr:   errors.New("failed to validate updates"),
 			expectedStatusCode:   http.StatusInternalServerError,
 			expectedResponseBody: `{"message":"no candidate routes found"}`,
@@ -54,7 +58,7 @@ func TestQuoteChainStateValidatorMiddleware(t *testing.T) {
 				},
 			}
 
-			middleware := QuoteChainStateValidatorMiddleware(mockChainUsecase)
+			middleware := QuoteChainStateValidatorMiddleware(mockChainUsecase, tt.enableValidation)
 
 			// Test
 			handler := middleware(func(c echo.Context) error {
