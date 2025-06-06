@@ -24,7 +24,20 @@ endif
 
 # --- Tooling & Variables ----------------------------------------------------------------
 include ./scripts/makefiles/proto.mk
+include ./scripts/makefiles/state.mk
 include ./misc/make/tools.Makefile
+
+.DEFAULT_GOAL := help
+help:
+	@echo "Available top-level commands:"
+	@echo ""
+	@echo "Usage:"
+	@echo "    make [command]"
+	@echo ""
+	@echo "  make state                 Show available state commands"
+	@echo "  make proto                 Show available proto commands"
+	@echo ""
+	@echo "Run 'make [subcommand]' to see the available commands for each subcommand."
 
 # Install local dependencies
 install-deps: mockery
@@ -41,6 +54,9 @@ swagger-gen:
 
 run:
 	go run -ldflags="-X github.com/osmosis-labs/sqs/version=${VERSION}" app/*.go  --config config.json
+
+run-race:
+	go run -race -ldflags="-X github.com/osmosis-labs/sqs/version=${VERSION}" app/*.go  --config config.json
 
 run-docker:
 	$(DOCKER) rm -f sqs
@@ -149,6 +165,12 @@ debug:
 profile:
 	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/profile?seconds=60
 
+profile-heap:
+	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/heap?seconds=60
+
+profile-block:
+	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/block?seconds=60
+
 # Validates that SQS concentrated liquidity pool state is
 # consistent with the state of the chain.
 validate-cl-state:
@@ -161,18 +183,6 @@ quote-compare:
 
 sqs-quote-compare-stage:
 	ingest/sqs/scripts/quote.sh "http://165.227.168.61"
-
-# Updates go tests with the latest mainnet state
-# Make sure that the node is running locally
-sqs-update-mainnet-state:
-	curl -X POST "http:/localhost:9092/router/store-state"
-	mv pools.json router/usecase/routertesting/parsing/pools.json
-	mv taker_fees.json router/usecase/routertesting/parsing/taker_fees.json
-	mv candidate_route_search_data.json router/usecase/routertesting/parsing/candidate_route_search_data.json
-
-	curl -X POST "http:/localhost:9092/tokens/store-state"
-	mv tokens.json router/usecase/routertesting/parsing/tokens.json
-	mv pool_denom_metadata.json router/usecase/routertesting/parsing/pool_denom_metadata.json
 
 # Bench tests pricing
 bench-pricing:
