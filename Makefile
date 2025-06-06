@@ -27,6 +27,7 @@ include ./scripts/makefiles/run.mk
 include ./scripts/makefiles/proto.mk
 include ./scripts/makefiles/state.mk
 include ./scripts/makefiles/test.mk
+include ./scripts/makefiles/profile.mk
 include ./misc/make/tools.Makefile
 
 .DEFAULT_GOAL := help
@@ -151,15 +152,6 @@ load-test-ui:
 
 debug:
 	dlv --build-flags="-ldflags='-X github.com/osmosis-labs/sqs/version=${VERSION}'"  debug app/*.go
-
-profile:
-	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/profile?seconds=60
-
-profile-heap:
-	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/heap?seconds=60
-
-profile-block:
-	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/block?seconds=60
 
 # Validates that SQS concentrated liquidity pool state is
 # consistent with the state of the chain.
