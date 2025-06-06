@@ -26,6 +26,7 @@ endif
 include ./scripts/makefiles/run.mk
 include ./scripts/makefiles/proto.mk
 include ./scripts/makefiles/state.mk
+include ./scripts/makefiles/test.mk
 include ./misc/make/tools.Makefile
 
 .DEFAULT_GOAL := help
@@ -36,6 +37,7 @@ help:
 	@echo "    make [command]"
 	@echo ""
 	@echo "  make run                   Show available run commands"
+	@echo "  make test                  Show available test commands"
 	@echo "  make state                 Show available state commands"
 	@echo "  make proto                 Show available proto commands"
 	@echo ""
@@ -67,9 +69,6 @@ all-start: osmosis-start run
 lint:
 	@echo "--> Running linter"
 	GOTOOLCHAIN=$(GOTOOLCHAIN) golangci-lint run --timeout=10m
-
-test-unit:
-	@VERSION=$(VERSION) go test -mod=readonly $(PACKAGES_UNIT)
 
 build:
 	BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
