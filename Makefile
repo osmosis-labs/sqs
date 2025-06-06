@@ -23,6 +23,7 @@ endif
 
 
 # --- Tooling & Variables ----------------------------------------------------------------
+include ./scripts/makefiles/run.mk
 include ./scripts/makefiles/proto.mk
 include ./scripts/makefiles/state.mk
 include ./misc/make/tools.Makefile
@@ -34,6 +35,7 @@ help:
 	@echo "Usage:"
 	@echo "    make [command]"
 	@echo ""
+	@echo "  make run                   Show available run commands"
 	@echo "  make state                 Show available state commands"
 	@echo "  make proto                 Show available proto commands"
 	@echo ""
@@ -51,17 +53,6 @@ generate-mocks: mockery
 
 swagger-gen:
 	$(HOME)/go/bin/swag init -g app/main.go --pd --overridesFile ./.swaggo
-
-run:
-	go run -ldflags="-X github.com/osmosis-labs/sqs/version=${VERSION}" app/*.go  --config config.json
-
-run-race:
-	go run -race -ldflags="-X github.com/osmosis-labs/sqs/version=${VERSION}" app/*.go  --config config.json
-
-run-docker:
-	$(DOCKER) rm -f sqs
-	$(DOCKER) run -d --name sqs -p 9092:9092 -p 26657:26657 -v $(PWD)/config.json:/osmosis/config.json:ro --net host osmolabs/sqs:local --config /osmosis/config.json
-	$(DOCKER) logs -f sqs
 
 osmosis-start:
 	$(DOCKER) run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -p 50051:50051 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:v25.x-5b3e7918-1724274941 "start"
