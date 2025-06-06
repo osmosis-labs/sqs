@@ -2,6 +2,10 @@
 ###                                  Profile                                ###
 ###############################################################################
 
+PPROF_HTTP_PORT ?= 8080
+PPPROF_SECONDS ?= 60
+SQS_PORT ?= 9092
+
 profile-help:
 	@echo "profile subcommands"
 	@echo ""
@@ -9,20 +13,22 @@ profile-help:
 	@echo "  make profile-[command]"
 	@echo ""
 	@echo "Available Commands:"
-	@echo "  cpu           Run CPU profiling for 60 seconds"
-	@echo "  heap          Run heap profiling for 60 seconds"
-	@echo "  block         Run block profiling for 60 seconds"
+	@echo "  cpu           Run CPU profiling for $(PPPROF_SECONDS) seconds"
+	@echo "  heap          Run heap profiling for $(PPPROF_SECONDS) seconds"
+	@echo "  block         Run block profiling for $(PPPROF_SECONDS) seconds"
 
 
 profile: profile-cpu
 
-profile-cpu:
-	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/profile?seconds=60
+#? PROFILE_URL: Generate the URL slug for the pprof profile
+PROFILE_URL = $(strip $(if $(filter $(1),cpu),profile,$(1)))
 
-profile-heap:
-	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/heap?seconds=60
+#? RUN_PROFILE: Run the pprof tool with the specified profile type
+define RUN_PROFILE
+	go tool pprof -http=:$(PPROF_HTTP_PORT) http://localhost:$(SQS_PORT)/debug/pprof/$(call PROFILE_URL,$(1))?seconds=$(PPPROF_SECONDS)
+endef
 
-profile-block:
-	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/block?seconds=60
+profile-%:
+	$(call RUN_PROFILE,$*)
 
-.PHONY: profile-unit
+.PHONY: profile profile-help profile-%
