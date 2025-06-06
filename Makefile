@@ -38,6 +38,7 @@ help:
 	@echo "    make [command]"
 	@echo ""
 	@echo "  make run                   Show available run commands"
+	@echo "  make profile               Show available profile commands"
 	@echo "  make test                  Show available test commands"
 	@echo "  make state                 Show available state commands"
 	@echo "  make proto                 Show available proto commands"
