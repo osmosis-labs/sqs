@@ -152,7 +152,7 @@ func (m *RouterUsecaseMock) StoreRouterStateFiles() error {
 }
 
 func (m *RouterUsecaseMock) LoadRouterStateFiles() error {
-	if m.GetRouterStateFunc != nil {
+	if m.LoadRouterStateFilesFunc != nil {
 		return m.LoadRouterStateFilesFunc()
 	}
 	panic("unimplemented")

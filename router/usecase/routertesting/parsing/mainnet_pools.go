@@ -295,72 +295,6 @@ func ReadPoolDenomsMetaData(poolDenomMetaData string) (domain.PoolDenomMetaDataM
 }
 
 // ReadCandidateRouteSearchData reads the candidate route search data from disk at the given path.
-// This function is used to read the candidate route search data in the old format in the test suite for the backwards compatibility.
-// ReadCandidateRouteSearchData is used to read the candidate route search data in the new format.
-// At some point, this function should be removed once the old format is migrated to the new format.
-func ReadCandidateRouteSearchDataOld(candidateRouteSearchDataFile string) (map[string]*domain.CandidateRouteDenomData, error) {
-	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	serialized := make([]candidateRouteSerializedData, 0)
-	err = json.Unmarshal(candidateRouteSearchDataBytes, &serialized)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
-	}
-
-	candidateRouteSearchData := make(map[string]*domain.CandidateRouteDenomData, len(serialized))
-
-	for _, data := range serialized {
-		pools := make([]domain.CandidatePoolWrapper, 0, len(data.Pool))
-		for _, poolData := range data.Pool {
-			var serializedPool SerializedPool
-
-			if err := json.Unmarshal(poolData, &serializedPool); err != nil {
-				return nil, err
-			}
-
-			pool, err := UnmarshalPool(serializedPool)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal pool: %w", err)
-			}
-
-			pools = append(pools, domain.NewCandidatePoolWrapper(
-				pool.GetId(),
-				pool.GetSQSPoolModel(),
-			))
-		}
-
-		orderbooks := make(map[string]domain.CandidatePoolWrapper)
-		for _, orderbookData := range data.Orderbooks {
-			var serializedPool SerializedPool
-
-			if err := json.Unmarshal(orderbookData.Orderbook, &serializedPool); err != nil {
-				return nil, err
-			}
-
-			pool, err := UnmarshalPool(serializedPool)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal pool: %w", err)
-			}
-
-			orderbooks[orderbookData.PairDenom] = domain.NewCandidatePoolWrapper(
-				pool.GetId(),
-				pool.GetSQSPoolModel(),
-			)
-		}
-
-		candidateRouteSearchData[data.Denom] = &domain.CandidateRouteDenomData{
-			SortedPools:         pools,
-			CanonicalOrderbooks: orderbooks,
-		}
-	}
-
-	return candidateRouteSearchData, nil
-}
-
-// ReadCandidateRouteSearchData reads the candidate route search data from disk at the given path.
 func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string]*domain.CandidateRouteDenomData, error) {
 	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
 	if err != nil {
@@ -393,7 +327,7 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 				return nil, err
 			}
 
-			pools = append(pools, pool)
+			orderbooks[orderbookData.PairDenom] = pool
 		}
 
 		candidateRouteSearchData[data.Denom] = &domain.CandidateRouteDenomData{

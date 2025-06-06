@@ -13,7 +13,7 @@ run-help:
 	@echo ""
 	@echo "Available Commands:"
 	@echo "  default    Run service normally"
-	@echo "  state      Run from the state files"
+	@echo "  state      Run from the state files. Make sure to run \`make state-dump\` first."
 	@echo "  docker     Run in a Docker container"
 	@echo "  race       Run with race enabled"
 
