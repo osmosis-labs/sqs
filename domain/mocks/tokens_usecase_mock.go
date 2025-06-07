@@ -34,6 +34,8 @@ type TokensUsecaseMock struct {
 	ClearPoolDenomMetadataFunc           func()
 	CalcSpotPriceFunc                    func(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error)
 	CalcScalingFactorFunc                func(baseDenom string, quoteDenom string) (osmomath.BigDec, error)
+	StoreTokensStateFilesFunc            func() error
+	LoadTokensStateFilesFunc             func() error
 }
 
 var _ mvc.TokensUsecase = &TokensUsecaseMock{}
@@ -197,4 +199,20 @@ func (m *TokensUsecaseMock) CalcScalingFactor(baseDenom string, quoteDenom strin
 		return m.CalcScalingFactorFunc(baseDenom, quoteDenom)
 	}
 	return osmomath.BigDec{}, nil
+}
+
+// StoreTokensStateFiles implements mvc.TokensUsecase.
+func (m *TokensUsecaseMock) StoreTokensStateFiles() error {
+	if m.StoreTokensStateFilesFunc != nil {
+		return m.StoreTokensStateFilesFunc()
+	}
+	return nil
+}
+
+// LoadTokensStateFiles implements mvc.TokensUsecase.
+func (m *TokensUsecaseMock) LoadTokensStateFiles() error {
+	if m.LoadTokensStateFilesFunc != nil {
+		return m.LoadTokensStateFilesFunc()
+	}
+	return nil
 }

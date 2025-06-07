@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -148,6 +149,11 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	)
 
 	tokensUseCase.SetTokenRegistryLoader(chainRegistryHTTPFetcher)
+	if config.ServeFromState {
+		if err := tokensUseCase.LoadTokensStateFiles(); err != nil {
+			panic(fmt.Errorf("failed to load tokens state files: %w", err))
+		}
+	}
 
 	// Check the status of the grpc gateway
 	if err := checkGRPCGatewayStatus(config.ChainGRPCGatewayEndpoint); err != nil {
@@ -174,6 +180,11 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 
 	// Initialize router repository, usecase
 	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	if config.ServeFromState {
+		if err := routerUsecase.LoadRouterStateFiles(); err != nil {
+			panic(fmt.Errorf("failed to load router state files: %w", err))
+		}
+	}
 
 	// Initialize system handler
 	chainInfoRepository := chaininforepo.New()
@@ -252,7 +263,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, logger)
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState}, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough
@@ -304,7 +315,6 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 			orderBookUseCase,
 			logger,
 		)
-
 		if err != nil {
 			return nil, err
 		}

@@ -89,8 +89,14 @@ type RouterUsecase interface {
 	// Since we may cache zero routes, it returns false if the routes are not present in cache. Returns true otherwise.
 	// Returns error if cache is disabled.
 	GetCachedCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error)
-	// StoreRoutes stores all router state in the files locally. Used for debugging.
+
+	// StoreRoutes stores all router state in the files locally.
+	// 	Used for debugging.
 	StoreRouterStateFiles() error
+
+	// LoadRouterStateFiles loads the router state from the files.
+	// Used for debugging.
+	LoadRouterStateFiles() error
 
 	GetRouterState() (domain.RouterState, error)
 

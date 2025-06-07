@@ -294,7 +294,7 @@ func ReadPoolDenomsMetaData(poolDenomMetaData string) (domain.PoolDenomMetaDataM
 	return tokensMetadata, nil
 }
 
-// ReadCandidateRouteSearchData reads the candidate route search data from disk at the
+// ReadCandidateRouteSearchData reads the candidate route search data from disk at the given path.
 func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[string]*domain.CandidateRouteDenomData, error) {
 	candidateRouteSearchDataBytes, err := os.ReadFile(candidateRouteSearchDataFile)
 	if err != nil {
@@ -312,40 +312,22 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 	for _, data := range serialized {
 		pools := make([]domain.CandidatePoolWrapper, 0, len(data.Pool))
 		for _, poolData := range data.Pool {
-			var serializedPool SerializedPool
-
-			if err := json.Unmarshal(poolData, &serializedPool); err != nil {
+			var pool domain.CandidatePoolWrapper
+			if err := json.Unmarshal(poolData, &pool); err != nil {
 				return nil, err
 			}
 
-			pool, err := UnmarshalPool(serializedPool)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal pool: %w", err)
-			}
-
-			pools = append(pools, domain.NewCandidatePoolWrapper(
-				pool.GetId(),
-				pool.GetSQSPoolModel(),
-			))
+			pools = append(pools, pool)
 		}
 
 		orderbooks := make(map[string]domain.CandidatePoolWrapper)
 		for _, orderbookData := range data.Orderbooks {
-			var serializedPool SerializedPool
-
-			if err := json.Unmarshal(orderbookData.Orderbook, &serializedPool); err != nil {
+			var pool domain.CandidatePoolWrapper
+			if err := json.Unmarshal(orderbookData.Orderbook, &pool); err != nil {
 				return nil, err
 			}
 
-			pool, err := UnmarshalPool(serializedPool)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal pool: %w", err)
-			}
-
-			orderbooks[orderbookData.PairDenom] = domain.NewCandidatePoolWrapper(
-				pool.GetId(),
-				pool.GetSQSPoolModel(),
-			)
+			orderbooks[orderbookData.PairDenom] = pool
 		}
 
 		candidateRouteSearchData[data.Denom] = &domain.CandidateRouteDenomData{

@@ -30,6 +30,7 @@ type RouterUsecaseMock struct {
 	SetTakerFeesFunc                             func(takerFees ingesttypes.TakerFeeMap)
 	GetCachedCandidateRoutesFunc                 func(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom, tokenOutDenom string) (ingesttypes.CandidateRoutes, bool, error)
 	StoreRouterStateFilesFunc                    func() error
+	LoadRouterStateFilesFunc                     func() error
 	GetRouterStateFunc                           func() (domain.RouterState, error)
 	GetSortedPoolsFunc                           func() []ingesttypes.PoolI
 	GetConfigFunc                                func() domain.RouterConfig
@@ -148,6 +149,13 @@ func (m *RouterUsecaseMock) StoreRouterStateFiles() error {
 		return m.StoreRouterStateFilesFunc()
 	}
 	return nil
+}
+
+func (m *RouterUsecaseMock) LoadRouterStateFiles() error {
+	if m.LoadRouterStateFilesFunc != nil {
+		return m.LoadRouterStateFilesFunc()
+	}
+	panic("unimplemented")
 }
 
 func (m *RouterUsecaseMock) GetRouterState() (domain.RouterState, error) {

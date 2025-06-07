@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"sync/atomic"
 
 	"github.com/osmosis-labs/sqs/domain/osmomath"
 	sqsatomic "github.com/osmosis-labs/sqs/domain/sync/atomic"
@@ -88,7 +87,7 @@ type CandidateRouteSearcher interface {
 type CandidatePoolWrapper struct {
 	ID                uint64
 	PoolDenoms        []string
-	PoolLiquidityCap  *atomic.Uint64 // Note: the value is truncated if it is larger than uint64
+	PoolLiquidityCap  *sqsatomic.Uint64 // Note: the value is truncated if it is larger than uint64
 	Balances          sdk.Coins
 	IsAlloyTransmuter bool
 	IsOrderbook       bool

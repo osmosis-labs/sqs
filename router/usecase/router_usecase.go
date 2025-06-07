@@ -744,6 +744,33 @@ func (r *routerUseCaseImpl) StoreRouterStateFiles() error {
 	return nil
 }
 
+func (r *routerUseCaseImpl) LoadRouterStateFiles() error {
+	pools, _, err := parsing.ReadPools("./state/pools.json")
+	if err != nil {
+		return err
+	}
+
+	if err := r.poolsUsecase.StorePools(pools); err != nil {
+		return err
+	}
+
+	takerFeeMap, err := parsing.ReadTakerFees("./state/taker_fees.json")
+	if err != nil {
+		return err
+	}
+
+	r.SetTakerFees(takerFeeMap)
+
+	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchData("./state/candidate_route_search_data.json")
+	if err != nil {
+		return err
+	}
+
+	r.routerRepository.SetCandidateRouteSearchData(candidateRouteSearchData)
+
+	return nil
+}
+
 // GetRouterStateJSON implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetRouterState() (domain.RouterState, error) {
 	// These pools do not contain tick model

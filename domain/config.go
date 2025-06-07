@@ -23,6 +23,9 @@ type Config struct {
 	// Defines the web server configuration.
 	ServerAddress string `mapstructure:"server-address"`
 
+	// Defines whether the server should run from state files or not.
+	ServeFromState bool `mapstructure:"serve-from-state"`
+
 	// Defines the logger configuration.
 	LoggerFilename     string `mapstructure:"logger-filename"`
 	LoggerIsProduction bool   `mapstructure:"logger-is-production"`

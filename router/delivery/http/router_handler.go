@@ -36,8 +36,24 @@ func formatRouterResource(resource string) string {
 	return routerResource + resource
 }
 
+// Config holds the configuration for the router handler.
+type Config struct {
+	// ServeFromState indicates whether the router should serve quotes from state files
+	// instead of computing them on the fly.
+	// This is useful for testing and development purposes.
+	ServeFromState bool
+}
+
 // NewRouterHandler will initialize the pools/ resources endpoint
-func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, qs domain.QuoteSimulator, chainUsecase mvc.ChainInfoUsecase, logger log.Logger) {
+func NewRouterHandler(
+	e *echo.Echo,
+	us mvc.RouterUsecase,
+	tu mvc.TokensUsecase,
+	qs domain.QuoteSimulator,
+	chainUsecase mvc.ChainInfoUsecase,
+	config *Config,
+	logger log.Logger,
+) {
 	handler := &RouterHandler{
 		RUsecase:       us,
 		TUsecase:       tu,
@@ -45,7 +61,7 @@ func NewRouterHandler(e *echo.Echo, us mvc.RouterUsecase, tu mvc.TokensUsecase, 
 		logger:         logger,
 	}
 
-	e.GET(formatRouterResource("/quote"), handler.GetOptimalQuote, middleware.QuoteChainStateValidatorMiddleware(chainUsecase))
+	e.GET(formatRouterResource("/quote"), handler.GetOptimalQuote, middleware.QuoteChainStateValidatorMiddleware(chainUsecase, !config.ServeFromState))
 	e.GET(formatRouterResource("/routes"), handler.GetCandidateRoutes)
 	e.GET(formatRouterResource("/cached-routes"), handler.GetCachedCandidateRoutes)
 	e.GET(formatRouterResource("/spot-price-pool/:id"), handler.GetSpotPriceForPool)

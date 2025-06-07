@@ -23,8 +23,27 @@ endif
 
 
 # --- Tooling & Variables ----------------------------------------------------------------
+include ./scripts/makefiles/run.mk
 include ./scripts/makefiles/proto.mk
+include ./scripts/makefiles/state.mk
+include ./scripts/makefiles/test.mk
+include ./scripts/makefiles/profile.mk
 include ./misc/make/tools.Makefile
+
+.DEFAULT_GOAL := help
+help:
+	@echo "Available top-level commands:"
+	@echo ""
+	@echo "Usage:"
+	@echo "    make [command]"
+	@echo ""
+	@echo "  make run                   Show available run commands"
+	@echo "  make profile               Show available profile commands"
+	@echo "  make test                  Show available test commands"
+	@echo "  make state                 Show available state commands"
+	@echo "  make proto                 Show available proto commands"
+	@echo ""
+	@echo "Run 'make [subcommand]' to see the available commands for each subcommand."
 
 # Install local dependencies
 install-deps: mockery
@@ -39,14 +58,6 @@ generate-mocks: mockery
 swagger-gen:
 	$(HOME)/go/bin/swag init -g app/main.go --pd --overridesFile ./.swaggo
 
-run:
-	go run -ldflags="-X github.com/osmosis-labs/sqs/version=${VERSION}" app/*.go  --config config.json
-
-run-docker:
-	$(DOCKER) rm -f sqs
-	$(DOCKER) run -d --name sqs -p 9092:9092 -p 26657:26657 -v $(PWD)/config.json:/osmosis/config.json:ro --net host osmolabs/sqs:local --config /osmosis/config.json
-	$(DOCKER) logs -f sqs
-
 osmosis-start:
 	$(DOCKER) run -d --name osmosis -p 26657:26657 -p 9090:9090 -p 1317:1317 -p 9091:9091 -p 6060:6060 -p 50051:50051 -v $(HOME)/.osmosisd/:/osmosis/.osmosisd/ --net host osmolabs/osmosis-dev:v25.x-5b3e7918-1724274941 "start"
 
@@ -60,9 +71,6 @@ all-start: osmosis-start run
 lint:
 	@echo "--> Running linter"
 	GOTOOLCHAIN=$(GOTOOLCHAIN) golangci-lint run --timeout=10m
-
-test-unit:
-	@VERSION=$(VERSION) go test -mod=readonly $(PACKAGES_UNIT)
 
 build:
 	BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
@@ -146,9 +154,6 @@ load-test-ui:
 debug:
 	dlv --build-flags="-ldflags='-X github.com/osmosis-labs/sqs/version=${VERSION}'"  debug app/*.go
 
-profile:
-	go tool pprof -http=:8080 http://localhost:9092/debug/pprof/profile?seconds=60
-
 # Validates that SQS concentrated liquidity pool state is
 # consistent with the state of the chain.
 validate-cl-state:
@@ -161,18 +166,6 @@ quote-compare:
 
 sqs-quote-compare-stage:
 	ingest/sqs/scripts/quote.sh "http://165.227.168.61"
-
-# Updates go tests with the latest mainnet state
-# Make sure that the node is running locally
-sqs-update-mainnet-state:
-	curl -X POST "http:/localhost:9092/router/store-state"
-	mv pools.json router/usecase/routertesting/parsing/pools.json
-	mv taker_fees.json router/usecase/routertesting/parsing/taker_fees.json
-	mv candidate_route_search_data.json router/usecase/routertesting/parsing/candidate_route_search_data.json
-
-	curl -X POST "http:/localhost:9092/tokens/store-state"
-	mv tokens.json router/usecase/routertesting/parsing/tokens.json
-	mv pool_denom_metadata.json router/usecase/routertesting/parsing/pool_denom_metadata.json
 
 # Bench tests pricing
 bench-pricing:
