@@ -479,6 +479,11 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 		opt(&options)
 	}
 
+	// If pool ID filter is empty, return empty result
+	if options.Filter != nil && options.Filter.PoolId != nil && len(options.Filter.PoolId) == 0 {
+		return nil, 0, nil
+	}
+
 	// When it's only the filter by pool ID and no other filters are applied
 	// we can optimize the query by fetching only the pools with the given IDs.
 	if f := options.Filter; f != nil && len(opts) == 1 && len(f.PoolId) > 0 &&
