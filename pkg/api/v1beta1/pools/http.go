@@ -68,7 +68,7 @@ func (r *GetPoolsRequest) IsLegacy(c echo.Context) bool {
 		c.QueryParam(queryWithMarketIncentives) != ""
 }
 
-// IsPresent checks if the pagination request is present in the HTTP request.
+// IsPresent checks if the filter request is present in the HTTP request.
 func (r *GetPoolsRequestFilter) IsPresent(c echo.Context) bool {
 	return c.QueryParam(queryIDs) != "" ||
 		c.QueryParam(queryFilterID) != "" ||

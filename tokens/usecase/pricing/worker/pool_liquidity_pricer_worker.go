@@ -291,6 +291,10 @@ func (p *poolLiquidityPricerWorker) hasLaterUpdateThanHeight(denom string, heigh
 // repricePoolLiquidityCap reprices pool liquidity capitalization for the given poolIDs, block price updates and quote denom.
 // If fails to retrieve price for one of the denoms in balances, the liquidity capitalization for that denom would be zero.
 func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]struct{}, blockPriceUpdates domain.PricesResult) error {
+	if len(poolIDs) == 0 {
+		return nil // nothing to reprice
+	}
+
 	blockPoolIDs := domain.KeysFromMap(poolIDs)
 
 	pools, _, err := p.poolHandler.GetPools(domain.WithPoolIDFilter(blockPoolIDs))
