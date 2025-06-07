@@ -16,6 +16,7 @@ profile-help:
 	@echo "  cpu           Run CPU profiling for $(PPPROF_SECONDS) seconds"
 	@echo "  heap          Run heap profiling for $(PPPROF_SECONDS) seconds"
 	@echo "  block         Run block profiling for $(PPPROF_SECONDS) seconds"
+	@echo "  mutex         Run mutex profiling for $(PPPROF_SECONDS) seconds"
 
 
 profile: profile-cpu
