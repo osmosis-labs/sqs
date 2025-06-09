@@ -35,6 +35,12 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v28.3.9
+
+- #666 - BE-749 | Fix pricing latencies regression
+- #665 - BE-753 | Implement running SQS from dumped state files
+- #664 - BE-752 | Bump max ingest message size
+
 ## v28.3.8
 
 - #661 - BE-750 | Fix out amount overflow for Balancer pools
