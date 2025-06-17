@@ -133,11 +133,13 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		logger.Error("Error connecting to the chain", zap.Error(err))
 	}
 
-	if _, err := chainClient.GetLatestHeight(ctx); err != nil {
-		if !config.SkipChainAvailabilityCheck {
-			panic(err)
+	if chainClient != nil {
+		if _, err := chainClient.GetLatestHeight(ctx); err != nil {
+			if !config.SkipChainAvailabilityCheck {
+				panic(err)
+			}
+			logger.Error("Error getting latest height from chain client", zap.Error(err))
 		}
-		logger.Error("Error getting latest height from chain client", zap.Error(err))
 	}
 
 	// Initialize system handler
