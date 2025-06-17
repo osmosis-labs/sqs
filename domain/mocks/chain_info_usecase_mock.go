@@ -27,7 +27,7 @@ func (m *ChainInfoClientMock) GetStatus(ctx context.Context) (*ctypes.ResultStat
 	if m.GetStatusFunc != nil {
 		return m.GetStatusFunc(ctx)
 	}
-	return nil, nil
+	return nil, nil // nolint:nilnil
 }
 
 // ChainInfoUsecaseMock is a mock implementation of the ChainInfoUsecase interface
