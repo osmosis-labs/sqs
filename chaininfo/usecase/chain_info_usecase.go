@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	chaininfoclient "github.com/osmosis-labs/sqs/chaininfo/client"
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	"github.com/osmosis-labs/sqs/domain"
 
@@ -14,6 +15,7 @@ import (
 
 type chainInfoUseCase struct {
 	chainInfoRepository chaininforepo.ChainInfoRepository
+	client              chaininfoclient.Client
 
 	// N.B. sometimes the node gets stuck and does not make progress.
 	// However, it returns 200 OK for the status endpoint and claims to be not catching up.
@@ -56,14 +58,19 @@ var (
 	_ domain.CandidateRouteSearchDataUpdateListener = &chainInfoUseCase{}
 )
 
-func NewChainInfoUsecase(chainInfoRepository chaininforepo.ChainInfoRepository) *chainInfoUseCase {
+func NewChainInfoUsecase(chainInfoRepository chaininforepo.ChainInfoRepository, client chaininfoclient.Client) *chainInfoUseCase {
 	return &chainInfoUseCase{
 		chainInfoRepository: chainInfoRepository,
+		client:              client,
 
 		lastSeenMx: sync.Mutex{},
 
 		lastIngestedHeight: 0,
 	}
+}
+
+func (p *chainInfoUseCase) GetClient() chaininfoclient.Client {
+	return p.client
 }
 
 func (p *chainInfoUseCase) GetLatestHeight() (uint64, error) {
