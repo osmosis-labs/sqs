@@ -96,6 +96,7 @@ type Pool struct {
 	TokenInDenom  string         `json:"token_in_denom,omitempty"`
 	TokenOutDenom string         `json:"token_out_denom,omitempty"`
 	TakerFee      osmomath.Dec   `json:"taker_fee"`
+	LiquidityCap  osmomath.Int   `json:"liquidity_cap"`
 }
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
@@ -233,6 +234,11 @@ func (p *Pool) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coi
 // GetTakerFee implements domain.RoutablePool.
 func (p *Pool) GetTakerFee() math.LegacyDec {
 	return p.TakerFee
+}
+
+// GetLiquidtyCap implements domain.RoutablePool.
+func (p *Pool) GetLiquidityCap() osmomath.Int {
+	return p.LiquidityCap
 }
 
 // SetTokenInDenom implements domain.RoutablePool.

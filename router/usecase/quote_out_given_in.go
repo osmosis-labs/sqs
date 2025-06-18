@@ -32,12 +32,14 @@ func NewQuoteExactAmountOut(q *QuoteExactAmountIn) *quoteExactAmountOut {
 
 // quoteExactAmountIn is a quote implementation for token swap method exact in.
 type quoteExactAmountIn struct {
-	AmountIn                sdk.Coin            "json:\"amount_in\""
-	AmountOut               osmomath.Int        "json:\"amount_out\""
-	Route                   []domain.SplitRoute "json:\"route\""
-	EffectiveFee            osmomath.Dec        "json:\"effective_fee\""
-	PriceImpact             osmomath.Dec        "json:\"price_impact\""
-	InBaseOutQuoteSpotPrice osmomath.Dec        "json:\"in_base_out_quote_spot_price\""
+	AmountIn                sdk.Coin            `json:"amount_in"`
+	AmountOut               osmomath.Int        `json:"amount_out"`
+	Route                   []domain.SplitRoute `json:"route"`
+	LiquidityCap            osmomath.Int        `json:"liquidity_cap"`
+	LiquidityCapOverflow    bool                `json:"liquidity_cap_overflow"`
+	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
+	PriceImpact             osmomath.Dec        `json:"price_impact"`
+	InBaseOutQuoteSpotPrice osmomath.Dec        `json:"in_base_out_quote_spot_price"`
 	PriceInfo               *domain.TxFeeInfo   `json:"price_info,omitempty"`
 }
 
@@ -52,6 +54,9 @@ type quoteExactAmountIn struct {
 func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceQuoteCalculator, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
+
+	totalLiquidityCapOverflow := false
+	totalLiquidityCap := osmomath.ZeroInt()
 
 	totalSpotPriceInBaseOutQuote := osmomath.ZeroDec()
 	totalEffectiveSpotPriceInBaseOutQuote := osmomath.ZeroDec()
@@ -81,6 +86,18 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 			return nil, osmomath.Dec{}, err
 		}
 
+		// Calculate total liquidity cap for the route
+		for _, pool := range newPools {
+			if cap := pool.GetLiquidityCap(); !cap.IsNil() {
+				var err error
+				totalLiquidityCap, err = totalLiquidityCap.SafeAdd(pool.GetLiquidityCap())
+				if err != nil {
+					totalLiquidityCapOverflow = true
+					break
+				}
+			}
+		}
+
 		totalSpotPriceInBaseOutQuote = totalSpotPriceInBaseOutQuote.AddMut(routeSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
 		totalEffectiveSpotPriceInBaseOutQuote = totalEffectiveSpotPriceInBaseOutQuote.AddMut(effectiveSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
 
@@ -99,6 +116,8 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		q.PriceImpact = totalEffectiveSpotPriceInBaseOutQuote.Quo(totalSpotPriceInBaseOutQuote).SubMut(one)
 	}
 
+	q.LiquidityCap = totalLiquidityCap
+	q.LiquidityCapOverflow = totalLiquidityCapOverflow
 	q.EffectiveFee = totalFeeAcrossRoutes
 	q.Route = resultRoutes
 	q.InBaseOutQuoteSpotPrice = totalSpotPriceInBaseOutQuote

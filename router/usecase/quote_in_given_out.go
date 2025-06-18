@@ -20,10 +20,12 @@ var _ domain.Quote = &quoteExactAmountOut{}
 // quoteExactAmountOut is a quote wrapper for exact out quotes.
 // Note that only the PrepareResult method is different from the quoteExactAmountIn.
 type quoteExactAmountOut struct {
-	*quoteExactAmountIn     "json:\"-\""
+	*quoteExactAmountIn     `json:"-"`
 	AmountIn                osmomath.Int        `json:"amount_in"`
 	AmountOut               sdk.Coin            `json:"amount_out"`
 	Route                   []domain.SplitRoute `json:"route"`
+	LiquidityCap            osmomath.Int        `json:"liquidity_cap"`
+	LiquidityCapOverflow    bool                `json:"liquidity_cap_overflow"`
 	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
 	PriceImpact             osmomath.Dec        `json:"price_impact"`
 	InBaseOutQuoteSpotPrice osmomath.Dec        `json:"in_base_out_quote_spot_price"`
@@ -145,6 +147,8 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	q.AmountOut = q.quoteExactAmountIn.AmountIn
 	q.AmountIn = q.quoteExactAmountIn.AmountOut
 	q.Route = q.quoteExactAmountIn.Route
+	q.LiquidityCap = q.quoteExactAmountIn.LiquidityCap
+	q.LiquidityCapOverflow = q.quoteExactAmountIn.LiquidityCapOverflow
 	q.EffectiveFee = q.quoteExactAmountIn.EffectiveFee
 	q.PriceImpact = q.quoteExactAmountIn.PriceImpact
 	q.InBaseOutQuoteSpotPrice = q.quoteExactAmountIn.InBaseOutQuoteSpotPrice

@@ -23,6 +23,7 @@ type routableStableswapPoolImpl struct {
 	TokenInDenom  string           `json:"token_in_denom,omitempty"`
 	TokenOutDenom string           `json:"token_out_denom,omitempty"`
 	TakerFee      osmomath.Dec     `json:"taker_fee"`
+	LiquidityCap  osmomath.Int     `json:"liquidity_cap"`
 }
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
@@ -79,6 +80,11 @@ func (r *routableStableswapPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
 }
 
+// GetLiquidityCap implements domain.RoutablePool.
+func (r *routableStableswapPoolImpl) GetLiquidityCap() osmomath.Int {
+	return r.LiquidityCap
+}
+
 // SetTokenInDenom implements domain.RoutablePool.
 func (r *routableStableswapPoolImpl) SetTokenInDenom(tokenInDenom string) {
 	r.TokenInDenom = tokenInDenom
@@ -111,7 +117,7 @@ func (r *routableStableswapPoolImpl) GetType() poolmanagertypes.PoolType {
 
 // CalcSpotPrice implements domain.RoutablePool.
 func (r *routableStableswapPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}.WithContext(ctx), quoteDenom, baseDenom)
+	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
