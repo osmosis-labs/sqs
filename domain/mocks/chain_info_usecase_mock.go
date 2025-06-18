@@ -9,7 +9,10 @@ import (
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 )
 
-var _ mvc.ChainInfoUsecase = &ChainInfoUsecaseMock{}
+var (
+	_ mvc.ChainInfoUsecase   = &ChainInfoUsecaseMock{}
+	_ chaininfoclient.Client = &ChainInfoClientMock{}
+)
 
 type ChainInfoClientMock struct {
 	GetLatestHeightFunc func(ctx context.Context) (uint64, error)
