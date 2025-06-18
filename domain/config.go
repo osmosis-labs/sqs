@@ -31,10 +31,11 @@ type Config struct {
 	LoggerIsProduction bool   `mapstructure:"logger-is-production"`
 	LoggerLevel        string `mapstructure:"logger-level"`
 
-	ChainTendermintRPCEndpoint string `mapstructure:"grpc-tendermint-rpc-endpoint"`
-	ChainGRPCGatewayEndpoint   string `mapstructure:"grpc-gateway-endpoint"`
-	ChainID                    string `mapstructure:"chain-id"`
-	SkipChainAvailabilityCheck bool   `mapstructure:"skip-chain-availability-check"`
+	ChainTendermintRPCEndpoint        string `mapstructure:"grpc-tendermint-rpc-endpoint"`
+	ChainTendermintRPCEndpointTimeout uint   `mapstructure:"grpc-tendermint-rpc-endpoint-timeout"` // Timeout in seconds
+	ChainGRPCGatewayEndpoint          string `mapstructure:"grpc-gateway-endpoint"`
+	ChainID                           string `mapstructure:"chain-id"`
+	SkipChainAvailabilityCheck        bool   `mapstructure:"skip-chain-availability-check"`
 
 	// Chain registry assets URL.
 	ChainRegistryAssetsFileURL string `mapstructure:"chain-registry-assets-url"`
@@ -71,17 +72,18 @@ type Config struct {
 const envPrefix = "SQS"
 
 var DefaultConfig = Config{
-	ServerAddress:                 ":9092",
-	LoggerFilename:                "sqs.log",
-	LoggerIsProduction:            false,
-	LoggerLevel:                   "info",
-	ChainTendermintRPCEndpoint:    "http://localhost:26657",
-	ChainGRPCGatewayEndpoint:      "localhost:9090",
-	ChainID:                       "osmosis-1",
-	SkipChainAvailabilityCheck:    false,
-	ChainRegistryAssetsFileURL:    "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
-	ChainRegistryTokenFeesFileURL: "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/chain.json",
-	UpdateAssetsHeightInterval:    200,
+	ServerAddress:                     ":9092",
+	LoggerFilename:                    "sqs.log",
+	LoggerIsProduction:                false,
+	LoggerLevel:                       "info",
+	ChainTendermintRPCEndpoint:        "http://localhost:26657",
+	ChainTendermintRPCEndpointTimeout: 5,
+	ChainGRPCGatewayEndpoint:          "localhost:9090",
+	ChainID:                           "osmosis-1",
+	SkipChainAvailabilityCheck:        false,
+	ChainRegistryAssetsFileURL:        "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmosis-1/generated/frontend/assetlist.json",
+	ChainRegistryTokenFeesFileURL:     "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/chain.json",
+	UpdateAssetsHeightInterval:        200,
 	FlightRecord: &FlightRecordConfig{
 		Enabled:          true,
 		TraceThresholdMS: 1000,

@@ -2,12 +2,10 @@ package http
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/pprof"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -15,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
@@ -24,20 +21,9 @@ import (
 )
 
 type SystemHandler struct {
-	logger      log.Logger
-	grpcAddress string
-	CIUsecase   mvc.ChainInfoUsecase
-	config      domain.Config
-}
-
-// Parse the response from the GRPC Gateway status endpoint
-type JsonResponse struct {
-	Result struct {
-		SyncInfo struct {
-			LatestBlockHeight string `json:"latest_block_height"`
-			CatchingUp        bool   `json:"catching_up"`
-		} `json:"sync_info"`
-	} `json:"result"`
+	Logger    log.Logger
+	CIUsecase mvc.ChainInfoUsecase
+	config    domain.Config
 }
 
 // ConfigPrivateResponse defines the response for the /config-private endpoint
@@ -54,10 +40,9 @@ const (
 // NewSystemHandler will initialize the /debug/ppof resources endpoint
 func NewSystemHandler(e *echo.Echo, config domain.Config, logger log.Logger, us mvc.ChainInfoUsecase) {
 	handler := &SystemHandler{
-		logger:      logger,
-		grpcAddress: config.ChainTendermintRPCEndpoint,
-		CIUsecase:   us,
-		config:      config,
+		Logger:    logger,
+		CIUsecase: us,
+		config:    config,
 	}
 
 	// if debug mod, enable additional profiles that are too intensive
@@ -142,38 +127,14 @@ func extractVersion(ldGlagsValueStr string) (string, error) {
 // GetHealthStatus handles health check requests for GRPC gateway
 func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 	// Check GRPC Gateway status
-	url := h.grpcAddress + "/status"
-	resp, err := http.Get(url)
-	if err != nil || resp == nil || resp.StatusCode != http.StatusOK {
-		h.logger.Error("Error checking GRPC gateway status", zap.Error(err))
+	statusResponse, err := h.CIUsecase.GetClient().GetStatus(c.Request().Context())
+	if err != nil {
+		h.Logger.Error("Error checking GRPC gateway status", zap.Error(err))
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Error connecting to the Osmosis chain via GRPC gateway")
-	} else {
-		if resp.Body != nil {
-			defer resp.Body.Close()
-		}
-	}
-
-	var statusResponse JsonResponse
-
-	if resp == nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get response from GRPC gateway")
-	}
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read response body")
-	}
-
-	err = json.Unmarshal(bodyBytes, &statusResponse)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse JSON response")
 	}
 
 	// allow 10 blocks of difference before claiming node is not synced
-	latestChainHeight, err := strconv.ParseUint(statusResponse.Result.SyncInfo.LatestBlockHeight, 10, 64)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse latest block height from GRPC gateway")
-	}
+	latestChainHeight := uint64(statusResponse.SyncInfo.LatestBlockHeight)
 
 	// Check the latest height from chain info use case
 	// Errors if the height has not beein updated for more than 30 seconds
@@ -183,7 +144,7 @@ func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 	}
 
 	// Check if the node is catching up. Error if so.
-	if statusResponse.Result.SyncInfo.CatchingUp {
+	if statusResponse.SyncInfo.CatchingUp {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Node is still catching up")
 	}
 

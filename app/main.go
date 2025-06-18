@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/osmosis-labs/sqs/chaininfo/client"
 	"github.com/osmosis-labs/sqs/domain"
 	sqslog "github.com/osmosis-labs/sqs/log"
 	"github.com/spf13/viper"
@@ -109,18 +108,6 @@ func main() {
 		panic(fmt.Errorf("error while creating logger: %s", err))
 	}
 	logger.Info("Starting sidecar query server")
-
-	chainClient, err := client.NewClient(config.ChainID, config.ChainTendermintRPCEndpoint)
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err := chainClient.GetLatestHeight(ctx); err != nil {
-		if !config.SkipChainAvailabilityCheck {
-			panic(err)
-		}
-		logger.Error("Error getting latest height from chain client", zap.Error(err))
-	}
 
 	encCfg := app.MakeEncodingConfig()
 	sidecarQueryServer, err := NewSideCarQueryServer(ctx, encCfg.Marshaler, *config, logger)

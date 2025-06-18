@@ -28,6 +28,11 @@ import (
 
 	"github.com/osmosis-labs/osmosis/v28/app"
 	txfeestypes "github.com/osmosis-labs/osmosis/v28/x/txfees/types"
+	chaininfoclient "github.com/osmosis-labs/sqs/chaininfo/client"
+	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
+	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
+	chainregistryHttpDelivery "github.com/osmosis-labs/sqs/chainregistry/delivery/http"
+	chainregistryUseCase "github.com/osmosis-labs/sqs/chainregistry/usecase"
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
@@ -37,19 +42,14 @@ import (
 	orderbookorderscache "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/orderscache"
 	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
-	"github.com/osmosis-labs/sqs/quotesimulator"
-	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
-
-	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
-	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
-	chainregistryHttpDelivery "github.com/osmosis-labs/sqs/chainregistry/delivery/http"
-	chainregistryUseCase "github.com/osmosis-labs/sqs/chainregistry/usecase"
 	passthroughHttpDelivery "github.com/osmosis-labs/sqs/passthrough/delivery/http"
 	passthroughUseCase "github.com/osmosis-labs/sqs/passthrough/usecase"
 	poolsHttpDelivery "github.com/osmosis-labs/sqs/pools/delivery/http"
 	poolsUseCase "github.com/osmosis-labs/sqs/pools/usecase"
+	"github.com/osmosis-labs/sqs/quotesimulator"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	routerWorker "github.com/osmosis-labs/sqs/router/usecase/worker"
+	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
@@ -125,6 +125,27 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	e.Use(middleware.InstrumentMiddleware)
 	e.Use(otelecho.Middleware("sqs"), middleware.TraceWithParamsMiddleware())
 
+	chainClient, err := chaininfoclient.NewClient(ctx, config.ChainID, config.ChainTendermintRPCEndpoint, config.ChainTendermintRPCEndpointTimeout)
+	if err != nil {
+		if !config.SkipChainAvailabilityCheck {
+			panic(err)
+		}
+		logger.Error("Error connecting to the chain", zap.Error(err))
+	}
+
+	if chainClient != nil {
+		if _, err := chainClient.GetLatestHeight(ctx); err != nil {
+			if !config.SkipChainAvailabilityCheck {
+				panic(err)
+			}
+			logger.Error("Error getting latest height from chain client", zap.Error(err))
+		}
+	}
+
+	// Initialize system handler
+	chainInfoRepository := chaininforepo.New()
+	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository, chainClient)
+
 	routerRepository := routerrepo.New(logger)
 
 	// Compute token metadata from chain denom.
@@ -185,10 +206,6 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 			panic(fmt.Errorf("failed to load router state files: %w", err))
 		}
 	}
-
-	// Initialize system handler
-	chainInfoRepository := chaininforepo.New()
-	chainInfoUseCase := chaininfousecase.NewChainInfoUsecase(chainInfoRepository)
 
 	cosmWasmPoolConfig := poolsUseCase.GetCosmWasmPoolConfig()
 
