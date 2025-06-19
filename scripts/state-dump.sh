@@ -5,6 +5,7 @@ set -euo pipefail
 HOSTNAME="http://localhost:9092"
 ROUTER_ENDPOINT="/router/store-state"
 TOKENS_ENDPOINT="/tokens/store-state"
+INGEST_ENDPOINT="/ingest/store-state"
 OUTPUT_DIR="${1:-./state}"
 
 EXPECTED_ROUTER_FILES=(
@@ -16,6 +17,10 @@ EXPECTED_ROUTER_FILES=(
 EXPECTED_TOKENS_FILES=(
     "tokens.json"
     "pool_denom_metadata.json"
+)
+
+EXPECTED_INGEST_FILES=(
+	"ingest.json"
 )
 
 echo "Starting state dump..."
@@ -34,6 +39,14 @@ move_files() {
     done
 }
 
+# Request ingest state
+echo "Requesting ingest state..."
+if ! curl -sS -X POST "${HOSTNAME}${INGEST_ENDPOINT}" -o /dev/null; then
+	echo "Error: curl request to ${HOSTNAME}${INGEST_ENDPOINT} failed." >&2
+	exit 1
+fi
+move_files "${EXPECTED_INGEST_FILES[@]}"
+
 # Request router state once
 echo "Requesting router state..."
 if ! curl -sS -X POST "${HOSTNAME}${ROUTER_ENDPOINT}" -o /dev/null; then
@@ -49,5 +62,6 @@ if ! curl -sS -X POST "${HOSTNAME}${TOKENS_ENDPOINT}" -o /dev/null; then
     exit 1
 fi
 move_files "${EXPECTED_TOKENS_FILES[@]}"
+
 
 echo "State dump completed successfully."

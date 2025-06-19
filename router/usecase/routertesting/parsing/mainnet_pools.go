@@ -23,6 +23,46 @@ type SerializedPool struct {
 	TickModel *ingesttypes.TickModel    `json:"tick_model,omitempty"`
 }
 
+func LoadIngest(ingestFile string) (domain.DenomPoolLiquidityMap, error) {
+	ingestBytes, err := os.ReadFile(ingestFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var denomLiquidityMap domain.DenomPoolLiquidityMap
+	err = json.Unmarshal(ingestBytes, &denomLiquidityMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	return denomLiquidityMap, nil
+}
+
+func StoreIngest(denomLiquidityMap domain.DenomPoolLiquidityMap, ingestFile string) error {
+	_, err := os.Stat(ingestFile)
+	if os.IsNotExist(err) {
+		file, err := os.Create(ingestFile)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		ingestJSON, err := json.Marshal(denomLiquidityMap)
+		if err != nil {
+			return err
+		}
+
+		_, err = file.Write(ingestJSON)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // StorePools stores the pools to a file.
 func StorePools(actualPools []ingesttypes.PoolI, tickModelMap map[uint64]*ingesttypes.TickModel, poolsFile string) error {
 	_, err := os.Stat(poolsFile)
