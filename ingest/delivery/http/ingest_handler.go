@@ -15,13 +15,13 @@ type IngestHandler struct {
 	logger        log.Logger
 }
 
-const routerResource = "/ingest"
+const ingestResource = "/ingest"
 
-func formatRouterResource(resource string) string {
-	return routerResource + resource
+func formatIngestResource(resource string) string {
+	return ingestResource + resource
 }
 
-// NewRouterHandler will initialize the pools/ resources endpoint
+// NewIngestHandler will initialize the pools/ resources endpoint
 func NewIngestHandler(
 	e *echo.Echo,
 	ingestUsecase mvc.IngestUsecase,
@@ -32,11 +32,11 @@ func NewIngestHandler(
 		logger:        logger,
 	}
 
-	e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
+	e.POST(formatIngestResource("/store-state"), handler.StoreIngestStateInFiles)
 }
 
 // TODO: authentication for the endpoint and enable only in dev mode.
-func (a *IngestHandler) StoreRouterStateInFiles(c echo.Context) error {
+func (a *IngestHandler) StoreIngestStateInFiles(c echo.Context) error {
 	if err := a.IngestUsecase.StoreIngestStateFiles(); err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
