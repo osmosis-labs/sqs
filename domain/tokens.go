@@ -50,11 +50,11 @@ type DenomPoolLiquidityMap map[string]DenomPoolLiquidityData
 // pools with their individual contributions to the total.
 type DenomPoolLiquidityData struct {
 	// Total liquidity for this denom
-	TotalLiquidity          osmomath.Int
-	EffectiveTotalLiquidity osmomath.BigDec
+	TotalLiquidity          osmomath.Int    `json:"total_liquidity"`
+	EffectiveTotalLiquidity osmomath.BigDec `json:"effective_total_liquidity"`
 	// Mapping from pool ID to denom liquidity
 	// in that pool
-	Pools map[uint64]osmomath.Int
+	Pools map[uint64]osmomath.Int `json:"pools"`
 }
 
 // GAMMSharePrefix is the prefix for the GAMM share

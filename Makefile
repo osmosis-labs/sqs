@@ -152,7 +152,7 @@ load-test-ui:
 	$(DOCKER) compose -f locust/docker-compose.yml up --scale worker=4
 
 debug:
-	dlv --build-flags="-ldflags='-X github.com/osmosis-labs/sqs/version=${VERSION}'"  debug app/*.go
+	dlv --build-flags="-ldflags='-X github.com/osmosis-labs/sqs/version=${VERSION}'"  debug app/*.go -- --config config.json
 
 # Validates that SQS concentrated liquidity pool state is
 # consistent with the state of the chain.

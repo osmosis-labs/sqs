@@ -35,6 +35,7 @@ import (
 	chainregistryUseCase "github.com/osmosis-labs/sqs/chainregistry/usecase"
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
+	ingestHttpDelivery "github.com/osmosis-labs/sqs/ingest/delivery/http"
 	ingestusecase "github.com/osmosis-labs/sqs/ingest/usecase"
 	"github.com/osmosis-labs/sqs/ingest/usecase/plugins/basefee"
 	orderbookclaimbot "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/claimbot"
@@ -405,6 +406,13 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		grpcIngestHandler, err := ingestrpcdelivry.NewIngestGRPCHandler(ingestUseCase, *grpcIngesterConfig, logger)
 		if err != nil {
 			panic(err)
+		}
+
+		ingestHttpDelivery.NewIngestHandler(e, ingestUseCase, logger)
+		if config.ServeFromState {
+			if err := ingestUseCase.LoadIngestStateFiles(); err != nil {
+				panic(fmt.Errorf("failed to load ingester state files: %w", err))
+			}
 		}
 
 		go func() {

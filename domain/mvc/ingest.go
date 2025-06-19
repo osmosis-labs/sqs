@@ -17,4 +17,12 @@ type IngestUsecase interface {
 	// RegisterEndBlockProcessPlugin registers the end block process plugin
 	// That is called at the end of the block
 	RegisterEndBlockProcessPlugin(plugin domain.EndBlockProcessPlugin)
+
+	// StoreIngestStateFiles stores the current ingest state into files
+	// Used for debugging.
+	StoreIngestStateFiles() error
+
+	// LoadIngestStateFiles loads the ingest state from files
+	// Used for debugging.
+	LoadIngestStateFiles() error
 }
