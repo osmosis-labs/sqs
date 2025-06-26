@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -22,10 +23,12 @@ import (
 
 // RouterHandler  represent the httphandler for the router
 type RouterHandler struct {
-	RUsecase       mvc.RouterUsecase
-	TUsecase       mvc.TokensUsecase
-	QuoteSimulator domain.QuoteSimulator
-	logger         log.Logger
+	RUsecase               mvc.RouterUsecase
+	TUsecase               mvc.TokensUsecase
+	QuoteSimulator         domain.QuoteSimulator
+	candidateRouteSearcher domain.CandidateRouteSearcher
+	poolsUsecase           mvc.PoolsUsecase
+	logger                 log.Logger
 }
 
 const routerResource = "/router"
@@ -51,24 +54,103 @@ func NewRouterHandler(
 	tu mvc.TokensUsecase,
 	qs domain.QuoteSimulator,
 	chainUsecase mvc.ChainInfoUsecase,
+	candidateRouteSearcher domain.CandidateRouteSearcher,
+	poolsUsecase mvc.PoolsUsecase,
 	config *Config,
 	logger log.Logger,
 ) {
 	handler := &RouterHandler{
-		RUsecase:       us,
-		TUsecase:       tu,
-		QuoteSimulator: qs,
-		logger:         logger,
+		RUsecase:               us,
+		TUsecase:               tu,
+		QuoteSimulator:         qs,
+		candidateRouteSearcher: candidateRouteSearcher,
+		poolsUsecase:           poolsUsecase,
+		logger:                 logger,
 	}
 
 	e.GET(formatRouterResource("/quote"), handler.GetOptimalQuote, middleware.QuoteChainStateValidatorMiddleware(chainUsecase, !config.ServeFromState))
+	e.GET(formatRouterResource("/find-routes"), handler.FindCandidateRoutes)
 	e.GET(formatRouterResource("/routes"), handler.GetCandidateRoutes)
+	e.GET(formatRouterResource("/simple-quote"), handler.GetSimpleQuote)
 	e.GET(formatRouterResource("/cached-routes"), handler.GetCachedCandidateRoutes)
 	e.GET(formatRouterResource("/spot-price-pool/:id"), handler.GetSpotPriceForPool)
 	e.GET(formatRouterResource("/custom-direct-quote"), handler.GetDirectCustomQuote)
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
 	e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
 	e.GET(formatRouterResource("/state"), handler.GetRouterState)
+}
+
+func (a *RouterHandler) FindCandidateRoutes(c echo.Context) error {
+	ctx := context.Background()
+	tokenIn := sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", osmomath.NewInt(10000000))
+	tokenOutDenom := "uosmo"
+
+	_, routes, err := a.RUsecase.GetSimpleQuoteWithRoutes(ctx, tokenIn, tokenOutDenom)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	type result struct {
+		PoolID    []uint64     `json:"pool_id"`
+		OutAmount osmomath.Int `json:"out_amount"`
+		InAmount  osmomath.Int `json:"in_amount"`
+	}
+
+	type response struct {
+		Price  osmomath.BigDec `json:"price"`
+		Routes []result        `json:"routes"`
+	}
+
+	var results []result
+	for _, route := range routes {
+		var poolID []uint64
+		for _, pool := range route.GetPools() {
+			poolID = append(poolID, pool.GetId())
+		}
+		results = append(results, result{
+			PoolID:    poolID,
+			OutAmount: route.GetAmountOut(),
+			InAmount:  route.GetAmountIn(),
+		})
+	}
+
+	res := response{
+		Price:  routes.Price(),
+		Routes: results,
+	}
+
+	return c.JSON(http.StatusOK, res)
+}
+
+func (a *RouterHandler) GetSimpleQuote(c echo.Context) error {
+	// Overwrite default config with custom values
+	// necessary for pricing.
+	routingOptions := []domain.RouterOption{
+		domain.WithMaxRoutes(20),
+		domain.WithMaxPoolsPerRoute(4),
+		// Use the provided min liquidity value rather than the default
+		// Since it can be overridden by options in GetPrice(...)
+		domain.WithMinPoolLiquidityCap(1),
+		domain.WithDisableSplitRoutes(),
+	}
+
+	ctx := c.Request().Context()
+	tokenIn := sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", osmomath.NewInt(10000000))
+	tokenOutDenom := "uosmo"
+
+	// Compute a quote for one quote coin.
+	quote, err := a.RUsecase.GetSimpleQuote(ctx, tokenIn, tokenOutDenom, routingOptions...)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	scalingFactor := oneDec
+	_, _, err = quote.PrepareResult(ctx, scalingFactor, a.TUsecase, a.logger)
+	if err != nil {
+		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, quote)
 }
 
 // @Summary Optimal Quote

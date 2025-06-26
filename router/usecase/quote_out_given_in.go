@@ -53,8 +53,8 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
-	totalSpotPriceInBaseOutQuote := osmomath.ZeroDec()
-	totalEffectiveSpotPriceInBaseOutQuote := osmomath.ZeroDec()
+	spotPrice := osmomath.ZeroDec()
+	effectiveSpotPrice := osmomath.ZeroDec()
 
 	resultRoutes := make([]domain.SplitRoute, 0, len(q.Route))
 
@@ -76,17 +76,17 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountInFraction))
 
 		amountInFraction := q.AmountIn.Amount.ToLegacyDec().MulMut(routeAmountInFraction).TruncateInt()
-		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPoolsOutGivenIn(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), spotPriceCalculator, logger)
+		pools, routeSpotPrice, routeEffectiveSpotPrice, err := curRoute.PrepareResultPoolsOutGivenIn(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), spotPriceCalculator, logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
 		}
 
-		totalSpotPriceInBaseOutQuote = totalSpotPriceInBaseOutQuote.AddMut(routeSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
-		totalEffectiveSpotPriceInBaseOutQuote = totalEffectiveSpotPriceInBaseOutQuote.AddMut(effectiveSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
+		spotPrice = spotPrice.AddMut(routeSpotPrice.MulMut(routeAmountInFraction))
+		effectiveSpotPrice = effectiveSpotPrice.AddMut(routeEffectiveSpotPrice.MulMut(routeAmountInFraction))
 
 		resultRoutes = append(resultRoutes, &route.RouteWithOutAmount{
 			RouteImpl: route.RouteImpl{
-				Pools:                      newPools,
+				Pools:                      pools,
 				HasGeneralizedCosmWasmPool: curRoute.ContainsGeneralizedCosmWasmPool(),
 			},
 			InAmount:  curRoute.GetAmountIn(),
@@ -95,13 +95,13 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 	}
 
 	// Calculate price impact
-	if !totalSpotPriceInBaseOutQuote.IsZero() {
-		q.PriceImpact = totalEffectiveSpotPriceInBaseOutQuote.Quo(totalSpotPriceInBaseOutQuote).SubMut(one)
+	if !spotPrice.IsZero() {
+		q.PriceImpact = effectiveSpotPrice.Quo(spotPrice).SubMut(one)
 	}
 
 	q.EffectiveFee = totalFeeAcrossRoutes
 	q.Route = resultRoutes
-	q.InBaseOutQuoteSpotPrice = totalSpotPriceInBaseOutQuote
+	q.InBaseOutQuoteSpotPrice = spotPrice
 
 	return q.Route, q.EffectiveFee, nil
 }

@@ -124,12 +124,12 @@ type PricingWorker interface {
 	// that contains information about changed denoms and pools within a block.
 	// Propagates the results to the listeners.
 	// Performs the update asynchronously.
-	UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
+	UpdatePricesAsync(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 	// UpdatePricesSync updates prices for the tokens from the unique block pool metadata
 	// that contains information about changed denoms and pools within a block.
 	// Propagates the results to the listeners.
 	// Performs the update synchronously.
-	UpdatePricesSync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
+	UpdatePricesSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 
 	// RegisterListener registers a listener for pricing updates.
 	RegisterListener(listener PricingUpdateListener)

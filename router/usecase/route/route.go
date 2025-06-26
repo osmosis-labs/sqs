@@ -96,13 +96,24 @@ func (r RouteImpls) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.
 
 	// collect results
 	var errors []error
+	var idx []int
 	for range len(r) {
 		res := <-results
 		if res.err != nil {
 			errors = append(errors, res.err)
 			continue
 		}
+		idx = append(idx, res.index)
 		routesWithAmountOut = append(routesWithAmountOut, res.data)
+	}
+
+	// Sort routes by index to maintain original order
+	for i := 0; i < len(idx); i++ {
+		for j := i + 1; j < len(idx); j++ {
+			if idx[i] > idx[j] {
+				routesWithAmountOut[i], routesWithAmountOut[j] = routesWithAmountOut[j], routesWithAmountOut[i]
+			}
+		}
 	}
 
 	return routesWithAmountOut, errors
@@ -145,6 +156,7 @@ func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk
 		)
 		if pool.GetSQSType() == domain.Orderbook {
 			spotPriceInBaseOutQuote, err = spotPriceCalculator.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
+			// spotPriceInBaseOutQuote, err = pool.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
 		} else {
 			spotPriceInBaseOutQuote, err = pool.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
 		}
@@ -185,6 +197,11 @@ func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk
 			pool.GetTakerFee(),
 			pool.GetCodeID(),
 		)
+
+		newPool.TokenIn = tokenIn
+		newPool.TokenOut = tokenOut
+		newPool.SpotPrice = spotPriceInBaseOutQuote
+		newPool.EffectiveSpotPrice = tokenOut.Amount.ToLegacyDec().QuoMut(tokenIn.Amount.ToLegacyDec())
 
 		newPools = append(newPools, newPool)
 

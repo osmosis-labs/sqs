@@ -28,6 +28,7 @@ var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 type routerUseCaseImpl struct {
 	routerRepository       mvc.RouterRepository
 	poolsUsecase           mvc.PoolsUsecase
+	tokensUsecase          mvc.TokensUsecase
 	tokenMetadataHolder    mvc.TokenMetadataHolder
 	candidateRouteSearcher domain.CandidateRouteSearcher
 
@@ -54,9 +55,21 @@ const (
 var zero = osmomath.ZeroInt()
 
 // NewRouterUsecase will create a new pools use case object
-func NewRouterUsecase(tokensRepository mvc.RouterRepository, poolsUsecase mvc.PoolsUsecase, candidateRouteSearcher domain.CandidateRouteSearcher, tokenMetadataHolder mvc.TokenMetadataHolder, config domain.RouterConfig, cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig, logger log.Logger, rankedRouteCache *cache.Cache, candidateRouteCache *cache.Cache) mvc.RouterUsecase {
+func NewRouterUsecase(
+	routerRepository mvc.RouterRepository,
+	tokensUsecase mvc.TokensUsecase,
+	poolsUsecase mvc.PoolsUsecase,
+	candidateRouteSearcher domain.CandidateRouteSearcher,
+	tokenMetadataHolder mvc.TokenMetadataHolder,
+	config domain.RouterConfig,
+	cosmWasmPoolsConfig domain.CosmWasmPoolRouterConfig,
+	logger log.Logger,
+	rankedRouteCache *cache.Cache,
+	candidateRouteCache *cache.Cache,
+) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
-		routerRepository:       tokensRepository,
+		routerRepository:       routerRepository,
+		tokensUsecase:          tokensUsecase,
 		poolsUsecase:           poolsUsecase,
 		tokenMetadataHolder:    tokenMetadataHolder,
 		defaultConfig:          config,
@@ -220,9 +233,21 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 	}, nil
 }
 
-// GetSimpleQuote implements mvc.RouterUsecase.
-// TODO: cover with a simple test.
-func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+func (r *routerUseCaseImpl) GetSimpleQuoteWithRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, domain.SplitRoutes, error) {
+	quote, routes, err := r.getRoutes(ctx, tokenIn, tokenOutDenom, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var splitRoutes []domain.SplitRoute
+	for _, routeImpl := range routes {
+		splitRoutes = append(splitRoutes, &routeImpl)
+	}
+
+	return quote, splitRoutes, nil
+}
+
+func (r *routerUseCaseImpl) getRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []route.RouteWithOutAmount, error) {
 	options := domain.RouterOptions{
 		MaxPoolsPerRoute:    r.defaultConfig.MaxPoolsPerRoute,
 		MaxRoutes:           r.defaultConfig.MaxRoutes,
@@ -255,21 +280,31 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
-		return nil, err
+		return nil, nil, err
 	}
 
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
+	routesImpl, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
 		r.logger.Error("error ranking routes for pricing", zap.Error(err))
+		return nil, nil, err
+	}
+
+	topQuote, routes, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
+	}
+
+	return topQuote, routes, nil
+}
+
+// GetSimpleQuote implements mvc.RouterUsecase.
+// TODO: cover with a simple test.
+func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+	quote, _, err := r.getRoutes(ctx, tokenIn, tokenOutDenom, opts...)
+	if err != nil {
 		return nil, err
 	}
-
-	topQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
-	if err != nil {
-		return nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
-	}
-
-	return topQuote, nil
+	return quote, nil
 }
 
 // filterAndConvertDuplicatePoolIDRankedRoutes filters ranked routes that contain duplicate pool IDs.

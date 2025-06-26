@@ -146,7 +146,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	}
 
 	// Compute a quote for one quote coin.
-	quote, err := c.RUsecase.GetSimpleQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
+	quote, routes, err := c.RUsecase.GetSimpleQuoteWithRoutes(ctx, tenQuoteCoin, baseDenom, routingOptions...)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -154,7 +154,6 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		return osmomath.BigDec{}, fmt.Errorf("no quote found when computing pricing for %s (base) -> %s (quote)", baseDenom, quoteDenom)
 	}
 
-	routes := quote.GetRoute()
 	if len(routes) == 0 {
 		return osmomath.BigDec{}, fmt.Errorf("no route found when computing pricing for %s (base) -> %s (quote)", baseDenom, quoteDenom)
 	}
@@ -200,7 +199,8 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	// if there is an error in the spot price computation above.
 	if !isSpotPriceComputeMethod {
 		// Compute on-chain price for 10 units of base denom and resulted quote denom out.
-		chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().Amount.BigIntMut()))
+		chainPrice = routes.Price()
+		// chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().Amount.BigIntMut()))
 	}
 
 	if chainPrice.IsZero() {
@@ -224,6 +224,52 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 			expirationTTL = cache.NoExpirationTTL
 		}
 		c.cache.Set(cacheKey, chainPrice, expirationTTL)
+	}
+
+	return chainPrice, nil
+}
+
+func (c *chainPricing) poolBasedSpotPrice(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (osmomath.BigDec, error) {
+	// Compute a quote for one quote coin.
+	quote, err := c.RUsecase.GetSimpleQuote(ctx, tokenIn, tokenOutDenom, opts...)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+	if quote == nil {
+		return osmomath.BigDec{}, fmt.Errorf("no quote found when computing pricing for %s (base) -> %s (quote)", tokenIn.Denom, tokenOutDenom)
+	}
+
+	routes := quote.GetRoute()
+	if len(routes) == 0 {
+		return osmomath.BigDec{}, fmt.Errorf("no route found when computing pricing for %s (base) -> %s (quote)", tokenIn.Denom, tokenOutDenom)
+	}
+
+	chainPrice := osmomath.OneBigDec()
+
+	pools := routes[0].GetPools()
+
+	var (
+		tempQuoteDenom = tokenIn.Denom
+		tempBaseDenom  string
+	)
+
+	for _, pool := range pools {
+		tempBaseDenom = pool.GetTokenOutDenom()
+
+		// Get spot price for the pool.
+		poolSpotPrice, err := c.RUsecase.GetPoolSpotPrice(ctx, pool.GetId(), tempQuoteDenom, tempBaseDenom)
+		if err != nil {
+			return osmomath.BigDec{}, err
+		}
+
+		if poolSpotPrice.IsNil() || poolSpotPrice.IsZero() {
+			return osmomath.BigDec{}, fmt.Errorf("spot price for pool %d (%s -> %s) is nil or zero", pool.GetId(), tempQuoteDenom, tempBaseDenom)
+		}
+
+		// Multiply spot price by the previous spot price.
+		chainPrice = chainPrice.MulMut(poolSpotPrice)
+
+		tempQuoteDenom = tempBaseDenom
 	}
 
 	return chainPrice, nil

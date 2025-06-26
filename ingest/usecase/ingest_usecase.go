@@ -113,12 +113,15 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	ctx, span := tracer.Start(ctx, "ingestUseCase.ProcessBlockData")
 	defer span.End()
 
+	ctx = context.WithValue(ctx, domain.DebugKey, height) // Add debug key to the context so we can debug calls made by this method only
+
 	if p.firstHeightAfterStartUp.Load() == 0 && len(poolData) > firstBlockPoolCountThreshold {
 		p.logger.Info("setting first block height", zap.Uint64("height", height))
 		p.firstHeightAfterStartUp.Store(height)
 		p.firstBlockWg.Add(1)
 	}
 
+	p.dumpOsmoPrice(ctx)
 	p.logger.Info("starting block processing", zap.Uint64("height", height))
 
 	startProcessingTime := time.Now()
@@ -126,15 +129,28 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.routerUsecase.SetTakerFees(takerFeesMap)
 
 	// Parse the pools
+	uniqueBlockPoolMetadata := domain.BlockPoolMetadata{
+		UpdatedDenoms: map[string]struct{}{
+			"uosmo": {},
+		},
+	}
+
 	pools, uniqueBlockPoolMetadata, err := p.parsePoolData(ctx, poolData)
 	if err != nil {
 		return err
 	}
 
+	p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata)
+
 	// Store the pools
+	// TODO: here
 	if err := p.poolsUseCase.StorePools(pools); err != nil {
 		return err
 	}
+
+	p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata)
+
+	return
 
 	// Get all pools (already updated with the newly ingested pools)
 	allPools, err := p.poolsUseCase.GetAllPools()
@@ -145,7 +161,11 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	// Sort and store pools.
 	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Int("num_pools", len(allPools)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
 
+	p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata)
+
 	p.sortAndStorePools(allPools)
+
+	p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata)
 
 	// If an error occurs, we should return it and not proceed with the next steps.
 	// The pricing relies on the search data. As a result, by returnining an error we trigger a fallback mechanism
@@ -155,6 +175,8 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		p.logger.Error("failed to compute search data", zap.Error(err))
 		return err
 	}
+
+	p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata)
 
 	if height == p.firstHeightAfterStartUp.Load() {
 		// For the first block, we need to update the prices synchronously.
@@ -166,13 +188,13 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		uniqueBlockPoolMetadata.IsFirstBlock = true
 
 		// Pre-compute the prices for all tokens
-		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
+		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata)
 
 		// Completely reprice the pool liquidity for the first block asyncronously
 		// second time.
 		// This is necessary because the initial pricing is computed within min liquidity capitalization.
 		// That results in a suboptimal price.
-		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(ctx, height, uniqueBlockPoolMetadata)
 
 		// Recompute search data given the availability of pool liquidity pricing.
 		if err := p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata); err != nil {
@@ -185,7 +207,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		p.firstBlockWg.Wait()
 
 		// For any block after the first block, we can update the prices asynchronously.
-		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata)
 	}
 
 	// Store the latest ingested height.
@@ -196,6 +218,8 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	// We update the assets at the height interval asynchronously to avoid blocking the processing of the next block.
 	p.updateAssetsAtHeightIntervalAsync(height)
 
+	// p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata) // TODO: remove me
+
 	// Execute the end block process plugins.
 	go p.executeEndBlockProcessPlugins(ctx, height, uniqueBlockPoolMetadata)
 
@@ -204,6 +228,11 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	domain.SQSIngestHandlerProcessBlockDurationGauge.Set(float64(time.Since(startProcessingTime).Milliseconds()))
 
 	return nil
+}
+
+func (p *ingestUseCase) dumpOsmoPrice(ctx context.Context) {
+	prices, err := p.tokensUsecase.GetPrices(ctx, []string{"uosmo"}, []string{"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"}, 0)
+	p.logger.Info("osmo price dump", zap.Error(err), zap.Any("prices", prices))
 }
 
 // RegisterEndBlockProcessPlugin implements mvc.IngestUsecase.
@@ -319,6 +348,9 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 			return nil, domain.BlockPoolMetadata{}, ctx.Err()
 		}
 	}
+
+	uniqueData.DenomPoolLiquidityMap = p.denomLiquidityMap
+	return parsedPools, uniqueData, nil
 
 	// Transfer the updated block denom liquidity data to the global map.
 	// Note, the updated liquidity data contains updates only for the pools updated

@@ -55,6 +55,24 @@ type Route interface {
 	String() string
 }
 
+type SplitRoutes []SplitRoute
+
+// Price calculates the average price of the split routes.
+// It could be improved to use a weighted average where weight
+// reflects how strong the route is.
+func (s SplitRoutes) Price() osmomath.BigDec {
+	if len(s) == 0 {
+		return osmomath.ZeroBigDec()
+	}
+
+	totalPrice := osmomath.ZeroBigDec()
+	for _, route := range s {
+		totalPrice = totalPrice.Add(osmomath.BigDecFromDec(route.GetAmountIn().ToLegacyDec()).Quo(osmomath.BigDecFromDec(route.GetAmountOut().ToLegacyDec())))
+	}
+
+	return totalPrice.Quo(osmomath.NewBigDec(int64(len(s))))
+}
+
 type SplitRoute interface {
 	Route
 	GetAmountIn() osmomath.Int
