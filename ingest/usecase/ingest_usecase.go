@@ -23,6 +23,7 @@ import (
 	sqsingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 
 	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
 	"github.com/osmosis-labs/osmosis/v28/ingest/types/proto/types"
@@ -490,6 +491,21 @@ func (p *ingestUseCase) executeEndBlockProcessPlugins(ctx context.Context, block
 			p.logger.Error("error executing end block process plugin", zap.Error(err), zap.Uint64("block_height", blockHeight))
 		}
 	}
+}
+
+func (p *ingestUseCase) StoreIngestStateFiles() error {
+	return parsing.StoreIngest(p.denomLiquidityMap, "ingest.json")
+}
+
+func (p *ingestUseCase) LoadIngestStateFiles() error {
+	denomliquidityCap, err := parsing.LoadIngest("./state/ingest.json")
+	if err != nil {
+		return fmt.Errorf("failed to load ingest state files: %w", err)
+	}
+
+	p.denomLiquidityMap = denomliquidityCap
+
+	return nil
 }
 
 // processSQSModelMut processes the SQS model and updates it.

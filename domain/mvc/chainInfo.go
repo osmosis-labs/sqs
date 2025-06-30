@@ -1,5 +1,7 @@
 package mvc
 
+import chaininfoclient "github.com/osmosis-labs/sqs/chaininfo/client"
+
 // ChainInfoUsecase is the interface that defines the methods for the chain info usecase
 type ChainInfoUsecase interface {
 	// GetLatestHeight returns the latest height stored
@@ -30,4 +32,7 @@ type ChainInfoUsecase interface {
 	// - 50 heights have passed since the last update
 	// - The initial candidate route search data update has not been received
 	ValidateCandidateRouteSearchDataUpdates() error
+
+	// GetClient returns the chain client used to interact with the chain.
+	GetClient() chaininfoclient.Client
 }
