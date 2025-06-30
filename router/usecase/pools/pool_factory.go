@@ -45,7 +45,7 @@ func NewRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom 
 	}
 
 	if poolType == poolmanagertypes.Balancer {
-		return balancer.New(chainPool, tokenInDenom, tokenOutDenom, takerFee), nil
+		return balancer.New(pool, tokenInDenom, tokenOutDenom, takerFee), nil
 	}
 
 	if pool.GetType() == poolmanagertypes.Stableswap {

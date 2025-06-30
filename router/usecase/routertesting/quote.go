@@ -174,8 +174,9 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p3, ingesttypes.SQSPool{
-								SpreadFactor: p3.GetSpreadFactor(sdk.Context{}),
-								Balances:     poolThreeBalances,
+								SpreadFactor:     p3.GetSpreadFactor(sdk.Context{}),
+								Balances:         poolThreeBalances,
+								PoolLiquidityCap: poolThreeLiquidityCap,
 							}),
 							ETH,
 							USDC,

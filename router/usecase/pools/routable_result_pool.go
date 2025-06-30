@@ -124,7 +124,7 @@ func (r *routableResultPoolImpl) GetTickModel() (*ingesttypes.TickModel, error) 
 
 // GetPoolLiquidityCap implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetPoolLiquidityCap() math.Int {
-	return osmomath.Int{}
+	return r.LiquidityCap
 }
 
 // GetType implements domain.RoutablePool.
