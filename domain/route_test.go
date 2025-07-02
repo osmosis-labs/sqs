@@ -42,6 +42,7 @@ var (
 	DefaultCoin0 = routertesting.DefaultCoin0
 	DefaultCoin1 = routertesting.DefaultCoin1
 
+	DefaultLiquidityCap = routertesting.DefaultLiquidityCap
 	DefaultLiquidityAmt = routertesting.DefaultLiquidityAmt
 
 	// router specific variables
@@ -117,6 +118,7 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
+					DefaultLiquidityCap,
 					notCosmWasmPoolCodeID,
 				),
 			},

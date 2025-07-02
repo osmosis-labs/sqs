@@ -39,7 +39,23 @@ var (
 		sdk.NewCoin(ETH, defaultAmount),
 		sdk.NewCoin(USDC, defaultAmount.MulRaw(4)),
 	)
+
+	poolOneLiquidityCap   = osmomath.NewInt(151_9153_195)
+	poolTwoLiquidityCap   = osmomath.NewInt(85_196_078)
+	poolThreeLiquidityCap = osmomath.NewInt(719_951)
 )
+
+func (s *RouterTestHelper) PoolOneLiquidityCap() osmomath.Int {
+	return poolOneLiquidityCap
+}
+
+func (s *RouterTestHelper) PoolTwoLiquidityCap() osmomath.Int {
+	return poolTwoLiquidityCap
+}
+
+func (s *RouterTestHelper) PoolThreeLiquidityCap() osmomath.Int {
+	return poolThreeLiquidityCap
+}
 
 func (s *RouterTestHelper) newRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec) domain.RoutablePool {
 	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
@@ -65,8 +81,9 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p1, ingesttypes.SQSPool{
-								SpreadFactor: p1.GetSpreadFactor(sdk.Context{}),
-								Balances:     poolOneBalances,
+								SpreadFactor:     p1.GetSpreadFactor(sdk.Context{}),
+								Balances:         poolOneBalances,
+								PoolLiquidityCap: poolOneLiquidityCap,
 							}),
 							ETH,
 							USDT,
@@ -74,8 +91,9 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 						),
 						s.newRoutablePool(
 							ingesttypes.NewPool(p2, ingesttypes.SQSPool{
-								SpreadFactor: p2.GetSpreadFactor(sdk.Context{}),
-								Balances:     poolTwoBalances,
+								SpreadFactor:     p2.GetSpreadFactor(sdk.Context{}),
+								Balances:         poolTwoBalances,
+								PoolLiquidityCap: poolTwoLiquidityCap,
 							}),
 							USDT,
 							USDC,
@@ -94,8 +112,9 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p3, ingesttypes.SQSPool{
-								SpreadFactor: p3.GetSpreadFactor(sdk.Context{}),
-								Balances:     poolThreeBalances,
+								SpreadFactor:     p3.GetSpreadFactor(sdk.Context{}),
+								Balances:         poolThreeBalances,
+								PoolLiquidityCap: poolThreeLiquidityCap,
 							}),
 							ETH,
 							USDC,
@@ -126,8 +145,9 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p1, ingesttypes.SQSPool{
-								SpreadFactor: p1.GetSpreadFactor(sdk.Context{}),
-								Balances:     poolOneBalances,
+								SpreadFactor:     p1.GetSpreadFactor(sdk.Context{}),
+								Balances:         poolOneBalances,
+								PoolLiquidityCap: poolOneLiquidityCap,
 							}),
 							ETH,
 							USDT,
@@ -135,8 +155,9 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 						),
 						s.newRoutablePool(
 							ingesttypes.NewPool(p2, ingesttypes.SQSPool{
-								SpreadFactor: p2.GetSpreadFactor(sdk.Context{}),
-								Balances:     poolTwoBalances,
+								SpreadFactor:     p2.GetSpreadFactor(sdk.Context{}),
+								Balances:         poolTwoBalances,
+								PoolLiquidityCap: poolTwoLiquidityCap,
 							}),
 							USDT,
 							USDC,
@@ -153,8 +174,9 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 					Pools: []domain.RoutablePool{
 						s.newRoutablePool(
 							ingesttypes.NewPool(p3, ingesttypes.SQSPool{
-								SpreadFactor: p3.GetSpreadFactor(sdk.Context{}),
-								Balances:     poolThreeBalances,
+								SpreadFactor:     p3.GetSpreadFactor(sdk.Context{}),
+								Balances:         poolThreeBalances,
+								PoolLiquidityCap: poolThreeLiquidityCap,
 							}),
 							ETH,
 							USDC,

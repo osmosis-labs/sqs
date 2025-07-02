@@ -8,6 +8,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	sqssdk "github.com/osmosis-labs/sqs/domain/types"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
 	"github.com/osmosis-labs/osmosis/v28/x/gamm/types"
@@ -23,9 +24,9 @@ var _ domain.RoutablePool = &Pool{}
 
 // New creates a new balancer Pool with the given parameters.
 // It panics if the pool is not a balancer pool.
-func New(p poolmanagertypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec) *Pool {
+func New(p ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec) *Pool {
 	// Sanity check
-	pool, ok := p.(*balancer.Pool)
+	pool, ok := p.GetUnderlyingPool().(*balancer.Pool)
 	if !ok {
 		panic(domain.FailedToCastPoolModelError{
 			ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Balancer)],
@@ -60,7 +61,8 @@ func New(p poolmanagertypes.PoolI, tokenInDenom string, tokenOutDenom string, ta
 			SwapFee: swapFee,
 			ExitFee: exitFee,
 		},
-		TakerFee: takerFee,
+		TakerFee:     takerFee,
+		LiquidityCap: p.GetPoolLiquidityCap(),
 	}
 }
 
@@ -96,6 +98,7 @@ type Pool struct {
 	TokenInDenom  string         `json:"token_in_denom,omitempty"`
 	TokenOutDenom string         `json:"token_out_denom,omitempty"`
 	TakerFee      osmomath.Dec   `json:"taker_fee"`
+	LiquidityCap  osmomath.Int   `json:"liquidity_cap"`
 }
 
 // CalculateTokenOutByTokenIn implements RoutablePool.
@@ -233,6 +236,11 @@ func (p *Pool) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coi
 // GetTakerFee implements domain.RoutablePool.
 func (p *Pool) GetTakerFee() math.LegacyDec {
 	return p.TakerFee
+}
+
+// GetLiquidityCap implements domain.RoutablePool.
+func (p *Pool) GetLiquidityCap() osmomath.Int {
+	return p.LiquidityCap
 }
 
 // SetTokenInDenom implements domain.RoutablePool.

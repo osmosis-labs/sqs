@@ -29,6 +29,7 @@ type routableOrderbookPoolImpl struct {
 	TokenOutDenom string                      `json:"token_out_denom,omitempty"`
 	TakerFee      osmomath.Dec                `json:"taker_fee"`
 	SpreadFactor  osmomath.Dec                `json:"spread_factor"`
+	LiquidityCap  osmomath.Int                `json:"liquidity_cap"`
 	OrderbookData *cosmwasmpool.OrderbookData `json:"orderbook_data"`
 }
 
@@ -52,7 +53,12 @@ func (r *routableOrderbookPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
 }
 
-// CalculateTokenOutByTokenIn implements ingesttypes.RoutablePool.
+// GetLiquidityCap implements domain.RoutablePool.
+func (r *routableOrderbookPoolImpl) GetLiquidityCap() osmomath.Int {
+	return r.LiquidityCap
+}
+
+// CalculateTokenOutByTokenIn implements sqsdomain.RoutablePool.
 // It calculates the amount of token out given the amount of token in for a orderbook pool.
 // Fails if:
 // - the underlying chain pool set on the routable pool is not of cosmwasm type
