@@ -336,7 +336,7 @@ func (r *routableConcentratedPoolImpl) String() string {
 	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v), token out (%s)", concentratedPool.Id, poolmanagertypes.Concentrated, concentratedPool.GetPoolDenoms(sdk.Context{}), r.TokenOutDenom)
 }
 
-// ChargeTakerFee implements domain.RoutablePool.
+// ChargeTakerFeeExactIn implements domain.RoutablePool.
 // Charges the taker fee for the given token in and returns the token in after the fee has been charged.
 func (r *routableConcentratedPoolImpl) ChargeTakerFeeExactIn(tokenIn sdk.Coin) (tokenInAfterFee sdk.Coin) {
 	tokenInAfterTakerFee, _ := poolmanager.CalcTakerFeeExactIn(tokenIn, r.GetTakerFee())

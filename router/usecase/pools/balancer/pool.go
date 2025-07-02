@@ -238,7 +238,7 @@ func (p *Pool) GetTakerFee() math.LegacyDec {
 	return p.TakerFee
 }
 
-// GetLiquidtyCap implements domain.RoutablePool.
+// GetLiquidityCap implements domain.RoutablePool.
 func (p *Pool) GetLiquidityCap() osmomath.Int {
 	return p.LiquidityCap
 }

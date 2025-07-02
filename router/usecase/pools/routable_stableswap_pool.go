@@ -117,7 +117,7 @@ func (r *routableStableswapPoolImpl) GetType() poolmanagertypes.PoolType {
 
 // CalcSpotPrice implements domain.RoutablePool.
 func (r *routableStableswapPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}, quoteDenom, baseDenom)
+	spotPrice, err := r.ChainPool.SpotPrice(sdk.Context{}.WithContext(ctx), quoteDenom, baseDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
