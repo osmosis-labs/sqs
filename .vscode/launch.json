@@ -8,7 +8,7 @@
       "name": "Launch Package",
       "type": "go",
       "request": "launch",
-      "mode": "auto",
+      "mode": "debug",
       "program": "${workspaceFolder}/app",
       "env": {
         "OSMOSIS_KEYRING_PATH":"/root/.osmosisd/keyring-test",
@@ -21,7 +21,30 @@
         "--config",
         "config.json",
         "--host",
-        "sqs-dev",
+        "sqs-dev"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Launch Package ( Serve From State )",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/app",
+      "env": {
+        "OSMOSIS_KEYRING_PATH":"/root/.osmosisd/keyring-test",
+        "OSMOSIS_KEYRING_PASSWORD": "test",
+	    "OSMOSIS_KEYRING_KEY_NAME": "local.info",
+        "SQS_OTEL_ENVIRONMENT": "sqs-local-debugger",
+        "SQS_PRIVATE_KEY": "",
+		"SQS_SKIP_CHAIN_AVAILABILITY_CHECK": "true",
+		"SQS_SERVE_FROM_STATE": "true"
+      },
+      "args": [
+        "--config",
+        "config.json",
+        "--host",
+        "sqs-dev"
       ],
       "cwd": "${workspaceFolder}"
     },
