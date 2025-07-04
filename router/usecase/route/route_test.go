@@ -157,6 +157,7 @@ func (s *RouterTestSuite) TestPrepareResultPoolsOutGivenIn() {
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
+					s.PoolOneLiquidityCap(),
 					notCosmWasmPoolCodeID,
 				),
 			},
@@ -183,6 +184,7 @@ func (s *RouterTestSuite) TestPrepareResultPoolsOutGivenIn() {
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
+					s.PoolTwoLiquidityCap(),
 					notCosmWasmPoolCodeID,
 				),
 				pools.NewRoutableResultPool(
@@ -191,6 +193,7 @@ func (s *RouterTestSuite) TestPrepareResultPoolsOutGivenIn() {
 					DefaultSpreadFactor,
 					DenomThree,
 					DefaultTakerFee,
+					s.PoolThreeLiquidityCap(),
 					transmuter.GetCodeId(),
 				),
 			},
@@ -205,7 +208,6 @@ func (s *RouterTestSuite) TestPrepareResultPoolsOutGivenIn() {
 	for name, tc := range testcases {
 		tc := tc
 		s.Run(name, func() {
-
 			// Note: token in is chosen arbitrarily since it is irrelevant for this test
 			actualPools, spotPriceBeforeInBaseOutQuote, _, err := tc.route.PrepareResultPoolsOutGivenIn(context.TODO(), tc.tokenIn, nil, &log.NoOpLogger{})
 			s.Require().NoError(err)

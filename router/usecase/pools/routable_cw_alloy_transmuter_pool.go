@@ -26,6 +26,7 @@ type routableAlloyTransmuterPoolImpl struct {
 	TokenOutDenom       string                            `json:"token_out_denom,omitempty"`
 	TakerFee            osmomath.Dec                      `json:"taker_fee"`
 	SpreadFactor        osmomath.Dec                      `json:"spread_factor"`
+	LiquidityCap        osmomath.Int                      `json:"liquidity_cap"`
 }
 
 // GetId implements domain.RoutablePool.
@@ -50,6 +51,11 @@ func (*routableAlloyTransmuterPoolImpl) GetType() poolmanagertypes.PoolType {
 // GetSpreadFactor implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) GetSpreadFactor() math.LegacyDec {
 	return r.SpreadFactor
+}
+
+// GetLiquidityCap implements domain.RoutablePool.
+func (r *routableAlloyTransmuterPoolImpl) GetLiquidityCap() osmomath.Int {
+	return r.LiquidityCap
 }
 
 // CalculateTokenOutByTokenIn implements domain.RoutablePool.

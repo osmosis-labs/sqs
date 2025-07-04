@@ -29,6 +29,7 @@ type routableConcentratedPoolImpl struct {
 	TokenInDenom  string                  `json:"token_in_denom,omitempty"`
 	TokenOutDenom string                  `json:"token_out_denom,omitempty"`
 	TakerFee      osmomath.Dec            `json:"taker_fee"`
+	LiquidityCap  osmomath.Int            `json:"liquidity_cap"`
 }
 
 // Size is roughly `keys * (2.5 * Key_size + 2*value_size)`. (Plus whatever excess overhead hashmaps internally have)
@@ -71,6 +72,11 @@ func (r *routableConcentratedPoolImpl) GetSpreadFactor() math.LegacyDec {
 // GetTakerFee implements domain.RoutablePool.
 func (r *routableConcentratedPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
+}
+
+// GetLiquidityCap implements domain.RoutablePool.
+func (r *routableConcentratedPoolImpl) GetLiquidityCap() osmomath.Int {
+	return r.LiquidityCap
 }
 
 // CalculateTokenOutByTokenIn implements domain.RoutablePool.

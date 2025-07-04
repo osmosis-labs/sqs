@@ -36,6 +36,7 @@ type routableResultPoolImpl struct {
 	TokenOutDenom      string                    `json:"token_out_denom,omitempty"`
 	TokenInDenom       string                    `json:"token_in_denom,omitempty"`
 	TakerFee           osmomath.Dec              `json:"taker_fee"`
+	LiquidityCap       osmomath.Int              `json:"liquidity_cap"`
 	CodeID             uint64                    `json:"code_id,omitempty"`
 }
 
@@ -55,25 +56,43 @@ func (r *routableResultPoolImpl) SetOutDenom(denom string) {
 }
 
 // NewRoutableResultPool returns the new routable result pool with the given parameters.
-func NewRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenOutDenom string, takerFee osmomath.Dec, codeID uint64) *routableResultPoolImpl {
+func NewRoutableResultPool(
+	ID uint64,
+	poolType poolmanagertypes.PoolType,
+	spreadFactor osmomath.Dec,
+	tokenOutDenom string,
+	takerFee osmomath.Dec,
+	liquidityCap osmomath.Int,
+	codeID uint64,
+) *routableResultPoolImpl {
 	return &routableResultPoolImpl{
 		ID:            ID,
 		Type:          poolType,
 		SpreadFactor:  spreadFactor,
 		TokenOutDenom: tokenOutDenom,
 		TakerFee:      takerFee,
+		LiquidityCap:  liquidityCap,
 		CodeID:        codeID,
 	}
 }
 
 // NewExactAmountOutRoutableResultPool returns the new routable result pool with the given parameters.
-func NewExactAmountOutRoutableResultPool(ID uint64, poolType poolmanagertypes.PoolType, spreadFactor osmomath.Dec, tokenInDenom string, takerFee osmomath.Dec, codeID uint64) domain.RoutablePool {
+func NewExactAmountOutRoutableResultPool(
+	ID uint64,
+	poolType poolmanagertypes.PoolType,
+	spreadFactor osmomath.Dec,
+	tokenInDenom string,
+	takerFee osmomath.Dec,
+	liquidityCap osmomath.Int,
+	codeID uint64,
+) domain.RoutablePool {
 	return &routableResultPoolImpl{
 		ID:           ID,
 		Type:         poolType,
 		SpreadFactor: spreadFactor,
 		TokenInDenom: tokenInDenom,
 		TakerFee:     takerFee,
+		LiquidityCap: liquidityCap,
 		CodeID:       codeID,
 	}
 }
@@ -109,7 +128,7 @@ func (r *routableResultPoolImpl) GetTickModel() (*ingesttypes.TickModel, error) 
 
 // GetPoolLiquidityCap implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetPoolLiquidityCap() math.Int {
-	return osmomath.Int{}
+	return r.LiquidityCap
 }
 
 // GetType implements domain.RoutablePool.
@@ -168,6 +187,11 @@ func (r *routableResultPoolImpl) ChargeTakerFeeExactOut(tokenIn sdk.Coin) (token
 // GetTakerFee implements domain.RoutablePool.
 func (r *routableResultPoolImpl) GetTakerFee() math.LegacyDec {
 	return r.TakerFee
+}
+
+// GetLiquidityCap implements domain.RoutablePool.
+func (r *routableResultPoolImpl) GetLiquidityCap() osmomath.Int {
+	return r.LiquidityCap
 }
 
 // GetBalances implements domain.RoutableResultPool.
