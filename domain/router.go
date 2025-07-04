@@ -57,6 +57,41 @@ type Route interface {
 
 type SplitRoutes []SplitRoute
 
+func (s SplitRoutes) SpotPrice(ctx context.Context) (osmomath.BigDec, bool) {
+	route := s[0]
+
+	chainPrice := osmomath.OneBigDec()
+
+	var (
+		tempQuoteDenom = route.GetTokenInDenom()
+		tempBaseDenom  string
+		success        = true
+	)
+
+	pools := route.GetPools()
+
+	for _, pool := range pools {
+		tempBaseDenom = pool.GetTokenOutDenom()
+
+		// Get spot price for the pool.
+		poolSpotPrice, err := pool.CalcSpotPrice(ctx, tempBaseDenom, tempQuoteDenom,)
+		if err != nil || poolSpotPrice.IsNil() || poolSpotPrice.IsZero() {
+			// Increase price truncation counter
+
+			// Error in spot price, use quote-based compute method.
+			success = false
+			break
+		}
+
+		// Multiply spot price by the previous spot price.
+		chainPrice = chainPrice.MulMut(poolSpotPrice)
+
+		tempQuoteDenom = tempBaseDenom
+	}
+
+	return chainPrice, success
+}
+
 // Price calculates the average price of the split routes.
 // It could be improved to use a weighted average where weight
 // reflects how strong the route is.

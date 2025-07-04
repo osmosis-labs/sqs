@@ -335,19 +335,27 @@ func (s *RouterTestHelper) ValidateRoutePools(expectedPools []domain.RoutablePoo
 }
 
 func (s *RouterTestHelper) SetupMainnetState() MockMainnetState {
-	pools, tickMap, err := parsing.ReadPools(absolutePathToStateFiles + poolsFileName)
+	return s.setupMainnetStatePath(absolutePathToStateFiles)
+}
+
+func (s *RouterTestHelper) SetupMainnetStatePath(path string) MockMainnetState {
+	return s.setupMainnetStatePath(absolutePathToStateFiles + "/" + path + "/")
+}
+
+func (s *RouterTestHelper) setupMainnetStatePath(path string) MockMainnetState {
+	pools, tickMap, err := parsing.ReadPools(path + poolsFileName)
 	s.Require().NoError(err)
 
-	takerFeeMap, err := parsing.ReadTakerFees(absolutePathToStateFiles + takerFeesFileName)
+	takerFeeMap, err := parsing.ReadTakerFees(path + takerFeesFileName)
 	s.Require().NoError(err)
 
-	tokensMetadata, err := parsing.ReadTokensMetadata(absolutePathToStateFiles + tokensMetadataFileName)
+	tokensMetadata, err := parsing.ReadTokensMetadata(path + tokensMetadataFileName)
 	s.Require().NoError(err)
 
-	poolDenomsMetaData, err := parsing.ReadPoolDenomsMetaData(absolutePathToStateFiles + poolDenomsMetaDataFileName)
+	poolDenomsMetaData, err := parsing.ReadPoolDenomsMetaData(path + poolDenomsMetaDataFileName)
 	s.Require().NoError(err)
 
-	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchData(absolutePathToStateFiles + candidateRouteFileName)
+	candidateRouteSearchData, err := parsing.ReadCandidateRouteSearchData(path + candidateRouteFileName)
 	s.Require().NoError(err)
 
 	return MockMainnetState{
@@ -404,9 +412,9 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	candidateRouteFinder := routerusecase.NewCandidateRouteFinder(routerRepositoryMock, logger)
 
-	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
+	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, tokensUsecase, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
 
-	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, tokensUsecase, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Validate and sort pools
 	sortedPools, _ := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)

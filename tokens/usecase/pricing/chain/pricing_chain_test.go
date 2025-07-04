@@ -53,6 +53,55 @@ func (s *PricingTestSuite) TestGetPrices_Chain() {
 
 	s.Require().NotZero(len(routertesting.MainnetDenoms))
 	for _, mainnetDenom := range routertesting.MainnetDenoms {
+
+		mainnetDenom := mainnetDenom
+		s.Run(mainnetDenom, func() {
+
+			// System under test.
+			usdcPrice, err := pricingStrategy.GetPrice(context.Background(), mainnetDenom, USDC)
+			s.Require().NoError(err)
+
+			usdtPrice, err := pricingStrategy.GetPrice(context.Background(), mainnetDenom, USDT)
+			s.Require().NoError(err)
+
+			errTolerance := osmomath.ErrTolerance{
+				// 1% tolerance
+				MultiplicativeTolerance: osmomath.MustNewDecFromStr("0.07"),
+			}
+
+			result := errTolerance.CompareBigDec(usdcPrice, usdtPrice)
+			s.Require().Zero(result, fmt.Sprintf("denom: %s, usdcPrice: %s, usdtPrice: %s", mainnetDenom, usdcPrice, usdtPrice))
+		})
+	}
+}
+
+func (s *PricingTestSuite) TestGetPrices_Chain_BE_758() {
+
+	// Set up mainnet mock state.
+	mainnetState := s.SetupMainnetStatePath("BE-758")
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+
+	// Set up on-chain pricing strategy
+	pricingStrategy, err := pricing.NewPricingStrategy(domain.PricingConfig{
+		CacheExpiryMs:             2000,
+		DefaultSource:             0,
+		DefaultQuoteHumanDenom:    "usdc",
+		MaxPoolsPerRoute:          4,
+		MaxRoutes:                 20,
+		MinPoolLiquidityCap:       1000,
+		CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoQuoteCurrency:    "usd",
+		WorkerMinPoolLiquidityCap: 1,
+	}, mainnetUsecase.Tokens, mainnetUsecase.Router)
+
+	s.Require().NoError(err)
+
+	s.Require().NotZero(len(routertesting.MainnetDenoms))
+	for _, mainnetDenom := range routertesting.MainnetDenoms {
+		if mainnetDenom != routertesting.UOSMO {
+			continue // Skip but UOSMO
+		}
+
 		mainnetDenom := mainnetDenom
 		s.Run(mainnetDenom, func() {
 

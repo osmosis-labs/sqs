@@ -98,6 +98,7 @@ func (a *RouterHandler) FindCandidateRoutes(c echo.Context) error {
 
 	type response struct {
 		Price  osmomath.BigDec `json:"price"`
+		Ok     bool            `json:"ok"`
 		Routes []result        `json:"routes"`
 	}
 
@@ -113,9 +114,10 @@ func (a *RouterHandler) FindCandidateRoutes(c echo.Context) error {
 			InAmount:  route.GetAmountIn(),
 		})
 	}
-
+	price, ok := routes.SpotPrice(ctx)
 	res := response{
-		Price:  routes.Price(),
+		Price:  price,
+		Ok:     ok,
 		Routes: results,
 	}
 
