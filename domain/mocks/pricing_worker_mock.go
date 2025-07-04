@@ -1,25 +1,29 @@
 package mocks
 
-import "github.com/osmosis-labs/sqs/domain"
+import (
+	"context"
+
+	"github.com/osmosis-labs/sqs/domain"
+)
 
 var _ domain.PricingWorker = &PricingWorkerMock{}
 
 // PricingWorkerMock is a mock implementation of the PricingWorker interface
 type PricingWorkerMock struct {
-	UpdatePricesAsyncFunc func(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata)
-	UpdatePricesSyncFunc  func(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata)
+	UpdatePricesAsyncFunc func(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata)
+	UpdatePricesSyncFunc  func(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata)
 	RegisterListenerFunc  func(listener domain.PricingUpdateListener)
 }
 
-func (m *PricingWorkerMock) UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+func (m *PricingWorkerMock) UpdatePricesAsync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
 	if m.UpdatePricesAsyncFunc != nil {
-		m.UpdatePricesAsyncFunc(height, uniqueBlockPoolMetaData)
+		m.UpdatePricesAsyncFunc(ctx, height, uniqueBlockPoolMetaData)
 	}
 }
 
-func (m *PricingWorkerMock) UpdatePricesSync(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+func (m *PricingWorkerMock) UpdatePricesSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
 	if m.UpdatePricesSyncFunc != nil {
-		m.UpdatePricesSyncFunc(height, uniqueBlockPoolMetaData)
+		m.UpdatePricesSyncFunc(ctx, height, uniqueBlockPoolMetaData)
 	}
 }
 
