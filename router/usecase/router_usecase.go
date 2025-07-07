@@ -276,7 +276,9 @@ func (r *routerUseCaseImpl) getRoutes(ctx context.Context, tokenIn sdk.Coin, tok
 		MaxRoutes:           options.MaxRoutes,
 		MaxPoolsPerRoute:    options.MaxPoolsPerRoute,
 		MinPoolLiquidityCap: options.MinPoolLiquidityCap,
+		PoolFiltersAnyOf:    options.CandidateRoutesPoolFiltersAnyOf,
 	}
+
 	candidateRoutes, err := r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))

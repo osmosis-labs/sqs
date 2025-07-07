@@ -220,7 +220,7 @@ var (
 		CacheExpiryMs:             2000,
 		DefaultQuoteHumanDenom:    "usdc",
 		MaxPoolsPerRoute:          4,
-		MaxRoutes:                 5,
+		MaxRoutes:                 20,
 		MinPoolLiquidityCap:       50,
 		CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
 		CoingeckoQuoteCurrency:    "usd",

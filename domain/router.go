@@ -74,7 +74,7 @@ func (s SplitRoutes) SpotPrice(ctx context.Context) (osmomath.BigDec, bool) {
 		tempBaseDenom = pool.GetTokenOutDenom()
 
 		// Get spot price for the pool.
-		poolSpotPrice, err := pool.CalcSpotPrice(ctx, tempBaseDenom, tempQuoteDenom,)
+		poolSpotPrice, err := pool.CalcSpotPrice(ctx, tempBaseDenom, tempQuoteDenom)
 		if err != nil || poolSpotPrice.IsNil() || poolSpotPrice.IsZero() {
 			// Increase price truncation counter
 

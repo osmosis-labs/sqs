@@ -143,6 +143,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		// Since it can be overridden by options in GetPrice(...)
 		domain.WithMinPoolLiquidityCap(minPoolLiquidityCap),
 		domain.WithDisableSplitRoutes(),
+		domain.WithCandidateRoutesPoolFiltersAnyOf(domain.ShouldSkipOrderbookPool),
 	}
 
 	// Compute a quote for one quote coin.
@@ -199,8 +200,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	// if there is an error in the spot price computation above.
 	if !isSpotPriceComputeMethod {
 		// Compute on-chain price for 10 units of base denom and resulted quote denom out.
-		chainPrice = routes.Price()
-		// chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().Amount.BigIntMut()))
+		chainPrice = osmomath.NewBigDecFromBigInt(tenQuoteCoin.Amount.BigIntMut()).QuoMut(osmomath.NewBigDecFromBigInt(quote.GetAmountOut().Amount.BigIntMut()))
 	}
 
 	if chainPrice.IsZero() {
