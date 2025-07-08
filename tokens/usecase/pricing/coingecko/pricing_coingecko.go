@@ -60,13 +60,13 @@ func New(tokenUseCase mvc.TokensUsecase, config domain.PricingConfig, coingeckoP
 // GetPrice implements pricing.PricingStrategy.
 // Coingecko pricing is always usd (i.e. usdc or usdt), as specified in the coingecko-quote-currency in config.json
 // So quoteDenom has to be nil or usdc or usdt
-func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, error) {
+func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, []domain.SplitRoute, error) {
 	if quoteDenom != USDC_DENOM && quoteDenom != USDT_DENOM && strings.TrimSpace(quoteDenom) != "" {
-		return osmomath.BigDec{}, fmt.Errorf("only usdc/usdt denom or nil is allowed for the quote denom param")
+		return osmomath.BigDec{}, nil, fmt.Errorf("only usdc/usdt denom or nil is allowed for the quote denom param")
 	}
 	coingeckoId, err := c.TUsecase.GetCoingeckoIdByChainDenom(baseDenom)
 	if err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.BigDec{}, nil, err
 	}
 
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, c.quoteCurrency)
@@ -76,11 +76,11 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 		// Cast cached value to correct type.
 		cachedBigDecPrice, ok := cachedValue.(osmomath.BigDec)
 		if !ok {
-			return osmomath.BigDec{}, fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
+			return osmomath.BigDec{}, nil, fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
 		}
 		// Increase cache hits
 		domain.SQSPricingCoingeckoCacheHitsCounter.Inc()
-		return cachedBigDecPrice, nil
+		return cachedBigDecPrice, nil, nil
 	} else if !found {
 		// Increase cache misses
 		domain.SQSPricingCoingeckoCacheMissesCounter.Inc()
@@ -88,9 +88,9 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 
 	price, err := c.priceGetterFn(ctx, baseDenom, coingeckoId)
 	if err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.BigDec{}, nil, err
 	}
-	return price, nil
+	return price, nil, nil
 }
 
 // GetPriceByCoingeckoId fetches the price of a token from Coingecko.

@@ -36,14 +36,14 @@ func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, minLiquidityCap uin
 }
 
 // UpdatePrices implements PricingWorker.
-func (p *pricingWorker) UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
-	go p.UpdatePricesSync(height, uniqueBlockPoolMetaData)
+func (p *pricingWorker) UpdatePricesAsync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+	go p.UpdatePricesSync(ctx, height, uniqueBlockPoolMetaData)
 }
 
-func (p *pricingWorker) UpdatePricesSync(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
 	baseDenoms := domain.KeysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
 
-	ctx, cancel := context.WithTimeout(context.Background(), priceUpdateTimeout)
+	ctx, cancel := context.WithTimeout(ctx, priceUpdateTimeout)
 	start := time.Now()
 	defer func() {
 		// Cancel the context

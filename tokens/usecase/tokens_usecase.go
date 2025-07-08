@@ -72,7 +72,7 @@ type AssetList struct {
 // Define a result struct to hold the base denom and prices for each possible quote denom or error
 type priceResults struct {
 	baseDenom string
-	prices    map[string]osmomath.BigDec
+	prices    map[string]domain.PriceResult
 	err       error
 }
 
@@ -313,7 +313,7 @@ func (t *TokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 
 // GetPrices implements pricing.PricingStrategy.
 func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
-	byBaseDenomResult := make(map[string]map[string]osmomath.BigDec, len(baseDenoms))
+	byBaseDenomResult := make(domain.PricesResult, len(baseDenoms))
 
 	numWorkers := len(baseDenoms)
 	if numWorkers > maxNumWorkes {
@@ -371,14 +371,14 @@ func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 // Returns a map with keys as quotes and values as prices or error, if any.
 // Returns error if base denom is not found in the token metadata.
 // Sets the price to zero in case of failing to compute the price between base and quote but these being valid tokens.
-func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, pricingOptions ...domain.PricingOption) (map[string]osmomath.BigDec, error) {
-	byQuoteDenomForGivenBaseResult := make(map[string]osmomath.BigDec, len(quoteDenoms))
+func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, pricingOptions ...domain.PricingOption) (map[string]domain.PriceResult, error) {
+	byQuoteDenomForGivenBaseResult := make(map[string]domain.PriceResult, len(quoteDenoms))
 	// Validate base denom is a valid denom
 	// Return zeroes for all quotes if base denom is not found
 	_, err := t.GetMetadataByChainDenom(baseDenom)
 	if err != nil {
 		for _, quoteDenom := range quoteDenoms {
-			byQuoteDenomForGivenBaseResult[quoteDenom] = osmomath.ZeroBigDec()
+			byQuoteDenomForGivenBaseResult[quoteDenom] = domain.NewPriceResult(osmomath.ZeroBigDec(), nil)
 		}
 		return byQuoteDenomForGivenBaseResult, nil
 	}
@@ -397,7 +397,7 @@ func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 	}()
 
 	for _, quoteDenom := range quoteDenoms {
-		price, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
+		price, routes, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 		if err != nil { // Check if we should fallback to another pricing source
 			fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
 			if fallbackSourceType != domain.NoneSourceType {
@@ -405,7 +405,7 @@ func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 				domain.SQSPricingFallbackCounter.Inc()
 				fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
 				if ok {
-					price, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
+					price, routes, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 				}
 			}
 		}
@@ -417,7 +417,7 @@ func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 			domain.SQSPricingErrorCounter.Inc()
 		}
 
-		byQuoteDenomForGivenBaseResult[quoteDenom] = price
+		byQuoteDenomForGivenBaseResult[quoteDenom] = domain.NewPriceResult(price, routes)
 	}
 
 	return byQuoteDenomForGivenBaseResult, nil
@@ -442,21 +442,21 @@ func (t *TokensUseCase) CalcSpotPrice(ctx context.Context, baseDenom string, quo
 	}
 
 	basePrice := basePrices[baseDenom][t.defaultQuoteDenom]
-	if basePrice.IsNil() {
+	if basePrice.Price.IsNil() {
 		return osmomath.BigDec{}, fmt.Errorf("base denom price is nil")
 	}
 
 	quotePrice := quotePrices[quoteDenom][t.defaultQuoteDenom]
-	if quotePrice.IsNil() {
+	if quotePrice.Price.IsNil() {
 		return osmomath.BigDec{}, fmt.Errorf("quote denom price is nil")
 	}
 
-	if quotePrice.IsZero() {
+	if quotePrice.Price.IsZero() {
 		return osmomath.BigDec{}, fmt.Errorf("quote denom price is zero")
 	}
 
 	// Calculate raw spot price
-	p := basePrice.Quo(quotePrice)
+	p := basePrice.Price.Quo(quotePrice.Price)
 
 	scaleFactor, err := t.CalcScalingFactor(baseDenom, quoteDenom)
 	if err != nil {

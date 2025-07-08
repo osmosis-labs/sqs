@@ -8,16 +8,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	"github.com/osmosis-labs/osmosis/osmomath"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
+	_ "github.com/osmosis-labs/sqs/docs"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 
-	_ "github.com/osmosis-labs/sqs/docs"
+	"github.com/osmosis-labs/osmosis/osmomath"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/labstack/echo/v4"
 )
 
 // TokensHandler  represent the httphandler for the router
@@ -149,6 +149,26 @@ func (a *TokensHandler) GetPoolDenomMetadata(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, result)
 }
 
+// PricesResult defines the result of the prices.
+// [base denom][quote denom] => price
+// Note: BREAKING API - this type is API breaking as it is serialized to JSON.
+// from the /tokens/prices endpoint. Be mindful of changing it without
+// separating the API response for backward compatibility.
+type PricesResult map[string]map[string]osmomath.BigDec
+
+type priceRoute struct {
+	PoolID    []uint64     `json:"pool_id"`
+	OutAmount osmomath.Int `json:"out_amount"`
+	InAmount  osmomath.Int `json:"in_amount"`
+}
+
+type PriceDebug struct {
+	Price  osmomath.BigDec `json:"price"`
+	Routes []priceRoute    `json:"routes"`
+}
+
+type PricesResultDebug map[string]map[string]PriceDebug
+
 // @Summary Get prices
 // @Description Given a list of base denominations, this endpoint returns the spot price with a system-configured quote denomination.
 // If the pricing source is set to "chain" (0), it will first check the **chain** pricing cache for the price quote. If it exists, it will return it. Otherwise, it will compute the pricing on-demand if the quote is non-usdc.
@@ -160,10 +180,16 @@ func (a *TokensHandler) GetPoolDenomMetadata(c echo.Context) (err error) {
 // @Param   base          query     string  true  "Comma-separated list of base denominations (human-readable or chain format based on humanDenoms parameter)"
 // @Param   humanDenoms   query     bool    false "Specify true if input denominations are in human-readable format; defaults to false"
 // @Param	pricingSource query     int     false "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)"
+// @Param   debug         query     bool    false "Specify true to include the routes used in the selection of the quote for price calculation; defaults to false"
 // @Success 200 {object} map[string]map[string]string "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price."
 // @Router /tokens/prices [get]
 func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 	ctx := c.Request().Context()
+
+	debug, err := deliveryhttp.ParseBooleanQueryParam(c, "debug")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
 
 	baseDenomsStr := c.QueryParam("base")
 	baseDenoms, err := validateDenomsParam(baseDenomsStr)
@@ -171,13 +197,9 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	isHumanDenomsStr := c.QueryParam("humanDenoms")
-	isHumanDenoms := false
-	if len(isHumanDenomsStr) > 0 {
-		isHumanDenoms, err = strconv.ParseBool(isHumanDenomsStr)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-		}
+	isHumanDenoms, err := deliveryhttp.ParseBooleanQueryParam(c, "humanDenoms")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	// Get pricing source type.
@@ -197,11 +219,49 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{quoteDenom}, pricingSourceType)
+	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{quoteDenom}, pricingSourceType, domain.WithRecomputePrices())
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
-	return c.JSON(http.StatusOK, prices)
+
+	// If we are not in debug mode, we return the prices as is
+	if !debug {
+		result := make(PricesResult, len(prices))
+		for baseDenom, quotePrices := range prices {
+			result[baseDenom] = make(map[string]osmomath.BigDec, len(quotePrices))
+			for quoteDenom, price := range quotePrices {
+				result[baseDenom][quoteDenom] = price.Price
+			}
+		}
+		return c.JSON(http.StatusOK, result)
+	}
+
+	// If we are in debug mode, we return the prices with routes
+	result := make(PricesResultDebug, len(prices))
+	for baseDenom, quotePrices := range prices {
+		result[baseDenom] = make(map[string]PriceDebug, len(quotePrices))
+		for quoteDenom, price := range quotePrices {
+			var results []priceRoute
+			for _, route := range price.Routes {
+				var poolID []uint64
+				for _, pool := range route.GetPools() {
+					poolID = append(poolID, pool.GetId())
+				}
+				results = append(results, priceRoute{
+					PoolID:    poolID,
+					OutAmount: route.GetAmountOut(),
+					InAmount:  route.GetAmountIn(),
+				})
+			}
+
+			result[baseDenom][quoteDenom] = PriceDebug{
+				Price:  price.Price,
+				Routes: results,
+			}
+		}
+	}
+
+	return c.JSON(http.StatusOK, result)
 }
 
 // getPricingSource retrieves the pricing sources.
@@ -254,7 +314,7 @@ func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms
 		}
 
 		if !a.TUsecase.IsValidChainDenom(baseDenom) {
-			return err
+			return fmt.Errorf("base denom is not a valid chain denom (%s)", baseDenom)
 		}
 	}
 

@@ -44,11 +44,9 @@ func TestPricesResultGetPriceForDenom(t *testing.T) {
 			baseDenom:  baseDenom,
 			quoteDenom: quoteDenom,
 
-			pricesResult: domain.PricesResult{
-				baseDenom: map[string]osmomath.BigDec{
-					quoteDenom: validPrice,
-				},
-			},
+			pricesResult: domain.NewPricesResult(
+				domain.NewPriceResultEntry(baseDenom, quoteDenom, validPrice),
+			),
 
 			expectedPrice: validPrice,
 		},
@@ -58,11 +56,9 @@ func TestPricesResultGetPriceForDenom(t *testing.T) {
 			baseDenom:  baseDenom,
 			quoteDenom: otherDenom,
 
-			pricesResult: domain.PricesResult{
-				baseDenom: map[string]osmomath.BigDec{
-					quoteDenom: validPrice,
-				},
-			},
+			pricesResult: domain.NewPricesResult(
+				domain.NewPriceResultEntry(baseDenom, quoteDenom, validPrice),
+			),
 
 			expectedPrice: zeroBigDec,
 		},
@@ -72,11 +68,9 @@ func TestPricesResultGetPriceForDenom(t *testing.T) {
 			baseDenom:  otherDenom,
 			quoteDenom: baseDenom,
 
-			pricesResult: domain.PricesResult{
-				baseDenom: map[string]osmomath.BigDec{
-					quoteDenom: validPrice,
-				},
-			},
+			pricesResult: domain.NewPricesResult(
+				domain.NewPriceResultEntry(baseDenom, quoteDenom, validPrice),
+			),
 
 			expectedPrice: zeroBigDec,
 		},

@@ -16,7 +16,7 @@ var _ mvc.RouterUsecase = &RouterUsecaseMock{}
 
 // RouterUsecaseMock is a mock implementation of the RouterUsecase interface
 type RouterUsecaseMock struct {
-	GetSimpleQuoteFunc                           func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
+	GetSimpleQuoteFunc                           func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []domain.SplitRoute, error)
 	GetPoolSpotPriceFunc                         func(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 	GetOptimalQuoteOutGivenInFunc                func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
 	GetOptimalQuoteInGivenOutFunc                func(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, opts ...domain.RouterOption) (domain.Quote, error)
@@ -54,7 +54,7 @@ func (m *RouterUsecaseMock) GetMinPoolLiquidityCapFilter(tokenInDenom string, to
 	panic("unimplemented")
 }
 
-func (m *RouterUsecaseMock) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+func (m *RouterUsecaseMock) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []domain.SplitRoute, error) {
 	if m.GetSimpleQuoteFunc != nil {
 		return m.GetSimpleQuoteFunc(ctx, tokenIn, tokenOutDenom, opts...)
 	}

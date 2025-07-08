@@ -166,13 +166,13 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		uniqueBlockPoolMetadata.IsFirstBlock = true
 
 		// Pre-compute the prices for all tokens
-		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(height, uniqueBlockPoolMetadata)
+		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata)
 
 		// Completely reprice the pool liquidity for the first block asyncronously
 		// second time.
 		// This is necessary because the initial pricing is computed within min liquidity capitalization.
 		// That results in a suboptimal price.
-		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(ctx, height, uniqueBlockPoolMetadata)
 
 		// Recompute search data given the availability of pool liquidity pricing.
 		if err := p.candidateRouteSearchWorker.ComputeSearchDataSync(ctx, height, uniqueBlockPoolMetadata); err != nil {
@@ -185,7 +185,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		p.firstBlockWg.Wait()
 
 		// For any block after the first block, we can update the prices asynchronously.
-		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(height, uniqueBlockPoolMetadata)
+		p.defaultQuotePriceUpdateWorker.UpdatePricesAsync(ctx, height, uniqueBlockPoolMetadata)
 	}
 
 	// Store the latest ingested height.

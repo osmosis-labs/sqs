@@ -29,7 +29,7 @@ type PricingSource interface {
 	// GetPrice returns the price given a base and a quote denom or otherwise error, if any.
 	// It attempts to find the price from the cache first, and if not found, it will proceed
 	// to recomputing it via ComputePrice().
-	GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...PricingOption) (osmomath.BigDec, error)
+	GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...PricingOption) (osmomath.BigDec, []SplitRoute, error)
 
 	// InitializeCache initialize the cache for the pricing source to a given value.
 	// Panics if cache is already set.
@@ -124,12 +124,12 @@ type PricingWorker interface {
 	// that contains information about changed denoms and pools within a block.
 	// Propagates the results to the listeners.
 	// Performs the update asynchronously.
-	UpdatePricesAsync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
+	UpdatePricesAsync(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 	// UpdatePricesSync updates prices for the tokens from the unique block pool metadata
 	// that contains information about changed denoms and pools within a block.
 	// Propagates the results to the listeners.
 	// Performs the update synchronously.
-	UpdatePricesSync(height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
+	UpdatePricesSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData BlockPoolMetadata)
 
 	// RegisterListener registers a listener for pricing updates.
 	RegisterListener(listener PricingUpdateListener)
@@ -205,17 +205,35 @@ type PoolLiquidityComputeListener interface {
 	OnPoolLiquidityCompute(ctx context.Context, height uint64, blockPoolMetaData BlockPoolMetadata) error
 }
 
+// NewPricesResult creates a new PricesResult from the given entries.
+// Each entry is a tuple of [base denom, quote denom, price].
+func NewPricesResult(entries ...PriceResultEntry) PricesResult {
+	result := make(PricesResult)
+	for _, entry := range entries {
+		result.AddEntry(entry)
+	}
+	return result
+}
+
 // PricesResult defines the result of the prices.
 // [base denom][quote denom] => price
 // Note: BREAKING API - this type is API breaking as it is serialized to JSON.
 // from the /tokens/prices endpoint. Be mindful of changing it without
 // separating the API response for backward compatibility.
-type PricesResult map[string]map[string]osmomath.BigDec
+type PricesResult map[string]map[string]PriceResult
+
+// AddEntry adds a new entry to the PricesResult.
+func (p PricesResult) AddEntry(entry PriceResultEntry) {
+	if p[entry.BaseDenom] == nil {
+		p[entry.BaseDenom] = make(map[string]PriceResult)
+	}
+	p[entry.BaseDenom][entry.QuoteDenom] = NewPriceResult(entry.Price, entry.Routes)
+}
 
 // GetPriceForDenom returns the price for the given baseDenom and quote denom.
 // Returns zero if the price is not found.
-func (prices PricesResult) GetPriceForDenom(baseDenom string, quoteDenom string) osmomath.BigDec {
-	quotePrices, ok := prices[baseDenom]
+func (p PricesResult) GetPriceForDenom(baseDenom string, quoteDenom string) osmomath.BigDec {
+	quotePrices, ok := p[baseDenom]
 	if !ok {
 		return osmomath.ZeroBigDec()
 	}
@@ -225,5 +243,39 @@ func (prices PricesResult) GetPriceForDenom(baseDenom string, quoteDenom string)
 		return osmomath.ZeroBigDec()
 	}
 
-	return price.Clone()
+	return price.Price.Clone()
+}
+
+// NewPriceResultEntry creates a new PriceResultEntry from the given base denom, quote denom and price.
+func NewPriceResultEntry(baseDenom string, quoteDenom string, price osmomath.BigDec) PriceResultEntry {
+	return PriceResultEntry{
+		BaseDenom:  baseDenom,
+		QuoteDenom: quoteDenom,
+		Price:      price,
+	}
+}
+
+// PriceResultEntry defines the entry for the PricesResult
+type PriceResultEntry struct {
+	BaseDenom  string
+	QuoteDenom string
+	Price      osmomath.BigDec
+	Routes     []SplitRoute
+}
+
+// NewPriceResult creates a new PriceResult from the given price and routes.
+func NewPriceResult(price osmomath.BigDec, routes []SplitRoute) PriceResult {
+	return PriceResult{
+		Price:  price,
+		Routes: routes,
+	}
+}
+
+// PriceResult defines the result of the price for a given base denom and quote denom.
+type PriceResult struct {
+	// Price of the base denom in terms of the quote denom
+	Price osmomath.BigDec
+
+	// Routes used considered in the quote for price calculation.
+	Routes []SplitRoute
 }
