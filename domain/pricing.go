@@ -217,9 +217,6 @@ func NewPricesResult(entries ...PriceResultEntry) PricesResult {
 
 // PricesResult defines the result of the prices.
 // [base denom][quote denom] => price
-// Note: BREAKING API - this type is API breaking as it is serialized to JSON.
-// from the /tokens/prices endpoint. Be mindful of changing it without
-// separating the API response for backward compatibility.
 type PricesResult map[string]map[string]PriceResult
 
 // AddEntry adds a new entry to the PricesResult.

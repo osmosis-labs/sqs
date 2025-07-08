@@ -149,25 +149,25 @@ func (a *TokensHandler) GetPoolDenomMetadata(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, result)
 }
 
-// PricesResult defines the result of the prices.
+// GetPricesResponse defines the result of the prices.
 // [base denom][quote denom] => price
-// Note: BREAKING API - this type is API breaking as it is serialized to JSON.
-// from the /tokens/prices endpoint. Be mindful of changing it without
-// separating the API response for backward compatibility.
-type PricesResult map[string]map[string]osmomath.BigDec
+type GetPricesResponse map[string]map[string]osmomath.BigDec
 
-type priceRoute struct {
+// GetPricesRoute defines the route used in GetPricesDebugResponse.
+type GetPricesRoute struct {
 	PoolID    []uint64     `json:"pool_id"`
 	OutAmount osmomath.Int `json:"out_amount"`
 	InAmount  osmomath.Int `json:"in_amount"`
 }
 
+// PriceDebug defines the price with routes used in GetPricesDebugResponse.
 type PriceDebug struct {
-	Price  osmomath.BigDec `json:"price"`
-	Routes []priceRoute    `json:"routes"`
+	Price  osmomath.BigDec  `json:"price"`
+	Routes []GetPricesRoute `json:"routes"`
 }
 
-type PricesResultDebug map[string]map[string]PriceDebug
+// GetPricesDebugResponse defines the result of the prices in debug mode.
+type GetPricesDebugResponse map[string]map[string]PriceDebug
 
 // @Summary Get prices
 // @Description Given a list of base denominations, this endpoint returns the spot price with a system-configured quote denomination.
@@ -226,7 +226,7 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 
 	// If we are not in debug mode, we return the prices as is
 	if !debug {
-		result := make(PricesResult, len(prices))
+		result := make(GetPricesResponse, len(prices))
 		for baseDenom, quotePrices := range prices {
 			result[baseDenom] = make(map[string]osmomath.BigDec, len(quotePrices))
 			for quoteDenom, price := range quotePrices {
@@ -237,17 +237,17 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 	}
 
 	// If we are in debug mode, we return the prices with routes
-	result := make(PricesResultDebug, len(prices))
+	result := make(GetPricesDebugResponse, len(prices))
 	for baseDenom, quotePrices := range prices {
 		result[baseDenom] = make(map[string]PriceDebug, len(quotePrices))
 		for quoteDenom, price := range quotePrices {
-			var results []priceRoute
+			var results []GetPricesRoute
 			for _, route := range price.Routes {
 				var poolID []uint64
 				for _, pool := range route.GetPools() {
 					poolID = append(poolID, pool.GetId())
 				}
-				results = append(results, priceRoute{
+				results = append(results, GetPricesRoute{
 					PoolID:    poolID,
 					OutAmount: route.GetAmountOut(),
 					InAmount:  route.GetAmountIn(),
