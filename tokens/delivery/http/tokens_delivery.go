@@ -219,7 +219,7 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{quoteDenom}, pricingSourceType, domain.WithRecomputePrices())
+	prices, err := a.TUsecase.GetPrices(ctx, baseDenoms, []string{quoteDenom}, pricingSourceType)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: err.Error()})
 	}
