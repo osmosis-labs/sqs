@@ -364,7 +364,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/sqsdomain.CandidateRoutes"
+                                "$ref": "#/definitions/github_com_osmosis-labs_sqs_ingest_types.CandidateRoutes"
                             }
                         }
                     }
@@ -454,6 +454,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)",
                         "name": "pricingSource",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Specify true to include the routes used in the selection of the quote for price calculation; defaults to false",
+                        "name": "debug",
                         "in": "query"
                     }
                 ],
@@ -667,6 +673,54 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_osmosis-labs_sqs_ingest_types.CandidatePool": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "tokenInDenom": {
+                    "type": "string"
+                },
+                "tokenOutDenom": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_osmosis-labs_sqs_ingest_types.CandidateRoute": {
+            "type": "object",
+            "properties": {
+                "isCanonicalOrderboolRoute": {
+                    "type": "boolean"
+                },
+                "pools": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_osmosis-labs_sqs_ingest_types.CandidatePool"
+                    }
+                }
+            }
+        },
+        "github_com_osmosis-labs_sqs_ingest_types.CandidateRoutes": {
+            "type": "object",
+            "properties": {
+                "containsCanonicalOrderbook": {
+                    "type": "boolean"
+                },
+                "routes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_osmosis-labs_sqs_ingest_types.CandidateRoute"
+                    }
+                },
+                "uniquePoolIDs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object"
+                    }
+                }
+            }
+        },
         "github_com_osmosis-labs_sqs_orderbook_types.GetActiveOrdersResponse": {
             "type": "object",
             "properties": {
@@ -683,51 +737,6 @@ const docTemplate = `{
         },
         "math.Int": {
             "type": "object"
-        },
-        "sqsdomain.CandidatePool": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "integer"
-                },
-                "tokenOutDenom": {
-                    "type": "string"
-                }
-            }
-        },
-        "sqsdomain.CandidateRoute": {
-            "type": "object",
-            "properties": {
-                "isCanonicalOrderboolRoute": {
-                    "type": "boolean"
-                },
-                "pools": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/sqsdomain.CandidatePool"
-                    }
-                }
-            }
-        },
-        "sqsdomain.CandidateRoutes": {
-            "type": "object",
-            "properties": {
-                "containsCanonicalOrderbook": {
-                    "type": "boolean"
-                },
-                "routes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/sqsdomain.CandidateRoute"
-                    }
-                },
-                "uniquePoolIDs": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "object"
-                    }
-                }
-            }
         }
     }
 }`

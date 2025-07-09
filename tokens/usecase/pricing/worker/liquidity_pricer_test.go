@@ -210,7 +210,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceCoin_AllCoin() {
 		s.Require().NoError(err)
 
 		baseDenomPriceInfo := domain.DenomPriceInfo{
-			Price:         baseQuotePrice,
+			Price:         baseQuotePrice.Price,
 			ScalingFactor: scalingFactor,
 		}
 
@@ -387,14 +387,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceBalances() {
 			preSetScalingFactorMap: defaultScalingFactorMap,
 			balances:               sdk.NewCoins(defaultCoin, secondCoin),
 
-			prices: domain.PricesResult{
-				UOSMO: {
-					USDC: defaultPrice,
-				},
-				ATOM: {
-					USDC: defaultPrice,
-				},
-			},
+			prices: domain.NewPricesResult(
+				domain.NewPriceResultEntry(UOSMO, USDC, defaultPrice),
+				domain.NewPriceResultEntry(ATOM, USDC, defaultPrice),
+			),
 
 			expectedLiquidityCap: defaultLiquidityCap.Add(defaultLiquidityCap),
 			errorStr:             noErrorStr,
@@ -406,11 +402,9 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceBalances() {
 			balances:               sdk.NewCoins(defaultCoin, secondCoin),
 
 			// Note: no price for ATOM
-			prices: domain.PricesResult{
-				UOSMO: {
-					USDC: defaultPrice,
-				},
-			},
+			prices: domain.NewPricesResult(
+				domain.NewPriceResultEntry(UOSMO, USDC, defaultPrice),
+			),
 
 			expectedLiquidityCap: defaultLiquidityCap,
 			errorStr:             worker.FormatLiquidityCapErrorStr(ATOM),
@@ -430,9 +424,7 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceBalances() {
 	}
 
 	for _, tc := range tests {
-		tc := tc
-
-		s.T().Run("", func(t *testing.T) {
+		s.T().Run(tc.name, func(t *testing.T) {
 
 			scalingFactorGetterMock := mocks.SetupMockScalingFactorCbFromMap(tc.preSetScalingFactorMap)
 

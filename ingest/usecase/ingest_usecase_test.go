@@ -434,7 +434,7 @@ func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalSync() {
 				&mocks.ChainInfoUsecaseMock{},
 				nil,
 				&mocks.PricingWorkerMock{
-					UpdatePricesAsyncFunc: func(height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+					UpdatePricesAsyncFunc: func(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
 						// do nothing
 					},
 				},

@@ -5,20 +5,26 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	"github.com/osmosis-labs/osmosis/osmomath"
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/delivery/http/middleware"
 	"github.com/osmosis-labs/sqs/router/types"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
+
+// This is a dummy variable to use ingesttypes package
+// so it can be used by swagger to generate the documentation.
+var _ = ingesttypes.CandidateRoutes{}
 
 // RouterHandler  represent the httphandler for the router
 type RouterHandler struct {

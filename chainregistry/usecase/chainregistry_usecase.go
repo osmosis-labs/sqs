@@ -218,7 +218,7 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.
 		return nil, fmt.Errorf("failed to get fee token for base denom %s", p.baseDenom)
 	}
 
-	fixedMinGasMarketValue, lowGasMarketValue, averageGasMarketValue, highGasMarketValue, err := calculateFeeTokenMarketValue(ctx, baseDenomFee, fee)
+	fixedMinGasMarketValue, lowGasMarketValue, averageGasMarketValue, highGasMarketValue, err := calculateFeeTokenMarketValue(ctx, baseDenomFee, fee.Price)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate fee token prices: %w", err)
 	}
@@ -242,22 +242,22 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.
 			return nil, fmt.Errorf("failed to get price for %s/%s", v.Denom, p.quoteDenom)
 		}
 
-		fixedMinGasPrice, err := calculateTokenQuantity(ctx, fixedMinGasMarketValue, pricePerToken).Float64()
+		fixedMinGasPrice, err := calculateTokenQuantity(ctx, fixedMinGasMarketValue, pricePerToken.Price).Float64()
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate fixed min gas price: %w", err)
 		}
 
-		lowGasPrice, err := calculateTokenQuantity(ctx, lowGasMarketValue, pricePerToken).Float64()
+		lowGasPrice, err := calculateTokenQuantity(ctx, lowGasMarketValue, pricePerToken.Price).Float64()
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate low gas price: %w", err)
 		}
 
-		averageGasPrice, err := calculateTokenQuantity(ctx, averageGasMarketValue, pricePerToken).Float64()
+		averageGasPrice, err := calculateTokenQuantity(ctx, averageGasMarketValue, pricePerToken.Price).Float64()
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate average gas price: %w", err)
 		}
 
-		highGasPrice, err := calculateTokenQuantity(ctx, highGasMarketValue, pricePerToken).Float64()
+		highGasPrice, err := calculateTokenQuantity(ctx, highGasMarketValue, pricePerToken.Price).Float64()
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate high gas price: %w", err)
 		}

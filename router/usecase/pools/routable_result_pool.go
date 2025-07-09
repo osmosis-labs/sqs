@@ -60,7 +60,7 @@ func NewRoutableResultPool(
 	takerFee osmomath.Dec,
 	liquidityCap osmomath.Int,
 	codeID uint64,
-) domain.RoutablePool {
+) *routableResultPoolImpl {
 	return &routableResultPoolImpl{
 		ID:            ID,
 		Type:          poolType,

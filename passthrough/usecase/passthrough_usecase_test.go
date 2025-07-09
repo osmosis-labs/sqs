@@ -70,17 +70,11 @@ var (
 	atomPrice = osmomath.MustNewBigDecFromStr("7")
 	wbtcPrice = osmomath.MustNewBigDecFromStr("50000")
 
-	defaultPriceResult = domain.PricesResult{
-		UOSMO: {
-			USDC: osmoPrice,
-		},
-		ATOM: {
-			USDC: atomPrice,
-		},
-		WBTC: {
-			USDC: wbtcPrice,
-		},
-	}
+	defaultPriceResult = domain.NewPricesResult(
+		domain.NewPriceResultEntry(UOSMO, USDC, osmoPrice),
+		domain.NewPriceResultEntry(ATOM, USDC, atomPrice),
+		domain.NewPriceResultEntry(WBTC, USDC, wbtcPrice),
+	)
 
 	defaultAmount = osmomath.NewInt(1_000_000)
 

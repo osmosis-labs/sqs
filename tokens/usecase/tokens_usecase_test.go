@@ -171,7 +171,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Coingecko() {
 		s.Require().Len(baseAssetPrices, 1)
 		usdcQuoteAny, ok := baseAssetPrices[USDC]
 		s.Require().True(ok)
-		usdcQuote := s.ConvertAnyToBigDec(usdcQuoteAny)
+		usdcQuote := s.ConvertAnyToBigDec(usdcQuoteAny.Price)
 		s.Require().NotZero(usdcQuote)
 	}
 }
@@ -208,11 +208,11 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 		usdcQuoteAny, ok := baseAssetPrices[USDC]
 		s.Require().True(ok)
-		usdcQuote := s.ConvertAnyToBigDec(usdcQuoteAny)
+		usdcQuote := s.ConvertAnyToBigDec(usdcQuoteAny.Price)
 
 		usdtQuoteAny, ok := baseAssetPrices[USDT]
 		s.Require().True(ok)
-		usdtQuote := s.ConvertAnyToBigDec(usdtQuoteAny)
+		usdtQuote := s.ConvertAnyToBigDec(usdtQuoteAny.Price)
 
 		result := errTolerance.CompareBigDec(usdcQuote, usdtQuote)
 		s.Require().Zero(result, fmt.Sprintf("usdcQuote: %s, usdtQuote: %s", usdcQuote, usdtQuote))
@@ -231,7 +231,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	actualwBTCUSDCPriceAny, ok := prices[WBTC][USDC]
 	s.Require().True(ok)
-	actualwBTCUSDCPrice := s.ConvertAnyToBigDec(actualwBTCUSDCPriceAny)
+	actualwBTCUSDCPrice := s.ConvertAnyToBigDec(actualwBTCUSDCPriceAny.Price)
 
 	result := wbtcErrorTolerance.CompareBigDec(expectedwBTCPrice, actualwBTCUSDCPrice)
 	s.Require().Zero(result)
@@ -282,7 +282,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 	noCacheMainnetPrice, err := mainnetUsecase.Tokens.GetPrices(context.Background(), defaultBaseInput, defaultQuoteInput, domain.ChainPricingSourceType, domain.WithRecomputePrices())
 	s.Require().NoError(err)
 
-	recomputedPrice := s.ConvertAnyToBigDec(noCacheMainnetPrice[defaultBase][defaultQuote])
+	recomputedPrice := s.ConvertAnyToBigDec(noCacheMainnetPrice[defaultBase][defaultQuote].Price)
 
 	tests := []struct {
 		name string
@@ -350,7 +350,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 			baseResult, ok := priceResult[defaultBase]
 			s.Require().True(ok)
 
-			actualPrice := s.ConvertAnyToBigDec(baseResult[defaultQuote])
+			actualPrice := s.ConvertAnyToBigDec(baseResult[defaultQuote].Price)
 
 			// Check if the price is as expected.
 			s.Require().Equal(tt.expectedPrice.String(), actualPrice.String())
@@ -946,10 +946,11 @@ func (s *TokensUseCaseTestSuite) TestCalcSpotPrice() {
 
 				m.GetPricesFunc = func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
 					result := make(domain.PricesResult)
-					if baseDenoms[0] == "uatom" {
-						result["uatom"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(10)}
-					} else if baseDenoms[0] == "uosmo" {
-						result["uosmo"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(2)}
+					switch baseDenoms[0] {
+					case "uatom":
+						result.AddEntry(domain.NewPriceResultEntry("uatom", "usd", osmomath.NewBigDec(10)))
+					case "uosmo":
+						result.AddEntry(domain.NewPriceResultEntry("uosmo", "usd", osmomath.NewBigDec(2)))
 					}
 					return result, nil
 				}
@@ -984,7 +985,7 @@ func (s *TokensUseCaseTestSuite) TestCalcSpotPrice() {
 						return nil, fmt.Errorf("error getting quote price")
 					}
 					result := make(domain.PricesResult)
-					result["uatom"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(10)}
+					result.AddEntry(domain.NewPriceResultEntry("uatom", "usd", osmomath.NewBigDec(10)))
 					return result, nil
 				}
 			},
@@ -997,10 +998,11 @@ func (s *TokensUseCaseTestSuite) TestCalcSpotPrice() {
 			setupMock: func(uc *tokensusecase.TokensUseCase, m *mocks.TokensUsecaseMock) {
 				m.GetPricesFunc = func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
 					result := make(domain.PricesResult)
-					if baseDenoms[0] == "uatom" {
-						result["uatom"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(10)}
-					} else if baseDenoms[0] == "uosmo" {
-						result["uosmo"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(0)}
+					switch baseDenoms[0] {
+					case "uatom":
+						result.AddEntry(domain.NewPriceResultEntry("uatom", "usd", osmomath.NewBigDec(10)))
+					case "uosmo":
+						result.AddEntry(domain.NewPriceResultEntry("uosmo", "usd", osmomath.NewBigDec(0)))
 					}
 					return result, nil
 				}
@@ -1014,10 +1016,11 @@ func (s *TokensUseCaseTestSuite) TestCalcSpotPrice() {
 			setupMock: func(uc *tokensusecase.TokensUseCase, m *mocks.TokensUsecaseMock) {
 				m.GetPricesFunc = func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
 					result := make(domain.PricesResult)
-					if baseDenoms[0] == "uatom" {
-						result["uatom"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(10)}
-					} else if baseDenoms[0] == "uosmo" {
-						result["uosmo"] = map[string]osmomath.BigDec{"usd": osmomath.NewBigDec(2)}
+					switch baseDenoms[0] {
+					case "uatom":
+						result.AddEntry(domain.NewPriceResultEntry("uatom", "usd", osmomath.NewBigDec(10)))
+					case "uosmo":
+						result.AddEntry(domain.NewPriceResultEntry("uosmo", "usd", osmomath.NewBigDec(2)))
 					}
 					return result, nil
 				}

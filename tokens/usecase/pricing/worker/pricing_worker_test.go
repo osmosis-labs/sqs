@@ -1,6 +1,7 @@
 package worker_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -107,7 +108,7 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 
 			// Test for empty base denoms
 			// Expect no update to be triggered
-			pricingWorker.UpdatePricesAsync(defaultHeight, tc.baseDenoms)
+			pricingWorker.UpdatePricesAsync(context.Background(), defaultHeight, tc.baseDenoms)
 
 			// Height and prices are not updated
 			s.Require().Zero(mockPricingUpdateListener.Height)
@@ -171,7 +172,7 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 
 	// Test for empty base denoms
 	// Expect no update to be triggered
-	pricingWorker.UpdatePricesAsync(defaultHeight, baseDenoms)
+	pricingWorker.UpdatePricesAsync(context.Background(), defaultHeight, baseDenoms)
 
 	// Wait for the listener to be called
 	didTimeout := mockPricingUpdateListener.WaitOrTimeout()

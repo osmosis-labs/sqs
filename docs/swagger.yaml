@@ -133,6 +133,37 @@ definitions:
           $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsCategoryResult'
         type: object
     type: object
+  github_com_osmosis-labs_sqs_ingest_types.CandidatePool:
+    properties:
+      id:
+        type: integer
+      tokenInDenom:
+        type: string
+      tokenOutDenom:
+        type: string
+    type: object
+  github_com_osmosis-labs_sqs_ingest_types.CandidateRoute:
+    properties:
+      isCanonicalOrderboolRoute:
+        type: boolean
+      pools:
+        items:
+          $ref: '#/definitions/github_com_osmosis-labs_sqs_ingest_types.CandidatePool'
+        type: array
+    type: object
+  github_com_osmosis-labs_sqs_ingest_types.CandidateRoutes:
+    properties:
+      containsCanonicalOrderbook:
+        type: boolean
+      routes:
+        items:
+          $ref: '#/definitions/github_com_osmosis-labs_sqs_ingest_types.CandidateRoute'
+        type: array
+      uniquePoolIDs:
+        additionalProperties:
+          type: object
+        type: object
+    type: object
   github_com_osmosis-labs_sqs_orderbook_types.GetActiveOrdersResponse:
     properties:
       is_best_effort:
@@ -143,35 +174,6 @@ definitions:
         type: array
     type: object
   math.Int:
-    type: object
-  sqsdomain.CandidatePool:
-    properties:
-      id:
-        type: integer
-      tokenOutDenom:
-        type: string
-    type: object
-  sqsdomain.CandidateRoute:
-    properties:
-      isCanonicalOrderboolRoute:
-        type: boolean
-      pools:
-        items:
-          $ref: '#/definitions/sqsdomain.CandidatePool'
-        type: array
-    type: object
-  sqsdomain.CandidateRoutes:
-    properties:
-      containsCanonicalOrderbook:
-        type: boolean
-      routes:
-        items:
-          $ref: '#/definitions/sqsdomain.CandidateRoute'
-        type: array
-      uniquePoolIDs:
-        additionalProperties:
-          type: object
-        type: object
     type: object
 info:
   contact: {}
@@ -458,7 +460,7 @@ paths:
           description: An array of possible routing options
           schema:
             items:
-              $ref: '#/definitions/sqsdomain.CandidateRoutes'
+              $ref: '#/definitions/github_com_osmosis-labs_sqs_ingest_types.CandidateRoutes'
             type: array
       summary: Token Routing Information
   /tokens/metadata:
@@ -530,6 +532,11 @@ paths:
         in: query
         name: pricingSource
         type: integer
+      - description: Specify true to include the routes used in the selection of the
+          quote for price calculation; defaults to false
+        in: query
+        name: debug
+        type: boolean
       produces:
       - application/json
       responses:
