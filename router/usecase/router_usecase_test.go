@@ -9,6 +9,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -987,6 +988,71 @@ func (s *RouterTestSuite) TestPriceImpactRoute_Fractions() {
 	// 0.07 is chosen arbitrarily with extra buffer because we update test mainnet state frequently and
 	// would like to avoid flakiness.
 	s.Require().True(priceImpact.LT(osmomath.MustNewDecFromStr("0.07")))
+}
+
+type BE758TestSuite struct {
+	routertesting.RouterTestHelper
+}
+
+func TestBE758TestSuite(t *testing.T) {
+	suite.Run(t, new(BE758TestSuite))
+}
+
+func (s *BE758TestSuite) TestPriceImpactRoute_Fractions() {
+	ctx := context.Background()
+	viper.SetConfigFile("../../config.json")
+	err := viper.ReadInConfig()
+	s.Require().NoError(err)
+
+	// Unmarshal the config into your Config struct
+	config, err := domain.UnmarshalConfig()
+	s.Require().NoError(err)
+
+	// Set up mainnet mock state
+	mainnetState := s.SetupMainnetStatePath("BE-758")
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing), routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing))
+
+	OSMO, err := mainnetUsecase.Tokens.GetChainDenom("osmo")
+	s.Require().NoError(err)
+
+	// Get quote
+	quote, err := mainnetUsecase.Router.GetOptimalQuoteOutGivenIn(ctx, sdk.NewCoin(USDC, osmomath.NewInt(100_000_00)), OSMO)
+	s.Require().NoError(err)
+
+	// Internally the quote uses the spot price method to calculate the price impact:
+	// For example, given the quote for USDC -> OSMO over two pools ( 2004, 812 ) we compute spot price of quote as follows:
+	// 3.55 * 1.655 = 5.891947861746922454
+	spotPriceCalculator := &mocks.TokensUsecaseMock{}
+	spotPriceCalculator.CalcSpotPriceFunc = func(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+		return osmomath.MustNewBigDecFromStr("3.558718861209964412811387900355871886"), nil // Pool 2004
+	}
+	_, _, err = quote.PrepareResult(ctx, osmomath.OneDec(), spotPriceCalculator, &log.NoOpLogger{})
+	s.Require().NoError(err)
+
+	s.Require().Equal(osmomath.MustNewDecFromStr("5.891947861746922454"), quote.GetInBaseOutQuoteSpotPrice())
+
+	// This leads to wrong price impact calculations when pools are imbalanced
+	// Single pool spot price may skew the price impact calculation:
+	s.Require().Equal(osmomath.MustNewDecFromStr("-0.145038777062806526"), quote.GetPriceImpact())
+
+	// It would be more precise if we would calculate the price impact using the effective price
+	// and use global token price of token in denom to denom out:
+	effectivePrice := quote.GetAmountIn().Amount.ToLegacyDec().Quo(quote.GetAmountOut().Amount.ToLegacyDec())
+	s.Require().Equal(osmomath.MustNewDecFromStr("0.198913253353364163"), effectivePrice)
+
+	// Compute the global price of OSMO in USDC and use it to calculate the price impact instead of the spot price
+	prices, err := mainnetUsecase.Tokens.GetPrices(ctx, []string{OSMO}, []string{USDC}, domain.ChainPricingSourceType)
+	osmoPrice := prices[OSMO][USDC].Price.Dec()
+	s.Require().NoError(err)
+	s.Require().Equal(osmomath.MustNewDecFromStr("0.198779751037940517"), osmoPrice)
+
+	// Note: We ignoring the slippage factor for this test
+	priceImpact := effectivePrice.Quo(osmoPrice).SubMut(osmomath.OneDec())
+	s.Require().Equal(osmomath.MustNewDecFromStr("0.000671609229443923"), priceImpact)
+
+	// Dump the difference
+	// 0.000671609229443923 vs -0.145038777062806526
+	s.Require().Equal(priceImpact, quote.GetPriceImpact())
 }
 
 // This is a sanity-check to ensure that the pools are sorted as intended and persisted
