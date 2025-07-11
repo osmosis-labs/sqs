@@ -26,7 +26,7 @@ func (o *orderbookFillerIngestPlugin) estimateCyclicArb(ctx blockctx.BlockCtxI, 
 
 	// Make it $10 in USDC terms for quoteDenom
 	quoteInCoin := sdk.NewCoin(denomOut, baseInOrderbookQuote.GetAmountOut().Amount)
-	cyclicArbQuote, err := o.routerUseCase.GetSimpleQuote(goCtx, quoteInCoin, coinIn.Denom, domain.WithDisableSplitRoutes())
+	cyclicArbQuote, _, err := o.routerUseCase.GetSimpleQuote(goCtx, quoteInCoin, coinIn.Denom, domain.WithDisableSplitRoutes())
 	if err != nil {
 		return osmomath.Int{}, nil, err
 	}

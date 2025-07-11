@@ -71,7 +71,7 @@ func (s *CoingeckoPricingTestSuite) TestGetPrices() {
 
 	for _, tt := range tests {
 		s.Run(tt.desc, func() {
-			price, err := coingeckoPricingSource.GetPrice(context.Background(), tt.baseDenom, tt.quoteDenom)
+			price, _, err := coingeckoPricingSource.GetPrice(context.Background(), tt.baseDenom, tt.quoteDenom)
 			s.Require().Equal(tt.shouldErr, err != nil)
 			s.Require().Equal(tt.expectedPrice, price)
 		})

@@ -412,9 +412,9 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	candidateRouteFinder := routerusecase.NewCandidateRouteFinder(routerRepositoryMock, logger)
 
-	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, tokensUsecase, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
+	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
 
-	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, tokensUsecase, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
 	// Validate and sort pools
 	sortedPools, _ := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)

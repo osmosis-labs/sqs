@@ -139,8 +139,8 @@ func TestProcessFeeTokens(t *testing.T) {
 				{Denom: "uatom", FixedMinGasPrice: 0.0, LowGasPrice: 0.0, AverageGasPrice: 0.0, HighGasPrice: 0.0},
 			},
 			mockPrices: domain.PricesResult{
-				"uosmo": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": osmomath.MustNewBigDecFromStr("1.0")},
-				"uatom": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": osmomath.MustNewBigDecFromStr("2.0")},
+				"uosmo": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": domain.NewPriceResult(osmomath.MustNewBigDecFromStr("1.0"), nil)},
+				"uatom": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": domain.NewPriceResult(osmomath.MustNewBigDecFromStr("2.0"), nil)},
 			},
 			expectedTokens: api.FeeTokens{
 				{Denom: "uosmo", FixedMinGasPrice: 0.0025, LowGasPrice: 0.0025, AverageGasPrice: 0.0025, HighGasPrice: 0.0025},
@@ -173,7 +173,11 @@ func TestProcessFeeTokens(t *testing.T) {
 				{Denom: "uatom", FixedMinGasPrice: 0.0, LowGasPrice: 0.0, AverageGasPrice: 0.0, HighGasPrice: 0.0},
 			},
 			mockPrices: domain.PricesResult{
-				"uosmo": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": osmomath.MustNewBigDecFromStr("1.0")},
+				"uosmo": {
+					"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": domain.PriceResult{
+						Price: osmomath.MustNewBigDecFromStr("1.0"),
+					},
+				},
 				"uatom": {},
 			},
 			expectedTokens: nil,

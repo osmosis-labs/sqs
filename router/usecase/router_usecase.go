@@ -28,7 +28,6 @@ var _ mvc.RouterUsecase = &routerUseCaseImpl{}
 type routerUseCaseImpl struct {
 	routerRepository       mvc.RouterRepository
 	poolsUsecase           mvc.PoolsUsecase
-	tokensUsecase          mvc.TokensUsecase
 	tokenMetadataHolder    mvc.TokenMetadataHolder
 	candidateRouteSearcher domain.CandidateRouteSearcher
 
@@ -57,7 +56,6 @@ var zero = osmomath.ZeroInt()
 // NewRouterUsecase will create a new pools use case object
 func NewRouterUsecase(
 	routerRepository mvc.RouterRepository,
-	tokensUsecase mvc.TokensUsecase,
 	poolsUsecase mvc.PoolsUsecase,
 	candidateRouteSearcher domain.CandidateRouteSearcher,
 	tokenMetadataHolder mvc.TokenMetadataHolder,
@@ -69,7 +67,6 @@ func NewRouterUsecase(
 ) mvc.RouterUsecase {
 	return &routerUseCaseImpl{
 		routerRepository:       routerRepository,
-		tokensUsecase:          tokensUsecase,
 		poolsUsecase:           poolsUsecase,
 		tokenMetadataHolder:    tokenMetadataHolder,
 		defaultConfig:          config,
@@ -233,21 +230,9 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 	}, nil
 }
 
-func (r *routerUseCaseImpl) GetSimpleQuoteWithRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, domain.SplitRoutes, error) {
-	quote, routes, err := r.getRoutes(ctx, tokenIn, tokenOutDenom, opts...)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var splitRoutes []domain.SplitRoute
-	for _, routeImpl := range routes {
-		splitRoutes = append(splitRoutes, &routeImpl)
-	}
-
-	return quote, splitRoutes, nil
-}
-
-func (r *routerUseCaseImpl) getRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []route.RouteWithOutAmount, error) {
+// GetSimpleQuote implements mvc.RouterUsecase.
+// TODO: cover with a simple test.
+func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []domain.SplitRoute, error) {
 	options := domain.RouterOptions{
 		MaxPoolsPerRoute:    r.defaultConfig.MaxPoolsPerRoute,
 		MaxRoutes:           r.defaultConfig.MaxRoutes,
@@ -291,22 +276,17 @@ func (r *routerUseCaseImpl) getRoutes(ctx context.Context, tokenIn sdk.Coin, tok
 		return nil, nil, err
 	}
 
-	topQuote, routes, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn)
+	quote, routes, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
 
-	return topQuote, routes, nil
-}
-
-// GetSimpleQuote implements mvc.RouterUsecase.
-// TODO: cover with a simple test.
-func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
-	quote, _, err := r.getRoutes(ctx, tokenIn, tokenOutDenom, opts...)
-	if err != nil {
-		return nil, err
+	var splitRoutes []domain.SplitRoute
+	for i := range routes {
+		splitRoutes = append(splitRoutes, &routes[i])
 	}
-	return quote, nil
+
+	return quote, splitRoutes, nil
 }
 
 // filterAndConvertDuplicatePoolIDRankedRoutes filters ranked routes that contain duplicate pool IDs.

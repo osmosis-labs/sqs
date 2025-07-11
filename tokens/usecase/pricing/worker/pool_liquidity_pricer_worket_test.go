@@ -62,14 +62,10 @@ var (
 		ATOM:  defaultScalingFactor,
 	}
 
-	defaultBlockPriceUpdates = domain.PricesResult{
-		UOSMO: {
-			USDC: defaultPrice,
-		},
-		ATOM: {
-			USDC: defaultPrice,
-		},
-	}
+	defaultBlockPriceUpdates = domain.NewPricesResult(
+		domain.NewPriceResultEntry(UOSMO, USDC, defaultPrice),
+		domain.NewPriceResultEntry(ATOM, USDC, defaultPrice),
+	)
 
 	defaultBlockLiquidityUpdates = domain.DenomPoolLiquidityMap{
 		UOSMO: {
@@ -416,15 +412,10 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 			name: "two denoms correctly updated",
 
 			updateHeight: defaultUpdateHeight,
-			blockPriceUpdates: domain.PricesResult{
-				UOSMO: {
-					USDC: defaultPrice,
-				},
-				ATOM: {
-					// Note 0.5 default price
-					USDC: defaultPrice.QuoRaw(2),
-				},
-			},
+			blockPriceUpdates: domain.NewPricesResult(
+				domain.NewPriceResultEntry(UOSMO, USDC, defaultPrice),
+				domain.NewPriceResultEntry(ATOM, USDC, defaultPrice.QuoRaw(2)), // Note 0.5 default price
+			),
 			quoteDenom: USDC,
 
 			blockPoolMetaData: domain.BlockPoolMetadata{

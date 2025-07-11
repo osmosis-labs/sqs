@@ -69,10 +69,10 @@ func (s *PricingTestSuite) testGetPrices_Chain(mainnetState routertesting.MockMa
 		s.Run(mainnetDenom, func() {
 
 			// System under test.
-			usdcPrice, err := pricingStrategy.GetPrice(context.Background(), mainnetDenom, USDC)
+			usdcPrice, _, err := pricingStrategy.GetPrice(context.Background(), mainnetDenom, USDC)
 			s.Require().NoError(err)
 
-			usdtPrice, err := pricingStrategy.GetPrice(context.Background(), mainnetDenom, USDT)
+			usdtPrice, _, err := pricingStrategy.GetPrice(context.Background(), mainnetDenom, USDT)
 			s.Require().NoError(err)
 
 			errTolerance := osmomath.ErrTolerance{
@@ -117,7 +117,7 @@ func (s *PricingTestSuite) testComputePrice_QuoteBasedMethod(mainnetState router
 	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
 	s.Require().NoError(err)
 
-	priceQuoteBasedMethod, err := pricingStrategy.GetPrice(context.Background(), DYDX, USDC, domain.WithRecomputePricesQuoteBasedMethod())
+	priceQuoteBasedMethod, _, err := pricingStrategy.GetPrice(context.Background(), DYDX, USDC, domain.WithRecomputePricesQuoteBasedMethod())
 	s.Require().NoError(err)
 	s.Require().NotZero(priceQuoteBasedMethod)
 
@@ -130,7 +130,7 @@ func (s *PricingTestSuite) testComputePrice_QuoteBasedMethod(mainnetState router
 	s.Require().True(priceQuoteBasedMethod.LT(osmomath.NewBigDec(1_000_000)))
 
 	// Recompute using spot-price method
-	priceSpotPriceMethod, err := pricingStrategy.GetPrice(context.Background(), DYDX, USDC, domain.WithRecomputePrices())
+	priceSpotPriceMethod, _, err := pricingStrategy.GetPrice(context.Background(), DYDX, USDC, domain.WithRecomputePrices())
 	s.Require().NoError(err)
 	s.Require().NotZero(priceSpotPriceMethod)
 

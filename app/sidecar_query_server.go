@@ -201,7 +201,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, logger)
 
 	// Initialize router repository, usecase
-	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, tokensUseCase, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 	if config.ServeFromState {
 		if err := routerUsecase.LoadRouterStateFiles(); err != nil {
 			panic(fmt.Errorf("failed to load router state files: %w", err))
@@ -211,7 +211,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	cosmWasmPoolConfig := poolsUseCase.GetCosmWasmPoolConfig()
 
 	// Initialize chain pricing strategy
-	pricingSimpleRouterUsecase := routerUseCase.NewRouterUsecase(routerRepository, tokensUseCase, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, cosmWasmPoolConfig, logger, cache.New(), cache.New())
+	pricingSimpleRouterUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, cosmWasmPoolConfig, logger, cache.New(), cache.New())
 	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, pricingSimpleRouterUsecase)
 	if err != nil {
 		return nil, err
@@ -281,7 +281,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, candidateRouteSearcher, poolsUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState}, logger)
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, candidateRouteSearcher, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState}, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough

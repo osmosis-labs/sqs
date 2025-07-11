@@ -6,20 +6,26 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	"github.com/osmosis-labs/osmosis/osmomath"
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/delivery/http/middleware"
 	"github.com/osmosis-labs/sqs/router/types"
+
+	"github.com/osmosis-labs/osmosis/osmomath"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
+
+// This is a dummy variable to use ingesttypes package
+// so it can be used by swagger to generate the documentation.
+var _ = ingesttypes.CandidateRoutes{}
 
 // RouterHandler  represent the httphandler for the router
 type RouterHandler struct {
@@ -27,7 +33,6 @@ type RouterHandler struct {
 	TUsecase               mvc.TokensUsecase
 	QuoteSimulator         domain.QuoteSimulator
 	candidateRouteSearcher domain.CandidateRouteSearcher
-	poolsUsecase           mvc.PoolsUsecase
 	logger                 log.Logger
 }
 
@@ -55,7 +60,6 @@ func NewRouterHandler(
 	qs domain.QuoteSimulator,
 	chainUsecase mvc.ChainInfoUsecase,
 	candidateRouteSearcher domain.CandidateRouteSearcher,
-	poolsUsecase mvc.PoolsUsecase,
 	config *Config,
 	logger log.Logger,
 ) {
@@ -64,7 +68,6 @@ func NewRouterHandler(
 		TUsecase:               tu,
 		QuoteSimulator:         qs,
 		candidateRouteSearcher: candidateRouteSearcher,
-		poolsUsecase:           poolsUsecase,
 		logger:                 logger,
 	}
 
@@ -85,7 +88,7 @@ func (a *RouterHandler) FindCandidateRoutes(c echo.Context) error {
 	tokenIn := sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", osmomath.NewInt(10000000))
 	tokenOutDenom := "uosmo"
 
-	_, routes, err := a.RUsecase.GetSimpleQuoteWithRoutes(ctx, tokenIn, tokenOutDenom)
+	_, routes, err := a.RUsecase.GetSimpleQuote(ctx, tokenIn, tokenOutDenom)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -114,10 +117,7 @@ func (a *RouterHandler) FindCandidateRoutes(c echo.Context) error {
 			InAmount:  route.GetAmountIn(),
 		})
 	}
-	price, ok := routes.SpotPrice(ctx)
 	res := response{
-		Price:  price,
-		Ok:     ok,
 		Routes: results,
 	}
 
@@ -141,7 +141,7 @@ func (a *RouterHandler) GetSimpleQuote(c echo.Context) error {
 	tokenOutDenom := "uosmo"
 
 	// Compute a quote for one quote coin.
-	quote, err := a.RUsecase.GetSimpleQuote(ctx, tokenIn, tokenOutDenom, routingOptions...)
+	quote, _, err := a.RUsecase.GetSimpleQuote(ctx, tokenIn, tokenOutDenom, routingOptions...)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}

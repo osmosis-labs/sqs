@@ -47,11 +47,14 @@ type RouterRepository interface {
 // SimpleRouterUsecase represent the simple router's usecases
 // if getting a simple quote and a pool spot price.
 type SimpleRouterUsecase interface {
-	// GetSimpleQuote returns a simple quote for the given tokenIn and tokenOutDenom.
-	// No split routes or caching is used.
-	GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error)
-
-	GetSimpleQuoteWithRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, domain.SplitRoutes, error)
+	// GetSimpleQuote calculates a quote for swapping the given input token (tokenIn) to the desired output denomination (tokenOutDenom).
+	// It returns:
+	//   - A quote representing the estimated output amount and route.
+	//   - A slice of SplitRoutes considered during the computation. The first route in this list matches the route used in the returned Quote.
+	//
+	// This function does not perform route splitting or use any caching.
+	// Additional behavior can be configured via optional RouterOption parameters.
+	GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []domain.SplitRoute, error)
 
 	// GetPoolSpotPrice returns the spot price of a pool.
 	GetPoolSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error)

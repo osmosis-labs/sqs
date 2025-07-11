@@ -36,8 +36,13 @@ func (p *PricingUpdateListenerMock) OnPricingUpdate(ctx context.Context, height 
 	p.QuoteDenom = quoteDenom
 
 	// Update the prices map.
-	for baseDenom, basePrice := range pricesBaseQuoteDenomMap {
-		p.PricesBaseQuteDenomMap[baseDenom] = basePrice
+	for baseDenom, prices := range pricesBaseQuoteDenomMap {
+		for quoteDenom, price := range prices {
+			if _, exists := p.PricesBaseQuteDenomMap[baseDenom]; !exists {
+				p.PricesBaseQuteDenomMap[baseDenom] = make(map[string]osmomath.BigDec)
+			}
+			p.PricesBaseQuteDenomMap[baseDenom][quoteDenom] = price.Price
+		}
 	}
 
 	close(p.Done)
