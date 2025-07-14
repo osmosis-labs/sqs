@@ -82,6 +82,12 @@ const (
 	TokenSwapMethodInvalid
 )
 
+type TokensMetadataFetcher interface {
+	// GetPoolDenomsMetadata returns the pool denom metadata for the given chain denoms.
+	// These values are accumulated from all Osmosis pools.
+	GetPoolDenomsMetadata(chainDenoms []string) PoolDenomMetaDataMap
+}
+
 // TokensPriceFetcher is the contract for fetching prices of base and quote tokens from different sources.
 type TokensPriceFetcher interface {
 	// GetPrices returns prices for all given base and quote denoms given a pricing source type or, otherwise, error, if any.

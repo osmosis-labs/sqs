@@ -58,7 +58,7 @@ func (m *MockQuote) GetRoute() []domain.SplitRoute {
 }
 
 // PrepareResult implements domain.Quote.
-func (m *MockQuote) PrepareResult(ctx context.Context, scalingFactor math.LegacyDec, spotPriceCalculator domain.SpotPriceQuoteCalculator, logger log.Logger) ([]domain.SplitRoute, math.LegacyDec, error) {
+func (m *MockQuote) PrepareResult(ctx context.Context, scalingFactor math.LegacyDec, spotPriceCalculator domain.SpotPriceQuoteCalculator, tokenMetadataFetcher domain.TokensMetadataFetcher, logger log.Logger) ([]domain.SplitRoute, math.LegacyDec, error) {
 	panic("unimplemented")
 }
 

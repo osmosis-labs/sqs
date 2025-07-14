@@ -24,6 +24,7 @@ type quoteExactAmountOut struct {
 	AmountIn                osmomath.Int        `json:"amount_in"`
 	AmountOut               sdk.Coin            `json:"amount_out"`
 	Route                   []domain.SplitRoute `json:"route"`
+	Tokens                  []Token             `json:"tokens"`
 	LiquidityCap            osmomath.Int        `json:"liquidity_cap"`
 	LiquidityCapOverflow    bool                `json:"liquidity_cap_overflow"`
 	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
@@ -137,9 +138,9 @@ func (q *quoteExactAmountOut) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceQuoteCalculator, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceQuoteCalculator, tokenMetadataFetcher domain.TokensMetadataFetcher, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	// Prepare exact out in the quote for inputs inversion
-	if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, spotPriceCalculator, logger); err != nil {
+	if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, spotPriceCalculator, tokenMetadataFetcher, logger); err != nil {
 		return nil, osmomath.Dec{}, err
 	}
 
@@ -147,6 +148,7 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	q.AmountOut = q.quoteExactAmountIn.AmountIn
 	q.AmountIn = q.quoteExactAmountIn.AmountOut
 	q.Route = q.quoteExactAmountIn.Route
+	q.Tokens = q.quoteExactAmountIn.Tokens
 	q.LiquidityCap = q.quoteExactAmountIn.LiquidityCap
 	q.LiquidityCapOverflow = q.quoteExactAmountIn.LiquidityCapOverflow
 	q.EffectiveFee = q.quoteExactAmountIn.EffectiveFee

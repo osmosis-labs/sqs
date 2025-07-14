@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -30,11 +31,18 @@ func NewQuoteExactAmountOut(q *QuoteExactAmountIn) *quoteExactAmountOut {
 	}
 }
 
+// Token represents a token with its metadata.
+type Token struct {
+	Denom                   string       `json:"denom"`
+	LiquidityCapitalization osmomath.Int `json:"liquidity_cap"`
+}
+
 // quoteExactAmountIn is a quote implementation for token swap method exact in.
 type quoteExactAmountIn struct {
 	AmountIn                sdk.Coin            `json:"amount_in"`
 	AmountOut               osmomath.Int        `json:"amount_out"`
 	Route                   []domain.SplitRoute `json:"route"`
+	Tokens                  []Token             `json:"tokens"`
 	LiquidityCap            osmomath.Int        `json:"liquidity_cap"`
 	LiquidityCapOverflow    bool                `json:"liquidity_cap_overflow"`
 	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
@@ -51,7 +59,7 @@ type quoteExactAmountIn struct {
 // Computes an effective spread factor from all routes.
 //
 // Returns the updated route and the effective spread factor.
-func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceQuoteCalculator, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
+func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceQuoteCalculator, tokenMetadataFetcher domain.TokensMetadataFetcher, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
 	totalAmountIn := q.AmountIn.Amount.ToLegacyDec()
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
 
@@ -61,6 +69,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 	totalSpotPriceInBaseOutQuote := osmomath.ZeroDec()
 	totalEffectiveSpotPriceInBaseOutQuote := osmomath.ZeroDec()
 
+	denoms := []string{q.AmountIn.Denom}
 	resultRoutes := make([]domain.SplitRoute, 0, len(q.Route))
 
 	for _, curRoute := range q.Route {
@@ -88,6 +97,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 
 		// Calculate total liquidity cap for the route
 		for _, pool := range newPools {
+			denoms = append(denoms, pool.GetTokenOutDenom())
 			if cap := pool.GetLiquidityCap(); !cap.IsNil() {
 				var err error
 				totalLiquidityCap, err = totalLiquidityCap.SafeAdd(pool.GetLiquidityCap())
@@ -111,6 +121,27 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		})
 	}
 
+	var tokens []Token
+	for denom, metadata := range tokenMetadataFetcher.GetPoolDenomsMetadata(slices.Compact(denoms)) {
+		tokens = append(tokens, Token{
+			Denom:                   denom,
+			LiquidityCapitalization: metadata.TotalLiquidityCap,
+		})
+	}
+
+	// Ensure the tokens are sorted in a consistent order
+	slices.SortFunc(tokens, func(a, b Token) int {
+		if a.LiquidityCapitalization.LT(b.LiquidityCapitalization) {
+			return 1
+		}
+
+		if a.LiquidityCapitalization.GT(b.LiquidityCapitalization) {
+			return -1
+		}
+
+		return 0
+	})
+
 	// Calculate price impact
 	if !totalSpotPriceInBaseOutQuote.IsZero() {
 		q.PriceImpact = totalEffectiveSpotPriceInBaseOutQuote.Quo(totalSpotPriceInBaseOutQuote).SubMut(one)
@@ -120,6 +151,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 	q.LiquidityCapOverflow = totalLiquidityCapOverflow
 	q.EffectiveFee = totalFeeAcrossRoutes
 	q.Route = resultRoutes
+	q.Tokens = tokens
 	q.InBaseOutQuoteSpotPrice = totalSpotPriceInBaseOutQuote
 
 	return q.Route, q.EffectiveFee, nil
