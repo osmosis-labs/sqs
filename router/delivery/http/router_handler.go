@@ -84,7 +84,8 @@ func NewRouterHandler(
 }
 
 func (a *RouterHandler) FindCandidateRoutes(c echo.Context) error {
-	ctx := context.Background()
+	ctx := context.WithValue(c.Request().Context(), domain.DebugKey, true)
+
 	tokenIn := sdk.NewCoin("ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", osmomath.NewInt(10000000))
 	tokenOutDenom := "uosmo"
 
@@ -178,7 +179,7 @@ func (a *RouterHandler) GetSimpleQuote(c echo.Context) error {
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/quote [get]
 func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
-	ctx := c.Request().Context()
+	ctx := context.WithValue(c.Request().Context(), domain.DebugKey, true)
 
 	span := trace.SpanFromContext(ctx)
 	defer func() {
@@ -228,7 +229,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	var quote domain.Quote
 	if req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		quote, err = a.RUsecase.GetOptimalQuoteOutGivenIn(ctx, *tokenIn, tokenOutDenom, routerOpts...)
+		quote, _, err = a.RUsecase.GetSimpleQuote(ctx, *tokenIn, tokenOutDenom, routerOpts...)
 	} else {
 		quote, err = a.RUsecase.GetOptimalQuoteInGivenOut(ctx, *tokenIn, tokenOutDenom, routerOpts...)
 	}
