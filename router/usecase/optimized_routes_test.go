@@ -752,7 +752,7 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 			s.Require().NoError(err)
 
 			// TODO: update mainnet state and validate the quote for each test stricter.
-			routes, _, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0), nil, &log.NoOpLogger{}) //  we are not checking the scaling factor
+			routes, _, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0), nil, nil, &log.NoOpLogger{}) //  we are not checking the scaling factor
 			s.Require().NoError(err)
 
 			s.Require().Len(routes, tc.expectedRoutesCountExactAmountOut)

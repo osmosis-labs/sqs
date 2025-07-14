@@ -122,25 +122,27 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 	}
 
 	var tokens []Token
-	for denom, metadata := range tokenMetadataFetcher.GetPoolDenomsMetadata(slices.Compact(denoms)) {
-		tokens = append(tokens, Token{
-			Denom:                   denom,
-			LiquidityCapitalization: metadata.TotalLiquidityCap,
+	if tokenMetadataFetcher != nil {
+		for denom, metadata := range tokenMetadataFetcher.GetPoolDenomsMetadata(slices.Compact(denoms)) {
+			tokens = append(tokens, Token{
+				Denom:                   denom,
+				LiquidityCapitalization: metadata.TotalLiquidityCap,
+			})
+		}
+
+		// Ensure the tokens are sorted in a consistent order
+		slices.SortFunc(tokens, func(a, b Token) int {
+			if a.LiquidityCapitalization.LT(b.LiquidityCapitalization) {
+				return 1
+			}
+
+			if a.LiquidityCapitalization.GT(b.LiquidityCapitalization) {
+				return -1
+			}
+
+			return 0
 		})
 	}
-
-	// Ensure the tokens are sorted in a consistent order
-	slices.SortFunc(tokens, func(a, b Token) int {
-		if a.LiquidityCapitalization.LT(b.LiquidityCapitalization) {
-			return 1
-		}
-
-		if a.LiquidityCapitalization.GT(b.LiquidityCapitalization) {
-			return -1
-		}
-
-		return 0
-	})
 
 	// Calculate price impact
 	if !totalSpotPriceInBaseOutQuote.IsZero() {
