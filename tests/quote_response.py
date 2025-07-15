@@ -32,13 +32,20 @@ class Route:
         # "has-cw-pool" format is unsupported
         self.has_cw_pool = kwargs.get('has-cw-pool', False)
 
+# Token represents a token in the /router/quote response
+class Token:
+    def __init__(self, denom, liquidity_cap):
+        self.denom = denom
+        self.liquidity_cap = liquidity_cap
+
 # QuoteExactAmountInResponse represents the response format
 # of the /router/quote endpoint for Exact Amount In Quote.
 class QuoteExactAmountInResponse:
-    def __init__(self, amount_in, amount_out, route, liquidity_cap, liquidity_cap_overflow, effective_fee, price_impact, in_base_out_quote_spot_price, price_info=None):
+    def __init__(self, amount_in, amount_out, route, tokens, liquidity_cap, liquidity_cap_overflow, effective_fee, price_impact, in_base_out_quote_spot_price, price_info=None):
         self.amount_in = Coin(**amount_in)
         self.amount_out = int(amount_out)
         self.route = [Route(**r) for r in route]
+        self.tokens = [Token(**t) for t in tokens]
         self.liquidity_cap = int(liquidity_cap)
         self.liquidity_cap_overflow = bool(liquidity_cap_overflow)
         self.effective_fee = Decimal(effective_fee)
@@ -64,10 +71,11 @@ class QuoteExactAmountInResponse:
 # QuoteExactAmountOutResponse represents the response format
 # of the /router/quote endpoint for Exact Amount Out Quote.
 class QuoteExactAmountOutResponse:
-    def __init__(self, amount_in, amount_out, route, liquidity_cap, liquidity_cap_overflow, effective_fee, price_impact, in_base_out_quote_spot_price):
+    def __init__(self, amount_in, amount_out, route, tokens, liquidity_cap, liquidity_cap_overflow, effective_fee, price_impact, in_base_out_quote_spot_price):
         self.amount_in = int(amount_in)
         self.amount_out = Coin(**amount_out)
         self.route = [Route(**r) for r in route]
+        self.tokens = [Token(**t) for t in tokens]
         self.liquidity_cap = int(liquidity_cap)
         self.liquidity_cap_overflow = bool(liquidity_cap_overflow)
         self.effective_fee = Decimal(effective_fee)
