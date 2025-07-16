@@ -36,7 +36,7 @@ class Route:
 class Token:
     def __init__(self, denom, liquidity_cap):
         self.denom = denom
-        self.liquidity_cap = liquidity_cap
+        self.liquidity_cap = int(liquidity_cap)
 
 # QuoteExactAmountInResponse represents the response format
 # of the /router/quote endpoint for Exact Amount In Quote.
