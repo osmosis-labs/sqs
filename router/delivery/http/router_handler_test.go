@@ -57,6 +57,13 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 			},
 			handler: &routerdelivery.RouterHandler{
 				TUsecase: &mocks.TokensUsecaseMock{
+					GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+						return domain.PoolDenomMetaDataMap{
+							"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(51951659)},
+							"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(10000000)},
+							"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(53)},
+						}
+					},
 					IsValidChainDenomFunc: func(chainDenom string) bool {
 						return true
 					},
@@ -82,6 +89,13 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 			},
 			handler: &routerdelivery.RouterHandler{
 				TUsecase: &mocks.TokensUsecaseMock{
+					GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+						return domain.PoolDenomMetaDataMap{
+							"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(851696596)},
+							"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(5119159)},
+							"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(86519)},
+						}
+					},
 					IsValidChainDenomFunc: func(chainDenom string) bool {
 						return true
 					},
@@ -115,6 +129,13 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 			},
 			handler: &routerdelivery.RouterHandler{
 				TUsecase: &mocks.TokensUsecaseMock{
+					GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+						return domain.PoolDenomMetaDataMap{
+							"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(851696596)},
+							"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(5119159)},
+							"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(619585)},
+						}
+					},
 					IsValidChainDenomFunc: func(chainDenom string) bool {
 						return true
 					},
@@ -143,6 +164,13 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 			},
 			handler: &routerdelivery.RouterHandler{
 				TUsecase: &mocks.TokensUsecaseMock{
+					GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+						return domain.PoolDenomMetaDataMap{
+							"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(851696596)},
+							"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(5119159)},
+							"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(851951)},
+						}
+					},
 					IsValidChainDenomFunc: func(chainDenom string) bool {
 						return true
 					},
@@ -251,6 +279,13 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 			},
 			handler: &routerdelivery.RouterHandler{
 				TUsecase: &mocks.TokensUsecaseMock{
+					GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+						return domain.PoolDenomMetaDataMap{
+							"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(51951659)},
+							"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(10000000)},
+							"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(53)},
+						}
+					},
 					IsValidChainDenomFunc: func(chainDenom string) bool {
 						return true
 					},
@@ -274,6 +309,13 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 			},
 			handler: &routerdelivery.RouterHandler{
 				TUsecase: &mocks.TokensUsecaseMock{
+					GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+						return domain.PoolDenomMetaDataMap{
+							"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(851696596)},
+							"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(5119159)},
+							"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(851951)},
+						}
+					},
 					IsValidChainDenomFunc: func(chainDenom string) bool {
 						return true
 					},
@@ -298,6 +340,13 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 			},
 			handler: &routerdelivery.RouterHandler{
 				TUsecase: &mocks.TokensUsecaseMock{
+					GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+						return domain.PoolDenomMetaDataMap{
+							"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(851696596)},
+							"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(5119159)},
+							"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(851951)},
+						}
+					},
 					IsValidChainDenomFunc: func(chainDenom string) bool {
 						// because we are applying human denoms
 						// test will fail with humanDenoms set to false

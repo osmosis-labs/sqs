@@ -74,7 +74,7 @@ type Quote interface {
 	// scalingFactor is the spot price scaling factor according to chain precision.
 	// scalingFactor of zero is a valid value. It might occur if we do not have precision information
 	// for the tokens. In that case, we invalidate spot price by setting it to zero.
-	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator SpotPriceQuoteCalculator, logger log.Logger) ([]SplitRoute, osmomath.Dec, error)
+	PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator SpotPriceQuoteCalculator, tokenMetadataFetcher TokensMetadataFetcher, logger log.Logger) ([]SplitRoute, osmomath.Dec, error)
 
 	// SetQuotePriceInfo sets the quote price info.
 	SetQuotePriceInfo(info *TxFeeInfo)

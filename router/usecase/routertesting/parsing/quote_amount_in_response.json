@@ -47,6 +47,20 @@
       "in_amount": "5000000"
     }
   ],
+  "tokens": [
+    {
+      "denom": "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+      "liquidity_cap": "51951659"
+    },
+    {
+      "denom": "ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5",
+      "liquidity_cap": "10000000"
+    },
+    {
+      "denom": "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB",
+      "liquidity_cap": "53"
+    }
+  ],
   "liquidity_cap": "1605069224",
   "liquidity_cap_overflow": false,
   "effective_fee": "0.011696000000000000",

@@ -66,8 +66,9 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	poolIDThree, poolThree := s.PoolThree()
 
 	testcases := []struct {
-		name  string
-		quote domain.Quote
+		name                 string
+		quote                domain.Quote
+		tokenMetadataFetcher domain.TokensMetadataFetcher
 
 		expectedRoutes       []domain.SplitRoute
 		expectedEffectiveFee string
@@ -76,6 +77,15 @@ func (s *RouterTestSuite) TestPrepareResult() {
 		{
 			name:  "exact amount in",
 			quote: s.NewExactAmountInQuote(poolOne, poolTwo, poolThree),
+			tokenMetadataFetcher: &mocks.TokensUsecaseMock{
+				GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+					return domain.PoolDenomMetaDataMap{
+						"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(51951659)},
+						"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(10000000)},
+						"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(53)},
+					}
+				},
+			},
 			expectedRoutes: []domain.SplitRoute{
 				// Route 1
 				&route.RouteWithOutAmount{
@@ -133,6 +143,15 @@ func (s *RouterTestSuite) TestPrepareResult() {
 		{
 			name:  "exact amount out",
 			quote: s.NewExactAmountOutQuote(poolOne, poolTwo, poolThree),
+			tokenMetadataFetcher: &mocks.TokensUsecaseMock{
+				GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+					return domain.PoolDenomMetaDataMap{
+						"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(851696596)},
+						"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(5119159)},
+						"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(851951)},
+					}
+				},
+			},
 			expectedRoutes: []domain.SplitRoute{
 				&route.RouteWithOutAmount{
 					RouteImpl: route.RouteImpl{
@@ -188,7 +207,7 @@ func (s *RouterTestSuite) TestPrepareResult() {
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
 			// System under test
-			routes, effectiveFee, err := tc.quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, &log.NoOpLogger{})
+			routes, effectiveFee, err := tc.quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, tc.tokenMetadataFetcher, &log.NoOpLogger{})
 			s.Require().NoError(err)
 
 			// Validate JSON representation, which is used for output to the client
@@ -270,7 +289,7 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	}
 
 	// System under test.
-	testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, &log.NoOpLogger{})
+	testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
 
 	// Validate price impact.
 	s.Require().Equal(expectedPriceImpact.String(), testQuote.GetPriceImpact().String())
