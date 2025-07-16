@@ -31,7 +31,7 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 	nextBidTickIndex, nextAskTickIndex int,
 	ticks []cosmwasmpool.OrderbookTick,
 	takerFee osmomath.Dec,
-) domain.RoutablePool {
+) *pools.RoutableOrderbookPoolImpl {
 	// TODO: replace this with orderbook, but this should work as mock for now
 	cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{tokenInDenom, tokenOutDenom})
 
@@ -74,7 +74,14 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 	routablePool, err := pools.NewRoutablePool(mock, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 
-	return routablePool
+	v, ok := routablePool.(*pools.RoutableOrderbookPoolImpl)
+	if !ok {
+		panic(domain.FailedToCastPoolModelError{
+			// TODO
+			// ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Orderbook)],
+		})
+	}
+	return v
 }
 
 func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
@@ -282,6 +289,232 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 			s.Require().NoError(err)
 
 			s.Require().Equal(tc.expectedTokenOut, tokenOut)
+		})
+	}
+}
+
+func (s *RoutablePoolTestSuite) TestCalcSpotPrice2_Orderbook() {
+	tests := map[string]struct {
+		quoteDenom        string
+		baseDenom         string
+		expectedSpotPrice osmomath.BigDec
+		nextBidTickIndex  int
+		nextAskTickIndex  int
+		ticks             []cosmwasmpool.OrderbookTick
+		expectError       error
+	}{
+		// "BID: basic price 1 query": {
+		// 	baseDenom:         QUOTE_DENOM,
+		// 	quoteDenom:        BASE_DENOM,            // pair is reversed
+		// 	expectedSpotPrice: osmomath.NewBigDec(2), // 1/0.5 = 2
+		// 	nextBidTickIndex:  -1,                    // no next bid tick
+		// 	nextAskTickIndex:  0,                     // tick price = 1
+		// 	ticks: []cosmwasmpool.OrderbookTick{
+		// 		{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 			BidLiquidity: osmomath.ZeroBigDec(),
+		// 			AskLiquidity: osmomath.NewBigDec(100),
+		// 		}},
+		// 	},
+		// },
+		// "BID: multi tick lowest price": {
+		// 	baseDenom:         QUOTE_DENOM,
+		// 	quoteDenom:        BASE_DENOM,            // pair is reversed
+		// 	expectedSpotPrice: osmomath.NewBigDec(2), // 1/0.5 = 2
+		// 	nextBidTickIndex:  -1,                    // no next bid tick
+		// 	nextAskTickIndex:  0,                     // tick price = 1
+		// 	ticks: []cosmwasmpool.OrderbookTick{
+		// 		{
+		// 			TickId: 0,
+		// 			TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 				BidLiquidity: osmomath.ZeroBigDec(),
+		// 				AskLiquidity: osmomath.NewBigDec(100),
+		// 			},
+		// 		},
+		// 		{
+		// 			TickId: 1,
+		// 			TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 				BidLiquidity: osmomath.ZeroBigDec(),
+		// 				AskLiquidity: osmomath.NewBigDec(100),
+		// 			},
+		// 		},
+		// 		{
+		// 			TickId: 2,
+		// 			TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 				BidLiquidity: osmomath.ZeroBigDec(),
+		// 				AskLiquidity: osmomath.NewBigDec(100),
+		// 			},
+		// 		},
+		// 	},
+		// },
+		"BID: change in spot price": {
+			baseDenom:         QUOTE_DENOM,
+			quoteDenom:        BASE_DENOM,            // pair is reversed
+			expectedSpotPrice: osmomath.NewBigDec(1), // 1/1 = 1
+			nextBidTickIndex:  -1,                    // no next bid tick
+			nextAskTickIndex:  1,                     // tick price = 2
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					TickId: 0,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
+					},
+				},
+				{
+					TickId: LARGE_POSITIVE_TICK,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(100),
+					},
+				},
+			},
+		},
+
+		// "BID: change in spot price: lowest ask tick": {
+		// 	baseDenom:         QUOTE_DENOM,
+		// 	quoteDenom:        BASE_DENOM,            // pair is reversed
+		// 	expectedSpotPrice: osmomath.NewBigDec(2), // 1/0.5 = 2
+		// 	nextBidTickIndex:  -1,                    // no next bid tick
+		// 	nextAskTickIndex:  0,                     // tick price = 2
+		// 	ticks: []cosmwasmpool.OrderbookTick{
+		// 		{
+		// 			TickId: LARGE_NEGATIVE_TICK,
+		// 			TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 				BidLiquidity: osmomath.ZeroBigDec(),
+		// 				AskLiquidity: osmomath.NewBigDec(100),
+		// 			},
+		// 		},
+		// 		{
+		// 			TickId: LARGE_POSITIVE_TICK,
+		// 			TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 				BidLiquidity: osmomath.ZeroBigDec(),
+		// 				AskLiquidity: osmomath.NewBigDec(100),
+		// 			},
+		// 		},
+		// 	},
+		// },
+		// "ASK: basic price 1 query": {
+		// 	baseDenom:         BASE_DENOM,
+		// 	quoteDenom:        QUOTE_DENOM,
+		// 	expectedSpotPrice: osmomath.NewBigDec(1),
+		// 	nextBidTickIndex:  0,
+		// 	nextAskTickIndex:  -1, // no next ask tick
+		// 	ticks: []cosmwasmpool.OrderbookTick{
+		// 		{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 			BidLiquidity: osmomath.NewBigDec(100),
+		// 			AskLiquidity: osmomath.ZeroBigDec(),
+		// 		}},
+		// 	},
+		// },
+		// "ASK: multi tick lowest price": {
+		// 	baseDenom:         BASE_DENOM,
+		// 	quoteDenom:        QUOTE_DENOM,
+		// 	expectedSpotPrice: osmomath.NewBigDec(1),
+		// 	nextBidTickIndex:  2,
+		// 	nextAskTickIndex:  -1, // no next ask tick
+		// 	ticks: []cosmwasmpool.OrderbookTick{
+		// 		{TickId: -2, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 			BidLiquidity: osmomath.NewBigDec(100),
+		// 			AskLiquidity: osmomath.ZeroBigDec(),
+		// 		}},
+		// 		{TickId: -1, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 			BidLiquidity: osmomath.NewBigDec(100),
+		// 			AskLiquidity: osmomath.ZeroBigDec(),
+		// 		}},
+		// 		{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 			BidLiquidity: osmomath.NewBigDec(100),
+		// 			AskLiquidity: osmomath.ZeroBigDec(),
+		// 		}},
+		// 	},
+		// },
+		// "ASK: multi direction lowest tick": {
+		// 	baseDenom:         BASE_DENOM,
+		// 	quoteDenom:        QUOTE_DENOM,
+		// 	expectedSpotPrice: osmomath.NewBigDec(1),
+		// 	nextBidTickIndex:  0,
+		// 	nextAskTickIndex:  0,
+		// 	ticks: []cosmwasmpool.OrderbookTick{
+		// 		{TickId: 0, TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 			BidLiquidity: osmomath.NewBigDec(100),
+		// 			AskLiquidity: osmomath.NewBigDec(100),
+		// 		}},
+		// 	},
+		// },
+		// "ASK: change in spot price": {
+		// 	baseDenom:         BASE_DENOM,
+		// 	quoteDenom:        QUOTE_DENOM,
+		// 	expectedSpotPrice: osmomath.NewBigDecWithPrec(5, 1),
+		// 	nextBidTickIndex:  1,
+		// 	nextAskTickIndex:  -1, // no next ask tick
+		// 	ticks: []cosmwasmpool.OrderbookTick{
+		// 		{
+		// 			TickId: LARGE_NEGATIVE_TICK - 1,
+		// 			TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 				BidLiquidity: osmomath.NewBigDec(100),
+		// 				AskLiquidity: osmomath.ZeroBigDec(),
+		// 			},
+		// 		},
+		// 		{
+		// 			TickId: LARGE_NEGATIVE_TICK,
+		// 			TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+		// 				BidLiquidity: osmomath.NewBigDec(100),
+		// 				AskLiquidity: osmomath.ZeroBigDec(),
+		// 			},
+		// 		},
+		// 	},
+		// },
+		// "invalid: duplicate denom": {
+		// 	quoteDenom:        BASE_DENOM,
+		// 	baseDenom:         BASE_DENOM,
+		// 	expectedSpotPrice: osmomath.NewBigDec(0),
+		// 	nextBidTickIndex:  -1, // no next bid tick
+		// 	nextAskTickIndex:  -1, // no next ask tick
+		// 	ticks:             []cosmwasmpool.OrderbookTick{},
+		// 	expectError: cosmwasmpool.DuplicatedDenomError{
+		// 		Denom: BASE_DENOM,
+		// 	},
+		// },
+		// "invalid: incorrect base denom": {
+		// 	baseDenom:         INVALID_DENOM,
+		// 	quoteDenom:        QUOTE_DENOM,
+		// 	expectedSpotPrice: osmomath.NewBigDec(0),
+		// 	nextBidTickIndex:  -1, // no next bid tick
+		// 	nextAskTickIndex:  -1, // no next ask tick
+		// 	ticks:             []cosmwasmpool.OrderbookTick{},
+		// 	expectError: cosmwasmpool.OrderbookUnsupportedDenomError{
+		// 		Denom:      INVALID_DENOM,
+		// 		BaseDenom:  BASE_DENOM,
+		// 		QuoteDenom: QUOTE_DENOM,
+		// 	},
+		// },
+		// "invalid: incorrect quote denom": {
+		// 	baseDenom:         BASE_DENOM,
+		// 	quoteDenom:        INVALID_DENOM,
+		// 	expectedSpotPrice: osmomath.NewBigDec(0),
+		// 	nextBidTickIndex:  -1, // no next bid tick
+		// 	nextAskTickIndex:  -1, // no next ask tick
+		// 	ticks:             []cosmwasmpool.OrderbookTick{},
+		// 	expectError: cosmwasmpool.OrderbookUnsupportedDenomError{
+		// 		Denom:      INVALID_DENOM,
+		// 		BaseDenom:  BASE_DENOM,
+		// 		QuoteDenom: QUOTE_DENOM,
+		// 	},
+		// },
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+			routablePool := s.SetupRoutableOrderbookPool(tc.baseDenom, tc.quoteDenom, tc.nextBidTickIndex, tc.nextAskTickIndex, tc.ticks, osmomath.ZeroDec())
+			spotPrice, err := routablePool.CalcSpotPrice2(context.TODO(), tc.baseDenom, tc.quoteDenom)
+
+			if tc.expectError != nil {
+				s.Require().Error(err)
+				s.Require().Equal(err, tc.expectError)
+				return
+			}
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expectedSpotPrice, spotPrice)
 		})
 	}
 }
@@ -515,13 +748,7 @@ func (s *RoutablePoolTestSuite) TestGetDirection() {
 	for name, tc := range tests {
 		s.Run(name, func() {
 			s.Setup()
-			routablePool := s.SetupRoutableOrderbookPool(tc.tokenInDenom, tc.tokenOutDenom, MIN_TICK, MAX_TICK, nil, osmomath.ZeroDec())
-
-			routableOrderbookPool, ok := routablePool.(*pools.RoutableOrderbookPoolImpl)
-
-			if !ok {
-				s.FailNow("failed to cast to RouteableOrderbookPoolImpl")
-			}
+			routableOrderbookPool := s.SetupRoutableOrderbookPool(tc.tokenInDenom, tc.tokenOutDenom, MIN_TICK, MAX_TICK, nil, osmomath.ZeroDec())
 
 			direction, err := routableOrderbookPool.OrderbookData.GetDirection(tc.tokenInDenom, tc.tokenOutDenom)
 
