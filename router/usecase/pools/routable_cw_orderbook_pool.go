@@ -221,12 +221,13 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice2(ctx context.Context, baseDeno
 	bidTickIdx := r.OrderbookData.NextBidTickIndex
 
 	// Compute best bid tick price
+	// Best bid tick is the tick with the highest bid price that has liquidity
 	for bidTickIdx >= 0 && bidTickIdx < len(r.OrderbookData.Ticks) && bidTickPrice.IsZero() {
 		tick := r.OrderbookData.Ticks[bidTickIdx]
 
 		// When the tick has no liquidity, we skip it and move to the next tick
 		if tick.TickLiquidity.BidLiquidity.IsZero() {
-			iterationStep, err := bidDirection.IterationStep()
+			iterationStep, err := bidDirection.IterationStep() // -1 for BID direction
 			if err != nil {
 				return osmomath.BigDec{}, err
 			}
@@ -235,6 +236,8 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice2(ctx context.Context, baseDeno
 			continue
 		}
 
+		// Convert tick to price
+		// The larger the tick id, the higher the price
 		tickPrice, err := clmath.TickToPrice(tick.TickId)
 		if err != nil {
 			return osmomath.BigDec{}, err
@@ -248,12 +251,13 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice2(ctx context.Context, baseDeno
 	askTickIdx := r.OrderbookData.NextAskTickIndex
 
 	// Compute best ask tick price
+	// Best ask tick is the tick with the lowest ask price that has liquidity
 	for askTickIdx >= 0 && askTickIdx < len(r.OrderbookData.Ticks) && askTickPrice.IsZero() {
 		tick := r.OrderbookData.Ticks[askTickIdx]
 
 		// When the tick has no liquidity, skip it and move to the next tick
 		if tick.TickLiquidity.AskLiquidity.IsZero() {
-			iterationStep, err := askDirection.IterationStep()
+			iterationStep, err := askDirection.IterationStep() // 1 for ASK direction
 			if err != nil {
 				return osmomath.BigDec{}, err
 			}
@@ -263,6 +267,7 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice2(ctx context.Context, baseDeno
 		}
 
 		// Convert tick to price
+		// The smaller the tick id, the lower the price
 		tickPrice, err := clmath.TickToPrice(tick.TickId)
 		if err != nil {
 			return osmomath.BigDec{}, err
