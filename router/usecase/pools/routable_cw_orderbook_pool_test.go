@@ -493,7 +493,8 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice2_Orderbook() {
 		// Thus:
 		// ticks[0] > ticks[1]
 		// 0.50000010 > 0.5
-		// Is this a valid case or we assume that the ticks are always ordered by tick price?
+		// Is this a valid case or we assume that the ticks are always ordered by tick price
+		// and we don't need to check for that?
 
 		// "ASK: change in spot price": {
 		// 	baseDenom:         BASE_DENOM,
