@@ -68,6 +68,7 @@ func NewPoolsHandler(e *echo.Echo, us mvc.PoolsUsecase) {
 	e.GET(formatPoolsResource("/canonical-orderbook"), handler.GetCanonicalOrderbook)
 	e.GET(formatPoolsResource("/canonical-orderbooks"), handler.GetCanonicalOrderbooks)
 	e.GET(formatPoolsResource(""), handler.GetPools)
+	e.GET(formatPoolsResource("/:id/spot-price"), handler.CalcSpotPrice)
 }
 
 // @Summary Get pool(s) information
@@ -108,6 +109,22 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	resultPools := convertPoolsToResponse(c, &req, pools, total)
 
 	return c.JSON(http.StatusOK, resultPools)
+}
+
+func (a *PoolsHandler) CalcSpotPrice(c echo.Context) error {
+	var req api.CalculateSpotPriceRequest
+	if err := deliveryhttp.ParseRequest(c, &req); err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
+
+	spotPrice, err := a.PUsecase.CalcSpotPrice(c.Request().Context(), req.PoolId, req.BaseDenom, req.QuoteDenom)
+	if err != nil {
+		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, api.CalculateSpotPriceResponse{
+		SpotPrice: spotPrice.String(),
+	})
 }
 
 func (a *PoolsHandler) GetConcentratedPoolTicks(c echo.Context) error {

@@ -1,8 +1,11 @@
 package mocks
 
 import (
+	"context"
+
 	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/types"
+	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
@@ -76,6 +79,10 @@ func (p *PoolHandlerMock) StorePools(pools []ingesttypes.PoolI) error {
 		}
 	}
 	return nil
+}
+
+func (p *PoolHandlerMock) CalcSpotPrice(ctx context.Context, pool uint64, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	panic("unimplemented")
 }
 
 // CalcExitCFMMPool implements mvc.PoolHandler.

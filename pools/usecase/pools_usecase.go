@@ -772,6 +772,21 @@ func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return p.cosmWasmPoolsParams.Config
 }
 
+func (p *poolsUseCase) CalcSpotPrice(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
+	pool, err := p.GetPool(poolID)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	routable, err := pools.NewRoutablePool(pool, "", "", osmomath.ZeroDec(), p.cosmWasmPoolsParams)
+	if err != nil {
+		return osmomath.BigDec{}, fmt.Errorf("failed to create routable pool: %w", err)
+	}
+
+	return routable.CalcSpotPrice(ctx, quoteAsset, baseAsset)
+
+}
+
 // CalcExitCFMMPool implements mvc.PoolsUsecase.
 func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingSharesIn osmomath.Int) (sdk.Coins, error) {
 	sqsPool, err := p.GetPool(poolID)

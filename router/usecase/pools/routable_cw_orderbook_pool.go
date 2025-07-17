@@ -208,12 +208,19 @@ func (r *routableOrderbookPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 	r.TokenOutDenom = tokenOutDenom
 }
 
-func (r *routableOrderbookPoolImpl) CalcSpotPrice2(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	poolType := r.GetType()
 
 	// Esnure that the pool is a cosmwasm pool
 	if poolType != poolmanagertypes.CosmWasm {
 		return osmomath.BigDec{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
+	}
+
+	// Ensure that the base and quote denoms are not the same
+	if baseDenom == quoteDenom {
+		return osmomath.BigDec{}, cosmwasmpool.DuplicatedDenomError{
+			Denom: baseDenom,
+		}
 	}
 
 	bidTickPrice := osmomath.ZeroBigDec() // tick offering the highest bid price
@@ -284,12 +291,16 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice2(ctx context.Context, baseDeno
 		return midPrice, nil
 	}
 
+	if midPrice.IsZero() {
+		return osmomath.ZeroBigDec(), nil
+	}
+
 	// Reverse the mid price if the base denom is the quote denom
 	return osmomath.OneBigDec().Quo(midPrice), nil
 }
 
 // CalcSpotPrice implements domain.RoutablePool.
-func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+func (r *routableOrderbookPoolImpl) CalcSpotPriceOld(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	// Get the expected order directionIn
 	directionIn, err := r.OrderbookData.GetDirection(baseDenom, quoteDenom)
 	if err != nil {

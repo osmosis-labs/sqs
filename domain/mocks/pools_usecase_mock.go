@@ -27,6 +27,7 @@ type PoolsUsecaseMock struct {
 	GetPoolFunc                         func(poolID uint64) (ingesttypes.PoolI, error)
 	GetPoolSpotPriceFunc                func(ctx context.Context, poolID uint64, takerFee osmomath.Dec, quoteAsset, baseAsset string) (osmomath.BigDec, error)
 	GetCosmWasmPoolConfigFunc           func() domain.CosmWasmPoolRouterConfig
+	CalcSpotPriceFunc                   func(ctx context.Context, poolID uint64, string, quoteDenom string) (osmomath.BigDec, error)
 	CalcExitCFMMPoolFunc                func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)
 	GetAllCanonicalOrderbookPoolIDsFunc func() ([]domain.CanonicalOrderBooksResult, error)
 
@@ -156,6 +157,13 @@ func (pm *PoolsUsecaseMock) GetPool(poolID uint64) (ingesttypes.PoolI, error) {
 func (pm *PoolsUsecaseMock) GetPoolSpotPrice(ctx context.Context, poolID uint64, takerFee math.LegacyDec, baseAsset, quoteAsset string) (osmomath.BigDec, error) {
 	if pm.GetPoolSpotPriceFunc != nil {
 		return pm.GetPoolSpotPriceFunc(ctx, poolID, takerFee, quoteAsset, baseAsset)
+	}
+	panic("unimplemented")
+}
+
+func (pm *PoolsUsecaseMock) CalcSpotPrice(ctx context.Context, poolID uint64, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	if pm.CalcSpotPriceFunc != nil {
+		return pm.CalcSpotPriceFunc(ctx, poolID, baseDenom, quoteDenom)
 	}
 	panic("unimplemented")
 }

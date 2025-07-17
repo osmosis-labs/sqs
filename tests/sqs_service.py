@@ -3,6 +3,7 @@ import requests
 SQS_STAGE = "https://sqs.stage.osmosis.zone"
 SQS_PROD = "https://sqs.osmosis.zone"
 SQS_LOCAL = "http://localhost:9092"
+SQS_ASIA = "https://sqs-lb.stage.osmosis.zone"
 
 ROUTER_ROUTES_URL = "/router/routes"
 ROUTER_QUOTE_URL = "/router/quote"
@@ -230,6 +231,22 @@ class SQSService:
                 self.asset_list[asset[coin_minimal_denom_key]] = asset.get(coingecko_id_key, None)
 
         return self.asset_list.get(denom, None)
+
+    def calculate_spot_price(self, pool_id, base_denom, quote_denom):
+        """
+        Calculates the spot price for a given pool and its base_denom, and quote_denom.
+        """
+
+        params = {
+            "base": base_denom,
+            "quote": quote_denom,
+        }
+
+        return requests.get(
+            self.url + POOLS_URL + "/" + str(pool_id) + "/spot-price",
+            params=params, 
+            headers=self.headers
+        ).json()
 
     def get_canonical_orderbooks(self):
         """
