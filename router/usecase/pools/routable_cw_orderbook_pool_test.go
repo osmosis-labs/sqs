@@ -486,13 +486,14 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice2_Orderbook() {
 			},
 		},
 		// TODO:
-		// Are ticks always ordered, by tick price?
-		// This test would fail:
+		// Are ticks always ordered, by tick price and index would reflect that?
+		// For example, this test would fail, because:
 		// - nextBidTickIndex of 1 has tick price of 0.5
 		// - nextAskTickIndex of 0 has tick price of 0.50000010
 		// Thus:
 		// ticks[0] > ticks[1]
 		// 0.50000010 > 0.5
+		// Is this a valid case or we assume that the ticks are always ordered by tick price?
 
 		// "ASK: change in spot price": {
 		// 	baseDenom:         BASE_DENOM,
