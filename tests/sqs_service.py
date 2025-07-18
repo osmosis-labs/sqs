@@ -3,7 +3,6 @@ import requests
 SQS_STAGE = "https://sqs.stage.osmosis.zone"
 SQS_PROD = "https://sqs.osmosis.zone"
 SQS_LOCAL = "http://localhost:9092"
-SQS_ASIA = "https://sqs-lb.stage.osmosis.zone"
 
 ROUTER_ROUTES_URL = "/router/routes"
 ROUTER_QUOTE_URL = "/router/quote"
@@ -53,6 +52,18 @@ class SQSService:
         self.config = response.json()
 
         return self.config
+
+    def get_pool(self, pool_id, min_liquidity_cap=None, with_market_incentives=False):
+        """
+        Fetches the pool from the specified endpoint and returns it.
+        Raises error if non-200 is returned from the endpoint.
+        """
+        pools = self.get_pools(pool_ids=pool_id, min_liquidity_cap=min_liquidity_cap, with_market_incentives=with_market_incentives)
+
+        if not pools or len(pools) == 0:
+            raise Exception(f"Pool with ID {pool_id} not found")
+
+        return pools[0]
     
     def get_pools(self, pool_ids=None, min_liquidity_cap=None, with_market_incentives=False):
         """

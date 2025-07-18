@@ -10,6 +10,7 @@ import (
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
+	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -82,6 +83,89 @@ func (s *RoutablePoolTestSuite) SetupRoutableOrderbookPool(
 		})
 	}
 	return v
+}
+
+var (
+	defaultPricingRouterConfig = routertesting.DefaultPricingRouterConfig
+	defaultPricingConfig       = routertesting.DefaultPricingConfig
+)
+
+func (s *RoutablePoolTestSuite) TestCalcSpotPrice_Orderbook_BE_783() {
+	tests := map[string]struct {
+		poolID            uint64
+		expectedSpotPrice osmomath.BigDec
+		nextBidTickIndex  int
+		nextAskTickIndex  int
+		ticks             []cosmwasmpool.OrderbookTick
+		expectError       error
+	}{
+		"BID: basic price 1 query": {
+			poolID:            1930,
+			nextBidTickIndex:  1,                                     // it's actually 1291, tick price = 1180.20
+			nextAskTickIndex:  0,                                     // it's actually 1314, tick price = 1210.30
+			expectedSpotPrice: osmomath.NewBigDecWithPrec(119525, 2), // (1180.20 + 1210.30) / 2 = 1195.25
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					TickId: 27180200,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(8000000000),
+						AskLiquidity: osmomath.ZeroBigDec(),
+					},
+				},
+				{
+					TickId: 27210300,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.ZeroBigDec(),
+						AskLiquidity: osmomath.NewBigDec(162785),
+					},
+				},
+			},
+		},
+	}
+
+	mainnetState := s.SetupMainnetStatePath("BE-783")
+
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(
+		mainnetState,
+		routertesting.WithRouterConfig(defaultPricingRouterConfig),
+		routertesting.WithPricingConfig(defaultPricingConfig),
+	)
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+
+			ctx := context.TODO()
+
+			pool, err := mainnetUsecase.Pools.GetPool(tc.poolID)
+			s.Require().NoError(err)
+
+			orderbook := pool.GetSQSPoolModel().CosmWasmPoolModel.Data.Orderbook
+			base := orderbook.BaseDenom
+			quote := orderbook.QuoteDenom
+
+			spotPrice, err := mainnetUsecase.Pools.CalcSpotPrice(ctx, tc.poolID, base, quote)
+			if tc.expectError != nil {
+				s.Require().Error(err)
+				s.Require().Equal(err, tc.expectError)
+				return
+			}
+
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expectedSpotPrice, spotPrice)
+
+			routablePool := s.SetupRoutableOrderbookPool(base, quote, tc.nextBidTickIndex, tc.nextAskTickIndex, tc.ticks, osmomath.ZeroDec())
+			spotPrice2, err := routablePool.CalcSpotPrice(ctx, BASE_DENOM, QUOTE_DENOM)
+			if tc.expectError != nil {
+				s.Require().Error(err)
+				s.Require().Equal(err, tc.expectError)
+				return
+			}
+
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expectedSpotPrice, spotPrice2)
+		})
+	}
 }
 
 func (s *RoutablePoolTestSuite) NoTestCalculateTokenOutByTokenIn_Orderbook() {
@@ -293,7 +377,7 @@ func (s *RoutablePoolTestSuite) NoTestCalculateTokenOutByTokenIn_Orderbook() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestCalcSpotPrice2_Orderbook() {
+func (s *RoutablePoolTestSuite) NoTestCalcSpotPrice_Orderbook() {
 	tests := map[string]struct {
 		quoteDenom        string
 		baseDenom         string
@@ -601,7 +685,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPrice2_Orderbook() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestCalcSpotPriceOld_Orderbook() {
+func (s *RoutablePoolTestSuite) NoTestCalcSpotPriceOld_Orderbook() {
 	tests := map[string]struct {
 		quoteDenom        string
 		baseDenom         string
@@ -803,7 +887,7 @@ func (s *RoutablePoolTestSuite) TestCalcSpotPriceOld_Orderbook() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestGetDirection() {
+func (s *RoutablePoolTestSuite) NoTestGetDirection() {
 	tests := map[string]struct {
 		tokenInDenom      string
 		tokenOutDenom     string

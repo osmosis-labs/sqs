@@ -216,6 +216,18 @@ func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom
 		return osmomath.BigDec{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
 	}
 
+	if baseDenom != r.OrderbookData.BaseDenom && baseDenom != r.OrderbookData.QuoteDenom {
+		return osmomath.BigDec{}, cosmwasmpool.DuplicatedDenomError{
+			Denom: baseDenom,
+		}
+	}
+
+	if quoteDenom != r.OrderbookData.BaseDenom && quoteDenom != r.OrderbookData.QuoteDenom {
+		return osmomath.BigDec{}, cosmwasmpool.DuplicatedDenomError{
+			Denom: quoteDenom,
+		}
+	}
+
 	// Ensure that the base and quote denoms are not the same
 	if baseDenom == quoteDenom {
 		return osmomath.BigDec{}, cosmwasmpool.DuplicatedDenomError{

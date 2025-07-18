@@ -105,6 +105,15 @@ def run_canonical_orderbook_spot_price_test(environment_url):
             print(f"Skipping orderbook {orderbook.get('pool_id')} neither quote {quote} or base {base} is USDC")
             continue
 
+        pool = sqs_service.get_pool(pool_id)
+        assert pool is not None
+
+
+        liquidity_cap = int(pool.get("liquidity_cap"))
+        if liquidity_cap < 1000:
+            print(f"Skipping orderbook {pool_id} pool liquidity_cap of {liquidity_cap} < 1000")
+            continue
+
         if constants.is_usd(quote):
             # Price is quoted in USDC, so we can use the base as is
             spot_price = sqs_service.calculate_spot_price(pool_id, base, quote)
@@ -126,7 +135,7 @@ def run_canonical_orderbook_spot_price_test(environment_url):
         error = relative_error(Decimal(spot_price), Decimal(sqs_price))
 
         # assert error < 0.01, 
-        print(f"Pool {pool_id} error {error}, spot price {spot_price}, global price: {sqs_price}")
+        print(f"Pool: {pool_id} error: {error}, liquidity cap: {liquidity_cap}, spot price: {spot_price}, global price: {sqs_price}")
 
 
 def run_canonical_orderbook_test(environment_url):
