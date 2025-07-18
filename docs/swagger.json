@@ -168,6 +168,46 @@
                 }
             }
         },
+        "/pools/{id}/spot-price": {
+            "get": {
+                "description": "Returns the spot price for a given pool ID, base denom, and quote denom.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Calculate spot price for a pool",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Pool ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Base denom",
+                        "name": "base",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Quote denom",
+                        "name": "quote",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Spot price",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_osmosis-labs_sqs_pkg_api_v1beta1_pools.CalculateSpotPriceResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/router/custom-direct-quote": {
             "get": {
                 "description": "Call does not search for the route rather directly computes the quote for the given poolID.\nNOTE: Endpoint only supports multi-hop routes, split routes are not supported.\n\nFor exact amount in swap method, the `tokenIn` and `tokenOutDenom` are required.\nFor exact amount out swap method, the `tokenOut` and `tokenInDenom` are required.\nMixing swap method parameters in other way than specified will result in an error.\n",
@@ -723,6 +763,15 @@
                     "items": {
                         "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.LimitOrder"
                     }
+                }
+            }
+        },
+        "github_com_osmosis-labs_sqs_pkg_api_v1beta1_pools.CalculateSpotPriceResponse": {
+            "type": "object",
+            "properties": {
+                "spot_price": {
+                    "description": "spot_price is the calculated spot price of the pool.",
+                    "type": "string"
                 }
             }
         },

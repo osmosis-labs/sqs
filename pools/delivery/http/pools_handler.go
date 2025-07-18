@@ -111,6 +111,14 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 	return c.JSON(http.StatusOK, resultPools)
 }
 
+// @Summary Calculate spot price for a pool
+// @Description Returns the spot price for a given pool ID, base denom, and quote denom.
+// @Produce  json
+// @Param  id  path  int  true  "Pool ID"
+// @Param  base  query  string  true  "Base denom"
+// @Param  quote  query  string  true  "Quote denom"
+// @Success 200  {object} api.CalculateSpotPriceResponse  "Spot price"
+// @Router /pools/{id}/spot-price [get]
 func (a *PoolsHandler) CalcSpotPrice(c echo.Context) error {
 	var req api.CalculateSpotPriceRequest
 	if err := deliveryhttp.ParseRequest(c, &req); err != nil {
