@@ -35,11 +35,17 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-#674 - BE-779 | Fix e2e tests
-#673 - BE-768 | Exclude orderbooks from global token price computation
-#671 - BE-654 | Add liquidity cap for each routable pool in the quote and sum
-#670 - BE-766 | Implement state dump/load for Ingest usecase
-#669 - BE-755 | Timeout handling connecting to Tendermint
+## v28.3.11
+
+- #676 - BE-751 | Include token metadata into quote response
+
+## v28.3.10
+
+- #674 - BE-779 | Fix e2e tests
+- #673 - BE-768 | Exclude orderbooks from global token price computation
+- #671 - BE-654 | Add liquidity cap for each routable pool in the quote and sum
+- #670 - BE-766 | Implement state dump/load for Ingest usecase
+- #669 - BE-755 | Timeout handling connecting to Tendermint
 
 ## v28.3.9
 
