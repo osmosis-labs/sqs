@@ -219,7 +219,7 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 		{
 			name: "Invalid Search ( too long )",
 			queryParams: map[string]string{
-				queryFilterSearch: "TestGetPoolsRequestFilter_UnmarshalHTTPRequest/Invalid_Search_(_too_long_)",
+				queryFilterSearch: "TestGetPoolsRequestFilter_UnmarshalHTTPRequest/Invalid_Search_(_too_long_very_long_search_query_that_exceeds_the_max_length_of_200_characters_lore_ipsum_dolor_sit_amet_consectetur_adipiscing_elit_sed_do_eiusmod_tempor_incididunt_ut",
 			},
 			expectError: true,
 		},
