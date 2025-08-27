@@ -35,6 +35,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v28.3.12
+
+- #680 - CHAIN-1116 | Update pool search `maxSearchQueryLength`
+
 ## v28.3.11
 
 - #676 - BE-751 | Include token metadata into quote response
