@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	maxSearchQueryLength = 50
+	maxSearchQueryLength = 200
 	maxDenoms            = 8
 )
 
