@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v30/ingest/types/passthroughdomain"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 )
 

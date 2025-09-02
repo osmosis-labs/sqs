@@ -485,11 +485,19 @@ func (t *TokensUseCase) CalcScalingFactor(baseDenom string, quoteDenom string) (
 		return osmomath.BigDec{}, err
 	}
 
-	tenDec := osmomath.NewBigDec(10)
+	// Calculate scaling factors based on token precision using precision utility
+	baseScaleDec, ok := getPrecisionScalingFactorImmutable(baseDenomMetadata.Precision)
+	if !ok {
+		return osmomath.BigDec{}, fmt.Errorf("invalid precision for base denom %s: %d", baseDenom, baseDenomMetadata.Precision)
+	}
+	quoteScaleDec, ok := getPrecisionScalingFactorImmutable(quoteDenomMetadata.Precision)
+	if !ok {
+		return osmomath.BigDec{}, fmt.Errorf("invalid precision for quote denom %s: %d", quoteDenom, quoteDenomMetadata.Precision)
+	}
 
-	// Calculate scaling factors based on token precision
-	baseScale := tenDec.Power(osmomath.NewBigDec(int64(baseDenomMetadata.Precision)))
-	quoteScale := tenDec.Power(osmomath.NewBigDec(int64(quoteDenomMetadata.Precision)))
+	// Convert Dec to BigDec
+	baseScale := osmomath.BigDecFromDec(baseScaleDec)
+	quoteScale := osmomath.BigDecFromDec(quoteScaleDec)
 
 	// Calculate scale factor between quote and base
 	return quoteScale.Quo(baseScale), nil

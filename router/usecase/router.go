@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/types"
+	cosmwasmpooltypes "github.com/osmosis-labs/osmosis/v30/x/cosmwasmpool/types"
 	"github.com/osmosis-labs/sqs/domain"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"go.uber.org/zap"
@@ -12,7 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v30/x/poolmanager/types"
 )
 
 type ratedPool struct {

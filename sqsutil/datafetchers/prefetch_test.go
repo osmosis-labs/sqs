@@ -26,11 +26,12 @@ func TestWaitUntilFirstResult(t *testing.T) {
 	require.Equal(t, 0, v)
 	require.Equal(t, time.Time{}, timestamp)
 
-	time.Sleep(3 * time.Second)
+	// Wait a bit longer to account for goroutine scheduling and execution overhead
+	time.Sleep(3*time.Second + 100*time.Millisecond)
 
 	v, timestamp, err = p.Get()
 	require.NoError(t, err)
-	require.Equal(t, v, 42)
+	require.Equal(t, 42, v)
 }
 
 func requireTimeDurationInRange(t *testing.T, d time.Duration, min time.Duration, max time.Duration) {

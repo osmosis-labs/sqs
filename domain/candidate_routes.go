@@ -7,7 +7,7 @@ import (
 	sqsatomic "github.com/osmosis-labs/sqs/domain/sync/atomic"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
-	osmoingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
+	osmoingesttypes "github.com/osmosis-labs/osmosis/v30/ingest/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

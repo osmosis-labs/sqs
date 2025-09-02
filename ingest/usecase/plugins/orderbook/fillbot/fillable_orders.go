@@ -8,11 +8,11 @@ import (
 	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
 	"go.uber.org/zap"
 
-	clmath "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/math"
+	clmath "github.com/osmosis-labs/osmosis/v30/x/concentrated-liquidity/math"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	"github.com/osmosis-labs/osmosis/v30/ingest/types/cosmwasmpool"
 )
 
 var one = osmomath.MustNewDecFromStr("1")

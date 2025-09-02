@@ -202,7 +202,7 @@ func (p *poolLiquidityPricerWorker) computeEffectiveLiquidityCap(
 
 		var balances []osmomath.BigDec
 		for _, coin := range pool[0].GetSQSPoolModel().Balances {
-			metadata, err := p.tokensUsecase.GetMetadataByChainDenom(coin.Denom)
+			_, err := p.tokensUsecase.GetMetadataByChainDenom(coin.Denom)
 			if err != nil {
 				errors = append(errors, err)
 				continue
@@ -216,7 +216,12 @@ func (p *poolLiquidityPricerWorker) computeEffectiveLiquidityCap(
 
 			price := blockPriceUpdates.GetPriceForDenom(coin.Denom, quoteDenom)
 
-			normalized := amount.Quo(osmomath.NewBigDec(10).Power(osmomath.NewBigDec(int64(metadata.Precision)))).Mul(price)
+			// Use scaling factor from tokens use case
+			scalingFactor, err := p.tokensUsecase.GetChainScalingFactorByDenomMut(coin.Denom)
+			if err != nil {
+				continue // Skip if we can't get scaling factor
+			}
+			normalized := amount.Quo(osmomath.BigDecFromDec(scalingFactor)).Mul(price)
 
 			balances = append(balances, normalized)
 		}

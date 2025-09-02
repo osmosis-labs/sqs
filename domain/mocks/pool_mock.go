@@ -7,14 +7,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
-	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
+	"github.com/osmosis-labs/osmosis/v30/ingest/types/cosmwasmpool"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v30/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 
-	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v30/x/gamm/pool-models/balancer"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v30/x/poolmanager/types"
 )
 
 type MockRoutablePool struct {

@@ -16,8 +16,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	ingesttypes "github.com/osmosis-labs/osmosis/v30/ingest/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v30/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	sqsingesttypes "github.com/osmosis-labs/sqs/ingest/types"
@@ -25,8 +25,8 @@ import (
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/proto/types"
+	"github.com/osmosis-labs/osmosis/v30/ingest/types/json"
+	"github.com/osmosis-labs/osmosis/v30/ingest/types/proto/types"
 )
 
 type ingestUseCase struct {

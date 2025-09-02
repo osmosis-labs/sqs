@@ -10,10 +10,10 @@ import (
 	sqssdk "github.com/osmosis-labs/sqs/domain/types"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
-	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v28/x/gamm/types"
-	"github.com/osmosis-labs/osmosis/v28/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v30/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v30/x/gamm/types"
+	"github.com/osmosis-labs/osmosis/v30/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v30/x/poolmanager/types"
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"

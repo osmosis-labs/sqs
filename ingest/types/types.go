@@ -9,9 +9,9 @@ import (
 	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 
-	ingesttypes "github.com/osmosis-labs/osmosis/v28/ingest/types"
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	ingesttypes "github.com/osmosis-labs/osmosis/v30/ingest/types"
+	"github.com/osmosis-labs/osmosis/v30/ingest/types/passthroughdomain"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v30/x/poolmanager/types"
 
 	"cosmossdk.io/math"
 )

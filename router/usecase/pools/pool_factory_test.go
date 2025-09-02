@@ -5,8 +5,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v30/ingest/types/cosmwasmpool"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v30/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"

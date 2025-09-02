@@ -29,7 +29,7 @@ import (
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 
-	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v30/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
@@ -37,9 +37,9 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
-	gammtypes "github.com/osmosis-labs/osmosis/v28/x/gamm/types"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	cosmwasmpoolmodel "github.com/osmosis-labs/osmosis/v30/x/cosmwasmpool/model"
+	gammtypes "github.com/osmosis-labs/osmosis/v30/x/gamm/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v30/x/poolmanager/types"
 
 	errorsmod "cosmossdk.io/errors"
 )

@@ -3,10 +3,10 @@ package client
 import (
 	"context"
 
-	clpoolmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/stableswap"
+	clpoolmodel "github.com/osmosis-labs/osmosis/v30/x/concentrated-liquidity/model"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v30/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v30/x/gamm/pool-models/balancer"
+	"github.com/osmosis-labs/osmosis/v30/x/gamm/pool-models/stableswap"
 
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"

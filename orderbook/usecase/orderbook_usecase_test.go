@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v30/x/cosmwasmpool/model"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v30/x/poolmanager/types"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
-	cltypes "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/osmosis/v30/ingest/types/cosmwasmpool"
+	cltypes "github.com/osmosis-labs/osmosis/v30/x/concentrated-liquidity/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"

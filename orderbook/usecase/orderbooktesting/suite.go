@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	"github.com/osmosis-labs/osmosis/v30/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"

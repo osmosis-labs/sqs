@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	cosmwasmpool "github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	cosmwasmpool "github.com/osmosis-labs/osmosis/v30/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
@@ -14,7 +14,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v30/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 )
 

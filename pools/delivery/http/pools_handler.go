@@ -16,8 +16,8 @@ import (
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v30/ingest/types/passthroughdomain"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v30/x/poolmanager/types"
 )
 
 // ResponseError represent the response error struct
