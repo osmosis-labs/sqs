@@ -22,11 +22,29 @@ const (
 )
 
 func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPool(tokenInDenom, tokenOutDenom string, balances sdk.Coins, takerFee osmomath.Dec) domain.RoutablePool {
-	// Note: empty precomputed data and rate limiter config
-	return s.SetupRoutableAlloyTransmuterPoolCustom(tokenInDenom, tokenOutDenom, balances, takerFee, cosmwasmpool.AlloyedRateLimiter{}, cosmwasmpool.PrecomputedData{})
+	// Provide default normalization scaling factors and balances for tests.
+	if len(balances) == 0 {
+		balances = sdk.NewCoins(
+			sdk.NewCoin(USDC, osmomath.NewInt(1_000_000)),
+			sdk.NewCoin(USDT, osmomath.NewInt(1_000_000)),
+		)
+	}
+
+	defaultPrecomputed := cosmwasmpool.PrecomputedData{
+		StdNormFactor: osmomath.NewInt(1),
+		NormalizationScalingFactors: map[string]osmomath.Int{
+			USDC:               osmomath.NewInt(1),
+			USDT:               osmomath.NewInt(1),
+			OVERLY_PRECISE_USD: osmomath.NewInt(1),
+			NO_PRECISION_USD:   osmomath.NewInt(1),
+			ALLUSD:             osmomath.NewInt(1),
+		},
+	}
+
+	return s.SetupRoutableAlloyTransmuterPoolCustom(tokenInDenom, tokenOutDenom, balances, takerFee, cosmwasmpool.RebalancingConfigs{}, defaultPrecomputed)
 }
 
-func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPoolCustom(tokenInDenom, tokenOutDenom string, balances sdk.Coins, takerFee osmomath.Dec, rateLimitConfig cosmwasmpool.AlloyedRateLimiter, preComputedData cosmwasmpool.PrecomputedData) domain.RoutablePool {
+func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPoolCustom(tokenInDenom, tokenOutDenom string, balances sdk.Coins, takerFee osmomath.Dec, rebalancingConfigs cosmwasmpool.RebalancingConfigs, preComputedData cosmwasmpool.PrecomputedData) domain.RoutablePool {
 	cosmwasmPool := s.PrepareCustomTransmuterPool(s.TestAccs[0], []string{tokenInDenom, tokenOutDenom})
 
 	poolType := cosmwasmPool.GetType()
@@ -48,8 +66,8 @@ func (s *RoutablePoolTestSuite) SetupRoutableAlloyTransmuterPoolCustom(tokenInDe
 						{Denom: ALLUSD, NormalizationFactor: osmomath.NewInt(10)},
 					},
 
-					RateLimiterConfig: rateLimitConfig,
-					PreComputedData:   preComputedData,
+					RebalancingConfigs: rebalancingConfigs,
+					PreComputedData:    preComputedData,
 				},
 			},
 		),
@@ -398,8 +416,8 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 		sdk.NewCoin(USDT, osmomath.NewInt(2_000_000)),
 	)
 
-	defaultStaticLimiterConfig := map[string]cosmwasmpool.StaticLimiter{
-		USDC: {UpperLimit: "0.5"},
+	defaultRebalancingConfigs := map[string]cosmwasmpool.RebalancingConfig{
+		pools.DenomPrefix + USDC: {Limit: "0.5"},
 	}
 
 	tests := map[string]struct {
@@ -408,7 +426,8 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 		initialBalances             sdk.Coins
 		standardNormFactor          osmomath.Int
 		normalizationScalingFactors map[string]osmomath.Int
-		staticLimiterConfig         map[string]cosmwasmpool.StaticLimiter
+		rebalancingConfigs          map[string]cosmwasmpool.RebalancingConfig
+		assetGroups                 map[string]cosmwasmpool.AssetGroup
 		expectError                 error
 	}{
 		"valid token in - below upper limit": {
@@ -417,7 +436,7 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 			initialBalances:             defaultInitialBalances,
 			standardNormFactor:          defaultStandardNormFactor,
 			normalizationScalingFactors: defaultScalingFactors,
-			staticLimiterConfig:         defaultStaticLimiterConfig,
+			rebalancingConfigs:          defaultRebalancingConfigs,
 			expectError:                 nil,
 		},
 		"invalid token in - exceeds upper limit": {
@@ -426,9 +445,9 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 			initialBalances:             defaultInitialBalances,
 			standardNormFactor:          defaultStandardNormFactor,
 			normalizationScalingFactors: defaultScalingFactors,
-			staticLimiterConfig:         defaultStaticLimiterConfig,
+			rebalancingConfigs:          defaultRebalancingConfigs,
 			expectError: domain.StaticRateLimiterInvalidUpperLimitError{
-				Denom:      USDC,
+				Scope:      pools.DenomPrefix + USDC,
 				UpperLimit: "0.5",
 				Weight:     osmomath.MustNewDecFromStr("1").String(),
 			},
@@ -439,7 +458,7 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 			initialBalances:             defaultInitialBalances,
 			standardNormFactor:          defaultStandardNormFactor,
 			normalizationScalingFactors: defaultScalingFactors,
-			staticLimiterConfig:         map[string]cosmwasmpool.StaticLimiter{},
+			rebalancingConfigs:          map[string]cosmwasmpool.RebalancingConfig{},
 			expectError:                 nil,
 		},
 		"static limiter not set for token in denom": {
@@ -448,7 +467,7 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 			initialBalances:             defaultInitialBalances,
 			standardNormFactor:          defaultStandardNormFactor,
 			normalizationScalingFactors: defaultScalingFactors,
-			staticLimiterConfig:         defaultStaticLimiterConfig,
+			rebalancingConfigs:          defaultRebalancingConfigs,
 			expectError:                 nil,
 		},
 		"check all assets' static limiters when token in denom is alloyed": {
@@ -457,9 +476,9 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 			initialBalances:             defaultInitialBalances,
 			standardNormFactor:          defaultStandardNormFactor,
 			normalizationScalingFactors: defaultScalingFactors,
-			staticLimiterConfig:         defaultStaticLimiterConfig,
+			rebalancingConfigs:          defaultRebalancingConfigs,
 			expectError: domain.StaticRateLimiterInvalidUpperLimitError{
-				Denom:      USDC,
+				Scope:      pools.DenomPrefix + USDC,
 				UpperLimit: "0.5",
 				Weight:     osmomath.MustNewDecFromStr("0.500000250000125").String(),
 			},
@@ -468,8 +487,8 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 			tokenInCoin:   sdk.NewCoin(USDC, osmomath.NewInt(500_000)),
 			tokenOutDenom: USDT,
 			initialBalances: sdk.NewCoins(
-				sdk.NewCoin(USDC, osmomath.NewInt(1_000_000)),
-				sdk.NewCoin(USDT, osmomath.NewInt(2_000_000)),
+				sdk.NewCoin(USDC, osmomath.NewInt(1_000_000)), // + 500_000 = 1_500_000
+				sdk.NewCoin(USDT, osmomath.NewInt(2_000_000)), // - 1_000_000 = 1_000_000
 			),
 			standardNormFactor: defaultStandardNormFactor,
 			normalizationScalingFactors: map[string]osmomath.Int{
@@ -478,8 +497,52 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 				OVERLY_PRECISE_USD: oneInt,
 				NO_PRECISION_USD:   oneInt,
 			},
-			staticLimiterConfig: map[string]cosmwasmpool.StaticLimiter{
-				USDC: {UpperLimit: "0.7"},
+			rebalancingConfigs: map[string]cosmwasmpool.RebalancingConfig{
+				pools.DenomPrefix + USDC: {Limit: "0.7"},
+			},
+			expectError: domain.StaticRateLimiterInvalidUpperLimitError{
+				Scope:      pools.DenomPrefix + USDC,
+				UpperLimit: "0.7",
+				Weight:     osmomath.MustNewDecFromStr("0.750000000000000000").String(),
+			},
+		},
+		"asset group limit exceeded (sum over limit)": {
+			tokenInCoin:   sdk.NewCoin(USDC, osmomath.NewInt(100_000)),
+			tokenOutDenom: USDT,
+			initialBalances: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(1_000_000)),
+				sdk.NewCoin(USDT, osmomath.NewInt(1_000_000)),
+				sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(1_000_000)),
+			),
+			standardNormFactor:          defaultStandardNormFactor,
+			normalizationScalingFactors: defaultScalingFactors,
+			rebalancingConfigs: map[string]cosmwasmpool.RebalancingConfig{
+				"asset_group::STABLE": {Limit: "0.68"},
+			},
+			assetGroups: map[string]cosmwasmpool.AssetGroup{
+				"STABLE": {Denoms: []string{USDC, OVERLY_PRECISE_USD}},
+			},
+			expectError: domain.StaticRateLimiterInvalidUpperLimitError{
+				Scope:      "asset_group::STABLE",
+				UpperLimit: "0.68",
+				Weight:     osmomath.MustNewDecFromStr("0.700000000000000000").String(),
+			},
+		},
+		"asset group limit respected (under limit)": {
+			tokenInCoin:   sdk.NewCoin(USDC, osmomath.NewInt(100_000)),
+			tokenOutDenom: USDT,
+			initialBalances: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(1_000_000)),
+				sdk.NewCoin(USDT, osmomath.NewInt(1_000_000)),
+				sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(1_000_000)),
+			),
+			standardNormFactor:          defaultStandardNormFactor,
+			normalizationScalingFactors: defaultScalingFactors,
+			rebalancingConfigs: map[string]cosmwasmpool.RebalancingConfig{
+				"asset_group::STABLE": {Limit: "0.71"},
+			},
+			assetGroups: map[string]cosmwasmpool.AssetGroup{
+				"STABLE": {Denoms: []string{USDC, OVERLY_PRECISE_USD}},
 			},
 			expectError: nil,
 		},
@@ -488,17 +551,24 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 	for name, tc := range tests {
 		s.Run(name, func() {
 			s.Setup()
-			routablePool := s.SetupRoutableAlloyTransmuterPoolCustom(tc.tokenInCoin.Denom, tc.tokenOutDenom, tc.initialBalances, osmomath.ZeroDec(), cosmwasmpool.AlloyedRateLimiter{
-				StaticLimiterByDenomMap: tc.staticLimiterConfig,
-			}, cosmwasmpool.PrecomputedData{
-				StdNormFactor:               tc.standardNormFactor,
-				NormalizationScalingFactors: tc.normalizationScalingFactors,
-			})
+			routablePool := s.SetupRoutableAlloyTransmuterPoolCustom(tc.tokenInCoin.Denom, tc.tokenOutDenom, tc.initialBalances, osmomath.ZeroDec(),
+				tc.rebalancingConfigs,
+				cosmwasmpool.PrecomputedData{
+					StdNormFactor:               tc.standardNormFactor,
+					NormalizationScalingFactors: tc.normalizationScalingFactors,
+				},
+			)
 
 			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
+			// Inject asset groups if provided by the test case
+			if tc.assetGroups != nil {
+				r.AlloyTransmuterData.AssetGroups = tc.assetGroups
+			}
+
+			tokenOutCoin := sdk.NewCoin(tc.tokenOutDenom, tc.tokenInCoin.Amount.Mul(tc.normalizationScalingFactors[tc.tokenInCoin.Denom]).Quo(tc.normalizationScalingFactors[tc.tokenOutDenom]))
 
 			// System under test
-			err := r.CheckStaticRateLimiter(tc.tokenInCoin)
+			err := r.CheckStaticRateLimiter(tc.tokenInCoin, tokenOutCoin)
 
 			if tc.expectError != nil {
 				s.Require().Error(err)
@@ -506,6 +576,213 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 			} else {
 				s.Require().NoError(err)
 			}
+		})
+	}
+}
+
+func (s *RoutablePoolTestSuite) TestComputeTotalAdjustmentRate() {
+	// Helper function to create rebalancing config
+	createRebalancingConfig := func(idealUpper, idealLower, criticalUpper, criticalLower, limit, adjustmentRateStrained, adjustmentRateCritical string) cosmwasmpool.RebalancingConfig {
+		return cosmwasmpool.RebalancingConfig{
+			IdealUpper:             idealUpper,
+			IdealLower:             idealLower,
+			CriticalUpper:          criticalUpper,
+			CriticalLower:          criticalLower,
+			Limit:                  limit,
+			AdjustmentRateStrained: adjustmentRateStrained,
+			AdjustmentRateCritical: adjustmentRateCritical,
+		}
+	}
+
+	testRebalancingConfig := createRebalancingConfig(
+		"0.70", // ideal_upper (70%)
+		"0.30", // ideal_lower (30%)
+		"0.80", // critical_upper (80%)
+		"0.20", // critical_lower (20%)
+		"1.00", // limit (100%)
+		"0.01", // adjustment_rate_strained (1%)
+		"0.10", // adjustment_rate_critical (10%)
+	)
+
+	tests := map[string]struct {
+		balanceBefore               sdk.Coins
+		balanceAfter                sdk.Coins
+		rebalancingConfigs          map[string]cosmwasmpool.RebalancingConfig
+		normalizationScalingFactors map[string]osmomath.Int
+		assetGroups                 map[string]cosmwasmpool.AssetGroup
+		expectedAdjustmentRate      osmomath.Dec
+		expectedScaler              osmomath.Int
+		description                 string
+	}{
+		"different normalization factors - demonstrates scaling": {
+			balanceBefore: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(100_000)), // Lower USDC to start in strained zone
+				sdk.NewCoin(USDT, osmomath.NewInt(900_000)), // Higher USDT
+			),
+			balanceAfter: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(50_000)),  // Move USDC even lower (to critical zone)
+				sdk.NewCoin(USDT, osmomath.NewInt(950_000)), // USDT increases
+			),
+			rebalancingConfigs: map[string]cosmwasmpool.RebalancingConfig{
+				pools.DenomPrefix + USDC: testRebalancingConfig,
+				pools.DenomPrefix + USDT: testRebalancingConfig,
+			},
+			normalizationScalingFactors: map[string]osmomath.Int{
+				USDC:               osmomath.NewInt(100), // USDC worth 100x more in normalized terms
+				USDT:               osmomath.NewInt(1),   // USDT baseline
+				OVERLY_PRECISE_USD: osmomath.NewInt(1),
+				NO_PRECISION_USD:   osmomath.NewInt(1),
+				ALLUSD:             osmomath.NewInt(1),
+			},
+			expectedAdjustmentRate: osmomath.MustNewDecFromStr("0.015419"), // Actual value from test
+			expectedScaler:         osmomath.NewInt(10_900_000),            // max(before, after) with scaling
+			description:            "Different normalization factors change the weighting significantly",
+		},
+		"scaler demonstration - smaller pool": {
+			balanceBefore: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(50_000)),  // Smaller pool, start imbalanced
+				sdk.NewCoin(USDT, osmomath.NewInt(450_000)), // 10% vs 90%
+			),
+			balanceAfter: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(25_000)), // Move to 5% vs 95% (more critical)
+				sdk.NewCoin(USDT, osmomath.NewInt(475_000)),
+			),
+			rebalancingConfigs: map[string]cosmwasmpool.RebalancingConfig{
+				pools.DenomPrefix + USDC: testRebalancingConfig,
+				pools.DenomPrefix + USDT: testRebalancingConfig,
+			},
+			normalizationScalingFactors: map[string]osmomath.Int{
+				USDC:               osmomath.NewInt(1),
+				USDT:               osmomath.NewInt(1),
+				OVERLY_PRECISE_USD: osmomath.NewInt(1),
+				NO_PRECISION_USD:   osmomath.NewInt(1),
+				ALLUSD:             osmomath.NewInt(1),
+			},
+			expectedAdjustmentRate: osmomath.MustNewDecFromStr("-0.01"), // Actual value from test run
+			expectedScaler:         osmomath.NewInt(500_000),            // max(before, after) for harmful swap
+			description:            "Smaller pool demonstrates proportional scaler with movement to critical zone",
+		},
+		"scaler demonstration - larger pool with same proportion": {
+			balanceBefore: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(200_000)),   // 4x larger pool, same proportions
+				sdk.NewCoin(USDT, osmomath.NewInt(1_800_000)), // 10% vs 90%
+			),
+			balanceAfter: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(100_000)), // Move to 5% vs 95% (same movement)
+				sdk.NewCoin(USDT, osmomath.NewInt(1_900_000)),
+			),
+			rebalancingConfigs: map[string]cosmwasmpool.RebalancingConfig{
+				pools.DenomPrefix + USDC: testRebalancingConfig,
+				pools.DenomPrefix + USDT: testRebalancingConfig,
+			},
+			normalizationScalingFactors: map[string]osmomath.Int{
+				USDC:               osmomath.NewInt(1),
+				USDT:               osmomath.NewInt(1),
+				OVERLY_PRECISE_USD: osmomath.NewInt(1),
+				NO_PRECISION_USD:   osmomath.NewInt(1),
+				ALLUSD:             osmomath.NewInt(1),
+			},
+			expectedAdjustmentRate: osmomath.MustNewDecFromStr("-0.01"), // Same adjustment as smaller pool
+			expectedScaler:         osmomath.NewInt(2_000_000),          // 4x larger scaler
+			description:            "Larger pool with same proportional movement shows larger scaler",
+		},
+		"normalization factor impact on scaler": {
+			balanceBefore: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(500_000)), // Equal amounts
+				sdk.NewCoin(USDT, osmomath.NewInt(500_000)),
+			),
+			balanceAfter: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(520_000)), // Small increase
+				sdk.NewCoin(USDT, osmomath.NewInt(480_000)), // Small decrease
+			),
+			rebalancingConfigs: map[string]cosmwasmpool.RebalancingConfig{
+				pools.DenomPrefix + USDC: testRebalancingConfig,
+				pools.DenomPrefix + USDT: testRebalancingConfig,
+			},
+			normalizationScalingFactors: map[string]osmomath.Int{
+				USDC:               osmomath.NewInt(5), // USDC worth 5x more
+				USDT:               osmomath.NewInt(1), // USDT baseline
+				OVERLY_PRECISE_USD: osmomath.NewInt(1),
+				NO_PRECISION_USD:   osmomath.NewInt(1),
+				ALLUSD:             osmomath.NewInt(1),
+			},
+			expectedAdjustmentRate: osmomath.MustNewDecFromStr("-0.002165"),
+			expectedScaler:         osmomath.NewInt(3_080_000), // Weighted scaler: max(500*5+500*1, 520*5+480*1)
+			description:            "Different normalization factors affect both weights and scaler calculation",
+		},
+		"asset group rebalancing configuration": {
+			balanceBefore: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(350_000)),               // USDC in STABLE group (35%)
+				sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(250_000)), // Also in STABLE group (25%) - total 60%
+				sdk.NewCoin(USDT, osmomath.NewInt(400_000)),               // USDT 40%
+			),
+			balanceAfter: sdk.NewCoins(
+				sdk.NewCoin(USDC, osmomath.NewInt(150_000)),               // USDC decreases to 15%
+				sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(100_000)), // Also decreases to 10% - total STABLE 25% (below 30%)
+				sdk.NewCoin(USDT, osmomath.NewInt(750_000)),               // USDT increases to 75% (above 70%)
+			),
+			rebalancingConfigs: map[string]cosmwasmpool.RebalancingConfig{
+				pools.AssetGroupPrefix + "STABLE": testRebalancingConfig, // Asset group config
+				pools.DenomPrefix + USDT:          testRebalancingConfig, // Individual denom config
+			},
+			assetGroups: map[string]cosmwasmpool.AssetGroup{
+				"STABLE": {Denoms: []string{USDC, OVERLY_PRECISE_USD}},
+			},
+			normalizationScalingFactors: map[string]osmomath.Int{
+				USDC:               osmomath.NewInt(1),
+				USDT:               osmomath.NewInt(1),
+				OVERLY_PRECISE_USD: osmomath.NewInt(1),
+				NO_PRECISION_USD:   osmomath.NewInt(1),
+				ALLUSD:             osmomath.NewInt(1),
+			},
+			expectedAdjustmentRate: osmomath.MustNewDecFromStr("-0.001"), // STABLE group and USDT both in strained zones
+			expectedScaler:         osmomath.NewInt(1_000_000),           // max(before, after) for harmful swap
+			description:            "Asset group rebalancing with combined weight calculation for grouped assets",
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+
+			// Determine scaling factors to use - either custom from test or default
+			scalingFactorsToUse := tc.normalizationScalingFactors
+
+			// Create a routable pool with the test configuration
+			routablePool := s.SetupRoutableAlloyTransmuterPoolCustom(
+				USDC, USDT, tc.balanceBefore, osmomath.ZeroDec(),
+				tc.rebalancingConfigs,
+				cosmwasmpool.PrecomputedData{
+					StdNormFactor:               osmomath.NewInt(1),
+					NormalizationScalingFactors: scalingFactorsToUse,
+				},
+			)
+
+			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
+
+			// Inject asset groups if provided by the test case
+			if tc.assetGroups != nil {
+				r.AlloyTransmuterData.AssetGroups = tc.assetGroups
+			}
+
+			// System under test
+			adjustmentRate, scaler, err := r.ComputeTotalAdjustmentRate(tc.balanceBefore, tc.balanceAfter)
+
+			s.Require().NoError(err, "ComputeTotalAdjustmentRate should not return error for test case: %s", tc.description)
+
+			// Allow for small rounding differences (within 0.0001)
+			tolerance := osmomath.MustNewDecFromStr("0.0001")
+			diff := adjustmentRate.Sub(tc.expectedAdjustmentRate).Abs()
+			s.Require().True(
+				diff.LTE(tolerance),
+				"Expected adjustment rate %s, got %s (diff: %s) for test case: %s",
+				tc.expectedAdjustmentRate.String(),
+				adjustmentRate.String(),
+				diff.String(),
+				tc.description,
+			)
+
+			s.Require().Equal(tc.expectedScaler, scaler, "Expected scaler %s, got %s for test case: %s", tc.expectedScaler.String(), scaler.String(), tc.description)
 		})
 	}
 }

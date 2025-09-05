@@ -328,9 +328,9 @@ func (e FailCastCanonicalOrderbookKeyError) Error() string {
 type StaticRateLimiterInvalidUpperLimitError struct {
 	UpperLimit string
 	Weight     string
-	Denom      string
+	Scope      string
 }
 
 func (e StaticRateLimiterInvalidUpperLimitError) Error() string {
-	return fmt.Sprintf("invalid upper limit (%s) for weight (%s) and denom (%s)", e.UpperLimit, e.Weight, e.Denom)
+	return fmt.Sprintf("invalid upper limit (%s) for weight (%s) and scope (%s)", e.UpperLimit, e.Weight, e.Scope)
 }
