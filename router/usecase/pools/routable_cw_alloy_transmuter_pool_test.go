@@ -786,3 +786,280 @@ func (s *RoutablePoolTestSuite) TestComputeTotalAdjustmentRate() {
 		})
 	}
 }
+
+func (s *RoutablePoolTestSuite) setupPoolForFeeAndIncentiveCases() *pools.RoutableAlloyTransmuterPoolImpl {
+	// Adjusted pool configuration for balanced weights - keeping proportions but scaling down denom3
+	balances := sdk.NewCoins(
+		sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000)),
+		sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000)),
+		sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+	)
+
+	// Asset configs from Rust setup
+	assetConfigs := []cosmwasmpool.TransmuterAssetConfig{
+		{Denom: "denom1", NormalizationFactor: osmomath.NewInt(1)},
+		{Denom: "denom2", NormalizationFactor: osmomath.NewInt(10)},
+		{Denom: "denom3", NormalizationFactor: osmomath.NewInt(100)},
+		{Denom: "allusd", NormalizationFactor: osmomath.NewInt(100)},
+	}
+
+	rebalancingConfigs := cosmwasmpool.RebalancingConfigs{
+		"denom::denom1": cosmwasmpool.RebalancingConfig{
+			IdealLower:             "0.45",
+			IdealUpper:             "0.50",
+			CriticalLower:          "0.30",
+			CriticalUpper:          "0.55",
+			Limit:                  "0.65",
+			AdjustmentRateStrained: "0.10",
+			AdjustmentRateCritical: "0.20",
+		},
+		"asset_group::group1": cosmwasmpool.RebalancingConfig{
+			IdealLower:             "0.45",
+			IdealUpper:             "0.55",
+			CriticalLower:          "0.30",
+			CriticalUpper:          "0.60",
+			Limit:                  "0.65",
+			AdjustmentRateStrained: "0.10",
+			AdjustmentRateCritical: "0.20",
+		},
+	}
+
+	// Asset groups from Rust setup - group1 contains denom2 and denom3
+	assetGroups := map[string]cosmwasmpool.AssetGroup{
+		"group1": {
+			Denoms:      []string{"denom2", "denom3"},
+			IsCorrupted: false,
+		},
+	}
+
+	// Normalization scaling factors - using simpler scale like other tests
+	// Based on typical test patterns, use much smaller scaling factors
+	normalizationFactors := map[string]osmomath.Int{
+		"denom1": osmomath.NewInt(100),
+		"denom2": osmomath.NewInt(10),
+		"denom3": osmomath.NewInt(1),
+		"allusd": osmomath.NewInt(1),
+	}
+
+	// Create the pool directly
+	alloyTransmuterData := &cosmwasmpool.AlloyTransmuterData{
+		AlloyedDenom:          "allusd",
+		AssetConfigs:          assetConfigs,
+		RebalancingConfigs:    rebalancingConfigs,
+		AssetGroups:           assetGroups,
+		IncentivePoolBalances: []sdk.Coin{}, // Start with empty incentive pool
+		PreComputedData: cosmwasmpool.PrecomputedData{
+			StdNormFactor:               osmomath.NewInt(100),
+			NormalizationScalingFactors: normalizationFactors,
+		},
+	}
+
+	return &pools.RoutableAlloyTransmuterPoolImpl{
+		AlloyTransmuterData: alloyTransmuterData,
+		Balances:            balances,
+		TokenInDenom:        "", // Will be set by individual tests
+		TokenOutDenom:       "", // Will be set by individual tests
+		TakerFee:            osmomath.ZeroDec(),
+		SpreadFactor:        osmomath.ZeroDec(),
+		LiquidityCap:        osmomath.ZeroInt(),
+	}
+}
+
+func (s *RoutablePoolTestSuite) TestCalcOutAmtGivenIn_WithFeeOrIncentive() {
+	tests := map[string]struct {
+		tokenIn               sdk.Coin
+		expectedTokenOut      sdk.Coin
+		balanceOverride       sdk.Coins
+		incentivePoolOverride []sdk.Coin
+	}{
+		"token to token - with fee": {
+			tokenIn:          sdk.NewCoin("denom1", osmomath.NewInt(20_000_000_000)),
+			expectedTokenOut: sdk.NewCoin("denom2", osmomath.NewInt(160_000_000_000)),
+		},
+		"token to token - with fee and unhealthy incentive pool": {
+			tokenIn:          sdk.NewCoin("denom1", osmomath.NewInt(10_000_000_000)),
+			expectedTokenOut: sdk.NewCoin("denom2", osmomath.NewInt(60_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000+10_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000-100_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+		},
+		"token to token - with incentive": {
+			tokenIn:          sdk.NewCoin("denom2", osmomath.NewInt(200_000_000_000)),
+			expectedTokenOut: sdk.NewCoin("denom1", osmomath.NewInt(24_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000+20_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000-200_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("denom1", osmomath.NewInt(4_000_000_000)),
+			},
+		},
+		"token to token - not enough incentive to distribute": {
+			tokenIn:          sdk.NewCoin("denom2", osmomath.NewInt(200_000_000_000)),
+			expectedTokenOut: sdk.NewCoin("denom1", osmomath.NewInt(20_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000+20_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000-200_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("denom1", osmomath.NewInt(4_000_000_000-1)),
+			},
+		},
+		"alloyed to token - with fee": {
+			tokenIn:          sdk.NewCoin("allusd", osmomath.NewInt(4_000_000_000_000)),
+			expectedTokenOut: sdk.NewCoin("denom1", osmomath.NewInt(36_500_000_000)),
+		},
+		"alloyed to token - with incentive": {
+			tokenIn:          sdk.NewCoin("allusd", osmomath.NewInt(4_000_000_000_000)),
+			expectedTokenOut: sdk.NewCoin("denom2", osmomath.NewInt(428_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000-40_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("denom2", osmomath.NewInt(28_000_000_000)),
+			},
+		},
+		"token to alloyed - with fee": {
+			tokenIn:          sdk.NewCoin("denom1", osmomath.NewInt(50_000_000_000)),
+			expectedTokenOut: sdk.NewCoin("allusd", osmomath.NewInt(4_500_000_000_000)),
+		},
+		"token to alloyed - with incentive": {
+			tokenIn:          sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000)),
+			expectedTokenOut: sdk.NewCoin("allusd", osmomath.NewInt(5_500_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(150_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("allusd", osmomath.NewInt(500_000_000_000)),
+			},
+		},
+	}
+	for name, tc := range tests {
+		s.Run(name, func() {
+
+			pool := s.setupPoolForFeeAndIncentiveCases()
+
+			if tc.balanceOverride != nil {
+				pool.Balances = tc.balanceOverride
+			}
+
+			if tc.incentivePoolOverride != nil {
+				pool.AlloyTransmuterData.IncentivePoolBalances = tc.incentivePoolOverride
+			}
+
+			tokenOutAmount, err := pool.CalcTokenOutAmt(tc.tokenIn, tc.expectedTokenOut.Denom)
+			s.Require().NoError(err)
+
+			tokenOut := sdk.NewCoin(tc.expectedTokenOut.Denom, tokenOutAmount.Dec().TruncateInt())
+			s.Require().Equal(tc.expectedTokenOut.String(), tokenOut.String())
+		})
+	}
+}
+
+func (s *RoutablePoolTestSuite) TestCalcInAmtGivenOut_WithFeeOrIncentive() {
+	tests := map[string]struct {
+		tokenOut              sdk.Coin
+		expectedTokenIn       sdk.Coin
+		balanceOverride       sdk.Coins
+		incentivePoolOverride []sdk.Coin
+	}{
+		"token to token - with fee": {
+			tokenOut:        sdk.NewCoin("denom2", osmomath.NewInt(200_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("denom1", osmomath.NewInt(24_000_000_000)),
+		},
+		"token to token - with fee and unhealthy incentive pool": {
+			tokenOut:        sdk.NewCoin("denom2", osmomath.NewInt(100_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("denom1", osmomath.NewInt(14_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000+10_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000-100_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+		},
+		"token to token - with incentive": {
+			tokenOut:        sdk.NewCoin("denom1", osmomath.NewInt(20_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("denom2", osmomath.NewInt(160_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000+20_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000-200_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("denom2", osmomath.NewInt(40_000_000_000)),
+			},
+		},
+		"token to token - not enough incentive to distribute": {
+			tokenOut:        sdk.NewCoin("denom1", osmomath.NewInt(20_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("denom2", osmomath.NewInt(200_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000+20_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000-200_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("denom2", osmomath.NewInt(40_000_000_000-1)),
+			},
+		},
+		"alloyed to token - with fee": {
+			tokenOut:        sdk.NewCoin("denom1", osmomath.NewInt(40_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("allusd", osmomath.NewInt(4_350_000_000_000)),
+		},
+		"alloyed to token - with incentive": {
+			tokenOut:        sdk.NewCoin("denom2", osmomath.NewInt(400_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("allusd", osmomath.NewInt(4_000_000_000_000-280_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000-40_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("allusd", osmomath.NewInt(280_000_000_000)),
+			},
+		},
+		"token to alloyed - with fee": {
+			tokenOut:        sdk.NewCoin("allusd", osmomath.NewInt(5_000_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("denom1", osmomath.NewInt(55_000_000_000)),
+		},
+		"token to alloyed - with incentive": {
+			tokenOut:        sdk.NewCoin("allusd", osmomath.NewInt(5_000_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("denom2", osmomath.NewInt(450_000_000_000)),
+
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(150_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("denom2", osmomath.NewInt(50_000_000_000)),
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			pool := s.setupPoolForFeeAndIncentiveCases()
+
+			if tc.balanceOverride != nil {
+				pool.Balances = tc.balanceOverride
+			}
+
+			if tc.incentivePoolOverride != nil {
+				pool.AlloyTransmuterData.IncentivePoolBalances = tc.incentivePoolOverride
+			}
+
+			tokenInAmount, err := pool.CalcTokenInAmt(tc.tokenOut, tc.expectedTokenIn.Denom)
+			s.Require().NoError(err)
+
+			tokenIn := sdk.NewCoin(tc.expectedTokenIn.Denom, tokenInAmount.Dec().TruncateInt())
+			s.Require().Equal(tc.expectedTokenIn.String(), tokenIn.String())
+		})
+	}
+}

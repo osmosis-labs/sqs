@@ -253,17 +253,26 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 	}
 
 	if !totalAdjustmentRate.IsZero() {
-		denomScaler, ok := r.AlloyTransmuterData.PreComputedData.NormalizationScalingFactors[tokenOutDenom]
-		if !ok || denomScaler.IsZero() {
+		denomScalingFactor, ok := r.AlloyTransmuterData.PreComputedData.NormalizationScalingFactors[tokenOutDenom]
+		if !ok || denomScalingFactor.IsZero() {
 			return osmomath.BigDec{}, domain.MissingNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
 		}
 
-		totalAdjustment := totalAdjustmentRate.Mul(scaler.ToLegacyDec()).Quo(math.LegacyDec(denomScaler))
+		// Calculate the total adjustment based on rebalancing configuration
+		totalAdjustment := totalAdjustmentRate.Mul(scaler.ToLegacyDec()).Quo(denomScalingFactor.ToLegacyDec())
 
+		// incentivize
 		if totalAdjustmentRate.IsPositive() {
-			tokenOutAmount = tokenOutAmount.Add(osmomath.BigDecFromSDKInt(totalAdjustment.TruncateInt()))
+			tokenOutIncentivePool := sdk.NewCoins(r.AlloyTransmuterData.IncentivePoolBalances...).AmountOf(tokenOutDenom)
+
+			// if incentive pool have enough incentive to distribute, distribute the incentive
+			if tokenOutIncentivePool.GTE(totalAdjustment.TruncateInt()) {
+				tokenOutAmount = tokenOutAmount.Add(osmomath.BigDecFromSDKInt(totalAdjustment.TruncateInt()))
+			}
+			// TODO: second order incentive swap
 		}
 
+		// take fee
 		if totalAdjustmentRate.IsNegative() {
 			tokenOutAmount = tokenOutAmount.Add(osmomath.BigDecFromSDKInt(totalAdjustment.Ceil().TruncateInt()))
 		}
@@ -301,6 +310,66 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenOut sdk.Coin, toke
 	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())
 
 	tokenInAmount := tokenOutAmount.MulInt(tokenInNormFactorBig).QuoInt(tokenOutNormFactorBig)
+
+	// Compute adjustment using rebalancing configs and normalization scaling factors.
+	// Build balances after swap safely: do not add/subtract alloyed LP share, and do not underflow non-alloyed.
+	balancesAfter := sdk.NewCoins(r.Balances...)
+	if tokenOut.Denom != r.AlloyTransmuterData.AlloyedDenom {
+		// Subtract the token out amount from balances
+		for i, coin := range balancesAfter {
+			if coin.Denom == tokenOut.Denom {
+				newAmount := coin.Amount.Sub(tokenOut.Amount)
+				if newAmount.IsNegative() {
+					return osmomath.BigDec{}, domain.TransmuterInsufficientBalanceError{Denom: tokenOut.Denom, BalanceAmount: coin.Amount.String(), Amount: tokenOut.Amount.String()}
+				}
+				balancesAfter[i] = sdk.NewCoin(coin.Denom, newAmount)
+				break
+			}
+		}
+	}
+
+	if tokenInDenom != r.AlloyTransmuterData.AlloyedDenom {
+		// Add the token in amount to balances
+		found := false
+		for i, coin := range balancesAfter {
+			if coin.Denom == tokenInDenom {
+				balancesAfter[i] = sdk.NewCoin(coin.Denom, coin.Amount.Add(tokenInAmount.Dec().TruncateInt()))
+				found = true
+				break
+			}
+		}
+		if !found {
+			balancesAfter = append(balancesAfter, sdk.NewCoin(tokenInDenom, tokenInAmount.Dec().TruncateInt()))
+		}
+	}
+
+	totalAdjustmentRate, scaler, err := r.computeTotalAdjustmentRate(r.Balances, balancesAfter)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	if !totalAdjustmentRate.IsZero() {
+		denomScalingFactor, ok := r.AlloyTransmuterData.PreComputedData.NormalizationScalingFactors[tokenInDenom]
+		if !ok || denomScalingFactor.IsZero() {
+			return osmomath.BigDec{}, domain.MissingNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
+		}
+
+		// Calculate adjustment (for token in, we need to add the fees)
+		totalAdjustment := totalAdjustmentRate.Mul(scaler.ToLegacyDec()).Quo(denomScalingFactor.ToLegacyDec())
+
+		if totalAdjustmentRate.IsPositive() {
+			tokenInIncentivePool := sdk.NewCoins(r.AlloyTransmuterData.IncentivePoolBalances...).AmountOf(tokenInDenom)
+			if tokenInIncentivePool.GTE(totalAdjustment.TruncateInt()) {
+				tokenInAmount = tokenInAmount.Sub(osmomath.BigDecFromSDKInt(totalAdjustment.TruncateInt()))
+			}
+			// TODO: second order incentive swap
+		}
+
+		if totalAdjustmentRate.IsNegative() {
+			fee := osmomath.BigDecFromSDKInt(osmomath.Int(totalAdjustment.Abs().Ceil().TruncateInt()))
+			tokenInAmount = tokenInAmount.Add(fee)
+		}
+	}
 
 	// Check static upper rate limiter
 	tokenIn := sdk.NewCoin(tokenInDenom, tokenInAmount.Dec().TruncateInt())
@@ -500,12 +569,19 @@ func weightedDistance(x osmomath.Dec, p cosmwasmpool.RebalancingConfig) osmomath
 
 func (r *routableAlloyTransmuterPoolImpl) computeTotalAdjustmentRate(balanceBefore, balanceAfter sdk.Coins) (osmomath.Dec, osmomath.Int, error) {
 	totalAdjustmentRate := osmomath.ZeroDec()
+
 	normalizedBalanceBefore, normalizedTotalBefore, err := r.computeNormalizedBalances(balanceBefore)
 	if err != nil {
 		return osmomath.ZeroDec(), osmomath.ZeroInt(), err
 	}
 
 	normalizedBalanceAfter, normalizedTotalAfter, err := r.computeNormalizedBalances(balanceAfter)
+	if err != nil {
+		return osmomath.ZeroDec(), osmomath.ZeroInt(), err
+	}
+
+	// Check if incentive pool is unhealthy
+	isIncentivePoolUnhealthy, err := r.isIncentivePoolUnhealthy(normalizedBalanceBefore, normalizedTotalBefore)
 	if err != nil {
 		return osmomath.ZeroDec(), osmomath.ZeroInt(), err
 	}
@@ -532,6 +608,15 @@ func (r *routableAlloyTransmuterPoolImpl) computeTotalAdjustmentRate(balanceBefo
 		scopeWeightAfter := scopeBalanceAfter.ToLegacyDec().Quo(normalizedTotalAfter.ToLegacyDec())
 
 		adjustmentRate := weightedDistance(scopeWeightBefore, rebalancingConfig).Sub(weightedDistance(scopeWeightAfter, rebalancingConfig))
+
+		// If incentive pool is unhealthy and swap is harmful (negative adjustment), use critical rate
+		if isIncentivePoolUnhealthy && adjustmentRate.IsNegative() {
+			// Create modified config with critical rate for strained rate
+			modifiedConfig := rebalancingConfig
+			modifiedConfig.AdjustmentRateStrained = rebalancingConfig.AdjustmentRateCritical
+			adjustmentRate = weightedDistance(scopeWeightBefore, modifiedConfig).Sub(weightedDistance(scopeWeightAfter, modifiedConfig))
+		}
+
 		totalAdjustmentRate = totalAdjustmentRate.Add(adjustmentRate)
 	}
 
@@ -546,19 +631,102 @@ func (r *routableAlloyTransmuterPoolImpl) computeTotalAdjustmentRate(balanceBefo
 	return totalAdjustmentRate, scaler, nil
 }
 
-// TODO:
-// - [x] calculate balance change for a swap (extract check limit logic out, generalize into balance changes)
-// - [x] Find sum of all W(b') - W(b) and scale it by:
-// 1.  **If the swap is beneficial (results in an incentive):** The calculation is scaled by `B_total_before`.
-// -   **Justification**: Incentives are paid from a pool of previously collected fees. It is logical to scale the reward based on the state of the pool *before* the user's helpful contribution. This provides a fair reward relative to the pool's history and prevents a single large, helpful deposit from draining a disproportionate amount of the incentive fund.
-// 2.  **If the swap is harmful (results in a fee):** The calculation is scaled by `max(B_total_before, B_total_after)`.
-//     -   **Justification**: This provides maximum security for the pool.
-//         -   For **harmful joins** (liquidity addition), the fee is based on `B_total_after`. This ensures the penalty is proportional to the new, larger pool size that the user has unbalanced.
-//         -   For **harmful exits** (liquidity withdrawal), the fee is based on `B_total_before`. This ensures the penalty is proportional to the state of the pool *before* it was damaged by the withdrawal.
-//
-// - [x] this will resulted in fee / incentive to distribute
-// - [x] handle denom/asset_group split
-// - [x] ingest incentive pool info
-// - [ ] handle unhealthy incentive pool
-// - [ ] test first order fee / incentive case -- today's target
-// - [ ] now we have to find if we need second order incentive swap
+// isIncentivePoolUnhealthy checks if the incentive pool is unhealthy by comparing
+// the total incentive required to rebalance the pool with the available incentive pool balance
+func (r *routableAlloyTransmuterPoolImpl) isIncentivePoolUnhealthy(normalizedBalances map[string]osmomath.Int, normalizedTotal osmomath.Int) (bool, error) {
+	// Compute total incentive required to rebalance the pool to ideal balance
+	totalIncentiveRequired, err := r.computeTotalIncentiveRequiredToRebalance(normalizedBalances, normalizedTotal)
+	if err != nil {
+		return false, err
+	}
+
+	// Compute total normalized incentive pool balance
+	totalNormalizedIncentivePoolBalance, err := r.computeNormalizedIncentivePoolBalance()
+	if err != nil {
+		return false, err
+	}
+
+	// Incentive pool is unhealthy if total incentive required to rebalance
+	// is greater than available incentive pool balance
+	return totalIncentiveRequired.GT(totalNormalizedIncentivePoolBalance), nil
+}
+
+// computeTotalIncentiveRequiredToRebalance calculates the total incentive required
+// to move all assets to their ideal weights
+func (r *routableAlloyTransmuterPoolImpl) computeTotalIncentiveRequiredToRebalance(normalizedBalances map[string]osmomath.Int, normalizedTotal osmomath.Int) (osmomath.Int, error) {
+	totalAdjustmentToIdealRequired := osmomath.ZeroDec()
+
+	for scope, rebalancingConfig := range r.AlloyTransmuterData.RebalancingConfigs {
+		scopeBalance := osmomath.ZeroInt()
+
+		// if it's asset group, sum weight for all under group
+		if assetGroupLabel, found := strings.CutPrefix(scope, AssetGroupPrefix); found {
+			for _, denom := range r.AlloyTransmuterData.AssetGroups[assetGroupLabel].Denoms {
+				if balance, exists := normalizedBalances[denom]; exists {
+					scopeBalance = scopeBalance.Add(balance)
+				}
+			}
+		}
+
+		// if it's single denom, use the weight for the denom
+		if denom, found := strings.CutPrefix(scope, DenomPrefix); found {
+			if balance, exists := normalizedBalances[denom]; exists {
+				scopeBalance = balance
+			}
+		}
+
+		currentWeight := scopeBalance.ToLegacyDec().Quo(normalizedTotal.ToLegacyDec())
+
+		// Find nearest ideal weight
+		idealLower := osmomath.MustNewDecFromStr(rebalancingConfig.IdealLower)
+		idealUpper := osmomath.MustNewDecFromStr(rebalancingConfig.IdealUpper)
+
+		var nearestIdealWeight osmomath.Dec
+		if currentWeight.LT(idealLower) {
+			nearestIdealWeight = idealLower
+		} else if currentWeight.GT(idealUpper) {
+			nearestIdealWeight = idealUpper
+		} else {
+			// Already within ideal range, no adjustment needed
+			continue
+		}
+
+		// Find adjustment to move weight from current to nearest ideal weight
+		// This follows the same logic as in the Rust implementation
+		adjustment := weightedDistance(currentWeight, rebalancingConfig).Sub(weightedDistance(nearestIdealWeight, rebalancingConfig))
+
+		// Only add positive adjustments (moving towards ideal)
+		if adjustment.IsPositive() {
+			totalAdjustmentToIdealRequired = totalAdjustmentToIdealRequired.Add(adjustment)
+		}
+	}
+
+	// Scale by total balance to get absolute incentive amount
+	totalIncentiveRequired := totalAdjustmentToIdealRequired.Mul(normalizedTotal.ToLegacyDec())
+
+	// Convert to integer (round up for safety)
+	return totalIncentiveRequired.Ceil().TruncateInt(), nil
+}
+
+// computeNormalizedIncentivePoolBalance calculates the total normalized balance
+// of all incentive pools
+func (r *routableAlloyTransmuterPoolImpl) computeNormalizedIncentivePoolBalance() (osmomath.Int, error) {
+	totalNormalizedBalance := osmomath.ZeroInt()
+	preComputedData := r.AlloyTransmuterData.PreComputedData
+	normalizationFactors := preComputedData.NormalizationScalingFactors
+
+	for _, incentiveBalance := range r.AlloyTransmuterData.IncentivePoolBalances {
+		denomScaler, ok := normalizationFactors[incentiveBalance.Denom]
+		if !ok || denomScaler.IsZero() {
+			return osmomath.ZeroInt(), domain.MissingNormalizationFactorError{
+				Denom:  incentiveBalance.Denom,
+				PoolId: r.GetId(),
+			}
+		}
+
+		normalizedBalance := incentiveBalance.Amount.ToLegacyDec().Quo(denomScaler.ToLegacyDec())
+		totalNormalizedBalance = totalNormalizedBalance.Add(normalizedBalance.TruncateInt())
+	}
+
+	return totalNormalizedBalance, nil
+}
