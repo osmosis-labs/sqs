@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/v30/ingest/types/cosmwasmpool"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v30/x/cosmwasmpool/model"
 	"github.com/osmosis-labs/sqs/domain"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
@@ -232,43 +233,37 @@ func (s *RoutablePoolTestSuite) TestCalcTokenOutAmt_AlloyTransmuter() {
 	tests := map[string]struct {
 		tokenIn          sdk.Coin
 		tokenOutDenom    string
-		expectedTokenOut osmomath.BigDec
+		expectedTokenOut osmomath.Int
 		expectedError    error
 	}{
 		"valid calculation using normalization factors": {
 			tokenIn:          sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			tokenOutDenom:    USDT,
-			expectedTokenOut: osmomath.NewBigDec(1), // (100 * 1) / 100 = 1
-			expectedError:    nil,
-		},
-		"valid calculation with decimal points": {
-			tokenIn:          sdk.NewCoin(USDC, osmomath.NewInt(10)),
-			tokenOutDenom:    USDT,
-			expectedTokenOut: osmomath.MustNewBigDecFromStr("0.1"), // (10 * 1) / 100 = 0.1
+			expectedTokenOut: osmomath.NewInt(1),
 			expectedError:    nil,
 		},
 		"valid calculation, truncated to zero": {
 			tokenIn:          sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(10)),
 			tokenOutDenom:    USDC,
-			expectedTokenOut: osmomath.MustNewBigDecFromStr("0"),
+			expectedTokenOut: osmomath.ZeroInt(),
 			expectedError:    nil,
 		},
 		"missing normalization factor for token in": {
 			tokenIn:          sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
 			tokenOutDenom:    USDT,
-			expectedTokenOut: osmomath.BigDec{},
+			expectedTokenOut: osmomath.ZeroInt(),
 			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factor for token out": {
 			tokenIn:          sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			tokenOutDenom:    INVALID_DENOM,
-			expectedTokenOut: osmomath.BigDec{},
+			expectedTokenOut: osmomath.ZeroInt(),
 			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factors for both token in and token out": {
 			tokenIn:          sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
 			tokenOutDenom:    INVALID_DENOM,
-			expectedTokenOut: osmomath.BigDec{},
+			expectedTokenOut: osmomath.ZeroInt(),
 			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 	}
@@ -298,43 +293,37 @@ func (s *RoutablePoolTestSuite) TestCalcTokenInAmt_AlloyTransmuter() {
 	tests := map[string]struct {
 		tokenOut         sdk.Coin
 		tokenInDenom     string
-		expectedTokenOut osmomath.BigDec
+		expectedTokenOut osmomath.Int
 		expectedError    error
 	}{
 		"valid calculation using normalization factors": {
 			tokenOut:         sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			tokenInDenom:     USDT,
-			expectedTokenOut: osmomath.NewBigDec(1), // (100 * 1) / 100 = 1
-			expectedError:    nil,
-		},
-		"valid calculation with decimal points": {
-			tokenOut:         sdk.NewCoin(USDC, osmomath.NewInt(10)),
-			tokenInDenom:     USDT,
-			expectedTokenOut: osmomath.MustNewBigDecFromStr("0.1"), // (10 * 1) / 100 = 0.1
+			expectedTokenOut: osmomath.NewInt(1),
 			expectedError:    nil,
 		},
 		"valid calculation, truncated to zero": {
 			tokenOut:         sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(10)),
 			tokenInDenom:     USDC,
-			expectedTokenOut: osmomath.MustNewBigDecFromStr("0"),
+			expectedTokenOut: osmomath.ZeroInt(),
 			expectedError:    nil,
 		},
 		"missing normalization factor for token in": {
 			tokenOut:         sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
 			tokenInDenom:     USDT,
-			expectedTokenOut: osmomath.BigDec{},
+			expectedTokenOut: osmomath.ZeroInt(),
 			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factor for token out": {
 			tokenOut:         sdk.NewCoin(USDC, osmomath.NewInt(100)),
 			tokenInDenom:     INVALID_DENOM,
-			expectedTokenOut: osmomath.BigDec{},
+			expectedTokenOut: osmomath.ZeroInt(),
 			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factors for both token in and token out": {
 			tokenOut:         sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
 			tokenInDenom:     INVALID_DENOM,
-			expectedTokenOut: osmomath.BigDec{},
+			expectedTokenOut: osmomath.ZeroInt(),
 			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 	}
@@ -580,7 +569,7 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestComputeTotalAdjustmentRate() {
+func (s *RoutablePoolTestSuite) TestComputeTotalAdjustment() {
 	// Helper function to create rebalancing config
 	createRebalancingConfig := func(idealUpper, idealLower, criticalUpper, criticalLower, limit, adjustmentRateStrained, adjustmentRateCritical string) cosmwasmpool.RebalancingConfig {
 		return cosmwasmpool.RebalancingConfig{
@@ -634,8 +623,8 @@ func (s *RoutablePoolTestSuite) TestComputeTotalAdjustmentRate() {
 				NO_PRECISION_USD:   osmomath.NewInt(1),
 				ALLUSD:             osmomath.NewInt(1),
 			},
-			expectedAdjustmentRate: osmomath.MustNewDecFromStr("0.015419"), // Actual value from test
-			expectedScaler:         osmomath.NewInt(10_900_000),            // max(before, after) with scaling
+			expectedAdjustmentRate: osmomath.MustNewDecFromStr("0.015419"),
+			expectedScaler:         osmomath.NewInt(10_900_000),
 			description:            "Different normalization factors change the weighting significantly",
 		},
 		"scaler demonstration - smaller pool": {
@@ -658,8 +647,8 @@ func (s *RoutablePoolTestSuite) TestComputeTotalAdjustmentRate() {
 				NO_PRECISION_USD:   osmomath.NewInt(1),
 				ALLUSD:             osmomath.NewInt(1),
 			},
-			expectedAdjustmentRate: osmomath.MustNewDecFromStr("-0.01"), // Actual value from test run
-			expectedScaler:         osmomath.NewInt(500_000),            // max(before, after) for harmful swap
+			expectedAdjustmentRate: osmomath.MustNewDecFromStr("-0.01"),
+			expectedScaler:         osmomath.NewInt(500_000),
 			description:            "Smaller pool demonstrates proportional scaler with movement to critical zone",
 		},
 		"scaler demonstration - larger pool with same proportion": {
@@ -706,7 +695,7 @@ func (s *RoutablePoolTestSuite) TestComputeTotalAdjustmentRate() {
 				NO_PRECISION_USD:   osmomath.NewInt(1),
 				ALLUSD:             osmomath.NewInt(1),
 			},
-			expectedAdjustmentRate: osmomath.MustNewDecFromStr("-0.002165"),
+			expectedAdjustmentRate: osmomath.MustNewDecFromStr("-0.002164502164502166"),
 			expectedScaler:         osmomath.NewInt(3_080_000), // Weighted scaler: max(500*5+500*1, 520*5+480*1)
 			description:            "Different normalization factors affect both weights and scaler calculation",
 		},
@@ -766,23 +755,11 @@ func (s *RoutablePoolTestSuite) TestComputeTotalAdjustmentRate() {
 			}
 
 			// System under test
-			adjustmentRate, scaler, err := r.ComputeTotalAdjustmentRate(tc.balanceBefore, tc.balanceAfter)
+			totalAdjustment, err := r.ComputeTotalAdjustment(tc.balanceBefore, tc.balanceAfter)
 
-			s.Require().NoError(err, "ComputeTotalAdjustmentRate should not return error for test case: %s", tc.description)
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expectedAdjustmentRate.Mul(tc.expectedScaler.ToLegacyDec()).TruncateInt(), totalAdjustment, tc.description)
 
-			// Allow for small rounding differences (within 0.0001)
-			tolerance := osmomath.MustNewDecFromStr("0.0001")
-			diff := adjustmentRate.Sub(tc.expectedAdjustmentRate).Abs()
-			s.Require().True(
-				diff.LTE(tolerance),
-				"Expected adjustment rate %s, got %s (diff: %s) for test case: %s",
-				tc.expectedAdjustmentRate.String(),
-				adjustmentRate.String(),
-				diff.String(),
-				tc.description,
-			)
-
-			s.Require().Equal(tc.expectedScaler, scaler, "Expected scaler %s, got %s for test case: %s", tc.expectedScaler.String(), scaler.String(), tc.description)
 		})
 	}
 }
@@ -854,7 +831,14 @@ func (s *RoutablePoolTestSuite) setupPoolForFeeAndIncentiveCases() *pools.Routab
 		},
 	}
 
+	// Create a minimal ChainPool to avoid nil pointer dereference
+	// We only need the PoolId for error handling, so create a minimal pool
+	cosmwasmPool := &cwpoolmodel.CosmWasmPool{
+		PoolId: 1, // Use a dummy pool ID
+	}
+
 	return &pools.RoutableAlloyTransmuterPoolImpl{
+		ChainPool:           cosmwasmPool,
 		AlloyTransmuterData: alloyTransmuterData,
 		Balances:            balances,
 		TokenInDenom:        "", // Will be set by individual tests
@@ -958,7 +942,7 @@ func (s *RoutablePoolTestSuite) TestCalcOutAmtGivenIn_WithFeeOrIncentive() {
 			tokenOutAmount, err := pool.CalcTokenOutAmt(tc.tokenIn, tc.expectedTokenOut.Denom)
 			s.Require().NoError(err)
 
-			tokenOut := sdk.NewCoin(tc.expectedTokenOut.Denom, tokenOutAmount.Dec().TruncateInt())
+			tokenOut := sdk.NewCoin(tc.expectedTokenOut.Denom, tokenOutAmount)
 			s.Require().Equal(tc.expectedTokenOut.String(), tokenOut.String())
 		})
 	}
@@ -1008,6 +992,18 @@ func (s *RoutablePoolTestSuite) TestCalcInAmtGivenOut_WithFeeOrIncentive() {
 				sdk.NewCoin("denom2", osmomath.NewInt(40_000_000_000-1)),
 			},
 		},
+		"token to token - internal incentive swap": {
+			tokenOut:        sdk.NewCoin("denom1", osmomath.NewInt(20_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("denom2", osmomath.NewInt(160_000_000_000)),
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000+20_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000-200_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("denom3", osmomath.NewInt(200_000_000_000)), // Substitute token available for internal swap
+			},
+		},
 		"alloyed to token - with fee": {
 			tokenOut:        sdk.NewCoin("denom1", osmomath.NewInt(40_000_000_000)),
 			expectedTokenIn: sdk.NewCoin("allusd", osmomath.NewInt(4_350_000_000_000)),
@@ -1022,6 +1018,18 @@ func (s *RoutablePoolTestSuite) TestCalcInAmtGivenOut_WithFeeOrIncentive() {
 			),
 			incentivePoolOverride: []sdk.Coin{
 				sdk.NewCoin("allusd", osmomath.NewInt(280_000_000_000)),
+			},
+		},
+		"alloyed to token - internal incentive swap": {
+			tokenOut:        sdk.NewCoin("denom2", osmomath.NewInt(400_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("allusd", osmomath.NewInt(4_000_000_000_000-280_000_000_000+14_000_000_000)), // second order adjustment is negative
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(100_000_000_000-40_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("denom1", osmomath.NewInt(2_800_000_000)),
 			},
 		},
 		"token to alloyed - with fee": {
@@ -1041,6 +1049,19 @@ func (s *RoutablePoolTestSuite) TestCalcInAmtGivenOut_WithFeeOrIncentive() {
 				sdk.NewCoin("denom2", osmomath.NewInt(50_000_000_000)),
 			},
 		},
+		"token to alloyed - internal incentive swap": {
+			tokenOut:        sdk.NewCoin("allusd", osmomath.NewInt(5_000_000_000_000)),
+			expectedTokenIn: sdk.NewCoin("denom2", osmomath.NewInt(450_000_000_000)),
+
+			balanceOverride: sdk.NewCoins(
+				sdk.NewCoin("denom1", osmomath.NewInt(150_000_000_000)),
+				sdk.NewCoin("denom2", osmomath.NewInt(500_000_000_000)),
+				sdk.NewCoin("denom3", osmomath.NewInt(5_000_000_000_000)),
+			),
+			incentivePoolOverride: []sdk.Coin{
+				sdk.NewCoin("allusd", osmomath.NewInt(500_000_000_000)),
+			},
+		},
 	}
 
 	for name, tc := range tests {
@@ -1058,7 +1079,7 @@ func (s *RoutablePoolTestSuite) TestCalcInAmtGivenOut_WithFeeOrIncentive() {
 			tokenInAmount, err := pool.CalcTokenInAmt(tc.tokenOut, tc.expectedTokenIn.Denom)
 			s.Require().NoError(err)
 
-			tokenIn := sdk.NewCoin(tc.expectedTokenIn.Denom, tokenInAmount.Dec().TruncateInt())
+			tokenIn := sdk.NewCoin(tc.expectedTokenIn.Denom, tokenInAmount)
 			s.Require().Equal(tc.expectedTokenIn.String(), tokenIn.String())
 		})
 	}

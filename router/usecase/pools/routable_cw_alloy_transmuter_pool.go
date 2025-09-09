@@ -77,16 +77,14 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context
 		return sdk.Coin{}, err
 	}
 
-	tokenOutAmtInt := tokenOutAmt.Dec().TruncateInt()
-
 	// Validate token out balance if not alloyed
 	if r.TokenOutDenom != r.AlloyTransmuterData.AlloyedDenom {
-		if err := validateTransmuterBalance(tokenOutAmtInt, r.Balances, r.TokenOutDenom); err != nil {
+		if err := validateTransmuterBalance(tokenOutAmt, r.Balances, r.TokenOutDenom); err != nil {
 			return sdk.Coin{}, err
 		}
 	}
 
-	return sdk.Coin{Denom: r.TokenOutDenom, Amount: tokenOutAmtInt}, nil
+	return sdk.Coin{Denom: r.TokenOutDenom, Amount: tokenOutAmt}, nil
 }
 
 // CalculateTokenInByTokenOut implements domain.RoutablePool.
@@ -104,16 +102,14 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context
 		return sdk.Coin{}, err
 	}
 
-	tokenInAmtInt := tokenInAmt.Dec().TruncateInt()
-
 	// Validate token out balance if not alloyed
 	if r.TokenInDenom != r.AlloyTransmuterData.AlloyedDenom {
-		if err := validateTransmuterBalance(tokenInAmtInt, r.Balances, r.TokenInDenom); err != nil {
+		if err := validateTransmuterBalance(tokenInAmt, r.Balances, r.TokenInDenom); err != nil {
 			return sdk.Coin{}, err
 		}
 	}
 
-	return sdk.Coin{Denom: r.TokenInDenom, Amount: tokenInAmtInt}, nil
+	return sdk.Coin{Denom: r.TokenInDenom, Amount: tokenInAmt}, nil
 }
 
 // GetTokenOutDenom implements RoutablePool.
@@ -162,7 +158,11 @@ func (r *routableAlloyTransmuterPoolImpl) SetTokenOutDenom(tokenOutDenom string)
 
 // CalcSpotPrice implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	return r.CalcTokenOutAmt(sdk.Coin{Denom: baseDenom, Amount: osmomath.OneInt()}, quoteDenom)
+	tokenOutAmt, err := r.CalcTokenOutAmt(sdk.Coin{Denom: baseDenom, Amount: osmomath.OneInt()}, quoteDenom)
+	if err != nil {
+		return osmomath.ZeroBigDec(), err
+	}
+	return osmomath.BigDecFromSDKInt(tokenOutAmt), nil
 }
 
 // GetSQSType implements domain.RoutablePool.
@@ -211,18 +211,18 @@ func (r *routableAlloyTransmuterPoolImpl) FindNormalizationFactors(tokenInDenom,
 //
 // token_out_amt / token_out_norm_factor = token_in_amt / token_in_norm_factor
 // token_out_amt = token_in_amt * token_out_norm_factor / token_in_norm_factor
-func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, tokenOutDenom string) (osmomath.BigDec, error) {
+func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, tokenOutDenom string) (osmomath.Int, error) {
 	tokenInNormFactor, tokenOutNormFactor, err := r.FindNormalizationFactors(tokenIn.Denom, tokenOutDenom)
 	if err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.Int{}, err
 	}
 
 	if tokenInNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenIn.Denom, PoolId: r.GetId()}
+		return osmomath.Int{}, domain.ZeroNormalizationFactorError{Denom: tokenIn.Denom, PoolId: r.GetId()}
 	}
 
 	if tokenOutNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
+		return osmomath.Int{}, domain.ZeroNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
 	}
 
 	tokenInAmount := osmomath.BigDecFromSDKInt(tokenIn.Amount)
@@ -230,8 +230,8 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())
 	tokenOutNormFactorBig := osmomath.NewBigIntFromBigInt(tokenOutNormFactor.BigInt())
 
-	tokenOutAmount := tokenInAmount.MulInt(tokenOutNormFactorBig).QuoInt(tokenInNormFactorBig)
-	tokenOut := sdk.NewCoin(tokenOutDenom, tokenOutAmount.Dec().TruncateInt())
+	tokenOutAmount := tokenInAmount.MulInt(tokenOutNormFactorBig).QuoInt(tokenInNormFactorBig).Dec().TruncateInt()
+	tokenOut := sdk.NewCoin(tokenOutDenom, tokenOutAmount)
 
 	// Compute adjustment using rebalancing configs and normalization scaling factors.
 	// Build balances after swap safely: do not add/subtract alloyed LP share, and do not underflow non-alloyed.
@@ -242,46 +242,61 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 
 	if tokenOut.Denom != r.AlloyTransmuterData.AlloyedDenom {
 		if tokenOut.Amount.GT(balancesAfter.AmountOf(tokenOut.Denom)) {
-			return osmomath.BigDec{}, domain.TransmuterInsufficientBalanceError{Denom: tokenOut.Denom, BalanceAmount: balancesAfter.AmountOf(tokenOut.Denom).String(), Amount: tokenOut.Amount.String()}
+			return osmomath.Int{}, domain.TransmuterInsufficientBalanceError{Denom: tokenOut.Denom, BalanceAmount: balancesAfter.AmountOf(tokenOut.Denom).String(), Amount: tokenOut.Amount.String()}
 		}
 		balancesAfter = balancesAfter.Sub(sdk.NewCoin(tokenOut.Denom, tokenOut.Amount))
 	}
 
-	totalAdjustmentRate, scaler, err := r.computeTotalAdjustmentRate(r.Balances, balancesAfter)
+	totalAdjustment, err := r.computeTotalAdjustment(r.Balances, balancesAfter)
 	if err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.Int{}, err
 	}
 
-	if !totalAdjustmentRate.IsZero() {
+	if !totalAdjustment.IsZero() {
 		denomScalingFactor, ok := r.AlloyTransmuterData.PreComputedData.NormalizationScalingFactors[tokenOutDenom]
 		if !ok || denomScalingFactor.IsZero() {
-			return osmomath.BigDec{}, domain.MissingNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
+			return osmomath.Int{}, domain.MissingNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
 		}
 
 		// Calculate the total adjustment based on rebalancing configuration
-		totalAdjustment := totalAdjustmentRate.Mul(scaler.ToLegacyDec()).Quo(denomScalingFactor.ToLegacyDec())
+		totalAdjustmentDenormalized := totalAdjustment.Quo(denomScalingFactor)
 
 		// incentivize
-		if totalAdjustmentRate.IsPositive() {
+		if totalAdjustmentDenormalized.IsPositive() {
 			tokenOutIncentivePool := sdk.NewCoins(r.AlloyTransmuterData.IncentivePoolBalances...).AmountOf(tokenOutDenom)
 
 			// if incentive pool have enough incentive to distribute, distribute the incentive
-			if tokenOutIncentivePool.GTE(totalAdjustment.TruncateInt()) {
-				tokenOutAmount = tokenOutAmount.Add(osmomath.BigDecFromSDKInt(totalAdjustment.TruncateInt()))
+			if tokenOutIncentivePool.GTE(totalAdjustmentDenormalized) {
+				tokenOutAmount = tokenOutAmount.Add(totalAdjustmentDenormalized)
+			} else {
+				// perform second order incentive swap
+				adjustedIncentive, err := r.performSecondOrderIncentiveSwap(
+					totalAdjustment,
+					sdk.NewCoin(tokenOutDenom, totalAdjustmentDenormalized),
+					tokenOutIncentivePool,
+					balancesAfter,
+				)
+				if err != nil {
+					return osmomath.Int{}, err
+				}
+				tokenOutAmount = tokenOutAmount.Add(adjustedIncentive)
 			}
-			// TODO: second order incentive swap
 		}
 
 		// take fee
-		if totalAdjustmentRate.IsNegative() {
-			tokenOutAmount = tokenOutAmount.Add(osmomath.BigDecFromSDKInt(totalAdjustment.Ceil().TruncateInt()))
+		if totalAdjustmentDenormalized.IsNegative() {
+			fee := totalAdjustmentDenormalized.Abs()
+			if totalAdjustment.Mod(denomScalingFactor).IsPositive() {
+				fee = fee.Add(osmomath.OneInt())
+			}
+			tokenOutAmount = tokenOutAmount.Sub(fee)
 		}
 	}
 
 	// Check static upper rate limiter
-	tokenOut = sdk.NewCoin(tokenOutDenom, tokenOutAmount.Dec().TruncateInt())
+	tokenOut = sdk.NewCoin(tokenOutDenom, tokenOutAmount)
 	if err := r.checkStaticRateLimiter(tokenIn, tokenOut); err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.Int{}, err
 	}
 
 	return tokenOutAmount, nil
@@ -290,18 +305,18 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 // Calculate the token in amount based on the normalization factors:
 //
 // token_in_amt = token_out_amt * token_in_norm_factor / token_out_norm_factor
-func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenOut sdk.Coin, tokenInDenom string) (osmomath.BigDec, error) {
+func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenOut sdk.Coin, tokenInDenom string) (osmomath.Int, error) {
 	tokenInNormFactor, tokenOutNormFactor, err := r.FindNormalizationFactors(tokenInDenom, tokenOut.Denom)
 	if err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.ZeroInt(), err
 	}
 
 	if tokenInNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOut.Denom, PoolId: r.GetId()}
+		return osmomath.ZeroInt(), domain.ZeroNormalizationFactorError{Denom: tokenOut.Denom, PoolId: r.GetId()}
 	}
 
 	if tokenOutNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
+		return osmomath.ZeroInt(), domain.ZeroNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
 	}
 
 	tokenOutAmount := osmomath.BigDecFromSDKInt(tokenOut.Amount)
@@ -309,7 +324,7 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenOut sdk.Coin, toke
 	tokenOutNormFactorBig := osmomath.NewBigIntFromBigInt(tokenOutNormFactor.BigInt())
 	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())
 
-	tokenInAmount := tokenOutAmount.MulInt(tokenInNormFactorBig).QuoInt(tokenOutNormFactorBig)
+	tokenInAmount := tokenOutAmount.MulInt(tokenInNormFactorBig).QuoInt(tokenOutNormFactorBig).Dec().TruncateInt()
 
 	// Compute adjustment using rebalancing configs and normalization scaling factors.
 	// Build balances after swap safely: do not add/subtract alloyed LP share, and do not underflow non-alloyed.
@@ -320,7 +335,7 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenOut sdk.Coin, toke
 			if coin.Denom == tokenOut.Denom {
 				newAmount := coin.Amount.Sub(tokenOut.Amount)
 				if newAmount.IsNegative() {
-					return osmomath.BigDec{}, domain.TransmuterInsufficientBalanceError{Denom: tokenOut.Denom, BalanceAmount: coin.Amount.String(), Amount: tokenOut.Amount.String()}
+					return osmomath.ZeroInt(), domain.TransmuterInsufficientBalanceError{Denom: tokenOut.Denom, BalanceAmount: coin.Amount.String(), Amount: tokenOut.Amount.String()}
 				}
 				balancesAfter[i] = sdk.NewCoin(coin.Denom, newAmount)
 				break
@@ -333,48 +348,62 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenOut sdk.Coin, toke
 		found := false
 		for i, coin := range balancesAfter {
 			if coin.Denom == tokenInDenom {
-				balancesAfter[i] = sdk.NewCoin(coin.Denom, coin.Amount.Add(tokenInAmount.Dec().TruncateInt()))
+				balancesAfter[i] = sdk.NewCoin(coin.Denom, coin.Amount.Add(tokenInAmount))
 				found = true
 				break
 			}
 		}
 		if !found {
-			balancesAfter = append(balancesAfter, sdk.NewCoin(tokenInDenom, tokenInAmount.Dec().TruncateInt()))
+			balancesAfter = append(balancesAfter, sdk.NewCoin(tokenInDenom, tokenInAmount))
 		}
 	}
 
-	totalAdjustmentRate, scaler, err := r.computeTotalAdjustmentRate(r.Balances, balancesAfter)
+	totalAdjustment, err := r.computeTotalAdjustment(r.Balances, balancesAfter)
 	if err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.ZeroInt(), err
 	}
 
-	if !totalAdjustmentRate.IsZero() {
+	if !totalAdjustment.IsZero() {
 		denomScalingFactor, ok := r.AlloyTransmuterData.PreComputedData.NormalizationScalingFactors[tokenInDenom]
 		if !ok || denomScalingFactor.IsZero() {
-			return osmomath.BigDec{}, domain.MissingNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
+			return osmomath.ZeroInt(), domain.MissingNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
 		}
 
 		// Calculate adjustment (for token in, we need to add the fees)
-		totalAdjustment := totalAdjustmentRate.Mul(scaler.ToLegacyDec()).Quo(denomScalingFactor.ToLegacyDec())
+		totalAdjustmentDenormalized := totalAdjustment.Quo(denomScalingFactor)
 
-		if totalAdjustmentRate.IsPositive() {
+		if totalAdjustmentDenormalized.IsPositive() {
 			tokenInIncentivePool := sdk.NewCoins(r.AlloyTransmuterData.IncentivePoolBalances...).AmountOf(tokenInDenom)
-			if tokenInIncentivePool.GTE(totalAdjustment.TruncateInt()) {
-				tokenInAmount = tokenInAmount.Sub(osmomath.BigDecFromSDKInt(totalAdjustment.TruncateInt()))
+			if tokenInIncentivePool.GTE(totalAdjustmentDenormalized) {
+				tokenInAmount = tokenInAmount.Sub(totalAdjustmentDenormalized)
+			} else {
+				// perform second order incentive swap
+				adjustedIncentive, err := r.performSecondOrderIncentiveSwap(
+					totalAdjustment,
+					sdk.NewCoin(tokenInDenom, totalAdjustmentDenormalized),
+					tokenInIncentivePool,
+					balancesAfter,
+				)
+				if err != nil {
+					return osmomath.ZeroInt(), err
+				}
+				tokenInAmount = tokenInAmount.Sub(adjustedIncentive)
 			}
-			// TODO: second order incentive swap
 		}
 
-		if totalAdjustmentRate.IsNegative() {
-			fee := osmomath.BigDecFromSDKInt(osmomath.Int(totalAdjustment.Abs().Ceil().TruncateInt()))
+		if totalAdjustmentDenormalized.IsNegative() {
+			fee := totalAdjustmentDenormalized.Abs()
+			if totalAdjustment.Mod(denomScalingFactor).IsPositive() {
+				fee = fee.Add(osmomath.OneInt())
+			}
 			tokenInAmount = tokenInAmount.Add(fee)
 		}
 	}
 
 	// Check static upper rate limiter
-	tokenIn := sdk.NewCoin(tokenInDenom, tokenInAmount.Dec().TruncateInt())
+	tokenIn := sdk.NewCoin(tokenInDenom, tokenInAmount)
 	if err := r.checkStaticRateLimiter(tokenIn, tokenOut); err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.ZeroInt(), err
 	}
 
 	return tokenInAmount, nil
@@ -567,23 +596,23 @@ func weightedDistance(x osmomath.Dec, p cosmwasmpool.RebalancingConfig) osmomath
 	return criticalLow.Add(strainedLow).Add(strainedHigh).Add(criticalHigh)
 }
 
-func (r *routableAlloyTransmuterPoolImpl) computeTotalAdjustmentRate(balanceBefore, balanceAfter sdk.Coins) (osmomath.Dec, osmomath.Int, error) {
+func (r *routableAlloyTransmuterPoolImpl) computeTotalAdjustment(balanceBefore, balanceAfter sdk.Coins) (osmomath.Int, error) {
 	totalAdjustmentRate := osmomath.ZeroDec()
 
 	normalizedBalanceBefore, normalizedTotalBefore, err := r.computeNormalizedBalances(balanceBefore)
 	if err != nil {
-		return osmomath.ZeroDec(), osmomath.ZeroInt(), err
+		return osmomath.ZeroInt(), err
 	}
 
 	normalizedBalanceAfter, normalizedTotalAfter, err := r.computeNormalizedBalances(balanceAfter)
 	if err != nil {
-		return osmomath.ZeroDec(), osmomath.ZeroInt(), err
+		return osmomath.ZeroInt(), err
 	}
 
 	// Check if incentive pool is unhealthy
 	isIncentivePoolUnhealthy, err := r.isIncentivePoolUnhealthy(normalizedBalanceBefore, normalizedTotalBefore)
 	if err != nil {
-		return osmomath.ZeroDec(), osmomath.ZeroInt(), err
+		return osmomath.ZeroInt(), err
 	}
 
 	for scope, rebalancingConfig := range r.AlloyTransmuterData.RebalancingConfigs {
@@ -628,7 +657,7 @@ func (r *routableAlloyTransmuterPoolImpl) computeTotalAdjustmentRate(balanceBefo
 		scaler = osmomath.MaxInt(normalizedTotalBefore, normalizedTotalAfter)
 	}
 
-	return totalAdjustmentRate, scaler, nil
+	return totalAdjustmentRate.Mul(scaler.ToLegacyDec()).TruncateInt(), nil
 }
 
 // isIncentivePoolUnhealthy checks if the incentive pool is unhealthy by comparing
@@ -729,4 +758,165 @@ func (r *routableAlloyTransmuterPoolImpl) computeNormalizedIncentivePoolBalance(
 	}
 
 	return totalNormalizedBalance, nil
+}
+
+// performSecondOrderIncentiveSwap performs an internal incentive swap when there's insufficient
+// incentive pool balance.
+func (r *routableAlloyTransmuterPoolImpl) performSecondOrderIncentiveSwap(
+	firstOrderTotalAdjustment osmomath.Int,
+	firstOrderIncentive sdk.Coin,
+	incentiveDenomBalance osmomath.Int,
+	balancesAfter sdk.Coins,
+) (osmomath.Int, error) {
+	// Calculate additional incentive token needed
+	additionalIncentiveNeeded := firstOrderIncentive.Amount.Sub(incentiveDenomBalance)
+	if additionalIncentiveNeeded.IsZero() || additionalIncentiveNeeded.IsNegative() {
+		return incentiveDenomBalance, nil
+	}
+
+	// Find substitute token with highest normalized balance
+	substituteTokenDenom, err := r.findSubstituteToken(firstOrderIncentive.Denom)
+	if err != nil {
+		return osmomath.ZeroInt(), nil // No substitute available, return zero incentive
+	}
+
+	// Perform internal incentive swap (exact out)
+	secondOrderTotalAdjustment, err := r.performInternalIncentiveSwap(
+		sdk.NewCoin(firstOrderIncentive.Denom, additionalIncentiveNeeded),
+		substituteTokenDenom,
+		balancesAfter,
+	)
+	if err != nil {
+		return osmomath.ZeroInt(), nil // Internal swap failed, return zero incentive
+	}
+
+	updatedTotalAdjustment := firstOrderTotalAdjustment.Add(secondOrderTotalAdjustment)
+
+	switch {
+	// If internal incentive swap is helpful or neutral, return the original incentive
+	case updatedTotalAdjustment.GTE(firstOrderTotalAdjustment):
+		return firstOrderIncentive.Amount, nil
+
+	// If internal incentive swap fully negated the original incentive, give no incentive
+	case updatedTotalAdjustment.LTE(osmomath.ZeroInt()):
+		return osmomath.ZeroInt(), nil
+
+	// If internal incentive swap partially negated the original incentive,
+	// calculate readjusted incentive based on updated total adjustment value
+	default:
+		denomScalingFactor, ok := r.AlloyTransmuterData.PreComputedData.NormalizationScalingFactors[firstOrderIncentive.Denom]
+		if !ok || denomScalingFactor.IsZero() {
+			return osmomath.ZeroInt(), domain.MissingNormalizationFactorError{Denom: firstOrderIncentive.Denom, PoolId: r.GetId()}
+		}
+		return updatedTotalAdjustment.Quo(denomScalingFactor), nil
+	}
+}
+
+// findSubstituteToken finds the token with the highest normalized balance to use as substitute
+// for internal incentive swap
+func (r *routableAlloyTransmuterPoolImpl) findSubstituteToken(denomToBeSubstitute string) (string, error) {
+	incentivePoolBalances := sdk.NewCoins(r.AlloyTransmuterData.IncentivePoolBalances...)
+	preComputedData := r.AlloyTransmuterData.PreComputedData
+	normalizationScalingFactors := preComputedData.NormalizationScalingFactors
+
+	maxNormalizedBalance := osmomath.ZeroInt()
+	var substituteTokenDenom string
+
+	// Check all incentive pool balances
+	for _, balance := range incentivePoolBalances {
+		if balance.Denom == denomToBeSubstitute {
+			continue
+		}
+
+		// Check if this is a swappable asset (has normalization factor)
+		normalizationScalingFactor, ok := normalizationScalingFactors[balance.Denom]
+		if !ok {
+			continue
+		}
+
+		// Calculate normalized balance for comparison
+		// Convert amount using normalization factor relative to standard
+		normalizedBalance := balance.Amount.Mul(normalizationScalingFactor)
+
+		if normalizedBalance.GT(maxNormalizedBalance) {
+			maxNormalizedBalance = normalizedBalance
+			substituteTokenDenom = balance.Denom
+		}
+	}
+
+	// Also check alloyed denom if it has balance in incentive pool
+	alloyedBalance := incentivePoolBalances.AmountOf(r.AlloyTransmuterData.AlloyedDenom)
+	if !alloyedBalance.IsZero() {
+		// Get alloyed denom normalization factor from asset configs
+		alloyedNormScalingFactor, ok := normalizationScalingFactors[r.AlloyTransmuterData.AlloyedDenom]
+		if !ok {
+			return "", domain.MissingNormalizationFactorError{Denom: r.AlloyTransmuterData.AlloyedDenom, PoolId: r.GetId()}
+		}
+
+		if !alloyedNormScalingFactor.IsZero() {
+			normalizedAlloyedBalance := alloyedBalance.Mul(alloyedNormScalingFactor)
+
+			if normalizedAlloyedBalance.GT(maxNormalizedBalance) {
+				substituteTokenDenom = r.AlloyTransmuterData.AlloyedDenom
+			}
+		}
+	}
+
+	if substituteTokenDenom == "" {
+		return "", domain.SubstituteTokenNotFoundError{Denom: denomToBeSubstitute, PoolId: r.GetId()}
+	}
+
+	return substituteTokenDenom, nil
+}
+
+// performInternalIncentiveSwap performs the actual internal swap calculation
+// It simulates swapping substitute token to get the needed incentive token
+func (r *routableAlloyTransmuterPoolImpl) performInternalIncentiveSwap(
+	additionalIncentiveNeeded sdk.Coin,
+	substituteTokenDenom string,
+	balancesAfter sdk.Coins,
+) (osmomath.Int, error) {
+	// Calculate how much substitute token is needed to get the additional incentive
+	incentiveDenomNormalizationFactor, substituteTokenNormalizationFactor, err := r.FindNormalizationFactors(additionalIncentiveNeeded.Denom, substituteTokenDenom)
+	if err != nil {
+		return osmomath.ZeroInt(), err
+	}
+
+	substituteTokenIn := additionalIncentiveNeeded.Amount.Mul(substituteTokenNormalizationFactor).Quo(incentiveDenomNormalizationFactor)
+
+	// Check if incentive pool has enough substitute token
+	incentivePoolBalances := sdk.NewCoins(r.AlloyTransmuterData.IncentivePoolBalances...)
+	substituteTokenBalance := incentivePoolBalances.AmountOf(substituteTokenDenom)
+
+	if substituteTokenIn.GT(substituteTokenBalance) {
+		return osmomath.ZeroInt(), nil // Insufficient substitute token, return zero incentive
+	}
+
+	// Calculate the pool state after internal swap
+	// The internal swap adds substitute token to the liquidity pool and removes incentive token
+	balancesAfterInternalSwap := sdk.NewCoins(balancesAfter...)
+
+	// Add substitute token to pool (what gets swapped in)
+	substituteTokenCoin := sdk.NewCoin(substituteTokenDenom, substituteTokenIn)
+	if substituteTokenDenom != r.AlloyTransmuterData.AlloyedDenom {
+		balancesAfterInternalSwap = balancesAfterInternalSwap.Add(substituteTokenCoin)
+	}
+
+	// Remove incentive token from pool (what gets swapped out)
+	if additionalIncentiveNeeded.Denom != r.AlloyTransmuterData.AlloyedDenom {
+		// Find and subtract the incentive token
+		amount := balancesAfterInternalSwap.AmountOf(additionalIncentiveNeeded.Denom)
+		if amount.GT(additionalIncentiveNeeded.Amount) {
+			return osmomath.ZeroInt(), nil // Insufficient incentive token, return zero incentive
+		}
+		balancesAfterInternalSwap = balancesAfterInternalSwap.Sub(additionalIncentiveNeeded)
+	}
+
+	// Calculate the adjustment rate from this internal swap
+	secondOrderAdjustment, err := r.computeTotalAdjustment(balancesAfter, balancesAfterInternalSwap)
+	if err != nil {
+		return osmomath.ZeroInt(), err
+	}
+
+	return secondOrderAdjustment, nil
 }

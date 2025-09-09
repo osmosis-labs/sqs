@@ -202,6 +202,15 @@ func (e MissingNormalizationFactorError) Error() string {
 	return fmt.Sprintf("Missing normalization factor for denom (%s) in pool (%d)", e.Denom, e.PoolId)
 }
 
+type SubstituteTokenNotFoundError struct {
+	PoolId uint64
+	Denom  string
+}
+
+func (e SubstituteTokenNotFoundError) Error() string {
+	return fmt.Sprintf("Substitute token not found for denom (%s) in pool (%d)", e.Denom, e.PoolId)
+}
+
 type ZeroNormalizationFactorError struct {
 	PoolId uint64
 	Denom  string

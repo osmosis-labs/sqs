@@ -30,6 +30,6 @@ func (r *routableAlloyTransmuterPoolImpl) CheckStaticRateLimiter(tokenInCoin sdk
 	return r.checkStaticRateLimiter(tokenInCoin, tokenOutCoin)
 }
 
-func (r *routableAlloyTransmuterPoolImpl) ComputeTotalAdjustmentRate(balanceBefore sdk.Coins, balanceAfter sdk.Coins) (osmomath.Dec, osmomath.Int, error) {
-	return r.computeTotalAdjustmentRate(balanceBefore, balanceAfter)
+func (r *routableAlloyTransmuterPoolImpl) ComputeTotalAdjustment(balanceBefore sdk.Coins, balanceAfter sdk.Coins) (osmomath.Int, error) {
+	return r.computeTotalAdjustment(balanceBefore, balanceAfter)
 }
