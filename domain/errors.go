@@ -202,6 +202,15 @@ func (e MissingNormalizationFactorError) Error() string {
 	return fmt.Sprintf("Missing normalization factor for denom (%s) in pool (%d)", e.Denom, e.PoolId)
 }
 
+type SubstituteTokenNotFoundError struct {
+	PoolId uint64
+	Denom  string
+}
+
+func (e SubstituteTokenNotFoundError) Error() string {
+	return fmt.Sprintf("Substitute token not found for denom (%s) in pool (%d)", e.Denom, e.PoolId)
+}
+
 type ZeroNormalizationFactorError struct {
 	PoolId uint64
 	Denom  string
@@ -328,9 +337,9 @@ func (e FailCastCanonicalOrderbookKeyError) Error() string {
 type StaticRateLimiterInvalidUpperLimitError struct {
 	UpperLimit string
 	Weight     string
-	Denom      string
+	Scope      string
 }
 
 func (e StaticRateLimiterInvalidUpperLimitError) Error() string {
-	return fmt.Sprintf("invalid upper limit (%s) for weight (%s) and denom (%s)", e.UpperLimit, e.Weight, e.Denom)
+	return fmt.Sprintf("invalid upper limit (%s) for weight (%s) and scope (%s)", e.UpperLimit, e.Weight, e.Scope)
 }

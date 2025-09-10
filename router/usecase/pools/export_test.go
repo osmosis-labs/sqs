@@ -26,6 +26,10 @@ func NewRoutableCosmWasmPoolWithCustomModel(
 	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmPoolsParams, tokenOutDenom, takerFee, liquidityCap)
 }
 
-func (r *routableAlloyTransmuterPoolImpl) CheckStaticRateLimiter(tokenInCoin sdk.Coin) error {
-	return r.checkStaticRateLimiter(tokenInCoin)
+func (r *routableAlloyTransmuterPoolImpl) CheckStaticRateLimiter(tokenInCoin sdk.Coin, tokenOutCoin sdk.Coin) error {
+	return r.checkStaticRateLimiter(tokenInCoin, tokenOutCoin)
+}
+
+func (r *routableAlloyTransmuterPoolImpl) ComputeTotalAdjustment(balanceBefore sdk.Coins, balanceAfter sdk.Coins) (osmomath.Int, error) {
+	return r.computeTotalAdjustment(balanceBefore, balanceAfter)
 }
