@@ -125,7 +125,10 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				continue
 			}
 
-			if pool.GetPoolLiquidityCap() < options.MinPoolLiquidityCap {
+			// Skip pools with insufficient liquidity, except for transmuter pools
+			// Transmuter pools should always be considered regardless of liquidity cap
+			// because they provide no-slippage swaps and we want them prioritized
+			if pool.GetPoolLiquidityCap() < options.MinPoolLiquidityCap && !pool.IsAlloyTransmuter {
 				visited[pool.ID] = true
 				// Skip pools that have less liquidity than the minimum required.
 				continue

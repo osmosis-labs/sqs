@@ -122,6 +122,29 @@ func sortPools(pools []ingesttypes.PoolI, transmuterCodeIDs map[uint64]struct{},
 
 	ratedPools := make([]ratedPool, 0, len(pools))
 	for _, pool := range pools {
+		// Check if this is a transmuter pool first
+		isTransmuterPool := false
+		isOrderbookPool := false
+
+		if pool.GetType() == poolmanagertypes.CosmWasm {
+			cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
+			if cosmWasmPoolModel != nil {
+				if cosmWasmPoolModel.IsAlloyTransmuter() {
+					isTransmuterPool = true
+				} else if cosmWasmPoolModel.IsOrderbook() {
+					isOrderbookPool = true
+				}
+			} else {
+				cosmWasmPool, ok := pool.GetUnderlyingPool().(cosmwasmpooltypes.CosmWasmExtension)
+				if ok {
+					_, isTransmuter := transmuterCodeIDs[cosmWasmPool.GetCodeId()]
+					if isTransmuter {
+						isTransmuterPool = true
+					}
+				}
+			}
+		}
+
 		// Initialize rating to TVL.
 		rating, _ := pool.GetPoolLiquidityCap().BigIntMut().Float64()
 
@@ -143,31 +166,18 @@ func sortPools(pools []ingesttypes.PoolI, transmuterCodeIDs map[uint64]struct{},
 			rating += totalTVLFloat / 2
 		}
 
-		// Transmuter pools get a boost equal to 3/2 of total value locked across all pools
-		if pool.GetType() == poolmanagertypes.CosmWasm {
-			// Grant additional rating to alloyed transmuter.
-			cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
-			if cosmWasmPoolModel != nil {
-				if cosmWasmPoolModel.IsAlloyTransmuter() {
-					// Grant additional rating if alloyed transmuter.
-					rating += totalTVLFloat * 1.5
-				} else if cosmWasmPoolModel.IsOrderbook() {
-					// Orderbook is ranked the highest so that its limits are considered
-					// frequently.
-					rating += totalTVLFloat * 2
-				}
-			} else {
-				// Grant additional rating if transmuter.
-				cosmWasmPool, ok := pool.GetUnderlyingPool().(cosmwasmpooltypes.CosmWasmExtension)
-				if !ok {
-					logger.Debug("failed to cast a cosm wasm pool, skip silently", zap.Uint64("pool_id", pool.GetId()))
-					continue
-				}
-				_, isTransmuter := transmuterCodeIDs[cosmWasmPool.GetCodeId()]
-				if isTransmuter {
-					rating += totalTVLFloat * 1.5
-				}
-			}
+		// Orderbook pools get a boost equal to 2x of total value locked across all pools
+		if isOrderbookPool {
+			rating += totalTVLFloat * 2
+		}
+
+		// For transmuter pools, ensure they're always prioritized by adding a massive boost
+		// that guarantees higher rating than any non-transmuter pool
+		if isTransmuterPool {
+			// Add 10x totalTVL to ensure transmuters always rank highest
+			// This is added on top of existing rating, so even if pool has zero liquidity cap,
+			// it will have rating of 10x totalTVL, which beats any non-transmuter
+			rating += totalTVLFloat * 10.0
 		}
 
 		ratedPools = append(ratedPools, ratedPool{
