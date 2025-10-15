@@ -12,14 +12,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// numiaAPRsFetchRetries is the number of retries to fetch pool APRs from Numia.
 const (
-	numiaAPRsFetchRetries    = 3
+	// numiaAPRsFetchRetries is the number of retries to fetch pool APRs from Numia.
+	numiaAPRsFetchRetries = 3
+	// numiaAPRsFetchRetryDelay is the delay between retries to fetch pool APRs from Numia.
 	numiaAPRsFetchRetryDelay = time.Second * 1
 )
 
 // GetFetchPoolAPRsFromNumiaCb returns a callback to fetch pool APRs from Numia.
-// It increments the error counter if the pool APRs fetching fails.
+// It retries to fetch the pool APRs if the fetching fails up to numiaAPRsFetchRetries times with a delay of numiaAPRsFetchRetryDelay between retries.
+// It increments the error counter if the pool APRs fetching fails after the retries.
 // It returns a callback function that returns the pool APRs on success.
 func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClient, logger log.Logger) func() (map[uint64]sqspassthroughdomain.PoolAPR, error) {
 	return func() (map[uint64]sqspassthroughdomain.PoolAPR, error) {
