@@ -154,6 +154,7 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	q.EffectiveFee = q.quoteExactAmountIn.EffectiveFee
 	q.PriceImpact = q.quoteExactAmountIn.PriceImpact
 	q.InBaseOutQuoteSpotPrice = q.quoteExactAmountIn.InBaseOutQuoteSpotPrice
+	q.PriceInfo = q.quoteExactAmountIn.PriceInfo
 
 	for i, r := range q.Route {
 		route, ok := r.(*route.RouteWithOutAmount)
