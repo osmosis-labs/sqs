@@ -54,7 +54,7 @@ jobs:
           name: code-coverage-report
 #          path: app
       - name: Analyze with SonarCloud
-        uses: sonarsource/sonarqube-scan-action@v4
+        uses: sonarsource/sonarqube-scan-action@v7
         with:
 #          projectBaseDir: app
           args: >
