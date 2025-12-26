@@ -218,7 +218,15 @@ func getComputeAndCacheOutAmountCb(ctx context.Context, totalInAmountDec osmomat
 			return curRouteAmt
 		}
 		// This is the expensive computation that we aim to avoid.
-		curRouteOutAmountIncrement, _ := routes[routeIndex].CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(tokenInDenom, inAmountIncrement))
+		curRouteOutAmountIncrement, err := routes[routeIndex].CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(tokenInDenom, inAmountIncrement))
+
+		// If the route errors (e.g., insufficient liquidity in orderbook pools),
+		// treat this route as producing zero output for this increment.
+		// This ensures routes with liquidity issues are not selected by the DP algorithm.
+		if err != nil {
+			routeOutAmtCache[routeIndex][increment] = zero
+			return zero
+		}
 
 		if curRouteOutAmountIncrement.IsNil() || curRouteOutAmountIncrement.IsZero() {
 			curRouteOutAmountIncrement.Amount = zero
