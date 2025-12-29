@@ -2,10 +2,12 @@ package usecase_test
 
 import (
 	"context"
+	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -25,6 +27,64 @@ func (s *RouterTestSuite) TestGetSplitQuote() {
 
 	s.Require().NotNil(splitQuote)
 	s.Require().NoError(err)
+}
+
+// TestGetSplitQuote_RouteErrorHandling tests that routes returning errors
+// (e.g., orderbook pools with insufficient liquidity) are properly excluded
+// from the split quote optimization, rather than silently failing.
+func (s *RouterTestSuite) TestGetSplitQuote_RouteErrorHandling() {
+	const (
+		tokenInDenom  = "uusdc"
+		tokenOutDenom = "ubtc"
+	)
+
+	// Create a mock pool that always succeeds with good output
+	goodPool := &mocks.MockRoutablePool{
+		ID:            1,
+		TokenOutDenom: tokenOutDenom,
+		TakerFee:      osmomath.ZeroDec(),
+		SpreadFactor:  osmomath.ZeroDec(),
+		CalculateTokenOutByTokenInFunc: func(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
+			// Returns 1:1 ratio for simplicity
+			return sdk.NewCoin(tokenOutDenom, tokenIn.Amount), nil
+		},
+	}
+
+	// Create a mock pool that returns an error (simulating orderbook with insufficient liquidity)
+	errorPool := &mocks.MockRoutablePool{
+		ID:            2,
+		TokenOutDenom: tokenOutDenom,
+		TakerFee:      osmomath.ZeroDec(),
+		SpreadFactor:  osmomath.ZeroDec(),
+		CalculateTokenOutByTokenInFunc: func(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
+			return sdk.Coin{}, errors.New("orderbook: not enough liquidity to complete swap")
+		},
+	}
+
+	// Create routes: one good route and one that errors
+	goodRoute := route.RouteImpl{
+		Pools: []domain.RoutablePool{goodPool},
+	}
+	errorRoute := route.RouteImpl{
+		Pools: []domain.RoutablePool{errorPool},
+	}
+
+	routes := []route.RouteImpl{goodRoute, errorRoute}
+
+	// Test with an amount
+	tokenIn := sdk.NewCoin(tokenInDenom, osmomath.NewInt(1_000_000))
+
+	// Get split quote - should succeed using only the good route
+	splitQuote, err := usecase.GetSplitQuote(context.TODO(), routes, tokenIn)
+
+	// Should not error - the erroring route should be excluded, not cause failure
+	s.Require().NoError(err)
+	s.Require().NotNil(splitQuote)
+
+	// The output should be reasonable (from the good route only)
+	// Since the error route returns zero, all traffic should go through the good route
+	s.Require().True(splitQuote.GetAmountOut().Amount.GT(osmomath.ZeroInt()),
+		"Expected positive output from good route, got zero")
 }
 
 // setupSplitsMainnetTestCase sets up the test case for GetSplitQuote using mainnet state.
