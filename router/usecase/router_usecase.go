@@ -127,8 +127,9 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	}
 
 	var (
-		topSingleRouteQuote domain.Quote
-		rankedRoutes        []route.RouteImpl
+		topSingleRouteQuote  domain.Quote
+		rankedRoutes         []route.RouteImpl
+		usedProbeFallback    bool
 	)
 
 	// If no cached candidate routes are found, we attempt to
@@ -150,35 +151,48 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 		}
 
 		// Find candidate routes and rank them by direct quotes.
-		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, tokenIn, tokenOutDenom, options)
+		topSingleRouteQuote, rankedRoutes, usedProbeFallback, err = r.computeAndRankRoutesByDirectQuote(ctx, tokenIn, tokenOutDenom, options)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// Otherwise, simply compute quotes over cached ranked routes
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
+		topSingleRouteQuote, rankedRoutes, usedProbeFallback, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes {
+	// Return single route quote early ONLY if:
+	// 1. There's exactly one route OR splits are disabled, AND
+	// 2. Probe fallback was NOT used.
+	//
+	// When usedProbeFallback is true, the quote's OutAmount is approximate (based on a 10% probe).
+	// We must run the split algorithm to get accurate calculations. For single routes, the split
+	// algorithm will attempt the full amount and return a proper error if it exceeds capacity.
+	if (len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes) && !usedProbeFallback {
 		return topSingleRouteQuote, nil
 	}
 
 	// Filter out generalized cosmWasm pool routes
 	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
 
-	// If filtering leads to a single route left, return it.
-	if len(rankedRoutes) == 1 {
+	// If filtering leads to a single route left, return it (only if probe wasn't used).
+	if len(rankedRoutes) == 1 && !usedProbeFallback {
 		return topSingleRouteQuote, nil
 	}
 
-	// Compute split route quote
+	// Compute split route quote.
+	// This recalculates outputs accurately for each route increment.
+	// If probe fallback was used, this is essential to get correct output amounts.
 	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenIn)
 	if err != nil {
-		// If error occurs in splits, return the single route quote
-		// rather than failing.
+		// If split quote fails and probe fallback was used, we cannot return the single route quote
+		// because its OutAmount is inaccurate. Return the error so users know to try a smaller amount.
+		if usedProbeFallback {
+			return nil, fmt.Errorf("requested amount exceeds available liquidity, try a smaller amount")
+		}
+		// If probe wasn't used, the single route quote is accurate - return it as fallback.
 		return topSingleRouteQuote, nil
 	}
 
@@ -276,7 +290,9 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		return nil, nil, err
 	}
 
-	quote, routes, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn)
+	// usedProbeFallback is intentionally ignored here - this function returns all routes
+	// for pricing purposes, not for user-facing quotes where accuracy matters
+	quote, routes, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -343,24 +359,28 @@ func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []route.RouteWithO
 }
 
 // rankRoutesByDirectQuote ranks the given candidate routes by estimating direct quotes over each route.
-// Additionally, it fileters out routes with duplicate pool IDs and cuts them for splits
+// Additionally, it filters out routes with duplicate pool IDs and cuts them for splits
 // based on the value of maxSplitRoutes.
-// Returns the top quote as well as the ranked routes in decrease order of amount out.
+// Returns the top quote, ranked routes in decreasing order of amount out, whether probe fallback was used, and error.
+//
+// When usedProbeFallback is true, the quote's OutAmount is approximate (based on a smaller probe amount).
+// Callers should run the split algorithm to get accurate calculations rather than returning the quote directly.
+//
 // Returns error if:
 // - fails to read taker fees
 // - fails to convert candidate routes to routes
 // - fails to estimate direct quotes
-func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, bool, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
-	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
+	topQuote, routesWithAmtOut, usedProbeFallback, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
+		return nil, nil, false, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
 
 	// Update ranked routes with filtered ranked routes
@@ -369,11 +389,12 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 	// Cut routes for splits
 	routes = cutRoutesForSplits(maxSplitRoutes, routes)
 
-	return topQuote, routes, nil
+	return topQuote, routes, usedProbeFallback, nil
 }
 
 // computeAndRankRoutesByDirectQuote computes candidate routes and ranks them by token out after estimating direct quotes.
-func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
+// Returns the top quote, ranked routes, whether probe fallback was used, and error.
+func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, bool, error) {
 	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
 
 	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
@@ -388,13 +409,13 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	// Get request path for metrics
 	requestURLPath, err := domain.GetURLPathFromContext(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	if !routingOptions.DisableCache {
@@ -408,19 +429,19 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 
 			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
 
-			return nil, nil, fmt.Errorf("no candidate routes found")
+			return nil, nil, false, fmt.Errorf("no candidate routes found")
 		}
 	}
 
 	// Rank candidate routes by estimating direct quotes
-	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes)
+	topSingleRouteQuote, rankedRoutes, usedProbeFallback, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes)
 	if err != nil {
 		r.logger.Error("error getting ranked routes", zap.Error(err))
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	if len(rankedRoutes) == 0 {
-		return nil, nil, fmt.Errorf("no ranked routes found")
+		return nil, nil, false, fmt.Errorf("no ranked routes found")
 	}
 
 	// Convert ranked routes back to candidate for caching
@@ -445,7 +466,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		}
 	}
 
-	return topSingleRouteQuote, rankedRoutes, nil
+	return topSingleRouteQuote, rankedRoutes, usedProbeFallback, nil
 }
 
 var (
@@ -478,10 +499,17 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 		return nil, err
 	}
 
-	// Compute direct quote
-	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
+	// Compute direct quote.
+	// If probe fallback was used, the quote's OutAmount is inaccurate - return an error.
+	bestSingleRouteQuote, _, usedProbeFallback, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 	if err != nil {
 		return nil, err
+	}
+
+	// If probe fallback was triggered, the requested amount exceeds the pool's capacity.
+	// Return an error rather than an inaccurate quote.
+	if usedProbeFallback {
+		return nil, fmt.Errorf("requested amount exceeds pool %d capacity, try a smaller amount", poolID)
 	}
 
 	return bestSingleRouteQuote, nil

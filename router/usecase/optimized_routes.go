@@ -16,12 +16,20 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
-// Returns best quote as well as all routes sorted by amount out and error if any.
+// Returns best quote, all routes sorted by amount out, whether probe fallback was used, and error if any.
+//
+// When usedProbeFallback is true, the returned quote's OutAmount is an APPROXIMATION
+// based on a smaller probe amount (10% of requested), not the actual output for the full InAmount.
+// This happens when all routes fail at the full amount but succeed at a smaller probe amount,
+// indicating the routes have limited capacity. Callers should run the split algorithm when
+// usedProbeFallback is true to get accurate output calculations, rather than returning the
+// quote directly.
+//
 // CONTRACT: router repository must be set on the router.
-// CONTRACT: pools reporitory must be set on the router
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes route.RouteImpls, tokenIn sdk.Coin) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, err error) {
+// CONTRACT: pools repository must be set on the router
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes route.RouteImpls, tokenIn sdk.Coin) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, usedProbeFallback bool, err error) {
 	if len(routes) == 0 {
-		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
+		return nil, nil, false, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
 
 	// Compute token out for each route
@@ -43,8 +51,14 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 
 		if len(routesWithAmountOut) > 0 {
 			// Routes work at smaller amounts - they have limited capacity.
+			// IMPORTANT: Mark that probe fallback was used. The OutAmount in these routes
+			// is calculated from the probe amount, NOT the full requested amount.
+			// Callers must NOT return this quote directly for single-route scenarios,
+			// as it would show users an incorrect (much smaller) output amount.
+			usedProbeFallback = true
+
 			// Update InAmount to original requested amount for proper handling downstream.
-			// The split algorithm will determine actual allocations based on capacity.
+			// The split algorithm will recalculate actual outputs based on each route's capacity.
 			for i := range routesWithAmountOut {
 				routesWithAmountOut[i].InAmount = tokenIn.Amount
 			}
@@ -63,7 +77,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 			tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
 			r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
 
-			return nil, nil, errors[0]
+			return nil, nil, false, errors[0]
 		}
 	}
 
@@ -80,7 +94,7 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 		Route:     []domain.SplitRoute{&bestRoute},
 	}
 
-	return finalQuote, routesWithAmountOut, nil
+	return finalQuote, routesWithAmountOut, usedProbeFallback, nil
 }
 
 // Returns best quote as well as all routes sorted by amount in and error if any.
