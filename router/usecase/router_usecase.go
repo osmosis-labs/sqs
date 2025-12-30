@@ -127,9 +127,9 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	}
 
 	var (
-		topSingleRouteQuote  domain.Quote
-		rankedRoutes         []route.RouteImpl
-		usedProbeFallback    bool
+		topSingleRouteQuote domain.Quote
+		rankedRoutes        []route.RouteImpl
+		usedProbeFallback   bool
 	)
 
 	// If no cached candidate routes are found, we attempt to
