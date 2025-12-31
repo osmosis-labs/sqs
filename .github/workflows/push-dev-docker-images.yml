@@ -42,8 +42,14 @@ jobs:
       name: Create Docker Image Tags
       run:  |
         SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-8)
-        echo "DOCKER_IMAGE_TAG=${{ github.ref_name }}-${SHORT_SHA}" >> $GITHUB_ENV
-        echo "DOCKER_IMAGE_TAG_WITH_DATE=${{ github.ref_name }}-${SHORT_SHA}-$(date +%s)" >> $GITHUB_ENV
+        # Sanitize branch name for Docker tag only if it contains forward slashes
+        if [[ "${{ github.ref_name }}" == *"/"* ]]; then
+          SANITIZED_REF_NAME=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+        else
+          SANITIZED_REF_NAME="${{ github.ref_name }}"
+        fi
+        echo "DOCKER_IMAGE_TAG=${SANITIZED_REF_NAME}-${SHORT_SHA}" >> $GITHUB_ENV
+        echo "DOCKER_IMAGE_TAG_WITH_DATE=${SANITIZED_REF_NAME}-${SHORT_SHA}-$(date +%s)" >> $GITHUB_ENV
         echo "BUILD_DATE=$(date +%s)" >> $GITHUB_ENV
         SHA=$(git rev-parse $(git rev-parse --abbrev-ref HEAD))
         echo "SHA=$SHA" >> $GITHUB_ENV
