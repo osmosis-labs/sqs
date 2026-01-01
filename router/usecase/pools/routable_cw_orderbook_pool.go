@@ -208,8 +208,111 @@ func (r *routableOrderbookPoolImpl) SetTokenOutDenom(tokenOutDenom string) {
 	r.TokenOutDenom = tokenOutDenom
 }
 
-// CalcSpotPrice implements domain.RoutablePool.
 func (r *routableOrderbookPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
+	poolType := r.GetType()
+
+	// Esnure that the pool is a cosmwasm pool
+	if poolType != poolmanagertypes.CosmWasm {
+		return osmomath.BigDec{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
+	}
+
+	if baseDenom != r.OrderbookData.BaseDenom && baseDenom != r.OrderbookData.QuoteDenom {
+		return osmomath.BigDec{}, cosmwasmpool.DuplicatedDenomError{
+			Denom: baseDenom,
+		}
+	}
+
+	if quoteDenom != r.OrderbookData.BaseDenom && quoteDenom != r.OrderbookData.QuoteDenom {
+		return osmomath.BigDec{}, cosmwasmpool.DuplicatedDenomError{
+			Denom: quoteDenom,
+		}
+	}
+
+	// Ensure that the base and quote denoms are not the same
+	if baseDenom == quoteDenom {
+		return osmomath.BigDec{}, cosmwasmpool.DuplicatedDenomError{
+			Denom: baseDenom,
+		}
+	}
+
+	bidTickPrice := osmomath.ZeroBigDec() // tick offering the highest bid price
+	bidDirection := cosmwasmpool.BID
+	bidTickIdx := r.OrderbookData.NextBidTickIndex
+
+	// Compute best bid tick price
+	// Best bid tick is the tick with the highest bid price that has liquidity
+	for bidTickIdx >= 0 && bidTickIdx < len(r.OrderbookData.Ticks) && bidTickPrice.IsZero() {
+		tick := r.OrderbookData.Ticks[bidTickIdx]
+
+		// When the tick has no liquidity, we skip it and move to the next tick
+		if tick.TickLiquidity.BidLiquidity.IsZero() {
+			iterationStep, err := bidDirection.IterationStep() // -1 for BID direction
+			if err != nil {
+				return osmomath.BigDec{}, err
+			}
+
+			bidTickIdx += iterationStep
+			continue
+		}
+
+		// Convert tick to price
+		// The larger the tick id, the higher the price
+		tickPrice, err := clmath.TickToPrice(tick.TickId)
+		if err != nil {
+			return osmomath.BigDec{}, err
+		}
+
+		bidTickPrice = tickPrice
+	}
+
+	askTickPrice := osmomath.ZeroBigDec() // tick offering the lowest ask price
+	askDirection := cosmwasmpool.ASK
+	askTickIdx := r.OrderbookData.NextAskTickIndex
+
+	// Compute best ask tick price
+	// Best ask tick is the tick with the lowest ask price that has liquidity
+	for askTickIdx >= 0 && askTickIdx < len(r.OrderbookData.Ticks) && askTickPrice.IsZero() {
+		tick := r.OrderbookData.Ticks[askTickIdx]
+
+		// When the tick has no liquidity, skip it and move to the next tick
+		if tick.TickLiquidity.AskLiquidity.IsZero() {
+			iterationStep, err := askDirection.IterationStep() // 1 for ASK direction
+			if err != nil {
+				return osmomath.BigDec{}, err
+			}
+
+			askTickIdx += iterationStep
+			continue
+		}
+
+		// Convert tick to price
+		// The smaller the tick id, the lower the price
+		tickPrice, err := clmath.TickToPrice(tick.TickId)
+		if err != nil {
+			return osmomath.BigDec{}, err
+		}
+
+		// Set the best ask price
+		askTickPrice = tickPrice
+	}
+
+	midPrice := bidTickPrice.Add(askTickPrice).Quo(osmomath.NewBigDec(2))
+
+	// Orderbook's quote denom matches the base denom
+	if r.OrderbookData.BaseDenom == baseDenom && r.OrderbookData.QuoteDenom == quoteDenom {
+		return midPrice, nil
+	}
+
+	if midPrice.IsZero() {
+		return osmomath.ZeroBigDec(), nil
+	}
+
+	// Reverse the mid price if the base denom is the quote denom
+	return osmomath.OneBigDec().Quo(midPrice), nil
+}
+
+// CalcSpotPrice implements domain.RoutablePool.
+func (r *routableOrderbookPoolImpl) CalcSpotPriceOld(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
 	// Get the expected order directionIn
 	directionIn, err := r.OrderbookData.GetDirection(baseDenom, quoteDenom)
 	if err != nil {

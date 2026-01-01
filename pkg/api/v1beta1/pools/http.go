@@ -18,6 +18,7 @@ const (
 )
 
 const (
+	paramID                         = "id"
 	queryIDs                        = "IDs"                    // Deprecated: use filter[id]
 	queryMinLiquidityCap            = "min_liquidity_cap"      // Deprecated: use filter[min_liquidity_cap]
 	queryWithMarketIncentives       = "with_market_incentives" // Deprecated: use filter[with_market_incentives]
@@ -172,6 +173,38 @@ func (r *GetPoolsRequestFilter) UnmarshalHTTPRequest(c echo.Context) error {
 			return fmt.Errorf("search query is too long")
 		}
 		r.Search = p
+	}
+
+	return nil
+}
+
+// UnmarshalHTTPRequest imlpements RequestUnmarshaler interface.
+func (r *CalculateSpotPriceRequest) UnmarshalHTTPRequest(c echo.Context) error {
+	var err error
+
+	r.PoolId, err = strconv.ParseUint(c.Param(paramID), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	r.BaseDenom = c.QueryParam("base")
+	r.QuoteDenom = c.QueryParam("quote")
+
+	return nil
+}
+
+// Validate validates the CalculateSpotPriceRequest.
+func (r *CalculateSpotPriceRequest) Validate() error {
+	if r.PoolId == 0 {
+		return fmt.Errorf("pool ID %d is not valid ID", r.PoolId)
+	}
+
+	if r.BaseDenom == "" {
+		return fmt.Errorf("base denom is not valid")
+	}
+
+	if r.QuoteDenom == "" {
+		return fmt.Errorf("quote denom is not valid")
 	}
 
 	return nil

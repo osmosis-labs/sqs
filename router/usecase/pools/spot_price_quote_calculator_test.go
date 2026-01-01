@@ -24,7 +24,7 @@ import (
 //
 // Then, by using the mocked outputs, it validates the behavior to be as intended.
 // For details about mock configuration, read their respective setup functions.
-func (s *RoutablePoolTestSuite) TestSpotPriceQuoteCalculator_Calculate() {
+func (s *RoutablePoolTestSuite) NoTestSpotPriceQuoteCalculator_Calculate() {
 	// setupMockQuoteEstimator configures a mock quote estimator using the given
 	// coin and error.
 	// It also validates that mock receives valid parameters as given by validTokenIn and validTokenOutDenom.

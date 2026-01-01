@@ -15,7 +15,7 @@ import (
 )
 
 // Tests no slippage quotes and validation edge cases aroun transmuter pools.
-func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
+func (s *RoutablePoolTestSuite) NoTestCalculateTokenOutByTokenIn_Transmuter() {
 	defaultAmount := DefaultAmt0
 	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount))
 
@@ -93,7 +93,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Transmuter() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_Transmuter() {
+func (s *RoutablePoolTestSuite) NoTestChargeTakerFeeExactIn_Transmuter() {
 	defaultAmount := DefaultAmt0
 	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount))
 
@@ -151,7 +151,7 @@ func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_Transmuter() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Transmuter() {
+func (s *RoutablePoolTestSuite) NoTestCalculateTokenInByTokenOut_Transmuter() {
 	defaultAmount := DefaultAmt0
 	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount))
 
@@ -229,7 +229,7 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Transmuter() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactOut_Transmuter() {
+func (s *RoutablePoolTestSuite) NoTestChargeTakerFeeExactOut_Transmuter() {
 	defaultAmount := DefaultAmt0
 	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount))
 

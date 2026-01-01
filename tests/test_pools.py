@@ -1,5 +1,6 @@
 import conftest
 import pytest
+import constants
 from decimal import Decimal
 
 from sqs_service import *
@@ -41,6 +42,9 @@ class TestPools:
     @pytest.mark.parametrize("pool_data", filter_pools(conftest.shared_test_state.all_pools_data, min_pool_liquidity_cap_usdc), ids=util.id_from_pool)
     def test_pools_pool_liquidity_cap(self, environment_url, pool_data):
         run_pool_liquidity_cap_test(environment_url, pool_data)
+
+    def test_canonical_orderbook_spot_prices(self, environment_url):
+        run_canonical_orderbook_spot_price_test(environment_url)
 
     def test_canonical_orderbook(self, environment_url):
         run_canonical_orderbook_test(environment_url)
@@ -85,6 +89,54 @@ def run_pool_liquidity_cap_test(environment_url, pool_data):
     actual_error = relative_error(sqs_liquidity_cap, pool_liquidity)
 
     assert actual_error < error_tolerance, f"ID ({pool_id}) Pool liquidity cap was {sqs_liquidity_cap} - expected {pool_liquidity}, actual error {actual_error} error tolerance {error_tolerance}" 
+
+
+# pytest -s tests/test_pools.py::TestPools::test_canonical_orderbook_spot_prices
+def run_canonical_orderbook_spot_price_test(environment_url):
+    sqs_service = SERVICE_MAP[environment_url]
+    canonical_orderbooks = sqs_service.get_canonical_orderbooks()
+
+    for orderbook in canonical_orderbooks:
+        pool_id = orderbook.get("pool_id")
+        quote = orderbook.get("quote")
+        base = orderbook.get("base")
+
+        if not constants.is_usd(quote) and not constants.is_usd(base):
+            print(f"Skipping orderbook {orderbook.get('pool_id')} neither quote {quote} or base {base} is USDC")
+            continue
+
+        pool = sqs_service.get_pool(pool_id)
+        assert pool is not None
+
+
+        liquidity_cap = int(pool.get("liquidity_cap"))
+        if liquidity_cap < 1000:
+            print(f"Skipping orderbook {pool_id} pool liquidity_cap of {liquidity_cap} < 1000")
+            continue
+
+        if constants.is_usd(quote):
+            # Price is quoted in USDC, so we can use the base as is
+            spot_price = sqs_service.calculate_spot_price(pool_id, base, quote)
+
+            # Token is non USDC denom
+            token = base
+        else:
+            # Quote is not USDC, so we need to use the quote as base and base as quote
+            # to get the spot price in USDC.
+            spot_price = sqs_service.calculate_spot_price(pool_id, quote, base)
+
+            # Token is non USDC denom
+            token = quote
+
+        spot_price = spot_price.get("spot_price", 0)
+        sqs_price_json = sqs_service.get_tokens_prices([token])
+        sqs_price = sqs_price_json.get(token, {}).get(constants.USDC, None)
+
+        error = relative_error(Decimal(spot_price), Decimal(sqs_price))
+
+        # assert error < 0.01, 
+        print(f"Pool: {pool_id} error: {error}, liquidity cap: {liquidity_cap}, spot price: {spot_price}, global price: {sqs_price}")
+
 
 def run_canonical_orderbook_test(environment_url):
     # Note, that this is the first orderbook created on mainnet. As a result, it is the canonical orderbook.

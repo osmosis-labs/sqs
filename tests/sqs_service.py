@@ -52,6 +52,18 @@ class SQSService:
         self.config = response.json()
 
         return self.config
+
+    def get_pool(self, pool_id, min_liquidity_cap=None, with_market_incentives=False):
+        """
+        Fetches the pool from the specified endpoint and returns it.
+        Raises error if non-200 is returned from the endpoint.
+        """
+        pools = self.get_pools(pool_ids=pool_id, min_liquidity_cap=min_liquidity_cap, with_market_incentives=with_market_incentives)
+
+        if not pools or len(pools) == 0:
+            raise Exception(f"Pool with ID {pool_id} not found")
+
+        return pools[0]
     
     def get_pools(self, pool_ids=None, min_liquidity_cap=None, with_market_incentives=False):
         """
@@ -230,6 +242,22 @@ class SQSService:
                 self.asset_list[asset[coin_minimal_denom_key]] = asset.get(coingecko_id_key, None)
 
         return self.asset_list.get(denom, None)
+
+    def calculate_spot_price(self, pool_id, base_denom, quote_denom):
+        """
+        Calculates the spot price for a given pool and its base_denom, and quote_denom.
+        """
+
+        params = {
+            "base": base_denom,
+            "quote": quote_denom,
+        }
+
+        return requests.get(
+            self.url + POOLS_URL + "/" + str(pool_id) + "/spot-price",
+            params=params, 
+            headers=self.headers
+        ).json()
 
     def get_canonical_orderbooks(self):
         """

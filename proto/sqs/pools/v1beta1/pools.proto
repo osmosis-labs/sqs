@@ -57,3 +57,25 @@ message GetPoolsRequest {
 
 // TODO: Add more fields to the response
 message GetPoolsResponse {}
+
+// CalculateSpotPriceRequest is the request type for the
+// Service.CalculateSpotPrice RPC method. It is used to calculate the spot price
+// of a pool based on the base and quote denominations.
+message CalculateSpotPriceRequest {
+  // pool_id is the pool id to query.
+  uint64 pool_id = 1;
+
+  // base_denom is the base denomination to calculate the spot price against.
+  string base_denom = 2;
+
+  // quote_denom is the quote denomination to calculate the spot price against.
+  string quote_denom = 3;
+}
+
+// CalculateSpotPriceResponse is the response type for the
+// Service.CalculateSpotPrice RPC method. It contains the calculated spot price
+// of the pool.
+message CalculateSpotPriceResponse {
+  // spot_price is the calculated spot price of the pool.
+  string spot_price = 1;
+}

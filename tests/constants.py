@@ -1,6 +1,9 @@
 # Misc constants
 UOSMO = "uosmo"
 USDC = 'ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4'
+USDT = 'factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT'
+USDY = "ibc/23104D411A6EB6031FA92FB75F227422B84989969E91DCAD56A535DD7FF0A373"
+
 USDC_PRECISION = 6
 
 UOSMO_USDC_POOL_ID =  1464
@@ -35,3 +38,9 @@ UNSUPPORTED_TOKEN_COUNT_THRESHOLD = 10
 # required to run the transmuter test. This is to avoid the flakiness
 # stemming from transmuter pool imbalance.
 TRANSMUTER_MIN_TOKEN_LIQ_USD = 15000
+
+def is_usd(denom):
+    """
+    Check if the given denom is a USD token.
+    """
+    return denom in [USDC, USDT, USDY]

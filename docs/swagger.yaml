@@ -173,6 +173,12 @@ definitions:
           $ref: '#/definitions/github_com_osmosis-labs_sqs_domain_orderbook.LimitOrder'
         type: array
     type: object
+  github_com_osmosis-labs_sqs_pkg_api_v1beta1_pools.CalculateSpotPriceResponse:
+    properties:
+      spot_price:
+        description: spot_price is the calculated spot price of the pool.
+        type: string
+    type: object
   math.Int:
     type: object
 info:
@@ -258,6 +264,34 @@ paths:
             items: {}
             type: array
       summary: Get pool(s) information
+  /pools/{id}/spot-price:
+    get:
+      description: Returns the spot price for a given pool ID, base denom, and quote
+        denom.
+      parameters:
+      - description: Pool ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Base denom
+        in: query
+        name: base
+        required: true
+        type: string
+      - description: Quote denom
+        in: query
+        name: quote
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Spot price
+          schema:
+            $ref: '#/definitions/github_com_osmosis-labs_sqs_pkg_api_v1beta1_pools.CalculateSpotPriceResponse'
+      summary: Calculate spot price for a pool
   /pools/canonical-orderbook:
     get:
       description: |-

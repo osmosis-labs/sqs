@@ -6,7 +6,6 @@ require (
 	cosmossdk.io/math v1.5.0
 	cosmossdk.io/store v1.1.1
 	cosmossdk.io/x/tx v0.13.7
-	github.com/ALTree/bigfloat v0.2.0
 	github.com/CosmWasm/wasmd v0.53.2
 	github.com/cometbft/cometbft v0.38.13
 	github.com/cosmos/cosmos-sdk v0.50.13
