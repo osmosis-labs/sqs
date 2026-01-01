@@ -1,7 +1,9 @@
 package datafetchers
 
 import (
+	"fmt"
 	"strconv"
+	"time"
 
 	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
@@ -10,28 +12,44 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	// numiaAPRsFetchRetries is the number of retries to fetch pool APRs from Numia.
+	numiaAPRsFetchRetries = 3
+	// numiaAPRsFetchRetryDelay is the delay between retries to fetch pool APRs from Numia.
+	numiaAPRsFetchRetryDelay = time.Second * 1
+)
+
 // GetFetchPoolAPRsFromNumiaCb returns a callback to fetch pool APRs from Numia.
-// It increments the error counter if the pool APRs fetching fails.
+// It retries to fetch the pool APRs if the fetching fails up to numiaAPRsFetchRetries times with a delay of numiaAPRsFetchRetryDelay between retries.
+// It increments the error counter if the pool APRs fetching fails after the retries.
 // It returns a callback function that returns the pool APRs on success.
 func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClient, logger log.Logger) func() (map[uint64]sqspassthroughdomain.PoolAPR, error) {
 	return func() (map[uint64]sqspassthroughdomain.PoolAPR, error) {
-		// Fetch pool APRs from the passthrough grpc client
-		poolAPRs, err := numiaHTTPClient.GetPoolAPRsRange()
-		if err != nil {
-			logger.Error("Failed to fetch pool APRs", zap.Error(err))
 
-			// Increment the error counter
-			domain.SQSPassthroughNumiaAPRsFetchErrorCounter.Inc()
-			return nil, err
+		for i := 0; i < numiaAPRsFetchRetries; i++ {
+
+			// Fetch pool APRs from the passthrough grpc client
+			poolAPRs, err := numiaHTTPClient.GetPoolAPRsRange()
+			if err != nil {
+				logger.Error("Failed to fetch pool APRs,", zap.Error(err), zap.Int("retry", i))
+
+				time.Sleep(numiaAPRsFetchRetryDelay)
+				continue
+			}
+
+			// Convert to map
+			poolAPRsMap := make(map[uint64]sqspassthroughdomain.PoolAPR, len(poolAPRs))
+			for _, poolAPR := range poolAPRs {
+				poolAPRsMap[poolAPR.PoolID] = poolAPR
+			}
+
+			return poolAPRsMap, nil
 		}
 
-		// Convert to map
-		poolAPRsMap := make(map[uint64]sqspassthroughdomain.PoolAPR, len(poolAPRs))
-		for _, poolAPR := range poolAPRs {
-			poolAPRsMap[poolAPR.PoolID] = poolAPR
-		}
+		// Increment the error counter
+		domain.SQSPassthroughNumiaAPRsFetchErrorCounter.Inc()
 
-		return poolAPRsMap, nil
+		return nil, fmt.Errorf("failed to fetch pool APRs after %d retries", numiaAPRsFetchRetries)
 	}
 }
 
