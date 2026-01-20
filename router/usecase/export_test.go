@@ -7,6 +7,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mvc"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -92,4 +93,14 @@ func (r *routerUseCaseImpl) SetRankedRouteCacheToMock(method domain.TokenSwapMet
 			{}, {},
 		}}, 0)
 
+}
+
+// OrderbookHasSufficientCapacity exports the orderbookHasSufficientCapacity method for testing.
+func (r *routerUseCaseImpl) OrderbookHasSufficientCapacity(poolID uint64, tokenIn sdk.Coin, tokenOutDenom string) (hasCapacity bool, direction string, capacity string, err error) {
+	return r.orderbookHasSufficientCapacity(poolID, tokenIn, tokenOutDenom)
+}
+
+// SetPoolsUsecase sets the pools usecase for testing purposes.
+func (r *routerUseCaseImpl) SetPoolsUsecase(poolsUsecase mvc.PoolsUsecase) {
+	r.poolsUsecase = poolsUsecase
 }

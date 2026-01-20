@@ -12,6 +12,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -412,6 +413,13 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		return nil, nil, false, err
 	}
 
+	// OSMO-53 debug logging: candidate routes found
+	r.logger.Debug("OSMO-53: candidate routes found",
+		zap.Int("total_routes", len(candidateRoutes.Routes)),
+		zap.Bool("contains_canonical_orderbook", candidateRoutes.ContainsCanonicalOrderbook),
+		zap.String("token_in", tokenIn.String()),
+		zap.String("token_out_denom", tokenOutDenom))
+
 	// Get request path for metrics
 	requestURLPath, err := domain.GetURLPathFromContext(ctx)
 	if err != nil {
@@ -447,14 +455,64 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	// Convert ranked routes back to candidate for caching
 	convertedCandidateRoutes := convertRankedToCandidateRoutes(rankedRoutes)
 
+	// OSMO-53 debug logging: routes after ranking
+	r.logger.Debug("OSMO-53: routes after ranking",
+		zap.Int("ranked_routes", len(rankedRoutes)),
+		zap.Bool("converted_contains_orderbook", convertedCandidateRoutes.ContainsCanonicalOrderbook),
+		zap.Bool("original_contains_orderbook", candidateRoutes.ContainsCanonicalOrderbook),
+		zap.Bool("used_probe_fallback", usedProbeFallback))
+
 	if len(rankedRoutes) > 0 {
 		// We would like to always consider the canonical orderbook route so that if new limits appear
-		// we can detect them. Oterwise, our cache would have to expire to detect them.
+		// we can detect them. Otherwise, our cache would have to expire to detect them.
+		// However, we only force-add if the orderbook has sufficient capacity for the current swap amount.
+		// This prevents re-adding orderbooks with insufficient liquidity to the cache.
 		if !convertedCandidateRoutes.ContainsCanonicalOrderbook && candidateRoutes.ContainsCanonicalOrderbook {
-			// Find the canonical orderbook route and add it to the converted candidate routes.
+			// Find the canonical orderbook route and check if it should be force-added.
 			for _, candidateRoute := range candidateRoutes.Routes {
 				if candidateRoute.IsCanonicalOrderboolRoute {
-					convertedCandidateRoutes.Routes = append(convertedCandidateRoutes.Routes, candidateRoute)
+					// Get the orderbook pool ID from the route (canonical orderbook routes have exactly one pool)
+					if len(candidateRoute.Pools) > 0 {
+						orderbookPoolID := candidateRoute.Pools[0].ID
+
+						// Check if the orderbook has sufficient capacity for this swap amount
+						hasCapacity, direction, capacity, err := r.orderbookHasSufficientCapacity(orderbookPoolID, tokenIn, tokenOutDenom)
+
+						// OSMO-53 debug logging: orderbook capacity check
+						r.logger.Debug("OSMO-53: orderbook capacity check",
+							zap.Uint64("pool_id", orderbookPoolID),
+							zap.String("token_in_amount", tokenIn.Amount.String()),
+							zap.String("orderbook_capacity", capacity),
+							zap.Bool("has_sufficient_capacity", hasCapacity),
+							zap.String("swap_direction", direction),
+							zap.Error(err))
+
+						shouldForceAdd := false
+						reason := ""
+
+						if err != nil {
+							// If we can't check capacity, skip force-add as a fail-safe
+							// The orderbook was already filtered out during ranking for a reason
+							reason = fmt.Sprintf("capacity check failed: %v", err)
+							r.logger.Debug("OSMO-53: skipping orderbook force-add due to capacity check error",
+								zap.Uint64("pool_id", orderbookPoolID),
+								zap.Error(err))
+						} else if hasCapacity {
+							// Orderbook has sufficient capacity, force-add it
+							shouldForceAdd = true
+							reason = "orderbook has sufficient capacity"
+							convertedCandidateRoutes.Routes = append(convertedCandidateRoutes.Routes, candidateRoute)
+						} else {
+							// Orderbook does not have sufficient capacity, skip force-add
+							reason = fmt.Sprintf("insufficient capacity: need %s, have %s", tokenIn.Amount.String(), capacity)
+						}
+
+						// OSMO-53 debug logging: force-add decision
+						r.logger.Debug("OSMO-53: canonical orderbook force-add decision",
+							zap.Uint64("pool_id", orderbookPoolID),
+							zap.Bool("will_force_add", shouldForceAdd),
+							zap.String("reason", reason))
+					}
 					break
 				}
 			}
@@ -1033,4 +1091,58 @@ func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenOutDenom string, p
 			poolID: {},
 		},
 	}
+}
+
+// orderbookHasSufficientCapacity checks if an orderbook pool has sufficient capacity for the given token in amount.
+// Returns:
+// - hasCapacity: true if the orderbook can handle the tokenIn amount
+// - direction: the swap direction as a string (for logging)
+// - capacity: the orderbook capacity as a string (for logging)
+// - err: error if capacity check could not be performed (e.g., pool fetch failed, not an orderbook)
+//
+// This uses the same OrderbookData that is used in CalculateTokenOutByTokenIn for quote calculation,
+// so the capacity check is consistent with actual quote behavior.
+func (r *routerUseCaseImpl) orderbookHasSufficientCapacity(poolID uint64, tokenIn sdk.Coin, tokenOutDenom string) (hasCapacity bool, direction string, capacity string, err error) {
+	pool, err := r.poolsUsecase.GetPool(poolID)
+	if err != nil {
+		return false, "", "", fmt.Errorf("failed to get pool %d: %w", poolID, err)
+	}
+
+	sqsModel := pool.GetSQSPoolModel()
+	if sqsModel.CosmWasmPoolModel == nil {
+		return false, "", "", fmt.Errorf("pool %d has no CosmWasmPoolModel", poolID)
+	}
+
+	orderbookData := sqsModel.CosmWasmPoolModel.Data.Orderbook
+	if orderbookData == nil {
+		return false, "", "", fmt.Errorf("pool %d has no OrderbookData", poolID)
+	}
+
+	// Determine swap direction
+	directionIn, err := orderbookData.GetDirection(tokenIn.Denom, tokenOutDenom)
+	if err != nil {
+		return false, "", "", fmt.Errorf("failed to get direction for pool %d: %w", poolID, err)
+	}
+
+	// Get the appropriate capacity based on direction
+	// BID direction: tokenIn is quote denom, buying base -> uses BidAmountToExhaustAskLiquidity
+	// ASK direction: tokenIn is base denom, selling base -> uses AskAmountToExhaustBidLiquidity
+	var capacityBigDec osmomath.BigDec
+	if *directionIn == cosmwasmpool.BID {
+		capacityBigDec = orderbookData.BidAmountToExhaustAskLiquidity
+		direction = "BID"
+	} else {
+		capacityBigDec = orderbookData.AskAmountToExhaustBidLiquidity
+		direction = "ASK"
+	}
+
+	// Convert tokenIn amount to BigDec for comparison
+	tokenInAmountBigDec := osmomath.BigDecFromSDKInt(tokenIn.Amount)
+
+	// Check if capacity is sufficient
+	// Note: we use LTE (<=) because the orderbook can handle exactly the capacity amount
+	hasCapacity = tokenInAmountBigDec.LTE(capacityBigDec)
+	capacity = capacityBigDec.String()
+
+	return hasCapacity, direction, capacity, nil
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/balancer"
 )
 
@@ -1703,4 +1704,227 @@ func (s *RouterTestSuite) validatePoolIDInRoute(routerUseCase mvc.RouterUsecase,
 
 	// Validate that the pool ID is the expected one
 	s.Require().Equal(expectedPoolID, routePools[0].GetId())
+}
+
+// TestOrderbookHasSufficientCapacity tests the capacity check helper for orderbook pools.
+// This validates that the capacity check correctly determines if an orderbook can handle
+// a given swap amount based on the mirrored OrderbookData.
+func (s *RouterTestSuite) TestOrderbookHasSufficientCapacity() {
+	const (
+		orderbookPoolID = uint64(1930)
+		quoteDenom      = "usdc"
+		baseDenom       = "btc"
+	)
+
+	tests := map[string]struct {
+		// Setup
+		orderbookData   *cosmwasmpool.CosmWasmPoolModel
+		tokenInDenom    string
+		tokenOutDenom   string
+		tokenInAmount   osmomath.Int
+		poolFetchError  error
+
+		// Expected
+		expectedHasCapacity bool
+		expectedDirection   string
+		expectedError       bool
+	}{
+		"sufficient capacity for BID direction (buying base with quote)": {
+			// BID: tokenIn is quote, uses BidAmountToExhaustAskLiquidity
+			orderbookData: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						QuoteDenom:                     quoteDenom,
+						BaseDenom:                      baseDenom,
+						BidAmountToExhaustAskLiquidity: osmomath.NewBigDec(100_000),
+						AskAmountToExhaustBidLiquidity: osmomath.NewBigDec(10),
+					},
+				},
+			},
+			tokenInDenom:        quoteDenom,
+			tokenOutDenom:       baseDenom,
+			tokenInAmount:       osmomath.NewInt(50_000),
+			expectedHasCapacity: true,
+			expectedDirection:   "BID",
+		},
+		"insufficient capacity for BID direction (OSMO-53 scenario)": {
+			// Simulates pool 1930 with ~$42K liquidity
+			orderbookData: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						QuoteDenom:                     quoteDenom,
+						BaseDenom:                      baseDenom,
+						BidAmountToExhaustAskLiquidity: osmomath.NewBigDec(42_000), // ~$42K like pool 1930
+						AskAmountToExhaustBidLiquidity: osmomath.NewBigDec(1),
+					},
+				},
+			},
+			tokenInDenom:        quoteDenom,
+			tokenOutDenom:       baseDenom,
+			tokenInAmount:       osmomath.NewInt(500_000), // 500K - exceeds capacity
+			expectedHasCapacity: false,
+			expectedDirection:   "BID",
+		},
+		"exact capacity match - should succeed": {
+			orderbookData: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						QuoteDenom:                     quoteDenom,
+						BaseDenom:                      baseDenom,
+						BidAmountToExhaustAskLiquidity: osmomath.NewBigDec(100_000),
+						AskAmountToExhaustBidLiquidity: osmomath.NewBigDec(10),
+					},
+				},
+			},
+			tokenInDenom:        quoteDenom,
+			tokenOutDenom:       baseDenom,
+			tokenInAmount:       osmomath.NewInt(100_000), // Exactly at capacity
+			expectedHasCapacity: true,
+			expectedDirection:   "BID",
+		},
+		"sufficient capacity for ASK direction (selling base for quote)": {
+			// ASK: tokenIn is base, uses AskAmountToExhaustBidLiquidity
+			orderbookData: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						QuoteDenom:                     quoteDenom,
+						BaseDenom:                      baseDenom,
+						BidAmountToExhaustAskLiquidity: osmomath.NewBigDec(100_000),
+						AskAmountToExhaustBidLiquidity: osmomath.NewBigDec(10),
+					},
+				},
+			},
+			tokenInDenom:        baseDenom,
+			tokenOutDenom:       quoteDenom,
+			tokenInAmount:       osmomath.NewInt(5),
+			expectedHasCapacity: true,
+			expectedDirection:   "ASK",
+		},
+		"insufficient capacity for ASK direction": {
+			orderbookData: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						QuoteDenom:                     quoteDenom,
+						BaseDenom:                      baseDenom,
+						BidAmountToExhaustAskLiquidity: osmomath.NewBigDec(100_000),
+						AskAmountToExhaustBidLiquidity: osmomath.NewBigDec(10),
+					},
+				},
+			},
+			tokenInDenom:        baseDenom,
+			tokenOutDenom:       quoteDenom,
+			tokenInAmount:       osmomath.NewInt(15), // Exceeds 10
+			expectedHasCapacity: false,
+			expectedDirection:   "ASK",
+		},
+		"nil CosmWasmPoolModel": {
+			orderbookData: nil,
+			tokenInDenom:  quoteDenom,
+			tokenOutDenom: baseDenom,
+			tokenInAmount: osmomath.NewInt(1000),
+			expectedError: true,
+		},
+		"nil OrderbookData": {
+			orderbookData: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: nil,
+				},
+			},
+			tokenInDenom:  quoteDenom,
+			tokenOutDenom: baseDenom,
+			tokenInAmount: osmomath.NewInt(1000),
+			expectedError: true,
+		},
+		"pool fetch error": {
+			orderbookData:  nil,
+			tokenInDenom:   quoteDenom,
+			tokenOutDenom:  baseDenom,
+			tokenInAmount:  osmomath.NewInt(1000),
+			poolFetchError: fmt.Errorf("pool not found"),
+			expectedError:  true,
+		},
+		"zero capacity - should fail": {
+			orderbookData: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						QuoteDenom:                     quoteDenom,
+						BaseDenom:                      baseDenom,
+						BidAmountToExhaustAskLiquidity: osmomath.ZeroBigDec(),
+						AskAmountToExhaustBidLiquidity: osmomath.ZeroBigDec(),
+					},
+				},
+			},
+			tokenInDenom:        quoteDenom,
+			tokenOutDenom:       baseDenom,
+			tokenInAmount:       osmomath.NewInt(1000),
+			expectedHasCapacity: false,
+			expectedDirection:   "BID",
+		},
+	}
+
+	for name, tc := range tests {
+		tc := tc
+		s.Run(name, func() {
+			// Create mock pools usecase
+			poolsUsecaseMock := &mocks.PoolsUsecaseMock{}
+
+			// Set up GetPoolFunc
+			poolsUsecaseMock.GetPoolFunc = func(poolID uint64) (ingesttypes.PoolI, error) {
+				if tc.poolFetchError != nil {
+					return nil, tc.poolFetchError
+				}
+
+				mockPool := &mocks.MockRoutablePool{
+					ID:                orderbookPoolID,
+					CosmWasmPoolModel: tc.orderbookData,
+				}
+				return mockPool, nil
+			}
+
+			// Create router usecase with mocked pools
+			routerUsecase := &usecase.RouterUseCaseImpl{}
+			routerUsecase.SetPoolsUsecase(poolsUsecaseMock)
+
+			// Call the capacity check
+			tokenIn := sdk.NewCoin(tc.tokenInDenom, tc.tokenInAmount)
+			hasCapacity, direction, _, err := routerUsecase.OrderbookHasSufficientCapacity(orderbookPoolID, tokenIn, tc.tokenOutDenom)
+
+			if tc.expectedError {
+				s.Require().Error(err, "expected error but got none")
+				return
+			}
+
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expectedHasCapacity, hasCapacity, "capacity check mismatch")
+			s.Require().Equal(tc.expectedDirection, direction, "direction mismatch")
+		})
+	}
 }
