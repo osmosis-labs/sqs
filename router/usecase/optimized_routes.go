@@ -66,16 +66,16 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 		} else {
 			// Even probe amount failed - truly no viable routes exist.
 			// Invalidate caches to force recomputation on next request.
-		// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
-		// If the original routes were computed only through the zero liquidity token, they will be recomputed
-		// through another token due to changed order.
+			// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
+			// If the original routes were computed only through the zero liquidity token, they will be recomputed
+			// through another token due to changed order.
 
-		// Note: the zero length check occurred at the start of function.
-		tokenOutDenom := routes[0].GetTokenOutDenom()
+			// Note: the zero length check occurred at the start of function.
+			tokenOutDenom := routes[0].GetTokenOutDenom()
 
-		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom))
-		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
-		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+			r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom))
+			tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
+			r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
 
 			return nil, nil, false, errors[0]
 		}
