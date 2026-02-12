@@ -123,7 +123,7 @@ func (s *RouterTestSuite) setupSplitsMainnetTestCase(displayDenomIn string, amou
 	s.Require().True(ok)
 
 	// Estimate direct quote
-	_, rankedRoutes, err := routerUseCase.RankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, chainDenomOut, config.MaxRoutes)
+	_, rankedRoutes, _, err := routerUseCase.RankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, chainDenomOut, config.MaxRoutes)
 	s.Require().NoError(err)
 
 	return tokenIn, rankedRoutes

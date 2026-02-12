@@ -7,6 +7,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mvc"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -33,7 +34,7 @@ func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, 
 	return r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 }
 
-func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []route.RouteWithOutAmount, error) {
+func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []route.RouteWithOutAmount, bool, error) {
 	return r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 }
 
@@ -69,7 +70,7 @@ func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	return getSplitQuote(ctx, routes, tokenIn)
 }
 
-func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, bool, error) {
 	return r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
 }
 
@@ -92,4 +93,14 @@ func (r *routerUseCaseImpl) SetRankedRouteCacheToMock(method domain.TokenSwapMet
 			{}, {},
 		}}, 0)
 
+}
+
+// OrderbookHasSufficientCapacity exports the orderbookHasSufficientCapacity method for testing.
+func (r *routerUseCaseImpl) OrderbookHasSufficientCapacity(poolID uint64, tokenIn sdk.Coin, tokenOutDenom string) (hasCapacity bool, direction string, capacity string, err error) {
+	return r.orderbookHasSufficientCapacity(poolID, tokenIn, tokenOutDenom)
+}
+
+// SetPoolsUsecase sets the pools usecase for testing purposes.
+func (r *routerUseCaseImpl) SetPoolsUsecase(poolsUsecase mvc.PoolsUsecase) {
+	r.poolsUsecase = poolsUsecase
 }

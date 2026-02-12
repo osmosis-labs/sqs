@@ -12,6 +12,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -129,6 +130,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	var (
 		topSingleRouteQuote domain.Quote
 		rankedRoutes        []route.RouteImpl
+		usedProbeFallback   bool
 	)
 
 	// If no cached candidate routes are found, we attempt to
@@ -150,35 +152,48 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 		}
 
 		// Find candidate routes and rank them by direct quotes.
-		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuote(ctx, tokenIn, tokenOutDenom, options)
+		topSingleRouteQuote, rankedRoutes, usedProbeFallback, err = r.computeAndRankRoutesByDirectQuote(ctx, tokenIn, tokenOutDenom, options)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// Otherwise, simply compute quotes over cached ranked routes
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
+		topSingleRouteQuote, rankedRoutes, usedProbeFallback, err = r.rankRoutesByDirectQuote(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes {
+	// Return single route quote early ONLY if:
+	// 1. There's exactly one route OR splits are disabled, AND
+	// 2. Probe fallback was NOT used.
+	//
+	// When usedProbeFallback is true, the quote's OutAmount is approximate (based on a 10% probe).
+	// We must run the split algorithm to get accurate calculations. For single routes, the split
+	// algorithm will attempt the full amount and return a proper error if it exceeds capacity.
+	if (len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes) && !usedProbeFallback {
 		return topSingleRouteQuote, nil
 	}
 
 	// Filter out generalized cosmWasm pool routes
 	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
 
-	// If filtering leads to a single route left, return it.
-	if len(rankedRoutes) == 1 {
+	// If filtering leads to a single route left, return it (only if probe wasn't used).
+	if len(rankedRoutes) == 1 && !usedProbeFallback {
 		return topSingleRouteQuote, nil
 	}
 
-	// Compute split route quote
+	// Compute split route quote.
+	// This recalculates outputs accurately for each route increment.
+	// If probe fallback was used, this is essential to get correct output amounts.
 	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenIn)
 	if err != nil {
-		// If error occurs in splits, return the single route quote
-		// rather than failing.
+		// If split quote fails and probe fallback was used, we cannot return the single route quote
+		// because its OutAmount is inaccurate. Return the error so users know to try a smaller amount.
+		if usedProbeFallback {
+			return nil, fmt.Errorf("requested amount exceeds available liquidity, try a smaller amount")
+		}
+		// If probe wasn't used, the single route quote is accurate - return it as fallback.
 		return topSingleRouteQuote, nil
 	}
 
@@ -276,7 +291,9 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		return nil, nil, err
 	}
 
-	quote, routes, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn)
+	// usedProbeFallback is intentionally ignored here - this function returns all routes
+	// for pricing purposes, not for user-facing quotes where accuracy matters
+	quote, routes, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -343,24 +360,28 @@ func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []route.RouteWithO
 }
 
 // rankRoutesByDirectQuote ranks the given candidate routes by estimating direct quotes over each route.
-// Additionally, it fileters out routes with duplicate pool IDs and cuts them for splits
+// Additionally, it filters out routes with duplicate pool IDs and cuts them for splits
 // based on the value of maxSplitRoutes.
-// Returns the top quote as well as the ranked routes in decrease order of amount out.
+// Returns the top quote, ranked routes in decreasing order of amount out, whether probe fallback was used, and error.
+//
+// When usedProbeFallback is true, the quote's OutAmount is approximate (based on a smaller probe amount).
+// Callers should run the split algorithm to get accurate calculations rather than returning the quote directly.
+//
 // Returns error if:
 // - fails to read taker fees
 // - fails to convert candidate routes to routes
 // - fails to estimate direct quotes
-func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
+func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, bool, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
-	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
+	topQuote, routesWithAmtOut, usedProbeFallback, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
+		return nil, nil, false, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
 
 	// Update ranked routes with filtered ranked routes
@@ -369,11 +390,12 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuote(ctx context.Context, candida
 	// Cut routes for splits
 	routes = cutRoutesForSplits(maxSplitRoutes, routes)
 
-	return topQuote, routes, nil
+	return topQuote, routes, usedProbeFallback, nil
 }
 
 // computeAndRankRoutesByDirectQuote computes candidate routes and ranks them by token out after estimating direct quotes.
-func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
+// Returns the top quote, ranked routes, whether probe fallback was used, and error.
+func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, bool, error) {
 	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
 
 	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
@@ -388,13 +410,20 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 	candidateRoutes, err := r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))
-		return nil, nil, err
+		return nil, nil, false, err
 	}
+
+	// OSMO-53 debug logging: candidate routes found
+	r.logger.Debug("OSMO-53: candidate routes found",
+		zap.Int("total_routes", len(candidateRoutes.Routes)),
+		zap.Bool("contains_canonical_orderbook", candidateRoutes.ContainsCanonicalOrderbook),
+		zap.String("token_in", tokenIn.String()),
+		zap.String("token_out_denom", tokenOutDenom))
 
 	// Get request path for metrics
 	requestURLPath, err := domain.GetURLPathFromContext(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	if !routingOptions.DisableCache {
@@ -408,32 +437,82 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 
 			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
 
-			return nil, nil, fmt.Errorf("no candidate routes found")
+			return nil, nil, false, fmt.Errorf("no candidate routes found")
 		}
 	}
 
 	// Rank candidate routes by estimating direct quotes
-	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes)
+	topSingleRouteQuote, rankedRoutes, usedProbeFallback, err := r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes)
 	if err != nil {
 		r.logger.Error("error getting ranked routes", zap.Error(err))
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	if len(rankedRoutes) == 0 {
-		return nil, nil, fmt.Errorf("no ranked routes found")
+		return nil, nil, false, fmt.Errorf("no ranked routes found")
 	}
 
 	// Convert ranked routes back to candidate for caching
 	convertedCandidateRoutes := convertRankedToCandidateRoutes(rankedRoutes)
 
+	// OSMO-53 debug logging: routes after ranking
+	r.logger.Debug("OSMO-53: routes after ranking",
+		zap.Int("ranked_routes", len(rankedRoutes)),
+		zap.Bool("converted_contains_orderbook", convertedCandidateRoutes.ContainsCanonicalOrderbook),
+		zap.Bool("original_contains_orderbook", candidateRoutes.ContainsCanonicalOrderbook),
+		zap.Bool("used_probe_fallback", usedProbeFallback))
+
 	if len(rankedRoutes) > 0 {
 		// We would like to always consider the canonical orderbook route so that if new limits appear
-		// we can detect them. Oterwise, our cache would have to expire to detect them.
+		// we can detect them. Otherwise, our cache would have to expire to detect them.
+		// However, we only force-add if the orderbook has sufficient capacity for the current swap amount.
+		// This prevents re-adding orderbooks with insufficient liquidity to the cache.
 		if !convertedCandidateRoutes.ContainsCanonicalOrderbook && candidateRoutes.ContainsCanonicalOrderbook {
-			// Find the canonical orderbook route and add it to the converted candidate routes.
+			// Find the canonical orderbook route and check if it should be force-added.
 			for _, candidateRoute := range candidateRoutes.Routes {
 				if candidateRoute.IsCanonicalOrderboolRoute {
-					convertedCandidateRoutes.Routes = append(convertedCandidateRoutes.Routes, candidateRoute)
+					// Get the orderbook pool ID from the route (canonical orderbook routes have exactly one pool)
+					if len(candidateRoute.Pools) > 0 {
+						orderbookPoolID := candidateRoute.Pools[0].ID
+
+						// Check if the orderbook has sufficient capacity for this swap amount
+						hasCapacity, direction, capacity, err := r.orderbookHasSufficientCapacity(orderbookPoolID, tokenIn, tokenOutDenom)
+
+						// OSMO-53 debug logging: orderbook capacity check
+						r.logger.Debug("OSMO-53: orderbook capacity check",
+							zap.Uint64("pool_id", orderbookPoolID),
+							zap.String("token_in_amount", tokenIn.Amount.String()),
+							zap.String("orderbook_capacity", capacity),
+							zap.Bool("has_sufficient_capacity", hasCapacity),
+							zap.String("swap_direction", direction),
+							zap.Error(err))
+
+						shouldForceAdd := false
+						reason := ""
+
+						if err != nil {
+							// If we can't check capacity, skip force-add as a fail-safe
+							// The orderbook was already filtered out during ranking for a reason
+							reason = fmt.Sprintf("capacity check failed: %v", err)
+							r.logger.Debug("OSMO-53: skipping orderbook force-add due to capacity check error",
+								zap.Uint64("pool_id", orderbookPoolID),
+								zap.Error(err))
+						} else if hasCapacity {
+							// Orderbook has sufficient capacity, force-add it
+							shouldForceAdd = true
+							reason = "orderbook has sufficient capacity"
+							convertedCandidateRoutes.Routes = append(convertedCandidateRoutes.Routes, candidateRoute)
+						} else {
+							// Orderbook does not have sufficient capacity, skip force-add
+							reason = fmt.Sprintf("insufficient capacity: need %s, have %s", tokenIn.Amount.String(), capacity)
+						}
+
+						// OSMO-53 debug logging: force-add decision
+						r.logger.Debug("OSMO-53: canonical orderbook force-add decision",
+							zap.Uint64("pool_id", orderbookPoolID),
+							zap.Bool("will_force_add", shouldForceAdd),
+							zap.String("reason", reason))
+					}
 					break
 				}
 			}
@@ -445,7 +524,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuote(ctx context.Contex
 		}
 	}
 
-	return topSingleRouteQuote, rankedRoutes, nil
+	return topSingleRouteQuote, rankedRoutes, usedProbeFallback, nil
 }
 
 var (
@@ -478,10 +557,17 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 		return nil, err
 	}
 
-	// Compute direct quote
-	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
+	// Compute direct quote.
+	// If probe fallback was used, the quote's OutAmount is inaccurate - return an error.
+	bestSingleRouteQuote, _, usedProbeFallback, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 	if err != nil {
 		return nil, err
+	}
+
+	// If probe fallback was triggered, the requested amount exceeds the pool's capacity.
+	// Return an error rather than an inaccurate quote.
+	if usedProbeFallback {
+		return nil, fmt.Errorf("requested amount exceeds pool %d capacity, try a smaller amount", poolID)
 	}
 
 	return bestSingleRouteQuote, nil
@@ -1005,4 +1091,58 @@ func (r *routerUseCaseImpl) createCandidateRouteByPoolID(tokenOutDenom string, p
 			poolID: {},
 		},
 	}
+}
+
+// orderbookHasSufficientCapacity checks if an orderbook pool has sufficient capacity for the given token in amount.
+// Returns:
+// - hasCapacity: true if the orderbook can handle the tokenIn amount
+// - direction: the swap direction as a string (for logging)
+// - capacity: the orderbook capacity as a string (for logging)
+// - err: error if capacity check could not be performed (e.g., pool fetch failed, not an orderbook)
+//
+// This uses the same OrderbookData that is used in CalculateTokenOutByTokenIn for quote calculation,
+// so the capacity check is consistent with actual quote behavior.
+func (r *routerUseCaseImpl) orderbookHasSufficientCapacity(poolID uint64, tokenIn sdk.Coin, tokenOutDenom string) (hasCapacity bool, direction string, capacity string, err error) {
+	pool, err := r.poolsUsecase.GetPool(poolID)
+	if err != nil {
+		return false, "", "", fmt.Errorf("failed to get pool %d: %w", poolID, err)
+	}
+
+	sqsModel := pool.GetSQSPoolModel()
+	if sqsModel.CosmWasmPoolModel == nil {
+		return false, "", "", fmt.Errorf("pool %d has no CosmWasmPoolModel", poolID)
+	}
+
+	orderbookData := sqsModel.CosmWasmPoolModel.Data.Orderbook
+	if orderbookData == nil {
+		return false, "", "", fmt.Errorf("pool %d has no OrderbookData", poolID)
+	}
+
+	// Determine swap direction
+	directionIn, err := orderbookData.GetDirection(tokenIn.Denom, tokenOutDenom)
+	if err != nil {
+		return false, "", "", fmt.Errorf("failed to get direction for pool %d: %w", poolID, err)
+	}
+
+	// Get the appropriate capacity based on direction
+	// BID direction: tokenIn is quote denom, buying base -> uses BidAmountToExhaustAskLiquidity
+	// ASK direction: tokenIn is base denom, selling base -> uses AskAmountToExhaustBidLiquidity
+	var capacityBigDec osmomath.BigDec
+	if *directionIn == cosmwasmpool.BID {
+		capacityBigDec = orderbookData.BidAmountToExhaustAskLiquidity
+		direction = "BID"
+	} else {
+		capacityBigDec = orderbookData.AskAmountToExhaustBidLiquidity
+		direction = "ASK"
+	}
+
+	// Convert tokenIn amount to BigDec for comparison
+	tokenInAmountBigDec := osmomath.BigDecFromSDKInt(tokenIn.Amount)
+
+	// Check if capacity is sufficient
+	// Note: we use LTE (<=) because the orderbook can handle exactly the capacity amount
+	hasCapacity = tokenInAmountBigDec.LTE(capacityBigDec)
+	capacity = capacityBigDec.String()
+
+	return hasCapacity, direction, capacity, nil
 }
