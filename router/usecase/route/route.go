@@ -253,6 +253,7 @@ func (r RouteImpl) PrepareResultPoolsInGivenOut(ctx context.Context, tokenOut sd
 			pool.GetSpreadFactor(),
 			pool.GetTokenInDenom(),
 			pool.GetTakerFee(),
+			pool.GetLiquidityCap(),
 			pool.GetCodeID(),
 		)
 
