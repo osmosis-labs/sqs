@@ -542,3 +542,4 @@ See `.vscode/launch.json` for the "Debug Docker Container" configuration.
 -   [ADR-004 Cosmos SDK Streaming For SQS](https://www.notion.so/osmosiszone/ADR-003-Cosmos-SDK-Streaming-for-SQS-64dbc8b9ba6149259bf9870a43b7a4fc)
 -   [ADR-006 Streaming & GRPC Ingest](https://www.notion.so/osmosiszone/ADR-006-Streaming-GRPC-SQS-Ingest-4e3b2ff7d23e43e2a1f3c43adc3c26bc?pvs=13)
 -   [C4 L3 SQS Deployments](https://app.excalidraw.com/s/72t6r0pKvg5/4xLEjXi3KiU)
+
