@@ -305,6 +305,7 @@ func (s *RouterTestSuite) TestPrepareResultPoolsInGivenOut() {
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
+					s.PoolOneLiquidityCap(),
 					notCosmWasmPoolCodeID,
 				),
 			},
@@ -331,6 +332,7 @@ func (s *RouterTestSuite) TestPrepareResultPoolsInGivenOut() {
 					DefaultSpreadFactor,
 					DenomOne,
 					DefaultTakerFee,
+					s.PoolOneLiquidityCap(),
 					notCosmWasmPoolCodeID,
 				),
 				pools.NewExactAmountOutRoutableResultPool(
@@ -339,6 +341,7 @@ func (s *RouterTestSuite) TestPrepareResultPoolsInGivenOut() {
 					DefaultSpreadFactor,
 					DenomThree,
 					DefaultTakerFee,
+					osmomath.ZeroInt(),
 					transmuter.GetCodeId(),
 				),
 			},
