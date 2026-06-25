@@ -370,15 +370,12 @@ func (s *RouterTestSuite) TestHandleRoutesInGivenOut() {
 	balancerPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
 	s.Require().NoError(err)
 
-	defaultPool := &ingesttypes.PoolWrapper{
-		ChainModel: balancerPool,
-		SQSModel: ingesttypes.SQSPool{
-			PoolLiquidityCap: osmomath.NewInt(int64(minPoolLiquidityCap*OsmoPrecisionMultiplier + 1)),
-			PoolDenoms:       []string{tokenOutDenom, tokenInDenom},
-			Balances:         balancerCoins,
-			SpreadFactor:     DefaultSpreadFactor,
-		},
-	}
+	defaultPool := ingesttypes.NewPool(balancerPool, ingesttypes.SQSPool{
+		PoolLiquidityCap: osmomath.NewInt(int64(minPoolLiquidityCap*OsmoPrecisionMultiplier + 1)),
+		PoolDenoms:       []string{tokenOutDenom, tokenInDenom},
+		Balances:         balancerCoins,
+		SpreadFactor:     DefaultSpreadFactor,
+	})
 
 	var (
 		defaultRoute = WithCandidateRoutePools(
