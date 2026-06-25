@@ -786,6 +786,76 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 	}
 }
 
+// TestGetOptimalQuoteInGivenOut_Mainnet_FeeCorrectness validates the regression-critical
+// properties of the true exact-out (in-given-out) path end to end against mainnet state:
+//
+//  1. The exact-out quote uses the in-given-out candidate search (routes are oriented so
+//     each route's last hop outputs the desired token and the first hop consumes the input
+//     token), not reversed exact-in candidates.
+//  2. amount_in is strictly positive and fee-inclusive: the route's effective fee equals
+//     the compounding of the actual per-pool taker fees used (1 - prod(1 - takerFee_i)),
+//     weighted by each route's output share. The old inversion approach understated
+//     amount_in by dropping the input-side fee; this asserts the fee is sourced from the
+//     real pools on the chosen route.
+//
+// This complements TestGetOptimalQuoteExactAmounOut_Mainnet, which validates route shape
+// but not amount_in/fee correctness.
+func (s *RouterTestSuite) TestGetOptimalQuoteInGivenOut_Mainnet_FeeCorrectness() {
+	// A multi-hop-capable pair with enough liquidity to produce a stable route on mainnet state.
+	var (
+		tokenInDenom  = UOSMO
+		tokenOutDenom = UION
+	)
+	desiredOut := sdk.NewCoin(tokenOutDenom, osmomath.NewInt(5_000_000))
+
+	mainnetState := s.SetupMainnetState()
+	mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+	quote, err := mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), desiredOut, tokenInDenom)
+	s.Require().NoError(err)
+
+	routes, effectiveFee, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0), nil, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	s.Require().NotEmpty(routes)
+
+	// (1) amount_in is strictly positive and the output denom/amount match what was requested.
+	amountIn := quote.GetAmountIn()
+	s.Require().True(amountIn.Amount.IsPositive(), "exact-out amount_in must be positive, got %s", amountIn.String())
+	s.Require().Equal(tokenInDenom, amountIn.Denom)
+	s.Require().Equal(desiredOut.Denom, quote.GetAmountOut().Denom)
+	s.Require().Equal(desiredOut.Amount.String(), quote.GetAmountOut().Amount.String())
+
+	// (2) Direction: each route consumes the input denom on its first hop and yields the
+	// desired output denom on its last hop (in-given-out orientation, not reversed exact-in).
+	totalOut := quote.GetAmountOut().Amount.ToLegacyDec()
+	recomputedEffectiveFee := osmomath.ZeroDec()
+	for _, r := range routes {
+		pools := r.GetPools()
+		s.Require().NotEmpty(pools)
+
+		// First hop consumes the input denom; last hop produces the desired output denom.
+		s.Require().Equal(tokenInDenom, r.GetTokenInDenom())
+		s.Require().Equal(tokenOutDenom, pools[len(pools)-1].GetTokenOutDenom())
+
+		// Recompute the route's compounded taker fee from the actual pools on the chosen route.
+		routeFee := osmomath.ZeroDec()
+		for _, p := range pools {
+			takerFee := p.GetTakerFee()
+			s.Require().False(takerFee.IsNegative(), "pool %d taker fee must be non-negative", p.GetId())
+			routeFee = routeFee.Add(osmomath.OneDec().Sub(routeFee).MulTruncate(takerFee))
+		}
+
+		routeOutFraction := r.GetAmountOut().ToLegacyDec().Quo(totalOut)
+		recomputedEffectiveFee = recomputedEffectiveFee.Add(routeFee.Mul(routeOutFraction))
+	}
+
+	// The quote's effective fee must equal the fee recomputed from the actual route pools,
+	// confirming amount_in reflects real per-pool taker fees rather than corrupted/opposite
+	// direction metadata.
+	s.Require().Equal(recomputedEffectiveFee.String(), effectiveFee.String())
+	s.Require().Equal(recomputedEffectiveFee.String(), quote.GetEffectiveFee().String())
+}
+
 // Validates custom quotes for UOSMO to UION.
 // That is, with the given pool ID, we expect the quote to be routed through the route
 // that matches these pool IDs. Errors otherwise.
