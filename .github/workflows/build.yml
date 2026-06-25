@@ -29,12 +29,16 @@ jobs:
       run: go build -v ./...
     -
       name: Test
-      run: go test -v ./... -coverprofile=coverage.out -covermode=count -json > report.json;
+      shell: bash
+      run: |
+        set -o pipefail
+        go test -v ./... -coverprofile=coverage.out -covermode=count -json | tee report.json
 
     - name: Archive code coverage results
+      if: always()
       uses: actions/upload-artifact@v4
-      with:          
+      with:
         name: code-coverage-report
         path: |
-          coverage.out   
+          coverage.out
           report.json
