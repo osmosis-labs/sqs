@@ -219,6 +219,156 @@ func (s *RouterTestSuite) TestPrepareResultPoolsOutGivenIn() {
 	}
 }
 
+// This test validates that the pools in the route are converted into a new serializable
+// type for clients with the following list of fields that are returned in each pool:
+// - ID
+// - Type
+// - Balances
+// - Spread Factor
+// - Token Out Denom
+// - Taker Fee
+// Additionally, it validates that the method returns the spot price before swap and the
+// effective spot price computed correctly.
+// To achieve this, we set up a balancer and a transmuter pool.
+// We estimate the balancer pool's spot prices at the beginning of the test.
+// Transmuter is expected to have a spot price of one.
+// Based on this fact and only having a testcase with a single balancer pool in the route,
+// or balancer and trasnsmuter, we can validate that spot prices are computed equal to the
+// spot price of the balancer pool.
+func (s *RouterTestSuite) TestPrepareResultPoolsInGivenOut() {
+	s.Setup()
+
+	const (
+		notCosmWasmPoolCodeID = 0
+	)
+
+	balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoins(
+		sdk.NewCoin(DenomOne, osmomath.NewInt(2_000_000_000)),
+		sdk.NewCoin(DenomTwo, osmomath.NewInt(1_000_000_000)),
+	)...)
+
+	pool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
+	s.Require().NoError(err)
+
+	// Cast to balancer pool
+	balancerPool, ok := pool.(*balancer.Pool)
+	s.Require().True(ok)
+
+	defaultTokenIn := sdk.NewCoin(DenomTwo, DefaultAmt0)
+
+	// Estimate balancer pool spot price
+	balancerPoolSpotPriceInOverOut, err := balancerPool.SpotPrice(s.Ctx, DenomOne, DenomTwo)
+	s.Require().NoError(err)
+
+	// Estimate balancer pool effective spot price
+	expectedAmountOutBalancer, err := balancerPool.CalcOutAmtGivenIn(s.Ctx, sdk.NewCoins(defaultTokenIn), DenomOne, DefaultSpreadFactor)
+	s.Require().NoError(err)
+	expectedEffectivePriceBalancerInOverOut := expectedAmountOutBalancer.Amount.ToLegacyDec().Quo(defaultTokenIn.Amount.ToLegacyDec())
+
+	// Prepare trasnmuter pool
+	transmuter := s.PrepareCustomTransmuterPoolCustomProject(s.TestAccs[0], []string{DenomOne, DenomThree}, "sqs", "scripts")
+
+	testcases := map[string]struct {
+		tokenOut sdk.Coin
+
+		route route.RouteImpl
+
+		expectedPools []domain.RoutablePool
+
+		expectedSpotPriceInBaseOutQuote osmomath.Dec
+
+		expectedEffectiveSpotPriceInOverOut osmomath.Dec
+	}{
+		"empty route": {
+			tokenOut: defaultTokenIn,
+
+			route: emptyRoute,
+
+			expectedPools: []domain.RoutablePool{},
+
+			expectedSpotPriceInBaseOutQuote:     osmomath.OneDec(),
+			expectedEffectiveSpotPriceInOverOut: osmomath.OneDec(),
+		},
+		"single balancer pool in route": {
+			tokenOut: defaultTokenIn,
+
+			route: WithRoutePools(
+				emptyRoute,
+				[]domain.RoutablePool{
+					mocks.WithChainPoolModel(mocks.WithTokenInDenom(DefaultPool, DenomOne), balancerPool),
+				},
+			),
+
+			expectedPools: []domain.RoutablePool{
+				pools.NewExactAmountOutRoutableResultPool(
+					balancerPoolID,
+					poolmanagertypes.Balancer,
+					DefaultSpreadFactor,
+					DenomOne,
+					DefaultTakerFee,
+					s.PoolOneLiquidityCap(),
+					notCosmWasmPoolCodeID,
+				),
+			},
+
+			// Balancer is the only pool in the route so its spot price is expected.
+			expectedSpotPriceInBaseOutQuote:     balancerPoolSpotPriceInOverOut.Dec(),
+			expectedEffectiveSpotPriceInOverOut: expectedEffectivePriceBalancerInOverOut,
+		},
+		"balancer and transmuter in route": {
+			tokenOut: defaultTokenIn,
+
+			route: WithRoutePools(
+				emptyRoute,
+				[]domain.RoutablePool{
+					mocks.WithChainPoolModel(mocks.WithTokenInDenom(DefaultPool, DenomOne), balancerPool),
+					mocks.WithChainPoolModel(mocks.WithTokenInDenom(DefaultPool, DenomThree), transmuter),
+				},
+			),
+
+			expectedPools: []domain.RoutablePool{
+				pools.NewExactAmountOutRoutableResultPool(
+					balancerPoolID,
+					poolmanagertypes.Balancer,
+					DefaultSpreadFactor,
+					DenomOne,
+					DefaultTakerFee,
+					s.PoolOneLiquidityCap(),
+					notCosmWasmPoolCodeID,
+				),
+				pools.NewExactAmountOutRoutableResultPool(
+					transmuter.GetId(),
+					poolmanagertypes.CosmWasm,
+					DefaultSpreadFactor,
+					DenomThree,
+					DefaultTakerFee,
+					osmomath.ZeroInt(),
+					transmuter.GetCodeId(),
+				),
+			},
+
+			// Transmuter has spot price of one. Therefore, the spot price of the route
+			// should be the same as the spot price of the balancer pool.
+			expectedSpotPriceInBaseOutQuote:     balancerPoolSpotPriceInOverOut.Dec(),
+			expectedEffectiveSpotPriceInOverOut: expectedEffectivePriceBalancerInOverOut,
+		},
+	}
+
+	for name, tc := range testcases {
+		tc := tc
+		s.Run(name, func() {
+
+			// Note: token in is chosen arbitrarily since it is irrelevant for this test
+			actualPools, spotPriceBeforeInBaseOutQuote, _, err := tc.route.PrepareResultPoolsInGivenOut(context.TODO(), tc.tokenOut, &log.NoOpLogger{})
+			s.Require().NoError(err)
+
+			s.Require().Equal(tc.expectedSpotPriceInBaseOutQuote, spotPriceBeforeInBaseOutQuote)
+
+			s.ValidateRoutePools(tc.expectedPools, actualPools)
+		})
+	}
+}
+
 func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
 	return routertesting.WithRoutePools(r, pools)
 }

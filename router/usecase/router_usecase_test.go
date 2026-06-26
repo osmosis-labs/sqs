@@ -87,7 +87,7 @@ var (
 
 // Tests the call to handleRoutes by mocking the router repository and pools use case
 // with relevant data.
-func (s *RouterTestSuite) TestHandleRoutes() {
+func (s *RouterTestSuite) TestHandleRoutesOutGivenIn() {
 	const (
 		defaultTimeoutDuration = time.Second * 10
 
@@ -309,7 +309,7 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			}
 
 			// System under test
-			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutes(ctx, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, candidateRouteSearchOptions)
+			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutesOutGivenIn(ctx, sdk.NewCoin(tokenInDenom, one), tokenOutDenom, candidateRouteSearchOptions)
 
 			if tc.expectedError != nil {
 				s.Require().EqualError(err, tc.expectedError.Error())
@@ -332,6 +332,266 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 			}
 
 			cachedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, tokenInDenom, tokenOutDenom)
+
+			if tc.isCacheConfigDisabled {
+				s.Require().NoError(err)
+				s.Require().Empty(cachedCandidateRoutes.Routes)
+				s.Require().False(isCached)
+				return
+			}
+
+			// For the case where the cache is disabled, the expected routes in cache
+			// will be the same as the original routes in the repository.
+			// Check that router repository was updated
+			s.Require().Equal(tc.expectedCandidateRoutes, cachedCandidateRoutes)
+			s.Require().Equal(tc.expectedIsCached, isCached)
+		})
+	}
+}
+
+func (s *RouterTestSuite) TestHandleRoutesInGivenOut() {
+	const (
+		defaultTimeoutDuration = time.Second * 10
+
+		tokenOutDenom = "uosmo"
+		tokenInDenom  = "uion"
+
+		minPoolLiquidityCap = 100
+	)
+
+	// Create test balancer pool
+
+	balancerCoins := sdk.NewCoins(
+		sdk.NewCoin(tokenOutDenom, osmomath.NewInt(1000000000000000000)),
+		sdk.NewCoin(tokenInDenom, osmomath.NewInt(1000000000000000000)),
+	)
+
+	balancerPoolID := s.PrepareBalancerPoolWithCoins(balancerCoins...)
+	balancerPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, balancerPoolID)
+	s.Require().NoError(err)
+
+	defaultPool := ingesttypes.NewPool(balancerPool, ingesttypes.SQSPool{
+		PoolLiquidityCap: osmomath.NewInt(int64(minPoolLiquidityCap*OsmoPrecisionMultiplier + 1)),
+		PoolDenoms:       []string{tokenOutDenom, tokenInDenom},
+		Balances:         balancerCoins,
+		SpreadFactor:     DefaultSpreadFactor,
+	})
+
+	var (
+		defaultRoute = WithCandidateRoutePools(
+			EmptyCandidateRoute,
+			[]ingesttypes.CandidatePool{
+				{
+					ID:            defaultPool.GetId(),
+					TokenOutDenom: tokenInDenom,
+				},
+			},
+		)
+
+		recomputedRoute = WithCandidateRoutePools(
+			EmptyCandidateRoute,
+			[]ingesttypes.CandidatePool{
+				{
+					ID:            defaultPool.GetId() + 1,
+					TokenOutDenom: tokenInDenom,
+				},
+			},
+		)
+
+		singleDefaultRoutes = ingesttypes.CandidateRoutes{
+			Routes: []ingesttypes.CandidateRoute{defaultRoute},
+			UniquePoolIDs: map[uint64]struct{}{
+				defaultPool.GetId(): {},
+			},
+		}
+
+		singeldRecomputedRoutes = ingesttypes.CandidateRoutes{
+			Routes: []ingesttypes.CandidateRoute{recomputedRoute},
+			UniquePoolIDs: map[uint64]struct{}{
+				defaultPool.GetId() + 1: {},
+			},
+		}
+
+		emptyRoutes = ingesttypes.CandidateRoutes{}
+
+		defaultRouterConfig = domain.RouterConfig{
+			// Only these config values are relevant for this test
+			// for searching for routes when none were present in cache.
+			MaxPoolsPerRoute: 4,
+			MaxRoutes:        4,
+
+			// These configs are not relevant for this test.
+			PreferredPoolIDs:    []uint64{},
+			MinPoolLiquidityCap: minPoolLiquidityCap,
+		}
+	)
+
+	testCases := []struct {
+		name string
+
+		repositoryRoutes ingesttypes.CandidateRoutes
+		takerFeeMap      ingesttypes.TakerFeeMap
+		// specifies if the config applying to all requests disables
+		// the cache.
+		isCacheConfigDisabled bool
+		// specifies if request-specific option disables the cache.
+		isCacheOptionDisabled bool
+		shouldSkipAddToCache  bool
+
+		expectedCandidateRoutes ingesttypes.CandidateRoutes
+
+		expectedError    error
+		expectedIsCached bool
+	}{
+		{
+			name: "routes in cache -> use them",
+
+			repositoryRoutes: singleDefaultRoutes,
+
+			expectedCandidateRoutes: singleDefaultRoutes,
+			expectedIsCached:        true,
+		},
+		{
+			name: "routes in cache but cache is disabled via options -> use them",
+
+			repositoryRoutes: singleDefaultRoutes,
+
+			isCacheOptionDisabled: true,
+
+			expectedCandidateRoutes: emptyRoutes,
+		},
+		{
+			name: "cache is disabled in config -> recomputes routes despite having available in cache",
+
+			repositoryRoutes:      singleDefaultRoutes,
+			isCacheConfigDisabled: true,
+
+			expectedCandidateRoutes: singeldRecomputedRoutes,
+			expectedIsCached:        false,
+		},
+		{
+			name: "cache is disabled in config but option turns it back on -> get routes",
+
+			repositoryRoutes: singleDefaultRoutes,
+
+			isCacheOptionDisabled: false,
+
+			expectedCandidateRoutes: singleDefaultRoutes,
+			expectedIsCached:        true,
+		},
+		{
+			name: "no routes in cache -> recomputes routes & caches them",
+
+			repositoryRoutes:     emptyRoutes,
+			shouldSkipAddToCache: true,
+
+			expectedCandidateRoutes: singeldRecomputedRoutes,
+			expectedIsCached:        true,
+		},
+		{
+			name: "no routes in cache -> recomputes routes & but does not cache them due to option disablement",
+
+			repositoryRoutes:     emptyRoutes,
+			shouldSkipAddToCache: true,
+
+			isCacheOptionDisabled: true,
+
+			expectedCandidateRoutes: singeldRecomputedRoutes,
+			expectedIsCached:        false,
+		},
+		{
+			name: "empty routes in cache-> does not recompute routes",
+
+			repositoryRoutes: emptyRoutes,
+
+			expectedCandidateRoutes: emptyRoutes,
+			expectedIsCached:        true,
+		},
+		{
+			name: "no routes in cache and fails to recompute -> returns no routes & caches them",
+
+			repositoryRoutes: emptyRoutes,
+
+			expectedCandidateRoutes: emptyRoutes,
+			expectedIsCached:        true,
+		},
+		{
+			name: "no routes in cache and fails to recompute but option disables cache -> returns no routes and does not cache",
+
+			repositoryRoutes:      emptyRoutes,
+			isCacheOptionDisabled: true,
+
+			expectedCandidateRoutes: emptyRoutes,
+			expectedIsCached:        false,
+		},
+
+		// TODO:
+		// routes in cache but pools have more optimal -> cache is still used
+		// multiple routes in cache -> use them
+		// multiple rotues in pools -> use them
+		// error in repository -> return error
+		// error in storing routes after recomputing -> return error
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		s.Run(tc.name, func() {
+
+			routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
+
+			candidateRouteCache := cache.New()
+
+			if !tc.shouldSkipAddToCache {
+				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOutDenom, tokenInDenom), tc.repositoryRoutes, time.Hour)
+			}
+
+			poolsUseCaseMock := &mocks.PoolsUsecaseMock{}
+
+			tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
+			candidateRouteFinderMock := mocks.CandidateRouteFinderMock{
+				Routes: tc.expectedCandidateRoutes,
+			}
+
+			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, candidateRouteFinderMock, &tokenMetaDataHolder, domain.RouterConfig{
+				RouteCacheEnabled: !tc.isCacheConfigDisabled,
+			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
+
+			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
+			s.Require().True(ok)
+
+			ctx := context.Background()
+
+			candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
+				MinPoolLiquidityCap: minPoolLiquidityCap,
+				MaxRoutes:           defaultRouterConfig.MaxRoutes,
+				MaxPoolsPerRoute:    defaultRouterConfig.MaxPoolsPerRoute,
+				DisableCache:        tc.isCacheOptionDisabled,
+			}
+
+			// System under test
+			actualCandidateRoutes, err := routerUseCaseImpl.HandleRoutesInGivenOut(ctx, sdk.NewCoin(tokenOutDenom, one), tokenInDenom, candidateRouteSearchOptions)
+
+			if tc.expectedError != nil {
+				s.Require().EqualError(err, tc.expectedError.Error())
+				s.Require().Len(actualCandidateRoutes, 0)
+				return
+			}
+
+			s.Require().NoError(err)
+
+			// Pre-set routes should be returned.
+
+			s.Require().Equal(len(tc.expectedCandidateRoutes.Routes), len(actualCandidateRoutes.Routes))
+			for i, route := range actualCandidateRoutes.Routes {
+				s.Require().Equal(tc.expectedCandidateRoutes.Routes[i], route)
+			}
+
+			// If cache option is being tested, getting the cached candidate routes is ineligible for the test by-design.
+			if tc.isCacheOptionDisabled {
+				return
+			}
+
+			cachedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, domain.TokenSwapMethodExactOut, tokenOutDenom, tokenInDenom)
 
 			if tc.isCacheConfigDisabled {
 				s.Require().NoError(err)

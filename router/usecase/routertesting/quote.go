@@ -131,6 +131,72 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 	}
 }
 
+// NewExactAmountOutTrueQuote creates an exact-amount-out quote that exercises the
+// "true" in-given-out PrepareResult path (the embedded quoteExactAmountIn is left nil),
+// as produced by estimateAndRankSingleRouteQuoteInGivenOut after the exact-out wiring.
+//
+// This differs from NewExactAmountOutQuote, which sets the embedded quoteExactAmountIn
+// and therefore exercises the legacy inversion fallback branch of PrepareResult.
+//
+// The quote is a 2-route split, each route a single hop through pool p (ETH -> USDC):
+//   - Route 1: takerFee routeOneFee, receives routeOneOut of the output.
+//   - Route 2: takerFee routeTwoFee, receives routeTwoOut of the output.
+//
+// Single-hop routes are used deliberately: PrepareResultPoolsInGivenOut walks a route's
+// pools from the desired output denom inward, so a multi-hop route must be ordered and
+// denom-matched to the chain pools. Single hops keep the fee/price-impact arithmetic
+// exact and unambiguous while still exercising the cross-route output-weighted fee sum.
+//
+// AmountIn/AmountOut and the per-route In/OutAmounts are caller-supplied. The per-route
+// OutAmounts must sum to amountOut.Amount and the per-route InAmounts to amountIn, since
+// PrepareResult weights each route by route.OutAmount / totalAmountOut. amountOut.Denom
+// must be the pool's output denom (USDC for PoolThree).
+func (s *RouterTestHelper) NewExactAmountOutTrueQuote(
+	p poolmanagertypes.PoolI,
+	amountIn osmomath.Int,
+	amountOut sdk.Coin,
+	routeOneFee, routeTwoFee osmomath.Dec,
+	routeOneIn, routeOneOut osmomath.Int,
+	routeTwoIn, routeTwoOut osmomath.Int,
+) *usecase.QuoteExactAmountOut {
+	sqsPool := func() ingesttypes.PoolI {
+		return ingesttypes.NewPool(p, ingesttypes.SQSPool{
+			SpreadFactor:     p.GetSpreadFactor(sdk.Context{}),
+			Balances:         poolThreeBalances,
+			PoolLiquidityCap: poolThreeLiquidityCap,
+		})
+	}
+
+	return &usecase.QuoteExactAmountOut{
+		// quoteExactAmountIn intentionally left nil to exercise the true exact-out path.
+		AmountIn:  amountIn,
+		AmountOut: amountOut,
+		Route: []domain.SplitRoute{
+			// Route 1: single hop, ETH -> USDC.
+			&route.RouteWithOutAmount{
+				RouteImpl: route.RouteImpl{
+					Pools: []domain.RoutablePool{
+						s.newRoutablePool(sqsPool(), ETH, USDC, routeOneFee),
+					},
+				},
+				InAmount:  routeOneIn,
+				OutAmount: routeOneOut,
+			},
+			// Route 2: single hop, ETH -> USDC.
+			&route.RouteWithOutAmount{
+				RouteImpl: route.RouteImpl{
+					Pools: []domain.RoutablePool{
+						s.newRoutablePool(sqsPool(), ETH, USDC, routeTwoFee),
+					},
+				},
+				InAmount:  routeTwoIn,
+				OutAmount: routeTwoOut,
+			},
+		},
+		EffectiveFee: osmomath.ZeroDec(),
+	}
+}
+
 // NewExactAmountOutQuote creates a new exact amount out.
 // NOTE: It is not possible to access the usecase.QuoteImpl struct directly from here.
 func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.PoolI) *usecase.QuoteExactAmountOut {

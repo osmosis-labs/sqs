@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -139,39 +140,129 @@ func (q *quoteExactAmountOut) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 //
 // Returns the updated route and the effective spread factor.
 func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor osmomath.Dec, spotPriceCalculator domain.SpotPriceQuoteCalculator, tokenMetadataFetcher domain.TokensMetadataFetcher, logger log.Logger) ([]domain.SplitRoute, osmomath.Dec, error) {
-	// Prepare exact out in the quote for inputs inversion
-	if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, spotPriceCalculator, tokenMetadataFetcher, logger); err != nil {
-		return nil, osmomath.Dec{}, err
+	// Fallback: if this quote was built via the old inversion approach, delegate to it.
+	if q.quoteExactAmountIn != nil {
+		if _, _, err := q.quoteExactAmountIn.PrepareResult(ctx, scalingFactor, spotPriceCalculator, tokenMetadataFetcher, logger); err != nil {
+			return nil, osmomath.Dec{}, err
+		}
+		q.AmountOut = q.quoteExactAmountIn.AmountIn
+		q.AmountIn = q.quoteExactAmountIn.AmountOut
+		q.Route = q.quoteExactAmountIn.Route
+		q.Tokens = q.quoteExactAmountIn.Tokens
+		q.LiquidityCap = q.quoteExactAmountIn.LiquidityCap
+		q.LiquidityCapOverflow = q.quoteExactAmountIn.LiquidityCapOverflow
+		q.EffectiveFee = q.quoteExactAmountIn.EffectiveFee
+		q.PriceImpact = q.quoteExactAmountIn.PriceImpact
+		q.InBaseOutQuoteSpotPrice = q.quoteExactAmountIn.InBaseOutQuoteSpotPrice
+		q.PriceInfo = q.quoteExactAmountIn.PriceInfo
+		for i, r := range q.Route {
+			splitRoute, ok := r.(*route.RouteWithOutAmount)
+			if !ok {
+				return nil, osmomath.Dec{}, types.ErrInvalidRouteType
+			}
+			splitRoute.InAmount, splitRoute.OutAmount = splitRoute.OutAmount, splitRoute.InAmount
+			q.Route[i] = splitRoute
+			for _, p := range splitRoute.GetPools() {
+				p.SetTokenInDenom(p.GetTokenOutDenom())
+				p.SetTokenOutDenom("")
+			}
+		}
+		return q.Route, q.EffectiveFee, nil
 	}
 
-	// Assign the inverted values to the quote
-	q.AmountOut = q.quoteExactAmountIn.AmountIn
-	q.AmountIn = q.quoteExactAmountIn.AmountOut
-	q.Route = q.quoteExactAmountIn.Route
-	q.Tokens = q.quoteExactAmountIn.Tokens
-	q.LiquidityCap = q.quoteExactAmountIn.LiquidityCap
-	q.LiquidityCapOverflow = q.quoteExactAmountIn.LiquidityCapOverflow
-	q.EffectiveFee = q.quoteExactAmountIn.EffectiveFee
-	q.PriceImpact = q.quoteExactAmountIn.PriceImpact
-	q.InBaseOutQuoteSpotPrice = q.quoteExactAmountIn.InBaseOutQuoteSpotPrice
-	q.PriceInfo = q.quoteExactAmountIn.PriceInfo
+	// True exact-out path: q.Route was built by estimateAndRankSingleRouteQuoteInGivenOut.
+	totalAmountIn := q.AmountIn.ToLegacyDec()
+	totalAmountOut := q.AmountOut.Amount.ToLegacyDec()
 
-	for i, r := range q.Route {
-		route, ok := r.(*route.RouteWithOutAmount)
+	totalFeeAcrossRoutes := osmomath.ZeroDec()
+	totalLiquidityCapOverflow := false
+	totalLiquidityCap := osmomath.ZeroInt()
+	totalSpotPriceOutBaseInQuote := osmomath.ZeroDec()
+	totalEffectiveSpotPriceOutBaseInQuote := osmomath.ZeroDec()
+
+	denoms := []string{q.AmountOut.Denom}
+	resultRoutes := make([]domain.SplitRoute, 0, len(q.Route))
+
+	for _, curRoute := range q.Route {
+		routeAmountOutFraction := curRoute.GetAmountOut().ToLegacyDec().Quo(totalAmountOut)
+
+		routeTotalFee := osmomath.ZeroDec()
+		for _, pool := range curRoute.GetPools() {
+			routeTotalFee.AddMut(
+				osmomath.OneDec().SubMut(routeTotalFee).MulTruncateMut(pool.GetTakerFee()),
+			)
+		}
+		totalFeeAcrossRoutes.AddMut(routeTotalFee.MulMut(routeAmountOutFraction))
+
+		routeImpl, ok := curRoute.(*route.RouteWithOutAmount)
 		if !ok {
 			return nil, osmomath.Dec{}, types.ErrInvalidRouteType
 		}
 
-		// invert the in and out amounts
-		route.InAmount, route.OutAmount = route.OutAmount, route.InAmount
-
-		q.Route[i] = route
-
-		// invert the in and out amounts for each pool
-		for _, p := range route.GetPools() {
-			p.SetTokenInDenom(p.GetTokenOutDenom())
-			p.SetTokenOutDenom("")
+		tokenOut := sdk.NewCoin(q.AmountOut.Denom, curRoute.GetAmountOut())
+		newPools, routeSpotPriceOutBaseInQuote, effectiveSpotPriceOutBaseInQuote, err := routeImpl.PrepareResultPoolsInGivenOut(ctx, tokenOut, logger)
+		if err != nil {
+			return nil, osmomath.Dec{}, err
 		}
+
+		for _, pool := range newPools {
+			denoms = append(denoms, pool.GetTokenInDenom())
+			if cap := pool.GetLiquidityCap(); !cap.IsNil() {
+				totalLiquidityCap, err = totalLiquidityCap.SafeAdd(cap)
+				if err != nil {
+					totalLiquidityCapOverflow = true
+				}
+			}
+		}
+
+		totalSpotPriceOutBaseInQuote = totalSpotPriceOutBaseInQuote.AddMut(routeSpotPriceOutBaseInQuote.MulMut(routeAmountOutFraction))
+		totalEffectiveSpotPriceOutBaseInQuote = totalEffectiveSpotPriceOutBaseInQuote.AddMut(effectiveSpotPriceOutBaseInQuote.MulMut(routeAmountOutFraction))
+
+		resultRoutes = append(resultRoutes, &route.RouteWithOutAmount{
+			RouteImpl: route.RouteImpl{
+				Pools:                      newPools,
+				HasGeneralizedCosmWasmPool: curRoute.ContainsGeneralizedCosmWasmPool(),
+			},
+			InAmount:  curRoute.GetAmountIn(),
+			OutAmount: curRoute.GetAmountOut(),
+		})
+	}
+
+	// Price impact: adverse when effective price is worse than spot (effective out-per-in < spot out-per-in).
+	// Expressed as (effectiveOutPerIn / spotOutPerIn) - 1 → negative when adverse.
+	if !totalSpotPriceOutBaseInQuote.IsZero() && !totalAmountIn.IsZero() {
+		effectiveOutPerIn := totalAmountOut.Quo(totalAmountIn)
+		spotOutPerIn := one.Quo(totalSpotPriceOutBaseInQuote)
+		q.PriceImpact = effectiveOutPerIn.Quo(spotOutPerIn).SubMut(one)
+	}
+
+	var tokens []Token
+	if tokenMetadataFetcher != nil {
+		for denom, metadata := range tokenMetadataFetcher.GetPoolDenomsMetadata(slices.Compact(denoms)) {
+			tokens = append(tokens, Token{
+				Denom:                   denom,
+				LiquidityCapitalization: metadata.TotalLiquidityCap,
+			})
+		}
+		slices.SortFunc(tokens, func(a, b Token) int {
+			if a.LiquidityCapitalization.LT(b.LiquidityCapitalization) {
+				return 1
+			}
+			if a.LiquidityCapitalization.GT(b.LiquidityCapitalization) {
+				return -1
+			}
+			return 0
+		})
+	}
+
+	q.LiquidityCap = totalLiquidityCap
+	q.LiquidityCapOverflow = totalLiquidityCapOverflow
+	q.EffectiveFee = totalFeeAcrossRoutes
+	q.Route = resultRoutes
+	q.Tokens = tokens
+	// InBaseOutQuoteSpotPrice: expressed as tokenIn per tokenOut (inverse of out-base-in-quote).
+	if !totalSpotPriceOutBaseInQuote.IsZero() {
+		q.InBaseOutQuoteSpotPrice = one.Quo(totalSpotPriceOutBaseInQuote)
 	}
 
 	return q.Route, q.EffectiveFee, nil
