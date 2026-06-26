@@ -138,69 +138,55 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 // This differs from NewExactAmountOutQuote, which sets the embedded quoteExactAmountIn
 // and therefore exercises the legacy inversion fallback branch of PrepareResult.
 //
-// The quote is a 2-route split:
-//   - Route 1: 2 hops (pool1: in->USDT, pool2: USDT->out), receives 3/5 of the output.
-//   - Route 2: 1 hop  (pool3: in->out),                    receives 2/5 of the output.
+// The quote is a 2-route split, each route a single hop through pool p (ETH -> USDC):
+//   - Route 1: takerFee routeOneFee, receives routeOneOut of the output.
+//   - Route 2: takerFee routeTwoFee, receives routeTwoOut of the output.
 //
-// AmountIn/AmountOut and the per-route In/OutAmounts are caller-supplied so a test can
-// assert exact effective-fee and price-impact arithmetic. The per-route OutAmounts must
-// sum to amountOut and the per-route InAmounts must sum to amountIn, since PrepareResult
-// weights each route by route.OutAmount / totalAmountOut.
+// Single-hop routes are used deliberately: PrepareResultPoolsInGivenOut walks a route's
+// pools from the desired output denom inward, so a multi-hop route must be ordered and
+// denom-matched to the chain pools. Single hops keep the fee/price-impact arithmetic
+// exact and unambiguous while still exercising the cross-route output-weighted fee sum.
+//
+// AmountIn/AmountOut and the per-route In/OutAmounts are caller-supplied. The per-route
+// OutAmounts must sum to amountOut.Amount and the per-route InAmounts to amountIn, since
+// PrepareResult weights each route by route.OutAmount / totalAmountOut. amountOut.Denom
+// must be the pool's output denom (USDC for PoolThree).
 func (s *RouterTestHelper) NewExactAmountOutTrueQuote(
-	p1, p2, p3 poolmanagertypes.PoolI,
+	p poolmanagertypes.PoolI,
 	amountIn osmomath.Int,
 	amountOut sdk.Coin,
+	routeOneFee, routeTwoFee osmomath.Dec,
 	routeOneIn, routeOneOut osmomath.Int,
 	routeTwoIn, routeTwoOut osmomath.Int,
 ) *usecase.QuoteExactAmountOut {
+	sqsPool := func() ingesttypes.PoolI {
+		return ingesttypes.NewPool(p, ingesttypes.SQSPool{
+			SpreadFactor:     p.GetSpreadFactor(sdk.Context{}),
+			Balances:         poolThreeBalances,
+			PoolLiquidityCap: poolThreeLiquidityCap,
+		})
+	}
+
 	return &usecase.QuoteExactAmountOut{
 		// quoteExactAmountIn intentionally left nil to exercise the true exact-out path.
 		AmountIn:  amountIn,
 		AmountOut: amountOut,
 		Route: []domain.SplitRoute{
-			// Route 1: 2 hops, in -> USDT -> out
+			// Route 1: single hop, ETH -> USDC.
 			&route.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							ingesttypes.NewPool(p1, ingesttypes.SQSPool{
-								SpreadFactor:     p1.GetSpreadFactor(sdk.Context{}),
-								Balances:         poolOneBalances,
-								PoolLiquidityCap: poolOneLiquidityCap,
-							}),
-							ETH,
-							USDT,
-							takerFeeOne,
-						),
-						s.newRoutablePool(
-							ingesttypes.NewPool(p2, ingesttypes.SQSPool{
-								SpreadFactor:     p2.GetSpreadFactor(sdk.Context{}),
-								Balances:         poolTwoBalances,
-								PoolLiquidityCap: poolTwoLiquidityCap,
-							}),
-							USDT,
-							USDC,
-							takerFeeTwo,
-						),
+						s.newRoutablePool(sqsPool(), ETH, USDC, routeOneFee),
 					},
 				},
 				InAmount:  routeOneIn,
 				OutAmount: routeOneOut,
 			},
-			// Route 2: 1 hop, in -> out
+			// Route 2: single hop, ETH -> USDC.
 			&route.RouteWithOutAmount{
 				RouteImpl: route.RouteImpl{
 					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							ingesttypes.NewPool(p3, ingesttypes.SQSPool{
-								SpreadFactor:     p3.GetSpreadFactor(sdk.Context{}),
-								Balances:         poolThreeBalances,
-								PoolLiquidityCap: poolThreeLiquidityCap,
-							}),
-							ETH,
-							USDC,
-							takerFeeThree,
-						),
+						s.newRoutablePool(sqsPool(), ETH, USDC, routeTwoFee),
 					},
 				},
 				InAmount:  routeTwoIn,

@@ -317,13 +317,14 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_EffectiveFee() {
 	s.SetupTest()
 
-	_, poolOne := s.PoolOne()
-	_, poolTwo := s.PoolTwo()
 	_, poolThree := s.PoolThree()
 
 	var (
-		// Output split 3:2 across the two routes.
-		amountOut   = sdk.NewCoin(ETH, osmomath.NewInt(5_000_000))
+		// Two single-hop routes (ETH -> USDC) with distinct taker fees, output split 3:2.
+		routeOneFee = osmomath.MustNewDecFromStr("0.02")
+		routeTwoFee = osmomath.MustNewDecFromStr("0.003")
+
+		amountOut   = sdk.NewCoin(USDC, osmomath.NewInt(5_000_000))
 		routeOneOut = osmomath.NewInt(3_000_000)
 		routeTwoOut = osmomath.NewInt(2_000_000)
 
@@ -335,8 +336,9 @@ func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_EffectiveFee() {
 	)
 
 	quote := s.NewExactAmountOutTrueQuote(
-		poolOne, poolTwo, poolThree,
+		poolThree,
 		amountIn, amountOut,
+		routeOneFee, routeTwoFee,
 		routeOneIn, routeOneOut,
 		routeTwoIn, routeTwoOut,
 	)
@@ -345,7 +347,9 @@ func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_EffectiveFee() {
 	_, effectiveFee, err := quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
 	s.Require().NoError(err)
 
-	const expectedEffectiveFee = "0.013435200000000000"
+	// Single-hop routes, so each route's fee is its pool taker fee; weighted by output share:
+	// 0.02 * 0.6 + 0.003 * 0.4 = 0.0132.
+	const expectedEffectiveFee = "0.013200000000000000"
 	s.Require().Equal(expectedEffectiveFee, effectiveFee.String())
 	s.Require().Equal(expectedEffectiveFee, quote.GetEffectiveFee().String())
 }
@@ -361,12 +365,13 @@ func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_EffectiveFee() {
 func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_PriceImpact() {
 	s.SetupTest()
 
-	_, poolOne := s.PoolOne()
-	_, poolTwo := s.PoolTwo()
 	_, poolThree := s.PoolThree()
 
 	var (
-		amountOut   = sdk.NewCoin(ETH, osmomath.NewInt(5_000_000))
+		routeOneFee = osmomath.MustNewDecFromStr("0.02")
+		routeTwoFee = osmomath.MustNewDecFromStr("0.003")
+
+		amountOut   = sdk.NewCoin(USDC, osmomath.NewInt(5_000_000))
 		routeOneOut = osmomath.NewInt(3_000_000)
 		routeTwoOut = osmomath.NewInt(2_000_000)
 		routeOneIn  = osmomath.NewInt(750_000)
@@ -375,8 +380,9 @@ func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_PriceImpact() {
 	)
 
 	quote := s.NewExactAmountOutTrueQuote(
-		poolOne, poolTwo, poolThree,
+		poolThree,
 		amountIn, amountOut,
+		routeOneFee, routeTwoFee,
 		routeOneIn, routeOneOut,
 		routeTwoIn, routeTwoOut,
 	)
