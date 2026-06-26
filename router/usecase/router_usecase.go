@@ -239,12 +239,46 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 		}
 	}
 
-	quote, _, err := r.computeAndRankRoutesByDirectQuoteInGivenOut(ctx, desiredOut, inputDenom, options)
+	topSingleRouteQuote, rankedRoutes, err := r.computeAndRankRoutesByDirectQuoteInGivenOut(ctx, desiredOut, inputDenom, options)
 	if err != nil {
 		return nil, err
 	}
 
-	return quote, nil
+	// Single route, or splitting disabled: return the single best route.
+	if len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes {
+		return topSingleRouteQuote, nil
+	}
+
+	// Filter out generalized cosmWasm pool routes (consistent with the out-given-in path).
+	rankedRoutes = filterOutGeneralizedCosmWasmPoolRoutes(rankedRoutes)
+
+	// If filtering leaves a single route, return it.
+	if len(rankedRoutes) == 1 {
+		return topSingleRouteQuote, nil
+	}
+
+	// Compute the split-route quote that minimises the required input for the desired output.
+	topSplitQuote, err := getSplitQuoteInGivenOut(ctx, rankedRoutes, desiredOut)
+	if err != nil {
+		// If the split computation fails, fall back to the single best route rather than
+		// failing the quote.
+		return topSingleRouteQuote, nil
+	}
+
+	finalQuote := topSingleRouteQuote
+
+	// Exact-out selection is by MINIMUM input: prefer the split quote only when it requires
+	// strictly less input than the single best route for the same desired output.
+	if topSplitQuote.GetAmountIn().Amount.LT(topSingleRouteQuote.GetAmountIn().Amount) {
+		r.logger.Debug("split route selected", zap.Int("route_count", len(topSplitQuote.GetRoute())))
+		finalQuote = topSplitQuote
+	}
+
+	if finalQuote.GetAmountIn().Amount.IsZero() {
+		return nil, errors.New("best we can do requires zero input")
+	}
+
+	return finalQuote, nil
 }
 
 // GetSimpleQuote implements mvc.RouterUsecase.
