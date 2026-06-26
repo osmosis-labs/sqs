@@ -600,12 +600,14 @@ const usdtOsmoExpectedRoutesHighLiq = 1
 
 var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
 
-// Note on expectedRoutesCountExactAmountOut: the true exact-out (in-given-out) path
-// returns the single best route. Split-route optimization for exact-out is deferred
-// (Phase 2), so an exact-out quote currently yields one route even where exact-in splits
-// into several. Earlier expectations of multiple exact-out routes reflected the prior
-// inversion implementation (which borrowed exact-in's splitting in the wrong trade
-// direction); they are corrected to 1 here.
+// Note on expectedRoutesCountExactAmountOut: the true exact-out (in-given-out) path performs
+// split-route optimization (minimising the input required for the desired output) and returns
+// whichever of the single best route or the best split requires less input. A pair therefore
+// resolves to one route when splitting does not reduce the required input, and to several when
+// it does. These counts may differ from the exact-in counts because the two directions
+// optimise different objectives. Earlier expectations reflected the prior inversion
+// implementation, which borrowed exact-in's splitting in the wrong trade direction; they are
+// set to the counts produced by true exact-out routing here.
 var optimalQuoteTestCases = map[string]struct {
 	tokenInDenom  string
 	tokenOutDenom string
