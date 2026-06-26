@@ -391,37 +391,39 @@ func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_PriceImpact() {
 	s.Require().NoError(err)
 
 	priceImpact := quote.GetPriceImpact()
-	spotInPerOut := quote.GetInBaseOutQuoteSpotPrice()
+
+	// GetInBaseOutQuoteSpotPrice() returns the same spot-out-per-in value the SUT divides by
+	// when computing price impact (it is 1/totalSpotPriceOutBaseInQuote, and the SUT's
+	// spotOutPerIn is the same inversion). Name it accordingly.
+	spotOutPerIn := quote.GetInBaseOutQuoteSpotPrice()
 
 	// Both must be populated on the true exact-out path.
 	s.Require().False(priceImpact.IsNil(), "price impact should be populated on the true exact-out path")
-	s.Require().False(spotInPerOut.IsNil(), "in-base-out-quote spot price should be populated")
-	s.Require().True(spotInPerOut.IsPositive(), "spot price (in per out) must be positive, got %s", spotInPerOut.String())
+	s.Require().False(spotOutPerIn.IsNil(), "in-base-out-quote spot price should be populated")
+	s.Require().True(spotOutPerIn.IsPositive(), "spot price (out per in) must be positive, got %s", spotOutPerIn.String())
 
 	// Re-derive price impact from the quote's own reported spot price and amounts to validate
 	// the wiring's formula end to end, independent of the pool's internal spot math:
-	//   InBaseOutQuoteSpotPrice = spotInPerOut = 1 / spotOutPerIn
-	//   PriceImpact             = effectiveOutPerIn / spotOutPerIn - 1
-	//                           = (amountOut/amountIn) * spotInPerOut - 1
+	//   PriceImpact = effectiveOutPerIn / spotOutPerIn - 1   (negative when adverse)
+	// where effectiveOutPerIn = amountOut / amountIn and spotOutPerIn = InBaseOutQuoteSpotPrice.
 	//
-	// The SUT computes price impact via a slightly different chain of Quo/Mul/Sub ops than
-	// this re-derivation, so the two can differ in the last few decimal places due to
-	// osmomath rounding. Assert closeness within a small tolerance rather than exact
-	// equality; the sign convention below is the regression-critical property.
+	// The SUT computes this via a slightly different chain of Quo/Sub ops, so the two can
+	// differ in the last few decimal places due to osmomath rounding. Assert closeness within
+	// a small tolerance rather than exact equality; the sign convention below is the
+	// regression-critical property.
 	effectiveOutPerIn := amountOut.Amount.ToLegacyDec().Quo(amountIn.ToLegacyDec())
-	expectedPriceImpact := effectiveOutPerIn.Mul(spotInPerOut).Sub(osmomath.OneDec())
+	expectedPriceImpact := effectiveOutPerIn.Quo(spotOutPerIn).Sub(osmomath.OneDec())
 
 	priceImpactDiff := priceImpact.Sub(expectedPriceImpact).Abs()
 	tolerance := osmomath.MustNewDecFromStr("0.0000001")
 	s.Require().True(priceImpactDiff.LTE(tolerance),
-		"price impact %s must be within %s of (amountOut/amountIn)*spotInPerOut - 1 = %s",
+		"price impact %s must be within %s of (amountOut/amountIn)/spotOutPerIn - 1 = %s",
 		priceImpact.String(), tolerance.String(), expectedPriceImpact.String())
 
 	// Sign convention: an adverse trade (effective execution worse than spot) yields a
-	// negative price impact. With effectiveOutPerIn < spotOutPerIn the product
-	// effectiveOutPerIn*spotInPerOut < 1, so the impact is negative. Assert the sign matches
-	// the adverse/benign relationship rather than hardcoding pool spot output.
-	spotOutPerIn := osmomath.OneDec().Quo(spotInPerOut)
+	// negative price impact. When effectiveOutPerIn < spotOutPerIn the ratio is < 1, so the
+	// impact is negative. Assert the sign matches the adverse/benign relationship rather than
+	// hardcoding pool spot output.
 	if effectiveOutPerIn.LT(spotOutPerIn) {
 		s.Require().True(priceImpact.IsNegative(),
 			"exact-out price impact must be negative when adverse, got %s", priceImpact.String())
