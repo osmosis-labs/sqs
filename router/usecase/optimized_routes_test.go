@@ -600,6 +600,12 @@ const usdtOsmoExpectedRoutesHighLiq = 1
 
 var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
 
+// Note on expectedRoutesCountExactAmountOut: the true exact-out (in-given-out) path
+// returns the single best route. Split-route optimization for exact-out is deferred
+// (Phase 2), so an exact-out quote currently yields one route even where exact-in splits
+// into several. Earlier expectations of multiple exact-out routes reflected the prior
+// inversion implementation (which borrowed exact-in's splitting in the wrong trade
+// direction); they are corrected to 1 here.
 var optimalQuoteTestCases = map[string]struct {
 	tokenInDenom  string
 	tokenOutDenom string
@@ -627,7 +633,7 @@ var optimalQuoteTestCases = map[string]struct {
 		amountIn: osmomath.NewInt(5000000),
 
 		expectedRoutesCountExactAmountIn:  2,
-		expectedRoutesCountExactAmountOut: 3,
+		expectedRoutesCountExactAmountOut: 1,
 	},
 	"usdt for atom": {
 		tokenInDenom:  USDT,
@@ -676,7 +682,7 @@ var optimalQuoteTestCases = map[string]struct {
 		amountIn: oneHundredThousandUSDValue,
 
 		expectedRoutesCountExactAmountIn:  usdtOsmoExpectedRoutesHighLiq,
-		expectedRoutesCountExactAmountOut: 2,
+		expectedRoutesCountExactAmountOut: 1,
 	},
 
 	"kava.USDT for uosmo - should have the same routes as allUSDT for uosmo": {
@@ -686,7 +692,7 @@ var optimalQuoteTestCases = map[string]struct {
 		amountIn: oneHundredThousandUSDValue,
 
 		expectedRoutesCountExactAmountIn:  usdtOsmoExpectedRoutesHighLiq,
-		expectedRoutesCountExactAmountOut: 2,
+		expectedRoutesCountExactAmountOut: 1,
 	},
 }
 
