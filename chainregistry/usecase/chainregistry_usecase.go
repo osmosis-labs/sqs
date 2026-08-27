@@ -54,12 +54,15 @@ type chainregistryUseCase struct {
 }
 
 // NewChainregistryUseCase creates a new use case and starts the run loop.
-func NewChainregistryUseCase(ctx context.Context, chainRegistryTokenFeesFileURL string, tokensUseCase mvc.TokensUsecase, logger log.Logger) (*chainregistryUseCase, error) {
+// defaultQuoteDenom is the chain denom that fee token values are priced in. It must be the same
+// denom the pricing worker pre-computes prices for so that fee token pricing is served from cache
+// and falls back to Coingecko when no on-chain route exists.
+func NewChainregistryUseCase(ctx context.Context, chainRegistryTokenFeesFileURL string, tokensUseCase mvc.TokensUsecase, defaultQuoteDenom string, logger log.Logger) (*chainregistryUseCase, error) {
 	us := &chainregistryUseCase{
 		chainRegistryFileURL: chainRegistryTokenFeesFileURL,
 		tokensUseCase:        tokensUseCase,
 		baseDenom:            "uosmo",
-		quoteDenom:           "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+		quoteDenom:           defaultQuoteDenom,
 		logger:               logger,
 		command:              make(chan cmd),
 	}
