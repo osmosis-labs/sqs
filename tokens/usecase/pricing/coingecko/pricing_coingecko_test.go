@@ -20,6 +20,7 @@ type CoingeckoPricingTestSuite struct {
 
 var (
 	USDC                 = routertesting.USDC
+	ALLUSDC              = routertesting.ALLUSDC
 	USDT                 = routertesting.USDT
 	ATOM                 = routertesting.ATOM
 	ETH                  = routertesting.ETH
@@ -55,11 +56,13 @@ func (s *CoingeckoPricingTestSuite) TestGetPrices() {
 		expectedPrice osmomath.BigDec
 		shouldErr     bool
 	}{
-		{"Test coingecko GetPrice with quote denom as USDC", ATOM, USDC, mocks.AtomPrice, false},
+		{"Test coingecko GetPrice with quote denom as allUSDC", ATOM, ALLUSDC, mocks.AtomPrice, false},
+		{"Test coingecko GetPrice with quote denom as Noble USDC", ATOM, USDC, mocks.AtomPrice, false},
 		{"Test coingecko GetPrice with quote denom as USDT", ATOM, USDT, mocks.AtomPrice, false},
 		{"Test coingecko GetPrice with quote denom as empty string", ATOM, "", mocks.AtomPrice, false},
 		{"Test coingecko GetPrice with quote denom as some spaces", ATOM, " ", mocks.AtomPrice, false},
-		{"Test coingecko GetPrice with quote denom as USDC", ETH, USDC, mocks.OneBigDec, false},
+		{"Test coingecko GetPrice with quote denom as allUSDC", ETH, ALLUSDC, mocks.OneBigDec, false},
+		{"Test coingecko GetPrice with quote denom as Noble USDC", ETH, USDC, mocks.OneBigDec, false},
 		{"Test coingecko GetPrice with quote denom as USDT", ETH, USDT, mocks.OneBigDec, false},
 		{"Test coingecko GetPrice with quote denom as empty string", ETH, "", mocks.OneBigDec, false},
 		{"Test coingecko GetPrice with quote denom as some spaces", ETH, " ", mocks.OneBigDec, false},

@@ -14,8 +14,14 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
 
-const USDC_DENOM = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
-const USDT_DENOM = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
+const (
+	// USDC_DENOM is the alloyed USDC (allUSDC), the default quote denom for SQS prices.
+	USDC_DENOM = "factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC"
+	// NOBLE_USDC_DENOM is the Noble USDC variant, the previous default quote denom.
+	// It remains an accepted quote denom so that callers still quoting in Noble USDC keep working.
+	NOBLE_USDC_DENOM = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+	USDT_DENOM       = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
+)
 
 // CoingeckoPriceGetterFn is a function type that fetches the price of a token from Coingecko.
 // We monkey-patch this function for testing purposes.
@@ -59,9 +65,9 @@ func New(tokenUseCase mvc.TokensUsecase, config domain.PricingConfig, coingeckoP
 
 // GetPrice implements pricing.PricingStrategy.
 // Coingecko pricing is always usd (i.e. usdc or usdt), as specified in the coingecko-quote-currency in config.json
-// So quoteDenom has to be nil or usdc or usdt
+// So quoteDenom has to be nil or a USD stablecoin: allUSDC, Noble USDC or USDT.
 func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, []domain.SplitRoute, error) {
-	if quoteDenom != USDC_DENOM && quoteDenom != USDT_DENOM && strings.TrimSpace(quoteDenom) != "" {
+	if quoteDenom != USDC_DENOM && quoteDenom != NOBLE_USDC_DENOM && quoteDenom != USDT_DENOM && strings.TrimSpace(quoteDenom) != "" {
 		return osmomath.BigDec{}, nil, fmt.Errorf("only usdc/usdt denom or nil is allowed for the quote denom param")
 	}
 	coingeckoId, err := c.TUsecase.GetCoingeckoIdByChainDenom(baseDenom)
