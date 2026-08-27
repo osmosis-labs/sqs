@@ -30,10 +30,12 @@ const (
 var (
 	chainID = "osmosis-1"
 
-	RPC       = "http://127.0.0.1:26657"
-	LCD       = "http://127.0.0.1:1317"
-	Denom     = "uosmo"
-	NobleUSDC = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+	RPC   = "http://127.0.0.1:26657"
+	LCD   = "http://127.0.0.1:1317"
+	Denom = "uosmo"
+	// AllUSDC is the alloyed USDC denom. The plugin's operative quote denom is defaultQuoteDenom,
+	// resolved from pricing.default-quote-human-denom at startup.
+	AllUSDC = "factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC"
 
 	encodingConfig = app.MakeEncodingConfig()
 )

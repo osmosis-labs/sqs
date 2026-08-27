@@ -76,7 +76,7 @@ class TestTokensPrices:
         sqs_service = conftest.SERVICE_MAP[environment_url]
         try:
             sqs_price_json = sqs_service.get_tokens_prices([token])
-            sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
+            sqs_price_str = sqs_price_json.get(token, {}).get(ALLUSDC, None)
 
             if sqs_price_str is None:
                 self.increment_counter()
@@ -108,7 +108,7 @@ class TestTokensPrices:
         # Assert sqs price is available for the token
         sqs_price_json = sqs_service.get_tokens_prices(tokens)
         for token in tokens:
-            sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
+            sqs_price_str = sqs_price_json.get(token, {}).get(ALLUSDC, None)
             assert sqs_price_str is not None, f"{token} SQS price is none"
             sqs_price = float(sqs_price_str)
             assert sqs_price > 0, f"{token} SQS price is zero"
@@ -131,7 +131,7 @@ class TestTokensPrices:
 
         # Assert sqs price is available for the token
         sqs_price_json = sqs_service.get_tokens_prices([token])
-        sqs_price_str = sqs_price_json.get(token, {}).get(USDC, None)
+        sqs_price_str = sqs_price_json.get(token, {}).get(ALLUSDC, None)
         assert sqs_price_str is not None, f"{token},s SQS price is none"
         sqs_price = float(sqs_price_str)
         assert sqs_price > 0, f"{token}, SQS price is zero"
