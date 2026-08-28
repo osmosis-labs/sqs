@@ -10,9 +10,12 @@ import (
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/orderbook/types"
 	"github.com/osmosis-labs/sqs/orderbook/usecase/orderbooktesting"
@@ -280,6 +283,7 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 		queryParams        map[string]string
 		setupMocks         func(usecase *mocks.OrderbookUsecaseMock)
 		notAnOrderbook     bool
+		poolNotFound       bool
 		expectedStatusCode int
 		expectedResponse   string
 		expectedError      bool
@@ -312,6 +316,29 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 			notAnOrderbook:     true,
 			expectedStatusCode: http.StatusNotFound,
 			expectedError:      true,
+		},
+		{
+			name:               "unknown pool is a 404, not an empty book",
+			queryParams:        map[string]string{"poolID": "1933"},
+			setupMocks:         func(usecase *mocks.OrderbookUsecaseMock) {},
+			poolNotFound:       true,
+			expectedStatusCode: http.StatusNotFound,
+			expectedError:      true,
+		},
+		{
+			// A non-canonical orderbook (not top-of-pair for its base/quote) still
+			// has depth worth serving, so it must not 404.
+			name:        "non-canonical orderbook pool is still served",
+			queryParams: map[string]string{"poolID": "1933"},
+			setupMocks: func(usecase *mocks.OrderbookUsecaseMock) {
+				usecase.GetAllTicksFunc = func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
+					return map[int64]orderbookdomain.OrderbookTick{
+						10: tick("100", "0", -1, -1),
+					}, true
+				}
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   `{"ticks":[` + tickJSON(10, "100", "0") + `]}`,
 		},
 		{
 			name:        "not-yet-ingested pool is a 503, not an empty book",
@@ -460,9 +487,21 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 				tc.setupMocks(&usecase)
 			}
 
-			// The pool is a canonical orderbook unless the case says otherwise.
+			// The pool resolves to an orderbook unless the case says otherwise.
 			pools := mocks.PoolsUsecaseMock{}
-			pools.WithIsCanonicalOrderbookPool(!tc.notAnOrderbook)
+			pools.GetPoolFunc = func(poolID uint64) (ingesttypes.PoolI, error) {
+				if tc.poolNotFound {
+					return nil, domain.PoolNotFoundError{PoolID: poolID}
+				}
+				model := &cosmwasmpool.CosmWasmPoolModel{}
+				if !tc.notAnOrderbook {
+					model.ContractInfo = cosmwasmpool.ContractInfo{
+						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+					}
+				}
+				return &mocks.MockRoutablePool{ID: poolID, CosmWasmPoolModel: model}, nil
+			}
 
 			// Initialize the handler with mocked usecase
 			handler := passthroughdelivery.PassthroughHandler{

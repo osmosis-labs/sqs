@@ -164,13 +164,13 @@ func (a *PassthroughHandler) GetActiveOrdersStream(c echo.Context) error {
 // @Description no liquidity on either side omitted. Ticks are sorted by ascending tick ID.
 // @Description
 // @Description An empty ticks array means the pool is genuinely empty, not that data is missing:
-// @Description a pool that is not a canonical orderbook returns 404, and one whose ticks have not
-// @Description been ingested yet returns 503. Clients must not treat those as zero depth.
+// @Description an unknown pool or one that is not an orderbook returns 404, and an orderbook whose
+// @Description ticks have not been ingested yet returns 503. Clients must not treat those as zero depth.
 //
 // @Produce  json
 // @Success 200  {object}  types.GetOrderbookTicksResponse  "Tick states for the given pool"
 // @Failure 400  {object}  domain.ResponseError             "Response error"
-// @Failure 404  {object}  domain.ResponseError             "Pool is not a known canonical orderbook"
+// @Failure 404  {object}  domain.ResponseError             "Pool is unknown or is not an orderbook"
 // @Failure 500  {object}  domain.ResponseError             "Malformed or invariant-violating tick state"
 // @Failure 503  {object}  domain.ResponseError             "Pool ticks have not been ingested yet"
 // @Param   poolID  query  string  true  "Pool ID"
@@ -192,9 +192,25 @@ func (a *PassthroughHandler) GetOrderbookTicks(c echo.Context) error {
 
 	// Distinguish "not an orderbook" from "not ingested yet" before reading the tick
 	// map, so that a missing snapshot is never reported to clients as an empty book.
-	if !a.PoolsUsecase.IsCanonicalOrderbookPool(req.PoolID) {
+	//
+	// This deliberately does not use IsCanonicalOrderbookPool: "canonical" means the
+	// highest-liquidity orderbook for a base/quote pair, and a pool is dropped from
+	// that set when a rival for the same pair overtakes it. Gating on it would 404 a
+	// perfectly valid orderbook, and would make a pool's depth disappear when
+	// liquidity shifted. Any orderbook pool has tick state worth serving.
+	// Kept out of err: an unknown pool ID is an ordinary client mistake, not a
+	// server fault, and should not be recorded as a span error.
+	pool, poolErr := a.PoolsUsecase.GetPool(req.PoolID)
+	if poolErr != nil {
 		return c.JSON(http.StatusNotFound, domain.ResponseError{
-			Message: fmt.Sprintf("pool %d is not a canonical orderbook", req.PoolID),
+			Message: fmt.Sprintf("pool %d not found", req.PoolID),
+		})
+	}
+
+	cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
+	if cosmWasmPoolModel == nil || !cosmWasmPoolModel.IsOrderbook() {
+		return c.JSON(http.StatusNotFound, domain.ResponseError{
+			Message: fmt.Sprintf("pool %d is not an orderbook", req.PoolID),
 		})
 	}
 
