@@ -271,8 +271,8 @@ paths:
         no liquidity on either side omitted. Ticks are sorted by ascending tick ID.
 
         An empty ticks array means the pool is genuinely empty, not that data is missing:
-        a pool that is not a canonical orderbook returns 404, and one whose ticks have not
-        been ingested yet returns 503. Clients must not treat those as zero depth.
+        an unknown pool or one that is not an orderbook returns 404, and an orderbook whose
+        ticks have not been ingested yet returns 503. Clients must not treat those as zero depth.
       parameters:
       - description: Pool ID
         in: query
@@ -291,7 +291,7 @@ paths:
           schema:
             $ref: '#/definitions/domain.ResponseError'
         "404":
-          description: Pool is not a known canonical orderbook
+          description: Pool is unknown or is not an orderbook
           schema:
             $ref: '#/definitions/domain.ResponseError'
         "500":

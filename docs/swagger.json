@@ -46,7 +46,7 @@
         },
         "/passthrough/orderbook-ticks": {
             "get": {
-                "description": "Returns the full tick map for the specified pool as indexed by SQS. Each tick includes\nask and bid liquidity values, with unrealized cancels already subtracted, and ticks with\nno liquidity on either side omitted. Ticks are sorted by ascending tick ID.\n\nAn empty ticks array means the pool is genuinely empty, not that data is missing:\na pool that is not a canonical orderbook returns 404, and one whose ticks have not\nbeen ingested yet returns 503. Clients must not treat those as zero depth.",
+                "description": "Returns the full tick map for the specified pool as indexed by SQS. Each tick includes\nask and bid liquidity values, with unrealized cancels already subtracted, and ticks with\nno liquidity on either side omitted. Ticks are sorted by ascending tick ID.\n\nAn empty ticks array means the pool is genuinely empty, not that data is missing:\nan unknown pool or one that is not an orderbook returns 404, and an orderbook whose\nticks have not been ingested yet returns 503. Clients must not treat those as zero depth.",
                 "produces": [
                     "application/json"
                 ],
@@ -74,7 +74,7 @@
                         }
                     },
                     "404": {
-                        "description": "Pool is not a known canonical orderbook",
+                        "description": "Pool is unknown or is not an orderbook",
                         "schema": {
                             "$ref": "#/definitions/domain.ResponseError"
                         }
