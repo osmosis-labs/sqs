@@ -8,7 +8,7 @@ var _ orderbookdomain.OrderBookRepository = &OrderbookRepositoryMock{}
 
 // OrderbookRepositoryMock is a mock implementation of the OrderBookRepository interface.
 type OrderbookRepositoryMock struct {
-	StoreTicksFunc  func(poolID uint64, ticksMap map[int64]orderbookdomain.OrderbookTick)
+	StoreTicksFunc  func(poolID uint64, height uint64, ticksMap map[int64]orderbookdomain.OrderbookTick)
 	GetAllTicksFunc func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool)
 	GetTicksFunc    func(poolID uint64, tickIDs []int64) (map[int64]orderbookdomain.OrderbookTick, error)
 	GetTickByIDFunc func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool)
@@ -17,9 +17,9 @@ type OrderbookRepositoryMock struct {
 }
 
 // StoreTicks implements OrderBookRepository.
-func (m *OrderbookRepositoryMock) StoreTicks(poolID uint64, ticksMap map[int64]orderbookdomain.OrderbookTick) {
+func (m *OrderbookRepositoryMock) StoreTicks(poolID uint64, height uint64, ticksMap map[int64]orderbookdomain.OrderbookTick) {
 	if m.StoreTicksFunc != nil {
-		m.StoreTicksFunc(poolID, ticksMap)
+		m.StoreTicksFunc(poolID, height, ticksMap)
 		return
 	}
 	panic("StoreTicks not implemented")
