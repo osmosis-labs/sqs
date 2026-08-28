@@ -61,7 +61,7 @@ func (o *OrderbookUseCaseImpl) GetAllTicks(poolID uint64) (map[int64]orderbookdo
 }
 
 // ProcessPool implements mvc.OrderBookUsecase.
-func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool ingesttypes.PoolI) error {
+func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, height uint64, pool ingesttypes.PoolI) error {
 	if pool == nil {
 		return types.PoolNilError{}
 	}
@@ -132,7 +132,7 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool ingesttypes
 	}
 
 	// Store the ticks
-	o.orderbookRepository.StoreTicks(poolID, tickDataMap)
+	o.orderbookRepository.StoreTicks(poolID, height, tickDataMap)
 
 	return nil
 }

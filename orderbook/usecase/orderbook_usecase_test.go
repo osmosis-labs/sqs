@@ -205,7 +205,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 						},
 					}, nil
 				}
-				repository.StoreTicksFunc = func(poolID uint64, ticksMap map[int64]orderbookdomain.OrderbookTick) {
+				repository.StoreTicksFunc = func(poolID uint64, height uint64, ticksMap map[int64]orderbookdomain.OrderbookTick) {
 					// Assume ticks are correctly stored, no need for implementation here
 				}
 			},
@@ -227,7 +227,7 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 			}
 
 			// Call the method under test
-			err := usecase.ProcessPool(context.Background(), tc.pool)
+			err := usecase.ProcessPool(context.Background(), 1, tc.pool)
 
 			// Assert the results
 			if tc.expectedError != nil {

@@ -1,7 +1,9 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
@@ -17,30 +19,45 @@ import (
 	"go.uber.org/zap"
 )
 
-// subtractUnrealizedCancels subtracts unrealized cancels from total_amount_of_liquidity,
-// clamping to "0" if the result would be negative. Both inputs use the same unit
-// (minimal token amount as an integer string / osmomath.Int).
-func subtractUnrealizedCancels(tal string, cancels osmomath.Int) string {
+// subtractUnrealizedCancels subtracts unrealized cancels from total_amount_of_liquidity.
+// Both inputs use the same unit (minimal token amount as an integer string / osmomath.Int).
+//
+// An empty tal is treated as zero liquidity: the ingested tick state leaves the field
+// empty for a side that has never held liquidity.
+//
+// Two conditions are treated as errors rather than being smoothed over, because both
+// mean the ingested state is wrong and publishing a plausible number would hide it:
+// a non-empty tal that fails to parse, and cancels exceeding the liquidity they are
+// cancelling (which violates the orderbook invariant that a tick cannot have more
+// unrealized cancels than total liquidity).
+func subtractUnrealizedCancels(tal string, cancels osmomath.Int) (string, error) {
+	if tal == "" {
+		return "0", nil
+	}
 	talDec, err := osmomath.NewDecFromStr(tal)
 	if err != nil {
-		return tal
+		return "", fmt.Errorf("parsing total_amount_of_liquidity %q: %w", tal, err)
 	}
 	if cancels.IsNil() || !cancels.IsPositive() {
-		return tal
+		// TotalAmountOfLiquidity is always an integer string — truncate the Dec
+		return talDec.TruncateInt().String(), nil
 	}
 	result := talDec.Sub(osmomath.NewDecFromInt(cancels))
 	if result.IsNegative() {
-		return "0"
+		return "", fmt.Errorf(
+			"unrealized cancels %s exceed total_amount_of_liquidity %s",
+			cancels, tal,
+		)
 	}
-	// TotalAmountOfLiquidity is always an integer string — truncate the Dec
-	return result.TruncateInt().String()
+	return result.TruncateInt().String(), nil
 }
 
 // PassthroughHandler is the http handler for passthrough use case
 type PassthroughHandler struct {
-	PUsecase mvc.PassthroughUsecase
-	OUsecase mvc.OrderBookUsecase
-	Logger   log.Logger
+	PUsecase     mvc.PassthroughUsecase
+	OUsecase     mvc.OrderBookUsecase
+	PoolsUsecase mvc.PoolsUsecase
+	Logger       log.Logger
 }
 
 const resourcePrefix = "/passthrough"
@@ -50,11 +67,12 @@ func formatPassthroughResource(resource string) string {
 }
 
 // NewPassthroughHandler will initialize the pools/ resources endpoint
-func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase, ou mvc.OrderBookUsecase, logger log.Logger) {
+func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase, ou mvc.OrderBookUsecase, pu mvc.PoolsUsecase, logger log.Logger) {
 	handler := &PassthroughHandler{
-		PUsecase: ptu,
-		OUsecase: ou,
-		Logger:   logger,
+		PUsecase:     ptu,
+		OUsecase:     ou,
+		PoolsUsecase: pu,
+		Logger:       logger,
 	}
 
 	e.GET(formatPassthroughResource("/portfolio-assets/:address"), handler.GetPortfolioAssetsByAddress)
@@ -142,11 +160,19 @@ func (a *PassthroughHandler) GetActiveOrdersStream(c echo.Context) error {
 
 // @Summary Returns all tick states for a given orderbook pool.
 // @Description Returns the full tick map for the specified pool as indexed by SQS. Each tick includes
-// ask and bid liquidity values. Returns an empty ticks array if the pool is not yet indexed.
+// @Description ask and bid liquidity values, with unrealized cancels already subtracted, and ticks with
+// @Description no liquidity on either side omitted. Ticks are sorted by ascending tick ID.
+// @Description
+// @Description An empty ticks array means the pool is genuinely empty, not that data is missing:
+// @Description a pool that is not a canonical orderbook returns 404, and one whose ticks have not
+// @Description been ingested yet returns 503. Clients must not treat those as zero depth.
 //
 // @Produce  json
 // @Success 200  {object}  types.GetOrderbookTicksResponse  "Tick states for the given pool"
 // @Failure 400  {object}  domain.ResponseError             "Response error"
+// @Failure 404  {object}  domain.ResponseError             "Pool is not a known canonical orderbook"
+// @Failure 500  {object}  domain.ResponseError             "Malformed or invariant-violating tick state"
+// @Failure 503  {object}  domain.ResponseError             "Pool ticks have not been ingested yet"
 // @Param   poolID  query  string  true  "Pool ID"
 // @Router /passthrough/orderbook-ticks [get]
 func (a *PassthroughHandler) GetOrderbookTicks(c echo.Context) error {
@@ -164,21 +190,40 @@ func (a *PassthroughHandler) GetOrderbookTicks(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
+	// Distinguish "not an orderbook" from "not ingested yet" before reading the tick
+	// map, so that a missing snapshot is never reported to clients as an empty book.
+	if !a.PoolsUsecase.IsCanonicalOrderbookPool(req.PoolID) {
+		return c.JSON(http.StatusNotFound, domain.ResponseError{
+			Message: fmt.Sprintf("pool %d is not a canonical orderbook", req.PoolID),
+		})
+	}
+
 	tickMap, found := a.OUsecase.GetAllTicks(req.PoolID)
 	if !found {
-		return c.JSON(http.StatusOK, types.GetOrderbookTicksResponse{Ticks: []orderbookdomain.Tick{}})
+		return c.JSON(http.StatusServiceUnavailable, domain.ResponseError{
+			Message: fmt.Sprintf("ticks for pool %d have not been ingested yet", req.PoolID),
+		})
 	}
 
 	ticks := make([]orderbookdomain.Tick, 0, len(tickMap))
 	for tickID, tick := range tickMap {
-		askTAL := subtractUnrealizedCancels(
+		var askTAL, bidTAL string
+		if askTAL, err = subtractUnrealizedCancels(
 			tick.TickState.AskValues.TotalAmountOfLiquidity,
 			tick.UnrealizedCancels.AskUnrealizedCancels,
-		)
-		bidTAL := subtractUnrealizedCancels(
+		); err != nil {
+			err = fmt.Errorf("ask liquidity for tick %d in pool %d: %w", tickID, req.PoolID, err)
+			a.Logger.Error("GET "+c.Request().URL.String(), zap.Error(err))
+			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: types.ErrInternalError.Error()})
+		}
+		if bidTAL, err = subtractUnrealizedCancels(
 			tick.TickState.BidValues.TotalAmountOfLiquidity,
 			tick.UnrealizedCancels.BidUnrealizedCancels,
-		)
+		); err != nil {
+			err = fmt.Errorf("bid liquidity for tick %d in pool %d: %w", tickID, req.PoolID, err)
+			a.Logger.Error("GET "+c.Request().URL.String(), zap.Error(err))
+			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: types.ErrInternalError.Error()})
+		}
 
 		if askTAL == "0" && bidTAL == "0" {
 			continue
@@ -193,6 +238,11 @@ func (a *PassthroughHandler) GetOrderbookTicks(c echo.Context) error {
 			TickState: tickState,
 		})
 	}
+
+	// Map iteration order is randomised, so sort by tick ID to keep the response
+	// stable across calls. Tick ID is ascending price, which is also the order the
+	// frontend renders depth in.
+	sort.Slice(ticks, func(i, j int) bool { return ticks[i].TickID < ticks[j].TickID })
 
 	return c.JSON(http.StatusOK, types.GetOrderbookTicksResponse{Ticks: ticks})
 }
