@@ -2,6 +2,12 @@ package domain
 
 import "github.com/prometheus/client_golang/prometheus"
 
+// Label names shared by the route cache metrics.
+const (
+	routeLabel     = "route"
+	cacheTypeLabel = "cache_type"
+)
+
 var (
 	// sqs_ingest_usecase_process_block_height
 	//
@@ -251,7 +257,7 @@ var (
 			Name: SQSRoutesCacheHitsCounterMetricName,
 			Help: "Total number of cache hits",
 		},
-		[]string{"route", "cache_type"},
+		[]string{routeLabel, cacheTypeLabel},
 	)
 
 	SQSRoutesCacheMissesCounter = prometheus.NewCounterVec(
@@ -259,7 +265,7 @@ var (
 			Name: SQSRoutesCacheMissesCounterMetricName,
 			Help: "Total number of cache misses",
 		},
-		[]string{"route", "cache_type"},
+		[]string{routeLabel, cacheTypeLabel},
 	)
 
 	SQSRoutesCacheWritesCounter = prometheus.NewCounterVec(
@@ -267,7 +273,7 @@ var (
 			Name: SQSRoutesCacheWritesCounterMetricName,
 			Help: "Total number of cache writes",
 		},
-		[]string{"route", "cache_type"},
+		[]string{routeLabel, cacheTypeLabel},
 	)
 
 	SQSPricingCacheHitsCounter = prometheus.NewCounter(

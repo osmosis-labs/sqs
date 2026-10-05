@@ -137,8 +137,7 @@ func main() {
 func initOTELTracer(ctx context.Context, res *resource.Resource) (*sdktrace.TracerProvider, error) {
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure())
 	if err != nil {
-		log.Fatal("can't initialize grpc trace exporter", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("can't initialize grpc trace exporter: %w", err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
