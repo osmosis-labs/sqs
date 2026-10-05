@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"maps"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -39,7 +41,13 @@ type ingestUseCase struct {
 	chainInfoUseCase     mvc.ChainInfoUsecase
 	orderBookUseCase     mvc.OrderBookUsecase
 
-	denomLiquidityMap domain.DenomPoolLiquidityMap
+	// denomLiquidityMap is replaced (never mutated in place) on every block so that
+	// async consumers holding a previous version can read it without synchronization.
+	denomLiquidityMap   domain.DenomPoolLiquidityMap
+	denomLiquidityMapMu sync.RWMutex
+
+	// lastProcessedHeight is the height of the most recently processed block.
+	lastProcessedHeight atomic.Uint64
 
 	// Worker that computes prices for all tokens with the default quote.
 	defaultQuotePriceUpdateWorker domain.PricingWorker
@@ -112,6 +120,17 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, takerFeesMap ingesttypes.TakerFeeMap, poolData []*types.PoolData) (err error) {
 	ctx, span := tracer.Start(ctx, "ingestUseCase.ProcessBlockData")
 	defer span.End()
+
+	// Blocks carry deltas, so applying an older block after a newer one would
+	// regress pool state. Returning an error triggers the node's full re-ingest fallback.
+	if lastHeight := p.lastProcessedHeight.Load(); height < lastHeight {
+		return fmt.Errorf("received block height %d lower than last processed height %d", height, lastHeight)
+	}
+	defer func() {
+		if err == nil {
+			p.lastProcessedHeight.Store(height)
+		}
+	}()
 
 	if p.firstHeightAfterStartUp.Load() == 0 && len(poolData) > firstBlockPoolCountThreshold {
 		p.logger.Info("setting first block height", zap.Uint64("height", height))
@@ -239,16 +258,26 @@ func (p *ingestUseCase) sortAndStorePools(pools []sqsingesttypes.PoolI) {
 func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsingesttypes.PoolI, domain.BlockPoolMetadata, error) {
 	poolResultChan := make(chan poolResult, len(poolData))
 
-	// Parse the pools concurrently
+	// Parse the pools concurrently with a bounded number of workers.
+	// poolResultChan is sized to len(poolData), so workers never block on send.
+	poolDataChan := make(chan *types.PoolData, len(poolData))
 	for _, pool := range poolData {
-		go func(pool *types.PoolData) {
-			poolResultData, err := p.parsePool(pool)
+		poolDataChan <- pool
+	}
+	close(poolDataChan)
 
-			poolResultChan <- poolResult{
-				pool: poolResultData,
-				err:  err,
+	numParseWorkers := min(runtime.GOMAXPROCS(0), len(poolData))
+	for range numParseWorkers {
+		go func() {
+			for pool := range poolDataChan {
+				poolResultData, err := p.parsePool(pool)
+
+				poolResultChan <- poolResult{
+					pool: poolResultData,
+					err:  err,
+				}
 			}
-		}(pool)
+		}()
 	}
 
 	parsedPools := make([]sqsingesttypes.PoolI, 0, len(poolData))
@@ -323,10 +352,10 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 	// Transfer the updated block denom liquidity data to the global map.
 	// Note, the updated liquidity data contains updates only for the pools updated
 	// in the current block. We need to merge this data with the holistic existing data.
+	p.denomLiquidityMapMu.Lock()
 	p.denomLiquidityMap = transferDenomLiquidityMap(p.denomLiquidityMap, currentBlockLiquidityMap)
-
-	// Update unique denoms.
 	uniqueData.DenomPoolLiquidityMap = p.denomLiquidityMap
+	p.denomLiquidityMapMu.Unlock()
 
 	return parsedPools, uniqueData, nil
 }
@@ -422,18 +451,28 @@ func updateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap domain.Denom
 //
 // We then simply add the transferFrom liquidity map to the total to reflect the new total.
 // the updated denom liquidity data is then set for that denom.
+//
+// Neither input map is mutated: a new map is returned. Entries for untouched denoms are shared
+// with transferTo, and updated denoms get a fresh Pools map. This lets async consumers keep
+// reading a previous version while the next block is merged.
 func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidityMap) domain.DenomPoolLiquidityMap {
+	result := make(domain.DenomPoolLiquidityMap, len(transferTo)+len(transferFrom))
+	maps.Copy(result, transferTo)
+
 	for denom, transferFromDenomLiquidityData := range transferFrom {
-		transferToLiquidityDataForDenom, ok := transferTo[denom]
+		transferToLiquidityDataForDenom, ok := result[denom]
 		if !ok {
-			transferTo[denom] = transferFromDenomLiquidityData
+			result[denom] = transferFromDenomLiquidityData
 			continue
 		}
+
+		pools := make(map[uint64]osmomath.Int, len(transferToLiquidityDataForDenom.Pools)+len(transferFromDenomLiquidityData.Pools))
+		maps.Copy(pools, transferToLiquidityDataForDenom.Pools)
 
 		// Transfer pools
 		for transferFromPoolID, transferFromLiquidity := range transferFromDenomLiquidityData.Pools {
 			// Current pool data
-			transferToPoolLiquidity, ok := transferToLiquidityDataForDenom.Pools[transferFromPoolID]
+			transferToPoolLiquidity, ok := pools[transferFromPoolID]
 			if ok {
 				// Subtract the existing liquidity from the total liquidity.
 				transferToLiquidityDataForDenom.TotalLiquidity = transferToLiquidityDataForDenom.TotalLiquidity.Sub(transferToPoolLiquidity)
@@ -442,14 +481,14 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 			// Add the new liquidity to the total liquidity.
 			transferToLiquidityDataForDenom.TotalLiquidity = transferToLiquidityDataForDenom.TotalLiquidity.Add(transferFromLiquidity)
 			// Overwrite liquidity for the pool or set it if it doesn't exist.
-			transferToLiquidityDataForDenom.Pools[transferFromPoolID] = transferFromLiquidity
+			pools[transferFromPoolID] = transferFromLiquidity
 		}
 
-		// Update the global map with the updated data.
-		transferTo[denom] = transferToLiquidityDataForDenom
+		transferToLiquidityDataForDenom.Pools = pools
+		result[denom] = transferToLiquidityDataForDenom
 	}
 
-	return transferTo
+	return result
 }
 
 // parsePool parses the pool data and returns the pool object
@@ -494,7 +533,11 @@ func (p *ingestUseCase) executeEndBlockProcessPlugins(ctx context.Context, block
 }
 
 func (p *ingestUseCase) StoreIngestStateFiles() error {
-	return parsing.StoreIngest(p.denomLiquidityMap, "ingest.json")
+	p.denomLiquidityMapMu.RLock()
+	denomLiquidityMap := p.denomLiquidityMap
+	p.denomLiquidityMapMu.RUnlock()
+
+	return parsing.StoreIngest(denomLiquidityMap, "ingest.json")
 }
 
 func (p *ingestUseCase) LoadIngestStateFiles() error {
@@ -503,7 +546,9 @@ func (p *ingestUseCase) LoadIngestStateFiles() error {
 		return fmt.Errorf("failed to load ingest state files: %w", err)
 	}
 
+	p.denomLiquidityMapMu.Lock()
 	p.denomLiquidityMap = denomliquidityCap
+	p.denomLiquidityMapMu.Unlock()
 
 	return nil
 }
@@ -563,16 +608,14 @@ func processSQSModelMut(sqsModel *ingesttypes.SQSPool) error {
 	// This is useful for edge case handling for certain pools such as alloyed
 	// where the token amounts might get imbalanced, making the liquidity of one denom completely zero.
 	// In that case, we would like to deprioritize the out-of-liquidity denoms.
-	sort.Slice(newPoolDenoms, func(i, j int) bool {
-		amountI, ok := balancesMap[sqsModel.PoolDenoms[i]]
-		if !ok {
-			return false
+	// Denoms without a balance sort last. Stable sort keeps the original order for ties.
+	sort.SliceStable(newPoolDenoms, func(i, j int) bool {
+		amountI, okI := balancesMap[newPoolDenoms[i]]
+		amountJ, okJ := balancesMap[newPoolDenoms[j]]
+		if !okI || !okJ {
+			return okI && !okJ
 		}
-		amountJ, ok := balancesMap[sqsModel.PoolDenoms[j]]
-		if !ok {
-			return true
-		}
-		return amountI.GTE(amountJ)
+		return amountI.GT(amountJ)
 	})
 
 	sqsModel.PoolDenoms = newPoolDenoms

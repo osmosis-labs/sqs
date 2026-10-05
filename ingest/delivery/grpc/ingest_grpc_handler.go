@@ -7,7 +7,6 @@ import (
 	prototypes "github.com/osmosis-labs/osmosis/v28/ingest/types/proto/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	"github.com/osmosis-labs/sqs/domain/workerpool"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"go.opentelemetry.io/otel"
@@ -27,17 +26,35 @@ type IngestGRPCHandler struct {
 
 	prototypes.UnimplementedSQSIngesterServer
 
-	blockProcessDispatcher *workerpool.Dispatcher[uint64]
+	// blockJobs is a FIFO queue drained by a single goroutine so that
+	// blocks are applied strictly in the order they were received.
+	blockJobs chan blockJob
+
+	// blockErrs holds block processing errors to be surfaced on the next RPC.
+	blockErrs chan blockError
 }
 
 type IngestProcessBlockArgs struct {
 	Pools []ingesttypes.PoolI
 }
 
+type blockJob struct {
+	ctx context.Context
+	req *prototypes.ProcessBlockRequest
+
+	takerFeeMap ingesttypes.TakerFeeMap
+}
+
+type blockError struct {
+	height uint64
+	err    error
+}
+
 const (
-	// numBlockProcessWorkers is the number of workers to process blocks concurrently
-	// TODO: move to config
-	numBlockProcessWorkers = 2
+	// blockQueueSize is the max number of blocks waiting to be processed.
+	// When full, the RPC fails rather than blocking the node, which triggers
+	// the node's fallback of re-ingesting all data on the next block.
+	blockQueueSize = 8
 
 	tracerName = "sqs-ingest-handler"
 )
@@ -51,12 +68,13 @@ var _ prototypes.SQSIngesterServer = &IngestGRPCHandler{}
 // NewIngestHandler will initialize the ingest/ resources endpoint
 func NewIngestGRPCHandler(us mvc.IngestUsecase, grpcIngesterConfig domain.GRPCIngesterConfig, logger log.Logger) (*grpc.Server, error) {
 	ingestHandler := &IngestGRPCHandler{
-		ingestUseCase:          us,
-		logger:                 logger,
-		blockProcessDispatcher: workerpool.NewDispatcher[uint64](numBlockProcessWorkers),
+		ingestUseCase: us,
+		logger:        logger,
+		blockJobs:     make(chan blockJob, blockQueueSize),
+		blockErrs:     make(chan blockError, blockQueueSize),
 	}
 
-	go ingestHandler.blockProcessDispatcher.Run()
+	go ingestHandler.processBlocks()
 
 	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(grpcIngesterConfig.MaxReceiveMsgSizeBytes), grpc.ConnectionTimeout(time.Second*time.Duration(grpcIngesterConfig.ServerConnectionTimeoutSeconds)))
 	prototypes.RegisterSQSIngesterServer(grpcServer, ingestHandler)
@@ -86,59 +104,66 @@ func (i *IngestGRPCHandler) ProcessBlock(ctx context.Context, req *prototypes.Pr
 		return nil, err
 	}
 
-	// Empty result queue and return the first error encountered if any
+	// Empty error queue and return the first error encountered if any
 	// THis allows to trigger the fallback mechanism, reingesting all data
 	// if any error is detected. Under normal circumstances, this should not
 	// be triggered.
-	err := i.emptyResults()
-	if err != nil {
+	if err := i.emptyErrors(); err != nil {
 		return nil, err
 	}
 
-	// Dispatch block processing
-	i.blockProcessDispatcher.JobQueue <- workerpool.Job[uint64]{
-		Task: func() (uint64, error) {
-			// Process block data
-			// Note that this executed a new background context since the parent context
-			// if the RPC call will be cancelled after the RPC call is done.
-			ctx := context.Background()
-			span := trace.SpanFromContext(parentCtx)
-			ctx = trace.ContextWithSpan(ctx, span)
+	// Note that processing uses a new background context since the context
+	// of the RPC call will be cancelled after the RPC call is done.
+	jobCtx := trace.ContextWithSpan(context.Background(), trace.SpanFromContext(parentCtx))
 
-			if err := i.ingestUseCase.ProcessBlockData(ctx, req.BlockHeight, takerFeeMap, req.Pools); err != nil {
-				// Increment error counter
-				i.logger.Error(domain.SQSIngestUsecaseProcessBlockErrorMetricName, zap.Uint64("height", req.BlockHeight), zap.Error(err))
-				domain.SQSIngestHandlerProcessBlockErrorCounter.Inc()
-
-				return req.BlockHeight, err
-			}
-
-			return req.BlockHeight, nil
-		},
+	select {
+	case i.blockJobs <- blockJob{ctx: jobCtx, req: req, takerFeeMap: takerFeeMap}:
+	default:
+		domain.SQSIngestHandlerProcessBlockErrorCounter.Inc()
+		return nil, status.Errorf(codes.ResourceExhausted, "block processing queue is full, dropping block %d", req.BlockHeight)
 	}
 
 	return &prototypes.ProcessBlockReply{}, nil
 }
 
-// emptyResults will empty the result queue and return the first error encountered if any.
-// If no errors are encountered, it will return nil.
-func (i *IngestGRPCHandler) emptyResults() error {
-	// TODO: consider loop bound
-	for {
-		select {
-		// Empty result queue and return if there are any errors
-		// to trigger the fallback mechanism, reingesting all data.
-		case prevResult := <-i.blockProcessDispatcher.ResultQueue:
-			if prevResult.Err != nil {
-				i.logger.Error(domain.SQSIngestUsecaseProcessBlockErrorMetricName, zap.Uint64("height", prevResult.Result), zap.Error(prevResult.Err))
-				// Increment error counter
-				domain.SQSIngestHandlerProcessBlockErrorCounter.Inc()
+// processBlocks processes queued blocks sequentially in FIFO order.
+// Runs for the lifetime of the process.
+func (i *IngestGRPCHandler) processBlocks() {
+	for job := range i.blockJobs {
+		height := job.req.BlockHeight
 
-				return prevResult.Err
-			}
+		err := i.ingestUseCase.ProcessBlockData(job.ctx, height, job.takerFeeMap, job.req.Pools)
+		if err == nil {
+			continue
+		}
+
+		// Increment error counter
+		i.logger.Error(domain.SQSIngestUsecaseProcessBlockErrorMetricName, zap.Uint64("height", height), zap.Error(err))
+		domain.SQSIngestHandlerProcessBlockErrorCounter.Inc()
+
+		// A single pending error is enough to trigger the fallback,
+		// so drop the error if the queue is already full.
+		select {
+		case i.blockErrs <- blockError{height: height, err: err}:
 		default:
-			// No more results in the channel, continue execution
-			return nil
 		}
 	}
+}
+
+// emptyErrors drains the error queue and returns the first error encountered if any.
+// If no errors are pending, it returns nil.
+func (i *IngestGRPCHandler) emptyErrors() error {
+	var firstErr error
+	for range blockQueueSize {
+		select {
+		case prevResult := <-i.blockErrs:
+			if firstErr == nil {
+				firstErr = prevResult.err
+			}
+		default:
+			// No more errors in the channel
+			return firstErr
+		}
+	}
+	return firstErr
 }
