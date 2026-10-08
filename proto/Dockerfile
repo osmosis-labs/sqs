@@ -3,7 +3,7 @@
 
 FROM bufbuild/buf:1.7.0 as BUILDER
 
-FROM golang:1.22-alpine
+FROM golang:1.27-alpine
 
 
 RUN apk add --no-cache \

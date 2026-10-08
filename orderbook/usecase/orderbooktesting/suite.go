@@ -13,11 +13,14 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
 
+// bidDirection is the order direction for bids.
+const bidDirection = "bid"
+
 // defaultOrder is a default order used for testing
 var defaultOrder = orderbookdomain.Order{
 	TickId:         1,
 	OrderId:        1,
-	OrderDirection: "bid",
+	OrderDirection: bidDirection,
 	Owner:          "owner1",
 	Quantity:       "1000",
 	PlacedQuantity: "1500",
@@ -30,7 +33,7 @@ var defaultOrder = orderbookdomain.Order{
 var defaultLimitOrder = orderbookdomain.LimitOrder{
 	TickId:           1,
 	OrderId:          1,
-	OrderDirection:   "bid",
+	OrderDirection:   bidDirection,
 	Owner:            "owner1",
 	Quantity:         osmomath.NewDec(1000),
 	Etas:             "500",
@@ -123,7 +126,7 @@ func (s *OrderbookTestHelper) NewTick(effectiveTotalAmountSwapped string, unreal
 		UnrealizedCancels: orderbookdomain.UnrealizedCancels{},
 	}
 	switch direction {
-	case "bid":
+	case bidDirection:
 		tick.TickState.BidValues = tickValues
 		if unrealizedCancels != 0 {
 			tick.UnrealizedCancels.BidUnrealizedCancels = osmomath.NewInt(unrealizedCancels)

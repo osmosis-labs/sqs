@@ -271,7 +271,7 @@ func bindEnvRecursive(v reflect.Value, prefix string) {
 	t := v.Type()
 
 	// Assume pointer to struct
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		v = v.Elem()
 		t = v.Type()
 	}
@@ -294,7 +294,7 @@ func bindEnvRecursive(v reflect.Value, prefix string) {
 		envName := prefix + tag
 
 		// For nested structs, recurse
-		if value.Kind() == reflect.Struct || (value.Kind() == reflect.Ptr && value.Elem().Kind() == reflect.Struct) {
+		if value.Kind() == reflect.Struct || (value.Kind() == reflect.Pointer && value.Elem().Kind() == reflect.Struct) {
 			bindEnvRecursive(value, envName+".")
 		} else {
 			// Bind the environment variable

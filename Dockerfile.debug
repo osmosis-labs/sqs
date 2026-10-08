@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1
 # See README.md#Debugging for more information
 
-ARG GO_VERSION="1.22"
-ARG RUNNER_IMAGE="golang:1.22"
+ARG GO_VERSION="1.27"
+ARG RUNNER_IMAGE="golang:1.27"
 
 # --------------------------------------------------------
 # Builder
 # --------------------------------------------------------
 
-FROM golang:1.21-alpine as builder
+FROM golang:${GO_VERSION}-alpine as builder
 
 ARG GIT_VERSION
 ARG GIT_COMMIT

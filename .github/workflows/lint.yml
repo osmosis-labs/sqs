@@ -30,7 +30,7 @@ jobs:
           go-version-file: go.mod
       - name: Run golangci-lint
         if: env.GIT_DIFF
-        uses: golangci/golangci-lint-action@v5
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.62
+          version: v2.14.0
           skip-cache: true
