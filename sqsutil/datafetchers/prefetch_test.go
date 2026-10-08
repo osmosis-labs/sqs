@@ -32,8 +32,3 @@ func TestWaitUntilFirstResult(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, v, 42)
 }
-
-func requireTimeDurationInRange(t *testing.T, d time.Duration, min time.Duration, max time.Duration) {
-	require.True(t, d >= min, "Duration %s is less than min %s", d, min)
-	require.True(t, d <= max, "Duration %s is greater than max %s", d, max)
-}

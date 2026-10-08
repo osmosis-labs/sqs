@@ -13,7 +13,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mocks"
-	"github.com/osmosis-labs/sqs/domain/mvc"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
@@ -1681,21 +1680,4 @@ func (s *RouterTestSuite) TestGetMinPoolLiquidityCapFilter() {
 			s.Require().Equal(tc.expectedFilter, actualFilter)
 		})
 	}
-}
-
-// validates that for the given coinIn and tokenOutDenom, there is one route with one pool ID equal to the expectedPoolID.
-// This helper is useful in specific tests that rely on this configuration.
-func (s *RouterTestSuite) validatePoolIDInRoute(routerUseCase mvc.RouterUsecase, coinIn sdk.Coin, tokenOutDenom string, expectedPoolID uint64) {
-	// Get quote
-	quote, err := routerUseCase.GetOptimalQuoteOutGivenIn(context.Background(), coinIn, tokenOutDenom)
-	s.Require().NoError(err)
-
-	quoteRoutes := quote.GetRoute()
-	s.Require().Len(quoteRoutes, 1)
-
-	routePools := quoteRoutes[0].GetPools()
-	s.Require().Len(routePools, 1)
-
-	// Validate that the pool ID is the expected one
-	s.Require().Equal(expectedPoolID, routePools[0].GetId())
 }

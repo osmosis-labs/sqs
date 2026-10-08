@@ -28,7 +28,7 @@ func TestSendBatchClaimTx(t *testing.T) {
 		chainID         string
 		contractAddress string
 		claims          orderbookdomain.Orders
-		setupMocks      func(*mocks.Keyring, *authtypes.BaseAccount, *mocks.TxFeesQueryClient, *mocks.MsgSimulatorMock, *mocks.TxServiceClient)
+		setupMocks      func(*mocks.Keyring, *authtypes.BaseAccount, *mocks.MsgSimulatorMock, *mocks.TxServiceClient)
 		setSendTxFunc   func() []byte
 
 		getEncodingConfigFn func() params.EncodingConfig
@@ -42,7 +42,7 @@ func TestSendBatchClaimTx(t *testing.T) {
 			claims: orderbookdomain.Orders{
 				{TickId: 13, OrderId: 99},
 			},
-			setupMocks: func(keyringMock *mocks.Keyring, account *authtypes.BaseAccount, txfeesClient *mocks.TxFeesQueryClient, msgSimulator *mocks.MsgSimulatorMock, txServiceClient *mocks.TxServiceClient) {
+			setupMocks: func(keyringMock *mocks.Keyring, account *authtypes.BaseAccount, msgSimulator *mocks.MsgSimulatorMock, txServiceClient *mocks.TxServiceClient) {
 				keyringMock.WithGetAddress("osmo0address")
 				keyringMock.WithGetKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
 				account = &authtypes.BaseAccount{
@@ -71,7 +71,7 @@ func TestSendBatchClaimTx(t *testing.T) {
 			claims: orderbookdomain.Orders{
 				{TickId: 13, OrderId: 99},
 			},
-			setupMocks: func(keyringMock *mocks.Keyring, account *authtypes.BaseAccount, txfeesClient *mocks.TxFeesQueryClient, msgSimulator *mocks.MsgSimulatorMock, txServiceClient *mocks.TxServiceClient) {
+			setupMocks: func(keyringMock *mocks.Keyring, account *authtypes.BaseAccount, msgSimulator *mocks.MsgSimulatorMock, txServiceClient *mocks.TxServiceClient) {
 				keyringMock.WithGetAddress("osmo5address")
 				keyringMock.WithGetKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
 				msgSimulator.BuildTxFn = func(
@@ -88,8 +88,6 @@ func TestSendBatchClaimTx(t *testing.T) {
 						},
 					}, nil
 				}
-				txfeesClient.WithBaseDenom("uosmo", nil)
-				txfeesClient.WithGetEipBaseFee("0.2", nil)
 				account = &authtypes.BaseAccount{
 					AccountNumber: 83,
 					Sequence:      5,
@@ -108,7 +106,7 @@ func TestSendBatchClaimTx(t *testing.T) {
 				{TickId: 1, OrderId: 100},
 				{TickId: 2, OrderId: 200},
 			},
-			setupMocks: func(keyringMock *mocks.Keyring, account *authtypes.BaseAccount, txfeesClient *mocks.TxFeesQueryClient, msgSimulator *mocks.MsgSimulatorMock, txServiceClient *mocks.TxServiceClient) {
+			setupMocks: func(keyringMock *mocks.Keyring, account *authtypes.BaseAccount, msgSimulator *mocks.MsgSimulatorMock, txServiceClient *mocks.TxServiceClient) {
 				keyringMock.WithGetAddress("osmo1address")
 				keyringMock.WithGetKey("6cf5103c60c939a5f38e383b52239c5296c968579eec1c68a47d70fbf1d19159")
 				msgSimulator.BuildTxFn = func(
@@ -125,8 +123,6 @@ func TestSendBatchClaimTx(t *testing.T) {
 						},
 					}, nil
 				}
-				txfeesClient.WithBaseDenom("uosmo", nil)
-				txfeesClient.WithGetEipBaseFee("0.15", nil)
 				account = &authtypes.BaseAccount{
 					AccountNumber: 1,
 					Sequence:      1,
@@ -165,14 +161,13 @@ func TestSendBatchClaimTx(t *testing.T) {
 			ctx := context.Background()
 			keyring := mocks.Keyring{}
 			account := authtypes.BaseAccount{}
-			txFeesClient := mocks.TxFeesQueryClient{}
 			txServiceClient := mocks.TxServiceClient{}
 
 			txSimulatorMock := mocks.MsgSimulatorMock{}
 
-			tt.setupMocks(&keyring, &account, &txFeesClient, &txSimulatorMock, &txServiceClient)
+			tt.setupMocks(&keyring, &account, &txSimulatorMock, &txServiceClient)
 
-			response, err := claimbot.SendBatchClaimTxInternal(ctx, &keyring, &txFeesClient, &txSimulatorMock, &txServiceClient, tt.chainID, &account, tt.contractAddress, tt.claims, tt.getEncodingConfigFn)
+			response, err := claimbot.SendBatchClaimTxInternal(ctx, &keyring, &txSimulatorMock, &txServiceClient, tt.chainID, &account, tt.contractAddress, tt.claims, tt.getEncodingConfigFn)
 			if tt.expectedError {
 				assert.Error(t, err)
 			} else {

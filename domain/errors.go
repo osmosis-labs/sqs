@@ -13,8 +13,6 @@ var (
 	ErrNotFound = errors.New("your requested Item is not found")
 	// ErrConflict will throw if the current action already exists
 	ErrConflict = errors.New("your Item already exist")
-	// ErrBadParamInput will throw if the given request-body or params is not valid
-	ErrBadParamInput = errors.New("given Param is not valid")
 )
 
 var (
@@ -79,15 +77,6 @@ type ConcentratedPoolNoTickModelError struct {
 
 func (e ConcentratedPoolNoTickModelError) Error() string {
 	return fmt.Sprintf("concentrated pool (%d) has no tick model", e.PoolId)
-}
-
-type TakerFeeNotFoundForDenomPairError struct {
-	Denom0 string
-	Denom1 string
-}
-
-func (e TakerFeeNotFoundForDenomPairError) Error() string {
-	return fmt.Sprintf("taker fee not found for denom pair (%s, %s)", e.Denom0, e.Denom1)
 }
 
 type FailedToCastPoolModelError struct {

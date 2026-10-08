@@ -48,11 +48,6 @@ type PassthroughGRPCClient interface {
 
 type PassthroughFetchFn func(context.Context, string) (sdk.Coins, error)
 
-type PassthroughFetchFunctionWithName struct {
-	Name string
-	Fn   PassthroughFetchFn
-}
-
 type passthroughGRPCClient struct {
 	bankQueryClient                  banktypes.QueryClient
 	stakingQueryClient               staking.QueryClient

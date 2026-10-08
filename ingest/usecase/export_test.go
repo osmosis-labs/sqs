@@ -8,10 +8,6 @@ import (
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
-type (
-	IngestUseCaseImpl = ingestUseCase
-)
-
 func UpdateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.DenomPoolLiquidityMap, currentPoolBalances sdk.Coins, poolID uint64) domain.DenomPoolLiquidityMap {
 	return updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap, currentPoolBalances, poolID)
 }

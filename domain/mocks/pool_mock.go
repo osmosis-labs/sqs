@@ -88,8 +88,6 @@ func (*MockRoutablePool) SetTokenOutDenom(tokenOutDenom string) {
 	panic("unimplemented")
 }
 
-var DefaultSpreadFactor = osmomath.MustNewDecFromStr("0.005")
-
 var (
 	_ domain.RoutablePool = &MockRoutablePool{}
 )
@@ -296,12 +294,6 @@ func WithPoolID(mockPool *MockRoutablePool, id uint64) *MockRoutablePool {
 	return newPool
 }
 
-func WithDenoms(mockPool *MockRoutablePool, denoms []string) *MockRoutablePool {
-	newPool := deepCopyPool(mockPool)
-	newPool.Denoms = denoms
-	return newPool
-}
-
 func WithTokenOutDenom(mockPool *MockRoutablePool, tokenOutDenom string) *MockRoutablePool {
 	newPool := deepCopyPool(mockPool)
 	newPool.TokenOutDenom = tokenOutDenom
@@ -320,11 +312,5 @@ func WithChainPoolModel(mockPool *MockRoutablePool, chainPool poolmanagertypes.P
 	newPool.ChainPoolModel = chainPool
 	newPool.PoolType = chainPool.GetType()
 	newPool.ID = chainPool.GetId()
-	return newPool
-}
-
-func WithTakerFee(mockPool *MockRoutablePool, takerFee osmomath.Dec) *MockRoutablePool {
-	newPool := deepCopyPool(mockPool)
-	newPool.TakerFee = takerFee
 	return newPool
 }

@@ -10,10 +10,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-type (
-	OrderBookEntry = orderBookEntry
-	PoolsUsecase   = poolsUseCase
-)
+type PoolsUsecase = poolsUseCase
 
 const (
 	OriginalOrderbookAddress = "original-address"

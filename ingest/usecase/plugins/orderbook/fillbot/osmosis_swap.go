@@ -30,22 +30,12 @@ const (
 var (
 	chainID = "osmosis-1"
 
-	RPC       = "http://127.0.0.1:26657"
-	LCD       = "http://127.0.0.1:1317"
-	Denom     = "uosmo"
-	NobleUSDC = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+	RPC   = "http://127.0.0.1:26657"
+	LCD   = "http://127.0.0.1:1317"
+	Denom = "uosmo"
 
 	encodingConfig = app.MakeEncodingConfig()
 )
-
-type AccountInfo struct {
-	Sequence      string `json:"sequence"`
-	AccountNumber string `json:"account_number"`
-}
-
-type AccountResult struct {
-	Account AccountInfo `json:"account"`
-}
 
 // init overrides LCD and RPC endpoints
 // from environment variables if those are set.
