@@ -323,7 +323,6 @@ func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 
 	// For every base denom, create a map with quote denom prices.
 	for _, baseDenom := range baseDenoms {
-
 		basePriceDispatcher.JobQueue <- workerpool.Job[priceResults]{
 			Task: func() (priceResults, error) {
 				var err error

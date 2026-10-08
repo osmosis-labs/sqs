@@ -87,7 +87,6 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	})
 
 	wg.Go(func() {
-
 		// Note: the error is propagated to the caller because
 		// the callee only errors on fatal issues that should invalidate health check.
 		err = p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates)
