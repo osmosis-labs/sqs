@@ -1014,10 +1014,16 @@ func (s *RouterTestSuite) TestSortPools() {
 	sortedPools, orderBookPools := usecase.ValidateAndSortPools(pools, cosmWasmPoolsConfig, []uint64{}, noOpLogger)
 	s.Require().NotEmpty(orderBookPools)
 
-	// Filter pools by min liquidity
-	sortedPools = usecase.FilterPoolsByMinLiquidity(sortedPools, defaultRouterConfig.MinPoolLiquidityCap)
+	// Count pools above min liquidity
+	minLiquidityCap := osmomath.NewIntFromUint64(defaultRouterConfig.MinPoolLiquidityCap)
+	numPoolsAboveMinLiquidity := 0
+	for _, pool := range sortedPools {
+		if pool.GetPoolLiquidityCap().GTE(minLiquidityCap) {
+			numPoolsAboveMinLiquidity++
+		}
+	}
 
-	s.Require().GreaterOrEqual(len(sortedPools), expectedMinNumPools)
+	s.Require().GreaterOrEqual(numPoolsAboveMinLiquidity, expectedMinNumPools)
 
 	// Check that the top pool is the expected one.
 	s.Require().Equal(expectedTopPoolID, sortedPools[0].GetId())

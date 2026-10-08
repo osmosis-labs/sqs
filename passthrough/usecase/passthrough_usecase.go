@@ -83,7 +83,6 @@ var _ mvc.PassthroughUsecase = &passthroughUseCase{}
 const (
 	gammSharePrefix         = "gamm"
 	concentratedSharePrefix = "cl"
-	denomShareSeparator     = "/"
 	denomShareSeparatorByte = '/'
 
 	numFinalResultJobs = 7
