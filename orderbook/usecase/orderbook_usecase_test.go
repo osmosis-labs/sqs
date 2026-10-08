@@ -45,12 +45,6 @@ func (s *OrderbookUsecaseTestSuite) GetSpotPriceScalingFactorByDenomFunc(v int64
 	}
 }
 
-func (s *OrderbookUsecaseTestSuite) getTickByIDFunc(tick orderbookdomain.OrderbookTick, ok bool) func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-	return func(poolID uint64, tickID int64) (orderbookdomain.OrderbookTick, bool) {
-		return tick, ok
-	}
-}
-
 func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 	withContractInfo := func(pool *mocks.MockRoutablePool) *mocks.MockRoutablePool {
 		pool.CosmWasmPoolModel.ContractInfo = cosmwasmpool.ContractInfo{

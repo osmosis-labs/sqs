@@ -323,11 +323,6 @@ func (o *OrderBookPluginConfig) IsEnabled() bool {
 
 var _ Plugin = &OrderBookPluginConfig{}
 
-type EndpointOTELConfig struct {
-	Quote float64 `mapstructure:"/router/quote"`
-	Other float64 `mapstructure:"other"`
-}
-
 // OTELConfig represents OpenTelemetry configuration.
 type OTELConfig struct {
 	Enabled     bool   `mapstructure:"enabled"`

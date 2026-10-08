@@ -21,7 +21,6 @@ type GetQuoteRequest struct {
 	SimulatorAddress            string
 	SlippageToleranceMultiplier osmomath.Dec
 	AppendBaseFee               bool
-	HumanDenoms                 bool
 	ApplyExponents              bool
 }
 

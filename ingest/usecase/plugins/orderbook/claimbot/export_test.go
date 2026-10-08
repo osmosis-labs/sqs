@@ -10,7 +10,6 @@ import (
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
 	"github.com/osmosis-labs/osmosis/v28/app/params"
-	txfeestypes "github.com/osmosis-labs/osmosis/v28/x/txfees/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 
@@ -23,8 +22,6 @@ import (
 type ProcessedOrderbook = processedOrderbook
 
 var (
-	EncodingConfig = encodingConfig
-
 	DefaultEncodingConfigFn = defaultEncodingConfigFn
 )
 
@@ -44,7 +41,6 @@ func ProcessOrderbooksAndGetClaimableOrders(
 func SendBatchClaimTxInternal(
 	ctx context.Context,
 	keyring keyring.Keyring,
-	txfeesClient txfeestypes.QueryClient,
 	msgSimulator sqstx.MsgSimulator,
 	txServiceClient txtypes.ServiceClient,
 	chainID string,

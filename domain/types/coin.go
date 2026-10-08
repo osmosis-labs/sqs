@@ -12,9 +12,6 @@ func NewCoin(denom string, amount osmomath.Int) Coin {
 	}
 }
 
-// Coins is a set of Coin, one per currency
-type Coins []Coin
-
 // Coin defines a token with a denomination and an amount.
 type Coin struct {
 	Denom       string

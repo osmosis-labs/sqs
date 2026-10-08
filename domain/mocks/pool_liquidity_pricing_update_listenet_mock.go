@@ -2,7 +2,6 @@ package mocks
 
 import (
 	"context"
-	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 )
@@ -23,8 +22,4 @@ func (p *PoolLiquidityPricingMock) OnPoolLiquidityCompute(ctx context.Context, h
 // GetLastHeightCalled returns the last heigh when this mock was executed.
 func (p *PoolLiquidityPricingMock) GetLastHeightCalled() uint64 {
 	return p.lastHeightCalled
-}
-
-func NewPoolLiquidityPricingMock(timeout time.Duration) *PoolLiquidityPricingMock {
-	return &PoolLiquidityPricingMock{}
 }

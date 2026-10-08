@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"net/url"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -15,16 +14,6 @@ const (
 	// RequestPathCtxKey is the key used to store the request path in the request context
 	RequestPathCtxKey RequestPathKeyType = "request_path"
 )
-
-// ParseURLPath parses the URL path from the echo context
-func ParseURLPath(c echo.Context) (string, error) {
-	parsedURL, err := url.Parse(c.Request().RequestURI)
-	if err != nil {
-		return "", err
-	}
-
-	return parsedURL.Path, nil
-}
 
 // GetURLPathFromContext returns the request path from the context
 func GetURLPathFromContext(ctx context.Context) (string, error) {

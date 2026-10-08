@@ -141,7 +141,6 @@ var (
 	ALLUSDT     = "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT"
 	ALLBTC      = "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC"
 	KAVAUSDT    = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
-	EVMOS       = "ibc/6AE98883D4D5D5FF9E50D7130F1305DA2FFA0C652D1DD9C123657C6B4EB2DF8A"
 	NATIVE_WBTC = "factory/osmo1z0qrq605sjgcqpylfl4aa6s90x738j7m58wyatt0tdzflg2ha26q67k743/wbtc"
 
 	MainnetDenoms = []string{
@@ -225,18 +224,6 @@ var (
 		CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
 		CoingeckoQuoteCurrency:    "usd",
 		WorkerMinPoolLiquidityCap: 5,
-	}
-
-	emptyCosmwasmPoolRouterConfig = domain.CosmWasmPoolRouterConfig{}
-
-	// UnsetScalingFactorGetterCb is a callback that is unset by default for various tests
-	// due to no need.
-	UnsetScalingFactorGetterCb domain.ScalingFactorGetterCb = func(denom string) (osmomath.Dec, error) {
-		// Note: for many tests the scaling factor getter cb is irrelevant.
-		// As a result, we unset it for simplicity.
-		// If you run into this panic, your test might benefit from properly wiring the scaling factor
-		// getter callback (defined on the tokens use case)
-		panic("scaling factor getter cb is unset")
 	}
 )
 
@@ -456,16 +443,6 @@ func (s *RouterTestHelper) ConvertAnyToBigDec(any any) osmomath.BigDec {
 	bigDec, ok := any.(osmomath.BigDec)
 	s.Require().True(ok)
 	return bigDec
-}
-
-// PrepareValidSortedRouterPools prepares a list of valid router pools above min liquidity
-func PrepareValidSortedRouterPools(pools []ingesttypes.PoolI, minPoolLiquidityCap uint64) []ingesttypes.PoolI {
-	sortedPools, _ := routerusecase.ValidateAndSortPools(pools, emptyCosmwasmPoolRouterConfig, []uint64{}, &log.NoOpLogger{})
-
-	// Sort pools
-	poolsAboveMinLiquidity := routerusecase.FilterPoolsByMinLiquidity(sortedPools, minPoolLiquidityCap)
-
-	return poolsAboveMinLiquidity
 }
 
 // ErrorIsAs first checks whether target error is equal to expectedError, if not, it checks whether

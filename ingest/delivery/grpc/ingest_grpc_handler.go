@@ -30,10 +30,6 @@ type IngestGRPCHandler struct {
 	blockProcessDispatcher *workerpool.Dispatcher[uint64]
 }
 
-type IngestProcessBlockArgs struct {
-	Pools []ingesttypes.PoolI
-}
-
 const (
 	// numBlockProcessWorkers is the number of workers to process blocks concurrently
 	// TODO: move to config

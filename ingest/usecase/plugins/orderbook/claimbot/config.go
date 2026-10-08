@@ -8,8 +8,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	"github.com/osmosis-labs/sqs/log"
 
-	txfeestypes "github.com/osmosis-labs/osmosis/v28/x/txfees/types"
-
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
 
@@ -19,7 +17,6 @@ type Config struct {
 	PoolsUseCase       mvc.PoolsUsecase
 	OrderbookUsecase   mvc.OrderBookUsecase
 	AccountQueryClient authtypes.QueryClient
-	TxfeesClient       txfeestypes.QueryClient
 	MsgSimulator       sqstx.MsgSimulator
 	TxServiceClient    txtypes.ServiceClient
 	ChainID            string

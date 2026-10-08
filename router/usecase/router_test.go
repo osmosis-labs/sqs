@@ -230,32 +230,6 @@ func (s *RouterTestSuite) TestRouterSorting() {
 	s.Require().Equal(expectedSortedPoolIDs, sortedPoolIDs)
 }
 
-// getTakerFeeMapForAllPoolTokenPairs returns a map of all pool token pairs to their taker fees.
-func (s *RouterTestSuite) getTakerFeeMapForAllPoolTokenPairs(pools []ingesttypes.PoolI) ingesttypes.TakerFeeMap {
-	pairs := make(ingesttypes.TakerFeeMap, 0)
-
-	for _, pool := range pools {
-		poolDenoms := pool.GetPoolDenoms()
-
-		for i := range poolDenoms {
-			for j := i + 1; j < len(poolDenoms); j++ {
-
-				hasTakerFee := pairs.Has(poolDenoms[i], poolDenoms[j])
-				if hasTakerFee {
-					continue
-				}
-
-				takerFee, err := s.App.PoolManagerKeeper.GetTradingPairTakerFee(s.Ctx, poolDenoms[i], poolDenoms[j])
-				s.Require().NoError(err)
-
-				pairs.SetTakerFee(poolDenoms[i], poolDenoms[j], takerFee)
-			}
-		}
-	}
-
-	return pairs
-}
-
 func WithRoutePools(r route.RouteImpl, pools []domain.RoutablePool) route.RouteImpl {
 	return routertesting.WithRoutePools(r, pools)
 }

@@ -27,47 +27,21 @@ func TestRouterTestSuite(t *testing.T) {
 }
 
 var (
-	// Concentrated liquidity constants
-	ETH    = routertesting.ETH
-	USDC   = routertesting.USDC
-	USDT   = routertesting.USDT
-	Denom0 = ETH
-	Denom1 = USDC
-
-	DefaultCurrentTick = routertesting.DefaultCurrentTick
-
 	DefaultAmt0 = routertesting.DefaultAmt0
-	DefaultAmt1 = routertesting.DefaultAmt1
-
-	DefaultCoin0 = routertesting.DefaultCoin0
-	DefaultCoin1 = routertesting.DefaultCoin1
 
 	DefaultLiquidityCap = routertesting.DefaultLiquidityCap
-	DefaultLiquidityAmt = routertesting.DefaultLiquidityAmt
-
-	// router specific variables
-	defaultTickModel = routertesting.DefaultTickModel
-
-	noTakerFee = routertesting.NoTakerFee
 
 	emptyRoute = routertesting.EmptyRoute
 )
 
 var (
 	DefaultTakerFee     = routertesting.DefaultTakerFee
-	DefaultPoolBalances = routertesting.DefaultPoolBalances
 	DefaultSpreadFactor = routertesting.DefaultSpreadFactor
 
 	DefaultPool = routertesting.DefaultPool
-	EmptyRoute  = routertesting.EmptyRoute
 
-	// Test denoms
-	DenomOne   = routertesting.DenomOne
-	DenomTwo   = routertesting.DenomTwo
-	DenomThree = routertesting.DenomThree
-	DenomFour  = routertesting.DenomFour
-	DenomFive  = routertesting.DenomFive
-	DenomSix   = routertesting.DenomSix
+	DenomOne = routertesting.DenomOne
+	DenomTwo = routertesting.DenomTwo
 )
 
 // This test validates that the pools in the route are converted into a new serializable

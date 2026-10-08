@@ -26,19 +26,6 @@ const (
 	noPoolLiquidityCapError = ""
 )
 
-// filterPoolsByMinLiquidity filters the given pools by the minimum liquidity
-// capitalization.
-func FilterPoolsByMinLiquidity(pools []ingesttypes.PoolI, minPoolLiquidityCap uint64) []ingesttypes.PoolI {
-	minLiquidityCapInt := osmomath.NewIntFromUint64(minPoolLiquidityCap)
-	filteredPools := make([]ingesttypes.PoolI, 0, len(pools))
-	for _, pool := range pools {
-		if pool.GetPoolLiquidityCap().GTE(minLiquidityCapInt) {
-			filteredPools = append(filteredPools, pool)
-		}
-	}
-	return filteredPools
-}
-
 // ValidateAndSortPools filters and sorts the given pools for use in the router
 // according to the given configuration.
 // Filters out pools that have no tvl error set and have zero liquidity.

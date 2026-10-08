@@ -21,10 +21,6 @@ type (
 	CandidateRouteWrapper = candidateRouteWrapper
 )
 
-const (
-	NoPoolLiquidityCapError = noPoolLiquidityCapError
-)
-
 func ValidateAndFilterRoutesOutGivenIn(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
 	return validateAndFilterRoutesOutGivenIn(candidateRoutes, tokenInDenom, logger)
 }
@@ -37,10 +33,6 @@ func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 	return r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 }
 
-func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (domain.Quote, []route.RouteWithOutAmount, error) {
-	return r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, logger)
-}
-
 func FilterDuplicatePoolIDRoutes(rankedRoutes []route.RouteWithOutAmount) []route.RouteImpl {
 	return filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes)
 }
@@ -51,10 +43,6 @@ func ConvertRankedToCandidateRoutes(rankedRoutes []route.RouteImpl) ingesttypes.
 
 func FormatRankedRouteCacheKey(method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string, tokenIOrderOfMagnitude int) string {
 	return formatRankedRouteCacheKey(method, tokenInDenom, tokenOutDenom, tokenIOrderOfMagnitude)
-}
-
-func FormatRouteCacheKey(method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string) string {
-	return formatRouteCacheKey(method, tokenInDenom, tokenOutDenom)
 }
 
 func FormatCandidateRouteCacheKey(method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string) string {

@@ -21,7 +21,6 @@ const (
 var (
 	GammSharePrefix         = gammSharePrefix
 	ConcentratedSharePrefix = concentratedSharePrefix
-	DenomShareSeparator     = denomShareSeparator
 )
 
 func (p *passthroughUseCase) GetCoinsFromLocks(ctx context.Context, address string) (sdk.Coins, error) {
