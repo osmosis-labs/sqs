@@ -184,7 +184,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		pooledCoins := sdk.Coins{}
 
 		var finalErr error
-		for i := 0; i < pooledBalancedNumJobs; i++ {
+		for range pooledBalancedNumJobs {
 			pooledCoinsResult := <-pooledBalancesChan
 			if pooledCoinsResult.err != nil {
 				// Rather than returning the error, log it and continue
@@ -216,7 +216,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		unclaimedCoins := sdk.Coins{}
 
 		var finalErr error
-		for i := 0; i < unclaimedRewardsNumJobs; i++ {
+		for range unclaimedRewardsNumJobs {
 			unclaimedRewardsResult := <-unclaimedRewardsChan
 
 			if unclaimedRewardsResult.err != nil {
@@ -326,7 +326,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	go func() {
 		totalAssetsCompositionCoins := sdk.Coins{}
 		var finalErr error
-		for i := 0; i < totalAssetCompositionNumJobs; i++ {
+		for range totalAssetCompositionNumJobs {
 			job := <-totalAssetsCompositionJobs
 			if job.err != nil {
 				// Attempt to add the coins to the total assets composition
@@ -374,7 +374,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	// 5. Unclaimed rewards
 	// 6. Pooled
 	// 7. In-locks
-	for i := 0; i < numFinalResultJobs; i++ {
+	for range numFinalResultJobs {
 		job := <-finalResultsJobs
 		isBestEffort := job.err != nil
 		finalResult.Categories[job.name] = passthroughdomain.PortfolioAssetsCategoryResult{
@@ -489,7 +489,7 @@ func (p *passthroughUseCase) getCoinsFromLocks(ctx context.Context, address stri
 		finalErr    error
 	)
 
-	for i := 0; i < numInLocksQueries; i++ {
+	for range numInLocksQueries {
 		res := <-result
 		if res.err != nil {
 			// Skip silently and continue

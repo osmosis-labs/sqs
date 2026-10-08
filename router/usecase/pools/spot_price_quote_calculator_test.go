@@ -183,7 +183,6 @@ func (s *RoutablePoolTestSuite) TestSpotPriceQuoteCalculator_Calculate() {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		s.T().Run(tc.name, func(t *testing.T) {
 
 			// Note: the quote should be done on the quote denom in with scaling factor as amount in

@@ -313,7 +313,6 @@ func TestValidateSimulationParams(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := types.ValidateSimulationParams(tt.swapMethod, tt.simulatorAddress, tt.slippageToleranceStr)

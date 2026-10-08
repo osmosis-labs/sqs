@@ -153,7 +153,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 	}
 
 	// Collect all the results
-	for i := 0; i < len(canonicalOrderbooks); i++ {
+	for range canonicalOrderbooks {
 		select {
 		case result := <-resultChan:
 			if result.err != nil {

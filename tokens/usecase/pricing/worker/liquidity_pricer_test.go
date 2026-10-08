@@ -144,7 +144,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestComputeCoinCap() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -320,7 +319,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestPriceCoin() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
 
 			scalingFactorGetterCbMock := mocks.SetupMockScalingFactorCb(tt.denom, tt.preSetScalingFactorValue, nil)

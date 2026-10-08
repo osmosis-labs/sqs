@@ -39,9 +39,7 @@ func (m *Map[K, V]) Store(data map[K]V) {
 
 	maps.Copy(newData, oldData)
 
-	for denom, value := range data {
-		newData[denom] = value
-	}
+	maps.Copy(newData, data)
 
 	m.data.Store(newData)
 }

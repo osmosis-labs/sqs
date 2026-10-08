@@ -89,7 +89,6 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		s.Run(tc.name, func() {
 			mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
 

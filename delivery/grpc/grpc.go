@@ -16,7 +16,7 @@ type OsmomathCodec struct {
 	parentCodec encoding.Codec
 }
 
-func (c OsmomathCodec) Marshal(v interface{}) ([]byte, error) {
+func (c OsmomathCodec) Marshal(v any) ([]byte, error) {
 	protoMsg, ok := v.(proto.Message)
 	if !ok {
 		return nil, fmt.Errorf("failed to assert proto.Message")
@@ -24,7 +24,7 @@ func (c OsmomathCodec) Marshal(v interface{}) ([]byte, error) {
 	return proto.Marshal(protoMsg)
 }
 
-func (c OsmomathCodec) Unmarshal(data []byte, v interface{}) error {
+func (c OsmomathCodec) Unmarshal(data []byte, v any) error {
 	protoMsg, ok := v.(proto.Message)
 	if !ok {
 		return fmt.Errorf("failed to assert proto.Message")

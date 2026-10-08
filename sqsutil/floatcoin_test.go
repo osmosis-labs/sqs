@@ -94,7 +94,7 @@ func TestFloatCoinsMap_ToSdkCoins(t *testing.T) {
 func BenchmarkFloatCoinsMapAdd(b *testing.B) {
 	numCoins := 10
 	coins := sdk.Coins{}
-	for i := 0; i < numCoins; i++ {
+	for i := range numCoins {
 		coins = append(coins, sdk.NewInt64Coin(fmt.Sprintf("coin%04d", i), 1))
 	}
 	b.ResetTimer()
@@ -110,7 +110,7 @@ func BenchmarkFloatCoinsMapAdd(b *testing.B) {
 func BenchmarkFloatCoinsMapFromCoins(b *testing.B) {
 	numCoins := 10
 	coins := sdk.Coins{}
-	for i := 0; i < numCoins; i++ {
+	for i := range numCoins {
 		coins = append(coins, sdk.NewInt64Coin(fmt.Sprintf("coin%04d", i), 1))
 	}
 	b.ResetTimer()

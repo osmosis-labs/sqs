@@ -58,17 +58,14 @@ var (
 	defaultError = fmt.Errorf("forced error")
 
 	// Default APR and fee data
-	defaultAPRData = sqspassthroughdomain.PoolAPRDataStatusWrap{PoolAPR: sqspassthroughdomain.PoolAPR{
+	defaultAPRData = sqspassthroughdomain.PoolAPRDataStatusWrap{
 		PoolID: defaultPoolID,
 		SwapFees: sqspassthroughdomain.PoolDataRange{
 			Lower: 0.01,
 			Upper: 0.02,
-		},
-	}}
+		}}
 	defaultFeeData = sqspassthroughdomain.PoolFeesDataStatusWrap{
-		PoolFee: sqspassthroughdomain.PoolFee{
-			PoolID: fmt.Sprintf("%d", defaultPoolID),
-		},
+		PoolID: fmt.Sprintf("%d", defaultPoolID),
 	}
 )
 
@@ -222,7 +219,6 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		s.Run(tc.name, func() {
 			logger := &log.NoOpLogger{}
 			// Create router repository
@@ -347,7 +343,6 @@ func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		s.Run(tc.name, func() {
 			poolsUsecase := s.newDefaultPoolsUseCase()
 
@@ -986,7 +981,6 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		s.Run(tc.name, func() {
 			poolsUseCase := s.newDefaultPoolsUseCase()
 

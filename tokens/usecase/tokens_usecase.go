@@ -315,10 +315,7 @@ func (t *TokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
 	byBaseDenomResult := make(domain.PricesResult, len(baseDenoms))
 
-	numWorkers := len(baseDenoms)
-	if numWorkers > maxNumWorkes {
-		numWorkers = maxNumWorkes
-	}
+	numWorkers := min(len(baseDenoms), maxNumWorkes)
 
 	basePriceDispatcher := workerpool.NewDispatcher[priceResults](numWorkers)
 	go basePriceDispatcher.Run()
@@ -326,7 +323,6 @@ func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 
 	// For every base denom, create a map with quote denom prices.
 	for _, baseDenom := range baseDenoms {
-		baseDenom := baseDenom
 
 		basePriceDispatcher.JobQueue <- workerpool.Job[priceResults]{
 			Task: func() (priceResults, error) {

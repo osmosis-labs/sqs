@@ -220,14 +220,14 @@ func UnmarshalConfig() (*Config, error) {
 
 // viperDecodeHookFunc creates a custom decode hook to handle the Plugins field.
 func viperDecodeHookFunc() mapstructure.DecodeHookFunc {
-	return func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+	return func(f reflect.Type, t reflect.Type, data any) (any, error) {
 		// Default handling for non-Plugin fields
-		if t != reflect.TypeOf([]Plugin(nil)) {
+		if t != reflect.TypeFor[[]Plugin]() {
 			return data, nil
 		}
 
 		// Cast the plugins data to a slice of interfaces
-		pluginsDataSlice, ok := data.([]interface{})
+		pluginsDataSlice, ok := data.([]any)
 		if !ok {
 			return nil, errors.New("invalid plugins field")
 		}
@@ -237,7 +237,7 @@ func viperDecodeHookFunc() mapstructure.DecodeHookFunc {
 		// Iterate over the plugins data and decode each plugin
 		for _, pluginData := range pluginsDataSlice {
 			// Cast the plugins map to a map[string]interface{}
-			pluginsMap, ok := pluginData.(map[string]interface{})
+			pluginsMap, ok := pluginData.(map[string]any)
 			if !ok {
 				return nil, errors.New("invalid plugins field")
 			}
@@ -375,7 +375,7 @@ func validateDynamicMinLiquidityCapDesc(values []DynamicMinLiquidityCapFilterEnt
 
 	previousMinTokensCap := values[0].MinTokensCap
 	previousFilterValue := values[0].FilterValue
-	for i := 0; i < len(values); i++ {
+	for i := range values {
 		if values[i].MinTokensCap > previousMinTokensCap {
 			return fmt.Errorf("min_tokens_cap must be in descending order")
 		}

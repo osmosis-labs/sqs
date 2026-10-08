@@ -20,10 +20,10 @@ func TestCache(t *testing.T) {
 	testCases := []struct {
 		name       string
 		key        string
-		value      interface{}
+		value      any
 		expiration time.Duration
 		sleep      time.Duration
-		expected   interface{}
+		expected   any
 	}{
 		{"ValidKey", defaultKeyToSet, "value1", time.Second * 5, 0, "value1"},
 		{"ExpiredKey", defaultKeyToSet, "value2", time.Nanosecond, time.Millisecond * 10, nil},
@@ -75,11 +75,11 @@ func TestConcurrentCache(t *testing.T) {
 	errCh := make(chan error, numGoroutines*numRunsPerRoutine)
 
 	// Run goroutines
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		go func(index int) {
 			defer wg.Done()
 
-			for i := 0; i < numRunsPerRoutine; i++ {
+			for range numRunsPerRoutine {
 
 				randKey := rand.Intn(maxKeyNumRand)
 
@@ -134,7 +134,7 @@ func TestCache_SetExpiration(t *testing.T) {
 	tests := []struct {
 		name        string
 		key         string
-		value       interface{}
+		value       any
 		expiration  time.Duration
 		expectExist bool
 	}{

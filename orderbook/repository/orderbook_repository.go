@@ -36,7 +36,7 @@ func (o *orderbookRepositoryImpl) GetAllTicks(poolID uint64) (map[int64]orderboo
 	}
 
 	ticksMap := map[int64]orderbookdomain.OrderbookTick{}
-	tickMap.Range(func(key, value interface{}) bool {
+	tickMap.Range(func(key, value any) bool {
 		tickID, ok := key.(int64)
 		if !ok {
 			return false

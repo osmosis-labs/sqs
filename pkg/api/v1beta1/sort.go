@@ -39,10 +39,10 @@ func (r *SortRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	}
 
 	// Split the `sort` parameter by commas to get individual fields
-	fields := strings.Split(sortParam, ",")
+	fields := strings.SplitSeq(sortParam, ",")
 
 	// Parse each field and determine sort direction
-	for _, field := range fields {
+	for field := range fields {
 		var direction SortDirection
 		if strings.HasPrefix(field, "-") {
 			direction = SortDirection_DESCENDING

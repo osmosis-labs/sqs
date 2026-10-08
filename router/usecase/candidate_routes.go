@@ -74,12 +74,10 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 					IsCanonicalOrderboolRoute: true,
 					Pools: []candidatePoolWrapper{
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            canonicalOrderbook.ID,
-								TokenInDenom:  tokenIn.Denom,
-								TokenOutDenom: tokenOutDenom,
-							},
-							PoolDenoms: canonicalOrderbook.PoolDenoms,
+							ID:            canonicalOrderbook.ID,
+							TokenInDenom:  tokenIn.Denom,
+							TokenOutDenom: tokenOutDenom,
+							PoolDenoms:    canonicalOrderbook.PoolDenoms,
 						},
 					},
 				})
@@ -199,12 +197,10 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 					copy(newPath, currentRoute)
 
 					newPath = append(newPath, candidatePoolWrapper{
-						CandidatePool: ingesttypes.CandidatePool{
-							ID:            pool.ID,
-							TokenInDenom:  currenTokenInDenom,
-							TokenOutDenom: denom,
-						},
-						PoolDenoms: poolDenoms,
+						ID:            pool.ID,
+						TokenInDenom:  currenTokenInDenom,
+						TokenOutDenom: denom,
+						PoolDenoms:    poolDenoms,
 					})
 
 					if len(newPath) <= options.MaxPoolsPerRoute {

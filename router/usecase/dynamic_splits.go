@@ -58,7 +58,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	dp := make([][]osmomath.Int, totalIncrements+1)
 
 	// Step 1: initialize tables
-	for i := 0; i < int(totalIncrements+1); i++ {
+	for i := range int(totalIncrements + 1) {
 		dp[i] = make([]osmomath.Int, len(routes)+1)
 
 		dp[i][0] = zero
@@ -203,7 +203,7 @@ func getComputeAndCacheInAmountIncrementCb(totalInAmountDec osmomath.Dec) func(p
 func getComputeAndCacheOutAmountCb(ctx context.Context, totalInAmountDec osmomath.Dec, tokenInDenom string, routes []route.RouteImpl) func(int, uint8) osmomath.Int {
 	// Pre-compute routes cache map.
 	routeOutAmtCache := make(map[int]map[uint8]osmomath.Int, len(routes))
-	for routeIndex := 0; routeIndex < len(routes); routeIndex++ {
+	for routeIndex := range routes {
 		routeOutAmtCache[routeIndex] = make(map[uint8]osmomath.Int, totalIncrements+1)
 	}
 

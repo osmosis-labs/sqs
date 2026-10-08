@@ -241,7 +241,7 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 	finalResults := []orderbookdomain.LimitOrder{}
 	isBestEffort := false
 
-	for i := 0; i < len(orderbooks); i++ {
+	for range orderbooks {
 		select {
 		case result := <-results:
 			if result.Error != nil {

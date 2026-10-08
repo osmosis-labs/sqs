@@ -237,7 +237,7 @@ func (s *RouterTestSuite) getTakerFeeMapForAllPoolTokenPairs(pools []ingesttypes
 	for _, pool := range pools {
 		poolDenoms := pool.GetPoolDenoms()
 
-		for i := 0; i < len(poolDenoms); i++ {
+		for i := range poolDenoms {
 			for j := i + 1; j < len(poolDenoms); j++ {
 
 				hasTakerFee := pairs.Has(poolDenoms[i], poolDenoms[j])

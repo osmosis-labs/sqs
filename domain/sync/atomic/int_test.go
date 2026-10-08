@@ -48,14 +48,12 @@ func TestNewUint64Concurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	counter := NewUint64(0)
 
-	for i := 0; i < goroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < iterations; j++ {
+	for range goroutines {
+		wg.Go(func() {
+			for range iterations {
 				counter.Add(1)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

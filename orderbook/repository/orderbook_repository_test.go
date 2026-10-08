@@ -108,7 +108,6 @@ func (s *OrderBookUseCaseTestSuite) TestStoreTicks() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
 
 			repo := orderbookrepository.New()

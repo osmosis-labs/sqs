@@ -130,7 +130,6 @@ func (s *RouterTestSuite) TestPrepareResultPools() {
 	}
 
 	for name, tc := range testcases {
-		tc := tc
 		s.Run(name, func() {
 
 			// Note: token in is chosen arbitrarily since it is irrelevant for this test

@@ -43,7 +43,7 @@ func processAlloyedPool(sqsModel *ingesttypes.SQSPool) error {
 // Returns error if one of the asset normalization factors is nil or zero.
 func computeStandardNormalizationFactor(assetConfigs []cosmwasmpool.TransmuterAssetConfig) (osmomath.Int, error) {
 	result := osmomath.OneInt().BigIntMut()
-	for i := 0; i < len(assetConfigs); i++ {
+	for i := range assetConfigs {
 		normFactor := assetConfigs[i].NormalizationFactor
 		if normFactor.IsNil() || normFactor.IsZero() {
 			return osmomath.Int{}, fmt.Errorf("normalization factor is nil or zero for asset %s", assetConfigs[i])
@@ -66,7 +66,7 @@ func computeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int
 	}
 
 	scalingFactors := make(map[string]osmomath.Int, len(assetConfigs))
-	for i := 0; i < len(assetConfigs); i++ {
+	for i := range assetConfigs {
 		assetConfig := assetConfigs[i]
 		assetNormalizationFactor := assetConfig.NormalizationFactor
 		if assetNormalizationFactor.IsNil() || assetNormalizationFactor.IsZero() {

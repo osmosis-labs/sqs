@@ -58,7 +58,6 @@ func TestSolveConstantFunctionInvariant(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.expectPanic {
 				defer func() {

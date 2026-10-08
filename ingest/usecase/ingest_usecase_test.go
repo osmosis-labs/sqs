@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"maps"
 	"math/rand"
 	"sync"
 	"testing"
@@ -232,7 +233,6 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapFromBalances(
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		s.T().Run(tc.name, func(t *testing.T) {
 			// Note that the transferTo parameter is mutated, so we need to copy it
 			// to avoid flakiness across tests.
@@ -361,7 +361,6 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 
 		s.T().Run(tc.name, func(t *testing.T) {
 			// Note that the transferTo parameter is mutated, so we need to copy it
@@ -589,7 +588,6 @@ func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		s.T().Run(tc.name, func(t *testing.T) {
 			// System under test
 			err := usecase.ProcessSQSModelMut(tc.sqsModel)
@@ -707,7 +705,6 @@ func (s *IngestUseCaseTestSuite) TestUpdateCurrentBlockLiquidityMapAlloyed() {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		s.T().Run(tc.name, func(t *testing.T) {
 			// Note that the transferTo parameter is mutated, so we need to copy it
 			// to avoid flakiness across tests.
@@ -730,9 +727,7 @@ func deepCopyDenomLiquidityMap(m domain.DenomPoolLiquidityMap) domain.DenomPoolL
 			TotalLiquidity: v.TotalLiquidity,
 			Pools:          make(map[uint64]osmomath.Int, len(v.Pools)),
 		}
-		for pk, pv := range v.Pools {
-			copy[k].Pools[pk] = pv
-		}
+		maps.Copy(copy[k].Pools, v.Pools)
 	}
 	return copy
 }
