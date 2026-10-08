@@ -340,10 +340,9 @@ paths:
         required: true
         type: string
       - description: Boolean flag indicating whether the given denoms are human readable
-          or not. Human denoms get converted to chain internally
+          or not. Human denoms get converted to chain internally. False by default.
         in: query
         name: humanDenoms
-        required: true
         type: boolean
       - description: Boolean flag indicating whether to apply exponents to the spot
           price. False by default.
@@ -399,10 +398,9 @@ paths:
         name: singleRoute
         type: boolean
       - description: Boolean flag indicating whether the given denoms are human readable
-          or not. Human denoms get converted to chain internally
+          or not. Human denoms get converted to chain internally. False by default.
         in: query
         name: humanDenoms
-        required: true
         type: boolean
       - description: Boolean flag indicating whether to apply exponents to the spot
           price. False by default.
@@ -448,10 +446,9 @@ paths:
         required: true
         type: string
       - description: Boolean flag indicating whether the given denoms are human readable
-          or not. Human denoms get converted to chain internally
+          or not. Human denoms get converted to chain internally. False by default.
         in: query
         name: humanDenoms
-        required: true
         type: boolean
       produces:
       - application/json
@@ -500,10 +497,9 @@ paths:
         name: denoms
         type: string
       - description: Boolean flag indicating whether the given denoms are human readable
-          or not. Human denoms get converted to chain internally
+          or not. Human denoms get converted to chain internally. False by default.
         in: query
         name: humanDenoms
-        required: true
         type: boolean
       produces:
       - application/json

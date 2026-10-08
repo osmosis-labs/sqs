@@ -92,7 +92,7 @@ func NewRouterHandler(
 // @Param  tokenOut        query  string  false  "String representation of the sdk.Coin denoting the output token for the exact amount out swap method."   example(2353uion)
 // @Param  tokenInDenom    query  string  false  "String representing the denomination of the input token for the exact amount out swap method."           example(uosmo)
 // @Param  singleRoute     query  bool    false  "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default."
-// @Param  humanDenoms     query  bool    true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
+// @Param  humanDenoms     query  bool    false "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default."
 // @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
 // @Param  simulatorAddress query string false "Address of the simulator to simulate the quote. If provided, the quote will be simulated."
 // @Param  simulationSlippageTolerance query string false "Slippage tolerance multiplier for the simulation. If simulatorAddress is provided, this must be provided."
@@ -208,7 +208,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 // @Param  tokenOut        query  string  false  "String representation of the sdk.Coin denoting the output token for the exact amount out swap method."                     example(2353uion)
 // @Param  tokenInDenom    query  string  false  "String representing the list of the input token denominations separated by comma for the exact amount out swap method."    example(uosmo)
 // @Param  poolID          query  string  true   "String representing list of the pool ID."                                                                                  example(1100)
-// @Param  humanDenoms     query  bool    true   "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
+// @Param  humanDenoms     query  bool    false   "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default."
 // @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/custom-direct-quote [get]
@@ -281,7 +281,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 // @Produce  json
 // @Param  tokenIn  query  string  true  "The string representation of the denom of the token in"
 // @Param  tokenOutDenom  query  string  true  "The string representation of the denom of the token out"
-// @Param humanDenoms query bool true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
+// @Param humanDenoms query bool false "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default."
 // @Success 200  {array}  ingesttypes.CandidateRoutes  "An array of possible routing options"
 // @Router /router/routes [get]
 func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {

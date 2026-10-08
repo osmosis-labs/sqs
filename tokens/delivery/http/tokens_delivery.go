@@ -128,7 +128,7 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 // @ID get-pool-denom-metadata
 // @Produce  json
 // @Param  denoms  query  string  false  "List of denoms where each can either be a human denom or a chain denom"
-// @Param humanDenoms query bool true "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally"
+// @Param humanDenoms query bool false "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default."
 // @Router /tokens/pool-metadata [get]
 func (a *TokensHandler) GetPoolDenomMetadata(c echo.Context) (err error) {
 	denomsStr := c.QueryParam("denoms")

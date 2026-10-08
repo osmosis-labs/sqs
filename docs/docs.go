@@ -224,10 +224,9 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default.",
                         "name": "humanDenoms",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "boolean",
@@ -289,10 +288,9 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default.",
                         "name": "humanDenoms",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "boolean",
@@ -352,10 +350,9 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default.",
                         "name": "humanDenoms",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -417,10 +414,9 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally",
+                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default.",
                         "name": "humanDenoms",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {}
