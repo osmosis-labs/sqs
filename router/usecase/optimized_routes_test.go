@@ -272,11 +272,9 @@ func (s *RouterTestSuite) TestGetBestSplitRoutesQuote() {
 // See individual test cases for details.
 func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 	defaultDenomOneTwoOutTwoPool := usecase.CandidatePoolWrapper{
-		CandidatePool: ingesttypes.CandidatePool{
-			ID:            defaultPoolID,
-			TokenOutDenom: DenomTwo,
-		},
-		PoolDenoms: []string{DenomOne, DenomTwo},
+		ID:            defaultPoolID,
+		TokenOutDenom: DenomTwo,
+		PoolDenoms:    []string{DenomOne, DenomTwo},
 	}
 
 	tests := map[string]struct {
@@ -307,11 +305,9 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 					Pools: []usecase.CandidatePoolWrapper{
 						defaultDenomOneTwoOutTwoPool,
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomThree,
-							},
-							PoolDenoms: []string{DenomTwo, DenomThree},
+							ID:            defaultPoolID + 1,
+							TokenOutDenom: DenomThree,
+							PoolDenoms:    []string{DenomTwo, DenomThree},
 						},
 					},
 				},
@@ -329,18 +325,14 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomThree,
-							},
-							PoolDenoms: []string{DenomOne, DenomThree},
+							ID:            defaultPoolID + 1,
+							TokenOutDenom: DenomThree,
+							PoolDenoms:    []string{DenomOne, DenomThree},
 						},
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 2,
-								TokenOutDenom: DenomTwo,
-							},
-							PoolDenoms: []string{DenomTwo, DenomThree},
+							ID:            defaultPoolID + 2,
+							TokenOutDenom: DenomTwo,
+							PoolDenoms:    []string{DenomTwo, DenomThree},
 						},
 					},
 				},
@@ -370,11 +362,9 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomThree,
-							},
-							PoolDenoms: []string{DenomTwo, DenomThree},
+							ID:            defaultPoolID + 1,
+							TokenOutDenom: DenomThree,
+							PoolDenoms:    []string{DenomTwo, DenomThree},
 						},
 					},
 				},
@@ -389,11 +379,9 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomOne,
-							},
-							PoolDenoms: []string{DenomOne, DenomTwo},
+							ID:            defaultPoolID + 1,
+							TokenOutDenom: DenomOne,
+							PoolDenoms:    []string{DenomOne, DenomTwo},
 						},
 					},
 				},
@@ -408,11 +396,9 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomOne,
-							},
-							PoolDenoms: []string{DenomOne, DenomTwo},
+							ID:            defaultPoolID,
+							TokenOutDenom: DenomOne,
+							PoolDenoms:    []string{DenomOne, DenomTwo},
 						},
 					},
 				},
@@ -426,11 +412,9 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomThree,
-							},
-							PoolDenoms: []string{DenomOne, DenomTwo},
+							ID:            defaultPoolID,
+							TokenOutDenom: DenomThree,
+							PoolDenoms:    []string{DenomOne, DenomTwo},
 						},
 					},
 				},
@@ -446,39 +430,29 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomTwo,
-							},
-							PoolDenoms: []string{DenomOne, DenomTwo},
+							ID:            defaultPoolID,
+							TokenOutDenom: DenomTwo,
+							PoolDenoms:    []string{DenomOne, DenomTwo},
 						},
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomTwo,
-							},
-							PoolDenoms: []string{DenomTwo, DenomFour},
+							ID:            defaultPoolID + 1,
+							TokenOutDenom: DenomTwo,
+							PoolDenoms:    []string{DenomTwo, DenomFour},
 						},
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 2,
-								TokenOutDenom: DenomFour,
-							},
-							PoolDenoms: []string{DenomTwo, DenomFour},
+							ID:            defaultPoolID + 2,
+							TokenOutDenom: DenomFour,
+							PoolDenoms:    []string{DenomTwo, DenomFour},
 						},
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 3,
-								TokenOutDenom: DenomThree,
-							},
-							PoolDenoms: []string{DenomFour, DenomOne},
+							ID:            defaultPoolID + 3,
+							TokenOutDenom: DenomThree,
+							PoolDenoms:    []string{DenomFour, DenomOne},
 						},
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 4,
-								TokenOutDenom: DenomThree,
-							},
-							PoolDenoms: []string{DenomOne, DenomThree},
+							ID:            defaultPoolID + 4,
+							TokenOutDenom: DenomThree,
+							PoolDenoms:    []string{DenomOne, DenomThree},
 						},
 					},
 				},
@@ -492,25 +466,19 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomTwo,
-							},
-							PoolDenoms: []string{DenomOne, DenomTwo},
+							ID:            defaultPoolID,
+							TokenOutDenom: DenomTwo,
+							PoolDenoms:    []string{DenomOne, DenomTwo},
 						},
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 1,
-								TokenOutDenom: DenomTwo,
-							},
-							PoolDenoms: []string{DenomTwo, DenomFour},
+							ID:            defaultPoolID + 1,
+							TokenOutDenom: DenomTwo,
+							PoolDenoms:    []string{DenomTwo, DenomFour},
 						},
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID + 2,
-								TokenOutDenom: DenomTwo,
-							},
-							PoolDenoms: []string{DenomTwo, DenomFour},
+							ID:            defaultPoolID + 2,
+							TokenOutDenom: DenomTwo,
+							PoolDenoms:    []string{DenomTwo, DenomFour},
 						},
 					},
 				},
@@ -524,18 +492,14 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 				{
 					Pools: []usecase.CandidatePoolWrapper{
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomTwo,
-							},
-							PoolDenoms: []string{DenomOne, DenomTwo},
+							ID:            defaultPoolID,
+							TokenOutDenom: DenomTwo,
+							PoolDenoms:    []string{DenomOne, DenomTwo},
 						},
 						{
-							CandidatePool: ingesttypes.CandidatePool{
-								ID:            defaultPoolID,
-								TokenOutDenom: DenomFour,
-							},
-							PoolDenoms: []string{DenomTwo, DenomFour},
+							ID:            defaultPoolID,
+							TokenOutDenom: DenomFour,
+							PoolDenoms:    []string{DenomTwo, DenomFour},
 						},
 					},
 				},
@@ -563,7 +527,6 @@ func (s *RouterTestSuite) TestValidateAndFilterOutGivenInRoutes() {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		s.Run(name, func() {
 			filteredCandidateRoutes, err := routerusecase.ValidateAndFilterRoutesOutGivenIn(tc.routes, tc.tokenInDenom, noOpLogger)
 
@@ -694,7 +657,6 @@ var optimalQuoteTestCases = map[string]struct {
 // for selected pairs.
 func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounIn_Mainnet() {
 	for name, tc := range optimalQuoteTestCases {
-		tc := tc
 		s.Run(name, func() {
 			// Setup mainnet router
 			mainnetState := s.SetupMainnetState()
@@ -740,7 +702,6 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounIn_Mainnet() {
 
 func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 	for name, tc := range optimalQuoteTestCases {
-		tc := tc
 		s.Run(name, func() {
 			// Setup mainnet router
 			mainnetState := s.SetupMainnetState()
@@ -973,7 +934,6 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		s.Run(tc.name, func() {
 			// Pre-set cache
 			routerUseCase.SetCandidateRouteCacheToMock(domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom)
@@ -1173,7 +1133,6 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		s.Run(tc.name, func() {
 			// Pre-set cache
 			routerUseCase.SetCandidateRouteCacheToMock(domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom)

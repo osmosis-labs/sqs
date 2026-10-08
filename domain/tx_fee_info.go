@@ -8,7 +8,7 @@ import (
 // TxFeeInfo represents the fee information for a transaction
 type TxFeeInfo struct {
 	AdjustedGasUsed uint64       `json:"adjusted_gas_used,omitempty"`
-	FeeCoin         sdk.Coin     `json:"fee_coin,omitempty"`
+	FeeCoin         sdk.Coin     `json:"fee_coin"`
 	BaseFee         osmomath.Dec `json:"base_fee"`
 	Err             string       `json:"error,omitempty"`
 }

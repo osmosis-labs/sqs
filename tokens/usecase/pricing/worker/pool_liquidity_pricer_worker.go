@@ -77,25 +77,20 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
 		// for concurrency.
 		repricedTokenMetadata := p.RepriceDenomsMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
 
 		// Update the pool denom metadata.
 		p.tokenPoolLiquidityHandler.UpdatePoolDenomMetadata(repricedTokenMetadata)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		// Note: the error is propagated to the caller because
 		// the callee only errors on fatal issues that should invalidate health check.
 		err = p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates)
-	}()
+	})
 
 	// Wait for goroutines to finish processing.
 	wg.Wait()

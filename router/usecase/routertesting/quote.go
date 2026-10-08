@@ -77,29 +77,27 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 		Route: []domain.SplitRoute{
 			// Route 1
 			&route.RouteWithOutAmount{
-				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							ingesttypes.NewPool(p1, ingesttypes.SQSPool{
-								SpreadFactor:     p1.GetSpreadFactor(sdk.Context{}),
-								Balances:         poolOneBalances,
-								PoolLiquidityCap: poolOneLiquidityCap,
-							}),
-							ETH,
-							USDT,
-							takerFeeOne,
-						),
-						s.newRoutablePool(
-							ingesttypes.NewPool(p2, ingesttypes.SQSPool{
-								SpreadFactor:     p2.GetSpreadFactor(sdk.Context{}),
-								Balances:         poolTwoBalances,
-								PoolLiquidityCap: poolTwoLiquidityCap,
-							}),
-							USDT,
-							USDC,
-							takerFeeTwo,
-						),
-					},
+				Pools: []domain.RoutablePool{
+					s.newRoutablePool(
+						ingesttypes.NewPool(p1, ingesttypes.SQSPool{
+							SpreadFactor:     p1.GetSpreadFactor(sdk.Context{}),
+							Balances:         poolOneBalances,
+							PoolLiquidityCap: poolOneLiquidityCap,
+						}),
+						ETH,
+						USDT,
+						takerFeeOne,
+					),
+					s.newRoutablePool(
+						ingesttypes.NewPool(p2, ingesttypes.SQSPool{
+							SpreadFactor:     p2.GetSpreadFactor(sdk.Context{}),
+							Balances:         poolTwoBalances,
+							PoolLiquidityCap: poolTwoLiquidityCap,
+						}),
+						USDT,
+						USDC,
+						takerFeeTwo,
+					),
 				},
 
 				InAmount:  totalInAmount.QuoRaw(2),
@@ -108,19 +106,17 @@ func (s *RouterTestHelper) NewExactAmountInQuote(p1, p2, p3 poolmanagertypes.Poo
 
 			// Route 2
 			&route.RouteWithOutAmount{
-				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							ingesttypes.NewPool(p3, ingesttypes.SQSPool{
-								SpreadFactor:     p3.GetSpreadFactor(sdk.Context{}),
-								Balances:         poolThreeBalances,
-								PoolLiquidityCap: poolThreeLiquidityCap,
-							}),
-							ETH,
-							USDC,
-							takerFeeThree,
-						),
-					},
+				Pools: []domain.RoutablePool{
+					s.newRoutablePool(
+						ingesttypes.NewPool(p3, ingesttypes.SQSPool{
+							SpreadFactor:     p3.GetSpreadFactor(sdk.Context{}),
+							Balances:         poolThreeBalances,
+							PoolLiquidityCap: poolThreeLiquidityCap,
+						}),
+						ETH,
+						USDC,
+						takerFeeThree,
+					),
 				},
 
 				InAmount:  totalInAmount.QuoRaw(2),
@@ -141,48 +137,44 @@ func (s *RouterTestHelper) NewExactAmountOutQuote(p1, p2, p3 poolmanagertypes.Po
 		// 2 routes with 50-50 split, each single hop
 		Route: []domain.SplitRoute{
 			&route.RouteWithOutAmount{
-				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							ingesttypes.NewPool(p1, ingesttypes.SQSPool{
-								SpreadFactor:     p1.GetSpreadFactor(sdk.Context{}),
-								Balances:         poolOneBalances,
-								PoolLiquidityCap: poolOneLiquidityCap,
-							}),
-							ETH,
-							USDT,
-							takerFeeOne,
-						),
-						s.newRoutablePool(
-							ingesttypes.NewPool(p2, ingesttypes.SQSPool{
-								SpreadFactor:     p2.GetSpreadFactor(sdk.Context{}),
-								Balances:         poolTwoBalances,
-								PoolLiquidityCap: poolTwoLiquidityCap,
-							}),
-							USDT,
-							USDC,
-							takerFeeTwo,
-						),
-					},
+				Pools: []domain.RoutablePool{
+					s.newRoutablePool(
+						ingesttypes.NewPool(p1, ingesttypes.SQSPool{
+							SpreadFactor:     p1.GetSpreadFactor(sdk.Context{}),
+							Balances:         poolOneBalances,
+							PoolLiquidityCap: poolOneLiquidityCap,
+						}),
+						ETH,
+						USDT,
+						takerFeeOne,
+					),
+					s.newRoutablePool(
+						ingesttypes.NewPool(p2, ingesttypes.SQSPool{
+							SpreadFactor:     p2.GetSpreadFactor(sdk.Context{}),
+							Balances:         poolTwoBalances,
+							PoolLiquidityCap: poolTwoLiquidityCap,
+						}),
+						USDT,
+						USDC,
+						takerFeeTwo,
+					),
 				},
 
 				InAmount:  totalInAmount.QuoRaw(2),
 				OutAmount: totalOutAmount.QuoRaw(3),
 			},
 			&route.RouteWithOutAmount{
-				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(
-							ingesttypes.NewPool(p3, ingesttypes.SQSPool{
-								SpreadFactor:     p3.GetSpreadFactor(sdk.Context{}),
-								Balances:         poolThreeBalances,
-								PoolLiquidityCap: poolThreeLiquidityCap,
-							}),
-							ETH,
-							USDC,
-							takerFeeThree,
-						),
-					},
+				Pools: []domain.RoutablePool{
+					s.newRoutablePool(
+						ingesttypes.NewPool(p3, ingesttypes.SQSPool{
+							SpreadFactor:     p3.GetSpreadFactor(sdk.Context{}),
+							Balances:         poolThreeBalances,
+							PoolLiquidityCap: poolThreeLiquidityCap,
+						}),
+						ETH,
+						USDC,
+						takerFeeThree,
+					),
 				},
 
 				InAmount:  totalInAmount.QuoRaw(4),

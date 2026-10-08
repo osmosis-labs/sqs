@@ -13,7 +13,7 @@ type Cache struct {
 
 // CacheItem represents an item in the cache.
 type CacheItem struct {
-	Value      interface{}
+	Value      any
 	Expiration time.Time
 }
 
@@ -27,7 +27,7 @@ func New() *Cache {
 }
 
 // Set adds an item to the cache with a specified key, value, and expiration time.
-func (c *Cache) Set(key string, value interface{}, expiration time.Duration) {
+func (c *Cache) Set(key string, value any, expiration time.Duration) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -42,7 +42,7 @@ func (c *Cache) Set(key string, value interface{}, expiration time.Duration) {
 }
 
 // Get retrieves the value associated with a key from the cache.
-func (c *Cache) Get(key string) (interface{}, bool) {
+func (c *Cache) Get(key string) (any, bool) {
 	c.mutex.RLock()
 
 	item, exists := c.data[key]

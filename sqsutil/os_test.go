@@ -1,7 +1,6 @@
 package sqsutil_test
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -148,7 +147,7 @@ func TestWriteBytes(t *testing.T) {
 			},
 			assert: func() {
 				// Check if the file was created
-				fileContent, err := ioutil.ReadFile("testdata/test5/file5.txt")
+				fileContent, err := os.ReadFile("testdata/test5/file5.txt")
 				if err != nil {
 					t.Errorf("Error reading file: %v", err)
 				}
@@ -164,7 +163,7 @@ func TestWriteBytes(t *testing.T) {
 				}
 
 				// Check if the file was overwritten
-				fileContent, err = ioutil.ReadFile("testdata/test5/file5.txt")
+				fileContent, err = os.ReadFile("testdata/test5/file5.txt")
 				if err != nil {
 					t.Errorf("Error reading file: %v", err)
 				}

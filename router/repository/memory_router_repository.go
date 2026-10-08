@@ -93,7 +93,7 @@ func (r *routerRepo) SetBaseFee(baseFee domain.BaseFee) {
 func (r *routerRepo) GetAllTakerFees() ingesttypes.TakerFeeMap {
 	takerFeeMap := ingesttypes.TakerFeeMap{}
 
-	r.takerFeeMap.Range(func(key, value interface{}) bool {
+	r.takerFeeMap.Range(func(key, value any) bool {
 		takerFee, ok := value.(osmomath.Dec)
 		if !ok {
 			return false
@@ -202,9 +202,7 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 	}
 
 	// Update new data with block data
-	for denom, value := range data {
-		newData[denom] = value
-	}
+	maps.Copy(newData, data)
 
 	r.candidateRouteSearchData.Store(newData)
 }

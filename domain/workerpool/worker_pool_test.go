@@ -103,12 +103,10 @@ func TestDispatcherRun(t *testing.T) {
 
 	// Create a wait group to wait for the dispatcher to finish
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		dispatcher.Run()
-	}()
+	})
 
 	// Wait for a short period to ensure all workers are started
 	time.Sleep(100 * time.Millisecond)

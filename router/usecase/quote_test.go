@@ -89,27 +89,25 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			expectedRoutes: []domain.SplitRoute{
 				// Route 1
 				&route.RouteWithOutAmount{
-					RouteImpl: route.RouteImpl{
-						Pools: []domain.RoutablePool{
-							pools.NewRoutableResultPool(
-								poolIDOne,
-								poolmanagertypes.Balancer,
-								poolOne.GetSpreadFactor(sdk.Context{}),
-								USDT,
-								takerFeeOne,
-								s.PoolOneLiquidityCap(),
-								notCosmWasmPoolCodeID,
-							),
-							pools.NewRoutableResultPool(
-								poolIDTwo,
-								poolmanagertypes.Balancer,
-								poolTwo.GetSpreadFactor(sdk.Context{}),
-								USDC,
-								takerFeeTwo,
-								s.PoolTwoLiquidityCap(),
-								notCosmWasmPoolCodeID,
-							),
-						},
+					Pools: []domain.RoutablePool{
+						pools.NewRoutableResultPool(
+							poolIDOne,
+							poolmanagertypes.Balancer,
+							poolOne.GetSpreadFactor(sdk.Context{}),
+							USDT,
+							takerFeeOne,
+							s.PoolOneLiquidityCap(),
+							notCosmWasmPoolCodeID,
+						),
+						pools.NewRoutableResultPool(
+							poolIDTwo,
+							poolmanagertypes.Balancer,
+							poolTwo.GetSpreadFactor(sdk.Context{}),
+							USDC,
+							takerFeeTwo,
+							s.PoolTwoLiquidityCap(),
+							notCosmWasmPoolCodeID,
+						),
 					},
 
 					InAmount:  totalInAmount.QuoRaw(2),
@@ -118,18 +116,16 @@ func (s *RouterTestSuite) TestPrepareResult() {
 
 				// Route 2
 				&route.RouteWithOutAmount{
-					RouteImpl: route.RouteImpl{
-						Pools: []domain.RoutablePool{
-							pools.NewRoutableResultPool(
-								poolIDThree,
-								poolmanagertypes.Balancer,
-								poolThree.GetSpreadFactor(sdk.Context{}),
-								USDC,
-								takerFeeThree,
-								s.PoolThreeLiquidityCap(),
-								notCosmWasmPoolCodeID,
-							),
-						},
+					Pools: []domain.RoutablePool{
+						pools.NewRoutableResultPool(
+							poolIDThree,
+							poolmanagertypes.Balancer,
+							poolThree.GetSpreadFactor(sdk.Context{}),
+							USDC,
+							takerFeeThree,
+							s.PoolThreeLiquidityCap(),
+							notCosmWasmPoolCodeID,
+						),
 					},
 
 					InAmount:  totalInAmount.QuoRaw(2),
@@ -154,45 +150,41 @@ func (s *RouterTestSuite) TestPrepareResult() {
 			},
 			expectedRoutes: []domain.SplitRoute{
 				&route.RouteWithOutAmount{
-					RouteImpl: route.RouteImpl{
-						Pools: []domain.RoutablePool{
-							pools.NewExactAmountOutRoutableResultPool(
-								poolIDOne,
-								poolmanagertypes.Balancer,
-								poolOne.GetSpreadFactor(sdk.Context{}),
-								USDT,
-								takerFeeOne,
-								s.PoolOneLiquidityCap(),
-								notCosmWasmPoolCodeID,
-							),
-							pools.NewExactAmountOutRoutableResultPool(
-								poolIDTwo,
-								poolmanagertypes.Balancer,
-								poolTwo.GetSpreadFactor(sdk.Context{}),
-								USDC,
-								takerFeeTwo,
-								s.PoolTwoLiquidityCap(),
-								notCosmWasmPoolCodeID,
-							),
-						},
+					Pools: []domain.RoutablePool{
+						pools.NewExactAmountOutRoutableResultPool(
+							poolIDOne,
+							poolmanagertypes.Balancer,
+							poolOne.GetSpreadFactor(sdk.Context{}),
+							USDT,
+							takerFeeOne,
+							s.PoolOneLiquidityCap(),
+							notCosmWasmPoolCodeID,
+						),
+						pools.NewExactAmountOutRoutableResultPool(
+							poolIDTwo,
+							poolmanagertypes.Balancer,
+							poolTwo.GetSpreadFactor(sdk.Context{}),
+							USDC,
+							takerFeeTwo,
+							s.PoolTwoLiquidityCap(),
+							notCosmWasmPoolCodeID,
+						),
 					},
 
 					InAmount:  totalOutAmount.QuoRaw(3),
 					OutAmount: totalInAmount.QuoRaw(2),
 				},
 				&route.RouteWithOutAmount{
-					RouteImpl: route.RouteImpl{
-						Pools: []domain.RoutablePool{
-							pools.NewExactAmountOutRoutableResultPool(
-								poolIDThree,
-								poolmanagertypes.Balancer,
-								poolThree.GetSpreadFactor(sdk.Context{}),
-								USDC,
-								takerFeeThree,
-								s.PoolThreeLiquidityCap(),
-								notCosmWasmPoolCodeID,
-							),
-						},
+					Pools: []domain.RoutablePool{
+						pools.NewExactAmountOutRoutableResultPool(
+							poolIDThree,
+							poolmanagertypes.Balancer,
+							poolThree.GetSpreadFactor(sdk.Context{}),
+							USDC,
+							takerFeeThree,
+							s.PoolThreeLiquidityCap(),
+							notCosmWasmPoolCodeID,
+						),
 					},
 
 					InAmount:  totalOutAmount.QuoRaw(5),
@@ -271,14 +263,12 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 		Route: []domain.SplitRoute{
 			// Route 1
 			&route.RouteWithOutAmount{
-				RouteImpl: route.RouteImpl{
-					Pools: []domain.RoutablePool{
-						mocks.WithMockedTokenOut(
-							mocks.WithTokenOutDenom(
-								mocks.WithChainPoolModel(DefaultMockPool, poolOne), USDC),
-							sdk.NewCoin(USDC, totalOutAmount),
-						),
-					},
+				Pools: []domain.RoutablePool{
+					mocks.WithMockedTokenOut(
+						mocks.WithTokenOutDenom(
+							mocks.WithChainPoolModel(DefaultMockPool, poolOne), USDC),
+						sdk.NewCoin(USDC, totalOutAmount),
+					),
 				},
 
 				InAmount:  totalInAmount,

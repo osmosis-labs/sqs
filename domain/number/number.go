@@ -41,7 +41,7 @@ func ParseNumberType[T any](numbersParam string, parseFn func(s string) (T, erro
 // splitAndTrim splits a string by a separator and trims the resulting strings.
 func splitAndTrim(s, sep string) []string {
 	var result []string
-	for _, val := range strings.Split(s, sep) {
+	for val := range strings.SplitSeq(s, sep) {
 		trimmed := strings.TrimSpace(val)
 		if trimmed != "" {
 			result = append(result, trimmed)

@@ -261,7 +261,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestHasLaterUpdateThanHeight() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
 			poolLiquidityPricerWorker := &worker.PoolLiquidityPricerWorker{}
 
@@ -501,7 +500,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepriceDenomsMetadata() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
 			// Create liquidity pricer
 			liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
@@ -597,7 +595,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestCreatePoolDenomMetaData() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
 			// Create liquidity pricer
 			liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
@@ -671,7 +668,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestShouldSkipDenomRepricing() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
 			// Create the worker
 			// Note: all inputs are irrelevant for this test.
@@ -831,7 +827,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.T().Run(tt.name, func(t *testing.T) {
 			// Create liquidity pricer
 			liquidityPricer := worker.NewLiquidityPricer(tt.quoteDenom, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))

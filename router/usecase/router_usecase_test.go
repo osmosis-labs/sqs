@@ -275,7 +275,6 @@ func (s *RouterTestSuite) TestHandleRoutes() {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		s.Run(tc.name, func() {
 			routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
 
@@ -548,7 +547,6 @@ func (s *RouterTestSuite) TestFilterDuplicatePoolIDRoutes() {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		s.Run(name, func() {
 			actualRoutes := usecase.FilterDuplicatePoolIDRoutes(tc.routes)
 
@@ -631,7 +629,6 @@ func (s *RouterTestSuite) TestConvertRankedToCandidateRoutes() {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		s.Run(name, func() {
 			actualCandidateRoutes := usecase.ConvertRankedToCandidateRoutes(tc.rankedRoutes)
 
@@ -774,7 +771,6 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		s.Run(name, func() {
 			// Setup mainnet router
 			mainnetState := s.SetupMainnetState()
@@ -1654,7 +1650,6 @@ func (s *RouterTestSuite) TestGetMinPoolLiquidityCapFilter() {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 
 		s.T().Run(tc.name, func(t *testing.T) {
 			// Set up mainnet mock state.

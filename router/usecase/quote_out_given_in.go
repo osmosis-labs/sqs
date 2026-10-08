@@ -112,12 +112,10 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		totalEffectiveSpotPriceInBaseOutQuote = totalEffectiveSpotPriceInBaseOutQuote.AddMut(effectiveSpotPriceInBaseOutQuote.MulMut(routeAmountInFraction))
 
 		resultRoutes = append(resultRoutes, &route.RouteWithOutAmount{
-			RouteImpl: route.RouteImpl{
-				Pools:                      newPools,
-				HasGeneralizedCosmWasmPool: curRoute.ContainsGeneralizedCosmWasmPool(),
-			},
-			InAmount:  curRoute.GetAmountIn(),
-			OutAmount: curRoute.GetAmountOut(),
+			Pools:                      newPools,
+			HasGeneralizedCosmWasmPool: curRoute.ContainsGeneralizedCosmWasmPool(),
+			InAmount:                   curRoute.GetAmountIn(),
+			OutAmount:                  curRoute.GetAmountOut(),
 		})
 	}
 

@@ -17,7 +17,7 @@ const maxDecPrecision = 74
 
 func buildPrecisionScalingFactors() []osmomath.Dec {
 	precisionScalingFactors := make([]osmomath.Dec, maxDecPrecision)
-	for i := 0; i < maxDecPrecision; i++ {
+	for i := range maxDecPrecision {
 		precisionScalingFactors[i] = tenDec.Power(uint64(i))
 	}
 	return precisionScalingFactors

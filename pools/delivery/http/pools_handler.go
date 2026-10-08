@@ -42,8 +42,8 @@ type PoolResponse struct {
 	LiquidityCap      osmomath.Int `json:"liquidity_cap"`
 	LiquidityCapError string       `json:"liquidity_cap_error"`
 
-	APRData  sqspassthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data,omitempty"`
-	FeesData sqspassthroughdomain.PoolFeesDataStatusWrap `json:"fees_data,omitempty"`
+	APRData  sqspassthroughdomain.PoolAPRDataStatusWrap  `json:"apr_data"`
+	FeesData sqspassthroughdomain.PoolFeesDataStatusWrap `json:"fees_data"`
 }
 
 // GetPoolsResponse is a structure for serializing pools result returned to clients.

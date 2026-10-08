@@ -83,11 +83,9 @@ func TestConcurrentOperations(t *testing.T) {
 
 	// Concurrent reads
 	for range iterations {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			_ = cow.Load()
-		}()
+		})
 	}
 
 	wg.Wait()

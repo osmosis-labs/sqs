@@ -537,9 +537,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolOutGivenIn(ctx context.
 	// Construct the final multi-hop custom direct quote route.
 	result.Route = []domain.SplitRoute{
 		&route.RouteWithOutAmount{
-			RouteImpl: route.RouteImpl{
-				Pools: pools,
-			},
+			Pools:     pools,
 			OutAmount: result.AmountOut,
 			InAmount:  result.AmountIn.Amount,
 		},

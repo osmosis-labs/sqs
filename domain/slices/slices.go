@@ -8,10 +8,7 @@ func Split[T any](s []T, size int) [][]T {
 	var result [][]T
 
 	for l := 0; l < len(s); l += size {
-		h := l + size
-		if h > len(s) {
-			h = len(s)
-		}
+		h := min(l+size, len(s))
 		result = append(result, s[l:h])
 	}
 

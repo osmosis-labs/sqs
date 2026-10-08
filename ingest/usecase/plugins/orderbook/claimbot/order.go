@@ -39,7 +39,7 @@ func processOrderbooksAndGetClaimableOrders(
 	}
 
 	var results []processedOrderbook
-	for i := 0; i < len(orderbooks); i++ {
+	for range orderbooks {
 		select {
 		case result := <-ch:
 			results = append(results, result)

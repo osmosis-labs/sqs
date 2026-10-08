@@ -261,7 +261,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 	currentBlockLiquidityMap := domain.DenomPoolLiquidityMap{}
 
 	// Collect the parsed pools
-	for i := 0; i < len(poolData); i++ {
+	for range poolData {
 		select {
 		case poolResult := <-poolResultChan:
 			if poolResult.err != nil {

@@ -97,9 +97,7 @@ func prepareBatchClaimMsg(claims orderbookdomain.Orders) ([]byte, error) {
 	}
 
 	batchClaim := batchClaim{
-		batchClaimOrders: batchClaimOrders{
-			Orders: orders,
-		},
+		Orders: orders,
 	}
 
 	msgBytes, err := json.Marshal(batchClaim)

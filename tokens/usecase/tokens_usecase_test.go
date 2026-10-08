@@ -325,7 +325,6 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.Run(tt.name, func() {
 			// Initialize pricing cache.
 			pricingCache := cache.New()
@@ -531,7 +530,6 @@ func (s *TokensUseCaseTestSuite) TestGetMinPoolLiquidityCap() {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		s.Run(tt.name, func() {
 			// Set up mainnet mock state.
 			mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
