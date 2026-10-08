@@ -806,10 +806,6 @@ func (r *routerUseCaseImpl) GetRouterState() (domain.RouterState, error) {
 		return domain.RouterState{}, err
 	}
 
-	if err := parsing.StorePools(pools, tickModelMap, "pools.json"); err != nil {
-		return domain.RouterState{}, err
-	}
-
 	takerFeesMap := r.routerRepository.GetAllTakerFees()
 
 	candidateRouteSearchData, err := r.routerRepository.GetCandidateRouteSearchData()
