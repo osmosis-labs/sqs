@@ -14,8 +14,14 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
 
-const USDC_DENOM = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
-const USDT_DENOM = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
+const (
+	// USDC_DENOM is the alloyed USDC (allUSDC), the default quote denom for SQS prices.
+	USDC_DENOM = "factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC"
+	// NOBLE_USDC_DENOM is the Noble USDC variant, the previous default quote denom.
+	// It remains an accepted quote denom so that callers still quoting in Noble USDC keep working.
+	NOBLE_USDC_DENOM = "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4"
+	USDT_DENOM       = "ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB"
+)
 
 // CoingeckoPriceGetterFn is a function type that fetches the price of a token from Coingecko.
 // We monkey-patch this function for testing purposes.
@@ -30,6 +36,10 @@ type coingeckoPricing struct {
 	cacheExpiryNs time.Duration
 	quoteCurrency string
 	coingeckoUrl  string
+	// defaultQuoteDenom is the chain denom resolved from config.DefaultQuoteHumanDenom.
+	// Chain pricing falls back to Coingecko only for this denom, so it must always be accepted
+	// as a quote denom, even after the human denom is remapped to a different chain denom.
+	defaultQuoteDenom string
 
 	// We monkey-patch this function for testing purposes.
 	priceGetterFn CoingeckoPriceGetterFn
@@ -46,6 +56,12 @@ func New(tokenUseCase mvc.TokensUsecase, config domain.PricingConfig, coingeckoP
 		coingeckoUrl:  config.CoingeckoUrl,
 	}
 
+	// If the default quote human denom does not resolve, only the stablecoin constants are accepted.
+	// The chain pricing source fails at startup on the same lookup, so this is not reached in practice.
+	if defaultQuoteDenom, err := tokenUseCase.GetChainDenom(config.DefaultQuoteHumanDenom); err == nil {
+		coingeckoPricing.defaultQuoteDenom = defaultQuoteDenom
+	}
+
 	if coingeckoPriceGetterFn == nil {
 		// Set the default price getter function.
 		coingeckoPricing.priceGetterFn = coingeckoPricing.GetPriceByCoingeckoId
@@ -59,10 +75,10 @@ func New(tokenUseCase mvc.TokensUsecase, config domain.PricingConfig, coingeckoP
 
 // GetPrice implements pricing.PricingStrategy.
 // Coingecko pricing is always usd (i.e. usdc or usdt), as specified in the coingecko-quote-currency in config.json
-// So quoteDenom has to be nil or usdc or usdt
+// So quoteDenom has to be nil, the configured default quote denom, or a USD stablecoin: allUSDC, Noble USDC or USDT.
 func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, []domain.SplitRoute, error) {
-	if quoteDenom != USDC_DENOM && quoteDenom != USDT_DENOM && strings.TrimSpace(quoteDenom) != "" {
-		return osmomath.BigDec{}, nil, fmt.Errorf("only usdc/usdt denom or nil is allowed for the quote denom param")
+	if !c.isAllowedQuoteDenom(quoteDenom) {
+		return osmomath.BigDec{}, nil, fmt.Errorf("only the default quote denom, usdc/usdt denom or nil is allowed for the quote denom param")
 	}
 	coingeckoId, err := c.TUsecase.GetCoingeckoIdByChainDenom(baseDenom)
 	if err != nil {
@@ -141,4 +157,18 @@ func (c *coingeckoPricing) InitializeCache(cache *cache.Cache) {
 func (c *coingeckoPricing) GetFallbackStrategy(quoteDenom string) domain.PricingSourceType {
 	// Currently there is no fallback mechanism for Coingecko
 	return domain.NoneSourceType
+}
+
+// isAllowedQuoteDenom returns true if quoteDenom is empty, the configured default quote denom,
+// or one of the USD stablecoin denoms.
+func (c *coingeckoPricing) isAllowedQuoteDenom(quoteDenom string) bool {
+	if strings.TrimSpace(quoteDenom) == "" {
+		return true
+	}
+
+	if c.defaultQuoteDenom != "" && quoteDenom == c.defaultQuoteDenom {
+		return true
+	}
+
+	return quoteDenom == USDC_DENOM || quoteDenom == NOBLE_USDC_DENOM || quoteDenom == USDT_DENOM
 }

@@ -242,7 +242,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	}
 
 	// Initialize passthrough query use case
-	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(ctx, config.ChainRegistryTokenFeesFileURL, tokensUseCase, logger)
+	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(ctx, config.ChainRegistryTokenFeesFileURL, tokensUseCase, defaultQuoteDenom, logger)
 	if err != nil {
 		return nil, err
 	}
