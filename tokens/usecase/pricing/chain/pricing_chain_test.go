@@ -137,3 +137,44 @@ func (s *PricingTestSuite) testComputePrice_QuoteBasedMethod(mainnetState router
 	// 0.1 additive tolerance.
 	osmoassert.DecApproxEq(s.T(), priceQuoteBasedMethod.Dec(), priceSpotPriceMethod.Dec(), osmomath.MustNewDecFromStr("0.1"))
 }
+
+// This test validates that chain pricing never prices through a pool listed in the
+// router config's excluded pool IDs, and still finds a price through other pools.
+func (s *PricingTestSuite) TestGetPrice_ExcludedPoolIDs() {
+	mainnetState := s.SetupMainnetState()
+
+	poolIDsInRoutes := func(routes []domain.SplitRoute) map[uint64]struct{} {
+		poolIDs := map[uint64]struct{}{}
+		for _, route := range routes {
+			for _, pool := range route.GetPools() {
+				poolIDs[pool.GetId()] = struct{}{}
+			}
+		}
+		return poolIDs
+	}
+
+	// Find a pool that the default config prices OSMO through.
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	s.Require().NoError(err)
+
+	_, routes, err := pricingStrategy.GetPrice(context.Background(), UOSMO, USDC)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(routes)
+	excludedPoolID := routes[0].GetPools()[0].GetId()
+
+	// Exclude that pool and price again.
+	routerConfig := defaultPricingRouterConfig
+	routerConfig.ExcludedPoolIDs = []uint64{excludedPoolID}
+
+	mainnetUsecase = s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(routerConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+	pricingStrategy, err = pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	s.Require().NoError(err)
+
+	// System under test.
+	price, routes, err := pricingStrategy.GetPrice(context.Background(), UOSMO, USDC)
+	s.Require().NoError(err)
+	s.Require().True(price.IsPositive())
+	s.Require().NotEmpty(routes)
+	s.Require().NotContains(poolIDsInRoutes(routes), excludedPoolID)
+}

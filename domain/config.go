@@ -112,6 +112,7 @@ var DefaultConfig = Config{
 	},
 	Router: &RouterConfig{
 		PreferredPoolIDs:                 []uint64{},
+		ExcludedPoolIDs:                  []uint64{},
 		MaxPoolsPerRoute:                 4,
 		MaxRoutes:                        20,
 		MaxSplitRoutes:                   3,

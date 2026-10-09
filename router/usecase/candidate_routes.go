@@ -26,14 +26,23 @@ type candidateRouteWrapper struct {
 
 type candidateRouteFinder struct {
 	candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder
-	logger                   log.Logger
+	// excludedPools are skipped by every search regardless of the per-call options,
+	// so that neither routing nor pricing can produce a route through them.
+	excludedPools domain.CandidateRoutePoolIDFilterOptionCb
+	logger        log.Logger
 }
 
 var _ domain.CandidateRouteSearcher = candidateRouteFinder{}
 
-func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder, logger log.Logger) candidateRouteFinder {
+func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder, excludedPoolIDs []uint64, logger log.Logger) candidateRouteFinder {
+	poolIDsToSkip := make(map[uint64]struct{}, len(excludedPoolIDs))
+	for _, poolID := range excludedPoolIDs {
+		poolIDsToSkip[poolID] = struct{}{}
+	}
+
 	return candidateRouteFinder{
 		candidateRouteDataHolder: candidateRouteDataHolder,
+		excludedPools:            domain.CandidateRoutePoolIDFilterOptionCb{PoolIDsToSkip: poolIDsToSkip},
 		logger:                   logger,
 	}
 }
@@ -59,7 +68,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 	if len(denomData.CanonicalOrderbooks) > 0 {
 		canonicalOrderbook, ok := denomData.CanonicalOrderbooks[tokenOutDenom]
 		if ok {
-			shouldSkipCanonicalOrderbook := false
+			shouldSkipCanonicalOrderbook := c.excludedPools.ShouldSkipPool(canonicalOrderbook)
 			// Filter the canonical orderbook pool using the pool filters.
 			for _, filter := range options.PoolFiltersAnyOf {
 				if filter(canonicalOrderbook) {
@@ -116,9 +125,9 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 			pool := (denomData.SortedPools[i])
 
-			// If the option is configured to skip a given pool
-			// We mark it as visited and continue.
-			if options.ShouldSkipPool(pool) {
+			// If the pool is excluded by config or the option is configured to skip it,
+			// we mark it as visited and continue.
+			if c.excludedPools.ShouldSkipPool(pool) || options.ShouldSkipPool(pool) {
 				visited[pool.ID] = true
 				continue
 			}

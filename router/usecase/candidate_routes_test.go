@@ -534,3 +534,52 @@ func foundExpectedPoolID(expectedPoolID uint64, routes []ingesttypes.CandidateRo
 
 	return false
 }
+
+// This test validates that pools listed in the router config's excluded pool IDs
+// are never returned by the candidate route search, in either swap direction,
+// without any per-call pool filter option.
+func (s *RouterTestSuite) TestCandidateRouteSearcher_ExcludedPoolIDs() {
+	mainnetState := s.SetupMainnetState()
+
+	// OSMO/ATOM pool
+	const excludedPoolID = uint64(1)
+
+	routerConfig := routertesting.DefaultRouterConfig
+	routerConfig.ExcludedPoolIDs = []uint64{excludedPoolID}
+
+	defaultUsecase := s.SetupRouterAndPoolsUsecase(mainnetState)
+	excludingUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(routerConfig))
+
+	candidateRouteOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           routerConfig.MaxRoutes,
+		MaxPoolsPerRoute:    routerConfig.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: routerConfig.MinPoolLiquidityCap,
+	}
+
+	oneOSMO := sdk.NewCoin(UOSMO, defaultAmount)
+
+	type findFn func(searcher domain.CandidateRouteSearcher) (ingesttypes.CandidateRoutes, error)
+	directions := map[string]findFn{
+		"out given in": func(searcher domain.CandidateRouteSearcher) (ingesttypes.CandidateRoutes, error) {
+			return searcher.FindCandidateRoutesOutGivenIn(context.Background(), oneOSMO, ATOM, candidateRouteOptions)
+		},
+		"in given out": func(searcher domain.CandidateRouteSearcher) (ingesttypes.CandidateRoutes, error) {
+			return searcher.FindCandidateRoutesInGivenOut(context.Background(), oneOSMO, ATOM, candidateRouteOptions)
+		},
+	}
+
+	for name, find := range directions {
+		s.Run(name, func() {
+			// Without the exclusion, the pool is a candidate.
+			candidateRoutes, err := find(defaultUsecase.CandidateRouteSearcher)
+			s.Require().NoError(err)
+			s.Require().True(foundExpectedPoolID(excludedPoolID, candidateRoutes.Routes))
+
+			// System under test.
+			candidateRoutes, err = find(excludingUsecase.CandidateRouteSearcher)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(candidateRoutes.Routes)
+			s.Require().False(foundExpectedPoolID(excludedPoolID, candidateRoutes.Routes))
+		})
+	}
+}
