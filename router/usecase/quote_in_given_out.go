@@ -41,8 +41,15 @@ func (q *quoteExactAmountOut) GetAmountIn() sdk.Coin {
 		return q.quoteExactAmountIn.GetAmountIn()
 	}
 
-	// in a new implementation q.quoteExactAmountIn is no longer set
-	return sdk.Coin{Amount: q.AmountIn}
+	// in a new implementation q.quoteExactAmountIn is no longer set.
+	// The input denom is the token in of the route's last hop. All routes of an
+	// in-given-out quote end in the same input denom.
+	tokenInDenom := ""
+	if len(q.Route) > 0 {
+		tokenInDenom = q.Route[0].GetTokenInDenom()
+	}
+
+	return sdk.Coin{Denom: tokenInDenom, Amount: q.AmountIn}
 }
 
 // GetAmountOut implements Quote.

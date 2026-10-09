@@ -787,15 +787,15 @@ func (s *RouterTestSuite) TestGetOptimalQuoteInGivenOut_Mainnet_FeeCorrectness()
 	s.Require().NoError(err)
 	s.Require().NotEmpty(routes)
 
-	// (1) amount_in is strictly positive and the requested output amount is preserved.
-	//
-	// Note: on the true exact-out path the result quote/routes do not populate the input
-	// denom string (GetAmountIn().Denom and route.GetTokenInDenom() come back empty), so we
-	// assert on the amount and the pool taker fees rather than the input denom. The empty
-	// input denom on exact-out results is worth confirming in review (see PR notes).
+	// (1) amount_in is strictly positive, carries the input denom, and the requested output
+	// amount is preserved.
 	amountIn := quote.GetAmountIn()
 	s.Require().True(amountIn.Amount.IsPositive(), "exact-out amount_in must be positive, got %s", amountIn.String())
-	s.Require().Equal(desiredOut.Amount.String(), quote.GetAmountOut().Amount.String())
+	s.Require().Equal(tokenInDenom, amountIn.Denom)
+	s.Require().Equal(desiredOut.String(), quote.GetAmountOut().String())
+	for _, r := range routes {
+		s.Require().Equal(tokenInDenom, r.GetTokenInDenom())
+	}
 
 	// (2) The effective fee must equal the fee recomputed from the actual pools on the
 	// chosen routes, confirming amount_in reflects real per-pool taker fees rather than

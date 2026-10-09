@@ -344,6 +344,42 @@ func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_EffectiveFee() {
 	s.Require().Equal(expectedEffectiveFee, quote.GetEffectiveFee().String())
 }
 
+// TestQuoteExactAmountOut_TruePath_AmountInDenom validates that a true exact-out quote reports
+// the input denom on its amount in, both before and after PrepareResult. The quote's AmountIn is
+// a bare amount, so the denom comes from the route's input hop.
+func (s *RouterTestSuite) TestQuoteExactAmountOut_TruePath_AmountInDenom() {
+	s.SetupTest()
+
+	_, poolThree := s.PoolThree()
+
+	var (
+		amountOut   = sdk.NewCoin(USDC, osmomath.NewInt(5_000_000))
+		routeOneOut = osmomath.NewInt(3_000_000)
+		routeTwoOut = osmomath.NewInt(2_000_000)
+		routeOneIn  = osmomath.NewInt(750_000)
+		routeTwoIn  = osmomath.NewInt(500_000)
+		amountIn    = routeOneIn.Add(routeTwoIn)
+	)
+
+	quote := s.NewExactAmountOutTrueQuote(
+		poolThree,
+		amountIn, amountOut,
+		osmomath.ZeroDec(), osmomath.ZeroDec(),
+		routeOneIn, routeOneOut,
+		routeTwoIn, routeTwoOut,
+	)
+
+	s.Require().Equal(sdk.NewCoin(ETH, amountIn).String(), quote.GetAmountIn().String())
+
+	routes, _, err := quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+
+	s.Require().Equal(sdk.NewCoin(ETH, amountIn).String(), quote.GetAmountIn().String())
+	for _, r := range routes {
+		s.Require().Equal(ETH, r.GetTokenInDenom())
+	}
+}
+
 // TestPrepareResult_ExactOut_TruePath_PriceImpact validates the price-impact sign and
 // formula on the true exact-out path.
 //
