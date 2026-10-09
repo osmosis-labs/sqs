@@ -1647,6 +1647,15 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mai
 			err: usecase.ErrTokenInDenomPoolNotFound,
 		},
 		{
+			name:         "Single pool: orderbook pools do not support exact-out",
+			tokenOut:     sdk.NewCoin(USDC, amountOut),
+			tokenInDenom: []string{NATIVE_WBTC},
+			poolID: []uint64{
+				1904, // WBTC - USDC orderbook
+			},
+			err: types.ErrValidationFailed,
+		},
+		{
 			name:         "Multi pool: OSMO-USDC - happy case",
 			tokenOut:     sdk.NewCoin(UOSMO, amountOut),
 			tokenInDenom: []string{AKT, USDC},

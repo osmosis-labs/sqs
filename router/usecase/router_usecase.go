@@ -768,6 +768,11 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.
 			return nil, err
 		}
 
+		// The orderbook contract has no exact-out swap, so a quote through it could never execute.
+		if cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel; cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook() {
+			return nil, fmt.Errorf("%w: pool %d is an orderbook, and orderbook pools do not support exact-out swaps", routertypes.ErrValidationFailed, poolID)
+		}
+
 		// The error names follow GetCustomDirectQuoteInGivenOut, which reports the
 		// returned denom as the "token in" of the inverted search.
 		poolDenoms := pool.GetPoolDenoms()
