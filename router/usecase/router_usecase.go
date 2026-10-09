@@ -460,6 +460,11 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 		return nil, err
 	}
 
+	// A pinned pool bypasses the candidate route search, so check the exclusion list here too.
+	if osmoutils.Contains(r.defaultConfig.ExcludedPoolIDs, poolID) {
+		return nil, fmt.Errorf("%w: pool %d is excluded from routing", routertypes.ErrValidationFailed, poolID)
+	}
+
 	poolDenoms := pool.GetPoolDenoms()
 
 	if !osmoutils.Contains(poolDenoms, tokenIn.Denom) {
