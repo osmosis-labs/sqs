@@ -83,7 +83,11 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, height uint64, p
 	// Update the orderbook client with the orderbook pool ID.
 	ticks := cosmWasmPoolModel.Data.Orderbook.Ticks
 	if len(ticks) == 0 {
-		return nil // early return, nothing do
+		// The node sends every tick the contract has ever stored, so no ticks means the
+		// book has never held an order. Record it as ingested and empty, so that readers
+		// can tell it apart from a book whose ticks have not been ingested yet.
+		o.orderbookRepository.StoreTicks(poolID, height, map[int64]orderbookdomain.OrderbookTick{})
+		return nil
 	}
 
 	cwModel, ok := pool.GetUnderlyingPool().(*cwpoolmodel.CosmWasmPool)

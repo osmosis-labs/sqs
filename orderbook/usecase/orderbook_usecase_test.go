@@ -22,6 +22,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
+	orderbookrepository "github.com/osmosis-labs/sqs/orderbook/repository"
 	"github.com/osmosis-labs/sqs/orderbook/types"
 	orderbookusecase "github.com/osmosis-labs/sqs/orderbook/usecase"
 	"github.com/osmosis-labs/sqs/orderbook/usecase/orderbooktesting"
@@ -110,8 +111,11 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 			expectedError: &types.NotAnOrderbookPoolError{},
 		},
 		{
-			name:          "orderbook pool has no ticks, nothing to process",
-			pool:          withTicks(withContractInfo(pool()), []cosmwasmpool.OrderbookTick{}),
+			name: "orderbook pool has no ticks, stores an empty book",
+			pool: withTicks(withContractInfo(pool()), []cosmwasmpool.OrderbookTick{}),
+			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, client *mocks.OrderbookGRPCClientMock, repository *mocks.OrderbookRepositoryMock) {
+				repository.StoreTicksFunc = func(poolID uint64, height uint64, ticksMap map[int64]orderbookdomain.OrderbookTick) {}
+			},
 			expectedError: nil,
 		},
 		{
@@ -233,6 +237,39 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool() {
 		})
 	}
 }
+
+// TestProcessPool_NoTicksMarksBookIngested checks that a book that has never held an order
+// is recorded as ingested and empty, so the depth endpoint can serve it as an empty book
+// instead of reporting its ticks as not ingested yet.
+func (s *OrderbookUsecaseTestSuite) TestProcessPool_NoTicksMarksBookIngested() {
+	repository := orderbookrepository.New()
+	client := mocks.OrderbookGRPCClientMock{}
+	tokensusecase := mocks.TokensUsecaseMock{}
+	usecase := orderbookusecase.New(repository, &client, nil, &tokensusecase, nil)
+
+	pool := &mocks.MockRoutablePool{
+		ID: 1,
+		CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+			ContractInfo: cosmwasmpool.ContractInfo{
+				Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+				Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+			},
+			Data: cosmwasmpool.CosmWasmPoolData{
+				Orderbook: &cosmwasmpool.OrderbookData{Ticks: []cosmwasmpool.OrderbookTick{}},
+			},
+		},
+	}
+
+	_, found := repository.GetAllTicks(1)
+	s.Require().False(found)
+
+	s.Require().NoError(usecase.ProcessPool(context.Background(), 1, pool))
+
+	ticks, found := repository.GetAllTicks(1)
+	s.Require().True(found)
+	s.Require().Empty(ticks)
+}
+
 func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
 
 	s.T().Skip("flaky test")
