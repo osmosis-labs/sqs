@@ -598,7 +598,7 @@ var optimalQuoteTestCases = map[string]struct {
 		amountIn: osmomath.NewInt(5000000),
 
 		expectedRoutesCountExactAmountIn:  2,
-		expectedRoutesCountExactAmountOut: 1,
+		expectedRoutesCountExactAmountOut: 3,
 	},
 	"usdt for atom": {
 		tokenInDenom:  USDT,

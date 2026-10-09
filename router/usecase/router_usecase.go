@@ -434,7 +434,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuoteOutGivenIn(ctx context.Contex
 func (r *routerUseCaseImpl) rankRoutesByDirectQuoteInGivenOut(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenOut sdk.Coin, tokenInDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenOut.Denom, tokenInDenom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidatesInGivenOut(candidateRoutes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -663,7 +663,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteInGivenOut(ctx context.Context, 
 	candidateRoutes := r.createCandidateRouteByPoolID(tokenInDenom, tokenOut.Denom, poolID)
 
 	// Convert candidate route into a route with all the pool data
-	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenOut.Denom, tokenInDenom)
+	routes, err := r.poolsUsecase.GetRoutesFromCandidatesInGivenOut(candidateRoutes)
 	if err != nil {
 		return nil, err
 	}
