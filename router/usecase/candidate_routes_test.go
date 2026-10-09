@@ -534,3 +534,38 @@ func foundExpectedPoolID(expectedPoolID uint64, routes []ingesttypes.CandidateRo
 
 	return false
 }
+
+// This test validates that pools listed in the router config's excluded pool IDs
+// are never returned by the candidate route search, without any per-call pool filter option.
+// In-given-out search reuses the out-given-in search, so one direction covers both.
+func (s *RouterTestSuite) TestCandidateRouteSearcher_ExcludedPoolIDs() {
+	mainnetState := s.SetupMainnetState()
+
+	// OSMO/ATOM pool
+	const excludedPoolID = uint64(1)
+
+	routerConfig := routertesting.DefaultRouterConfig
+	routerConfig.ExcludedPoolIDs = []uint64{excludedPoolID}
+
+	defaultUsecase := s.SetupRouterAndPoolsUsecase(mainnetState)
+	excludingUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(routerConfig))
+
+	candidateRouteOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           routerConfig.MaxRoutes,
+		MaxPoolsPerRoute:    routerConfig.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: routerConfig.MinPoolLiquidityCap,
+	}
+
+	oneOSMO := sdk.NewCoin(UOSMO, defaultAmount)
+
+	// Without the exclusion, the pool is a candidate.
+	candidateRoutes, err := defaultUsecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(context.Background(), oneOSMO, ATOM, candidateRouteOptions)
+	s.Require().NoError(err)
+	s.Require().True(foundExpectedPoolID(excludedPoolID, candidateRoutes.Routes))
+
+	// System under test.
+	candidateRoutes, err = excludingUsecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(context.Background(), oneOSMO, ATOM, candidateRouteOptions)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(candidateRoutes.Routes)
+	s.Require().False(foundExpectedPoolID(excludedPoolID, candidateRoutes.Routes))
+}

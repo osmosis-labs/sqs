@@ -198,7 +198,10 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	routerRepository.SetPoolHandler(poolsUseCase)
 
 	// Initialize candidate route searcher
-	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, logger)
+	if len(config.Router.ExcludedPoolIDs) > 0 {
+		logger.Info("excluding pools from routing and pricing", zap.Uint64s("pool_ids", config.Router.ExcludedPoolIDs))
+	}
+	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, config.Router.ExcludedPoolIDs, logger)
 
 	// Initialize router repository, usecase
 	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
