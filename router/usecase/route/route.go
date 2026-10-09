@@ -238,11 +238,12 @@ func (r RouteImpl) PrepareResultPoolsInGivenOut(ctx context.Context, tokenOut sd
 			return nil, osmomath.Dec{}, osmomath.Dec{}, err
 		}
 
+		// Update effective spot price before charging the taker fee, so that it excludes
+		// the fee the same way PrepareResultPoolsOutGivenIn does for exact-in.
+		effectiveSpotPriceOutBaseInQuote.MulMut(tokenIn.Amount.ToLegacyDec().QuoMut(tokenOut.Amount.ToLegacyDec()))
+
 		// Charge taker fee
 		tokenIn = pool.ChargeTakerFeeExactOut(tokenIn)
-
-		// Update effective spot price
-		effectiveSpotPriceOutBaseInQuote.MulMut(tokenIn.Amount.ToLegacyDec().QuoMut(tokenOut.Amount.ToLegacyDec()))
 
 		// Note, in the future we may want to increase the precision of the spot price
 		routeSpotPriceOutBaseInQuote.MulMut(spotPriceOutBaseInQuote.Dec())

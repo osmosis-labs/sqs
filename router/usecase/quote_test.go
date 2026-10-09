@@ -381,13 +381,12 @@ func (s *RouterTestSuite) TestQuoteExactAmountOut_TruePath_AmountInDenom() {
 }
 
 // TestPrepareResult_ExactOut_TruePath_PriceImpact validates the price-impact sign and
-// formula on the true exact-out path.
+// its independence from taker fees on the true exact-out path.
 //
-// Regression intent: the exact-out wiring computes price impact as
-// (effectiveOutPerIn / spotOutPerIn) - 1, which is NEGATIVE when the trade is adverse
-// (effective execution worse than spot). A non-negative or zero result here would mean
-// the sign convention regressed relative to the out-given-in path, which the frontend
-// slippage logic (computeSuggestedSlippage / outputDifference) relies on.
+// Regression intent: price impact is (effectiveOutPerIn / spotOutPerIn) - 1, NEGATIVE when
+// the trade is adverse, and like the out-given-in path it excludes taker fees (reported in
+// EffectiveFee). The frontend slippage logic (computeSuggestedSlippage / outputDifference)
+// relies on both, so counting the fee in price impact would double-count it there.
 func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_PriceImpact() {
 	s.SetupTest()
 
@@ -417,43 +416,26 @@ func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_PriceImpact() {
 	s.Require().NoError(err)
 
 	priceImpact := quote.GetPriceImpact()
-
-	// GetInBaseOutQuoteSpotPrice() returns the same spot-out-per-in value the SUT divides by
-	// when computing price impact (it is 1/totalSpotPriceOutBaseInQuote, and the SUT's
-	// spotOutPerIn is the same inversion). Name it accordingly.
-	spotOutPerIn := quote.GetInBaseOutQuoteSpotPrice()
-
-	// Both must be populated on the true exact-out path.
 	s.Require().False(priceImpact.IsNil(), "price impact should be populated on the true exact-out path")
-	s.Require().False(spotOutPerIn.IsNil(), "in-base-out-quote spot price should be populated")
-	s.Require().True(spotOutPerIn.IsPositive(), "spot price (out per in) must be positive, got %s", spotOutPerIn.String())
+	s.Require().False(quote.GetInBaseOutQuoteSpotPrice().IsNil(), "in-base-out-quote spot price should be populated")
 
-	// Re-derive price impact from the quote's own reported spot price and amounts to validate
-	// the wiring's formula end to end, independent of the pool's internal spot math:
-	//   PriceImpact = effectiveOutPerIn / spotOutPerIn - 1   (negative when adverse)
-	// where effectiveOutPerIn = amountOut / amountIn and spotOutPerIn = InBaseOutQuoteSpotPrice.
-	//
-	// The SUT computes this via a slightly different chain of Quo/Sub ops, so the two can
-	// differ in the last few decimal places due to osmomath rounding. Assert closeness within
-	// a small tolerance rather than exact equality; the sign convention below is the
-	// regression-critical property.
-	effectiveOutPerIn := amountOut.Amount.ToLegacyDec().Quo(amountIn.ToLegacyDec())
-	expectedPriceImpact := effectiveOutPerIn.Quo(spotOutPerIn).Sub(osmomath.OneDec())
+	// Sign convention: the trade moves the pool against the trader, so the impact is negative.
+	s.Require().True(priceImpact.IsNegative(), "exact-out price impact must be negative when adverse, got %s", priceImpact.String())
 
-	priceImpactDiff := priceImpact.Sub(expectedPriceImpact).Abs()
-	tolerance := osmomath.MustNewDecFromStr("0.0000001")
-	s.Require().True(priceImpactDiff.LTE(tolerance),
-		"price impact %s must be within %s of (amountOut/amountIn)/spotOutPerIn - 1 = %s",
-		priceImpact.String(), tolerance.String(), expectedPriceImpact.String())
+	// Price impact excludes taker fees, as it does for exact-in: the fee is reported in
+	// EffectiveFee. The same routes with zero taker fees must give the same price impact.
+	zeroFeeQuote := s.NewExactAmountOutTrueQuote(
+		poolThree,
+		amountIn, amountOut,
+		osmomath.ZeroDec(), osmomath.ZeroDec(),
+		routeOneIn, routeOneOut,
+		routeTwoIn, routeTwoOut,
+	)
+	_, _, err = zeroFeeQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
 
-	// Sign convention: an adverse trade (effective execution worse than spot) yields a
-	// negative price impact. When effectiveOutPerIn < spotOutPerIn the ratio is < 1, so the
-	// impact is negative. Assert the sign matches the adverse/benign relationship rather than
-	// hardcoding pool spot output.
-	if effectiveOutPerIn.LT(spotOutPerIn) {
-		s.Require().True(priceImpact.IsNegative(),
-			"exact-out price impact must be negative when adverse, got %s", priceImpact.String())
-	}
+	s.Require().Equal(zeroFeeQuote.GetPriceImpact().String(), priceImpact.String(),
+		"exact-out price impact must not depend on taker fees")
 }
 
 // TestPrepareResult_ExactOut_TruePath_TakerFeeMetadata is the pool-1925 regression:

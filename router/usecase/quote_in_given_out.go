@@ -178,7 +178,6 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	}
 
 	// True exact-out path: q.Route was built by estimateAndRankSingleRouteQuoteInGivenOut.
-	totalAmountIn := q.AmountIn.ToLegacyDec()
 	totalAmountOut := q.AmountOut.Amount.ToLegacyDec()
 
 	totalFeeAcrossRoutes := osmomath.ZeroDec()
@@ -235,12 +234,11 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 		})
 	}
 
-	// Price impact: adverse when effective price is worse than spot (effective out-per-in < spot out-per-in).
-	// Expressed as (effectiveOutPerIn / spotOutPerIn) - 1 → negative when adverse.
-	if !totalSpotPriceOutBaseInQuote.IsZero() && !totalAmountIn.IsZero() {
-		effectiveOutPerIn := totalAmountOut.Quo(totalAmountIn)
-		spotOutPerIn := one.Quo(totalSpotPriceOutBaseInQuote)
-		q.PriceImpact = effectiveOutPerIn.Quo(spotOutPerIn).SubMut(one)
+	// Price impact: (effectiveOutPerIn / spotOutPerIn) - 1, negative when adverse. Both prices
+	// are in-per-out here, so this is spotInPerOut / effectiveInPerOut - 1. The effective price
+	// excludes taker fees, matching exact-in; fees are reported separately in EffectiveFee.
+	if !totalEffectiveSpotPriceOutBaseInQuote.IsZero() {
+		q.PriceImpact = totalSpotPriceOutBaseInQuote.Quo(totalEffectiveSpotPriceOutBaseInQuote).SubMut(one)
 	}
 
 	var tokens []Token
