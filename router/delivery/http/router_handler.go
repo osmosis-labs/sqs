@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -259,7 +260,11 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 		quote, err = a.RUsecase.GetCustomDirectQuoteMultiPoolInGivenOut(ctx, *tokenIn, tokenOutDenom, req.PoolID)
 	}
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		statusCode := domain.GetStatusCode(err)
+		if errors.Is(err, types.ErrValidationFailed) {
+			statusCode = http.StatusBadRequest
+		}
+		return c.JSON(statusCode, domain.ResponseError{Message: err.Error()})
 	}
 
 	scalingFactor := oneDec

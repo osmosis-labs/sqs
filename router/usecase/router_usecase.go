@@ -736,21 +736,81 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolOutGivenIn(ctx context.
 	return &result, nil
 }
 
-// GetCustomDirectQuoteMultiPool implements mvc.RouterUsecase.
+// GetCustomDirectQuoteMultiPoolInGivenOut implements mvc.RouterUsecase.
+//
+// The pools are given from the output side: poolIDs[0] returns tokenOut in exchange for
+// tokenInDenom[0], poolIDs[1] returns tokenInDenom[0] in exchange for tokenInDenom[1], and so
+// on, so tokenInDenom[len-1] is what the user pays. The route is quoted with the in-given-out
+// estimator, so each hop is charged its own directional taker fee and the input includes it.
 func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom []string, poolIDs []uint64) (domain.Quote, error) {
-	quote, err := r.GetCustomDirectQuoteMultiPoolOutGivenIn(ctx, tokenOut, tokenInDenom, poolIDs)
+	if len(poolIDs) == 0 {
+		return nil, fmt.Errorf("%w: at least one pool ID should be specified", routertypes.ErrValidationFailed)
+	}
+
+	if len(tokenInDenom) == 0 {
+		return nil, fmt.Errorf("%w: at least one token in denom should be specified", routertypes.ErrValidationFailed)
+	}
+
+	// for each given pool we expect to have provided token in denom
+	if len(poolIDs) != len(tokenInDenom) {
+		return nil, fmt.Errorf("%w: number of pool ID should match number of in denom", routertypes.ErrValidationFailed)
+	}
+
+	candidatePools := make([]ingesttypes.CandidatePool, 0, len(poolIDs))
+	uniquePoolIDs := make(map[uint64]struct{}, len(poolIDs))
+
+	// hopOutDenom is what the current pool must return: tokenOut for the first pool,
+	// then the previous pool's input.
+	hopOutDenom := tokenOut.Denom
+	for i, poolID := range poolIDs {
+		pool, err := r.poolsUsecase.GetPool(poolID)
+		if err != nil {
+			return nil, err
+		}
+
+		// The orderbook contract has no exact-out swap, so a quote through it could never execute.
+		if cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel; cosmWasmPoolModel != nil && cosmWasmPoolModel.IsOrderbook() {
+			return nil, fmt.Errorf("%w: pool %d is an orderbook, and orderbook pools do not support exact-out swaps", routertypes.ErrValidationFailed, poolID)
+		}
+
+		// The error names follow GetCustomDirectQuoteInGivenOut, which reports the
+		// returned denom as the "token in" of the inverted search.
+		poolDenoms := pool.GetPoolDenoms()
+		if !osmoutils.Contains(poolDenoms, hopOutDenom) {
+			return nil, fmt.Errorf("denom %s in pool %d: %w", hopOutDenom, poolID, ErrTokenInDenomPoolNotFound)
+		}
+		if !osmoutils.Contains(poolDenoms, tokenInDenom[i]) {
+			return nil, fmt.Errorf("denom %s in pool %d: %w", tokenInDenom[i], poolID, ErrTokenOutDenomPoolNotFound)
+		}
+
+		candidatePools = append(candidatePools, ingesttypes.CandidatePool{
+			ID:            poolID,
+			TokenInDenom:  tokenInDenom[i],
+			TokenOutDenom: hopOutDenom,
+		})
+		uniquePoolIDs[poolID] = struct{}{}
+
+		hopOutDenom = tokenInDenom[i]
+	}
+
+	candidateRoutes := ingesttypes.CandidateRoutes{
+		Routes:        []ingesttypes.CandidateRoute{{Pools: candidatePools}},
+		UniquePoolIDs: uniquePoolIDs,
+	}
+
+	// Convert candidate route into a route with all the pool data
+	routes, err := r.poolsUsecase.GetRoutesFromCandidatesInGivenOut(candidateRoutes)
 	if err != nil {
 		return nil, err
 	}
 
-	q, ok := quote.(*quoteExactAmountIn)
-	if !ok {
-		return nil, errors.New("quote is not a quoteExactAmountIn")
+	// Compute direct quote
+	quote, _, err := r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, r.logger)
+	if err != nil {
+		return nil, err
 	}
 
-	return &quoteExactAmountOut{
-		quoteExactAmountIn: q,
-	}, nil
+	return quote, nil
 }
 
 // GetCandidateRoutes implements domain.RouterUsecase.
