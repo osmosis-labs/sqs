@@ -92,7 +92,8 @@ func main() {
 
 		tp, err := initOTELTracer(ctx, res)
 		if err != nil {
-			panic(err)
+			// Not panic: the deferred recover above would swallow it and exit with status 0.
+			log.Fatalf("can't initialize OTEL tracer: %v", err)
 		}
 
 		defer func() {
