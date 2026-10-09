@@ -25,12 +25,20 @@ func ValidateAndFilterRoutesOutGivenIn(candidateRoutes []candidateRouteWrapper, 
 	return validateAndFilterRoutesOutGivenIn(candidateRoutes, tokenInDenom, logger)
 }
 
-func (r *routerUseCaseImpl) HandleRoutes(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
-	return r.handleCandidateRoutes(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+func (r *routerUseCaseImpl) HandleRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
+	return r.handleCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+}
+
+func (r *routerUseCaseImpl) HandleRoutesInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, candidateRouteSearchOptions domain.CandidateRouteSearchOptions) (candidateRoutes ingesttypes.CandidateRoutes, err error) {
+	return r.handleCandidateRoutesInGivenOut(ctx, tokenOut, tokenInDenom, candidateRouteSearchOptions)
 }
 
 func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Coin) (domain.Quote, []route.RouteWithOutAmount, error) {
 	return r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
+}
+
+func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (domain.Quote, []route.RouteWithOutAmount, error) {
+	return r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, logger)
 }
 
 func FilterDuplicatePoolIDRoutes(rankedRoutes []route.RouteWithOutAmount) []route.RouteImpl {
@@ -57,8 +65,16 @@ func GetSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	return getSplitQuote(ctx, routes, tokenIn)
 }
 
-func (r *routerUseCaseImpl) RankRoutesByDirectQuote(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
-	return r.rankRoutesByDirectQuote(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
+func GetSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin) (domain.Quote, error) {
+	return getSplitQuoteInGivenOut(ctx, routes, tokenOut)
+}
+
+func (r *routerUseCaseImpl) RankRoutesByDirectQuoteOutGivenIn(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
+	return r.rankRoutesByDirectQuoteOutGivenIn(ctx, candidateRoutes, tokenIn, tokenOutDenom, maxRoutes)
+}
+
+func (r *routerUseCaseImpl) RankRoutesByDirectQuoteInGivenOut(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenOut sdk.Coin, tokenInDenom string, maxRoutes int) (domain.Quote, []route.RouteImpl, error) {
+	return r.rankRoutesByDirectQuoteInGivenOut(ctx, candidateRoutes, tokenOut, tokenInDenom, maxRoutes)
 }
 
 func CutRoutesForSplits(maxSplitRoutes int, routes []route.RouteImpl) []route.RouteImpl {

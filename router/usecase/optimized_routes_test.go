@@ -563,6 +563,14 @@ const usdtOsmoExpectedRoutesHighLiq = 1
 
 var oneHundredThousandUSDValue = osmomath.NewInt(100_000_000_000)
 
+// Note on expectedRoutesCountExactAmountOut: the true exact-out (in-given-out) path performs
+// split-route optimization (minimising the input required for the desired output) and returns
+// whichever of the single best route or the best split requires less input. A pair therefore
+// resolves to one route when splitting does not reduce the required input, and to several when
+// it does. These counts may differ from the exact-in counts because the two directions
+// optimise different objectives. Earlier expectations reflected the prior inversion
+// implementation, which borrowed exact-in's splitting in the wrong trade direction; they are
+// set to the counts produced by true exact-out routing here.
 var optimalQuoteTestCases = map[string]struct {
 	tokenInDenom  string
 	tokenOutDenom string
@@ -639,7 +647,7 @@ var optimalQuoteTestCases = map[string]struct {
 		amountIn: oneHundredThousandUSDValue,
 
 		expectedRoutesCountExactAmountIn:  usdtOsmoExpectedRoutesHighLiq,
-		expectedRoutesCountExactAmountOut: 2,
+		expectedRoutesCountExactAmountOut: 1,
 	},
 
 	"kava.USDT for uosmo - should have the same routes as allUSDT for uosmo": {
@@ -649,7 +657,7 @@ var optimalQuoteTestCases = map[string]struct {
 		amountIn: oneHundredThousandUSDValue,
 
 		expectedRoutesCountExactAmountIn:  usdtOsmoExpectedRoutesHighLiq,
-		expectedRoutesCountExactAmountOut: 2,
+		expectedRoutesCountExactAmountOut: 1,
 	},
 }
 
@@ -747,10 +755,80 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounOut_Mainnet() {
 	}
 }
 
+// TestGetOptimalQuoteInGivenOut_Mainnet_FeeCorrectness validates the regression-critical
+// properties of the true exact-out (in-given-out) path end to end against mainnet state:
+//
+//  1. The exact-out quote uses the in-given-out candidate search (routes are oriented so
+//     each route's last hop outputs the desired token and the first hop consumes the input
+//     token), not reversed exact-in candidates.
+//  2. amount_in is strictly positive and fee-inclusive: the route's effective fee equals
+//     the compounding of the actual per-pool taker fees used (1 - prod(1 - takerFee_i)),
+//     weighted by each route's output share. The old inversion approach understated
+//     amount_in by dropping the input-side fee; this asserts the fee is sourced from the
+//     real pools on the chosen route.
+//
+// This complements TestGetOptimalQuoteExactAmounOut_Mainnet, which validates route shape
+// but not amount_in/fee correctness.
+func (s *RouterTestSuite) TestGetOptimalQuoteInGivenOut_Mainnet_FeeCorrectness() {
+	// A multi-hop-capable pair with enough liquidity to produce a stable route on mainnet state.
+	var (
+		tokenInDenom  = UOSMO
+		tokenOutDenom = UION
+	)
+	desiredOut := sdk.NewCoin(tokenOutDenom, osmomath.NewInt(5_000_000))
+
+	mainnetState := s.SetupMainnetState()
+	mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+	quote, err := mainnetUseCase.Router.GetOptimalQuoteInGivenOut(context.Background(), desiredOut, tokenInDenom)
+	s.Require().NoError(err)
+
+	routes, effectiveFee, err := quote.PrepareResult(context.Background(), osmomath.NewDec(0), nil, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	s.Require().NotEmpty(routes)
+
+	// (1) amount_in is strictly positive, carries the input denom, and the requested output
+	// amount is preserved.
+	amountIn := quote.GetAmountIn()
+	s.Require().True(amountIn.Amount.IsPositive(), "exact-out amount_in must be positive, got %s", amountIn.String())
+	s.Require().Equal(tokenInDenom, amountIn.Denom)
+	s.Require().Equal(desiredOut.String(), quote.GetAmountOut().String())
+	for _, r := range routes {
+		s.Require().Equal(tokenInDenom, r.GetTokenInDenom())
+	}
+
+	// (2) The effective fee must equal the fee recomputed from the actual pools on the
+	// chosen routes, confirming amount_in reflects real per-pool taker fees rather than
+	// corrupted/opposite-direction metadata.
+	totalOut := quote.GetAmountOut().Amount.ToLegacyDec()
+	recomputedEffectiveFee := osmomath.ZeroDec()
+	for _, r := range routes {
+		pools := r.GetPools()
+		s.Require().NotEmpty(pools)
+
+		// Recompute the route's compounded taker fee from the actual pools on the chosen route.
+		routeFee := osmomath.ZeroDec()
+		for _, p := range pools {
+			takerFee := p.GetTakerFee()
+			s.Require().False(takerFee.IsNegative(), "pool %d taker fee must be non-negative", p.GetId())
+			routeFee = routeFee.Add(osmomath.OneDec().Sub(routeFee).MulTruncate(takerFee))
+		}
+
+		routeOutFraction := r.GetAmountOut().ToLegacyDec().Quo(totalOut)
+		recomputedEffectiveFee = recomputedEffectiveFee.Add(routeFee.Mul(routeOutFraction))
+	}
+
+	// The quote's effective fee must equal the fee recomputed from the actual route pools,
+	// confirming amount_in reflects real per-pool taker fees rather than corrupted/opposite
+	// direction metadata.
+	s.Require().Equal(recomputedEffectiveFee.String(), effectiveFee.String())
+	s.Require().Equal(recomputedEffectiveFee.String(), quote.GetEffectiveFee().String())
+}
+
 // Validates custom quotes for UOSMO to UION.
 // That is, with the given pool ID, we expect the quote to be routed through the route
 // that matches these pool IDs. Errors otherwise.
-func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOUION() {
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteOutGivenIn_Mainnet_UOSMOUION() {
 	config := routertesting.DefaultRouterConfig
 	config.MaxPoolsPerRoute = 5
 	config.MaxRoutes = 10
@@ -780,6 +858,42 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 
 	// System under test 2
 	quote, err := routerUsecase.GetCustomDirectQuoteOutGivenIn(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	s.Require().NoError(err)
+	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
+}
+
+func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteInGivenOut_Mainnet_UOSMOUION() {
+	config := routertesting.DefaultRouterConfig
+	config.MaxPoolsPerRoute = 5
+	config.MaxRoutes = 10
+
+	var (
+		amountIn = osmomath.NewInt(5000000)
+	)
+
+	mainnetState := s.SetupMainnetState()
+
+	// Setup router repository mock
+	tokensRepositoryMock := routerrepo.New(&log.NoOpLogger{})
+	tokensRepositoryMock.SetTakerFees(mainnetState.TakerFeeMap)
+
+	// Setup pools usecase mock.
+	poolsUsecase, err := poolsusecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", tokensRepositoryMock, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	poolsUsecase.StorePools(mainnetState.Pools)
+
+	tokenMetaDataHolderMock := &mocks.TokenMetadataHolderMock{}
+	candidateRouteFinderMock := &mocks.CandidateRouteFinderMock{}
+
+	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+
+	// This pool ID is second best: https://app.osmosis.zone/pool/2
+	// The top one is https://app.osmosis.zone/pool/1110 which is not selected
+	// due to custom parameter.
+	const expectedPoolID = uint64(2)
+
+	// System under test 2
+	quote, err := routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 }
@@ -974,6 +1088,211 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 			s.Require().Equal(len(tc.expectedRouteAmounstOut), len(rankedRoutes))
 			for i, route := range rankedRoutes {
 				s.Require().Equal(tc.expectedRouteAmounstOut[i], route.GetAmountOut())
+			}
+
+			// Validate cache did not get invalidated
+			s.Require().True(foundcandidateRoutes)
+			s.Require().NotEmpty(cachedRankedRoutes)
+		})
+	}
+}
+
+// Validates that the logic skips errors from individual routes
+// and only fails if all routes error.
+// Additionally, validates that the highest amount route is chosen, routes
+// are correctly ranked by amounts out.
+// Lastly, validates, that the candidate and ranked route cache gets invalidated if
+// all routes error.
+func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
+	// Setup mock router use case
+	mainnetState := s.SetupMainnetState()
+	usecase := s.SetupRouterAndPoolsUsecase(mainnetState)
+	routerUseCaseI := usecase.Router
+	routerUseCase, ok := routerUseCaseI.(*routerusecase.RouterUseCaseImpl)
+	s.Require().True(ok)
+
+	// Token in amount that is used as input to all tests
+	tokenOutAmount := osmomath.NewInt(5000000)
+	tokenOutOrderOfMagnitude := routerusecase.GetPrecomputeOrderOfMagnitude(tokenOutAmount)
+	defaultTokenOut := sdk.NewCoin(UOSMO, tokenOutAmount)
+	tokenOutDenom := UION
+
+	// Default amount that is returned by the mock pool
+	// and a smaller amount
+	lessDefaultAmount := defaultAmount.QuoRaw(2)
+	tokenInCoin := sdk.NewCoin(tokenOutDenom, defaultAmount)
+	tokenOutLessCoin := sdk.NewCoin(tokenOutDenom, lessDefaultAmount)
+
+	defaultError := errors.New("default error")
+
+	// Pool that returns the default amount
+	validMockPool := &mocks.MockRoutablePool{
+		TakerFee: osmomath.ZeroDec(),
+
+		CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+			return tokenInCoin, nil
+		},
+
+		// In-given-out pools pay tokenOutDenom (the input) for the desired UOSMO.
+		TokenInDenom:  tokenOutDenom,
+		TokenOutDenom: UOSMO,
+	}
+
+	// Pool that returns smaller amount
+	validMockPoolSmallerAmount := &mocks.MockRoutablePool{
+		TakerFee: osmomath.ZeroDec(),
+
+		CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+			return tokenOutLessCoin, nil
+		},
+
+		// In-given-out pools pay tokenOutDenom (the input) for the desired UOSMO.
+		TokenInDenom:  tokenOutDenom,
+		TokenOutDenom: UOSMO,
+	}
+
+	// Pool that returns errors
+	errorMockPool := &mocks.MockRoutablePool{
+		TakerFee: osmomath.ZeroDec(),
+
+		CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+			return sdk.Coin{}, defaultError
+		},
+
+		// In-given-out pools pay tokenOutDenom (the input) for the desired UOSMO.
+		TokenInDenom:  tokenOutDenom,
+		TokenOutDenom: UOSMO,
+	}
+
+	testCases := []struct {
+		name string
+
+		routeMockPools [][]domain.RoutablePool
+
+		tokenIn sdk.Coin
+
+		expectedTokenInAmount  osmomath.Int
+		expectedRouteAmountsIn []osmomath.Int
+		expectedError          error
+	}{
+		{
+			name: "single valid route",
+
+			routeMockPools: [][]domain.RoutablePool{
+				{
+					validMockPool,
+				},
+			},
+
+			tokenIn: defaultTokenOut,
+
+			expectedTokenInAmount:  defaultAmount,
+			expectedRouteAmountsIn: []osmomath.Int{defaultAmount},
+		},
+		{
+			name: "single error route",
+
+			routeMockPools: [][]domain.RoutablePool{
+				{
+					errorMockPool,
+				},
+			},
+
+			tokenIn: defaultTokenOut,
+
+			expectedError: defaultError,
+		},
+		{
+			name: "two valid routes -> top one returned with correct ranking",
+
+			routeMockPools: [][]domain.RoutablePool{
+				{
+					validMockPoolSmallerAmount,
+				},
+				{
+					validMockPool,
+				},
+			},
+
+			tokenIn: defaultTokenOut,
+
+			expectedTokenInAmount:  lessDefaultAmount,
+			expectedRouteAmountsIn: []osmomath.Int{lessDefaultAmount, defaultAmount},
+		},
+		{
+			name: "two routes, one error route -> silently skip error",
+
+			routeMockPools: [][]domain.RoutablePool{
+				{
+					errorMockPool,
+				},
+				{
+					validMockPool,
+				},
+			},
+
+			tokenIn: defaultTokenOut,
+
+			expectedTokenInAmount:  defaultAmount,
+			expectedRouteAmountsIn: []osmomath.Int{defaultAmount},
+		},
+		{
+			name: "two failing routes -> error returned",
+
+			routeMockPools: [][]domain.RoutablePool{
+				{
+					errorMockPool,
+				},
+				{
+					errorMockPool,
+				},
+			},
+
+			expectedError: defaultError,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// Pre-set cache
+			routerUseCase.SetCandidateRouteCacheToMock(domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom)
+			routerUseCase.SetRankedRouteCacheToMock(domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom, tokenOutOrderOfMagnitude)
+
+			// Construct routes from mock pools
+			routes := []route.RouteImpl{}
+			for _, pools := range tc.routeMockPools {
+				routes = append(routes, WithRoutePools(EmptyRoute, pools))
+			}
+
+			// System under test
+			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteInGivenOut(context.Background(), routes, defaultTokenOut, &log.NoOpLogger{})
+
+			// Get cache results
+			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom)
+			s.Require().NoError(err)
+
+			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom, tokenOutOrderOfMagnitude)
+			s.Require().NoError(err)
+
+			if tc.expectedError != nil {
+				s.Require().Error(sytErr)
+				s.Require().ErrorIs(sytErr, tc.expectedError)
+
+				// Validate cache was invalidated
+				s.Require().False(foundcandidateRoutes)
+				s.Require().Empty(cachedRankedRoutes)
+				return
+			}
+
+			s.Require().NoError(sytErr)
+
+			// Validate quote amount in
+			s.Require().Equal(tc.expectedTokenInAmount, quote.GetAmountIn().Amount)
+
+			// Validate ranked route order
+			s.Require().Equal(len(tc.expectedRouteAmountsIn), len(rankedRoutes))
+			for i, route := range rankedRoutes {
+				s.Require().Equal(tc.expectedRouteAmountsIn[i], route.GetAmountIn())
 			}
 
 			// Validate cache did not get invalidated

@@ -150,6 +150,23 @@ func (p *poolsUseCase) GetAllPools() (pools []ingesttypes.PoolI, err error) {
 
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
 func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes ingesttypes.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
+	return p.getRoutesFromCandidates(candidateRoutes, func(candidatePool ingesttypes.CandidatePool) (string, string) {
+		return tokenInDenom, candidatePool.TokenOutDenom
+	})
+}
+
+// GetRoutesFromCandidatesInGivenOut implements mvc.PoolsUsecase.
+// In-given-out candidate routes are ordered from the output side, so each hop's taker fee is
+// looked up by that hop's own directional (token in, token out) pair.
+func (p *poolsUseCase) GetRoutesFromCandidatesInGivenOut(candidateRoutes ingesttypes.CandidateRoutes) ([]route.RouteImpl, error) {
+	return p.getRoutesFromCandidates(candidateRoutes, func(candidatePool ingesttypes.CandidatePool) (string, string) {
+		return candidatePool.TokenInDenom, candidatePool.TokenOutDenom
+	})
+}
+
+// getRoutesFromCandidates converts candidate routes into routes with all pool data.
+// takerFeeDenoms returns the (token in, token out) denom pair used to look up each hop's taker fee.
+func (p *poolsUseCase) getRoutesFromCandidates(candidateRoutes ingesttypes.CandidateRoutes, takerFeeDenoms func(candidatePool ingesttypes.CandidatePool) (string, string)) ([]route.RouteImpl, error) {
 	// We track whether a route contains a generalized cosmwasm pool
 	// so that we can exclude it from split quote logic.
 	// The reason for this is that making network requests to chain is expensive.
@@ -159,8 +176,6 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes ingesttypes.Candi
 	// Convert each candidate route into the actual route with all pool data
 	routes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
-		previousTokenOutDenom := tokenInDenom
-
 		routablePools := make([]domain.RoutablePool, 0, len(candidateRoute.Pools))
 
 		// For fault tolerance, instead of bubbling up the error and skipping an entire
@@ -174,7 +189,8 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes ingesttypes.Candi
 			}
 
 			// Get taker fee
-			takerFee, exists := p.routerRepository.GetTakerFee(previousTokenOutDenom, candidatePool.TokenOutDenom)
+			takerFeeDenomIn, takerFeeDenomOut := takerFeeDenoms(candidatePool)
+			takerFee, exists := p.routerRepository.GetTakerFee(takerFeeDenomIn, takerFeeDenomOut)
 			if !exists {
 				takerFee = ingesttypes.DefaultTakerFee
 			}

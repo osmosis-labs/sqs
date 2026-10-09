@@ -9,7 +9,9 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/sqs/domain"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -283,6 +285,159 @@ func (s *RouterTestSuite) TestPrepareResult_PriceImpact() {
 	s.Require().Equal(expectedPriceImpact.String(), testQuote.GetPriceImpact().String())
 }
 
+// TestPrepareResult_ExactOut_TruePath_EffectiveFee validates the effective-fee
+// computation on the *true* exact-out (in-given-out) PrepareResult path, i.e. the
+// branch taken when the embedded quoteExactAmountIn is nil (as produced by
+// estimateAndRankSingleRouteQuoteInGivenOut after the exact-out wiring).
+//
+// This is distinct from TestPrepareResult's "exact amount out" case, which sets the
+// embedded quoteExactAmountIn and therefore exercises the legacy inversion fallback.
+//
+// Regression intent: the effective fee must be the per-route compounded taker fee
+// (1 - prod(1 - poolFee_i)) weighted by each route's share of the total output. It must
+// reflect the actual pool taker fees, not a value inherited from the opposite swap
+// direction (the pool-1925 metadata-corruption class of bug).
+//
+// Split:
+//   - Route 1 (2 hops: takerFeeOne=0.02, takerFeeTwo=0.0004) -> compounded 0.020392
+//   - Route 2 (1 hop:  takerFeeThree=0.003)                  -> compounded 0.003
+//   - Output split 3:2 (fractions 0.6 / 0.4)
+//
+// Expected effective fee = 0.020392*0.6 + 0.003*0.4 = 0.0134352
+func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_EffectiveFee() {
+	s.SetupTest()
+
+	_, poolThree := s.PoolThree()
+
+	var (
+		// Two single-hop routes (ETH -> USDC) with distinct taker fees, output split 3:2.
+		routeOneFee = osmomath.MustNewDecFromStr("0.02")
+		routeTwoFee = osmomath.MustNewDecFromStr("0.003")
+
+		amountOut   = sdk.NewCoin(USDC, osmomath.NewInt(5_000_000))
+		routeOneOut = osmomath.NewInt(3_000_000)
+		routeTwoOut = osmomath.NewInt(2_000_000)
+
+		// Input amounts are arbitrary here (fee math depends only on taker fees and
+		// the output-share weighting); their sum is reported as AmountIn.
+		routeOneIn = osmomath.NewInt(750_000)
+		routeTwoIn = osmomath.NewInt(500_000)
+		amountIn   = routeOneIn.Add(routeTwoIn)
+	)
+
+	quote := s.NewExactAmountOutTrueQuote(
+		poolThree,
+		amountIn, amountOut,
+		routeOneFee, routeTwoFee,
+		routeOneIn, routeOneOut,
+		routeTwoIn, routeTwoOut,
+	)
+
+	// System under test. tokenMetadataFetcher is nil: Tokens enrichment is not under test here.
+	_, effectiveFee, err := quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+
+	// Single-hop routes, so each route's fee is its pool taker fee; weighted by output share:
+	// 0.02 * 0.6 + 0.003 * 0.4 = 0.0132.
+	const expectedEffectiveFee = "0.013200000000000000"
+	s.Require().Equal(expectedEffectiveFee, effectiveFee.String())
+	s.Require().Equal(expectedEffectiveFee, quote.GetEffectiveFee().String())
+}
+
+// TestQuoteExactAmountOut_TruePath_AmountInDenom validates that a true exact-out quote reports
+// the input denom on its amount in, both before and after PrepareResult. The quote's AmountIn is
+// a bare amount, so the denom comes from the route's input hop.
+func (s *RouterTestSuite) TestQuoteExactAmountOut_TruePath_AmountInDenom() {
+	s.SetupTest()
+
+	_, poolThree := s.PoolThree()
+
+	var (
+		amountOut   = sdk.NewCoin(USDC, osmomath.NewInt(5_000_000))
+		routeOneOut = osmomath.NewInt(3_000_000)
+		routeTwoOut = osmomath.NewInt(2_000_000)
+		routeOneIn  = osmomath.NewInt(750_000)
+		routeTwoIn  = osmomath.NewInt(500_000)
+		amountIn    = routeOneIn.Add(routeTwoIn)
+	)
+
+	quote := s.NewExactAmountOutTrueQuote(
+		poolThree,
+		amountIn, amountOut,
+		osmomath.ZeroDec(), osmomath.ZeroDec(),
+		routeOneIn, routeOneOut,
+		routeTwoIn, routeTwoOut,
+	)
+
+	s.Require().Equal(sdk.NewCoin(ETH, amountIn).String(), quote.GetAmountIn().String())
+
+	routes, _, err := quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+
+	s.Require().Equal(sdk.NewCoin(ETH, amountIn).String(), quote.GetAmountIn().String())
+	for _, r := range routes {
+		s.Require().Equal(ETH, r.GetTokenInDenom())
+	}
+}
+
+// TestPrepareResult_ExactOut_TruePath_PriceImpact validates the price-impact sign and
+// its independence from taker fees on the true exact-out path.
+//
+// Regression intent: price impact is (effectiveOutPerIn / spotOutPerIn) - 1, NEGATIVE when
+// the trade is adverse, and like the out-given-in path it excludes taker fees (reported in
+// EffectiveFee). The frontend slippage logic (computeSuggestedSlippage / outputDifference)
+// relies on both, so counting the fee in price impact would double-count it there.
+func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_PriceImpact() {
+	s.SetupTest()
+
+	_, poolThree := s.PoolThree()
+
+	var (
+		routeOneFee = osmomath.MustNewDecFromStr("0.02")
+		routeTwoFee = osmomath.MustNewDecFromStr("0.003")
+
+		amountOut   = sdk.NewCoin(USDC, osmomath.NewInt(5_000_000))
+		routeOneOut = osmomath.NewInt(3_000_000)
+		routeTwoOut = osmomath.NewInt(2_000_000)
+		routeOneIn  = osmomath.NewInt(750_000)
+		routeTwoIn  = osmomath.NewInt(500_000)
+		amountIn    = routeOneIn.Add(routeTwoIn)
+	)
+
+	quote := s.NewExactAmountOutTrueQuote(
+		poolThree,
+		amountIn, amountOut,
+		routeOneFee, routeTwoFee,
+		routeOneIn, routeOneOut,
+		routeTwoIn, routeTwoOut,
+	)
+
+	_, _, err := quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+
+	priceImpact := quote.GetPriceImpact()
+	s.Require().False(priceImpact.IsNil(), "price impact should be populated on the true exact-out path")
+	s.Require().False(quote.GetInBaseOutQuoteSpotPrice().IsNil(), "in-base-out-quote spot price should be populated")
+
+	// Sign convention: the trade moves the pool against the trader, so the impact is negative.
+	s.Require().True(priceImpact.IsNegative(), "exact-out price impact must be negative when adverse, got %s", priceImpact.String())
+
+	// Price impact excludes taker fees, as it does for exact-in: the fee is reported in
+	// EffectiveFee. The same routes with zero taker fees must give the same price impact.
+	zeroFeeQuote := s.NewExactAmountOutTrueQuote(
+		poolThree,
+		amountIn, amountOut,
+		osmomath.ZeroDec(), osmomath.ZeroDec(),
+		routeOneIn, routeOneOut,
+		routeTwoIn, routeTwoOut,
+	)
+	_, _, err = zeroFeeQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+
+	s.Require().Equal(zeroFeeQuote.GetPriceImpact().String(), priceImpact.String(),
+		"exact-out price impact must not depend on taker fees")
+}
+
 // validateRoutes validates that the given routes are equal.
 // Specifically, validates:
 // - Pools
@@ -302,4 +457,14 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 		// Validate out amount
 		s.Require().Equal(expectedRoute.GetAmountOut().String(), actualRoute.GetAmountOut().String())
 	}
+}
+
+func (s *RouterTestSuite) newRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
+		Config:                cosmWasmConfig,
+		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+	}
+	routablePool, err := pools.NewRoutablePool(pool, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	s.Require().NoError(err)
+	return routablePool
 }

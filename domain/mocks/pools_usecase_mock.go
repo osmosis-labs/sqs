@@ -86,6 +86,12 @@ func (pm *PoolsUsecaseMock) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.
 	panic("unimplemented")
 }
 
+// GetRoutesFromCandidatesInGivenOut implements mvc.PoolsUsecase.
+// Falls back to the GetRoutesFromCandidates mock behaviour.
+func (pm *PoolsUsecaseMock) GetRoutesFromCandidatesInGivenOut(candidateRoutes ingesttypes.CandidateRoutes) ([]route.RouteImpl, error) {
+	return pm.GetRoutesFromCandidates(candidateRoutes, "", "")
+}
+
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
 // Note that taker fee are ignored and not set
 // Note that tick models are not set
