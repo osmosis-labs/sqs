@@ -397,7 +397,9 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 				tickJSON(5, "5", "0") + `]}`,
 		},
 		{
-			name:        "unrealized cancels are subtracted from both sides",
+			// cancel_limit already decrements total_amount_of_liquidity, so unrealized
+			// cancels must not be subtracted a second time.
+			name:        "unrealized cancels do not reduce liquidity",
 			queryParams: map[string]string{"poolID": "1933"},
 			setupMocks: func(usecase *mocks.OrderbookUsecaseMock) {
 				usecase.GetAllTicksFunc = func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
@@ -407,22 +409,23 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 				}
 			},
 			expectedStatusCode: http.StatusOK,
-			expectedResponse:   `{"ticks":[` + tickJSON(10, "750", "400") + `]}`,
+			expectedResponse:   `{"ticks":[` + tickJSON(10, "1000", "500") + `]}`,
 		},
 		{
-			// Cancels cannot exceed the liquidity they cancel. Publishing a clamped
-			// zero would present fabricated depth as real, so this is an error.
-			name:        "cancels exceeding liquidity violate the invariant and error",
+			// Mainnet state (pool 1933, tick -8572000): every order cancelled or filled,
+			// so no liquidity, while the sumtree still holds unrealized cancels.
+			name:        "drained tick with unrealized cancels exceeding liquidity is omitted, not an error",
 			queryParams: map[string]string{"poolID": "1933"},
 			setupMocks: func(usecase *mocks.OrderbookUsecaseMock) {
 				usecase.GetAllTicksFunc = func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
 					return map[int64]orderbookdomain.OrderbookTick{
-						10: tick("100", "100", 500, 0),
+						-8572000: tick("0", "0", 550017, 0),
+						10:       tick("100", "0", 500, -1),
 					}, true
 				}
 			},
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponse:   fmt.Sprintf(`{"message":"%s"}`, types.ErrInternalError.Error()),
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   `{"ticks":[` + tickJSON(10, "100", "0") + `]}`,
 		},
 		{
 			name:        "ticks with no liquidity on either side are omitted",
@@ -430,10 +433,10 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 			setupMocks: func(usecase *mocks.OrderbookUsecaseMock) {
 				usecase.GetAllTicksFunc = func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
 					return map[int64]orderbookdomain.OrderbookTick{
-						10: tick("0", "0", -1, -1),       // explicit zeros
-						20: tick("100", "0", -1, -1),     // survives
-						30: tick("", "", -1, -1),         // never-populated side
-						40: tick("100", "100", 100, 100), // fully cancelled out
+						10: tick("0", "0", -1, -1),   // explicit zeros
+						20: tick("100", "0", -1, -1), // survives
+						30: tick("", "", -1, -1),     // never-populated side
+						40: tick("0", "0", 100, 100), // drained, unrealized cancels pending
 					}, true
 				}
 			},
@@ -451,7 +454,7 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 				}
 			},
 			expectedStatusCode: http.StatusOK,
-			expectedResponse:   `{"ticks":[` + tickJSON(10, "100", "40") + `]}`,
+			expectedResponse:   `{"ticks":[` + tickJSON(10, "100", "50") + `]}`,
 		},
 		{
 			name:        "malformed liquidity surfaces an error instead of being passed through",

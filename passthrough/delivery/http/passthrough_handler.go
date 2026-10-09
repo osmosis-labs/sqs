@@ -19,18 +19,20 @@ import (
 	"go.uber.org/zap"
 )
 
-// subtractUnrealizedCancels subtracts unrealized cancels from total_amount_of_liquidity.
-// Both inputs use the same unit (minimal token amount as an integer string / osmomath.Int).
+// tickLiquidity normalises a side's total_amount_of_liquidity to an integer string
+// in the minimal token amount.
+//
+// It is the liquidity resting on the tick: the contract decrements it on every fill
+// and on every cancel (cancel_limit), so it already excludes cancelled orders. The
+// tick's unrealized cancels are sumtree bookkeeping used to work out how much of an
+// order has been filled, not liquidity still on the book, and must not be
+// subtracted again. This is the same value the router uses for orderbook quotes.
 //
 // An empty tal is treated as zero liquidity: the ingested tick state leaves the field
-// empty for a side that has never held liquidity.
-//
-// Two conditions are treated as errors rather than being smoothed over, because both
-// mean the ingested state is wrong and publishing a plausible number would hide it:
-// a non-empty tal that fails to parse, and cancels exceeding the liquidity they are
-// cancelling (which violates the orderbook invariant that a tick cannot have more
-// unrealized cancels than total liquidity).
-func subtractUnrealizedCancels(tal string, cancels osmomath.Int) (string, error) {
+// empty for a side that has never held liquidity. A non-empty tal that fails to parse
+// is an error, because it means the ingested state is wrong and publishing a
+// plausible number would hide it.
+func tickLiquidity(tal string) (string, error) {
 	if tal == "" {
 		return "0", nil
 	}
@@ -38,18 +40,7 @@ func subtractUnrealizedCancels(tal string, cancels osmomath.Int) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("parsing total_amount_of_liquidity %q: %w", tal, err)
 	}
-	if cancels.IsNil() || !cancels.IsPositive() {
-		// TotalAmountOfLiquidity is always an integer string — truncate the Dec
-		return talDec.TruncateInt().String(), nil
-	}
-	result := talDec.Sub(osmomath.NewDecFromInt(cancels))
-	if result.IsNegative() {
-		return "", fmt.Errorf(
-			"unrealized cancels %s exceed total_amount_of_liquidity %s",
-			cancels, tal,
-		)
-	}
-	return result.TruncateInt().String(), nil
+	return talDec.TruncateInt().String(), nil
 }
 
 // PassthroughHandler is the http handler for passthrough use case
@@ -160,7 +151,7 @@ func (a *PassthroughHandler) GetActiveOrdersStream(c echo.Context) error {
 
 // @Summary Returns all tick states for a given orderbook pool.
 // @Description Returns the full tick map for the specified pool as indexed by SQS. Each tick includes
-// @Description ask and bid liquidity values, with unrealized cancels already subtracted, and ticks with
+// @Description ask and bid liquidity values as total_amount_of_liquidity, and ticks with
 // @Description no liquidity on either side omitted. Ticks are sorted by ascending tick ID.
 // @Description
 // @Description An empty ticks array means the pool is genuinely empty, not that data is missing:
@@ -224,18 +215,12 @@ func (a *PassthroughHandler) GetOrderbookTicks(c echo.Context) error {
 	ticks := make([]orderbookdomain.Tick, 0, len(tickMap))
 	for tickID, tick := range tickMap {
 		var askTAL, bidTAL string
-		if askTAL, err = subtractUnrealizedCancels(
-			tick.TickState.AskValues.TotalAmountOfLiquidity,
-			tick.UnrealizedCancels.AskUnrealizedCancels,
-		); err != nil {
+		if askTAL, err = tickLiquidity(tick.TickState.AskValues.TotalAmountOfLiquidity); err != nil {
 			err = fmt.Errorf("ask liquidity for tick %d in pool %d: %w", tickID, req.PoolID, err)
 			a.Logger.Error("GET "+c.Request().URL.String(), zap.Error(err))
 			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: types.ErrInternalError.Error()})
 		}
-		if bidTAL, err = subtractUnrealizedCancels(
-			tick.TickState.BidValues.TotalAmountOfLiquidity,
-			tick.UnrealizedCancels.BidUnrealizedCancels,
-		); err != nil {
+		if bidTAL, err = tickLiquidity(tick.TickState.BidValues.TotalAmountOfLiquidity); err != nil {
 			err = fmt.Errorf("bid liquidity for tick %d in pool %d: %w", tickID, req.PoolID, err)
 			a.Logger.Error("GET "+c.Request().URL.String(), zap.Error(err))
 			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: types.ErrInternalError.Error()})

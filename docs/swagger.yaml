@@ -267,7 +267,7 @@ paths:
     get:
       description: |-
         Returns the full tick map for the specified pool as indexed by SQS. Each tick includes
-        ask and bid liquidity values, with unrealized cancels already subtracted, and ticks with
+        ask and bid liquidity values as total_amount_of_liquidity, and ticks with
         no liquidity on either side omitted. Ticks are sorted by ascending tick ID.
 
         An empty ticks array means the pool is genuinely empty, not that data is missing:
