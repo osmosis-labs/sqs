@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
@@ -73,6 +74,35 @@ func defaultSortOrder(orderA, orderB orderbookdomain.LimitOrder) int {
 	}
 
 	return 0
+}
+
+// GetOrderbookTicksRequest represents the request for the /passthrough/orderbook-ticks endpoint.
+type GetOrderbookTicksRequest struct {
+	PoolID uint64
+}
+
+// UnmarshalHTTPRequest unmarshals the HTTP request to GetOrderbookTicksRequest.
+func (r *GetOrderbookTicksRequest) UnmarshalHTTPRequest(c echo.Context) error {
+	poolIDStr := c.QueryParam("poolID")
+	poolID, err := strconv.ParseUint(poolIDStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid poolID: %w", err)
+	}
+	r.PoolID = poolID
+	return nil
+}
+
+// Validate validates the GetOrderbookTicksRequest.
+func (r *GetOrderbookTicksRequest) Validate() error {
+	if r.PoolID == 0 {
+		return fmt.Errorf("poolID must be non-zero")
+	}
+	return nil
+}
+
+// GetOrderbookTicksResponse represents the response for the /passthrough/orderbook-ticks endpoint.
+type GetOrderbookTicksResponse struct {
+	Ticks []orderbookdomain.Tick `json:"ticks"`
 }
 
 // GetActiveOrdersResponse represents the response for the /pools/all-orders endpoint.

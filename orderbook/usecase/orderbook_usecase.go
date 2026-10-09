@@ -61,7 +61,7 @@ func (o *OrderbookUseCaseImpl) GetAllTicks(poolID uint64) (map[int64]orderbookdo
 }
 
 // ProcessPool implements mvc.OrderBookUsecase.
-func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool ingesttypes.PoolI) error {
+func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, height uint64, pool ingesttypes.PoolI) error {
 	if pool == nil {
 		return types.PoolNilError{}
 	}
@@ -83,7 +83,11 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool ingesttypes
 	// Update the orderbook client with the orderbook pool ID.
 	ticks := cosmWasmPoolModel.Data.Orderbook.Ticks
 	if len(ticks) == 0 {
-		return nil // early return, nothing do
+		// The node sends every tick the contract has ever stored, so no ticks means the
+		// book has never held an order. Record it as ingested and empty, so that readers
+		// can tell it apart from a book whose ticks have not been ingested yet.
+		o.orderbookRepository.StoreTicks(poolID, height, map[int64]orderbookdomain.OrderbookTick{})
+		return nil
 	}
 
 	cwModel, ok := pool.GetUnderlyingPool().(*cwpoolmodel.CosmWasmPool)
@@ -132,7 +136,7 @@ func (o *OrderbookUseCaseImpl) ProcessPool(ctx context.Context, pool ingesttypes
 	}
 
 	// Store the ticks
-	o.orderbookRepository.StoreTicks(poolID, tickDataMap)
+	o.orderbookRepository.StoreTicks(poolID, height, tickDataMap)
 
 	return nil
 }

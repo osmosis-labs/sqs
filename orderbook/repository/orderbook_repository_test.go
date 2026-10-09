@@ -19,6 +19,11 @@ func TestOrderBookUseCase(t *testing.T) {
 	suite.Run(t, new(OrderBookUseCaseTestSuite))
 }
 
+// defaultBlockHeight is the block the test ticks are treated as coming from.
+// StoreTicks discards updates older than what is already published, so tests
+// that only care about merge behaviour keep the height constant.
+const defaultBlockHeight uint64 = 100
+
 var (
 	defaultTickLiquidity = osmomath.NewBigDec(1_000_000)
 	doubleTickLiquidity  = osmomath.NewBigDec(2_000_000)
@@ -114,7 +119,7 @@ func (s *OrderBookUseCaseTestSuite) TestStoreTicks() {
 
 			// System under test
 			for _, tickAdditions := range tt.tickAdditions {
-				repo.StoreTicks(tt.poolId, tickAdditions)
+				repo.StoreTicks(tt.poolId, defaultBlockHeight, tickAdditions)
 			}
 
 			actualTicks, ok := repo.GetAllTicks(tt.poolId)
@@ -130,4 +135,57 @@ func (s *OrderBookUseCaseTestSuite) TestStoreTicks() {
 			s.Require().Equal(tt.expectedTicks, actualTicks)
 		})
 	}
+}
+
+// TestStoreTicks_RejectsStaleBlocks verifies that an update from an older block
+// cannot overwrite a tick a newer block already published. Orderbook pools are
+// processed in one goroutine per pool per block, so a slow block N can finish
+// after block N+1.
+func (s *OrderBookUseCaseTestSuite) TestStoreTicks_RejectsStaleBlocks() {
+	repo := orderbookrepository.New()
+
+	newer := map[int64]orderbookdomain.OrderbookTick{
+		1: {Tick: withTickID(1), TickState: orderbookdomain.TickState{
+			AskValues: orderbookdomain.TickValues{TotalAmountOfLiquidity: "newer"},
+		}},
+	}
+	older := map[int64]orderbookdomain.OrderbookTick{
+		1: {Tick: withTickID(1), TickState: orderbookdomain.TickState{
+			AskValues: orderbookdomain.TickValues{TotalAmountOfLiquidity: "older"},
+		}},
+	}
+
+	// Block 200 lands first, then the slower block 199 finishes.
+	repo.StoreTicks(defaultPoolID, 200, newer)
+	repo.StoreTicks(defaultPoolID, 199, older)
+
+	ticks, ok := repo.GetAllTicks(defaultPoolID)
+	s.Require().True(ok)
+	s.Require().Equal("newer", ticks[1].TickState.AskValues.TotalAmountOfLiquidity,
+		"a stale block must not overwrite a newer tick value")
+
+	// A genuinely newer block still applies.
+	repo.StoreTicks(defaultPoolID, 201, older)
+	ticks, ok = repo.GetAllTicks(defaultPoolID)
+	s.Require().True(ok)
+	s.Require().Equal("older", ticks[1].TickState.AskValues.TotalAmountOfLiquidity,
+		"a newer block must apply even if it lowers the value")
+}
+
+// TestStoreTicks_SameHeightBatchesAccumulate verifies that two updates carrying
+// the same height both land. A block's ticks are fetched in batches, so equal
+// heights must not be treated as stale.
+func (s *OrderBookUseCaseTestSuite) TestStoreTicks_SameHeightBatchesAccumulate() {
+	repo := orderbookrepository.New()
+
+	repo.StoreTicks(defaultPoolID, 300, map[int64]orderbookdomain.OrderbookTick{
+		1: {Tick: withTickID(1)},
+	})
+	repo.StoreTicks(defaultPoolID, 300, map[int64]orderbookdomain.OrderbookTick{
+		2: {Tick: withTickID(2)},
+	})
+
+	ticks, ok := repo.GetAllTicks(defaultPoolID)
+	s.Require().True(ok)
+	s.Require().Len(ticks, 2, "batches at the same height must accumulate")
 }
