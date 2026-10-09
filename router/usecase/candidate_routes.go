@@ -47,7 +47,7 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 	}
 }
 
-// FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
+// FindCandidateRoutesOutGivenIn implements domain.CandidateRouteSearcher.
 func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
@@ -235,7 +235,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
 }
 
-// FindCandidateRoutesOutGivenIn implements domain.CandidateRouteFinder.
+// FindCandidateRoutesInGivenOut implements domain.CandidateRouteSearcher.
 func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	// Fetching the candidate routes as for the exact amount of token in swap method
 	// That will be the same as the exact amount out swap method with inverted token denominations
