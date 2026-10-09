@@ -20,20 +20,22 @@ const (
 )
 
 // GetFetchPoolAPRsFromNumiaCb returns a callback to fetch pool APRs from Numia.
-// It retries to fetch the pool APRs if the fetching fails up to numiaAPRsFetchRetries times with a delay of numiaAPRsFetchRetryDelay between retries.
-// It increments the error counter if the pool APRs fetching fails after the retries.
+// It tries up to numiaAPRsFetchRetries times, waiting numiaAPRsFetchRetryDelay between attempts.
+// It increments the error counter only if every attempt fails, and then returns the last error.
 // It returns a callback function that returns the pool APRs on success.
 func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClient, logger log.Logger) func() (map[uint64]sqspassthroughdomain.PoolAPR, error) {
 	return func() (map[uint64]sqspassthroughdomain.PoolAPR, error) {
-
-		for i := 0; i < numiaAPRsFetchRetries; i++ {
+		var err error
+		for attempt := range numiaAPRsFetchRetries {
+			if attempt > 0 {
+				time.Sleep(numiaAPRsFetchRetryDelay)
+			}
 
 			// Fetch pool APRs from the passthrough grpc client
-			poolAPRs, err := numiaHTTPClient.GetPoolAPRsRange()
+			var poolAPRs []sqspassthroughdomain.PoolAPR
+			poolAPRs, err = numiaHTTPClient.GetPoolAPRsRange()
 			if err != nil {
-				logger.Error("Failed to fetch pool APRs,", zap.Error(err), zap.Int("retry", i))
-
-				time.Sleep(numiaAPRsFetchRetryDelay)
+				logger.Warn("Failed to fetch pool APRs", zap.Error(err), zap.Int("attempt", attempt+1))
 				continue
 			}
 
@@ -46,10 +48,12 @@ func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClie
 			return poolAPRsMap, nil
 		}
 
+		logger.Error("Failed to fetch pool APRs after retries", zap.Error(err), zap.Int("attempts", numiaAPRsFetchRetries))
+
 		// Increment the error counter
 		domain.SQSPassthroughNumiaAPRsFetchErrorCounter.Inc()
 
-		return nil, fmt.Errorf("failed to fetch pool APRs after %d retries", numiaAPRsFetchRetries)
+		return nil, fmt.Errorf("fetching pool APRs from Numia failed after %d attempts: %w", numiaAPRsFetchRetries, err)
 	}
 }
 
