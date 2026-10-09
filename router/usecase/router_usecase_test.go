@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -1686,6 +1687,21 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mai
 			s.Require().Len(routes, 1)
 
 			s.validateExpectedPoolIDsMultiHopRoute(routes[0].GetPools(), tc.expectedPoolID)
+
+			// The quoted input must buy at least the requested output when swapped forward
+			// through the same pools. The inverted quote this replaced understated it.
+			forwardPoolIDs := slices.Clone(tc.poolID)
+			slices.Reverse(forwardPoolIDs)
+			forwardOutDenoms := append([]string{tc.tokenOut.Denom}, tc.tokenInDenom[:len(tc.tokenInDenom)-1]...)
+			slices.Reverse(forwardOutDenoms)
+
+			amountIn := sdk.NewCoin(tc.tokenInDenom[len(tc.tokenInDenom)-1], quotes.GetAmountIn().Amount)
+			s.Require().Equal(amountIn.Denom, quotes.GetAmountIn().Denom)
+
+			forwardQuote, err := routerUsecase.GetCustomDirectQuoteMultiPoolOutGivenIn(context.Background(), amountIn, forwardOutDenoms, forwardPoolIDs)
+			s.Require().NoError(err)
+			s.Require().True(forwardQuote.GetAmountOut().Amount.GTE(tc.tokenOut.Amount),
+				"quoted amount in %s buys %s forward, less than the requested %s", amountIn, forwardQuote.GetAmountOut(), tc.tokenOut)
 		})
 	}
 }
