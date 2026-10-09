@@ -308,16 +308,18 @@ func (r *routableConcentratedPoolImpl) CalculateTokenInByTokenOut(ctx context.Co
 		// Compute the swap within current bucket
 		sqrtPriceNext, amountOutConsumed, amountInComputed, spreadRewardChargeTotal := swapStrategy.ComputeSwapWithinBucketInGivenOut(currentSqrtPrice, sqrtPriceTarget, currentBucket.LiquidityAmount, amountRemainingOut)
 
-		// Update swap state for next iteration
-		amountRemainingOut = amountRemainingOut.SubMut(amountOutConsumed).SubMut(spreadRewardChargeTotal)
-		amountInTotal = amountInTotal.AddMut(amountInComputed)
+		// Update swap state for next iteration.
+		// The spread reward is charged on the input token, so it is added to the amount in
+		// rather than deducted from the remaining output (mirrors the chain's computeInGivenOut).
+		amountRemainingOut = amountRemainingOut.SubMut(amountOutConsumed)
+		amountInTotal = amountInTotal.AddMut(amountInComputed).AddMut(spreadRewardChargeTotal)
 
 		// Update current sqrt price
 		currentSqrtPrice = sqrtPriceNext
 	}
 
-	// Return the total amount in.
-	return sdk.Coin{Denom: tokenInDenom, Amount: amountInTotal.TruncateInt()}, nil
+	// Return the total amount in, rounded up in the pool's favor as the chain does.
+	return sdk.Coin{Denom: tokenInDenom, Amount: amountInTotal.Ceil().TruncateInt()}, nil
 }
 
 // GetTokenOutDenom implements RoutablePool.
