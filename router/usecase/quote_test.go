@@ -9,7 +9,9 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/sqs/domain"
+	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -510,4 +512,14 @@ func (s *RouterTestSuite) validateRoutes(expectedRoutes []domain.SplitRoute, act
 		// Validate out amount
 		s.Require().Equal(expectedRoute.GetAmountOut().String(), actualRoute.GetAmountOut().String())
 	}
+}
+
+func (s *RouterTestSuite) newRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmConfig domain.CosmWasmPoolRouterConfig) domain.RoutablePool {
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
+		Config:                cosmWasmConfig,
+		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+	}
+	routablePool, err := pools.NewRoutablePool(pool, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
+	s.Require().NoError(err)
+	return routablePool
 }

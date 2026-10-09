@@ -37,6 +37,10 @@ func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 	return r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 }
 
+func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (domain.Quote, []route.RouteWithOutAmount, error) {
+	return r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, logger)
+}
+
 func FilterDuplicatePoolIDRoutes(rankedRoutes []route.RouteWithOutAmount) []route.RouteImpl {
 	return filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes)
 }
