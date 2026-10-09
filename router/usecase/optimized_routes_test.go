@@ -1133,7 +1133,9 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 			return tokenInCoin, nil
 		},
 
-		TokenOutDenom: tokenOutDenom,
+		// In-given-out pools pay tokenOutDenom (the input) for the desired UOSMO.
+		TokenInDenom:  tokenOutDenom,
+		TokenOutDenom: UOSMO,
 	}
 
 	// Pool that returns smaller amount
@@ -1144,7 +1146,9 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 			return tokenOutLessCoin, nil
 		},
 
-		TokenOutDenom: tokenOutDenom,
+		// In-given-out pools pay tokenOutDenom (the input) for the desired UOSMO.
+		TokenInDenom:  tokenOutDenom,
+		TokenOutDenom: UOSMO,
 	}
 
 	// Pool that returns errors
@@ -1155,7 +1159,9 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 			return sdk.Coin{}, defaultError
 		},
 
-		TokenOutDenom: tokenOutDenom,
+		// In-given-out pools pay tokenOutDenom (the input) for the desired UOSMO.
+		TokenInDenom:  tokenOutDenom,
+		TokenOutDenom: UOSMO,
 	}
 
 	testCases := []struct {

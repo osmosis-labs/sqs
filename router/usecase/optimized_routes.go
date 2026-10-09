@@ -101,11 +101,13 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 		// through another token due to changed order.
 
 		// Note: the zero length check occurred at the start of function.
-		tokenOutDenom := routes[0].GetTokenOutDenom()
+		// In-given-out routes are ordered from the output side, so the input denom that the
+		// exact-out caches are keyed by is the token in of the route's last hop.
+		tokenInDenom := routes[0].GetTokenInDenom()
 
-		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenOutDenom))
+		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom))
 		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
-		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude))
 
 		return nil, nil, errors[0]
 	}
