@@ -43,6 +43,10 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 		if err != nil {
 			return ErrTokenInNotValid
 		}
+		// ParseCoinNormalized truncates fractional amounts, so "0.5uosmo" parses to zero.
+		if !tokenInCoin.Amount.IsPositive() {
+			return ErrTokenInAmountNotPositive
+		}
 		r.TokenIn = &tokenInCoin
 	}
 
@@ -50,6 +54,9 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 		tokenOutCoin, err := sdk.ParseCoinNormalized(tokenOut)
 		if err != nil {
 			return ErrTokenOutNotValid
+		}
+		if !tokenOutCoin.Amount.IsPositive() {
+			return ErrTokenOutAmountNotPositive
 		}
 		r.TokenOut = &tokenOutCoin
 	}

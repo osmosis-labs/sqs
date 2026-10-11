@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
@@ -118,6 +119,13 @@ func (a *PassthroughHandler) GetActiveOrdersStream(c echo.Context) error {
 	}
 
 	w := c.Response()
+
+	// The stream is long-lived, so lift the server-wide write timeout for this connection only.
+	// The read timeout needs no change: net/http clears the read deadline once the request is read.
+	if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil {
+		a.Logger.Error("failed to clear write deadline for SSE stream", zap.Error(err))
+	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")

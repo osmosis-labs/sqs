@@ -2,6 +2,7 @@ package passthroughdomain
 
 import (
 	"net/http"
+	"time"
 
 	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/sqsutil/sqshttp"
@@ -21,11 +22,15 @@ var _ NumiaHTTPClient = &NumiaHTTPClientImpl{}
 
 const (
 	poolAPRRangeEndpoint = "/pools_apr_range"
+
+	// numiaHTTPClientTimeout bounds each request to Numia. Without it a hung connection
+	// blocks the APR fetcher indefinitely, and retries never get a chance to run.
+	numiaHTTPClientTimeout = 30 * time.Second
 )
 
 func NewNumiaHTTPClient(url string) *NumiaHTTPClientImpl {
 	return &NumiaHTTPClientImpl{
-		client: &http.Client{},
+		client: &http.Client{Timeout: numiaHTTPClientTimeout},
 		url:    url,
 	}
 }

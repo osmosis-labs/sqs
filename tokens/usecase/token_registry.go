@@ -6,9 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 )
+
+// assetListHTTPClient fetches the asset list. The timeout stops a hung connection from leaking
+// a goroutine on every periodic reload.
+var assetListHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 // GetTokensFromChainRegistryFunc is a GetTokensFromChainRegistry function signature.
 type GetTokensFromChainRegistryFunc func(chainRegistryAssetsFileURL string) (map[string]domain.Token, string, error)
@@ -17,7 +22,7 @@ type GetTokensFromChainRegistryFunc func(chainRegistryAssetsFileURL string) (map
 // It returns a map of tokens by chain denom.
 func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]domain.Token, string, error) {
 	// Fetch the JSON data from the URL
-	response, err := http.Get(chainRegistryAssetsFileURL)
+	response, err := assetListHTTPClient.Get(chainRegistryAssetsFileURL)
 	if err != nil {
 		return nil, "", err
 	}

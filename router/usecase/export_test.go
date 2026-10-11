@@ -33,6 +33,10 @@ func (r *routerUseCaseImpl) EstimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 	return r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
 }
 
+func ValidateQuoteAmountOut(quote domain.Quote) (domain.Quote, error) {
+	return validateQuoteAmountOut(quote)
+}
+
 func FilterDuplicatePoolIDRoutes(rankedRoutes []route.RouteWithOutAmount) []route.RouteImpl {
 	return filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes)
 }

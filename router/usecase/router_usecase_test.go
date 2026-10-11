@@ -1687,3 +1687,19 @@ func (s *RouterTestSuite) TestGetMinPoolLiquidityCapFilter() {
 		})
 	}
 }
+
+// TestValidateQuoteAmountOut checks that a quote with no tokens out is rejected,
+// including the single-route fallback returned when the split computation fails.
+func TestValidateQuoteAmountOut(t *testing.T) {
+	zeroOut := &usecase.QuoteImpl{AmountIn: sdk.NewCoin("uosmo", osmomath.OneInt()), AmountOut: osmomath.ZeroInt()}
+	_, err := usecase.ValidateQuoteAmountOut(zeroOut)
+	if err == nil {
+		t.Fatal("expected error for zero amount out")
+	}
+
+	positiveOut := &usecase.QuoteImpl{AmountIn: sdk.NewCoin("uosmo", osmomath.OneInt()), AmountOut: osmomath.OneInt()}
+	quote, err := usecase.ValidateQuoteAmountOut(positiveOut)
+	if err != nil || quote != positiveOut {
+		t.Fatalf("expected quote to be returned unchanged, got (%v, %v)", quote, err)
+	}
+}

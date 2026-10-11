@@ -86,6 +86,30 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 			expectedResult: nil,
 			expectedError:  true,
 		},
+		{
+			name: "zero tokenIn amount",
+			queryParams: map[string]string{
+				"tokenIn":       "0ust",
+				"tokenOutDenom": "usdc",
+			},
+			expectedError: true,
+		},
+		{
+			name: "fractional tokenIn amount truncated to zero",
+			queryParams: map[string]string{
+				"tokenIn":       "0.5ust",
+				"tokenOutDenom": "usdc",
+			},
+			expectedError: true,
+		},
+		{
+			name: "zero tokenOut amount",
+			queryParams: map[string]string{
+				"tokenOut":     "0usdc",
+				"tokenInDenom": "ust",
+			},
+			expectedError: true,
+		},
 	}
 
 	for _, tc := range testcases {

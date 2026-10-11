@@ -74,6 +74,16 @@ import (
 	systemhttpdelivery "github.com/osmosis-labs/sqs/system/delivery/http"
 )
 
+// HTTP server timeouts. Without them a slow or stalled client can hold a connection open indefinitely.
+// The write timeout bounds non-streaming responses; the SSE /passthrough/active-orders stream clears
+// its own write deadline.
+const (
+	serverReadHeaderTimeout = 10 * time.Second
+	serverReadTimeout       = 30 * time.Second
+	serverWriteTimeout      = 60 * time.Second
+	serverIdleTimeout       = 120 * time.Second
+)
+
 // SideCarQueryServer defines an interface for sidecar query server (SQS).
 // It encapsulates all logic for ingesting chain data into the server
 // and exposes endpoints for querying formatter and processed data from frontend.
@@ -89,6 +99,9 @@ type sideCarQueryServer struct {
 	e             *echo.Echo
 	sqsAddress    string
 	logger        log.Logger
+
+	// ingestGRPCServer is nil when the gRPC ingester is disabled.
+	ingestGRPCServer *grpc.Server
 }
 
 // GetTokensUseCase implements SideCarQueryServer.
@@ -102,7 +115,23 @@ func (sqs *sideCarQueryServer) GetLogger() log.Logger {
 }
 
 // Shutdown implements SideCarQueryServer.
+// It stops accepting new requests and waits for in-flight HTTP requests and ingest RPCs
+// to finish until ctx is done, after which remaining connections are closed.
 func (sqs *sideCarQueryServer) Shutdown(ctx context.Context) error {
+	if sqs.ingestGRPCServer != nil {
+		stopped := make(chan struct{})
+		go func() {
+			sqs.ingestGRPCServer.GracefulStop()
+			close(stopped)
+		}()
+
+		select {
+		case <-stopped:
+		case <-ctx.Done():
+			sqs.ingestGRPCServer.Stop()
+		}
+	}
+
 	return sqs.e.Shutdown(ctx)
 }
 
@@ -121,10 +150,17 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
+	e.Server.ReadHeaderTimeout = serverReadHeaderTimeout
+	e.Server.ReadTimeout = serverReadTimeout
+	e.Server.WriteTimeout = serverWriteTimeout
+	e.Server.IdleTimeout = serverIdleTimeout
 	middleware := middleware.InitMiddleware(config.CORS, config.FlightRecord, logger)
 	e.Use(middleware.CORS)
 	e.Use(middleware.InstrumentMiddleware)
 	e.Use(otelecho.Middleware("sqs"), middleware.TraceWithParamsMiddleware())
+	// Registered last so it wraps the handlers directly: a panic becomes a logged, generic 500
+	// and the outer middleware still observes a normal response.
+	e.Use(middleware.RecoverMiddleware())
 
 	chainClient, err := chaininfoclient.NewClient(ctx, config.ChainID, config.ChainTendermintRPCEndpoint, config.ChainTendermintRPCEndpointTimeout)
 	if err != nil {
@@ -305,6 +341,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	poolsUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
 
 	// Start grpc ingest server if enabled
+	var ingestGRPCServer *grpc.Server
 	grpcIngesterConfig := config.GRPCIngester
 	if grpcIngesterConfig.Enabled {
 		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, logger)
@@ -410,6 +447,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		if err != nil {
 			panic(err)
 		}
+		ingestGRPCServer = grpcIngestHandler
 
 		ingestHttpDelivery.NewIngestHandler(e, ingestUseCase, logger)
 		if config.ServeFromState {
@@ -444,6 +482,8 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		logger:        logger,
 		e:             e,
 		sqsAddress:    config.ServerAddress,
+
+		ingestGRPCServer: ingestGRPCServer,
 	}, nil
 }
 

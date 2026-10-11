@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
@@ -528,4 +530,51 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 			}
 		})
 	}
+}
+
+// TestGetActiveOrdersStreamOutlivesServerTimeouts checks that the SSE stream keeps
+// delivering events after the server read and write timeouts have elapsed.
+func (s *PassthroughHandlerTestSuite) TestGetActiveOrdersStreamOutlivesServerTimeouts() {
+	const (
+		serverTimeout = 200 * time.Millisecond
+		numEvents     = 4
+	)
+
+	usecase := mocks.OrderbookUsecaseMock{}
+	usecase.GetActiveOrdersStreamFunc = func(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult {
+		ordersCh := make(chan orderbookdomain.OrderbookResult)
+		go func() {
+			defer close(ordersCh)
+			for i := 0; i < numEvents; i++ {
+				time.Sleep(serverTimeout / 2)
+				select {
+				case ordersCh <- orderbookdomain.OrderbookResult{}:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		return ordersCh
+	}
+
+	handler := passthroughdelivery.PassthroughHandler{
+		OUsecase: &usecase,
+		Logger:   &log.NoOpLogger{},
+	}
+
+	e := echo.New()
+	e.GET("/stream", handler.GetActiveOrdersStream)
+	server := httptest.NewUnstartedServer(e)
+	server.Config.ReadTimeout = serverTimeout
+	server.Config.WriteTimeout = serverTimeout
+	server.Start()
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/stream?userOsmoAddress=osmo1ugku28hwyexpljrrmtet05nd6kjlrvr9jz6z00")
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	s.Require().NoError(err)
+	s.Require().Equal(numEvents, strings.Count(string(body), "data: "))
 }

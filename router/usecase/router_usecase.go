@@ -163,7 +163,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	}
 
 	if len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes {
-		return topSingleRouteQuote, nil
+		return validateQuoteAmountOut(topSingleRouteQuote)
 	}
 
 	// Filter out generalized cosmWasm pool routes
@@ -171,7 +171,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 
 	// If filtering leads to a single route left, return it.
 	if len(rankedRoutes) == 1 {
-		return topSingleRouteQuote, nil
+		return validateQuoteAmountOut(topSingleRouteQuote)
 	}
 
 	// Compute split route quote
@@ -179,7 +179,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	if err != nil {
 		// If error occurs in splits, return the single route quote
 		// rather than failing.
-		return topSingleRouteQuote, nil
+		return validateQuoteAmountOut(topSingleRouteQuote)
 	}
 
 	finalQuote := topSingleRouteQuote
@@ -195,11 +195,18 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 
 	r.logger.Debug("single route selected", zap.Stringer("route", finalQuote.GetRoute()[0]))
 
-	if finalQuote.GetAmountOut().IsZero() {
+	return validateQuoteAmountOut(finalQuote)
+}
+
+// validateQuoteAmountOut returns an error if the quote yields no tokens out,
+// for example when a dust amount in is fully consumed by fees and rounding.
+func validateQuoteAmountOut(quote domain.Quote) (domain.Quote, error) {
+	amountOut := quote.GetAmountOut().Amount
+	if amountOut.IsNil() || amountOut.IsZero() {
 		return nil, errors.New("best we can do is no tokens out")
 	}
 
-	return finalQuote, nil
+	return quote, nil
 }
 
 // GetOptimalQuoteInGivenOut returns an optimal quote through the pools for the exact amount out token swap method.
