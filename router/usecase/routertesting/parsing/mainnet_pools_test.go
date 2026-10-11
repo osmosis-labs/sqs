@@ -7,15 +7,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/json"
+	"github.com/osmosis-labs/osmosis/v31/ingest/types/json"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	concentratedmodel "github.com/osmosis-labs/osmosis/v31/x/concentrated-liquidity/model"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 )
 
 const testFileName = "pools.json"

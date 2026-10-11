@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
+	"github.com/osmosis-labs/osmosis/v31/ingest/types/cosmwasmpool"
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"

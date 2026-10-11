@@ -217,7 +217,7 @@ func (p *poolLiquidityPricerWorker) computeEffectiveLiquidityCap(
 
 			price := blockPriceUpdates.GetPriceForDenom(coin.Denom, quoteDenom)
 
-			normalized := amount.Quo(osmomath.NewBigDec(10).Power(osmomath.NewBigDec(int64(metadata.Precision)))).Mul(price)
+			normalized := amount.Quo(osmomath.NewBigDec(10).PowerInteger(uint64(metadata.Precision))).Mul(price)
 
 			balances = append(balances, normalized)
 		}

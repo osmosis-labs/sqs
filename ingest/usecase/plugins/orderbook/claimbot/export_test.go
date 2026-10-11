@@ -9,7 +9,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 
-	"github.com/osmosis-labs/osmosis/v28/app/params"
+	"github.com/osmosis-labs/osmosis/v31/app/params"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 

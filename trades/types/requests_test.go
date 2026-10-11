@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	// Sets the osmo bech32 prefix.
-	_ "github.com/osmosis-labs/osmosis/v28/app/params"
+	_ "github.com/osmosis-labs/osmosis/v31/app/params"
 
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"

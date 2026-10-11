@@ -8,10 +8,10 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools/balancer"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v28/x/gamm/pool-models/stableswap"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	concentratedmodel "github.com/osmosis-labs/osmosis/v31/x/concentrated-liquidity/model"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v31/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v31/x/gamm/pool-models/stableswap"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 )
 
 // NewRoutablePool creates a new RoutablePool.

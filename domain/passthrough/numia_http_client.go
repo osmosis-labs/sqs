@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v31/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/sqsutil/sqshttp"
 )
 
