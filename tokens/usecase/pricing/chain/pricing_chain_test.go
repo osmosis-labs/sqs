@@ -190,6 +190,7 @@ func (s *PricingTestSuite) TestGetPrice_FailedRecomputeEvictsCachedPrice() {
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
 
 	routeUnusable := false
+	spotPricePanics := false
 	routerMock := &mocks.RouterUsecaseMock{
 		GetSimpleQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []domain.SplitRoute, error) {
 			if routeUnusable {
@@ -197,7 +198,12 @@ func (s *PricingTestSuite) TestGetPrice_FailedRecomputeEvictsCachedPrice() {
 			}
 			return mainnetUsecase.Router.GetSimpleQuote(ctx, tokenIn, tokenOutDenom, opts...)
 		},
-		GetPoolSpotPriceFunc: mainnetUsecase.Router.GetPoolSpotPrice,
+		GetPoolSpotPriceFunc: func(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
+			if spotPricePanics {
+				panic("malformed spot price")
+			}
+			return mainnetUsecase.Router.GetPoolSpotPrice(ctx, poolID, quoteAsset, baseAsset)
+		},
 	}
 
 	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, routerMock)
@@ -220,6 +226,19 @@ func (s *PricingTestSuite) TestGetPrice_FailedRecomputeEvictsCachedPrice() {
 	s.Require().Error(err)
 
 	// The old price is no longer served.
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().Error(err)
+
+	// A panicking recompute evicts as well and is returned as an error.
+	routeUnusable = false
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().NoError(err)
+
+	spotPricePanics = true
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().Error(err)
+
+	routeUnusable = true
 	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
 	s.Require().Error(err)
 }

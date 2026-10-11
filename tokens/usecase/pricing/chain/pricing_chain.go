@@ -131,6 +131,10 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 
 	defer func() {
+		// A panic (e.g. from a malformed pool spot price) must evict too, so it is turned into an error.
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic computing price for %s (base) -> %s (quote): %v", baseDenom, quoteDenom, r)
+		}
 		if err != nil {
 			c.cache.Delete(cacheKey)
 		}
