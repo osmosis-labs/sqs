@@ -55,8 +55,8 @@ func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uni
 	p.logger.Info("starting pricing pre-computation", zap.Uint64("height", height), zap.Int("num_base_denoms", len(baseDenoms)))
 
 	// Note that we recompute prices entirely.
-	// Min osmo liquidity must be zero. The reason is that some pools have TVL incorrectly calculated as zero.
-	// For example, BRNCH / STRDST (1288). As a result, they are incorrectly excluded despite having appropriate liquidity.
+	// The worker's min liquidity floor decides which pools can set the served default-quote prices,
+	// so it should match the pricing floor. Tokens whose only pools fall below it fall back to CoinGecko.
 	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.minLiquidityCap))
 	if err != nil {
 		// Increase error counter

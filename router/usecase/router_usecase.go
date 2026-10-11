@@ -248,7 +248,9 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 	if err == nil {
 		// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
 		// Oterwise, use default.
-		options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+		// The dynamic filter may only raise the floor passed in the options, never lower it,
+		// so that a configured pricing minimum keeps dust pools from setting prices.
+		options.MinPoolLiquidityCap = max(options.MinPoolLiquidityCap, r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap))
 	}
 
 	// If this is pricing worker precomputation, we need to be able to call this as
