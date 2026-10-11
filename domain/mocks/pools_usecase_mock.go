@@ -29,6 +29,7 @@ type PoolsUsecaseMock struct {
 	GetCosmWasmPoolConfigFunc           func() domain.CosmWasmPoolRouterConfig
 	CalcExitCFMMPoolFunc                func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)
 	GetAllCanonicalOrderbookPoolIDsFunc func() ([]domain.CanonicalOrderBooksResult, error)
+	GetAllOrderbookPoolIDsFunc          func() ([]domain.CanonicalOrderBooksResult, error)
 	IsCanonicalOrderbookPoolFunc        func(poolID uint64) bool
 
 	Pools        []ingesttypes.PoolI
@@ -59,6 +60,20 @@ func (pm *PoolsUsecaseMock) GetAllCanonicalOrderbookPoolIDs() ([]domain.Canonica
 
 func (pm *PoolsUsecaseMock) WithGetAllCanonicalOrderbookPoolIDs(result []domain.CanonicalOrderBooksResult, err error) {
 	pm.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+		return result, err
+	}
+}
+
+// GetAllOrderbookPoolIDs implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) GetAllOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error) {
+	if pm.GetAllOrderbookPoolIDsFunc != nil {
+		return pm.GetAllOrderbookPoolIDsFunc()
+	}
+	panic("unimplemented")
+}
+
+func (pm *PoolsUsecaseMock) WithGetAllOrderbookPoolIDs(result []domain.CanonicalOrderBooksResult, err error) {
+	pm.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 		return result, err
 	}
 }

@@ -34,7 +34,7 @@ func (s *OrdersCacheTestSuite) TestProcessEndBlock() {
 		{
 			name: "Success - Process orderbooks and store orders",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, grpcClient *mocks.PassthroughGRPCClientMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return []domain.CanonicalOrderBooksResult{{PoolID: 1, ContractAddress: "addr1"}}, nil
 				}
 				grpcClient.MockGetOrderbookOrdersRawCb = func(ctx context.Context, poolID uint64) ([][]byte, error) {
@@ -49,9 +49,9 @@ func (s *OrdersCacheTestSuite) TestProcessEndBlock() {
 			expectedError: nil,
 		},
 		{
-			name: "Error - Failed GetAllCanonicalOrderbookPoolIDsFunc call",
+			name: "Error - Failed GetAllOrderbookPoolIDsFunc call",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, grpcClient *mocks.PassthroughGRPCClientMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return nil, fmt.Errorf("failed to get orderbooks")
 				}
 			},
@@ -61,7 +61,7 @@ func (s *OrdersCacheTestSuite) TestProcessEndBlock() {
 		{
 			name: "Error - Failed GetOrderbookOrdersRaw call",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, grpcClient *mocks.PassthroughGRPCClientMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return []domain.CanonicalOrderBooksResult{{PoolID: 1, ContractAddress: "addr1"}}, nil
 				}
 				grpcClient.MockGetOrderbookOrdersRawCb = func(ctx context.Context, poolID uint64) ([][]byte, error) {
@@ -76,7 +76,7 @@ func (s *OrdersCacheTestSuite) TestProcessEndBlock() {
 		{
 			name: "Error - Failed StoreOrders call",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, grpcClient *mocks.PassthroughGRPCClientMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return []domain.CanonicalOrderBooksResult{{PoolID: 1, ContractAddress: "addr1"}}, nil
 				}
 				grpcClient.MockGetOrderbookOrdersRawCb = func(ctx context.Context, poolID uint64) ([][]byte, error) {
@@ -93,7 +93,7 @@ func (s *OrdersCacheTestSuite) TestProcessEndBlock() {
 		{
 			name: "Error - Invalid order JSON",
 			setupMocks: func(orderbookRepo *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, grpcClient *mocks.PassthroughGRPCClientMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return []domain.CanonicalOrderBooksResult{{PoolID: 1, ContractAddress: "addr1"}}, nil
 				}
 				grpcClient.MockGetOrderbookOrdersRawCb = func(ctx context.Context, poolID uint64) ([][]byte, error) {
@@ -139,7 +139,7 @@ func (s *OrdersCacheTestSuite) TestGetOrderbooks() {
 		{
 			name: "Success - All orderbooks within metadata",
 			setupMocks: func(mock *mocks.PoolsUsecaseMock) {
-				mock.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				mock.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return []domain.CanonicalOrderBooksResult{
 						{PoolID: 1, ContractAddress: "addr1"},
 						{PoolID: 2, ContractAddress: "addr2"},
@@ -158,7 +158,7 @@ func (s *OrdersCacheTestSuite) TestGetOrderbooks() {
 		{
 			name: "Success - Partial orderbooks within metadata",
 			setupMocks: func(mock *mocks.PoolsUsecaseMock) {
-				mock.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				mock.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return []domain.CanonicalOrderBooksResult{
 						{PoolID: 1, ContractAddress: "addr1"},
 						{PoolID: 2, ContractAddress: "addr2"},
@@ -178,7 +178,7 @@ func (s *OrdersCacheTestSuite) TestGetOrderbooks() {
 		{
 			name: "Success - Empty result",
 			setupMocks: func(mock *mocks.PoolsUsecaseMock) {
-				mock.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				mock.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return []domain.CanonicalOrderBooksResult{
 						{PoolID: 1, ContractAddress: "addr1"},
 						{PoolID: 2, ContractAddress: "addr2"},
@@ -192,9 +192,9 @@ func (s *OrdersCacheTestSuite) TestGetOrderbooks() {
 			expectedError:  nil,
 		},
 		{
-			name: "Error - GetAllCanonicalOrderbookPoolIDs fails",
+			name: "Error - GetAllOrderbookPoolIDs fails",
 			setupMocks: func(mock *mocks.PoolsUsecaseMock) {
-				mock.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				mock.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return nil, fmt.Errorf("failed to get orderbooks")
 				}
 			},

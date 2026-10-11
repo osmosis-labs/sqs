@@ -545,6 +545,14 @@ func (s *PoolsUsecaseTestSuite) TestStorePools_DrainedCanonicalOrderbookReplaced
 	s.Require().True(poolsUsecase.IsCanonicalOrderbookPool(deeperPoolID))
 	s.Require().False(poolsUsecase.IsCanonicalOrderbookPool(drainedPoolID))
 
+	// The demoted book is no longer canonical but its orders must still be discoverable.
+	allOrderbooks, err := poolsUsecase.GetAllOrderbookPoolIDs()
+	s.Require().NoError(err)
+	s.Require().Equal([]domain.CanonicalOrderBooksResult{
+		{Base: denomOne, Quote: denomTwo, PoolID: drainedPoolID, ContractAddress: drainedAddress},
+		{Base: denomOne, Quote: denomTwo, PoolID: deeperPoolID, ContractAddress: deeperAddress},
+	}, allOrderbooks)
+
 	// The demoted book only returns once it is strictly deeper than the new canonical book.
 	s.Require().NoError(poolsUsecase.StorePools([]ingesttypes.PoolI{
 		newOrderbookPool(drainedPoolID, drainedAddress, 500),

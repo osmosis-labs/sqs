@@ -66,6 +66,11 @@ type poolsUseCase struct {
 	canonicalOrderBookForBaseQuoteDenom sync.Map
 	canonicalOrderbookPoolIDs           sync.Map
 
+	// orderbookPools holds every stored orderbook pool, canonical or not, keyed by pool ID
+	// (uint64 -> domain.CanonicalOrderBooksResult). Order discovery uses it so that orders on
+	// an orderbook that is not canonical for its pair are still found.
+	orderbookPools sync.Map
+
 	cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams
 
 	aprPrefetcher      datafetchers.MapFetcher[uint64, sqspassthroughdomain.PoolAPR]
@@ -625,6 +630,13 @@ func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 			}
 			contractAddress := chainCosmWasmPool.ContractAddress
 
+			p.orderbookPools.Store(poolID, domain.CanonicalOrderBooksResult{
+				Base:            baseDenom,
+				Quote:           quoteDenom,
+				PoolID:          poolID,
+				ContractAddress: contractAddress,
+			})
+
 			// Process orderbook pool ID for base and quote denom
 			_, err := p.processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom, poolID, poolLiquidityCapitalization, contractAddress)
 			if err != nil {
@@ -851,6 +863,25 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 	})
 
 	return results, err
+}
+
+// GetAllOrderbookPoolIDs implements mvc.PoolsUsecase.
+func (p *poolsUseCase) GetAllOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error) {
+	var results []domain.CanonicalOrderBooksResult
+
+	p.orderbookPools.Range(func(_, value any) bool {
+		if orderbook, ok := value.(domain.CanonicalOrderBooksResult); ok {
+			results = append(results, orderbook)
+		}
+		return true
+	})
+
+	// Sort by pool ID for deterministic results
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].PoolID < results[j].PoolID
+	})
+
+	return results, nil
 }
 
 // RegisterAPRFetcher registers the APR fetcher for the passthrough use case.

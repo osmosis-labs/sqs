@@ -5,9 +5,9 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 )
 
-// getOrderbooks returns canonical orderbooks that are within the metadata.
+// getOrderbooks returns the orderbooks, canonical or not, that are within the metadata.
 func getOrderbooks(poolsUsecase mvc.PoolsUsecase, metadata domain.BlockPoolMetadata) ([]domain.CanonicalOrderBooksResult, error) {
-	orderbooks, err := poolsUsecase.GetAllCanonicalOrderbookPoolIDs()
+	orderbooks, err := poolsUsecase.GetAllOrderbookPoolIDs()
 	if err != nil {
 		return nil, err
 	}

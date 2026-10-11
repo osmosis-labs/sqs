@@ -297,7 +297,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
 			name:    "failed to get all canonical orderbook pool IDs",
 			address: "osmo1glq2duq5f4x3m88fqwecfrfcuauy8343amy5fm",
 			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return nil, assert.AnError
 				}
 			},
@@ -307,7 +307,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
 			name:    "skips empty orders",
 			address: "osmo1npsku4qlqav6udkvgfk9eran4s4edzu69vzdm6",
 			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = s.GetAllOrderbookPoolIDsFunc(
 					nil,
 					s.NewCanonicalOrderBooksResult(8, "A"), // Non-empty orderbook
 					s.NewCanonicalOrderBooksResult(1, "B"), // Empty orderbook
@@ -341,7 +341,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
 			name:    "canceled context",
 			address: "osmo1npsku4qlqav6udkvgfk9eran4s4edzu69vzdm6",
 			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = s.GetAllOrderbookPoolIDsFunc(
 					nil,
 					s.NewCanonicalOrderBooksResult(1, "F"),
 					s.NewCanonicalOrderBooksResult(2, "C"),
@@ -383,7 +383,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
 			name:    "ticker should push orders",
 			address: "osmo1npsku4qlqav6udkvgfk9eran4s4edzu69vzdm6",
 			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = s.GetAllOrderbookPoolIDsFunc(
 					nil,
 					s.NewCanonicalOrderBooksResult(1, "C"),
 				)
@@ -409,7 +409,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {
 			name:    "returns valid orders stream",
 			address: "osmo1p2pq3dt5xkj39p0420p4mm9l45394xecr00299",
 			setupMocks: func(ctx context.Context, cancel context.CancelFunc, usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock, callcount *int) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(nil, s.NewCanonicalOrderBooksResult(1, "A"))
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = s.GetAllOrderbookPoolIDsFunc(nil, s.NewCanonicalOrderBooksResult(1, "A"))
 
 				orderbookrepository.WithGetOrdersFunc(orderbookdomain.Orders{
 					s.NewOrder().WithOrderID(1).Order,
@@ -501,7 +501,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return nil, assert.AnError
 				}
 			},
@@ -514,7 +514,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return nil, nil
 				}
 			},
@@ -530,7 +530,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return ctx
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 					return []domain.CanonicalOrderBooksResult{
 						{PoolID: 1},
 					}, nil
@@ -545,7 +545,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(nil, s.NewCanonicalOrderBooksResult(1, "A"))
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = s.GetAllOrderbookPoolIDsFunc(nil, s.NewCanonicalOrderBooksResult(1, "A"))
 
 				orderbookrepository.WithGetOrdersFunc(orderbookdomain.Orders{s.NewOrder().Order}, true)
 
@@ -565,7 +565,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(nil, s.NewCanonicalOrderBooksResult(1, "A"))
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = s.GetAllOrderbookPoolIDsFunc(nil, s.NewCanonicalOrderBooksResult(1, "A"))
 
 				orderbookrepository.WithGetOrdersFunc(orderbookdomain.Orders{s.NewOrder().Order}, true)
 
@@ -588,7 +588,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = s.GetAllOrderbookPoolIDsFunc(
 					nil,
 					s.NewCanonicalOrderBooksResult(1, "A"),
 					s.NewCanonicalOrderBooksResult(2, "B"),
@@ -629,7 +629,7 @@ func (s *OrderbookUsecaseTestSuite) TestGetActiveOrders() {
 				return context.Background()
 			},
 			setupMocks: func(usecase *orderbookusecase.OrderbookUseCaseImpl, orderbookrepository *mocks.OrderbookRepositoryMock, poolsUsecase *mocks.PoolsUsecaseMock, tokensusecase *mocks.TokensUsecaseMock) {
-				poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc = s.GetAllCanonicalOrderbookPoolIDsFunc(
+				poolsUsecase.GetAllOrderbookPoolIDsFunc = s.GetAllOrderbookPoolIDsFunc(
 					nil,
 					s.NewCanonicalOrderBooksResult(1, "A"),
 					s.NewCanonicalOrderBooksResult(0, "B"), // Not canonical

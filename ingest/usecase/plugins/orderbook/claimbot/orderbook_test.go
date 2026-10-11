@@ -24,7 +24,7 @@ func TestGetOrderbooks(t *testing.T) {
 				PoolIDs: map[uint64]struct{}{1: {}, 2: {}, 3: {}},
 			},
 			setupMocks: func(poolsUsecase *mocks.PoolsUsecaseMock) {
-				poolsUsecase.WithGetAllCanonicalOrderbookPoolIDs([]domain.CanonicalOrderBooksResult{
+				poolsUsecase.WithGetAllOrderbookPoolIDs([]domain.CanonicalOrderBooksResult{
 					{PoolID: 1}, {PoolID: 2}, {PoolID: 3}, {PoolID: 4},
 				}, nil)
 			},
@@ -39,7 +39,7 @@ func TestGetOrderbooks(t *testing.T) {
 				PoolIDs: map[uint64]struct{}{1: {}, 2: {}, 3: {}},
 			},
 			setupMocks: func(poolsUsecase *mocks.PoolsUsecaseMock) {
-				poolsUsecase.WithGetAllCanonicalOrderbookPoolIDs([]domain.CanonicalOrderBooksResult{
+				poolsUsecase.WithGetAllOrderbookPoolIDs([]domain.CanonicalOrderBooksResult{
 					{PoolID: 1}, {PoolID: 2}, {PoolID: 3},
 				}, nil)
 			},
@@ -52,7 +52,7 @@ func TestGetOrderbooks(t *testing.T) {
 			name:     "Error getting all canonical orderbook pool IDs",
 			metadata: domain.BlockPoolMetadata{},
 			setupMocks: func(poolsUsecase *mocks.PoolsUsecaseMock) {
-				poolsUsecase.WithGetAllCanonicalOrderbookPoolIDs(nil, assert.AnError)
+				poolsUsecase.WithGetAllOrderbookPoolIDs(nil, assert.AnError)
 			},
 			want: nil,
 			err:  true,
