@@ -12,8 +12,8 @@ func UpdateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap domain.
 	return updateCurrentBlockLiquidityMapFromBalances(currentBlockLiquidityMap, currentPoolBalances, poolID)
 }
 
-func TransferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidityMap) domain.DenomPoolLiquidityMap {
-	return transferDenomLiquidityMap(transferTo, transferFrom)
+func TransferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidityMap, updatedPoolIDs map[uint64]struct{}) (domain.DenomPoolLiquidityMap, map[string]struct{}) {
+	return transferDenomLiquidityMap(transferTo, transferFrom, updatedPoolIDs)
 }
 
 func ProcessSQSModelMut(sqsModel *ingesttypes.SQSPool) error {
