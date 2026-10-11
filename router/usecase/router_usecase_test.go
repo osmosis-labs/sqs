@@ -1693,8 +1693,8 @@ func (s *RouterTestSuite) TestGetMinPoolLiquidityCapFilter() {
 func TestValidateQuoteAmountOut(t *testing.T) {
 	zeroOut := &usecase.QuoteImpl{AmountIn: sdk.NewCoin("uosmo", osmomath.OneInt()), AmountOut: osmomath.ZeroInt()}
 	_, err := usecase.ValidateQuoteAmountOut(zeroOut)
-	if err == nil {
-		t.Fatal("expected error for zero amount out")
+	if err != domain.ErrNoTokensOut || domain.GetStatusCode(err) != 400 {
+		t.Fatalf("expected ErrNoTokensOut mapped to 400, got %v", err)
 	}
 
 	positiveOut := &usecase.QuoteImpl{AmountIn: sdk.NewCoin("uosmo", osmomath.OneInt()), AmountOut: osmomath.OneInt()}

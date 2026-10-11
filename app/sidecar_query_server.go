@@ -33,6 +33,7 @@ import (
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
 	chainregistryHttpDelivery "github.com/osmosis-labs/sqs/chainregistry/delivery/http"
 	chainregistryUseCase "github.com/osmosis-labs/sqs/chainregistry/usecase"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestHttpDelivery "github.com/osmosis-labs/sqs/ingest/delivery/http"
@@ -132,7 +133,16 @@ func (sqs *sideCarQueryServer) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	return sqs.e.Shutdown(ctx)
+	if err := sqs.e.Shutdown(ctx); err != nil {
+		// Deadline reached with requests still running: force-close the remaining connections
+		// so they do not outlive shutdown, and still report the failure.
+		if closeErr := sqs.e.Close(); closeErr != nil {
+			sqs.logger.Error("Error force-closing HTTP connections", zap.Error(closeErr))
+		}
+		return err
+	}
+
+	return nil
 }
 
 // Start implements SideCarQueryServer.
@@ -154,6 +164,8 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	e.Server.ReadTimeout = serverReadTimeout
 	e.Server.WriteTimeout = serverWriteTimeout
 	e.Server.IdleTimeout = serverIdleTimeout
+	// Lets SSE streams end when shutdown starts instead of holding it open until the deadline.
+	deliveryhttp.WithShutdownSignal(e.Server)
 	middleware := middleware.InitMiddleware(config.CORS, config.FlightRecord, logger)
 	e.Use(middleware.CORS)
 	e.Use(middleware.InstrumentMiddleware)

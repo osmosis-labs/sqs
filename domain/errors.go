@@ -13,6 +13,8 @@ var (
 	ErrNotFound = errors.New("your requested Item is not found")
 	// ErrConflict will throw if the current action already exists
 	ErrConflict = errors.New("your Item already exist")
+	// ErrNoTokensOut will throw if the amount in is too small to produce any tokens out
+	ErrNoTokensOut = errors.New("best we can do is no tokens out")
 )
 
 var (
@@ -35,6 +37,8 @@ func GetStatusCode(err error) int {
 		return http.StatusNotFound
 	case ErrConflict:
 		return http.StatusConflict
+	case ErrNoTokensOut:
+		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
 	}

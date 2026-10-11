@@ -132,9 +132,14 @@ func (a *PassthroughHandler) GetActiveOrdersStream(c echo.Context) error {
 
 	ch := a.OUsecase.GetActiveOrdersStream(ctx, req.UserOsmoAddress)
 
+	shutdown := deliveryhttp.ShutdownSignal(c.Request().Context())
+
 	for {
 		select {
 		case <-c.Request().Context().Done():
+			return c.NoContent(http.StatusOK)
+		case <-shutdown:
+			// End the stream so graceful server shutdown is not blocked by it.
 			return c.NoContent(http.StatusOK)
 		case orders, ok := <-ch:
 			if !ok {

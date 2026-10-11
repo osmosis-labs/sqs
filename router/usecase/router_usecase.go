@@ -203,7 +203,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 func validateQuoteAmountOut(quote domain.Quote) (domain.Quote, error) {
 	amountOut := quote.GetAmountOut().Amount
 	if amountOut.IsNil() || amountOut.IsZero() {
-		return nil, errors.New("best we can do is no tokens out")
+		return nil, domain.ErrNoTokensOut
 	}
 
 	return quote, nil
@@ -497,7 +497,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 		return nil, err
 	}
 
-	return bestSingleRouteQuote, nil
+	return validateQuoteAmountOut(bestSingleRouteQuote)
 }
 
 // GetCustomDirectQuoteMultiPoolOutGivenIn implements mvc.RouterUsecase.
