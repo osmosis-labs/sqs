@@ -55,6 +55,9 @@ import (
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
+	tradesHttpDelivery "github.com/osmosis-labs/sqs/trades/delivery/http"
+	tradesingest "github.com/osmosis-labs/sqs/trades/ingest"
+	tradesrepository "github.com/osmosis-labs/sqs/trades/repository"
 
 	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
@@ -397,6 +400,33 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 				// Register the plugin with the ingest use case
 				ingestUseCase.RegisterEndBlockProcessPlugin(currentPlugin)
 			}
+		}
+
+		// Trade ingestion learns each ingested height from the end-block signal
+		// and pulls that block's token_swapped events from the node RPC.
+		if tradesConfig := config.Trades; tradesConfig != nil && tradesConfig.Enabled {
+			tradesRepository := tradesrepository.New(time.Duration(tradesConfig.RetentionHours) * time.Hour)
+
+			blockFetcher, err := tradesingest.NewRPCBlockFetcher(config.ChainTendermintRPCEndpoint, config.ChainTendermintRPCEndpointTimeout)
+			if err != nil {
+				return nil, err
+			}
+
+			tradesIngester := tradesingest.NewIngester(
+				blockFetcher,
+				poolsUseCase,
+				chainPricingSource,
+				defaultQuoteDenom,
+				tokensUseCase.GetChainScalingFactorByDenomMut,
+				tradesConfig.QuoteDenoms,
+				tradesRepository,
+				tradesConfig.MaxCatchUpBlocks,
+				logger,
+			)
+			ingestUseCase.RegisterEndBlockProcessPlugin(tradesIngester)
+			go tradesIngester.Run(ctx)
+
+			tradesHttpDelivery.NewTradesHandler(e, tradesRepository)
 		}
 
 		// Unconditionally register the base fee fetcher.

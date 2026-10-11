@@ -62,6 +62,9 @@ type Config struct {
 	// GRPC ingester server configuration.
 	GRPCIngester *GRPCIngesterConfig `mapstructure:"grpc-ingester"`
 
+	// Trades encapsulates the trade ingestion config.
+	Trades *TradesConfig `mapstructure:"trades"`
+
 	// OpenTelemetry configuration.
 	OTEL *OTELConfig `mapstructure:"otel"`
 
@@ -178,6 +181,17 @@ var DefaultConfig = Config{
 				Enabled: false,
 				Name:    orderbookplugindomain.OrderbookClaimbotPlugin,
 			},
+		},
+	},
+	Trades: &TradesConfig{
+		Enabled:          false,
+		RetentionHours:   8 * 24,
+		MaxCatchUpBlocks: 100,
+		QuoteDenoms: []string{
+			"factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC",
+			"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4", // USDC.noble
+			"factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT",
+			"uosmo",
 		},
 	},
 	OTEL: &OTELConfig{
@@ -356,6 +370,15 @@ func (c Config) Validate() error {
 	// Validate the dynamic min liquidity cap filters.
 	if err := validateDynamicMinLiquidityCapDesc(c.Router.DynamicMinLiquidityCapFiltersDesc); err != nil {
 		return err
+	}
+
+	if c.Trades != nil {
+		if err := c.Trades.Validate(); err != nil {
+			return err
+		}
+		if c.Trades.Enabled && (c.GRPCIngester == nil || !c.GRPCIngester.Enabled) {
+			return errors.New("trades ingestion requires the grpc ingester to be enabled")
+		}
 	}
 
 	return nil
