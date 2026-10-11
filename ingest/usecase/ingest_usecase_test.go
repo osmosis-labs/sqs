@@ -362,7 +362,7 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 		},
 
 		{
-			name: "updated pool no longer holds denoms -> its entries are pruned, last pool leaves an empty entry",
+			name: "updated pool no longer holds denoms -> its entries stay with zero liquidity, totals drop",
 
 			transferTo: domain.DenomPoolLiquidityMap{
 				UOSMO: domain.DenomPoolLiquidityData{
@@ -404,16 +404,20 @@ func (s *IngestUseCaseTestSuite) TestTransferDenomLiquidityMap() {
 						defaultPoolID + 1: defaultAmount,
 					},
 				},
+				// The drained pool stays a route candidate for the denom it no longer holds.
 				USDC: domain.DenomPoolLiquidityData{
 					TotalLiquidity: defaultAmount,
 					Pools: map[uint64]osmomath.Int{
-						defaultPoolID: defaultAmount,
+						defaultPoolID:     defaultAmount,
+						defaultPoolID + 1: zeroInt,
 					},
 				},
 				ATOM: domain.DenomPoolLiquidityData{
-					// Built by subtraction so the zero matches the pruned total's internal form.
+					// Built by subtraction so the zero matches the drained total's internal form.
 					TotalLiquidity: defaultAmount.Sub(defaultAmount),
-					Pools:          map[uint64]osmomath.Int{},
+					Pools: map[uint64]osmomath.Int{
+						defaultPoolID + 1: zeroInt,
+					},
 				},
 			},
 			expectedDrainedDenoms: map[string]struct{}{USDC: {}, ATOM: {}},

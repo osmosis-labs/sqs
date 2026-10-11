@@ -328,7 +328,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, height uint64, poolDa
 	p.denomLiquidityMap, drainedDenoms = transferDenomLiquidityMap(p.denomLiquidityMap, currentBlockLiquidityMap, uniqueData.PoolIDs)
 
 	// A denom drained from a pool is not in that pool's balances, so it has to be
-	// marked as updated for its candidate routes and liquidity to be recomputed.
+	// marked as updated for its liquidity and candidate routes to be recomputed.
 	for denom := range drainedDenoms {
 		uniqueData.UpdatedDenoms[denom] = struct{}{}
 	}
@@ -431,13 +431,14 @@ func updateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap domain.Denom
 // We then simply add the transferFrom liquidity map to the total to reflect the new total.
 // the updated denom liquidity data is then set for that denom.
 //
-// Pruning process:
+// Drain process:
 // updatedPoolIDs are the pools updated in the current block. Their transferFrom entries are their
 // complete current balances, so any entry an updated pool still has in transferTo for a denom that is
-// absent from its transferFrom entries is a denom the pool no longer holds. Such entries are removed and
-// their liquidity is subtracted from the denom total. A denom left with no pools keeps an empty entry with
-// zero total liquidity, so that downstream readers see it as drained rather than unknown.
-// Returns the denoms that had at least one pool entry removed.
+// absent from its transferFrom entries is a denom the pool no longer holds. Such an entry's liquidity is
+// subtracted from the denom total and set to zero. The entry itself is kept: a pool with no balance of a
+// denom can still take that denom in (for example an orderbook with asks but no quote balance), so it must
+// stay a route candidate for the denom.
+// Returns the denoms that had at least one pool entry drained to zero.
 //
 // transferTo is not mutated: the previous map may still be read by the asynchronous pricing workers of an
 // earlier block. A new top-level map is returned, and every changed denom entry gets its own pools map.
@@ -447,17 +448,21 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 
 	drainedDenoms := map[string]struct{}{}
 
-	// Prune the entries of updated pools for denoms they no longer hold.
+	// Zero the entries of updated pools for denoms they no longer hold.
 	if len(updatedPoolIDs) > 0 {
 		for denom, transferToLiquidityDataForDenom := range transferTo {
 			currentPools := transferFrom[denom].Pools
 
 			var drainedPoolIDs []uint64
-			for poolID := range transferToLiquidityDataForDenom.Pools {
+			for poolID, liquidity := range transferToLiquidityDataForDenom.Pools {
 				if _, updated := updatedPoolIDs[poolID]; !updated {
 					continue
 				}
 				if _, held := currentPools[poolID]; held {
+					continue
+				}
+				if liquidity.IsNil() || liquidity.IsZero() {
+					// Already drained in an earlier block.
 					continue
 				}
 				drainedPoolIDs = append(drainedPoolIDs, poolID)
@@ -467,13 +472,13 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 				continue
 			}
 
-			pruned := copyDenomPoolLiquidityData(transferToLiquidityDataForDenom)
+			drained := copyDenomPoolLiquidityData(transferToLiquidityDataForDenom)
 			for _, poolID := range drainedPoolIDs {
-				pruned.TotalLiquidity = pruned.TotalLiquidity.Sub(pruned.Pools[poolID])
-				delete(pruned.Pools, poolID)
+				drained.TotalLiquidity = drained.TotalLiquidity.Sub(drained.Pools[poolID])
+				drained.Pools[poolID] = osmomath.ZeroInt()
 			}
 
-			result[denom] = pruned
+			result[denom] = drained
 			drainedDenoms[denom] = struct{}{}
 		}
 	}
