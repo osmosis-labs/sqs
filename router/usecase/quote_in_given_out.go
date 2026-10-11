@@ -30,6 +30,7 @@ type quoteExactAmountOut struct {
 	LiquidityCapOverflow    bool                `json:"liquidity_cap_overflow"`
 	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
 	PriceImpact             osmomath.Dec        `json:"price_impact"`
+	PriceImpactUnknown      bool                `json:"price_impact_unknown,omitempty"`
 	InBaseOutQuoteSpotPrice osmomath.Dec        `json:"in_base_out_quote_spot_price"`
 	PriceInfo               *domain.TxFeeInfo   `json:"price_info,omitempty"`
 }
@@ -160,6 +161,7 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 		q.LiquidityCapOverflow = q.quoteExactAmountIn.LiquidityCapOverflow
 		q.EffectiveFee = q.quoteExactAmountIn.EffectiveFee
 		q.PriceImpact = q.quoteExactAmountIn.PriceImpact
+		q.PriceImpactUnknown = q.quoteExactAmountIn.PriceImpactUnknown
 		q.InBaseOutQuoteSpotPrice = q.quoteExactAmountIn.InBaseOutQuoteSpotPrice
 		q.PriceInfo = q.quoteExactAmountIn.PriceInfo
 		for i, r := range q.Route {
@@ -185,6 +187,7 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	totalLiquidityCap := osmomath.ZeroInt()
 	totalSpotPriceOutBaseInQuote := osmomath.ZeroDec()
 	totalEffectiveSpotPriceOutBaseInQuote := osmomath.ZeroDec()
+	priceImpactUnknown := false
 
 	denoms := []string{q.AmountOut.Denom}
 	resultRoutes := make([]domain.SplitRoute, 0, len(q.Route))
@@ -209,6 +212,12 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 		newPools, routeSpotPriceOutBaseInQuote, effectiveSpotPriceOutBaseInQuote, err := routeImpl.PrepareResultPoolsInGivenOut(ctx, tokenOut, logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
+		}
+
+		// A zero route spot price means a pool's spot price could not be computed, so the
+		// quote's price impact is unknown (see the exact-in PrepareResult).
+		if routeSpotPriceOutBaseInQuote.IsZero() {
+			priceImpactUnknown = true
 		}
 
 		for _, pool := range newPools {
@@ -237,7 +246,11 @@ func (q *quoteExactAmountOut) PrepareResult(ctx context.Context, scalingFactor o
 	// Price impact: (effectiveOutPerIn / spotOutPerIn) - 1, negative when adverse. Both prices
 	// are in-per-out here, so this is spotInPerOut / effectiveInPerOut - 1. The effective price
 	// excludes taker fees, matching exact-in; fees are reported separately in EffectiveFee.
-	if !totalEffectiveSpotPriceOutBaseInQuote.IsZero() {
+	// With an unknown spot price this would otherwise come out as -1 (-100%).
+	if priceImpactUnknown || totalSpotPriceOutBaseInQuote.IsZero() || totalEffectiveSpotPriceOutBaseInQuote.IsZero() {
+		q.PriceImpact = osmomath.ZeroDec()
+		q.PriceImpactUnknown = true
+	} else {
 		q.PriceImpact = totalSpotPriceOutBaseInQuote.Quo(totalEffectiveSpotPriceOutBaseInQuote).SubMut(one)
 	}
 

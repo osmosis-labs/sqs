@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -436,6 +437,91 @@ func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_PriceImpact() {
 
 	s.Require().Equal(zeroFeeQuote.GetPriceImpact().String(), priceImpact.String(),
 		"exact-out price impact must not depend on taker fees")
+}
+
+// TestPrepareResult_PriceImpact_SpotPriceError validates that when a pool's spot price cannot
+// be computed, price impact is reported as unknown instead of a silent zero (single route) or
+// an inflated value from a split whose failing route is missing from the spot price total.
+func (s *RouterTestSuite) TestPrepareResult_PriceImpact_SpotPriceError() {
+	s.Setup()
+
+	poolID := s.PrepareCustomBalancerPool([]balancer.PoolAsset{
+		{Token: sdk.NewCoin(ETH, defaultAmount), Weight: osmomath.NewInt(100)},
+		{Token: sdk.NewCoin(USDC, defaultAmount.MulRaw(4)), Weight: osmomath.NewInt(100)},
+	}, balancer.PoolParams{SwapFee: osmomath.NewDecWithPrec(5, 3), ExitFee: osmomath.ZeroDec()})
+	chainPool, err := s.App.PoolManagerKeeper.GetPool(s.Ctx, poolID)
+	s.Require().NoError(err)
+
+	halfIn, halfOut := totalInAmount.QuoRaw(2), totalOutAmount.QuoRaw(2)
+
+	newRoute := func(in, out osmomath.Int, spotPriceFails bool) domain.SplitRoute {
+		var pool domain.RoutablePool = mocks.WithMockedTokenOut(mocks.WithTokenOutDenom(mocks.WithChainPoolModel(DefaultMockPool, chainPool), USDC), sdk.NewCoin(USDC, out))
+		if spotPriceFails {
+			pool = &spotPriceErrorPool{RoutablePool: pool}
+		}
+		return &route.RouteWithOutAmount{Pools: []domain.RoutablePool{pool}, InAmount: in, OutAmount: out}
+	}
+
+	tests := map[string][]domain.SplitRoute{
+		"single route":                 {newRoute(totalInAmount, totalOutAmount, true)},
+		"split with one failing route": {newRoute(halfIn, halfOut, false), newRoute(halfIn, halfOut, true)},
+	}
+
+	for name, routes := range tests {
+		s.Run(name, func() {
+			testQuote := &usecase.QuoteImpl{
+				AmountIn:     sdk.NewCoin(ETH, totalInAmount),
+				AmountOut:    totalOutAmount,
+				Route:        routes,
+				EffectiveFee: osmomath.ZeroDec(),
+			}
+
+			_, _, err := testQuote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
+			s.Require().NoError(err)
+
+			s.Require().True(testQuote.PriceImpactUnknown)
+			s.Require().True(testQuote.GetPriceImpact().IsZero(), "got %s", testQuote.GetPriceImpact())
+		})
+	}
+}
+
+// TestPrepareResult_ExactOut_TruePath_PriceImpact_SpotPriceError validates the same unknown
+// price impact on the true exact-out path for a split with one failing route.
+func (s *RouterTestSuite) TestPrepareResult_ExactOut_TruePath_PriceImpact_SpotPriceError() {
+	s.SetupTest()
+
+	_, poolThree := s.PoolThree()
+
+	quote := s.NewExactAmountOutTrueQuote(
+		poolThree,
+		osmomath.NewInt(1_250_000), sdk.NewCoin(USDC, osmomath.NewInt(5_000_000)),
+		osmomath.ZeroDec(), osmomath.ZeroDec(),
+		osmomath.NewInt(750_000), osmomath.NewInt(3_000_000),
+		osmomath.NewInt(500_000), osmomath.NewInt(2_000_000),
+	)
+
+	// Make the second route's pool fail to compute its spot price.
+	failingPool := quote.Route[1].GetPools()[0]
+	quote.Route[1] = &route.RouteWithOutAmount{
+		RouteImpl: route.RouteImpl{Pools: []domain.RoutablePool{&spotPriceErrorPool{RoutablePool: failingPool}}},
+		InAmount:  quote.Route[1].GetAmountIn(),
+		OutAmount: quote.Route[1].GetAmountOut(),
+	}
+
+	_, _, err := quote.PrepareResult(context.TODO(), defaultSpotPriceScalingFactor, nil, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+
+	s.Require().True(quote.PriceImpactUnknown)
+	s.Require().True(quote.GetPriceImpact().IsZero(), "got %s", quote.GetPriceImpact())
+}
+
+// spotPriceErrorPool wraps a routable pool so that its spot price cannot be computed.
+type spotPriceErrorPool struct {
+	domain.RoutablePool
+}
+
+func (*spotPriceErrorPool) CalcSpotPrice(context.Context, string, string) (osmomath.BigDec, error) {
+	return osmomath.BigDec{}, errors.New("spot price unavailable")
 }
 
 // validateRoutes validates that the given routes are equal.
