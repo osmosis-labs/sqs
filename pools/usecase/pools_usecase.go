@@ -149,9 +149,18 @@ func (p *poolsUseCase) GetAllPools() (pools []ingesttypes.PoolI, err error) {
 }
 
 // GetRoutesFromCandidates implements mvc.PoolsUsecase.
+// Each hop's taker fee is looked up by that hop's own directional (token in, token out) pair,
+// matching the chain, which charges every hop of a multi-hop swap by its own pair.
+// A hop's token in is the previous hop's token out, or tokenInDenom for the first hop.
+// The previous hop's token out is used rather than the candidate pool's token in denom
+// because cached ranked routes only retain the token out denom of each pool.
 func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes ingesttypes.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
-	return p.getRoutesFromCandidates(candidateRoutes, func(candidatePool ingesttypes.CandidatePool) (string, string) {
-		return tokenInDenom, candidatePool.TokenOutDenom
+	return p.getRoutesFromCandidates(candidateRoutes, func(candidateRoute ingesttypes.CandidateRoute, hopIndex int) (string, string) {
+		hopTokenInDenom := tokenInDenom
+		if hopIndex > 0 {
+			hopTokenInDenom = candidateRoute.Pools[hopIndex-1].TokenOutDenom
+		}
+		return hopTokenInDenom, candidateRoute.Pools[hopIndex].TokenOutDenom
 	})
 }
 
@@ -159,14 +168,16 @@ func (p *poolsUseCase) GetRoutesFromCandidates(candidateRoutes ingesttypes.Candi
 // In-given-out candidate routes are ordered from the output side, so each hop's taker fee is
 // looked up by that hop's own directional (token in, token out) pair.
 func (p *poolsUseCase) GetRoutesFromCandidatesInGivenOut(candidateRoutes ingesttypes.CandidateRoutes) ([]route.RouteImpl, error) {
-	return p.getRoutesFromCandidates(candidateRoutes, func(candidatePool ingesttypes.CandidatePool) (string, string) {
+	return p.getRoutesFromCandidates(candidateRoutes, func(candidateRoute ingesttypes.CandidateRoute, hopIndex int) (string, string) {
+		candidatePool := candidateRoute.Pools[hopIndex]
 		return candidatePool.TokenInDenom, candidatePool.TokenOutDenom
 	})
 }
 
 // getRoutesFromCandidates converts candidate routes into routes with all pool data.
-// takerFeeDenoms returns the (token in, token out) denom pair used to look up each hop's taker fee.
-func (p *poolsUseCase) getRoutesFromCandidates(candidateRoutes ingesttypes.CandidateRoutes, takerFeeDenoms func(candidatePool ingesttypes.CandidatePool) (string, string)) ([]route.RouteImpl, error) {
+// takerFeeDenoms returns the (token in, token out) denom pair used to look up the taker fee
+// of the hop at hopIndex in candidateRoute.
+func (p *poolsUseCase) getRoutesFromCandidates(candidateRoutes ingesttypes.CandidateRoutes, takerFeeDenoms func(candidateRoute ingesttypes.CandidateRoute, hopIndex int) (string, string)) ([]route.RouteImpl, error) {
 	// We track whether a route contains a generalized cosmwasm pool
 	// so that we can exclude it from split quote logic.
 	// The reason for this is that making network requests to chain is expensive.
@@ -182,14 +193,14 @@ func (p *poolsUseCase) getRoutesFromCandidates(candidateRoutes ingesttypes.Candi
 		// request, we should detect the error and skip the route.
 		skipErrorRoute := false
 
-		for _, candidatePool := range candidateRoute.Pools {
+		for hopIndex, candidatePool := range candidateRoute.Pools {
 			pool, err := p.GetPool(candidatePool.ID)
 			if err != nil {
 				return nil, err
 			}
 
 			// Get taker fee
-			takerFeeDenomIn, takerFeeDenomOut := takerFeeDenoms(candidatePool)
+			takerFeeDenomIn, takerFeeDenomOut := takerFeeDenoms(candidateRoute, hopIndex)
 			takerFee, exists := p.routerRepository.GetTakerFee(takerFeeDenomIn, takerFeeDenomOut)
 			if !exists {
 				takerFee = ingesttypes.DefaultTakerFee

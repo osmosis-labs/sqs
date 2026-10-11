@@ -39,6 +39,13 @@ const (
 )
 
 var (
+	// recomputedCacheRoutePoolIDs is the route recomputed for defaultAmountInCache of OSMO to ATOM:
+	// OSMO -> USDC (pool 1464), then USDC -> ATOM (pool 1282). Each hop pays its own pair's taker fee
+	// of 0.1%, which beats the 0.2% OSMO -> ATOM taker fee of the direct pools.
+	recomputedCacheRoutePoolIDs = []uint64{1464, 1282}
+)
+
+var (
 	// For the purposes of testing cache, we focus on a small amount of token in (1_000_000 uosmo), expecting pool 1265 to be returned.
 	// Search for tests that reference this value and read test description for details.
 	defaultAmountInCache = osmomath.NewInt(1_000_000)
@@ -929,14 +936,14 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 		amountIn osmomath.Int
 
-		expectedRoutePoolID uint64
+		expectedRoutePoolIDs []uint64
 	}{
 		"cache is not set, computes routes": {
 			amountIn: defaultAmountInCache,
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolIDs: recomputedCacheRoutePoolIDs,
 		},
 		"cache is not set and is disabled via option, computes routes but does not cache": {
 			amountIn: defaultAmountInCache,
@@ -945,7 +952,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// For the default amount in, we expect this pool to be returned.
 			// See test description above for details.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolIDs: recomputedCacheRoutePoolIDs,
 		},
 		"candidate route cache is set to balancer - use cached": {
 			amountIn: defaultAmountInCache,
@@ -955,7 +962,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Hour,
 
 			// We expect balancer because it is cached.
-			expectedRoutePoolID: poolIDOneBalancer,
+			expectedRoutePoolIDs: []uint64{poolIDOneBalancer},
 		},
 		"candidate route cache is set to balancer but disabled via option -> recomputes and does not cache": {
 			amountIn: defaultAmountInCache,
@@ -967,7 +974,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			isCacheOptionDisabled: true,
 
 			// We expect balancer because it is cached.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolIDs: recomputedCacheRoutePoolIDs,
 		},
 		"candidate route cache is expired - overwrites computed": {
 			amountIn: defaultAmountInCache,
@@ -979,7 +986,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Nanosecond,
 
 			// We expect this pool because the cache with balancer pool expires.
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolIDs: recomputedCacheRoutePoolIDs,
 		},
 		"ranked route cache is set to balancer - use cached": {
 			amountIn: defaultAmountInCache,
@@ -989,7 +996,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Hour,
 
 			// We expect balancer because it is cached.
-			expectedRoutePoolID: poolIDOneBalancer,
+			expectedRoutePoolIDs: []uint64{poolIDOneBalancer},
 		},
 		"ranked route cache is set to balancer but disabled via options - recomputes and does not cache": {
 			amountIn: defaultAmountInCache,
@@ -1001,7 +1008,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Hour,
 
 			// Recomputed pool
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolIDs: recomputedCacheRoutePoolIDs,
 		},
 		"ranked route cache is set to pool A but candidate to pool B  - use ranked route choice": {
 			amountIn: defaultAmountInCache,
@@ -1012,7 +1019,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Hour,
 
 			// Ranked route choice
-			expectedRoutePoolID: poolID1135Concentrated,
+			expectedRoutePoolIDs: []uint64{poolID1135Concentrated},
 		},
 		"ranked route cache is set to pool A but candidate to pool B and cache is disabled via option  - recompute route": {
 			amountIn: defaultAmountInCache,
@@ -1025,7 +1032,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			cacheExpiryDuration: time.Hour,
 
 			// Recomputed
-			expectedRoutePoolID: poolID1400Concentrated,
+			expectedRoutePoolIDs: recomputedCacheRoutePoolIDs,
 		},
 	}
 
@@ -1066,12 +1073,13 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			quoteRoutes := quote.GetRoute()
 			s.Require().Len(quoteRoutes, 1)
 
-			// By construction, this test always expects 1 pool
+			// Validate that the route pool IDs are the expected ones
 			routePools := quoteRoutes[0].GetPools()
-			s.Require().Len(routePools, 1)
-
-			// Validate that the pool ID is the expected one
-			s.Require().Equal(tc.expectedRoutePoolID, routePools[0].GetId())
+			actualRoutePoolIDs := make([]uint64, 0, len(routePools))
+			for _, routePool := range routePools {
+				actualRoutePoolIDs = append(actualRoutePoolIDs, routePool.GetId())
+			}
+			s.Require().Equal(tc.expectedRoutePoolIDs, actualRoutePoolIDs)
 
 			// Validate that the quote is not nil
 			s.Require().NotNil(quote.GetAmountOut())

@@ -530,6 +530,64 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidatesInGivenOut_Directiona
 	s.Require().Equal(denomOne, routes[0].GetTokenInDenom())
 }
 
+// Validates that GetRoutesFromCandidates assigns each hop of an out-given-in route the
+// directional taker fee of its own (token in, token out) pair, where a hop's token in is the
+// previous hop's token out. A lookup keyed by the route's starting denom charges later hops the
+// (start, hop out) pair's fee instead, which misstates exact-in amount_out.
+//
+// The candidate pools carry only the token out denom, as cached ranked routes do.
+func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidatesOutGivenIn_DirectionalTakerFeePerHop() {
+	s.Setup()
+
+	// Pool one: denomOne <> denomTwo. Pool two: denomTwo <> denomThree.
+	poolOneID := s.PrepareBalancerPoolWithCoins(sdk.NewCoin(denomOne, defaultAmt0), sdk.NewCoin(denomTwo, defaultAmt1))
+	poolOne, err := s.App.GAMMKeeper.GetPool(s.Ctx, poolOneID)
+	s.Require().NoError(err)
+	poolTwoID := s.PrepareBalancerPoolWithCoins(sdk.NewCoin(denomTwo, defaultAmt0), sdk.NewCoin(denomThree, defaultAmt1))
+	poolTwo, err := s.App.GAMMKeeper.GetPool(s.Ctx, poolTwoID)
+	s.Require().NoError(err)
+
+	var (
+		oneToTwoFee   = osmomath.MustNewDecFromStr("0.001")
+		twoToThreeFee = osmomath.MustNewDecFromStr("0.008")
+	)
+
+	// The (start, hop out) pair is the decoy a route-start lookup would pick up for hop two.
+	routerRepo := routerrepo.New(&log.NoOpLogger{})
+	routerRepo.SetTakerFees(ingesttypes.TakerFeeMap{
+		{Denom0: denomOne, Denom1: denomTwo}:   oneToTwoFee,
+		{Denom0: denomTwo, Denom1: denomThree}: twoToThreeFee,
+		{Denom0: denomOne, Denom1: denomThree}: osmomath.MustNewDecFromStr("0.003"),
+	})
+
+	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	poolsUsecase.StorePools([]ingesttypes.PoolI{
+		&mocks.MockRoutablePool{ChainPoolModel: poolOne, ID: poolOneID},
+		&mocks.MockRoutablePool{ChainPoolModel: poolTwo, ID: poolTwoID},
+	})
+
+	// Exact in of denomOne for denomThree: denomOne -> denomTwo (pool one), then
+	// denomTwo -> denomThree (pool two).
+	routes, err := poolsUsecase.GetRoutesFromCandidates(ingesttypes.CandidateRoutes{
+		Routes: []ingesttypes.CandidateRoute{{Pools: []ingesttypes.CandidatePool{
+			{ID: poolOneID, TokenOutDenom: denomTwo},
+			{ID: poolTwoID, TokenOutDenom: denomThree},
+		}}},
+	}, denomOne, denomThree)
+	s.Require().NoError(err)
+	s.Require().Len(routes, 1)
+
+	routePools := routes[0].GetPools()
+	s.Require().Len(routePools, 2)
+
+	s.Require().Equal(poolOneID, routePools[0].GetId())
+	s.Require().Equal(oneToTwoFee.String(), routePools[0].GetTakerFee().String())
+
+	s.Require().Equal(poolTwoID, routePools[1].GetId())
+	s.Require().Equal(twoToThreeFee.String(), routePools[1].GetTakerFee().String())
+}
+
 func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 	const (
 		differentPoolID        = defaultPoolID + 1
