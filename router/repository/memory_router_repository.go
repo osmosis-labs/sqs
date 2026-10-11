@@ -3,12 +3,14 @@ package routerrepo
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"sync"
 	"sync/atomic"
 
 	"cosmossdk.io/math"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	sqsatomic "github.com/osmosis-labs/sqs/domain/sync/atomic"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 
@@ -186,16 +188,59 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 	// Some of the pools from the block data may not have a liquidity cap set or it's set to 0.
 	// Here we manually update the liquidity cap for such candidate routes based on the pool data so
 	// that we can still route over such pools.
-	for denom, value := range newData {
+	//
+	// The old entries are published and read concurrently by request goroutines, so they are never
+	// mutated: an entry whose liquidity cap is updated is copied with its own liquidity cap value.
+	// Denoms present in the block data are skipped since they are overwritten below.
+	zeroCapPoolIDs := make(map[uint64]struct{})
+	for denom, value := range oldData {
+		if _, ok := data[denom]; ok {
+			continue
+		}
 		for i := range value.SortedPools {
 			if value.SortedPools[i].GetPoolLiquidityCap() == 0 {
-				p, _, err := r.poolHandler.GetPools(domain.WithPoolIDFilter([]uint64{value.SortedPools[i].ID}))
-				if len(p) == 0 || err != nil {
-					continue // no pool found
+				zeroCapPoolIDs[value.SortedPools[i].ID] = struct{}{}
+			}
+		}
+	}
+
+	if len(zeroCapPoolIDs) > 0 {
+		liquidityCaps := make(map[uint64]uint64, len(zeroCapPoolIDs))
+		pools, _, err := r.poolHandler.GetPools(domain.WithPoolIDFilter(domain.KeysFromMap(zeroCapPoolIDs)))
+		if err == nil {
+			for _, p := range pools {
+				if p.GetLiquidityCap().GT(osmomath.ZeroInt()) {
+					liquidityCaps[p.GetId()] = sqsosmomath.SafeUint64(p.GetLiquidityCap())
+				}
+			}
+		}
+
+		for denom, value := range oldData {
+			if _, ok := data[denom]; ok {
+				continue
+			}
+
+			var updatedPools []domain.CandidatePoolWrapper
+			for i := range value.SortedPools {
+				if value.SortedPools[i].GetPoolLiquidityCap() != 0 {
+					continue
 				}
 
-				if p[0].GetLiquidityCap().GT(osmomath.ZeroInt()) {
-					newData[denom].SortedPools[i].SetPoolLiquidityCap(sqsosmomath.SafeUint64(p[0].GetLiquidityCap()))
+				liquidityCap, ok := liquidityCaps[value.SortedPools[i].ID]
+				if !ok {
+					continue // no pool found or its liquidity cap is still zero
+				}
+
+				if updatedPools == nil {
+					updatedPools = slices.Clone(value.SortedPools)
+				}
+				updatedPools[i].PoolLiquidityCap = sqsatomic.NewUint64(liquidityCap)
+			}
+
+			if updatedPools != nil {
+				newData[denom] = &domain.CandidateRouteDenomData{
+					SortedPools:         updatedPools,
+					CanonicalOrderbooks: value.CanonicalOrderbooks,
 				}
 			}
 		}
