@@ -231,6 +231,15 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_AlloyTransmuter()
 			staticLimiters:  map[string]cosmwasmpool.StaticLimiter{USDC: {UpperLimit: "0.6"}},
 			expectedTokenIn: osmomath.NewInt(10_000_000),
 		},
+		"static limiter is skipped when the swap drains all underlying assets": {
+			// 1_000_000 * 10 / 100 = 100_000 ALLUSD in, leaving no underlying assets in the pool.
+			// USDT's limiter would be checked since its weight rises as USDC leaves.
+			tokenOut:        sdk.NewCoin(USDC, defaultBalanceAmt),
+			tokenInDenom:    ALLUSD,
+			balances:        sdk.NewCoins(sdk.NewCoin(USDC, defaultBalanceAmt)),
+			staticLimiters:  map[string]cosmwasmpool.StaticLimiter{USDT: {UpperLimit: "0.6"}},
+			expectedTokenIn: osmomath.NewInt(100_000),
+		},
 	}
 
 	for name, tc := range tests {
@@ -265,6 +274,28 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_AlloyTransmuter()
 			s.Require().True(tokenOut.Amount.LT(tc.tokenOut.Amount), "one unit less of token in still buys %s", tokenOut)
 		})
 	}
+}
+
+// Tests that spot price ignores the static rate limiter, as the contract's spot price query does.
+// Adding one unit of USDC would push its weight to 601 / 1001, over the 0.6 limit.
+func (s *RoutablePoolTestSuite) TestCalcSpotPrice_AlloyTransmuter_IgnoresStaticLimiter() {
+	s.Setup()
+	balances := sdk.NewCoins(sdk.NewCoin(USDC, osmomath.NewInt(600)), sdk.NewCoin(USDT, osmomath.NewInt(400)))
+	routablePool := s.SetupRoutableAlloyTransmuterPoolCustom(USDC, ALLUSD, balances, osmomath.ZeroDec(), cosmwasmpool.AlloyedRateLimiter{
+		StaticLimiterByDenomMap: map[string]cosmwasmpool.StaticLimiter{USDC: {UpperLimit: "0.6"}},
+	}, cosmwasmpool.PrecomputedData{
+		StdNormFactor: osmomath.OneInt(),
+		NormalizationScalingFactors: map[string]osmomath.Int{
+			USDC:               osmomath.OneInt(),
+			USDT:               osmomath.OneInt(),
+			OVERLY_PRECISE_USD: osmomath.OneInt(),
+			NO_PRECISION_USD:   osmomath.OneInt(),
+		},
+	})
+
+	spotPrice, err := routablePool.CalcSpotPrice(context.TODO(), USDC, ALLUSD)
+	s.Require().NoError(err)
+	s.Require().Equal(osmomath.MustNewBigDecFromStr("0.1"), spotPrice) // 1 * 10 / 100
 }
 
 func (s *RoutablePoolTestSuite) TestFindNormalizationFactors_AlloyTransmuter() {
