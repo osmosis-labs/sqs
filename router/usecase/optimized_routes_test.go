@@ -18,6 +18,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	poolsusecase "github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
+	routertypes "github.com/osmosis-labs/sqs/router/types"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
@@ -782,6 +783,12 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	quote, err := routerUsecase.GetCustomDirectQuoteOutGivenIn(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
+
+	// A pinned pool on the exclusion list is rejected rather than quoted.
+	config.ExcludedPoolIDs = []uint64{expectedPoolID}
+	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	_, err = routerUsecase.GetCustomDirectQuoteOutGivenIn(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	s.Require().ErrorIs(err, routertypes.ErrValidationFailed)
 }
 
 // Validates that the logic skips errors from individual routes

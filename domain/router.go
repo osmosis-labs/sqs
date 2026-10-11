@@ -91,6 +91,10 @@ type RouterConfig struct {
 	// Pool IDs that are prioritized in the router.
 	PreferredPoolIDs []uint64 `mapstructure:"preferred-pool-ids"`
 
+	// Pool IDs that are never used by the router or by chain pricing,
+	// e.g. a frozen transmuter or a pool whose swaps fail onchain.
+	ExcludedPoolIDs []uint64 `mapstructure:"excluded-pool-ids"`
+
 	// Maximum number of pools in one route.
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
 

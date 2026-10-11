@@ -455,6 +455,12 @@ var (
 
 // GetCustomDirectQuoteOutGivenIn implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
+	// A pinned pool bypasses the candidate route search, so check the exclusion list here too,
+	// before the lookup so an excluded pool that no longer exists still gets this error.
+	if osmoutils.Contains(r.defaultConfig.ExcludedPoolIDs, poolID) {
+		return nil, fmt.Errorf("%w: pool %d is excluded from routing", routertypes.ErrValidationFailed, poolID)
+	}
+
 	pool, err := r.poolsUsecase.GetPool(poolID)
 	if err != nil {
 		return nil, err

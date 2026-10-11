@@ -397,7 +397,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 	err = poolsUsecase.StorePools(mainnetState.Pools)
 	s.Require().NoError(err)
 
-	candidateRouteFinder := routerusecase.NewCandidateRouteFinder(routerRepositoryMock, logger)
+	candidateRouteFinder := routerusecase.NewCandidateRouteFinder(routerRepositoryMock, options.RouterConfig.ExcludedPoolIDs, logger)
 
 	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
 
