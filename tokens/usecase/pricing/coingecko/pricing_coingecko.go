@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	sqshttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -116,7 +118,13 @@ func (c coingeckoPricing) GetPriceByCoingeckoId(ctx context.Context, baseDenom s
 	}
 
 	url := fmt.Sprintf("%s?ids=%s&vs_currencies=%s", c.coingeckoUrl, coingeckoId, c.quoteCurrency)
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	// The shared client has a timeout, so a slow Coingecko response cannot stall the request path.
+	resp, err := sqshttp.DefaultClient.Do(req)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
@@ -137,9 +145,15 @@ func (c coingeckoPricing) GetPriceByCoingeckoId(ctx context.Context, baseDenom s
 		return osmomath.BigDec{}, fmt.Errorf("price not found for coingecko ID: %s", coingeckoId)
 	}
 
-	result, err := osmomath.NewBigDecFromStr(fmt.Sprintf("%f", price))
+	// Format with the shortest exact representation rather than %f, which rounds to 6 decimals
+	// and turns prices below 5e-7 into zero.
+	result, err := osmomath.NewBigDecFromStr(strconv.FormatFloat(price, 'f', -1, 64))
 	if err != nil {
 		return osmomath.BigDec{}, err
+	}
+
+	if !result.IsPositive() {
+		return osmomath.BigDec{}, fmt.Errorf("non-positive price from Coingecko for coingecko ID: %s", coingeckoId)
 	}
 
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, c.quoteCurrency)

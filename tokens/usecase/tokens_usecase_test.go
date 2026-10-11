@@ -159,6 +159,78 @@ func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
 	s.Require().Equal(defaultCosmosExponent, osmoToken.Precision)
 }
 
+// Validates that human denoms shared by several assets resolve deterministically:
+// exact case first, then listed over preview, then the smallest chain denom.
+func (s *TokensUseCaseTestSuite) TestGetChainDenom_Collisions() {
+	tokens := map[string]domain.Token{
+		"ibc/B-AUSD-18": {HumanDenom: "aUSD", Precision: 18},
+		"ibc/A-AUSD-6":  {HumanDenom: "AUSD", Precision: 6},
+		"ibc/A-LINK-8":  {HumanDenom: "LINK.eth.terra", Precision: 8, IsUnlisted: true},
+		"ibc/B-LINK-18": {HumanDenom: "LINK.eth.terra", Precision: 18},
+	}
+
+	expected := map[string]string{
+		"aUSD":           "ibc/B-AUSD-18",
+		"AUSD":           "ibc/A-AUSD-6",
+		"ausd":           "ibc/A-AUSD-6",
+		"LINK.eth.terra": "ibc/B-LINK-18",
+		"link.eth.terra": "ibc/B-LINK-18",
+	}
+
+	// Map iteration order is random, so repeat to catch order dependence.
+	for i := 0; i < 20; i++ {
+		usecase := tokensusecase.NewTokensUsecase(tokens, 0, noOpLogger)
+		for humanDenom, expectedChainDenom := range expected {
+			chainDenom, err := usecase.GetChainDenom(humanDenom)
+			s.Require().NoError(err)
+			s.Require().Equal(expectedChainDenom, chainDenom, humanDenom)
+		}
+	}
+}
+
+// stubPricingSource returns the configured price for a base denom, or an error if it has none.
+type stubPricingSource struct {
+	prices map[string]osmomath.BigDec
+}
+
+func (p stubPricingSource) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, []domain.SplitRoute, error) {
+	price, ok := p.prices[baseDenom]
+	if !ok {
+		return osmomath.BigDec{}, nil, fmt.Errorf("no route for %s", baseDenom)
+	}
+	return price, nil, nil
+}
+
+func (stubPricingSource) InitializeCache(*cache.Cache) {}
+
+func (stubPricingSource) GetFallbackStrategy(string) domain.PricingSourceType {
+	return domain.NoneSourceType
+}
+
+// Validates that denoms whose price fails, is zero or is unknown are omitted rather than priced at zero.
+func (s *TokensUseCaseTestSuite) TestGetPrices_OmitsUnpricedDenoms() {
+	const quoteDenom = "uquote"
+	usecase := tokensusecase.NewTokensUsecase(map[string]domain.Token{
+		"upriced":  {HumanDenom: "priced", Precision: 6},
+		"uzero":    {HumanDenom: "zero", Precision: 6},
+		"ufailing": {HumanDenom: "failing", Precision: 6},
+		quoteDenom: {HumanDenom: "quote", Precision: 6},
+	}, 0, noOpLogger)
+	usecase.RegisterPricingStrategy(domain.ChainPricingSourceType, stubPricingSource{prices: map[string]osmomath.BigDec{
+		"upriced": osmomath.NewBigDec(2),
+		"uzero":   osmomath.ZeroBigDec(),
+	}})
+
+	prices, err := usecase.GetPrices(context.Background(), []string{"upriced", "uzero", "ufailing", "uunknown"}, []string{quoteDenom}, domain.ChainPricingSourceType)
+	s.Require().NoError(err)
+
+	s.Require().Equal(osmomath.NewBigDec(2), prices["upriced"][quoteDenom].Price)
+	for _, denom := range []string{"uzero", "ufailing", "uunknown"} {
+		_, ok := prices[denom][quoteDenom]
+		s.Require().False(ok, denom)
+	}
+}
+
 // This test takes some mainnet denoms (routertesting.MainnetDenoms) and fetch their prices with USDC as a quote from Coingecko API endpoint.
 // It then validates that every denom has non-zero price quote as returned from Coingecko
 func (s *TokensUseCaseTestSuite) TestGetPrices_Coingecko() {

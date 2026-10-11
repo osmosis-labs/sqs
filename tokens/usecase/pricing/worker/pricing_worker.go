@@ -62,6 +62,10 @@ func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uni
 		// Increase error counter
 		p.logger.Error(domain.SQSPricingWorkerComputeDurationMetricName, zap.Error(err), zap.Uint64("height", height))
 		domain.SQSPricingWorkerComputeErrorCounter.Inc()
+
+		// Do not notify listeners so that the price update height stays behind
+		// and the healthcheck reports stale prices.
+		return
 	}
 
 	// Update listeners

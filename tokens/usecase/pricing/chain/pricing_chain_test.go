@@ -2,12 +2,16 @@ package chainpricing_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmoassert"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	"github.com/stretchr/testify/suite"
@@ -177,4 +181,45 @@ func (s *PricingTestSuite) TestGetPrice_ExcludedPoolIDs() {
 	s.Require().True(price.IsPositive())
 	s.Require().NotEmpty(routes)
 	s.Require().NotContains(poolIDsInRoutes(routes), excludedPoolID)
+}
+
+// Validates that a failed recompute evicts the cached price, so that the last good price
+// is not served after the route stops being usable.
+func (s *PricingTestSuite) TestGetPrice_FailedRecomputeEvictsCachedPrice() {
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+
+	routeUnusable := false
+	routerMock := &mocks.RouterUsecaseMock{
+		GetSimpleQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []domain.SplitRoute, error) {
+			if routeUnusable {
+				return nil, nil, errors.New("no route")
+			}
+			return mainnetUsecase.Router.GetSimpleQuote(ctx, tokenIn, tokenOutDenom, opts...)
+		},
+		GetPoolSpotPriceFunc: mainnetUsecase.Router.GetPoolSpotPrice,
+	}
+
+	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, routerMock)
+	s.Require().NoError(err)
+
+	// Populate the cache.
+	price, _, err := pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().NoError(err)
+	s.Require().True(price.IsPositive())
+
+	routeUnusable = true
+
+	// Still served from cache.
+	cachedPrice, _, err := pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().NoError(err)
+	s.Require().Equal(price, cachedPrice)
+
+	// System under test: the failed recompute evicts the cached price.
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().Error(err)
+
+	// The old price is no longer served.
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().Error(err)
 }

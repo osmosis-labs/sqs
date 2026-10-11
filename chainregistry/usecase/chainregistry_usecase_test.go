@@ -33,6 +33,8 @@ func TestGetFeeTokens(t *testing.T) {
 					tokens: []*api.FeeToken{
 						{Denom: "uosmo", FixedMinGasPrice: 0.0025},
 						{Denom: "uatom", FixedMinGasPrice: 0.0015},
+						// Unpriced token without gas prices is not served.
+						{Denom: "uion"},
 					},
 					logger: &log.NoOpLogger{},
 				}
@@ -180,8 +182,12 @@ func TestProcessFeeTokens(t *testing.T) {
 				},
 				"uatom": {},
 			},
-			expectedTokens: nil,
-			expectedError:  "failed to get price for uatom/factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC",
+			// The unpriced token is kept without gas prices rather than failing the whole update.
+			expectedTokens: api.FeeTokens{
+				{Denom: "uosmo", FixedMinGasPrice: 0.0025, LowGasPrice: 0.0025, AverageGasPrice: 0.0025, HighGasPrice: 0.0025},
+				{Denom: "uatom"},
+			},
+			expectedError: "",
 		},
 	}
 

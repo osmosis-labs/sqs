@@ -412,8 +412,14 @@ func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, 
 	coinsWithPrices := make([]passthroughdomain.AccountCoinsResult, 0, len(coins))
 	capitalizationTotal := osmomath.ZeroDec()
 
+	var unpricedDenoms []string
 	for _, coin := range coins {
 		price := priceResult.GetPriceForDenom(coin.Denom, p.defaultQuoteDenom)
+
+		// A valid denom without a price contributes zero, so the total is only best-effort.
+		if _, ok := priceResult[coin.Denom][p.defaultQuoteDenom]; !ok && err == nil && p.tokensUseCase.IsValidChainDenom(coin.Denom) {
+			unpricedDenoms = append(unpricedDenoms, coin.Denom)
+		}
 
 		coinCapitalization := p.liquidityPricer.PriceCoin(coin, price)
 
@@ -423,6 +429,10 @@ func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, 
 			Coin:                coin,
 			CapitalizationValue: coinCapitalization,
 		})
+	}
+
+	if len(unpricedDenoms) > 0 {
+		err = fmt.Errorf("no price for denoms: %s", strings.Join(unpricedDenoms, ", "))
 	}
 
 	// Note that it is possible to have a valid coinsWithPrices result.

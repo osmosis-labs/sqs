@@ -51,6 +51,8 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 		RUsecase: ru,
 
 		defaultQuoteChainDenom: defaultQuoteChainDenom,
+		// Coingecko prices are in USD, which SQS serves under the default quote denom.
+		defaultCoingeckoDenom: defaultQuoteChainDenom,
 
 		logger: logger,
 	}
