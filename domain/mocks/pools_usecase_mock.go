@@ -32,6 +32,8 @@ type PoolsUsecaseMock struct {
 	GetAllOrderbookPoolIDsFunc          func() ([]domain.CanonicalOrderBooksResult, error)
 	IsCanonicalOrderbookPoolFunc        func(poolID uint64) bool
 
+	TakeCanonicalOrderbookChangedDenomsFunc func() []string
+
 	Pools        []ingesttypes.PoolI
 	TickModelMap map[uint64]*ingesttypes.TickModel
 }
@@ -76,6 +78,14 @@ func (pm *PoolsUsecaseMock) WithGetAllOrderbookPoolIDs(result []domain.Canonical
 	pm.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
 		return result, err
 	}
+}
+
+// TakeCanonicalOrderbookChangedDenoms implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) TakeCanonicalOrderbookChangedDenoms() []string {
+	if pm.TakeCanonicalOrderbookChangedDenomsFunc != nil {
+		return pm.TakeCanonicalOrderbookChangedDenomsFunc()
+	}
+	return nil
 }
 
 // GetCanonicalOrderbookPool implements mvc.PoolsUsecase.

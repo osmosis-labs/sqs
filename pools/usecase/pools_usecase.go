@@ -65,6 +65,9 @@ type poolsUseCase struct {
 	canonicalOrderbookMu                sync.Mutex
 	canonicalOrderBookForBaseQuoteDenom sync.Map
 	canonicalOrderbookPoolIDs           sync.Map
+	// canonicalOrderbookChangedDenoms are the base and quote denoms of pairs whose canonical
+	// orderbook changed since they were last taken. Guarded by canonicalOrderbookMu.
+	canonicalOrderbookChangedDenoms map[string]struct{}
 
 	// orderbookPools holds every stored orderbook pool, canonical or not, keyed by pool ID
 	// (uint64 -> domain.CanonicalOrderBooksResult). Order discovery uses it so that orders on
@@ -724,7 +727,30 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 	// Store the pool ID in the canonical orderbook pool IDs
 	p.canonicalOrderbookPoolIDs.Store(poolID, struct{}{})
 
+	p.markCanonicalOrderbookChanged(baseDenom, quoteDenom)
+
 	return true, nil
+}
+
+// markCanonicalOrderbookChanged records that the canonical orderbook of the given pair changed.
+// CONTRACT: canonicalOrderbookMu is held.
+func (p *poolsUseCase) markCanonicalOrderbookChanged(baseDenom, quoteDenom string) {
+	if p.canonicalOrderbookChangedDenoms == nil {
+		p.canonicalOrderbookChangedDenoms = map[string]struct{}{}
+	}
+	p.canonicalOrderbookChangedDenoms[baseDenom] = struct{}{}
+	p.canonicalOrderbookChangedDenoms[quoteDenom] = struct{}{}
+}
+
+// TakeCanonicalOrderbookChangedDenoms implements mvc.PoolsUsecase.
+func (p *poolsUseCase) TakeCanonicalOrderbookChangedDenoms() []string {
+	p.canonicalOrderbookMu.Lock()
+	defer p.canonicalOrderbookMu.Unlock()
+
+	denoms := domain.KeysFromMap(p.canonicalOrderbookChangedDenoms)
+	p.canonicalOrderbookChangedDenoms = nil
+
+	return denoms
 }
 
 // electCanonicalOrderbook re-selects the canonical orderbook for the given base and quote denom from the
@@ -789,6 +815,8 @@ func (p *poolsUseCase) electCanonicalOrderbook(baseQuoteKey, baseDenom, quoteDen
 
 	p.canonicalOrderbookPoolIDs.Delete(incumbent.PoolID)
 	p.canonicalOrderbookPoolIDs.Store(best.PoolID, struct{}{})
+
+	p.markCanonicalOrderbookChanged(baseDenom, quoteDenom)
 
 	return true
 }

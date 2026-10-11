@@ -545,6 +545,10 @@ func (s *PoolsUsecaseTestSuite) TestStorePools_DrainedCanonicalOrderbookReplaced
 	s.Require().True(poolsUsecase.IsCanonicalOrderbookPool(deeperPoolID))
 	s.Require().False(poolsUsecase.IsCanonicalOrderbookPool(drainedPoolID))
 
+	// Both denoms of the pair are reported for candidate route recomputation, once.
+	s.Require().ElementsMatch([]string{denomOne, denomTwo}, poolsUsecase.TakeCanonicalOrderbookChangedDenoms())
+	s.Require().Empty(poolsUsecase.TakeCanonicalOrderbookChangedDenoms())
+
 	// The demoted book is no longer canonical but its orders must still be discoverable.
 	allOrderbooks, err := poolsUsecase.GetAllOrderbookPoolIDs()
 	s.Require().NoError(err)

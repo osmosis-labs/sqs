@@ -137,6 +137,13 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		return err
 	}
 
+	// A canonical orderbook change affects the candidate routes of both denoms of its pair,
+	// even when only one of them is in this block's balances. This also picks up changes made
+	// by the previous block's asynchronous liquidity repricing.
+	for _, denom := range p.poolsUseCase.TakeCanonicalOrderbookChangedDenoms() {
+		uniqueBlockPoolMetadata.UpdatedDenoms[denom] = struct{}{}
+	}
+
 	// Get all pools (already updated with the newly ingested pools)
 	allPools, err := p.poolsUseCase.GetAllPools()
 	if err != nil {

@@ -626,6 +626,53 @@ func (s *PoolLiquidityComputeWorkerSuite) TestCreatePoolDenomMetaData() {
 	}
 }
 
+// Validates that pools emptied of all balances are skipped by the effective liquidity cap
+// computation instead of panicking on an empty balance set.
+func (s *PoolLiquidityComputeWorkerSuite) TestCreatePoolDenomMetaData_EmptiedPools() {
+	const (
+		drainedPoolID = defaultPoolID + 1
+		stalePoolID   = defaultPoolID + 2
+	)
+
+	liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
+	poolLiquidityHandlerMock := mocks.TokensPoolLiquidityHandlerMock{
+		DenomScalingFactorMap: defaultScalingFactorMap,
+	}
+	poolHandlerMock := mocks.PoolHandlerMock{
+		Pools: []ingesttypes.PoolI{
+			&mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)},
+			// Both emptied: every order cancelled, no balances left.
+			&mocks.MockRoutablePool{ID: drainedPoolID},
+			&mocks.MockRoutablePool{ID: stalePoolID},
+		},
+	}
+
+	poolLiquidityPricerWorker := worker.NewPoolLiquidityWorker(&mocks.TokensUsecaseMock{}, &poolLiquidityHandlerMock, &poolHandlerMock, liquidityPricer, &log.NoOpLogger{})
+
+	blockPoolMetadata := domain.BlockPoolMetadata{
+		DenomPoolLiquidityMap: domain.DenomPoolLiquidityMap{
+			UOSMO: {
+				TotalLiquidity: defaultLiquidity,
+				Pools: map[uint64]osmomath.Int{
+					defaultPoolID: defaultLiquidity,
+					// Drained in the liquidity map.
+					drainedPoolID: osmomath.ZeroInt(),
+					// Liquidity map entry not yet drained while the pool is already empty.
+					stalePoolID: defaultLiquidity,
+				},
+			},
+		},
+	}
+
+	// System under test
+	poolDenomMetadata, err := poolLiquidityPricerWorker.CreatePoolDenomMetaData(UOSMO, defaultHeight, defaultBlockPriceUpdates, USDC, blockPoolMetadata)
+	s.Require().NoError(err)
+
+	// Only the pool that still holds balances counts towards the effective liquidity cap.
+	s.Require().Equal(defaultLiquidityCap, poolDenomMetadata.TotalLiquidityCap)
+	s.Require().Equal(defaultLiquidityCap, poolDenomMetadata.TotalEffectiveLiquidityCap)
+}
+
 // Tests the helper for determining if denom repricing should be skipped.
 func (s *PoolLiquidityComputeWorkerSuite) TestShouldSkipDenomRepricing() {
 	tests := []struct {

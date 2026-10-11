@@ -46,6 +46,11 @@ type PoolsUsecase interface {
 	// Sorts the results by pool ID.
 	GetAllOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error)
 
+	// TakeCanonicalOrderbookChangedDenoms returns the base and quote denoms of every pair whose
+	// canonical orderbook changed since the previous call, and clears them. Candidate routes for
+	// both denoms of such a pair have to be recomputed, even when only one of them changed balance.
+	TakeCanonicalOrderbookChangedDenoms() []string
+
 	// IsCanonicalOrderbookPool returns true if the given pool ID is a canonical orderbook pool
 	// for some token pair.
 	IsCanonicalOrderbookPool(poolID uint64) bool
