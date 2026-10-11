@@ -268,6 +268,14 @@ func (s *OrderbookUsecaseTestSuite) TestProcessPool_NoTicksMarksBookIngested() {
 	ticks, found := repository.GetAllTicks(1)
 	s.Require().True(found)
 	s.Require().Empty(ticks)
+
+	// A book whose earlier ticks are no longer reported is emptied, not left with the old ticks.
+	repository.StoreTicks(1, 2, map[int64]orderbookdomain.OrderbookTick{1: {Tick: &cosmwasmpool.OrderbookTick{TickId: 1}}})
+	s.Require().NoError(usecase.ProcessPool(context.Background(), 3, pool))
+
+	ticks, found = repository.GetAllTicks(1)
+	s.Require().True(found)
+	s.Require().Empty(ticks)
 }
 
 func (s *OrderbookUsecaseTestSuite) TestGetActiveOrdersStream() {

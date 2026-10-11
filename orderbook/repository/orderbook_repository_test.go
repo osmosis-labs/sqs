@@ -21,7 +21,7 @@ func TestOrderBookUseCase(t *testing.T) {
 
 // defaultBlockHeight is the block the test ticks are treated as coming from.
 // StoreTicks discards updates older than what is already published, so tests
-// that only care about merge behaviour keep the height constant.
+// that only care about replacement behaviour keep the height constant.
 const defaultBlockHeight uint64 = 100
 
 var (
@@ -74,11 +74,14 @@ func (s *OrderBookUseCaseTestSuite) TestStoreTicks() {
 			expectedTicks: defaultTicks,
 		},
 		{
-			name:   "two additions",
+			name:   "second update replaces the set -> absent ticks are pruned",
 			poolId: defaultPoolID,
 			tickAdditions: []map[int64]orderbookdomain.OrderbookTick{
 				defaultTicks,
 				{
+					2: {
+						Tick: withTickID(2),
+					},
 					3: {
 						Tick: withTickID(3),
 					},
@@ -86,9 +89,6 @@ func (s *OrderBookUseCaseTestSuite) TestStoreTicks() {
 			},
 
 			expectedTicks: map[int64]orderbookdomain.OrderbookTick{
-				1: {
-					Tick: withTickID(1),
-				},
 				2: {
 					Tick: withTickID(2),
 				},
@@ -96,6 +96,16 @@ func (s *OrderBookUseCaseTestSuite) TestStoreTicks() {
 					Tick: withTickID(3),
 				},
 			},
+		},
+		{
+			name:   "emptied book -> no ticks stored",
+			poolId: defaultPoolID,
+			tickAdditions: []map[int64]orderbookdomain.OrderbookTick{
+				defaultTicks,
+				{},
+			},
+
+			expectedTicks: map[int64]orderbookdomain.OrderbookTick{},
 		},
 		{
 			name:   "empty ticks added",
@@ -170,22 +180,4 @@ func (s *OrderBookUseCaseTestSuite) TestStoreTicks_RejectsStaleBlocks() {
 	s.Require().True(ok)
 	s.Require().Equal("older", ticks[1].TickState.AskValues.TotalAmountOfLiquidity,
 		"a newer block must apply even if it lowers the value")
-}
-
-// TestStoreTicks_SameHeightBatchesAccumulate verifies that two updates carrying
-// the same height both land. A block's ticks are fetched in batches, so equal
-// heights must not be treated as stale.
-func (s *OrderBookUseCaseTestSuite) TestStoreTicks_SameHeightBatchesAccumulate() {
-	repo := orderbookrepository.New()
-
-	repo.StoreTicks(defaultPoolID, 300, map[int64]orderbookdomain.OrderbookTick{
-		1: {Tick: withTickID(1)},
-	})
-	repo.StoreTicks(defaultPoolID, 300, map[int64]orderbookdomain.OrderbookTick{
-		2: {Tick: withTickID(2)},
-	})
-
-	ticks, ok := repo.GetAllTicks(defaultPoolID)
-	s.Require().True(ok)
-	s.Require().Len(ticks, 2, "batches at the same height must accumulate")
 }

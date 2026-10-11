@@ -10,8 +10,8 @@ import (
 )
 
 // poolTicks holds one pool's complete tick set as of a given block height. The
-// map is immutable once published: StoreTicks builds the next version by
-// copying, and swaps the pointer in a single atomic store. Readers therefore
+// map is immutable once published: StoreTicks copies the update into a new
+// map and swaps the pointer in a single atomic store. Readers therefore
 // always observe the tick state of one block, never a mixture of two.
 type poolTicks struct {
 	// height is the block the ticks were ingested from. Used to discard updates
@@ -136,39 +136,32 @@ func (o *orderbookRepositoryImpl) GetTickByID(poolID uint64, tickID int64) (orde
 
 // StoreTicks implements orderbookdomain.OrderBookRepository.
 //
-// Ticks are merged into the pool's existing set rather than replacing it: a
-// block's update only carries the ticks that pool reported, not the whole book.
-// The merge is applied to a copy and published with a single atomic swap, so a
-// concurrent reader sees either the previous complete state or the next one,
-// never a partially applied update.
+// ticksMap is the pool's complete tick set as of height, and replaces the
+// pool's existing set rather than being merged into it: the node sends every
+// tick the contract reports for the pool, so a tick missing from the update is
+// no longer part of the book, and an empty update means an empty book. The new
+// set is published with a single atomic swap, so a concurrent reader sees
+// either the previous complete state or the next one.
 //
 // Orderbook pools are processed asynchronously (one goroutine per pool per
 // block), so updates for the same pool can finish out of order. height is the
-// block the ticks were read from; an update older than what is already
-// published is discarded, otherwise a slow block N could overwrite a tick that
-// block N+1 had already updated. Writes for a pool are serialised so that the
-// height check and the publish are one step, and so that concurrent writers do
-// not each clone the book only for all but one clone to be thrown away.
+// block the ticks were ingested for; an update older than what is already
+// published is discarded, otherwise a slow block N could overwrite the tick set
+// block N+1 had already published. Writes for a pool are serialised so that the
+// height check and the publish are one step.
 func (o *orderbookRepositoryImpl) StoreTicks(poolID uint64, height uint64, ticksMap map[int64]orderbookdomain.OrderbookTick) {
 	state := o.poolState(poolID)
 
 	state.writeMu.Lock()
 	defer state.writeMu.Unlock()
 
-	current := state.snapshot.Load()
-
-	var existing map[int64]orderbookdomain.OrderbookTick
-	if current != nil {
-		// Equal heights still apply: a block's ticks arrive in batches, and the
-		// later batches of the same height must not be dropped.
-		if height < current.height {
-			return
-		}
-		existing = current.ticks
+	// Equal heights still apply: each update is a complete set, so the later one
+	// is at least as current.
+	if current := state.snapshot.Load(); current != nil && height < current.height {
+		return
 	}
 
-	next := make(map[int64]orderbookdomain.OrderbookTick, len(existing)+len(ticksMap))
-	maps.Copy(next, existing)
+	next := make(map[int64]orderbookdomain.OrderbookTick, len(ticksMap))
 	maps.Copy(next, ticksMap)
 
 	state.snapshot.Store(&poolTicks{height: height, ticks: next})
