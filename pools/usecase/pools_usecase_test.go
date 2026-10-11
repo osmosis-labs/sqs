@@ -487,6 +487,73 @@ func (s *PoolsUsecaseTestSuite) TestStorePools() {
 	s.Require().Error(err)
 }
 
+// Validates that a canonical orderbook that loses liquidity is replaced by a deeper orderbook
+// for the same pair, even though the deeper one never exceeded the drained book's peak capitalization.
+func (s *PoolsUsecaseTestSuite) TestStorePools_DrainedCanonicalOrderbookReplaced() {
+	const (
+		drainedPoolID = defaultPoolID + 1
+		deeperPoolID  = defaultPoolID + 2
+
+		drainedAddress = "drained-address"
+		deeperAddress  = "deeper-address"
+	)
+
+	newOrderbookPool := func(poolID uint64, contractAddress string, liquidityCap int64) *mocks.MockRoutablePool {
+		return &mocks.MockRoutablePool{
+			ChainPoolModel: &cosmwasmpoolmodel.CosmWasmPool{
+				PoolId:          poolID,
+				ContractAddress: contractAddress,
+			},
+			ID: poolID,
+			CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{
+						BaseDenom:  denomOne,
+						QuoteDenom: denomTwo,
+					},
+				},
+			},
+			PoolLiquidityCap: osmomath.NewInt(liquidityCap),
+		}
+	}
+
+	poolsUsecase := s.newDefaultPoolsUseCase()
+
+	// The first book is the deepest and becomes canonical.
+	s.Require().NoError(poolsUsecase.StorePools([]ingesttypes.PoolI{
+		newOrderbookPool(drainedPoolID, drainedAddress, 1_000),
+		newOrderbookPool(deeperPoolID, deeperAddress, 500),
+	}))
+
+	canonicalPoolID, _, err := poolsUsecase.GetCanonicalOrderbookPool(denomOne, denomTwo)
+	s.Require().NoError(err)
+	s.Require().Equal(uint64(drainedPoolID), canonicalPoolID)
+
+	// System under test: the canonical book drains below the other book.
+	s.Require().NoError(poolsUsecase.StorePools([]ingesttypes.PoolI{
+		newOrderbookPool(drainedPoolID, drainedAddress, 10),
+	}))
+
+	canonicalPoolID, contractAddress, err := poolsUsecase.GetCanonicalOrderbookPool(denomOne, denomTwo)
+	s.Require().NoError(err)
+	s.Require().Equal(uint64(deeperPoolID), canonicalPoolID)
+	s.Require().Equal(deeperAddress, contractAddress)
+	s.Require().True(poolsUsecase.IsCanonicalOrderbookPool(deeperPoolID))
+	s.Require().False(poolsUsecase.IsCanonicalOrderbookPool(drainedPoolID))
+
+	// The demoted book only returns once it is strictly deeper than the new canonical book.
+	s.Require().NoError(poolsUsecase.StorePools([]ingesttypes.PoolI{
+		newOrderbookPool(drainedPoolID, drainedAddress, 500),
+	}))
+	canonicalPoolID, _, err = poolsUsecase.GetCanonicalOrderbookPool(denomOne, denomTwo)
+	s.Require().NoError(err)
+	s.Require().Equal(uint64(deeperPoolID), canonicalPoolID)
+}
+
 // This test validates that the canonical orderbook pool IDs are returned as intended
 // if they are correctly set. The correctness of setting them is ensured
 // by the StorePools and ProcessOrderbookPoolIDForBaseQuote tests.
