@@ -96,6 +96,9 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_CFMM() {
 			routablePool, err := pools.NewRoutablePool(mock, tc.tokenIn.Denom, tc.tokenOutDenom, noTakerFee, cosmWasmPoolsParams)
 			s.Require().NoError(err)
 
+			// The pool type is reported in the quote route metadata.
+			s.Require().Equal(tc.poolType, routablePool.GetType())
+
 			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tc.tokenIn)
 
 			if tc.expectError != nil {
