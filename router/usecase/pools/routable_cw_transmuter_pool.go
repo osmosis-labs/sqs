@@ -87,7 +87,6 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 // Returns error if:
 // - the underlying chain pool set on the routable pool is not of transmuter type
 // - the token out amount is greater than the balance of the token out
-// - the token out amount is greater than the balance of the token in
 func (r *routableTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
 	poolType := r.GetType()
 
@@ -98,8 +97,8 @@ func (r *routableTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Cont
 
 	balances := r.Balances
 
-	// Validate token in balance
-	if err := validateTransmuterBalance(tokenOut.Amount, balances, r.TokenInDenom); err != nil {
+	// Validate token out balance, since the pool pays out the token out.
+	if err := validateTransmuterBalance(tokenOut.Amount, balances, tokenOut.Denom); err != nil {
 		return sdk.Coin{}, err
 	}
 

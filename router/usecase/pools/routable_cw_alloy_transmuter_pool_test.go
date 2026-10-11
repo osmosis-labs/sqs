@@ -151,6 +151,122 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_AlloyTransmuter()
 	}
 }
 
+// Tests exact amount out quotes through an alloyed transmuter whose assets have differing
+// normalization factors (USDT 1, ALLUSD 10, USDC 100), in both directions. The token in is
+// rounded up as the contract does, so it is the smallest amount whose out-given-in quote
+// covers the requested token out.
+func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_AlloyTransmuter() {
+	defaultBalanceAmt := osmomath.NewInt(1_000_000)
+	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, defaultBalanceAmt), sdk.NewCoin(USDT, defaultBalanceAmt))
+
+	// Normalized balances are balance * scaling factor (standard normalization factor 100).
+	scalingFactors := map[string]osmomath.Int{
+		USDC:               osmomath.NewInt(1),
+		USDT:               osmomath.NewInt(100),
+		OVERLY_PRECISE_USD: osmomath.NewInt(1),
+		NO_PRECISION_USD:   osmomath.NewInt(1),
+	}
+	limiterBalances := sdk.NewCoins(sdk.NewCoin(USDC, osmomath.NewInt(100_000_000)), sdk.NewCoin(USDT, defaultBalanceAmt))
+
+	tests := map[string]struct {
+		tokenOut        sdk.Coin
+		tokenInDenom    string
+		balances        sdk.Coins
+		staticLimiters  map[string]cosmwasmpool.StaticLimiter
+		expectedTokenIn osmomath.Int
+		expectError     error
+	}{
+		"variant to alloyed": {
+			tokenOut:        sdk.NewCoin(ALLUSD, osmomath.NewInt(1001)),
+			tokenInDenom:    USDT,
+			balances:        defaultBalances,
+			expectedTokenIn: osmomath.NewInt(101), // 1001 * 1 / 10 = 100.1, rounded up
+		},
+		"variant to alloyed: token in balance is not required": {
+			tokenOut:        sdk.NewCoin(ALLUSD, osmomath.NewInt(1001)),
+			tokenInDenom:    USDT,
+			balances:        sdk.NewCoins(sdk.NewCoin(USDC, defaultBalanceAmt)),
+			expectedTokenIn: osmomath.NewInt(101),
+		},
+		"alloyed to variant": {
+			tokenOut:        sdk.NewCoin(USDC, osmomath.NewInt(1001)),
+			tokenInDenom:    ALLUSD,
+			balances:        defaultBalances,
+			expectedTokenIn: osmomath.NewInt(101), // 1001 * 10 / 100 = 100.1, rounded up
+		},
+		"variant to variant": {
+			tokenOut:        sdk.NewCoin(USDC, osmomath.NewInt(1001)),
+			tokenInDenom:    USDT,
+			balances:        defaultBalances,
+			expectedTokenIn: osmomath.NewInt(11), // 1001 * 1 / 100 = 10.01, rounded up
+		},
+		"error: token out is larger than balance of token out": {
+			tokenOut:     sdk.NewCoin(USDC, defaultBalanceAmt.AddRaw(1)),
+			tokenInDenom: ALLUSD,
+			balances:     defaultBalances,
+			expectError: domain.TransmuterInsufficientBalanceError{
+				Denom:         USDC,
+				BalanceAmount: defaultBalanceAmt.String(),
+				Amount:        defaultBalanceAmt.AddRaw(1).String(),
+			},
+		},
+		"error: token in exceeds its static limiter": {
+			// USDC in = 500_000 * 100 = 50_000_000.
+			// Normalized after: USDC 150_000_000, USDT 500_000 * 100 = 50_000_000, so USDC weight 0.75.
+			tokenOut:       sdk.NewCoin(USDT, osmomath.NewInt(500_000)),
+			tokenInDenom:   USDC,
+			balances:       limiterBalances,
+			staticLimiters: map[string]cosmwasmpool.StaticLimiter{USDC: {UpperLimit: "0.6"}},
+			expectError: domain.StaticRateLimiterInvalidUpperLimitError{
+				UpperLimit: "0.6",
+				Weight:     osmomath.MustNewDecFromStr("0.75").String(),
+				Denom:      USDC,
+			},
+		},
+		"token in within its static limiter": {
+			// Normalized after: USDC 110_000_000, USDT 90_000_000, so USDC weight 0.55.
+			tokenOut:        sdk.NewCoin(USDT, osmomath.NewInt(100_000)),
+			tokenInDenom:    USDC,
+			balances:        limiterBalances,
+			staticLimiters:  map[string]cosmwasmpool.StaticLimiter{USDC: {UpperLimit: "0.6"}},
+			expectedTokenIn: osmomath.NewInt(10_000_000),
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			s.Setup()
+			routablePool := s.SetupRoutableAlloyTransmuterPoolCustom(tc.tokenInDenom, tc.tokenOut.Denom, tc.balances, osmomath.ZeroDec(), cosmwasmpool.AlloyedRateLimiter{
+				StaticLimiterByDenomMap: tc.staticLimiters,
+			}, cosmwasmpool.PrecomputedData{
+				StdNormFactor:               osmomath.NewInt(100),
+				NormalizationScalingFactors: scalingFactors,
+			})
+
+			tokenIn, err := routablePool.CalculateTokenInByTokenOut(context.TODO(), tc.tokenOut)
+
+			if tc.expectError != nil {
+				s.Require().Error(err)
+				s.Require().ErrorIs(err, tc.expectError)
+				return
+			}
+			s.Require().NoError(err)
+
+			s.Require().Equal(tc.tokenInDenom, tokenIn.Denom)
+			s.Require().Equal(tc.expectedTokenIn.String(), tokenIn.Amount.String())
+
+			// Round trip: the quoted token in buys at least the token out, and one unit less does not.
+			tokenOut, err := routablePool.CalculateTokenOutByTokenIn(context.TODO(), tokenIn)
+			s.Require().NoError(err)
+			s.Require().True(tokenOut.Amount.GTE(tc.tokenOut.Amount), "out given in %s is less than %s", tokenOut, tc.tokenOut)
+
+			tokenOut, err = routablePool.CalculateTokenOutByTokenIn(context.TODO(), sdk.NewCoin(tokenIn.Denom, tokenIn.Amount.SubRaw(1)))
+			s.Require().NoError(err)
+			s.Require().True(tokenOut.Amount.LT(tc.tokenOut.Amount), "one unit less of token in still buys %s", tokenOut)
+		})
+	}
+}
+
 func (s *RoutablePoolTestSuite) TestFindNormalizationFactors_AlloyTransmuter() {
 	tests := map[string]struct {
 		tokenInDenom          string
@@ -278,46 +394,43 @@ func (s *RoutablePoolTestSuite) TestCalcTokenOutAmt_AlloyTransmuter() {
 
 func (s *RoutablePoolTestSuite) TestCalcTokenInAmt_AlloyTransmuter() {
 	tests := map[string]struct {
-		tokenOut         sdk.Coin
-		tokenInDenom     string
-		expectedTokenOut osmomath.BigDec
-		expectedError    error
+		tokenOut        sdk.Coin
+		tokenInDenom    string
+		expectedTokenIn osmomath.Int
+		expectedError   error
 	}{
 		"valid calculation using normalization factors": {
-			tokenOut:         sdk.NewCoin(USDC, osmomath.NewInt(100)),
-			tokenInDenom:     USDT,
-			expectedTokenOut: osmomath.NewBigDec(1), // (100 * 1) / 100 = 1
-			expectedError:    nil,
+			tokenOut:        sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			tokenInDenom:    USDT,
+			expectedTokenIn: osmomath.NewInt(1), // (100 * 1) / 100 = 1
+			expectedError:   nil,
 		},
-		"valid calculation with decimal points": {
-			tokenOut:         sdk.NewCoin(USDC, osmomath.NewInt(10)),
-			tokenInDenom:     USDT,
-			expectedTokenOut: osmomath.MustNewBigDecFromStr("0.1"), // (10 * 1) / 100 = 0.1
-			expectedError:    nil,
+		"valid calculation with decimal points, rounded up": {
+			tokenOut:        sdk.NewCoin(USDC, osmomath.NewInt(10)),
+			tokenInDenom:    USDT,
+			expectedTokenIn: osmomath.NewInt(1), // (10 * 1) / 100 = 0.1, rounded up
+			expectedError:   nil,
 		},
-		"valid calculation, truncated to zero": {
-			tokenOut:         sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(10)),
-			tokenInDenom:     USDC,
-			expectedTokenOut: osmomath.MustNewBigDecFromStr("0"),
-			expectedError:    nil,
+		"valid calculation, rounded up from near zero": {
+			tokenOut:        sdk.NewCoin(OVERLY_PRECISE_USD, osmomath.NewInt(10)),
+			tokenInDenom:    USDC,
+			expectedTokenIn: osmomath.NewInt(1),
+			expectedError:   nil,
 		},
 		"missing normalization factor for token in": {
-			tokenOut:         sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
-			tokenInDenom:     USDT,
-			expectedTokenOut: osmomath.BigDec{},
-			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
+			tokenOut:      sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
+			tokenInDenom:  USDT,
+			expectedError: domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factor for token out": {
-			tokenOut:         sdk.NewCoin(USDC, osmomath.NewInt(100)),
-			tokenInDenom:     INVALID_DENOM,
-			expectedTokenOut: osmomath.BigDec{},
-			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
+			tokenOut:      sdk.NewCoin(USDC, osmomath.NewInt(100)),
+			tokenInDenom:  INVALID_DENOM,
+			expectedError: domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 		"missing normalization factors for both token in and token out": {
-			tokenOut:         sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
-			tokenInDenom:     INVALID_DENOM,
-			expectedTokenOut: osmomath.BigDec{},
-			expectedError:    domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
+			tokenOut:      sdk.NewCoin(INVALID_DENOM, osmomath.NewInt(100)),
+			tokenInDenom:  INVALID_DENOM,
+			expectedError: domain.MissingNormalizationFactorError{Denom: INVALID_DENOM, PoolId: defaultPoolID},
 		},
 	}
 
@@ -336,7 +449,7 @@ func (s *RoutablePoolTestSuite) TestCalcTokenInAmt_AlloyTransmuter() {
 				s.Require().ErrorIs(err, tc.expectedError)
 			} else {
 				s.Require().NoError(err)
-				s.Require().Equal(tc.expectedTokenOut, tokenIn)
+				s.Require().Equal(tc.expectedTokenIn.String(), tokenIn.String())
 			}
 		})
 	}
@@ -498,7 +611,9 @@ func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
 
 			// System under test
-			err := r.CheckStaticRateLimiter(tc.tokenInCoin)
+			// The token out amount equals the token in amount, as these cases use equal scaling factors
+			// for the swapped assets.
+			err := r.CheckStaticRateLimiter(tc.tokenInCoin, sdk.NewCoin(tc.tokenOutDenom, tc.tokenInCoin.Amount))
 
 			if tc.expectError != nil {
 				s.Require().Error(err)

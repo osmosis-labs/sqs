@@ -120,7 +120,7 @@ func newRoutableCosmWasmPool(pool ingesttypes.PoolI, tokenInDenom string, tokenO
 		return NewRoutableCosmWasmPool(cosmwasmPool, balances, tokenOutDenom, takerFee, spreadFactor, liquidityCap, cosmWasmPoolsParams), nil
 	}
 
-	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmPoolsParams, tokenOutDenom, takerFee, liquidityCap)
+	return newRoutableCosmWasmPoolWithCustomModel(pool, cosmwasmPool, cosmWasmPoolsParams, tokenInDenom, tokenOutDenom, takerFee, liquidityCap)
 }
 
 // newRoutableCosmWasmPoolWithCustomModel creates a new RoutablePool for CosmWasm pools that require a custom CosmWasmPoolModel.
@@ -132,6 +132,7 @@ func newRoutableCosmWasmPoolWithCustomModel(
 	pool ingesttypes.PoolI,
 	cosmwasmPool *cwpoolmodel.CosmWasmPool,
 	cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams,
+	tokenInDenom string,
 	tokenOutDenom string,
 	takerFee osmomath.Dec,
 	liquidityCap osmomath.Int,
@@ -159,6 +160,7 @@ func newRoutableCosmWasmPoolWithCustomModel(
 				ChainPool:           cosmwasmPool,
 				AlloyTransmuterData: model.Data.AlloyTransmuter,
 				Balances:            balances,
+				TokenInDenom:        tokenInDenom,
 				TokenOutDenom:       tokenOutDenom,
 				TakerFee:            takerFee,
 				SpreadFactor:        spreadFactor,
