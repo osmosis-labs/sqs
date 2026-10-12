@@ -139,8 +139,8 @@ func TestProcessFeeTokens(t *testing.T) {
 				{Denom: "uatom", FixedMinGasPrice: 0.0, LowGasPrice: 0.0, AverageGasPrice: 0.0, HighGasPrice: 0.0},
 			},
 			mockPrices: domain.PricesResult{
-				"uosmo": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": domain.NewPriceResult(osmomath.MustNewBigDecFromStr("1.0"), nil)},
-				"uatom": {"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": domain.NewPriceResult(osmomath.MustNewBigDecFromStr("2.0"), nil)},
+				"uosmo": {"factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC": domain.NewPriceResult(osmomath.MustNewBigDecFromStr("1.0"), nil)},
+				"uatom": {"factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC": domain.NewPriceResult(osmomath.MustNewBigDecFromStr("2.0"), nil)},
 			},
 			expectedTokens: api.FeeTokens{
 				{Denom: "uosmo", FixedMinGasPrice: 0.0025, LowGasPrice: 0.0025, AverageGasPrice: 0.0025, HighGasPrice: 0.0025},
@@ -164,7 +164,7 @@ func TestProcessFeeTokens(t *testing.T) {
 				"uosmo": {},
 			},
 			expectedTokens: nil,
-			expectedError:  "failed to get price for uosmo/ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+			expectedError:  "failed to get price for uosmo/factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC",
 		},
 		{
 			name: "Missing token price",
@@ -174,14 +174,14 @@ func TestProcessFeeTokens(t *testing.T) {
 			},
 			mockPrices: domain.PricesResult{
 				"uosmo": {
-					"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": domain.PriceResult{
+					"factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC": domain.PriceResult{
 						Price: osmomath.MustNewBigDecFromStr("1.0"),
 					},
 				},
 				"uatom": {},
 			},
 			expectedTokens: nil,
-			expectedError:  "failed to get price for uatom/ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+			expectedError:  "failed to get price for uatom/factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC",
 		},
 	}
 
@@ -196,7 +196,7 @@ func TestProcessFeeTokens(t *testing.T) {
 			uc := &chainregistryUseCase{
 				tokensUseCase: mockTokensUsecase,
 				baseDenom:     "uosmo",
-				quoteDenom:    "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+				quoteDenom:    "factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC",
 				logger:        &log.NoOpLogger{},
 			}
 

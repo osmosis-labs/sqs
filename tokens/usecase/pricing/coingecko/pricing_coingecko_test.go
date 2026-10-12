@@ -20,6 +20,7 @@ type CoingeckoPricingTestSuite struct {
 
 var (
 	USDC                 = routertesting.USDC
+	ALLUSDC              = routertesting.ALLUSDC
 	USDT                 = routertesting.USDT
 	ATOM                 = routertesting.ATOM
 	ETH                  = routertesting.ETH
@@ -55,11 +56,13 @@ func (s *CoingeckoPricingTestSuite) TestGetPrices() {
 		expectedPrice osmomath.BigDec
 		shouldErr     bool
 	}{
-		{"Test coingecko GetPrice with quote denom as USDC", ATOM, USDC, mocks.AtomPrice, false},
+		{"Test coingecko GetPrice with quote denom as allUSDC", ATOM, ALLUSDC, mocks.AtomPrice, false},
+		{"Test coingecko GetPrice with quote denom as Noble USDC", ATOM, USDC, mocks.AtomPrice, false},
 		{"Test coingecko GetPrice with quote denom as USDT", ATOM, USDT, mocks.AtomPrice, false},
 		{"Test coingecko GetPrice with quote denom as empty string", ATOM, "", mocks.AtomPrice, false},
 		{"Test coingecko GetPrice with quote denom as some spaces", ATOM, " ", mocks.AtomPrice, false},
-		{"Test coingecko GetPrice with quote denom as USDC", ETH, USDC, mocks.OneBigDec, false},
+		{"Test coingecko GetPrice with quote denom as allUSDC", ETH, ALLUSDC, mocks.OneBigDec, false},
+		{"Test coingecko GetPrice with quote denom as Noble USDC", ETH, USDC, mocks.OneBigDec, false},
 		{"Test coingecko GetPrice with quote denom as USDT", ETH, USDT, mocks.OneBigDec, false},
 		{"Test coingecko GetPrice with quote denom as empty string", ETH, "", mocks.OneBigDec, false},
 		{"Test coingecko GetPrice with quote denom as some spaces", ETH, " ", mocks.OneBigDec, false},
@@ -77,6 +80,37 @@ func (s *CoingeckoPricingTestSuite) TestGetPrices() {
 		})
 	}
 
+}
+
+// TestGetPrices_DefaultQuoteDenom checks that the configured default quote denom is accepted as a quote denom
+// even when it is not one of the hardcoded stablecoin denoms. Chain pricing falls back to Coingecko only for the
+// default quote denom, so remapping the default quote human denom must not break the fallback.
+func (s *CoingeckoPricingTestSuite) TestGetPrices_DefaultQuoteDenom() {
+	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
+
+	pricingConfig := defaultPricingConfig
+	pricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
+	// ATOM stands in for a default quote denom that is not in the hardcoded stablecoin list.
+	pricingConfig.DefaultQuoteHumanDenom = "atom"
+
+	defaultQuoteDenom, err := mainnetUsecase.Tokens.GetChainDenom(pricingConfig.DefaultQuoteHumanDenom)
+	s.Require().NoError(err)
+	s.Require().Equal(ATOM, defaultQuoteDenom)
+
+	coingeckoPricingSource := coingeckopricing.New(mainnetUsecase.Tokens, pricingConfig, mocks.DefaultMockCoingeckoPriceGetter)
+
+	// The configured default quote denom is accepted.
+	price, _, err := coingeckoPricingSource.GetPrice(context.Background(), ETH, defaultQuoteDenom)
+	s.Require().NoError(err)
+	s.Require().Equal(mocks.OneBigDec, price)
+
+	// The stablecoin denoms are still accepted.
+	_, _, err = coingeckoPricingSource.GetPrice(context.Background(), ETH, ALLUSDC)
+	s.Require().NoError(err)
+
+	// Any other denom is still rejected.
+	_, _, err = coingeckoPricingSource.GetPrice(context.Background(), ATOM, ETH)
+	s.Require().Error(err)
 }
 
 // TestGetPrices_Coingecko_FindUnsupportedTokens is a test to identify which mainnet tokens are unsupported tokens in Coingecko.
