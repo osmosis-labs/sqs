@@ -48,6 +48,9 @@ type Config struct {
 	// instead of computing them on the fly.
 	// This is useful for testing and development purposes.
 	ServeFromState bool
+
+	// DebugEndpointsEnabled registers POST /router/store-state and GET /router/state.
+	DebugEndpointsEnabled bool
 }
 
 // NewRouterHandler will initialize the pools/ resources endpoint
@@ -73,8 +76,10 @@ func NewRouterHandler(
 	e.GET(formatRouterResource("/spot-price-pool/:id"), handler.GetSpotPriceForPool)
 	e.GET(formatRouterResource("/custom-direct-quote"), handler.GetDirectCustomQuote)
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
-	e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
-	e.GET(formatRouterResource("/state"), handler.GetRouterState)
+	if config.DebugEndpointsEnabled {
+		e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
+		e.GET(formatRouterResource("/state"), handler.GetRouterState)
+	}
 }
 
 // @Summary Optimal Quote

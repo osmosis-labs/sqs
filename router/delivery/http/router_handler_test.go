@@ -13,6 +13,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	"github.com/osmosis-labs/sqs/log"
 	routerdelivery "github.com/osmosis-labs/sqs/router/delivery/http"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/stretchr/testify/suite"
@@ -476,5 +477,25 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 				strings.TrimSpace(rec.Body.String()),
 			)
 		})
+	}
+}
+
+// TestDebugEndpointsGatedByConfig checks that the router state dump endpoints are only registered when enabled.
+func TestDebugEndpointsGatedByConfig(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		e := echo.New()
+		routerdelivery.NewRouterHandler(e, nil, nil, nil, nil, &routerdelivery.Config{DebugEndpointsEnabled: enabled}, &log.NoOpLogger{})
+
+		registered := map[string]bool{}
+		for _, r := range e.Routes() {
+			registered[r.Method+" "+r.Path] = true
+		}
+
+		if registered["POST /router/store-state"] != enabled || registered["GET /router/state"] != enabled {
+			t.Fatalf("debug endpoints enabled=%v, registered store-state=%v state=%v", enabled, registered["POST /router/store-state"], registered["GET /router/state"])
+		}
+		if !registered["GET /router/quote"] {
+			t.Fatal("quote route must always be registered")
+		}
 	}
 }
