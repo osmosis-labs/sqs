@@ -15,7 +15,7 @@ var _ mvc.OrderBookUsecase = &OrderbookUsecaseMock{}
 
 // OrderbookUsecaseMock is a mock implementation of the RouterUsecase interface
 type OrderbookUsecaseMock struct {
-	ProcessPoolFunc                    func(ctx context.Context, pool ingesttypes.PoolI) error
+	ProcessPoolFunc                    func(ctx context.Context, height uint64, pool ingesttypes.PoolI) error
 	GetAllTicksFunc                    func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool)
 	GetActiveOrdersFunc                func(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error)
 	GetActiveOrdersStreamFunc          func(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult
@@ -23,9 +23,9 @@ type OrderbookUsecaseMock struct {
 	GetClaimableOrdersForOrderbookFunc func(ctx context.Context, fillThreshold osmomath.Dec, orderbook domain.CanonicalOrderBooksResult) ([]orderbookdomain.ClaimableOrderbook, error)
 }
 
-func (m *OrderbookUsecaseMock) ProcessPool(ctx context.Context, pool ingesttypes.PoolI) error {
+func (m *OrderbookUsecaseMock) ProcessPool(ctx context.Context, height uint64, pool ingesttypes.PoolI) error {
 	if m.ProcessPoolFunc != nil {
-		return m.ProcessPoolFunc(ctx, pool)
+		return m.ProcessPoolFunc(ctx, height, pool)
 	}
 	panic("unimplemented")
 }

@@ -126,7 +126,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	p.routerUsecase.SetTakerFees(takerFeesMap)
 
 	// Parse the pools
-	pools, uniqueBlockPoolMetadata, err := p.parsePoolData(ctx, poolData)
+	pools, uniqueBlockPoolMetadata, err := p.parsePoolData(ctx, height, poolData)
 	if err != nil {
 		return err
 	}
@@ -236,7 +236,7 @@ func (p *ingestUseCase) sortAndStorePools(pools []sqsingesttypes.PoolI) {
 }
 
 // parsePoolData parses the pool data and returns the pool objects.
-func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.PoolData) ([]sqsingesttypes.PoolI, domain.BlockPoolMetadata, error) {
+func (p *ingestUseCase) parsePoolData(ctx context.Context, height uint64, poolData []*types.PoolData) ([]sqsingesttypes.PoolI, domain.BlockPoolMetadata, error) {
 	poolResultChan := make(chan poolResult, len(poolData))
 
 	// Parse the pools concurrently
@@ -304,7 +304,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, poolData []*types.Poo
 				// Process the orderbook pool asynchronously as to avoid blocking the main ingest goroutine
 				// and to avoid potential deadlock.
 				go func() {
-					if err := p.orderBookUseCase.ProcessPool(ctx, poolResult.pool); err != nil {
+					if err := p.orderBookUseCase.ProcessPool(ctx, height, poolResult.pool); err != nil {
 						domain.SQSIngestHandlerProcessOrderbookPoolErrorCounter.Inc()
 						p.logger.Error(domain.SQSIngestUsecaseProcessOrderbookPoolErrorMetricName, zap.Error(err), zap.Uint64("pool_id", poolID))
 					}
