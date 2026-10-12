@@ -159,14 +159,16 @@ func (r *GetQuoteRequest) Validate() error {
 }
 
 // parsePositiveIntegerCoin parses an amountDenom string, returning errInvalid if it is malformed
-// and errNotPositive unless the amount is a positive integer. It parses the original amount
-// rather than using sdk.ParseCoinNormalized, which truncates fractions: "1.5uosmo" would
-// otherwise be quoted as 1uosmo and "0.5uosmo" as zero.
+// and errNotPositive unless the amount, in the smallest registered unit, is a positive integer.
+// Like sdk.ParseCoinNormalized it converts registered units to the base unit ("1.5osmo" is
+// 1500000uosmo), but it rejects a remaining fraction instead of truncating it: "1.5uosmo"
+// would otherwise be quoted as 1uosmo and "0.5uosmo" as zero.
 func parsePositiveIntegerCoin(s string, errInvalid, errNotPositive error) (sdk.Coin, error) {
 	decCoin, err := sdk.ParseDecCoin(s)
 	if err != nil {
 		return sdk.Coin{}, errInvalid
 	}
+	decCoin = sdk.NormalizeDecCoin(decCoin)
 	if !decCoin.Amount.IsPositive() || !decCoin.Amount.IsInteger() {
 		return sdk.Coin{}, errNotPositive
 	}

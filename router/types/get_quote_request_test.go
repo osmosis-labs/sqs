@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -374,6 +375,42 @@ func TestValidateSimulationParams(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestGetQuoteRequestUnmarshal_RegisteredDenomUnits checks that registered display units are
+// converted to the base unit before the integer check, as sdk.ParseCoinNormalized does.
+func TestGetQuoteRequestUnmarshal_RegisteredDenomUnits(t *testing.T) {
+	// Registration is global and may already exist when an osmosis package registers it.
+	_ = sdk.RegisterDenom("osmo", osmomath.OneDec())
+	_ = sdk.RegisterDenom("uosmo", osmomath.NewDecWithPrec(1, 6))
+
+	testcases := []struct {
+		tokenIn       string
+		expected      *sdk.Coin
+		expectedError bool
+	}{
+		{tokenIn: "1osmo", expected: &sdk.Coin{Denom: "uosmo", Amount: osmomath.NewInt(1_000_000)}},
+		{tokenIn: "1.5osmo", expected: &sdk.Coin{Denom: "uosmo", Amount: osmomath.NewInt(1_500_000)}},
+		{tokenIn: "0.0000005osmo", expectedError: true},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.tokenIn, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/?tokenIn="+tc.tokenIn+"&tokenOutDenom=uion", nil)
+			c := e.NewContext(req, httptest.NewRecorder())
+
+			var r types.GetQuoteRequest
+			err := r.UnmarshalHTTPRequest(c)
+			if tc.expectedError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, r.TokenIn)
 		})
 	}
 }

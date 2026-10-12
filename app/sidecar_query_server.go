@@ -121,6 +121,8 @@ func (sqs *sideCarQueryServer) GetLogger() log.Logger {
 func (sqs *sideCarQueryServer) Shutdown(ctx context.Context) error {
 	// Drain gRPC alongside HTTP under the same deadline, so a slow ingest RPC cannot hold
 	// the HTTP listener open (and SSE streams unsignalled) while it uses up the budget.
+	// grpcErr is set when the ingest RPCs did not drain before the deadline and were cut.
+	var grpcErr error
 	grpcDone := make(chan struct{})
 	go func() {
 		defer close(grpcDone)
@@ -138,20 +140,22 @@ func (sqs *sideCarQueryServer) Shutdown(ctx context.Context) error {
 		case <-stopped:
 		case <-ctx.Done():
 			sqs.ingestGRPCServer.Stop()
+			grpcErr = fmt.Errorf("ingest gRPC server did not drain before the shutdown deadline: %w", ctx.Err())
 		}
 	}()
-	defer func() { <-grpcDone }()
 
-	if err := sqs.e.Shutdown(ctx); err != nil {
+	httpErr := sqs.e.Shutdown(ctx)
+	if httpErr != nil {
 		// Deadline reached with requests still running: force-close the remaining connections
 		// so they do not outlive shutdown, and still report the failure.
 		if closeErr := sqs.e.Close(); closeErr != nil {
 			sqs.logger.Error("Error force-closing HTTP connections", zap.Error(closeErr))
 		}
-		return err
 	}
 
-	return nil
+	<-grpcDone
+
+	return errors.Join(httpErr, grpcErr)
 }
 
 // Start implements SideCarQueryServer.
