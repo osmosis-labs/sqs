@@ -39,24 +39,17 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	}
 
 	if tokenIn := c.QueryParam("tokenIn"); tokenIn != "" {
-		tokenInCoin, err := sdk.ParseCoinNormalized(tokenIn)
+		tokenInCoin, err := parsePositiveIntegerCoin(tokenIn, ErrTokenInNotValid, ErrTokenInAmountNotPositive)
 		if err != nil {
-			return ErrTokenInNotValid
-		}
-		// ParseCoinNormalized truncates fractional amounts, so "0.5uosmo" parses to zero.
-		if !tokenInCoin.Amount.IsPositive() {
-			return ErrTokenInAmountNotPositive
+			return err
 		}
 		r.TokenIn = &tokenInCoin
 	}
 
 	if tokenOut := c.QueryParam("tokenOut"); tokenOut != "" {
-		tokenOutCoin, err := sdk.ParseCoinNormalized(tokenOut)
+		tokenOutCoin, err := parsePositiveIntegerCoin(tokenOut, ErrTokenOutNotValid, ErrTokenOutAmountNotPositive)
 		if err != nil {
-			return ErrTokenOutNotValid
-		}
-		if !tokenOutCoin.Amount.IsPositive() {
-			return ErrTokenOutAmountNotPositive
+			return err
 		}
 		r.TokenOut = &tokenOutCoin
 	}
@@ -163,4 +156,19 @@ func (r *GetQuoteRequest) Validate() error {
 	}
 
 	return domain.ValidateInputDenoms(a, b)
+}
+
+// parsePositiveIntegerCoin parses an amountDenom string, returning errInvalid if it is malformed
+// and errNotPositive unless the amount is a positive integer. It parses the original amount
+// rather than using sdk.ParseCoinNormalized, which truncates fractions: "1.5uosmo" would
+// otherwise be quoted as 1uosmo and "0.5uosmo" as zero.
+func parsePositiveIntegerCoin(s string, errInvalid, errNotPositive error) (sdk.Coin, error) {
+	decCoin, err := sdk.ParseDecCoin(s)
+	if err != nil {
+		return sdk.Coin{}, errInvalid
+	}
+	if !decCoin.Amount.IsPositive() || !decCoin.Amount.IsInteger() {
+		return sdk.Coin{}, errNotPositive
+	}
+	return sdk.Coin{Denom: decCoin.Denom, Amount: decCoin.Amount.TruncateInt()}, nil
 }

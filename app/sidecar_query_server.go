@@ -119,7 +119,15 @@ func (sqs *sideCarQueryServer) GetLogger() log.Logger {
 // It stops accepting new requests and waits for in-flight HTTP requests and ingest RPCs
 // to finish until ctx is done, after which remaining connections are closed.
 func (sqs *sideCarQueryServer) Shutdown(ctx context.Context) error {
-	if sqs.ingestGRPCServer != nil {
+	// Drain gRPC alongside HTTP under the same deadline, so a slow ingest RPC cannot hold
+	// the HTTP listener open (and SSE streams unsignalled) while it uses up the budget.
+	grpcDone := make(chan struct{})
+	go func() {
+		defer close(grpcDone)
+		if sqs.ingestGRPCServer == nil {
+			return
+		}
+
 		stopped := make(chan struct{})
 		go func() {
 			sqs.ingestGRPCServer.GracefulStop()
@@ -131,7 +139,8 @@ func (sqs *sideCarQueryServer) Shutdown(ctx context.Context) error {
 		case <-ctx.Done():
 			sqs.ingestGRPCServer.Stop()
 		}
-	}
+	}()
+	defer func() { <-grpcDone }()
 
 	if err := sqs.e.Shutdown(ctx); err != nil {
 		// Deadline reached with requests still running: force-close the remaining connections

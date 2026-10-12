@@ -103,6 +103,33 @@ func TestGetQuoteRequestUnmarshal(t *testing.T) {
 			expectedError: true,
 		},
 		{
+			name: "fractional tokenIn amount above one is rejected, not truncated",
+			queryParams: map[string]string{
+				"tokenIn":       "1.5ust",
+				"tokenOutDenom": "usdc",
+			},
+			expectedError: true,
+		},
+		{
+			name: "fractional tokenOut amount above one is rejected, not truncated",
+			queryParams: map[string]string{
+				"tokenOut":     "20.5usdc",
+				"tokenInDenom": "ust",
+			},
+			expectedError: true,
+		},
+		{
+			name: "integer-valued decimal tokenIn amount is accepted",
+			queryParams: map[string]string{
+				"tokenIn":       "1000.0ust",
+				"tokenOutDenom": "usdc",
+			},
+			expectedResult: &types.GetQuoteRequest{
+				TokenIn:       &sdk.Coin{Denom: "ust", Amount: osmomath.NewInt(1000)},
+				TokenOutDenom: "usdc",
+			},
+		},
+		{
 			name: "zero tokenOut amount",
 			queryParams: map[string]string{
 				"tokenOut":     "0usdc",
