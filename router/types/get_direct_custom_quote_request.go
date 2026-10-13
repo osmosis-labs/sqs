@@ -32,17 +32,17 @@ func (r *GetDirectCustomQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error
 	}
 
 	if tokenIn := c.QueryParam("tokenIn"); tokenIn != "" {
-		tokenInCoin, err := sdk.ParseCoinNormalized(tokenIn)
+		tokenInCoin, err := parsePositiveIntegerCoin(tokenIn, ErrTokenInNotValid, ErrTokenInAmountNotPositive)
 		if err != nil {
-			return ErrTokenInNotValid
+			return err
 		}
 		r.TokenIn = &tokenInCoin
 	}
 
 	if tokenOut := c.QueryParam("tokenOut"); tokenOut != "" {
-		tokenOutCoin, err := sdk.ParseCoinNormalized(tokenOut)
+		tokenOutCoin, err := parsePositiveIntegerCoin(tokenOut, ErrTokenOutNotValid, ErrTokenOutAmountNotPositive)
 		if err != nil {
-			return ErrTokenOutNotValid
+			return err
 		}
 		r.TokenOut = &tokenOutCoin
 	}

@@ -784,6 +784,10 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuote_Mainnet_UOSMOU
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
 
+	// A dust amount that yields no tokens out is rejected rather than quoted.
+	_, err = routerUsecase.GetCustomDirectQuoteOutGivenIn(context.Background(), sdk.NewCoin(UOSMO, osmomath.OneInt()), UION, expectedPoolID)
+	s.Require().ErrorIs(err, domain.ErrNoTokensOut)
+
 	// A pinned pool on the exclusion list is rejected rather than quoted.
 	config.ExcludedPoolIDs = []uint64{expectedPoolID}
 	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())

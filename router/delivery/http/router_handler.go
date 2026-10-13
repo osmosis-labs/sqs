@@ -1,7 +1,6 @@
 package http
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -103,12 +102,9 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 
 	span := trace.SpanFromContext(ctx)
+	// Panics are handled by the server-wide recover middleware, which logs them
+	// and returns a generic 500 without the panic text.
 	defer func() {
-		if r := recover(); r != nil {
-			// nolint:errcheck // ignore error
-			c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: fmt.Sprintf("panic: %v", r)})
-		}
-
 		if err != nil {
 			span.RecordError(err)
 			// nolint:errcheck // ignore error

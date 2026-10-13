@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 
@@ -12,6 +13,7 @@ import (
 	gotrace "golang.org/x/exp/trace"
 
 	"github.com/labstack/echo/v4"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
 	"go.opentelemetry.io/otel/attribute"
@@ -39,6 +41,23 @@ func (m *GoMiddleware) CORS(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Response().Header().Set("Access-Control-Allow-Methods", m.corsConfig.AllowedMethods)
 		return next(c)
 	}
+}
+
+// RecoverMiddleware recovers from panics in handlers and the middleware registered after it.
+// The panic value and stack are logged server-side and the client only receives a generic 500,
+// so internal details are not leaked and the connection is not dropped.
+func (m *GoMiddleware) RecoverMiddleware() echo.MiddlewareFunc {
+	return echomiddleware.RecoverWithConfig(echomiddleware.RecoverConfig{
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			m.logger.Error("recovered from panic in HTTP handler",
+				zap.String("method", c.Request().Method),
+				zap.String("path", c.Request().URL.Path),
+				zap.Error(err),
+				zap.ByteString("stack", stack),
+			)
+			return echo.NewHTTPError(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+		},
+	})
 }
 
 // InitMiddleware initialize the middleware

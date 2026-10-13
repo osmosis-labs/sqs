@@ -7,6 +7,8 @@ var (
 	ErrValidationFailed                = errors.New("validation failed")
 	ErrTokenInNotValid                 = errors.New("tokenIn is invalid - must be in the format amountDenom")
 	ErrTokenOutNotValid                = errors.New("tokenOut is invalid - must be in the format amountDenom")
+	ErrTokenInAmountNotPositive        = errors.New("tokenIn amount must be a positive integer")
+	ErrTokenOutAmountNotPositive       = errors.New("tokenOut amount must be a positive integer")
 	ErrTokenOutDenomNotSpecified       = errors.New("tokenOutDenom is required")
 	ErrTokenInNotSpecified             = errors.New("tokenIn is required")
 	ErrSwapMethodNotValid              = errors.New("swap method is invalid - must be either swap exact amount in or swap exact amount out")

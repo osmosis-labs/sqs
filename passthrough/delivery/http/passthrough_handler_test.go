@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
@@ -528,4 +530,94 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 			}
 		})
 	}
+}
+
+// TestGetActiveOrdersStreamOutlivesServerTimeouts checks that the SSE stream keeps
+// delivering events after the server read and write timeouts have elapsed.
+func (s *PassthroughHandlerTestSuite) TestGetActiveOrdersStreamOutlivesServerTimeouts() {
+	const (
+		serverTimeout = 200 * time.Millisecond
+		numEvents     = 4
+	)
+
+	usecase := mocks.OrderbookUsecaseMock{}
+	usecase.GetActiveOrdersStreamFunc = func(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult {
+		ordersCh := make(chan orderbookdomain.OrderbookResult)
+		go func() {
+			defer close(ordersCh)
+			for i := 0; i < numEvents; i++ {
+				time.Sleep(serverTimeout / 2)
+				select {
+				case ordersCh <- orderbookdomain.OrderbookResult{}:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		return ordersCh
+	}
+
+	handler := passthroughdelivery.PassthroughHandler{
+		OUsecase: &usecase,
+		Logger:   &log.NoOpLogger{},
+	}
+
+	e := echo.New()
+	e.GET("/stream", handler.GetActiveOrdersStream)
+	server := httptest.NewUnstartedServer(e)
+	server.Config.ReadTimeout = serverTimeout
+	server.Config.WriteTimeout = serverTimeout
+	server.Start()
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/stream?userOsmoAddress=osmo1ugku28hwyexpljrrmtet05nd6kjlrvr9jz6z00")
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	s.Require().NoError(err)
+	s.Require().Equal(numEvents, strings.Count(string(body), "data: "))
+}
+
+// TestGetActiveOrdersStreamEndsOnShutdown checks that an open SSE stream ends when the
+// server starts shutting down, so graceful shutdown completes instead of hitting its deadline.
+func (s *PassthroughHandlerTestSuite) TestGetActiveOrdersStreamEndsOnShutdown() {
+	streamStarted := make(chan struct{})
+	usecase := mocks.OrderbookUsecaseMock{}
+	usecase.GetActiveOrdersStreamFunc = func(ctx context.Context, address string) <-chan orderbookdomain.OrderbookResult {
+		ordersCh := make(chan orderbookdomain.OrderbookResult)
+		go func() {
+			defer close(ordersCh)
+			select {
+			case ordersCh <- orderbookdomain.OrderbookResult{}:
+				close(streamStarted)
+			case <-ctx.Done():
+				return
+			}
+			// Never send again: the stream stays open until the request or server ends it.
+			<-ctx.Done()
+		}()
+		return ordersCh
+	}
+
+	handler := passthroughdelivery.PassthroughHandler{
+		OUsecase: &usecase,
+		Logger:   &log.NoOpLogger{},
+	}
+
+	e := echo.New()
+	e.GET("/stream", handler.GetActiveOrdersStream)
+	server := httptest.NewUnstartedServer(e)
+	deliveryhttp.WithShutdownSignal(server.Config)
+	server.Start()
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/stream?userOsmoAddress=osmo1ugku28hwyexpljrrmtet05nd6kjlrvr9jz6z00")
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+	<-streamStarted
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	s.Require().NoError(server.Config.Shutdown(ctx))
 }
