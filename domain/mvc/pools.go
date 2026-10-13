@@ -21,6 +21,10 @@ type PoolsUsecase interface {
 	// GetRoutesFromCandidates converts candidate routes to routes intrusmented with all the data necessary for estimating
 	// a swap. This data entails the pool data, the taker fee.
 	GetRoutesFromCandidates(candidateRoutes ingesttypes.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error)
+	// GetRoutesFromCandidatesInGivenOut is the in-given-out counterpart of GetRoutesFromCandidates.
+	// Candidate routes are ordered from the output side and every candidate pool must carry its
+	// token in denom, which is used with the token out denom to look up the hop's taker fee.
+	GetRoutesFromCandidatesInGivenOut(candidateRoutes ingesttypes.CandidateRoutes) ([]route.RouteImpl, error)
 
 	GetTickModelMap(poolIDs []uint64) (map[uint64]*ingesttypes.TickModel, error)
 	// GetPool returns the pool with the given ID.

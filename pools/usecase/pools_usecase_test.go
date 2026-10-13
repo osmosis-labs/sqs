@@ -78,7 +78,7 @@ func TestPoolsUsecaseTestSuite(t *testing.T) {
 // - pool data is correctly set on routable pools.
 // - taker fee is correctly set.
 // - token out denom is correctly set.
-func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
+func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidatesOutGivenIn() {
 	s.Setup()
 
 	// Setup default chain pool
@@ -113,6 +113,7 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 				Pools: []ingesttypes.CandidatePool{
 					{
 						ID:            defaultPoolID,
+						TokenInDenom:  denomOne,
 						TokenOutDenom: denomTwo,
 					},
 				},
@@ -264,6 +265,269 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates() {
 			}
 		})
 	}
+}
+
+// Validates that candidate routes are correctly converted into routes with all the pool data.
+// Check that:
+// - pool data is correctly set on routable pools.
+// - taker fee is correctly set.
+// - token out denom is correctly set.
+func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidatesInGivenOut() {
+
+	s.Setup()
+
+	// Setup default chain pool
+	poolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoin(denomOne, defaultAmt0), sdk.NewCoin(denomTwo, defaultAmt1))
+	balancerPool, err := s.App.GAMMKeeper.GetPool(s.Ctx, poolID)
+	s.Require().NoError(err)
+
+	defaultPool := &mocks.MockRoutablePool{
+		ChainPoolModel: balancerPool,
+		ID:             defaultPoolID,
+	}
+
+	validPools := []ingesttypes.PoolI{
+		defaultPool,
+	}
+
+	// We break the pool by changing the pool type
+	// to the wrong type. Note that the default is balancer.
+	brokenChainPool := *defaultPool
+	brokenChainPool.PoolType = poolmanagertypes.CosmWasm
+
+	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
+		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+	}
+	_, err = pools.NewRoutablePool(&brokenChainPool, denomOne, denomTwo, defaultTakerFee, cosmWasmPoolsParams)
+	// Validate that it is indeed broken.
+	s.Require().Error(err)
+
+	validCandidateRoutes := ingesttypes.CandidateRoutes{
+		Routes: []ingesttypes.CandidateRoute{
+			{
+				Pools: []ingesttypes.CandidatePool{
+					{
+						ID:            defaultPoolID,
+						TokenInDenom:  denomOne,
+						TokenOutDenom: denomTwo,
+					},
+				},
+			},
+		},
+	}
+
+	validTakerFeeMap := ingesttypes.TakerFeeMap{
+		ingesttypes.DenomPair{
+			Denom0: denomOne,
+			Denom1: denomTwo,
+		}: defaultTakerFee,
+	}
+
+	tests := []struct {
+		name string
+
+		pools           []ingesttypes.PoolI
+		candidateRoutes ingesttypes.CandidateRoutes
+		takerFeeMap     ingesttypes.TakerFeeMap
+		tokenInDenom    string
+		tokenOutDenom   string
+
+		expectedError error
+
+		expectedRoutes []route.RouteImpl
+	}{
+		{
+			name:  "valid conversion of single route",
+			pools: validPools,
+
+			candidateRoutes: validCandidateRoutes,
+			takerFeeMap:     validTakerFeeMap,
+
+			tokenInDenom:  denomOne,
+			tokenOutDenom: denomTwo,
+
+			expectedRoutes: []route.RouteImpl{
+				{
+					Pools: []domain.RoutablePool{
+						s.newRoutablePool(defaultPool, denomOne, denomTwo, defaultTakerFee),
+					},
+				},
+			},
+		},
+		{
+			name:  "no taker fee - use default",
+			pools: validPools,
+
+			candidateRoutes: validCandidateRoutes,
+
+			// empty map
+			takerFeeMap: ingesttypes.TakerFeeMap{},
+
+			tokenInDenom:  denomOne,
+			tokenOutDenom: denomTwo,
+
+			expectedRoutes: []route.RouteImpl{
+				{
+					Pools: []domain.RoutablePool{
+						s.newRoutablePool(defaultPool, denomOne, denomTwo, ingesttypes.DefaultTakerFee),
+					},
+				},
+			},
+		},
+		{
+			name:  "error: no pool in state",
+			pools: []ingesttypes.PoolI{},
+
+			candidateRoutes: validCandidateRoutes,
+
+			// empty map
+			takerFeeMap: validTakerFeeMap,
+
+			tokenInDenom:  denomOne,
+			tokenOutDenom: denomTwo,
+
+			expectedError: domain.PoolNotFoundError{
+				PoolID: defaultPoolID,
+			},
+		},
+		{
+			name:  "broken chain pool is skipped without failing the whole conversion",
+			pools: []ingesttypes.PoolI{&brokenChainPool, defaultPool},
+
+			candidateRoutes: validCandidateRoutes,
+			takerFeeMap:     validTakerFeeMap,
+
+			tokenInDenom:  denomOne,
+			tokenOutDenom: denomTwo,
+
+			expectedRoutes: []route.RouteImpl{
+				{
+					Pools: []domain.RoutablePool{
+						s.newRoutablePool(defaultPool, denomOne, denomTwo, defaultTakerFee),
+					},
+				},
+			},
+		},
+
+		// TODO:
+		// Valid conversion of single multi-hop route
+		// Valid conversion of two routes where one is multi hop
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		s.Run(tc.name, func() {
+			logger := &log.NoOpLogger{}
+			// Create router repository
+			routerRepo := routerrepo.New(&log.NoOpLogger{})
+			routerRepo.SetTakerFees(tc.takerFeeMap)
+
+			// Create pools use case
+			poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, nil, logger)
+			s.Require().NoError(err)
+
+			poolsUsecase.StorePools(tc.pools)
+
+			// System under test
+			actualRoutes, err := poolsUsecase.GetRoutesFromCandidates(tc.candidateRoutes, tc.tokenInDenom, tc.tokenOutDenom)
+
+			if tc.expectedError != nil {
+				s.Require().Error(err)
+				s.Require().Equal(tc.expectedError, err)
+				return
+			}
+
+			s.Require().NoError(err)
+
+			// Validate routes
+			s.Require().Equal(len(tc.expectedRoutes), len(actualRoutes))
+			for i, actualRoute := range actualRoutes {
+				expectedRoute := tc.expectedRoutes[i]
+
+				// Note: this is only done to be able to use the ValidateRoutePools
+				// helper method for validation.
+				// Note token in is chosen arbitrarily since it is irrelevant for this test
+				tokenOut := sdk.NewCoin(tc.tokenOutDenom, osmomath.NewInt(100))
+				actualPools, _, _, err := actualRoute.PrepareResultPoolsInGivenOut(context.TODO(), tokenOut, logger)
+				s.Require().NoError(err)
+				expectedPools, _, _, err := expectedRoute.PrepareResultPoolsInGivenOut(context.TODO(), tokenOut, logger)
+				s.Require().NoError(err)
+
+				// Validates:
+				// 1. Correct pool data
+				// 2. Correct taker fee
+				// 3. Correct token out denom
+				s.ValidateRoutePools(expectedPools, actualPools)
+			}
+		})
+	}
+}
+
+// Validates that GetRoutesFromCandidatesInGivenOut assigns each hop the directional taker fee of
+// its own (token in, token out) pair.
+//
+// In-given-out candidate routes are ordered from the output side, so the route's first hop
+// outputs the desired token and its token in is the next hop's token out. A lookup keyed by the
+// route's starting denom assigns the default or another hop's fee, which misstates exact-out
+// amount_in and fee metadata.
+func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidatesInGivenOut_DirectionalTakerFeePerHop() {
+	s.Setup()
+
+	// Pool one: denomOne <> denomTwo. Pool two: denomTwo <> denomThree.
+	poolOneID := s.PrepareBalancerPoolWithCoins(sdk.NewCoin(denomOne, defaultAmt0), sdk.NewCoin(denomTwo, defaultAmt1))
+	poolOne, err := s.App.GAMMKeeper.GetPool(s.Ctx, poolOneID)
+	s.Require().NoError(err)
+	poolTwoID := s.PrepareBalancerPoolWithCoins(sdk.NewCoin(denomTwo, defaultAmt0), sdk.NewCoin(denomThree, defaultAmt1))
+	poolTwo, err := s.App.GAMMKeeper.GetPool(s.Ctx, poolTwoID)
+	s.Require().NoError(err)
+
+	var (
+		oneToTwoFee   = osmomath.MustNewDecFromStr("0.001")
+		twoToThreeFee = osmomath.MustNewDecFromStr("0.002")
+	)
+
+	// Directional fees. The reverse-direction, cross-hop and same-denom pairs are decoys that a
+	// wrong lookup would pick up.
+	routerRepo := routerrepo.New(&log.NoOpLogger{})
+	routerRepo.SetTakerFees(ingesttypes.TakerFeeMap{
+		{Denom0: denomOne, Denom1: denomTwo}:     oneToTwoFee,
+		{Denom0: denomTwo, Denom1: denomThree}:   twoToThreeFee,
+		{Denom0: denomTwo, Denom1: denomOne}:     osmomath.MustNewDecFromStr("0.007"),
+		{Denom0: denomThree, Denom1: denomTwo}:   osmomath.MustNewDecFromStr("0.008"),
+		{Denom0: denomThree, Denom1: denomThree}: osmomath.MustNewDecFromStr("0.009"),
+	})
+
+	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	poolsUsecase.StorePools([]ingesttypes.PoolI{
+		&mocks.MockRoutablePool{ChainPoolModel: poolOne, ID: poolOneID},
+		&mocks.MockRoutablePool{ChainPoolModel: poolTwo, ID: poolTwoID},
+	})
+
+	// Exact out of denomThree paying denomOne: denomOne -> denomTwo (pool one), then
+	// denomTwo -> denomThree (pool two), listed from the output side.
+	routes, err := poolsUsecase.GetRoutesFromCandidatesInGivenOut(ingesttypes.CandidateRoutes{
+		Routes: []ingesttypes.CandidateRoute{{Pools: []ingesttypes.CandidatePool{
+			{ID: poolTwoID, TokenInDenom: denomTwo, TokenOutDenom: denomThree},
+			{ID: poolOneID, TokenInDenom: denomOne, TokenOutDenom: denomTwo},
+		}}},
+	})
+	s.Require().NoError(err)
+	s.Require().Len(routes, 1)
+
+	routePools := routes[0].GetPools()
+	s.Require().Len(routePools, 2)
+
+	s.Require().Equal(poolTwoID, routePools[0].GetId())
+	s.Require().Equal(denomTwo, routePools[0].GetTokenInDenom())
+	s.Require().Equal(twoToThreeFee.String(), routePools[0].GetTakerFee().String())
+
+	s.Require().Equal(poolOneID, routePools[1].GetId())
+	s.Require().Equal(denomOne, routePools[1].GetTokenInDenom())
+	s.Require().Equal(oneToTwoFee.String(), routePools[1].GetTakerFee().String())
+
+	// The input denom of the route is the last hop's token in.
+	s.Require().Equal(denomOne, routes[0].GetTokenInDenom())
 }
 
 func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {

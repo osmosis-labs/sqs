@@ -282,6 +282,7 @@ func deepCopyPool(mp *MockRoutablePool) *MockRoutablePool {
 		// Note these are not deep copied.
 		ChainPoolModel: mp.ChainPoolModel,
 		TokenOutDenom:  mp.TokenOutDenom,
+		TokenInDenom:   mp.TokenInDenom,
 		Balances:       newBalances,
 		TakerFee:       mp.TakerFee.Clone(),
 		SpreadFactor:   mp.SpreadFactor.Clone(),
@@ -297,6 +298,12 @@ func WithPoolID(mockPool *MockRoutablePool, id uint64) *MockRoutablePool {
 func WithTokenOutDenom(mockPool *MockRoutablePool, tokenOutDenom string) *MockRoutablePool {
 	newPool := deepCopyPool(mockPool)
 	newPool.TokenOutDenom = tokenOutDenom
+	return newPool
+}
+
+func WithTokenInDenom(mockPool *MockRoutablePool, tokenInDenom string) *MockRoutablePool {
+	newPool := deepCopyPool(mockPool)
+	newPool.TokenInDenom = tokenInDenom
 	return newPool
 }
 

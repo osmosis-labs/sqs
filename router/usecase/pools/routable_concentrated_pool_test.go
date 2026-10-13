@@ -2,6 +2,7 @@ package pools_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -160,6 +161,73 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Concentrated_Succ
 			s.Require().NoError(err)
 			s.Require().Equal(tc.ExpectedTokenIn.String(), tokenIn.String())
 		})
+	}
+}
+
+// Tests that CalculateTokenInByTokenOut matches the chain's in-given-out computation when the
+// pool charges a non-zero spread factor.
+//
+// The chain success vectors above all use a zero spread factor, so they cannot detect a
+// mistake in how the spread reward is accounted for. The chain charges the spread reward on
+// the input token and adds it to the amount in; it must not be deducted from the remaining
+// output. Any deviation here understates amount_in on exact-out quotes.
+func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Concentrated_SpreadFactorMatchesChain() {
+	spreadFactors := []osmomath.Dec{
+		osmomath.MustNewDecFromStr("0.0005"),
+		osmomath.MustNewDecFromStr("0.003"),
+		osmomath.MustNewDecFromStr("0.01"),
+	}
+
+	for name, tc := range apptesting.SwapInGivenOutCases {
+		if strings.Contains(name, "slippage protection") {
+			continue
+		}
+
+		for _, spreadFactor := range spreadFactors {
+			s.Run(fmt.Sprintf("%s, spread factor %s", name, spreadFactor), func() {
+				s.SetupAndFundSwapTest()
+				concentratedPool := s.PreparePoolWithCustSpread(spreadFactor)
+				s.SetupDefaultPosition(concentratedPool.GetId())
+				s.SetupSecondPosition(tc, concentratedPool)
+
+				concentratedPool, err := s.App.ConcentratedLiquidityKeeper.GetConcentratedPoolById(s.Ctx, concentratedPool.GetId())
+				s.Require().NoError(err)
+
+				// The chain result is the reference.
+				expectedTokenIn, err := s.App.ConcentratedLiquidityKeeper.CalcInAmtGivenOut(s.Ctx, concentratedPool, tc.TokenOut, tc.TokenInDenom, spreadFactor)
+				if err != nil {
+					s.T().Skipf("chain does not support this vector with spread factor %s: %v", spreadFactor, err)
+				}
+
+				ticks, currentTickIndex, err := s.App.ConcentratedLiquidityKeeper.GetTickLiquidityForFullRange(s.Ctx, concentratedPool.GetId())
+				s.Require().NoError(err)
+
+				poolWrapper := ingesttypes.NewPool(concentratedPool, ingesttypes.SQSPool{
+					PoolLiquidityCap:      osmomath.NewInt(100),
+					PoolLiquidityCapError: "",
+					Balances:              sdk.Coins{},
+					PoolDenoms:            []string{"foo", "bar"},
+				})
+
+				err = poolWrapper.SetTickModel(&ingesttypes.TickModel{
+					Ticks:            ticks,
+					CurrentTickIndex: currentTickIndex,
+					HasNoLiquidity:   false,
+				})
+				s.Require().NoError(err)
+
+				cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
+					ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
+				}
+
+				routablePool, err := pools.NewRoutablePool(poolWrapper, tc.TokenInDenom, tc.TokenOutDenom, noTakerFee, cosmWasmPoolsParams)
+				s.Require().NoError(err)
+
+				tokenIn, err := routablePool.CalculateTokenInByTokenOut(context.TODO(), tc.TokenOut)
+				s.Require().NoError(err)
+				s.Require().Equal(expectedTokenIn.String(), tokenIn.String())
+			})
+		}
 	}
 }
 

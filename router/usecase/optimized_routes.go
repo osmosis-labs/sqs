@@ -59,6 +59,77 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 	return finalQuote, routesWithAmountOut, nil
 }
 
+// Returns best quote as well as all routes sorted by amount in and error if any.
+// CONTRACT: router repository must be set on the router.
+// CONTRACT: pools reporitory must be set on the router
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, err error) {
+	if len(routes) == 0 {
+		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenOut.Denom)
+	}
+
+	routesWithAmountIn := make([]route.RouteWithOutAmount, 0, len(routes))
+
+	errors := []error{}
+
+	for _, r := range routes {
+		directRouteTokenIn, err := r.CalculateTokenInByTokenOut(ctx, tokenOut)
+		if err != nil {
+			logger.Debug("skipping single route due to error in estimate", zap.Error(err))
+			errors = append(errors, err)
+			continue
+		}
+
+		// A route whose input rounds to zero would rank first with a free quote, so skip it.
+		if directRouteTokenIn.Amount.IsNil() || !directRouteTokenIn.Amount.IsPositive() {
+			err := fmt.Errorf("route %s computes a non-positive token in for %s", r.String(), tokenOut)
+			logger.Debug("skipping single route due to non-positive token in", zap.Error(err))
+			errors = append(errors, err)
+			continue
+		}
+
+		routesWithAmountIn = append(routesWithAmountIn, route.RouteWithOutAmount{
+			RouteImpl: r,
+			InAmount:  directRouteTokenIn.Amount,
+			OutAmount: tokenOut.Amount,
+		})
+	}
+
+	// If we skipped all routes due to errors, return the first error
+	if len(routesWithAmountIn) == 0 && len(errors) > 0 {
+		// If we encounter this problem, we attempte to invalidate all caches to recompute the routes
+		// completely.
+		// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
+		// If the original routes were computed only through the zero liquidity token, they will be recomputed
+		// through another token due to changed order.
+
+		// Note: the zero length check occurred at the start of function.
+		// In-given-out routes are ordered from the output side, so the input denom that the
+		// exact-out caches are keyed by is the token in of the route's last hop.
+		tokenInDenom := routes[0].GetTokenInDenom()
+
+		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom))
+		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
+		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude))
+
+		return nil, nil, errors[0]
+	}
+
+	// Sort by amount out in ascending order
+	sort.Slice(routesWithAmountIn, func(i, j int) bool {
+		return routesWithAmountIn[i].InAmount.LT(routesWithAmountIn[j].InAmount)
+	})
+
+	bestRoute := routesWithAmountIn[0]
+
+	finalQuote := &quoteExactAmountOut{
+		AmountIn:  bestRoute.InAmount,
+		AmountOut: tokenOut,
+		Route:     []domain.SplitRoute{&bestRoute},
+	}
+
+	return finalQuote, routesWithAmountIn, nil
+}
+
 // validateAndFilterRoutesOutGivenIn validates all routes. Specifically:
 // - all routes have at least one pool.
 // - all routes have the same final token out denom.
