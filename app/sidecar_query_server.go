@@ -333,7 +333,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase, poolsUseCase, logger)
 	chainregistryHttpDelivery.NewChainregistryHandler(e, chainregistryUseCase, logger)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
-	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
+	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, config.DebugEndpointsEnabled, logger); err != nil {
 		return nil, err
 	}
 
@@ -345,7 +345,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState}, logger)
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState, DebugEndpointsEnabled: config.DebugEndpointsEnabled}, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough
@@ -474,7 +474,10 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		}
 		ingestGRPCServer = grpcIngestHandler
 
-		ingestHttpDelivery.NewIngestHandler(e, ingestUseCase, logger)
+		// The ingest HTTP handler only serves POST /ingest/store-state.
+		if config.DebugEndpointsEnabled {
+			ingestHttpDelivery.NewIngestHandler(e, ingestUseCase, logger)
+		}
 		if config.ServeFromState {
 			if err := ingestUseCase.LoadIngestStateFiles(); err != nil {
 				panic(fmt.Errorf("failed to load ingester state files: %w", err))
@@ -494,13 +497,16 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		}()
 	}
 
-	go func() {
-		logger.Info("Starting profiling server")
-		err = http.ListenAndServe("localhost:6062", nil)
-		if err != nil {
-			panic(err)
-		}
-	}()
+	// The localhost profiling server serves http.DefaultServeMux, where net/http/pprof
+	// registers its handlers, so it is gated by the same flag as the public pprof routes.
+	if config.PprofEnabled {
+		go func() {
+			logger.Info("Starting profiling server")
+			if err := http.ListenAndServe("localhost:6062", nil); err != nil {
+				panic(err)
+			}
+		}()
+	}
 
 	return &sideCarQueryServer{
 		tokensUseCase: tokensUseCase,
