@@ -158,7 +158,7 @@ func (o *OrderbookUseCaseImpl) GetActiveOrdersStream(ctx context.Context, addres
 
 	// Function to fetch orders
 	fetchOrders := func(ctx context.Context) {
-		orderbooks, err := o.poolsUsecease.GetAllCanonicalOrderbookPoolIDs()
+		orderbooks, err := o.poolsUsecease.GetAllOrderbookPoolIDs()
 		if err != nil {
 			c <- orderbookdomain.OrderbookResult{
 				Error: types.FailedGetAllCanonicalOrderbookPoolIDsError{Err: err},
@@ -214,7 +214,7 @@ func (o *OrderbookUseCaseImpl) GetActiveOrdersStream(ctx context.Context, addres
 
 // GetActiveOrders implements mvc.OrderBookUsecase.
 func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
-	orderbooks, err := o.poolsUsecease.GetAllCanonicalOrderbookPoolIDs()
+	orderbooks, err := o.poolsUsecease.GetAllOrderbookPoolIDs()
 	if err != nil {
 		return nil, false, types.FailedGetAllCanonicalOrderbookPoolIDsError{Err: err}
 	}

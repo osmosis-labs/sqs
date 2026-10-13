@@ -186,6 +186,12 @@ func (p *poolLiquidityPricerWorker) computeEffectiveLiquidityCap(
 	var errors []error
 	totalEffectiveLiquidityCap := osmomath.ZeroDec()
 	for poolID, balance := range blockPoolDenomLiquidityData.Pools {
+		// A pool drained of this denom (or the zero entry of an alloyed LP share's
+		// minting pool) contributes nothing.
+		if balance.IsNil() || balance.IsZero() {
+			continue
+		}
+
 		pool, _, err := p.poolHandler.GetPools(domain.WithPoolIDFilter([]uint64{poolID}))
 		if err != nil {
 			errors = append(errors, err)
@@ -214,6 +220,12 @@ func (p *poolLiquidityPricerWorker) computeEffectiveLiquidityCap(
 			normalized := amount.Quo(osmomath.NewBigDec(10).Power(osmomath.NewBigDec(int64(metadata.Precision)))).Mul(price)
 
 			balances = append(balances, normalized)
+		}
+
+		// An emptied pool has no balances to compare. MinBigDec and MaxBigDec return an
+		// uninitialised BigDec for an empty input, which panics on use.
+		if len(balances) == 0 {
+			continue
 		}
 
 		min := stdosmomath.MinBigDec(balances...)

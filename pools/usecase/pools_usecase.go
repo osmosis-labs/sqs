@@ -59,8 +59,20 @@ type poolsUseCase struct {
 	routerRepository    routerrepo.RouterRepository
 	tokenMetadataHolder TokenMetadataHolder
 
+	// canonicalOrderbookMu serialises canonical orderbook updates. StorePools is
+	// called from both the ingest and the pool liquidity pricing paths, and an
+	// update is a read-compare-write over the two maps below.
+	canonicalOrderbookMu                sync.Mutex
 	canonicalOrderBookForBaseQuoteDenom sync.Map
 	canonicalOrderbookPoolIDs           sync.Map
+	// canonicalOrderbookChangedDenoms are the base and quote denoms of pairs whose canonical
+	// orderbook changed since they were last taken. Guarded by canonicalOrderbookMu.
+	canonicalOrderbookChangedDenoms map[string]struct{}
+
+	// orderbookPools holds every stored orderbook pool, canonical or not, keyed by pool ID
+	// (uint64 -> domain.CanonicalOrderBooksResult). Order discovery uses it so that orders on
+	// an orderbook that is not canonical for its pair are still found.
+	orderbookPools sync.Map
 
 	cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams
 
@@ -637,6 +649,13 @@ func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 			}
 			contractAddress := chainCosmWasmPool.ContractAddress
 
+			p.orderbookPools.Store(poolID, domain.CanonicalOrderBooksResult{
+				Base:            baseDenom,
+				Quote:           quoteDenom,
+				PoolID:          poolID,
+				ContractAddress: contractAddress,
+			})
+
 			// Process orderbook pool ID for base and quote denom
 			_, err := p.processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom, poolID, poolLiquidityCapitalization, contractAddress)
 			if err != nil {
@@ -652,10 +671,23 @@ func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 // processOrderbookPoolIDForBaseQuote processes the orderbook pool ID for the base and quote denom and pool liquidity
 // capitalization. If the current pool has higher liquidity capitalization than the top liquidity pool, update the top liquidity pool
 // for the given base and quote denom.
+//
+// If the given pool is the current top liquidity pool, its recorded capitalization is updated to the given value, up or down.
+// When it goes down, the canonical orderbook is re-elected from the current capitalization of every orderbook for the pair,
+// so that a drained canonical orderbook is replaced by a deeper one instead of staying canonical on its peak capitalization.
+//
 // Returns true if the top liquidity pool is updated, false otherwise.
 // Returns an error if the previous top orderbook entry cannot be casted to the right type.
 // CONTRACT: the given poolID is an orderbook pool.
 func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom string, poolID uint64, poolLiquidityCapitalization osmomath.Int, contractAddress string) (updatedBool bool, err error) {
+	p.canonicalOrderbookMu.Lock()
+	defer p.canonicalOrderbookMu.Unlock()
+
+	// A pool that has not been priced yet has no capitalization.
+	if poolLiquidityCapitalization.IsNil() {
+		poolLiquidityCapitalization = osmomath.ZeroInt()
+	}
+
 	// Format base and quote denom key.
 	baseQuoteKey := formatBaseQuoteDenom(baseDenom, quoteDenom)
 
@@ -669,6 +701,25 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 				BaseQuoteKey: baseQuoteKey,
 			}
 			return false, err
+		}
+
+		if topLiquidityOrderBookEntry.PoolID == poolID {
+			if poolLiquidityCapitalization.LT(topLiquidityOrderBookEntry.LiquidityCap) {
+				// The canonical orderbook lost liquidity: another orderbook for the pair may now be deeper.
+				return p.electCanonicalOrderbook(baseQuoteKey, baseDenom, quoteDenom, orderBookEntry{
+					PoolID:          poolID,
+					LiquidityCap:    poolLiquidityCapitalization,
+					ContractAddress: contractAddress,
+				}), nil
+			}
+
+			// Still the deepest: record its current capitalization.
+			p.canonicalOrderBookForBaseQuoteDenom.Store(baseQuoteKey, orderBookEntry{
+				PoolID:          poolID,
+				LiquidityCap:    poolLiquidityCapitalization,
+				ContractAddress: contractAddress,
+			})
+			return false, nil
 		}
 
 		// If the current pool has lower or equak liquidity capitalization than the top liquidity pool
@@ -692,7 +743,98 @@ func (p *poolsUseCase) processOrderbookPoolIDForBaseQuote(baseDenom, quoteDenom 
 	// Store the pool ID in the canonical orderbook pool IDs
 	p.canonicalOrderbookPoolIDs.Store(poolID, struct{}{})
 
+	p.markCanonicalOrderbookChanged(baseDenom, quoteDenom)
+
 	return true, nil
+}
+
+// markCanonicalOrderbookChanged records that the canonical orderbook of the given pair changed.
+// CONTRACT: canonicalOrderbookMu is held.
+func (p *poolsUseCase) markCanonicalOrderbookChanged(baseDenom, quoteDenom string) {
+	if p.canonicalOrderbookChangedDenoms == nil {
+		p.canonicalOrderbookChangedDenoms = map[string]struct{}{}
+	}
+	p.canonicalOrderbookChangedDenoms[baseDenom] = struct{}{}
+	p.canonicalOrderbookChangedDenoms[quoteDenom] = struct{}{}
+}
+
+// TakeCanonicalOrderbookChangedDenoms implements mvc.PoolsUsecase.
+func (p *poolsUseCase) TakeCanonicalOrderbookChangedDenoms() []string {
+	p.canonicalOrderbookMu.Lock()
+	defer p.canonicalOrderbookMu.Unlock()
+
+	denoms := domain.KeysFromMap(p.canonicalOrderbookChangedDenoms)
+	p.canonicalOrderbookChangedDenoms = nil
+
+	return denoms
+}
+
+// electCanonicalOrderbook re-selects the canonical orderbook for the given base and quote denom from the
+// current liquidity capitalization of every stored orderbook pool for that pair. The incumbent, with its
+// updated capitalization, keeps its place unless another orderbook is strictly deeper; among deeper
+// orderbooks with equal capitalization the lowest pool ID wins, for a deterministic result.
+// Returns true if the canonical orderbook changed.
+// CONTRACT: canonicalOrderbookMu is held.
+func (p *poolsUseCase) electCanonicalOrderbook(baseQuoteKey, baseDenom, quoteDenom string, incumbent orderBookEntry) bool {
+	best := incumbent
+
+	allPools, err := p.pools.Load()
+	if err != nil {
+		p.logger.Error("failed to load pools for canonical orderbook election", zap.String("base_quote", baseQuoteKey), zap.Error(err))
+	}
+
+	for poolID, pool := range allPools {
+		if poolID == incumbent.PoolID {
+			continue
+		}
+
+		cosmWasmPoolModel := pool.GetSQSPoolModel().CosmWasmPoolModel
+		if cosmWasmPoolModel == nil || cosmWasmPoolModel.Data.Orderbook == nil || !cosmWasmPoolModel.IsOrderbook() {
+			continue
+		}
+
+		orderbookData := cosmWasmPoolModel.Data.Orderbook
+		if orderbookData.BaseDenom != baseDenom || orderbookData.QuoteDenom != quoteDenom {
+			continue
+		}
+
+		liquidityCap := pool.GetLiquidityCap()
+		if liquidityCap.IsNil() {
+			continue
+		}
+
+		if liquidityCap.LT(best.LiquidityCap) {
+			continue
+		}
+
+		if liquidityCap.Equal(best.LiquidityCap) && (best.PoolID == incumbent.PoolID || poolID > best.PoolID) {
+			continue
+		}
+
+		chainCosmWasmPool, ok := pool.GetUnderlyingPool().(*cosmwasmpoolmodel.CosmWasmPool)
+		if !ok || chainCosmWasmPool == nil {
+			continue
+		}
+
+		best = orderBookEntry{
+			PoolID:          poolID,
+			LiquidityCap:    liquidityCap,
+			ContractAddress: chainCosmWasmPool.ContractAddress,
+		}
+	}
+
+	p.canonicalOrderBookForBaseQuoteDenom.Store(baseQuoteKey, best)
+
+	if best.PoolID == incumbent.PoolID {
+		return false
+	}
+
+	p.canonicalOrderbookPoolIDs.Delete(incumbent.PoolID)
+	p.canonicalOrderbookPoolIDs.Store(best.PoolID, struct{}{})
+
+	p.markCanonicalOrderbookChanged(baseDenom, quoteDenom)
+
+	return true
 }
 
 // GetCanonicalOrderbookPool implements mvc.PoolsUsecase.
@@ -765,6 +907,25 @@ func (p *poolsUseCase) GetAllCanonicalOrderbookPoolIDs() ([]domain.CanonicalOrde
 	})
 
 	return results, err
+}
+
+// GetAllOrderbookPoolIDs implements mvc.PoolsUsecase.
+func (p *poolsUseCase) GetAllOrderbookPoolIDs() ([]domain.CanonicalOrderBooksResult, error) {
+	var results []domain.CanonicalOrderBooksResult
+
+	p.orderbookPools.Range(func(_, value any) bool {
+		if orderbook, ok := value.(domain.CanonicalOrderBooksResult); ok {
+			results = append(results, orderbook)
+		}
+		return true
+	})
+
+	// Sort by pool ID for deterministic results
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].PoolID < results[j].PoolID
+	})
+
+	return results, nil
 }
 
 // RegisterAPRFetcher registers the APR fetcher for the passthrough use case.

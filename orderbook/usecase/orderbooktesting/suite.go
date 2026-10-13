@@ -172,9 +172,9 @@ func (s *OrderbookTestHelper) NewCanonicalOrderBooksResult(poolID uint64, contra
 	}
 }
 
-// GetAllCanonicalOrderbookPoolIDsFunc returns a function that returns all canonical orderbook pool IDs
-// it is useful for mocking the poolsUsecase.GetAllCanonicalOrderbookPoolIDsFunc.
-func (s *OrderbookTestHelper) GetAllCanonicalOrderbookPoolIDsFunc(err error, orderbooks ...domain.CanonicalOrderBooksResult) func() ([]domain.CanonicalOrderBooksResult, error) {
+// GetAllOrderbookPoolIDsFunc returns a function that returns all orderbook pool IDs
+// it is useful for mocking the poolsUsecase.GetAllOrderbookPoolIDsFunc.
+func (s *OrderbookTestHelper) GetAllOrderbookPoolIDsFunc(err error, orderbooks ...domain.CanonicalOrderBooksResult) func() ([]domain.CanonicalOrderBooksResult, error) {
 	return func() ([]domain.CanonicalOrderBooksResult, error) {
 		return orderbooks, err
 	}

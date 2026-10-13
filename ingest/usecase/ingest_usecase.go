@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -134,6 +135,13 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	// Store the pools
 	if err := p.poolsUseCase.StorePools(pools); err != nil {
 		return err
+	}
+
+	// A canonical orderbook change affects the candidate routes of both denoms of its pair,
+	// even when only one of them is in this block's balances. This also picks up changes made
+	// by the previous block's asynchronous liquidity repricing.
+	for _, denom := range p.poolsUseCase.TakeCanonicalOrderbookChangedDenoms() {
+		uniqueBlockPoolMetadata.UpdatedDenoms[denom] = struct{}{}
 	}
 
 	// Get all pools (already updated with the newly ingested pools)
@@ -323,7 +331,14 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, height uint64, poolDa
 	// Transfer the updated block denom liquidity data to the global map.
 	// Note, the updated liquidity data contains updates only for the pools updated
 	// in the current block. We need to merge this data with the holistic existing data.
-	p.denomLiquidityMap = transferDenomLiquidityMap(p.denomLiquidityMap, currentBlockLiquidityMap)
+	var drainedDenoms map[string]struct{}
+	p.denomLiquidityMap, drainedDenoms = transferDenomLiquidityMap(p.denomLiquidityMap, currentBlockLiquidityMap, uniqueData.PoolIDs)
+
+	// A denom drained from a pool is not in that pool's balances, so it has to be
+	// marked as updated for its liquidity and candidate routes to be recomputed.
+	for denom := range drainedDenoms {
+		uniqueData.UpdatedDenoms[denom] = struct{}{}
+	}
 
 	// Update unique denoms.
 	uniqueData.DenomPoolLiquidityMap = p.denomLiquidityMap
@@ -422,13 +437,67 @@ func updateCurrentBlockLiquidityMapAlloyed(currentBlockLiquidityMap domain.Denom
 //
 // We then simply add the transferFrom liquidity map to the total to reflect the new total.
 // the updated denom liquidity data is then set for that denom.
-func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidityMap) domain.DenomPoolLiquidityMap {
+//
+// Drain process:
+// updatedPoolIDs are the pools updated in the current block. Their transferFrom entries are their
+// complete current balances, so any entry an updated pool still has in transferTo for a denom that is
+// absent from its transferFrom entries is a denom the pool no longer holds. Such an entry's liquidity is
+// subtracted from the denom total and set to zero. The entry itself is kept: a pool with no balance of a
+// denom can still take that denom in (for example an orderbook with asks but no quote balance), so it must
+// stay a route candidate for the denom.
+// Returns the denoms that had at least one pool entry drained to zero.
+//
+// transferTo is not mutated: the previous map may still be read by the asynchronous pricing workers of an
+// earlier block. A new top-level map is returned, and every changed denom entry gets its own pools map.
+func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidityMap, updatedPoolIDs map[uint64]struct{}) (domain.DenomPoolLiquidityMap, map[string]struct{}) {
+	result := make(domain.DenomPoolLiquidityMap, len(transferTo)+len(transferFrom))
+	maps.Copy(result, transferTo)
+
+	drainedDenoms := map[string]struct{}{}
+
+	// Zero the entries of updated pools for denoms they no longer hold.
+	if len(updatedPoolIDs) > 0 {
+		for denom, transferToLiquidityDataForDenom := range transferTo {
+			currentPools := transferFrom[denom].Pools
+
+			var drainedPoolIDs []uint64
+			for poolID, liquidity := range transferToLiquidityDataForDenom.Pools {
+				if _, updated := updatedPoolIDs[poolID]; !updated {
+					continue
+				}
+				if _, held := currentPools[poolID]; held {
+					continue
+				}
+				if liquidity.IsNil() || liquidity.IsZero() {
+					// Already drained in an earlier block.
+					continue
+				}
+				drainedPoolIDs = append(drainedPoolIDs, poolID)
+			}
+
+			if len(drainedPoolIDs) == 0 {
+				continue
+			}
+
+			drained := copyDenomPoolLiquidityData(transferToLiquidityDataForDenom)
+			for _, poolID := range drainedPoolIDs {
+				drained.TotalLiquidity = drained.TotalLiquidity.Sub(drained.Pools[poolID])
+				drained.Pools[poolID] = osmomath.ZeroInt()
+			}
+
+			result[denom] = drained
+			drainedDenoms[denom] = struct{}{}
+		}
+	}
+
 	for denom, transferFromDenomLiquidityData := range transferFrom {
-		transferToLiquidityDataForDenom, ok := transferTo[denom]
+		existingLiquidityDataForDenom, ok := result[denom]
 		if !ok {
-			transferTo[denom] = transferFromDenomLiquidityData
+			result[denom] = transferFromDenomLiquidityData
 			continue
 		}
+
+		transferToLiquidityDataForDenom := copyDenomPoolLiquidityData(existingLiquidityDataForDenom)
 
 		// Transfer pools
 		for transferFromPoolID, transferFromLiquidity := range transferFromDenomLiquidityData.Pools {
@@ -446,10 +515,19 @@ func transferDenomLiquidityMap(transferTo, transferFrom domain.DenomPoolLiquidit
 		}
 
 		// Update the global map with the updated data.
-		transferTo[denom] = transferToLiquidityDataForDenom
+		result[denom] = transferToLiquidityDataForDenom
 	}
 
-	return transferTo
+	return result, drainedDenoms
+}
+
+// copyDenomPoolLiquidityData returns a copy of the given denom liquidity data with its own pools map.
+func copyDenomPoolLiquidityData(data domain.DenomPoolLiquidityData) domain.DenomPoolLiquidityData {
+	pools := make(map[uint64]osmomath.Int, len(data.Pools))
+	maps.Copy(pools, data.Pools)
+
+	data.Pools = pools
+	return data
 }
 
 // parsePool parses the pool data and returns the pool object
