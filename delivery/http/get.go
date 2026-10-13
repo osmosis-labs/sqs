@@ -3,8 +3,6 @@ package http
 import (
 	"context"
 	"io"
-	"log"
-	"net"
 	"net/http"
 	"time"
 )
@@ -21,11 +19,7 @@ func Get(ctx context.Context, url string) ([]byte, error) {
 
 	resp, err := DefaultClient.Do(req)
 	if err != nil {
-		netErr, ok := err.(net.Error)
-		if ok && netErr.Timeout() {
-			log.Printf("Request to %s timed out, continuing...", url)
-			return nil, nil
-		}
+		// Timeouts are returned as errors too: a nil body with a nil error hides the failure from callers.
 		return nil, err
 	}
 	defer resp.Body.Close()

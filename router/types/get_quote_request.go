@@ -39,17 +39,17 @@ func (r *GetQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	}
 
 	if tokenIn := c.QueryParam("tokenIn"); tokenIn != "" {
-		tokenInCoin, err := sdk.ParseCoinNormalized(tokenIn)
+		tokenInCoin, err := parsePositiveIntegerCoin(tokenIn, ErrTokenInNotValid, ErrTokenInAmountNotPositive)
 		if err != nil {
-			return ErrTokenInNotValid
+			return err
 		}
 		r.TokenIn = &tokenInCoin
 	}
 
 	if tokenOut := c.QueryParam("tokenOut"); tokenOut != "" {
-		tokenOutCoin, err := sdk.ParseCoinNormalized(tokenOut)
+		tokenOutCoin, err := parsePositiveIntegerCoin(tokenOut, ErrTokenOutNotValid, ErrTokenOutAmountNotPositive)
 		if err != nil {
-			return ErrTokenOutNotValid
+			return err
 		}
 		r.TokenOut = &tokenOutCoin
 	}
@@ -156,4 +156,21 @@ func (r *GetQuoteRequest) Validate() error {
 	}
 
 	return domain.ValidateInputDenoms(a, b)
+}
+
+// parsePositiveIntegerCoin parses an amountDenom string, returning errInvalid if it is malformed
+// and errNotPositive unless the amount, in the smallest registered unit, is a positive integer.
+// Like sdk.ParseCoinNormalized it converts registered units to the base unit ("1.5osmo" is
+// 1500000uosmo), but it rejects a remaining fraction instead of truncating it: "1.5uosmo"
+// would otherwise be quoted as 1uosmo and "0.5uosmo" as zero.
+func parsePositiveIntegerCoin(s string, errInvalid, errNotPositive error) (sdk.Coin, error) {
+	decCoin, err := sdk.ParseDecCoin(s)
+	if err != nil {
+		return sdk.Coin{}, errInvalid
+	}
+	decCoin = sdk.NormalizeDecCoin(decCoin)
+	if !decCoin.Amount.IsPositive() || !decCoin.Amount.IsInteger() {
+		return sdk.Coin{}, errNotPositive
+	}
+	return sdk.Coin{Denom: decCoin.Denom, Amount: decCoin.Amount.TruncateInt()}, nil
 }

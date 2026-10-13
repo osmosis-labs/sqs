@@ -54,12 +54,15 @@ type chainregistryUseCase struct {
 }
 
 // NewChainregistryUseCase creates a new use case and starts the run loop.
-func NewChainregistryUseCase(ctx context.Context, chainRegistryTokenFeesFileURL string, tokensUseCase mvc.TokensUsecase, logger log.Logger) (*chainregistryUseCase, error) {
+// defaultQuoteDenom is the chain denom that fee token values are priced in. It must be the same
+// denom the pricing worker pre-computes prices for so that fee token pricing is served from cache
+// and falls back to Coingecko when no on-chain route exists.
+func NewChainregistryUseCase(ctx context.Context, chainRegistryTokenFeesFileURL string, tokensUseCase mvc.TokensUsecase, defaultQuoteDenom string, logger log.Logger) (*chainregistryUseCase, error) {
 	us := &chainregistryUseCase{
 		chainRegistryFileURL: chainRegistryTokenFeesFileURL,
 		tokensUseCase:        tokensUseCase,
 		baseDenom:            "uosmo",
-		quoteDenom:           "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+		quoteDenom:           defaultQuoteDenom,
 		logger:               logger,
 		command:              make(chan cmd),
 	}
@@ -75,7 +78,25 @@ func NewChainregistryUseCase(ctx context.Context, chainRegistryTokenFeesFileURL 
 }
 
 // GetFeeTokens implements mvc.ChainregistryUsecase.
+// Tokens without any positive gas price (i.e. tokens that could not be priced) are not served.
 func (p *chainregistryUseCase) GetFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
+	tokens, err := p.getStoredFeeTokens(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*api.FeeToken, 0, len(tokens))
+	for _, token := range tokens {
+		if token.FixedMinGasPrice > 0 || token.LowGasPrice > 0 || token.AverageGasPrice > 0 || token.HighGasPrice > 0 {
+			result = append(result, token)
+		}
+	}
+
+	return result, nil
+}
+
+// getStoredFeeTokens returns all fee tokens held in the state, including the ones withheld by GetFeeTokens.
+func (p *chainregistryUseCase) getStoredFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
 	respChan := make(chan []*api.FeeToken)
 	select {
 	case p.command <- getTokensCommand{result: respChan}:
@@ -166,7 +187,7 @@ func (p *chainregistryUseCase) processTokensPeriodically(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			tokens, err := p.GetFeeTokens(ctx)
+			tokens, err := p.getStoredFeeTokens(ctx)
 			if err != nil {
 				p.logger.Error("failed to get fee tokens", zap.Error(err))
 				continue
@@ -208,8 +229,9 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.
 		return nil, fmt.Errorf("failed to get prices: %w", err)
 	}
 
+	// Without a base denom price no gas price can be derived, so keep the previous state.
 	fee, ok := prices[p.baseDenom][p.quoteDenom]
-	if !ok {
+	if !ok || fee.Price.IsNil() || !fee.Price.IsPositive() {
 		return nil, fmt.Errorf("failed to get price for %s/%s", p.baseDenom, p.quoteDenom)
 	}
 
@@ -237,9 +259,13 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.
 			return nil, fmt.Errorf("failed to get prices: %w", err)
 		}
 
+		// An unpriced token must not block updates for the other tokens. It is kept without gas
+		// prices so that it is retried on the next run, and GetFeeTokens does not serve it.
 		pricePerToken, ok := prices[v.Denom][p.quoteDenom]
-		if !ok {
-			return nil, fmt.Errorf("failed to get price for %s/%s", v.Denom, p.quoteDenom)
+		if !ok || pricePerToken.Price.IsNil() || !pricePerToken.Price.IsPositive() {
+			p.logger.Debug("no price for fee token, withholding it", zap.String("denom", v.Denom), zap.String("quote_denom", p.quoteDenom))
+			result = append(result, &api.FeeToken{Denom: v.Denom})
+			continue
 		}
 
 		fixedMinGasPrice, err := calculateTokenQuantity(ctx, fixedMinGasMarketValue, pricePerToken.Price).Float64()

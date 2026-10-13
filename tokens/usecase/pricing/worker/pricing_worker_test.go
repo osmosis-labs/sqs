@@ -201,6 +201,15 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 
 	s.Require().Zero(errorCounter)
 
+	// Unsupported tokens are omitted from the result rather than priced at zero.
+	s.Require().Zero(zeroPriceCounter)
+	unsupportedCounter := 0
+	for baseDenom := range baseDenoms.UpdatedDenoms {
+		if _, ok := mockPricingUpdateListener.PricesBaseQuteDenomMap[baseDenom]; !ok {
+			unsupportedCounter++
+		}
+	}
+
 	// Measured at the time of test creation.
 	// Most tokens are unlisted.
 	// Out of listed:
@@ -221,7 +230,11 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	//
 	// On August 21, 2024: 23 unsupported tokens - likely added liquidity to some pools with the tokens.
 	// On August 27, 2024: 20 unsupported tokens - same reason as above.
-	s.Require().Equal(20, zeroPriceCounter)
+	//
+	// The worker minimum pool liquidity cap is now 1000 and is no longer lowered by the dynamic
+	// liquidity filter, so tokens whose only pools are below it are unsupported too: 33 with a
+	// cap of 1 and 89 with the default of 1000.
+	s.Require().Equal(89, unsupportedCounter)
 }
 
 func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {

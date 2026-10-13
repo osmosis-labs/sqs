@@ -45,18 +45,23 @@ func NewSystemHandler(e *echo.Echo, config domain.Config, logger log.Logger, us 
 		config:    config,
 	}
 
-	// if debug mod, enable additional profiles that are too intensive
-	// for production.
-	if !config.LoggerIsProduction {
-		runtime.SetMutexProfileFraction(2)
-		runtime.SetBlockProfileRate(2)
-	}
+	if config.PprofEnabled {
+		// if debug mod, enable additional profiles that are too intensive
+		// for production.
+		if !config.LoggerIsProduction {
+			runtime.SetMutexProfileFraction(2)
+			runtime.SetBlockProfileRate(2)
+		}
 
-	e.GET("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
-	e.GET("/debug/pprof/cmdline", echo.WrapHandler(http.HandlerFunc(pprof.Cmdline)))
-	e.GET("/debug/pprof/profile", echo.WrapHandler(http.HandlerFunc(pprof.Profile)))
-	e.GET("/debug/pprof/symbol", echo.WrapHandler(http.HandlerFunc(pprof.Symbol)))
-	e.GET("/debug/pprof/trace", echo.WrapHandler(http.HandlerFunc(pprof.Trace)))
+		// pprof.Index serves the index and the named profiles (heap, goroutine, ...).
+		// It is used instead of http.DefaultServeMux, which would also serve anything
+		// else registered there.
+		e.GET("/debug/pprof/*", echo.WrapHandler(http.HandlerFunc(pprof.Index)))
+		e.GET("/debug/pprof/cmdline", echo.WrapHandler(http.HandlerFunc(pprof.Cmdline)))
+		e.GET("/debug/pprof/profile", echo.WrapHandler(http.HandlerFunc(pprof.Profile)))
+		e.GET("/debug/pprof/symbol", echo.WrapHandler(http.HandlerFunc(pprof.Symbol)))
+		e.GET("/debug/pprof/trace", echo.WrapHandler(http.HandlerFunc(pprof.Trace)))
+	}
 
 	e.GET("/healthcheck", handler.GetHealthStatus)
 	e.GET("/config", handler.GetConfig)
@@ -73,7 +78,7 @@ func (h *SystemHandler) GetConfig(c echo.Context) error {
 	config := h.config
 	config.OTEL = nil
 
-	return c.JSON(http.StatusOK, h.config)
+	return c.JSON(http.StatusOK, config)
 }
 
 // GetConfigPrivate returns the OTEL config that contains

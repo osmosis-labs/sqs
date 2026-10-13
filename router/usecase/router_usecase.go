@@ -163,7 +163,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	}
 
 	if len(rankedRoutes) == 1 || options.MaxSplitRoutes == domain.DisableSplitRoutes {
-		return topSingleRouteQuote, nil
+		return validateQuoteAmountOut(topSingleRouteQuote)
 	}
 
 	// Filter out generalized cosmWasm pool routes
@@ -171,7 +171,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 
 	// If filtering leads to a single route left, return it.
 	if len(rankedRoutes) == 1 {
-		return topSingleRouteQuote, nil
+		return validateQuoteAmountOut(topSingleRouteQuote)
 	}
 
 	// Compute split route quote
@@ -179,7 +179,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	if err != nil {
 		// If error occurs in splits, return the single route quote
 		// rather than failing.
-		return topSingleRouteQuote, nil
+		return validateQuoteAmountOut(topSingleRouteQuote)
 	}
 
 	finalQuote := topSingleRouteQuote
@@ -195,11 +195,18 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 
 	r.logger.Debug("single route selected", zap.Stringer("route", finalQuote.GetRoute()[0]))
 
-	if finalQuote.GetAmountOut().IsZero() {
-		return nil, errors.New("best we can do is no tokens out")
+	return validateQuoteAmountOut(finalQuote)
+}
+
+// validateQuoteAmountOut returns an error if the quote yields no tokens out,
+// for example when a dust amount in is fully consumed by fees and rounding.
+func validateQuoteAmountOut(quote domain.Quote) (domain.Quote, error) {
+	amountOut := quote.GetAmountOut().Amount
+	if amountOut.IsNil() || amountOut.IsZero() {
+		return nil, domain.ErrNoTokensOut
 	}
 
-	return finalQuote, nil
+	return quote, nil
 }
 
 // GetOptimalQuoteInGivenOut returns an optimal quote through the pools for the exact amount out token swap method.
@@ -299,7 +306,9 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 	if err == nil {
 		// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
 		// Oterwise, use default.
-		options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+		// The dynamic filter may only raise the floor passed in the options, never lower it,
+		// so that a configured pricing minimum keeps dust pools from setting prices.
+		options.MinPoolLiquidityCap = max(options.MinPoolLiquidityCap, r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap))
 	}
 
 	// If this is pricing worker precomputation, we need to be able to call this as
@@ -611,6 +620,12 @@ var (
 
 // GetCustomDirectQuoteOutGivenIn implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, poolID uint64) (domain.Quote, error) {
+	// A pinned pool bypasses the candidate route search, so check the exclusion list here too,
+	// before the lookup so an excluded pool that no longer exists still gets this error.
+	if osmoutils.Contains(r.defaultConfig.ExcludedPoolIDs, poolID) {
+		return nil, fmt.Errorf("%w: pool %d is excluded from routing", routertypes.ErrValidationFailed, poolID)
+	}
+
 	pool, err := r.poolsUsecase.GetPool(poolID)
 	if err != nil {
 		return nil, err
@@ -640,7 +655,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 		return nil, err
 	}
 
-	return bestSingleRouteQuote, nil
+	return validateQuoteAmountOut(bestSingleRouteQuote)
 }
 
 // GetCustomDirectQuoteOutGivenIn implements mvc.RouterUsecase.
