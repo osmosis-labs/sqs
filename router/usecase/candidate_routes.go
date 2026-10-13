@@ -51,6 +51,16 @@ func candidateRoutePath(nodes []candidateRouteNode, last int, next candidatePool
 	return path
 }
 
+// maxCandidateRouteSearchPaths bounds the paths one candidate route search queues. Without a bound, a token
+// that cannot reach max routes, such as one with only dust pools between it and the other token, queues
+// every path up to max pools per route, which costs gigabytes of memory on mainnet when the min pool
+// liquidity cap is 0. The search is breadth-first over pools sorted by rating, so a search that reaches
+// the bound stops adding its deepest, lowest-rated paths. Queued paths are still expanded, so routes that
+// end one pool after them are still found. On mainnet, some tokens priced through low liquidity pools only
+// find their first route after tens of thousands of queued paths, so the bound sits well above that.
+// Tests change it through export_test.go.
+var maxCandidateRouteSearchPaths = 100_000
+
 // visitedPoolsSize bounds the pool IDs the candidate route search can mark as visited.
 const visitedPoolsSize = 100_000
 
@@ -87,6 +97,22 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteSearcher.
 func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+	routes, queuedPaths, capped, err := c.findCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, options, maxCandidateRouteSearchPaths)
+	if err != nil {
+		return ingesttypes.CandidateRoutes{}, err
+	}
+
+	if capped {
+		domain.SQSCandidateRouteSearchCappedCounter.Inc()
+		c.logger.Debug("candidate route search reached the queued path bound", zap.String("token_in", tokenIn.Denom), zap.String("token_out", tokenOutDenom), zap.Int("queued_paths", queuedPaths), zap.Int("routes", len(routes)))
+	}
+
+	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
+}
+
+// findCandidateRoutesOutGivenIn searches for candidate routes, queuing at most maxQueuedPaths paths.
+// It returns the routes found, the number of paths queued, and whether a path was left out because of the bound.
+func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions, maxQueuedPaths int) (_ []candidateRouteWrapper, queuedPaths int, capped bool, _ error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
 	visitedPtr := visitedPools.Get().(*[]bool)
@@ -104,7 +130,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenIn.Denom)
 	if err != nil {
-		return ingesttypes.CandidateRoutes{}, err
+		return nil, 0, false, err
 	}
 
 	if len(denomData.CanonicalOrderbooks) > 0 {
@@ -153,7 +179,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 		denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
 		if err != nil {
-			return ingesttypes.CandidateRoutes{}, err
+			return nil, 0, false, err
 		}
 
 		if len(denomData.SortedPools) == 0 {
@@ -234,7 +260,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 				denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
 				if err != nil {
-					return ingesttypes.CandidateRoutes{}, err
+					return nil, 0, false, err
 				}
 
 				if len(denomData.SortedPools) == 0 {
@@ -257,9 +283,11 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 								IsCanonicalOrderboolRoute: false,
 							})
 							break
-						} else {
+						} else if len(nodes) < maxQueuedPaths {
 							nodes = append(nodes, candidateRouteNode{pool: nextPool, parent: currentNode, length: currentRouteLen + 1})
 							queue = append(queue, len(nodes)-1)
+						} else {
+							capped = true
 						}
 					}
 				}
@@ -271,7 +299,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 		}
 	}
 
-	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
+	return routes, len(nodes), capped, nil
 }
 
 // FindCandidateRoutesInGivenOut implements domain.CandidateRouteSearcher.

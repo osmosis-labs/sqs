@@ -21,6 +21,19 @@ type (
 	CandidateRouteWrapper = candidateRouteWrapper
 )
 
+// FindCandidateRoutesOutGivenInWithBound runs the candidate route search of searcher with the given bound on
+// queued paths, returning the routes found, the number of paths queued and whether the bound was reached.
+func FindCandidateRoutesOutGivenInWithBound(searcher domain.CandidateRouteSearcher, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions, maxQueuedPaths int) ([]candidateRouteWrapper, int, bool, error) {
+	return searcher.(candidateRouteFinder).findCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, options, maxQueuedPaths)
+}
+
+// SetMaxCandidateRouteSearchPaths sets the bound on queued paths per candidate route search and returns the previous one.
+func SetMaxCandidateRouteSearchPaths(maxPaths int) int {
+	previous := maxCandidateRouteSearchPaths
+	maxCandidateRouteSearchPaths = maxPaths
+	return previous
+}
+
 func ValidateAndFilterRoutesOutGivenIn(candidateRoutes []candidateRouteWrapper, tokenInDenom string, logger log.Logger) (ingesttypes.CandidateRoutes, error) {
 	return validateAndFilterRoutesOutGivenIn(candidateRoutes, tokenInDenom, logger)
 }

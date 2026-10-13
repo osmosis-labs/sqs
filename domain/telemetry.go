@@ -162,6 +162,11 @@ var (
 	// gauge that tracks duration of candidate routes computation
 	SQSCandidateRoutesComputeDurationMetricName = "sqs_candidate_routes_compute_duration"
 
+	// sqs_candidate_route_search_capped_total
+	//
+	// counter that measures the number of candidate route searches that reached the queued path bound
+	SQSCandidateRouteSearchCappedMetricName = "sqs_candidate_route_search_capped_total"
+
 	SQSIngestHandlerProcessBlockHeightGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockHeightMetricName,
@@ -323,6 +328,13 @@ var (
 			Help: "gauge that tracks duration of candidate routes computation",
 		},
 	)
+
+	SQSCandidateRouteSearchCappedCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSCandidateRouteSearchCappedMetricName,
+			Help: "Total number of candidate route searches that reached the queued path bound",
+		},
+	)
 )
 
 func init() {
@@ -349,4 +361,5 @@ func init() {
 	prometheus.MustRegister(SQSPricingCoingeckoCacheHitsCounter)
 	prometheus.MustRegister(SQSPricingCoingeckoCacheMissesCounter)
 	prometheus.MustRegister(SQSCandidateRoutesComputeDurationGauge)
+	prometheus.MustRegister(SQSCandidateRouteSearchCappedCounter)
 }
