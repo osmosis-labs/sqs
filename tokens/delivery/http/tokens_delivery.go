@@ -40,7 +40,8 @@ func formatTokensResource(resource string) string {
 }
 
 // NewTokensHandler will initialize the pools/ resources endpoint
-func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, logger log.Logger) (err error) {
+// The POST /tokens/store-state endpoint is registered only if debugEndpointsEnabled is set.
+func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, debugEndpointsEnabled bool, logger log.Logger) (err error) {
 	defaultQuoteChainDenom, err := ts.GetChainDenom(pricingConfig.DefaultQuoteHumanDenom)
 	if err != nil {
 		return err
@@ -51,6 +52,8 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 		RUsecase: ru,
 
 		defaultQuoteChainDenom: defaultQuoteChainDenom,
+		// Coingecko prices are in USD, which SQS serves under the default quote denom.
+		defaultCoingeckoDenom: defaultQuoteChainDenom,
 
 		logger: logger,
 	}
@@ -59,7 +62,9 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 	e.GET(formatTokensResource("/pool-metadata"), handler.GetPoolDenomMetadata)
 	e.GET(formatTokensResource("/prices"), handler.GetPrices)
 	e.GET(formatTokensResource("/usd-price-test"), handler.GetUSDPriceTest)
-	e.POST(formatTokensResource("/store-state"), handler.StoreTokensStateInFiles)
+	if debugEndpointsEnabled {
+		e.POST(formatTokensResource("/store-state"), handler.StoreTokensStateInFiles)
+	}
 
 	return nil
 }

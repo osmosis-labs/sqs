@@ -5,10 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 )
+
+// chainRegistryHTTPClient fetches the asset list. The timeout is generous because the
+// file is large, but it bounds a hung connection that would otherwise block startup and updates.
+var chainRegistryHTTPClient = &http.Client{Timeout: 60 * time.Second}
 
 // GetTokensFromChainRegistryFunc is a GetTokensFromChainRegistry function signature.
 type GetTokensFromChainRegistryFunc func(chainRegistryAssetsFileURL string) (map[string]domain.Token, string, error)
@@ -17,11 +23,15 @@ type GetTokensFromChainRegistryFunc func(chainRegistryAssetsFileURL string) (map
 // It returns a map of tokens by chain denom.
 func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]domain.Token, string, error) {
 	// Fetch the JSON data from the URL
-	response, err := http.Get(chainRegistryAssetsFileURL)
+	response, err := chainRegistryHTTPClient.Get(chainRegistryAssetsFileURL)
 	if err != nil {
 		return nil, "", err
 	}
 	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("failed to fetch chain registry assets: %s", response.Status)
+	}
 
 	// read the response body once to be used for
 	// decoding and for checksum
@@ -44,8 +54,14 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 
 	// Iterate through each asset and its denom units to print exponents
 	for _, asset := range assetList.Assets {
+		// A missing decimals field would otherwise default to 0 and misprice the asset by orders of magnitude.
+		if asset.Decimals == nil {
+			log.Printf("skipping asset %s (%s): decimals missing from chain registry", asset.Symbol, asset.CoinMinimalDenom)
+			continue
+		}
+
 		token := domain.Token{}
-		token.Precision = asset.Decimals
+		token.Precision = *asset.Decimals
 		token.HumanDenom = asset.Symbol
 		token.IsUnlisted = asset.Preview
 		token.CoingeckoID = asset.CoingeckoID

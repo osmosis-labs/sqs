@@ -9,6 +9,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	chaininfoclient "github.com/osmosis-labs/sqs/chaininfo/client"
+	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
 	deliveryhttp "github.com/osmosis-labs/sqs/system/delivery/http"
@@ -212,4 +213,36 @@ func TestExtractVersion(t *testing.T) {
 			require.Equal(t, tc.expectedVersion, result)
 		})
 	}
+}
+
+// TestPprofRoutesGatedByConfig checks that the pprof endpoints are only registered when enabled.
+func TestPprofRoutesGatedByConfig(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		e := echo.New()
+		deliveryhttp.NewSystemHandler(e, domain.Config{PprofEnabled: enabled}, &log.NoOpLogger{}, nil)
+
+		for _, path := range []string{"/debug/pprof/", "/debug/pprof/heap", "/debug/pprof/cmdline"} {
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+
+			if enabled {
+				assert.Equal(t, http.StatusOK, rec.Code, path)
+			} else {
+				assert.Equal(t, http.StatusNotFound, rec.Code, path)
+			}
+		}
+	}
+}
+
+// TestGetConfigMasksOTEL checks that /config omits the OTEL settings.
+func TestGetConfigMasksOTEL(t *testing.T) {
+	e := echo.New()
+	deliveryhttp.NewSystemHandler(e, domain.Config{OTEL: &domain.OTELConfig{Enabled: true, Environment: "secret-env"}}, &log.NoOpLogger{}, nil)
+
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/config", nil))
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.NotContains(t, rec.Body.String(), "secret-env")
+	assert.Contains(t, rec.Body.String(), `"OTEL":null`)
 }

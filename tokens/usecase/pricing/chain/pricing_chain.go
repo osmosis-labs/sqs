@@ -25,6 +25,10 @@ type chainPricing struct {
 	maxPoolsPerRoute    int
 	maxRoutes           int
 	minPoolLiquidityCap uint64
+	// workerMinPoolLiquidityCap is the min pool liquidity cap the pricing worker uses for the default quote denom.
+	// Request-path recomputes of default quote prices use it too, so that a price refreshed after expiry
+	// is computed the same way as one precomputed by the worker.
+	workerMinPoolLiquidityCap uint64
 }
 
 var _ domain.PricingSource = &chainPricing{}
@@ -44,6 +48,11 @@ const (
 	//
 	// The default is SpotPriceComputeMethod.
 	defaultIsSpotPriceComputeMethod bool = true
+
+	// defaultQuotePriceMaxAge bounds how long a default quote denom price is served without being recomputed.
+	// The pricing worker only reprices denoms in pools touched by a block, so without a bound a price
+	// derived through an intermediate denom (e.g. TOKEN/OSMO then OSMO/USDC) would never refresh.
+	defaultQuotePriceMaxAge = 10 * time.Minute
 )
 
 func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
@@ -56,12 +65,13 @@ func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, 
 		RUsecase: routerUseCase,
 		TUsecase: tokenUseCase,
 
-		cache:               cache.New(),
-		cacheExpiryNs:       time.Duration(config.CacheExpiryMs) * time.Millisecond,
-		maxPoolsPerRoute:    config.MaxPoolsPerRoute,
-		maxRoutes:           config.MaxRoutes,
-		minPoolLiquidityCap: config.MinPoolLiquidityCap,
-		defaultQuoteDenom:   chainDefaultHumanDenom,
+		cache:                     cache.New(),
+		cacheExpiryNs:             time.Duration(config.CacheExpiryMs) * time.Millisecond,
+		maxPoolsPerRoute:          config.MaxPoolsPerRoute,
+		maxRoutes:                 config.MaxRoutes,
+		minPoolLiquidityCap:       config.MinPoolLiquidityCap,
+		workerMinPoolLiquidityCap: config.WorkerMinPoolLiquidityCap,
+		defaultQuoteDenom:         chainDefaultHumanDenom,
 	}
 }
 
@@ -71,6 +81,10 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		MinPoolLiquidityCap:                     c.minPoolLiquidityCap,
 		RecomputePricesIsSpotPriceComputeMethod: defaultIsSpotPriceComputeMethod,
 		RecomputePrices:                         false,
+	}
+
+	if quoteDenom == c.defaultQuoteDenom {
+		options.MinPoolLiquidityCap = c.workerMinPoolLiquidityCap
 	}
 
 	for _, opt := range opts {
@@ -111,8 +125,20 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 }
 
 // computePrice computes the price for a given base and quote denom
-func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (osmomath.BigDec, []domain.SplitRoute, error) {
+// On failure, any previously cached price for the pair is evicted so that a stale price is not
+// served after its route stops being usable, and fallback pricing can take over.
+func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (_ osmomath.BigDec, _ []domain.SplitRoute, err error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
+
+	defer func() {
+		// A panic (e.g. from a malformed pool spot price) must evict too, so it is turned into an error.
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic computing price for %s (base) -> %s (quote): %v", baseDenom, quoteDenom, r)
+		}
+		if err != nil {
+			c.cache.Delete(cacheKey)
+		}
+	}()
 
 	if baseDenom == quoteDenom {
 		return osmomath.OneBigDec(), nil, nil
@@ -214,17 +240,19 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	// Apply scaling facors to descale the amounts to real amounts.
 	chainPrice = chainPrice.MulMut(precisionScalingFactor)
 
-	// Only store values that are valid.
-	if !chainPrice.IsNil() {
-		expirationTTL := c.cacheExpiryNs
-		// We pre-compute the price for the default quote denom in ingest handler via the background
-		// pricing worker. As a result, we store them indefinitely.
-		// We track the tokens that are modified within the block and update the prices only for those tokens.
-		if quoteDenom == c.defaultQuoteDenom {
-			expirationTTL = cache.NoExpirationTTL
-		}
-		c.cache.Set(cacheKey, domain.NewPriceResult(chainPrice, routes), expirationTTL)
+	// A truncated or otherwise non-positive price is not a valid price.
+	if chainPrice.IsNil() || !chainPrice.IsPositive() {
+		return osmomath.BigDec{}, nil, fmt.Errorf("non-positive price computed for %s (base) -> %s (quote)", baseDenom, quoteDenom)
 	}
+
+	expirationTTL := c.cacheExpiryNs
+	// We pre-compute the price for the default quote denom in ingest handler via the background
+	// pricing worker, which only updates prices for tokens modified within the block.
+	// The max age makes sure that prices for tokens whose own pools are idle are still recomputed.
+	if quoteDenom == c.defaultQuoteDenom {
+		expirationTTL = defaultQuotePriceMaxAge
+	}
+	c.cache.Set(cacheKey, domain.NewPriceResult(chainPrice, routes), expirationTTL)
 
 	return chainPrice, routes, nil
 }

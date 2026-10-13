@@ -81,6 +81,24 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 			},
 			expectedError: true,
 		},
+		{
+			name: "fractional tokenIn amount truncated to zero",
+			queryParams: map[string]string{
+				"tokenIn":       "0.5ust",
+				"tokenOutDenom": "usdc",
+				"poolID":        "1",
+			},
+			expectedError: true,
+		},
+		{
+			name: "zero tokenOut amount",
+			queryParams: map[string]string{
+				"tokenOut":     "0usdc",
+				"tokenInDenom": "ust",
+				"poolID":       "1",
+			},
+			expectedError: true,
+		},
 	}
 
 	for _, tc := range testcases {

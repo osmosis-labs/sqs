@@ -33,6 +33,7 @@ import (
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
 	chainregistryHttpDelivery "github.com/osmosis-labs/sqs/chainregistry/delivery/http"
 	chainregistryUseCase "github.com/osmosis-labs/sqs/chainregistry/usecase"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	ingestrpcdelivry "github.com/osmosis-labs/sqs/ingest/delivery/grpc"
 	ingestHttpDelivery "github.com/osmosis-labs/sqs/ingest/delivery/http"
@@ -74,6 +75,16 @@ import (
 	systemhttpdelivery "github.com/osmosis-labs/sqs/system/delivery/http"
 )
 
+// HTTP server timeouts. Without them a slow or stalled client can hold a connection open indefinitely.
+// The write timeout bounds non-streaming responses; the SSE /passthrough/active-orders stream clears
+// its own write deadline.
+const (
+	serverReadHeaderTimeout = 10 * time.Second
+	serverReadTimeout       = 30 * time.Second
+	serverWriteTimeout      = 60 * time.Second
+	serverIdleTimeout       = 120 * time.Second
+)
+
 // SideCarQueryServer defines an interface for sidecar query server (SQS).
 // It encapsulates all logic for ingesting chain data into the server
 // and exposes endpoints for querying formatter and processed data from frontend.
@@ -89,6 +100,9 @@ type sideCarQueryServer struct {
 	e             *echo.Echo
 	sqsAddress    string
 	logger        log.Logger
+
+	// ingestGRPCServer is nil when the gRPC ingester is disabled.
+	ingestGRPCServer *grpc.Server
 }
 
 // GetTokensUseCase implements SideCarQueryServer.
@@ -102,8 +116,46 @@ func (sqs *sideCarQueryServer) GetLogger() log.Logger {
 }
 
 // Shutdown implements SideCarQueryServer.
+// It stops accepting new requests and waits for in-flight HTTP requests and ingest RPCs
+// to finish until ctx is done, after which remaining connections are closed.
 func (sqs *sideCarQueryServer) Shutdown(ctx context.Context) error {
-	return sqs.e.Shutdown(ctx)
+	// Drain gRPC alongside HTTP under the same deadline, so a slow ingest RPC cannot hold
+	// the HTTP listener open (and SSE streams unsignalled) while it uses up the budget.
+	// grpcErr is set when the ingest RPCs did not drain before the deadline and were cut.
+	var grpcErr error
+	grpcDone := make(chan struct{})
+	go func() {
+		defer close(grpcDone)
+		if sqs.ingestGRPCServer == nil {
+			return
+		}
+
+		stopped := make(chan struct{})
+		go func() {
+			sqs.ingestGRPCServer.GracefulStop()
+			close(stopped)
+		}()
+
+		select {
+		case <-stopped:
+		case <-ctx.Done():
+			sqs.ingestGRPCServer.Stop()
+			grpcErr = fmt.Errorf("ingest gRPC server did not drain before the shutdown deadline: %w", ctx.Err())
+		}
+	}()
+
+	httpErr := sqs.e.Shutdown(ctx)
+	if httpErr != nil {
+		// Deadline reached with requests still running: force-close the remaining connections
+		// so they do not outlive shutdown, and still report the failure.
+		if closeErr := sqs.e.Close(); closeErr != nil {
+			sqs.logger.Error("Error force-closing HTTP connections", zap.Error(closeErr))
+		}
+	}
+
+	<-grpcDone
+
+	return errors.Join(httpErr, grpcErr)
 }
 
 // Start implements SideCarQueryServer.
@@ -121,10 +173,19 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
 	e := echo.New()
+	e.Server.ReadHeaderTimeout = serverReadHeaderTimeout
+	e.Server.ReadTimeout = serverReadTimeout
+	e.Server.WriteTimeout = serverWriteTimeout
+	e.Server.IdleTimeout = serverIdleTimeout
+	// Lets SSE streams end when shutdown starts instead of holding it open until the deadline.
+	deliveryhttp.WithShutdownSignal(e.Server)
 	middleware := middleware.InitMiddleware(config.CORS, config.FlightRecord, logger)
 	e.Use(middleware.CORS)
 	e.Use(middleware.InstrumentMiddleware)
 	e.Use(otelecho.Middleware("sqs"), middleware.TraceWithParamsMiddleware())
+	// Registered last so it wraps the handlers directly: a panic becomes a logged, generic 500
+	// and the outer middleware still observes a normal response.
+	e.Use(middleware.RecoverMiddleware())
 
 	chainClient, err := chaininfoclient.NewClient(ctx, config.ChainID, config.ChainTendermintRPCEndpoint, config.ChainTendermintRPCEndpointTimeout)
 	if err != nil {
@@ -198,7 +259,10 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	routerRepository.SetPoolHandler(poolsUseCase)
 
 	// Initialize candidate route searcher
-	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, logger)
+	if len(config.Router.ExcludedPoolIDs) > 0 {
+		logger.Info("excluding pools from routing and pricing", zap.Uint64s("pool_ids", config.Router.ExcludedPoolIDs))
+	}
+	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, config.Router.ExcludedPoolIDs, logger)
 
 	// Initialize router repository, usecase
 	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
@@ -242,7 +306,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	}
 
 	// Initialize passthrough query use case
-	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(ctx, config.ChainRegistryTokenFeesFileURL, tokensUseCase, logger)
+	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(ctx, config.ChainRegistryTokenFeesFileURL, tokensUseCase, defaultQuoteDenom, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -266,10 +330,10 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
-	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase, logger)
+	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase, poolsUseCase, logger)
 	chainregistryHttpDelivery.NewChainregistryHandler(e, chainregistryUseCase, logger)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
-	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, logger); err != nil {
+	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, config.DebugEndpointsEnabled, logger); err != nil {
 		return nil, err
 	}
 
@@ -281,7 +345,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState}, logger)
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState, DebugEndpointsEnabled: config.DebugEndpointsEnabled}, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough
@@ -302,6 +366,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	poolsUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
 
 	// Start grpc ingest server if enabled
+	var ingestGRPCServer *grpc.Server
 	grpcIngesterConfig := config.GRPCIngester
 	if grpcIngesterConfig.Enabled {
 		quotePriceUpdateWorker := pricingWorker.New(tokensUseCase, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, logger)
@@ -407,8 +472,12 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		if err != nil {
 			panic(err)
 		}
+		ingestGRPCServer = grpcIngestHandler
 
-		ingestHttpDelivery.NewIngestHandler(e, ingestUseCase, logger)
+		// The ingest HTTP handler only serves POST /ingest/store-state.
+		if config.DebugEndpointsEnabled {
+			ingestHttpDelivery.NewIngestHandler(e, ingestUseCase, logger)
+		}
 		if config.ServeFromState {
 			if err := ingestUseCase.LoadIngestStateFiles(); err != nil {
 				panic(fmt.Errorf("failed to load ingester state files: %w", err))
@@ -428,19 +497,24 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		}()
 	}
 
-	go func() {
-		logger.Info("Starting profiling server")
-		err = http.ListenAndServe("localhost:6062", nil)
-		if err != nil {
-			panic(err)
-		}
-	}()
+	// The localhost profiling server serves http.DefaultServeMux, where net/http/pprof
+	// registers its handlers, so it is gated by the same flag as the public pprof routes.
+	if config.PprofEnabled {
+		go func() {
+			logger.Info("Starting profiling server")
+			if err := http.ListenAndServe("localhost:6062", nil); err != nil {
+				panic(err)
+			}
+		}()
+	}
 
 	return &sideCarQueryServer{
 		tokensUseCase: tokensUseCase,
 		logger:        logger,
 		e:             e,
 		sqsAddress:    config.ServerAddress,
+
+		ingestGRPCServer: ingestGRPCServer,
 	}, nil
 }
 
