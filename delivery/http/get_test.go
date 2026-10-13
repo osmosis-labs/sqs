@@ -17,6 +17,7 @@ func TestGet(t *testing.T) {
 		name           string
 		url            string
 		expectedBody   string
+		expectedError  bool
 		timeout        time.Duration
 		serverResponse func(w http.ResponseWriter, r *http.Request)
 	}{
@@ -29,10 +30,10 @@ func TestGet(t *testing.T) {
 			},
 		},
 		{
-			name:         "Timeout",
-			url:          "/timeout",
-			expectedBody: "",
-			timeout:      10 * time.Millisecond,
+			name:          "Timeout",
+			url:           "/timeout",
+			expectedError: true,
+			timeout:       10 * time.Millisecond,
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(20 * time.Millisecond)
 				w.Write([]byte("Too late"))
@@ -63,6 +64,10 @@ func TestGet(t *testing.T) {
 
 			ctx := context.Background()
 			body, err := sqshttp.Get(ctx, server.URL+tt.url)
+			if tt.expectedError {
+				assert.Error(t, err)
+				return
+			}
 			assert.NoError(t, err)
 			assert.Equal(t, string(body), tt.expectedBody)
 

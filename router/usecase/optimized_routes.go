@@ -8,8 +8,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
 
-	"github.com/osmosis-labs/osmosis/osmomath"
-
 	"github.com/osmosis-labs/sqs/domain"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
@@ -81,8 +79,12 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 			continue
 		}
 
-		if directRouteTokenIn.Amount.IsNil() {
-			directRouteTokenIn.Amount = osmomath.ZeroInt()
+		// A route whose input rounds to zero would rank first with a free quote, so skip it.
+		if directRouteTokenIn.Amount.IsNil() || !directRouteTokenIn.Amount.IsPositive() {
+			err := fmt.Errorf("route %s computes a non-positive token in for %s", r.String(), tokenOut)
+			logger.Debug("skipping single route due to non-positive token in", zap.Error(err))
+			errors = append(errors, err)
+			continue
 		}
 
 		routesWithAmountIn = append(routesWithAmountIn, route.RouteWithOutAmount{

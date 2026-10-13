@@ -2,12 +2,16 @@ package chainpricing_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/osmoutils/osmoassert"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
 	"github.com/stretchr/testify/suite"
@@ -136,4 +140,105 @@ func (s *PricingTestSuite) testComputePrice_QuoteBasedMethod(mainnetState router
 
 	// 0.1 additive tolerance.
 	osmoassert.DecApproxEq(s.T(), priceQuoteBasedMethod.Dec(), priceSpotPriceMethod.Dec(), osmomath.MustNewDecFromStr("0.1"))
+}
+
+// This test validates that chain pricing never prices through a pool listed in the
+// router config's excluded pool IDs, and still finds a price through other pools.
+func (s *PricingTestSuite) TestGetPrice_ExcludedPoolIDs() {
+	mainnetState := s.SetupMainnetState()
+
+	poolIDsInRoutes := func(routes []domain.SplitRoute) map[uint64]struct{} {
+		poolIDs := map[uint64]struct{}{}
+		for _, route := range routes {
+			for _, pool := range route.GetPools() {
+				poolIDs[pool.GetId()] = struct{}{}
+			}
+		}
+		return poolIDs
+	}
+
+	// Find a pool that the default config prices OSMO through.
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	s.Require().NoError(err)
+
+	_, routes, err := pricingStrategy.GetPrice(context.Background(), UOSMO, USDC)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(routes)
+	excludedPoolID := routes[0].GetPools()[0].GetId()
+
+	// Exclude that pool and price again.
+	routerConfig := defaultPricingRouterConfig
+	routerConfig.ExcludedPoolIDs = []uint64{excludedPoolID}
+
+	mainnetUsecase = s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(routerConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+	pricingStrategy, err = pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, mainnetUsecase.Router)
+	s.Require().NoError(err)
+
+	// System under test.
+	price, routes, err := pricingStrategy.GetPrice(context.Background(), UOSMO, USDC)
+	s.Require().NoError(err)
+	s.Require().True(price.IsPositive())
+	s.Require().NotEmpty(routes)
+	s.Require().NotContains(poolIDsInRoutes(routes), excludedPoolID)
+}
+
+// Validates that a failed recompute evicts the cached price, so that the last good price
+// is not served after the route stops being usable.
+func (s *PricingTestSuite) TestGetPrice_FailedRecomputeEvictsCachedPrice() {
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+
+	routeUnusable := false
+	spotPricePanics := false
+	routerMock := &mocks.RouterUsecaseMock{
+		GetSimpleQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []domain.SplitRoute, error) {
+			if routeUnusable {
+				return nil, nil, errors.New("no route")
+			}
+			return mainnetUsecase.Router.GetSimpleQuote(ctx, tokenIn, tokenOutDenom, opts...)
+		},
+		GetPoolSpotPriceFunc: func(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
+			if spotPricePanics {
+				panic("malformed spot price")
+			}
+			return mainnetUsecase.Router.GetPoolSpotPrice(ctx, poolID, quoteAsset, baseAsset)
+		},
+	}
+
+	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, routerMock)
+	s.Require().NoError(err)
+
+	// Populate the cache.
+	price, _, err := pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().NoError(err)
+	s.Require().True(price.IsPositive())
+
+	routeUnusable = true
+
+	// Still served from cache.
+	cachedPrice, _, err := pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().NoError(err)
+	s.Require().Equal(price, cachedPrice)
+
+	// System under test: the failed recompute evicts the cached price.
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().Error(err)
+
+	// The old price is no longer served.
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().Error(err)
+
+	// A panicking recompute evicts as well and is returned as an error.
+	routeUnusable = false
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().NoError(err)
+
+	spotPricePanics = true
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().Error(err)
+
+	routeUnusable = true
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().Error(err)
 }

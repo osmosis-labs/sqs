@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -26,7 +27,8 @@ const (
 type TokensUseCase struct {
 	// Can be considered for merge with humanToChainDenomMap in the future.
 	tokenMetadataByChainDenom sync.Map // domain.Token
-	humanToChainDenomMap      sync.Map // string
+	humanToChainDenomMap      sync.Map // string, keyed by lower case human denom
+	humanExactToChainDenomMap sync.Map // string, keyed by human denom as listed
 	chainDenoms               sync.Map // struct{}
 
 	// Metadata about denoms that is collected from the pools.
@@ -63,7 +65,7 @@ type AssetList struct {
 		Name             string `json:"name"`
 		CoinMinimalDenom string `json:"coinMinimalDenom"`
 		Symbol           string `json:"symbol"`
-		Decimals         int    `json:"decimals"`
+		Decimals         *int   `json:"decimals"`
 		CoingeckoID      string `json:"coingeckoId"`
 		Preview          bool   `json:"preview"`
 	} `json:"assets"`
@@ -108,18 +110,57 @@ func (t *TokensUseCase) SetDefaultQuoteDenom(denom string) {
 type LoadTokensFunc func(tokenMetadataByChainDenom map[string]domain.Token)
 
 // LoadTokens implements mvc.TokensUsecase.
+// Several assets can share a human denom (exactly or case-insensitively). Resolution is
+// deterministic: listed assets win over preview assets, then the lexicographically smallest
+// chain denom wins. Exact-case lookups are tried before case-insensitive ones in GetChainDenom.
 func (t *TokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.Token) {
-	// Create human denom to chain denom map
-	for chainDenom, tokenMetadata := range tokenMetadataByChainDenom {
+	// Iterate in sorted order so that ties resolve the same way on every instance.
+	chainDenoms := make([]string, 0, len(tokenMetadataByChainDenom))
+	for chainDenom := range tokenMetadataByChainDenom {
+		chainDenoms = append(chainDenoms, chainDenom)
+	}
+	sort.Strings(chainDenoms)
+
+	exactWinners := make(map[string]string, len(chainDenoms))
+	lowerCaseWinners := make(map[string]string, len(chainDenoms))
+	lowerCaseCandidates := make(map[string][]string, len(chainDenoms))
+
+	for _, chainDenom := range chainDenoms {
+		tokenMetadata := tokenMetadataByChainDenom[chainDenom]
+
 		// lower case human denom
 		lowerCaseHumanDenom := strings.ToLower(tokenMetadata.HumanDenom)
 
-		t.humanToChainDenomMap.Store(lowerCaseHumanDenom, chainDenom)
+		setHumanDenomWinner(exactWinners, tokenMetadata.HumanDenom, chainDenom, tokenMetadataByChainDenom)
+		setHumanDenomWinner(lowerCaseWinners, lowerCaseHumanDenom, chainDenom, tokenMetadataByChainDenom)
+		lowerCaseCandidates[lowerCaseHumanDenom] = append(lowerCaseCandidates[lowerCaseHumanDenom], chainDenom)
+
 		t.tokenMetadataByChainDenom.Store(chainDenom, tokenMetadata)
 
 		t.chainDenoms.Store(chainDenom, struct{}{})
 
 		t.coingeckoIds.Store(chainDenom, tokenMetadata.CoingeckoID)
+	}
+
+	for humanDenom, chainDenom := range exactWinners {
+		t.humanExactToChainDenomMap.Store(humanDenom, chainDenom)
+	}
+
+	for lowerCaseHumanDenom, chainDenom := range lowerCaseWinners {
+		t.humanToChainDenomMap.Store(lowerCaseHumanDenom, chainDenom)
+
+		if candidates := lowerCaseCandidates[lowerCaseHumanDenom]; len(candidates) > 1 && t.logger != nil {
+			t.logger.Warn("human denom resolves to multiple chain denoms", zap.String("human_denom", lowerCaseHumanDenom), zap.Strings("chain_denoms", candidates), zap.String("resolved_case_insensitive", chainDenom))
+		}
+	}
+}
+
+// setHumanDenomWinner records chainDenom as the resolution for humanDenom unless an already recorded
+// chain denom is preferred. Chain denoms must be visited in sorted order so that ties are deterministic.
+func setHumanDenomWinner(winners map[string]string, humanDenom string, chainDenom string, tokenMetadataByChainDenom map[string]domain.Token) {
+	current, ok := winners[humanDenom]
+	if !ok || (tokenMetadataByChainDenom[current].IsUnlisted && !tokenMetadataByChainDenom[chainDenom].IsUnlisted) {
+		winners[humanDenom] = chainDenom
 	}
 }
 
@@ -240,7 +281,11 @@ func (t *TokensUseCase) GetFullPoolDenomMetadata() domain.PoolDenomMetaDataMap {
 func (t *TokensUseCase) GetChainDenom(humanDenom string) (string, error) {
 	humanDenomLowerCase := strings.ToLower(humanDenom)
 
-	chainDenom, ok := t.humanToChainDenomMap.Load(humanDenomLowerCase)
+	// Prefer an exact-case match so that case-colliding symbols (e.g. aUSD vs AUSD) can be told apart.
+	chainDenom, ok := t.humanExactToChainDenomMap.Load(humanDenom)
+	if !ok {
+		chainDenom, ok = t.humanToChainDenomMap.Load(humanDenomLowerCase)
+	}
 	if !ok {
 		return "", ChainDenomForHumanDenomNotFoundError{ChainDenom: humanDenomLowerCase}
 	}
@@ -324,19 +369,20 @@ func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 	// For every base denom, create a map with quote denom prices.
 	for _, baseDenom := range baseDenoms {
 		basePriceDispatcher.JobQueue <- workerpool.Job[priceResults]{
-			Task: func() (priceResults, error) {
-				var err error
+			Task: func() (result priceResults, err error) {
 				defer func() {
 					// Recover from panic if one occurred
 					if r := recover(); r != nil {
-						err = fmt.Errorf("panic in GetPrices: %v", r)
+						result = priceResults{
+							baseDenom: baseDenom,
+							err:       fmt.Errorf("panic in GetPrices for base denom (%s): %v", baseDenom, r),
+						}
 					}
 				}()
 
 				prices, err := t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
 				if err != nil {
-					// This should not panic, so just logging the error here and continue
-					fmt.Println(err.Error())
+					t.logger.Error("failed to get prices for base denom", zap.String("baseDenom", baseDenom), zap.Error(err))
 				}
 
 				return priceResults{
@@ -348,14 +394,23 @@ func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 		}
 	}
 
-	// Read from the results channel and update the map
+	// Read every result before returning, even after an error, so that no worker
+	// stays blocked on the unbuffered result queue.
+	var firstErr error
 	for range baseDenoms {
 		result := <-basePriceDispatcher.ResultQueue
 
 		if result.Result.err != nil {
-			return nil, result.Result.err
+			if firstErr == nil {
+				firstErr = result.Result.err
+			}
+			continue
 		}
 		byBaseDenomResult[result.Result.baseDenom] = result.Result.prices
+	}
+
+	if firstErr != nil {
+		return nil, firstErr
 	}
 
 	return byBaseDenomResult, nil
@@ -364,35 +419,36 @@ func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 // getPricesForBaseDenom fetches all prices for base denom given a slice of quotes and pricing options.
 // Pricing options determine whether to recompute prices or use the cache as well as the desired source of prices.
 // Returns a map with keys as quotes and values as prices or error, if any.
-// Returns error if base denom is not found in the token metadata.
-// Sets the price to zero in case of failing to compute the price between base and quote but these being valid tokens.
-func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, pricingOptions ...domain.PricingOption) (map[string]domain.PriceResult, error) {
+// A quote denom is omitted from the result when no positive price can be computed for it,
+// and all quotes are omitted when the base denom is not found in the token metadata.
+// Callers must treat a missing entry as "no price", never as zero.
+func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, pricingOptions ...domain.PricingOption) (result map[string]domain.PriceResult, err error) {
 	byQuoteDenomForGivenBaseResult := make(map[string]domain.PriceResult, len(quoteDenoms))
 	// Validate base denom is a valid denom
-	// Return zeroes for all quotes if base denom is not found
-	_, err := t.GetMetadataByChainDenom(baseDenom)
-	if err != nil {
-		for _, quoteDenom := range quoteDenoms {
-			byQuoteDenomForGivenBaseResult[quoteDenom] = domain.NewPriceResult(osmomath.ZeroBigDec(), nil)
-		}
+	// Omit all quotes if base denom is not found
+	if _, err := t.GetMetadataByChainDenom(baseDenom); err != nil {
 		return byQuoteDenomForGivenBaseResult, nil
 	}
 
 	// Get the pricing strategy
 	pricingStrategy, ok := t.pricingStrategyMap[pricingSourceType]
 	if !ok {
-		return nil, fmt.Errorf("pricing strategy (%s) not found in the tokens use case", pricingStrategy)
+		return nil, fmt.Errorf("pricing strategy (%d) not found in the tokens use case", pricingSourceType)
 	}
 
 	defer func() {
 		// Recover from panic if one occurred
 		if r := recover(); r != nil {
+			result = nil
 			err = fmt.Errorf("panic in getPricesForBaseDenom: %v", r)
 		}
 	}()
 
 	for _, quoteDenom := range quoteDenoms {
 		price, routes, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
+		if err == nil {
+			err = validatePrice(price)
+		}
 		if err != nil { // Check if we should fallback to another pricing source
 			fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
 			if fallbackSourceType != domain.NoneSourceType {
@@ -401,21 +457,33 @@ func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 				fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
 				if ok {
 					price, routes, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
+					if err == nil {
+						err = validatePrice(price)
+					}
 				}
 			}
 		}
 
 		if err != nil {
-			price = osmomath.ZeroBigDec()
+			// Omit the quote rather than serving a zero price.
 			// Increase prometheus counter
-			t.logger.Error(domain.SQSPricingErrorCounterMetricName, zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom))
+			t.logger.Error(domain.SQSPricingErrorCounterMetricName, zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom), zap.Error(err))
 			domain.SQSPricingErrorCounter.Inc()
+			continue
 		}
 
 		byQuoteDenomForGivenBaseResult[quoteDenom] = domain.NewPriceResult(price, routes)
 	}
 
 	return byQuoteDenomForGivenBaseResult, nil
+}
+
+// validatePrice returns an error if the price is nil, zero or negative.
+func validatePrice(price osmomath.BigDec) error {
+	if price.IsNil() || !price.IsPositive() {
+		return fmt.Errorf("price is not positive")
+	}
+	return nil
 }
 
 // CalcSpotPrice calculates the spot price between two denoms.

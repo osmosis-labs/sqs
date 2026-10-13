@@ -282,11 +282,13 @@ func (s *PassthroughUseCaseTestSuite) TestComputeCapitalizationForCoins() {
 			expectedTotalCapitalization: osmoCapitalization,
 		},
 		{
-			name: "empty prices -> no capitalization result",
+			name: "empty prices -> no capitalization result, best-effort error",
 
 			coins: sdk.Coins{osmoCoin},
 
 			mockedPricesResult: emptyPrices,
+
+			expectedError: true,
 
 			expectedAccountCoinsResult: []passthroughdomain.AccountCoinsResult{
 				{
@@ -369,10 +371,13 @@ func (s *PassthroughUseCaseTestSuite) TestComputeCapitalizationForCoins() {
 
 			if tt.expectedError {
 				s.Require().Error(err)
-				return
+				// A best-effort result may still be returned alongside the error.
+				if tt.expectedAccountCoinsResult == nil {
+					return
+				}
+			} else {
+				s.Require().NoError(err)
 			}
-
-			s.Require().NoError(err)
 
 			// Assert
 			s.Require().Equal(tt.expectedAccountCoinsResult, accountCoinsResult)

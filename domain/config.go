@@ -26,6 +26,17 @@ type Config struct {
 	// Defines whether the server should run from state files or not.
 	ServeFromState bool `mapstructure:"serve-from-state"`
 
+	// PprofEnabled registers the /debug/pprof profiling endpoints and starts the localhost:6062
+	// profiling server. Off by default: they expose
+	// process internals and on-demand CPU profiling, so enable them only where they cannot be
+	// reached publicly.
+	PprofEnabled bool `mapstructure:"pprof-enabled"`
+
+	// DebugEndpointsEnabled registers the state dump endpoints (POST /router/store-state,
+	// /ingest/store-state and /tokens/store-state, and GET /router/state). Off by default:
+	// they are unauthenticated and expensive.
+	DebugEndpointsEnabled bool `mapstructure:"debug-endpoints-enabled"`
+
 	// Defines the logger configuration.
 	LoggerFilename     string `mapstructure:"logger-filename"`
 	LoggerIsProduction bool   `mapstructure:"logger-is-production"`
@@ -112,6 +123,7 @@ var DefaultConfig = Config{
 	},
 	Router: &RouterConfig{
 		PreferredPoolIDs:                 []uint64{},
+		ExcludedPoolIDs:                  []uint64{},
 		MaxPoolsPerRoute:                 4,
 		MaxRoutes:                        20,
 		MaxSplitRoutes:                   3,
@@ -151,7 +163,7 @@ var DefaultConfig = Config{
 		MinPoolLiquidityCap:       1000,
 		CoingeckoUrl:              "https://prices.osmosis.zone/api/v3/simple/price",
 		CoingeckoQuoteCurrency:    "usd",
-		WorkerMinPoolLiquidityCap: 1,
+		WorkerMinPoolLiquidityCap: 1000,
 	},
 	Passthrough: &passthroughdomain.PassthroughConfig{
 		NumiaURL:                     "https://data.app.osmosis.zone",
