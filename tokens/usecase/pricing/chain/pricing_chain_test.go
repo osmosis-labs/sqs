@@ -242,3 +242,60 @@ func (s *PricingTestSuite) TestGetPrice_FailedRecomputeEvictsCachedPrice() {
 	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
 	s.Require().Error(err)
 }
+
+// Validates that a failed price computation is served from the failed price cache, so that a pair without
+// a usable route is not searched again on every request, while recomputes still search and a success clears it.
+// A failure caused by the request's context is not cached.
+func (s *PricingTestSuite) TestGetPrice_FailedPriceIsCached() {
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+
+	routeUnusable := true
+	quoteCalls := 0
+	routerMock := &mocks.RouterUsecaseMock{
+		GetSimpleQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []domain.SplitRoute, error) {
+			quoteCalls++
+			if err := ctx.Err(); err != nil {
+				return nil, nil, err
+			}
+			if routeUnusable {
+				return nil, nil, errors.New("no route")
+			}
+			return mainnetUsecase.Router.GetSimpleQuote(ctx, tokenIn, tokenOutDenom, opts...)
+		},
+		GetPoolSpotPriceFunc: func(ctx context.Context, poolID uint64, quoteAsset, baseAsset string) (osmomath.BigDec, error) {
+			return mainnetUsecase.Router.GetPoolSpotPrice(ctx, poolID, quoteAsset, baseAsset)
+		},
+	}
+
+	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, routerMock)
+	s.Require().NoError(err)
+
+	// A cancelled request fails without caching the failure.
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _, err = pricingStrategy.GetPrice(cancelledCtx, ATOM, USDC)
+	s.Require().Error(err)
+	s.Require().Equal(1, quoteCalls)
+
+	// The first failure searches; the second is served from the failed price cache.
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().Error(err)
+	s.Require().Equal(2, quoteCalls)
+
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().Error(err)
+	s.Require().Equal(2, quoteCalls)
+
+	// A recompute ignores the failed price cache, and its success clears it.
+	routeUnusable = false
+	price, _, err := pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().NoError(err)
+	s.Require().True(price.IsPositive())
+	s.Require().Equal(3, quoteCalls)
+
+	cachedPrice, _, err := pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().NoError(err)
+	s.Require().Equal(price, cachedPrice)
+	s.Require().Equal(3, quoteCalls)
+}

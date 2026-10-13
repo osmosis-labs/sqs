@@ -2,6 +2,7 @@ package chainpricing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -19,6 +20,10 @@ type chainPricing struct {
 
 	cache         *cache.Cache
 	cacheExpiryNs time.Duration
+	// failedCache holds the error of a recent failed price computation per pair, so that a pair
+	// without a usable route is not searched again on every request. It is separate from cache
+	// so that a failure still evicts the last good price there.
+	failedCache *cache.Cache
 
 	defaultQuoteDenom string
 
@@ -53,6 +58,10 @@ const (
 	// The pricing worker only reprices denoms in pools touched by a block, so without a bound a price
 	// derived through an intermediate denom (e.g. TOKEN/OSMO then OSMO/USDC) would never refresh.
 	defaultQuotePriceMaxAge = 10 * time.Minute
+
+	// failedPriceCacheExpiry is how long a failed price computation is served from failedCache
+	// before the price is computed again. Recomputes requested by the pricing worker ignore it.
+	failedPriceCacheExpiry = 10 * time.Second
 )
 
 func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
@@ -66,6 +75,7 @@ func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, 
 		TUsecase: tokenUseCase,
 
 		cache:                     cache.New(),
+		failedCache:               cache.New(),
 		cacheExpiryNs:             time.Duration(config.CacheExpiryMs) * time.Millisecond,
 		maxPoolsPerRoute:          config.MaxPoolsPerRoute,
 		maxRoutes:                 config.MaxRoutes,
@@ -120,6 +130,13 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		domain.SQSPricingCacheMissesCounter.Inc()
 	}
 
+	// A recent failure is returned without searching for a route again.
+	if failedValue, found := c.failedCache.Get(cacheKey); found {
+		if failedErr, ok := failedValue.(error); ok {
+			return osmomath.BigDec{}, nil, failedErr
+		}
+	}
+
 	// If cache miss occurs, we compute the price.
 	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 }
@@ -127,6 +144,8 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 // computePrice computes the price for a given base and quote denom
 // On failure, any previously cached price for the pair is evicted so that a stale price is not
 // served after its route stops being usable, and fallback pricing can take over.
+// The failure is kept in failedCache for failedPriceCacheExpiry, unless it came from the request's
+// context being cancelled or timing out, which says nothing about the pair. A success clears it.
 func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (_ osmomath.BigDec, _ []domain.SplitRoute, err error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 
@@ -137,6 +156,11 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		}
 		if err != nil {
 			c.cache.Delete(cacheKey)
+			if ctx.Err() == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				c.failedCache.Set(cacheKey, err, failedPriceCacheExpiry)
+			}
+		} else {
+			c.failedCache.Delete(cacheKey)
 		}
 	}()
 
