@@ -15,6 +15,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v28/app/apptesting"
 	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
+	cltypes "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
 )
 
 func deepCopyTickModel(tickModel *ingesttypes.TickModel) *ingesttypes.TickModel {
@@ -594,5 +595,26 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Concentrated_Erro
 
 			s.Require().Equal(tc.expectedTokenIn.String(), tokenIn.String())
 		})
+	}
+}
+
+// Validates that tick to sqrt price conversions are cached on success and errors are never cached,
+// since a cached entry is returned with a nil error.
+func (s *RoutablePoolTestSuite) TestGetTickToSqrtPrice_CachesOnlySuccess() {
+	const validTick = int64(-1234567)
+	invalidTick := cltypes.MaxTick + 1
+
+	sqrtPrice, err := pools.GetTickToSqrtPrice(validTick)
+	s.Require().NoError(err)
+	s.Require().True(pools.IsTickToSqrtPriceCached(validTick))
+
+	cachedSqrtPrice, err := pools.GetTickToSqrtPrice(validTick)
+	s.Require().NoError(err)
+	s.Require().Equal(sqrtPrice, cachedSqrtPrice)
+
+	for i := 0; i < 2; i++ {
+		_, err = pools.GetTickToSqrtPrice(invalidTick)
+		s.Require().Error(err)
+		s.Require().False(pools.IsTickToSqrtPriceCached(invalidTick))
 	}
 }

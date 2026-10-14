@@ -204,6 +204,33 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenOutByTokenIn_Orderbook() {
 				},
 			},
 		},
+		"ASK: multi-tick swap rounds each tick as the contract does": {
+			tokenIn: sdk.NewCoin(BASE_DENOM, osmomath.NewInt(11)),
+			// Tick price 1.5: output floor(11 * 1.5) = 16 capped to 10, input ceil(10 / 1.5) = 7, 4 remaining.
+			// Tick price 1.4: output floor(4 * 1.4) = 5, input ceil(5 / 1.4) = 4.
+			// Total 15, where continuous maths would give 10 + (11 - 10 / 1.5) * 1.4 = 16.07 and quote 16.
+			expectedTokenOut: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(15)),
+			nextBidTickIndex: 1,
+			nextAskTickIndex: -1, // no next ask tick
+			ticks: []cosmwasmpool.OrderbookTick{
+				{
+					// Tick price = 1.4
+					TickId: 400000,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(1000),
+						AskLiquidity: osmomath.ZeroBigDec(),
+					},
+				},
+				{
+					// Tick price = 1.5
+					TickId: 500000,
+					TickLiquidity: cosmwasmpool.OrderbookTickLiquidity{
+						BidLiquidity: osmomath.NewBigDec(10),
+						AskLiquidity: osmomath.ZeroBigDec(),
+					},
+				},
+			},
+		},
 		"ASK: error not enough liquidity": {
 			tokenIn:          sdk.NewCoin(BASE_DENOM, osmomath.NewInt(100)),
 			expectedTokenOut: sdk.NewCoin(QUOTE_DENOM, osmomath.NewInt(100)),

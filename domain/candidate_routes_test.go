@@ -135,3 +135,24 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 		})
 	}
 }
+
+// Validates that the pool filters router option is added to the filters already configured,
+// such as the orderbook filter that exact-out quotes set by default, rather than replacing them.
+func TestWithCandidateRoutesPoolFiltersAnyOf_AppendsToDefaults(t *testing.T) {
+	const skippedPoolID = 7
+
+	options := domain.RouterOptions{
+		CandidateRoutesPoolFiltersAnyOf: []domain.CandidateRoutePoolFiltrerCb{domain.ShouldSkipOrderbookPool},
+	}
+
+	domain.WithCandidateRoutesPoolFiltersAnyOf(func(pool domain.CandidatePoolWrapper) bool {
+		return pool.ID == skippedPoolID
+	})(&options)
+
+	searchOptions := domain.CandidateRouteSearchOptions{PoolFiltersAnyOf: options.CandidateRoutesPoolFiltersAnyOf}
+
+	require.Len(t, options.CandidateRoutesPoolFiltersAnyOf, 2)
+	require.True(t, searchOptions.ShouldSkipPool(domain.CandidatePoolWrapper{ID: 1, IsOrderbook: true}))
+	require.True(t, searchOptions.ShouldSkipPool(domain.CandidatePoolWrapper{ID: skippedPoolID}))
+	require.False(t, searchOptions.ShouldSkipPool(domain.CandidatePoolWrapper{ID: 1}))
+}

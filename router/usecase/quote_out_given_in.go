@@ -47,6 +47,7 @@ type quoteExactAmountIn struct {
 	LiquidityCapOverflow    bool                `json:"liquidity_cap_overflow"`
 	EffectiveFee            osmomath.Dec        `json:"effective_fee"`
 	PriceImpact             osmomath.Dec        `json:"price_impact"`
+	PriceImpactUnknown      bool                `json:"price_impact_unknown,omitempty"`
 	InBaseOutQuoteSpotPrice osmomath.Dec        `json:"in_base_out_quote_spot_price"`
 	PriceInfo               *domain.TxFeeInfo   `json:"price_info,omitempty"`
 }
@@ -68,6 +69,7 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 
 	totalSpotPriceInBaseOutQuote := osmomath.ZeroDec()
 	totalEffectiveSpotPriceInBaseOutQuote := osmomath.ZeroDec()
+	priceImpactUnknown := false
 
 	denoms := []string{q.AmountIn.Denom}
 	resultRoutes := make([]domain.SplitRoute, 0, len(q.Route))
@@ -93,6 +95,13 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		newPools, routeSpotPriceInBaseOutQuote, effectiveSpotPriceInBaseOutQuote, err := curRoute.PrepareResultPoolsOutGivenIn(ctx, sdk.NewCoin(q.AmountIn.Denom, amountInFraction), spotPriceCalculator, logger)
 		if err != nil {
 			return nil, osmomath.Dec{}, err
+		}
+
+		// A zero route spot price means a pool's spot price could not be computed. Dropping
+		// the route from the spot price total would skew the split's price impact, so the
+		// whole quote's price impact is unknown.
+		if routeSpotPriceInBaseOutQuote.IsZero() {
+			priceImpactUnknown = true
 		}
 
 		// Calculate total liquidity cap for the route
@@ -142,8 +151,13 @@ func (q *quoteExactAmountIn) PrepareResult(ctx context.Context, scalingFactor os
 		})
 	}
 
-	// Calculate price impact
-	if !totalSpotPriceInBaseOutQuote.IsZero() {
+	// Calculate price impact. When the spot price of any pool in the quote could not be
+	// computed, price impact cannot be derived: PriceImpactUnknown is set and PriceImpact
+	// is zero, which must not be read as "no impact".
+	if priceImpactUnknown || totalSpotPriceInBaseOutQuote.IsZero() {
+		q.PriceImpact = osmomath.ZeroDec()
+		q.PriceImpactUnknown = true
+	} else {
 		q.PriceImpact = totalEffectiveSpotPriceInBaseOutQuote.Quo(totalSpotPriceInBaseOutQuote).SubMut(one)
 	}
 

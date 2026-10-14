@@ -152,7 +152,8 @@ func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk
 			logger.Error("failed to calculate spot price for pool", zap.Error(err))
 
 			// We don't want to fail the entire quote if one pool fails to calculate spot price.
-			// This might cause miestimaions downsream but we a
+			// The zero spot price makes the route spot price zero, which PrepareResult reports
+			// as an unknown price impact.
 			spotPriceInBaseOutQuote = osmomath.ZeroBigDec()
 
 			// Increment the counter for the error
@@ -222,7 +223,8 @@ func (r RouteImpl) PrepareResultPoolsInGivenOut(ctx context.Context, tokenOut sd
 			logger.Error("failed to calculate spot price for pool", zap.Error(err))
 
 			// We don't want to fail the entire quote if one pool fails to calculate spot price.
-			// This might cause miestimaions downsream but we a
+			// The zero spot price makes the route spot price zero, which PrepareResult reports
+			// as an unknown price impact.
 			spotPriceOutBaseInQuote = osmomath.ZeroBigDec()
 
 			// Increment the counter for the error

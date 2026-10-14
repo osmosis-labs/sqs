@@ -58,7 +58,7 @@ func (r *routableStableswapPoolImpl) GetTokenInDenom() string {
 
 // String implements domain.RoutablePool.
 func (r *routableStableswapPoolImpl) String() string {
-	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v), token out (%s)", r.ChainPool.Id, poolmanagertypes.Balancer, r.ChainPool.GetPoolDenoms(sdk.Context{}), r.TokenOutDenom)
+	return fmt.Sprintf("pool (%d), pool type (%d), pool denoms (%v), token out (%s)", r.ChainPool.Id, poolmanagertypes.Stableswap, r.ChainPool.GetPoolDenoms(sdk.Context{}), r.TokenOutDenom)
 }
 
 // ChargeTakerFee implements domain.RoutablePool.
@@ -112,7 +112,7 @@ func (r *routableStableswapPoolImpl) GetPoolDenoms() []string {
 
 // GetType implements domain.RoutablePool.
 func (r *routableStableswapPoolImpl) GetType() poolmanagertypes.PoolType {
-	return poolmanagertypes.Balancer
+	return poolmanagertypes.Stableswap
 }
 
 // CalcSpotPrice implements domain.RoutablePool.

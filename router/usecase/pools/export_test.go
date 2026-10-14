@@ -30,3 +30,11 @@ func NewRoutableCosmWasmPoolWithCustomModel(
 func (r *routableAlloyTransmuterPoolImpl) CheckStaticRateLimiter(tokenInCoin, tokenOutCoin sdk.Coin) error {
 	return r.checkStaticRateLimiter(tokenInCoin, tokenOutCoin)
 }
+
+func GetTickToSqrtPrice(tick int64) (osmomath.BigDec, error) {
+	return getTickToSqrtPrice(tick)
+}
+
+func IsTickToSqrtPriceCached(tick int64) bool {
+	return tickToSqrtPriceCache.Contains(tick)
+}

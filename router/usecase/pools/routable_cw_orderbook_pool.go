@@ -108,56 +108,82 @@ func (r *routableOrderbookPoolImpl) CalculateTokenOutByTokenIn(ctx context.Conte
 		return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn.String()}
 	}
 
+	// The price of the last tick filled against, mirroring the contract's default of one when no tick is filled.
+	lastTickPrice := oneBigDec
+
+	// Mirrors run_market_order_internal of the orderbook contract: each tick is visited once, its output
+	// is floored to an integer and the input it consumes is rounded up to an integer.
 	// ASSUMPTION: Ticks are ordered
-	for amountInRemaining.GT(smallestDec) {
+	for amountInRemaining.IsPositive() {
 		// Order has run out of ticks to iterate
 		if tickIdx >= len(r.OrderbookData.Ticks) || tickIdx < 0 {
+			// The contract accepts remaining input that cannot produce any output at the last tick price (dust).
+			if orderbookTickValue(amountInRemaining, lastTickPrice, *directionIn, cosmwasmpool.ROUND_DOWN).IsZero() {
+				break
+			}
 			return sdk.Coin{}, domain.OrderbookNotEnoughLiquidityToCompleteSwapError{PoolId: r.GetId(), AmountIn: tokenIn.String()}
 		}
 
 		// According to the check on amountInToExhaustLiquidity above, we should never run out of ticks here
 		tick := r.OrderbookData.Ticks[tickIdx]
 
+		// Increment or decrement the current tick index depending on out order direction
+		tickIdx += iterationStep
+
+		// The contract skips ticks without liquidity in the out direction.
+		if tick.TickLiquidity.ByDirection(directionOut).IsZero() {
+			continue
+		}
+
 		// Calculate the price for the current tick
 		tickPrice, err := clmath.TickToPrice(tick.TickId)
 		if err != nil {
 			return sdk.Coin{}, err
 		}
+		lastTickPrice = tickPrice
 
 		// Amount that should be filled given the current tick price and all the remaining amount of tokens in
 		// if the current tick has enough liquidity
+		outputAmount := orderbookTickValue(amountInRemaining, tickPrice, *directionIn, cosmwasmpool.ROUND_DOWN)
 
-		outputAmount := cosmwasmpool.OrderbookValueInOppositeDirection(amountInRemaining, tickPrice, *directionIn, cosmwasmpool.ROUND_DOWN)
+		// The remaining input cannot produce any output: the contract consumes it as dust and stops.
+		if outputAmount.IsZero() {
+			break
+		}
 
-		// Cap the output amount to the amount of tokens that can be filled in the current tick
-		outputFilled := tick.TickLiquidity.GetFillableAmount(outputAmount, directionOut)
+		// Cap the output amount to the amount of tokens that can be filled in the current tick.
+		// The contract sends the floor of the filled amount.
+		outputFilled := tick.TickLiquidity.GetFillableAmount(outputAmount, directionOut).TruncateDec()
 
 		// Convert the filled amount back to the input amount that should be deducted
 		// from the remaining amount of tokens in
-		inputFilled := cosmwasmpool.OrderbookValueInOppositeDirection(outputFilled, tickPrice, directionOut, cosmwasmpool.ROUND_UP)
+		inputFilled := orderbookTickValue(outputFilled, tickPrice, directionOut, cosmwasmpool.ROUND_UP)
 
-		// Note: left for convinience for debugging
-		// fmt.Println("amountInRemaining", amountInRemaining)
-		// fmt.Println("tickPrice", tickPrice)
-		// fmt.Println("tickIdx", tickIdx)
-		// fmt.Println("tickId", tick.TickId)
-		// fmt.Println("outputFilled", outputFilled)
-		// fmt.Println("inputFilled", inputFilled)
-		// fmt.Println("ask liquidity", tick.TickLiquidity.AskLiquidity)
-		// fmt.Println("bid liquidity", tick.TickLiquidity.BidLiquidity)
+		// The contract rejects a swap step that consumes no input.
+		if inputFilled.IsZero() {
+			return sdk.Coin{}, fmt.Errorf("orderbook pool (%d): input amount for a swap step at tick (%d) cannot be zero", r.GetId(), tick.TickId)
+		}
 
 		// Add the filled amount to the order total
 		amountOutTotal.AddMut(outputFilled)
 
 		// Subtract the filled amount from the remaining amount of tokens in
 		amountInRemaining.SubMut(inputFilled)
-
-		// Increment or decrement the current tick index depending on out order direction
-		tickIdx += iterationStep
 	}
 
 	// Return total amount out
 	return sdk.Coin{Denom: r.TokenOutDenom, Amount: amountOutTotal.Dec().TruncateInt()}, nil
+}
+
+// orderbookTickValue converts an integer amount to its value in the target direction at the given tick price
+// as the orderbook contract's amount_to_value does: the conversion is truncated to Decimal256 precision
+// (18 decimal places) and then rounded to an integer in the given direction.
+func orderbookTickValue(amount osmomath.BigDec, tickPrice osmomath.BigDec, targetDirection cosmwasmpool.OrderbookDirection, roundingDirection cosmwasmpool.RoundingDirection) osmomath.BigDec {
+	value := osmomath.BigDecFromDecMut(cosmwasmpool.OrderbookValueInOppositeDirection(amount, tickPrice, targetDirection, cosmwasmpool.ROUND_DOWN).Dec())
+	if roundingDirection == cosmwasmpool.ROUND_UP {
+		return value.CeilMut()
+	}
+	return value.TruncateDec()
 }
 
 // CalculateTokenInByTokenOut implements domain.RoutablePool.

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"slices"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
@@ -224,12 +225,13 @@ func WithDisableCache() RouterOption {
 	}
 }
 
-// WithCandidateRoutesPoolFiltersAnyOf configures the router options with the candidate routes pool filters.
+// WithCandidateRoutesPoolFiltersAnyOf adds the given candidate routes pool filters to the router options.
+// The filters are appended to any already configured, such as the defaults of the quote method.
 // If at least one of the callbacks in-slice returns true, for a specific pool, that pool would be ignored
 // in the candidate route search.
 func WithCandidateRoutesPoolFiltersAnyOf(filters ...CandidateRoutePoolFiltrerCb) RouterOption {
 	return func(o *RouterOptions) {
-		o.CandidateRoutesPoolFiltersAnyOf = filters
+		o.CandidateRoutesPoolFiltersAnyOf = append(slices.Clip(o.CandidateRoutesPoolFiltersAnyOf), filters...)
 	}
 }
 

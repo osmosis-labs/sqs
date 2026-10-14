@@ -41,7 +41,7 @@ class Token:
 # QuoteExactAmountInResponse represents the response format
 # of the /router/quote endpoint for Exact Amount In Quote.
 class QuoteExactAmountInResponse:
-    def __init__(self, amount_in, amount_out, route, tokens, liquidity_cap, liquidity_cap_overflow, effective_fee, price_impact, in_base_out_quote_spot_price, price_info=None):
+    def __init__(self, amount_in, amount_out, route, tokens, liquidity_cap, liquidity_cap_overflow, effective_fee, price_impact, in_base_out_quote_spot_price, price_info=None, price_impact_unknown=False):
         self.amount_in = Coin(**amount_in)
         self.amount_out = int(amount_out)
         self.route = [Route(**r) for r in route]
@@ -50,6 +50,7 @@ class QuoteExactAmountInResponse:
         self.liquidity_cap_overflow = bool(liquidity_cap_overflow)
         self.effective_fee = Decimal(effective_fee)
         self.price_impact = Decimal(price_impact)
+        self.price_impact_unknown = bool(price_impact_unknown)
         self.in_base_out_quote_spot_price = Decimal(in_base_out_quote_spot_price)
         if price_info:
             self.price_info = price_info
@@ -71,7 +72,7 @@ class QuoteExactAmountInResponse:
 # QuoteExactAmountOutResponse represents the response format
 # of the /router/quote endpoint for Exact Amount Out Quote.
 class QuoteExactAmountOutResponse:
-    def __init__(self, amount_in, amount_out, route, tokens, liquidity_cap, liquidity_cap_overflow, effective_fee, price_impact, in_base_out_quote_spot_price):
+    def __init__(self, amount_in, amount_out, route, tokens, liquidity_cap, liquidity_cap_overflow, effective_fee, price_impact, in_base_out_quote_spot_price, price_impact_unknown=False):
         self.amount_in = int(amount_in)
         self.amount_out = Coin(**amount_out)
         self.route = [Route(**r) for r in route]
@@ -80,6 +81,7 @@ class QuoteExactAmountOutResponse:
         self.liquidity_cap_overflow = bool(liquidity_cap_overflow)
         self.effective_fee = Decimal(effective_fee)
         self.price_impact = Decimal(price_impact)
+        self.price_impact_unknown = bool(price_impact_unknown)
         self.in_base_out_quote_spot_price = Decimal(in_base_out_quote_spot_price)
 
     def get_pool_ids(self):

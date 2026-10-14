@@ -44,9 +44,12 @@ func getTickToSqrtPrice(tick int64) (osmomath.BigDec, error) {
 
 	sqrtPrice, err := clmath.TickToSqrtPrice(tick)
 	if err != nil {
-		tickToSqrtPriceCache.Add(tick, sqrtPrice)
+		// Errors are never cached: a cached entry is returned with a nil error.
+		return osmomath.BigDec{}, err
 	}
-	return sqrtPrice, err
+
+	tickToSqrtPriceCache.Add(tick, sqrtPrice)
+	return sqrtPrice, nil
 }
 
 // GetPoolDenoms implements domain.RoutablePool.
