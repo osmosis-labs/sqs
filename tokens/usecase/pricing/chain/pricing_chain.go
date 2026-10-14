@@ -22,8 +22,13 @@ type chainPricing struct {
 	cacheExpiryNs time.Duration
 	// failedCache holds the error of a recent failed price computation per pair, so that a pair
 	// without a usable route is not searched again on every request. It is separate from cache
-	// so that a failure still evicts the last good price there.
+	// so that a failure still evicts the last good price there. It uses the same key as cache:
+	// a price computed at one min pool liquidity cap or in one direction serves the others, and
+	// so does a failure, which lets the pricing worker's failures answer requests too.
 	failedCache *cache.Cache
+	// succeededAt holds the time of the last successful computation per pair, so that a failure
+	// that started before a newer success does not replace it in failedCache.
+	succeededAt *cache.Cache
 
 	defaultQuoteDenom string
 
@@ -62,6 +67,12 @@ const (
 	// failedPriceCacheExpiry is how long a failed price computation is served from failedCache
 	// before the price is computed again. Recomputes requested by the pricing worker ignore it.
 	failedPriceCacheExpiry = 10 * time.Second
+
+	// succeededAtExpiry is how long the time of a successful computation is kept. A failure that started
+	// before it is not cached, so it must outlast any computation still running: a computation that
+	// outlives its context's deadline is never cached, and the longest deadline is the pricing worker's
+	// two-minute update timeout.
+	succeededAtExpiry = 5 * time.Minute
 )
 
 func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
@@ -76,6 +87,7 @@ func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, 
 
 		cache:                     cache.New(),
 		failedCache:               cache.New(),
+		succeededAt:               cache.New(),
 		cacheExpiryNs:             time.Duration(config.CacheExpiryMs) * time.Millisecond,
 		maxPoolsPerRoute:          config.MaxPoolsPerRoute,
 		maxRoutes:                 config.MaxRoutes,
@@ -141,13 +153,25 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 }
 
+// succeededSince reports whether a computation for the pair under cacheKey succeeded at or after t.
+func (c *chainPricing) succeededSince(cacheKey string, t time.Time) bool {
+	succeededAt, found := c.succeededAt.Get(cacheKey)
+	if !found {
+		return false
+	}
+	at, ok := succeededAt.(time.Time)
+	return ok && !at.Before(t)
+}
+
 // computePrice computes the price for a given base and quote denom
 // On failure, any previously cached price for the pair is evicted so that a stale price is not
 // served after its route stops being usable, and fallback pricing can take over.
 // The failure is kept in failedCache for failedPriceCacheExpiry, unless it came from the request's
-// context being cancelled or timing out, which says nothing about the pair. A success clears it.
+// context being cancelled or timing out, which says nothing about the pair, or the pair's price was
+// computed successfully after this computation started. A success clears it.
 func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (_ osmomath.BigDec, _ []domain.SplitRoute, err error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
+	startedAt := time.Now()
 
 	defer func() {
 		// A panic (e.g. from a malformed pool spot price) must evict too, so it is turned into an error.
@@ -156,10 +180,11 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		}
 		if err != nil {
 			c.cache.Delete(cacheKey)
-			if ctx.Err() == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			if ctx.Err() == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) && !c.succeededSince(cacheKey, startedAt) {
 				c.failedCache.Set(cacheKey, err, failedPriceCacheExpiry)
 			}
 		} else {
+			c.succeededAt.Set(cacheKey, time.Now(), succeededAtExpiry)
 			c.failedCache.Delete(cacheKey)
 		}
 	}()

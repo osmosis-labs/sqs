@@ -287,6 +287,16 @@ func (s *PricingTestSuite) TestGetPrice_FailedPriceIsCached() {
 	s.Require().Error(err)
 	s.Require().Equal(2, quoteCalls)
 
+	// Like a cached price, the failure also answers a search at another min pool liquidity cap or in the
+	// other direction, so the pricing worker's failures spare requests the search.
+	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithMinPricingPoolLiquidityCap(123_456_789))
+	s.Require().Error(err)
+	s.Require().Equal(2, quoteCalls)
+
+	_, _, err = pricingStrategy.GetPrice(context.Background(), USDC, ATOM)
+	s.Require().Error(err)
+	s.Require().Equal(2, quoteCalls)
+
 	// A recompute ignores the failed price cache, and its success clears it.
 	routeUnusable = false
 	price, _, err := pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
