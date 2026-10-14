@@ -64,6 +64,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 		pool                 ingesttypes.PoolI
 		cosmwasmPool         *cwpoolmodel.CosmWasmPool
 		cosmWasmConfig       domain.CosmWasmPoolRouterConfig
+		tokenInDenom         string
 		tokenOutDenom        string
 		takerFee             osmomath.Dec
 		liquidityCap         osmomath.Int
@@ -84,12 +85,14 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 					alloyTransmuterCosmWasmPool.CodeId: {},
 				},
 			},
+			tokenInDenom:  "nbtc",
 			tokenOutDenom: "allBTC",
 			takerFee:      alloyTransmuterTakerFee,
 			expectedRoutablePool: &pools.RoutableAlloyTransmuterPoolImpl{
 				ChainPool:           &alloyTransmuterCosmWasmPool,
 				AlloyTransmuterData: alloyTransmuterModel.Data.AlloyTransmuter,
 				Balances:            alloyTransmuterBalances,
+				TokenInDenom:        "nbtc",
 				TokenOutDenom:       "allBTC",
 				TakerFee:            alloyTransmuterTakerFee,
 				SpreadFactor:        alloyTransmuterSpreadFactor,
@@ -197,7 +200,7 @@ func TestNewRoutableCosmWasmPoolWithCustomModel(t *testing.T) {
 			cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
 				Config: tt.cosmWasmConfig,
 			}
-			routablePool, err := pools.NewRoutableCosmWasmPoolWithCustomModel(tt.pool, tt.cosmwasmPool, cosmWasmPoolsParams, tt.tokenOutDenom, tt.takerFee, tt.liquidityCap)
+			routablePool, err := pools.NewRoutableCosmWasmPoolWithCustomModel(tt.pool, tt.cosmwasmPool, cosmWasmPoolsParams, tt.tokenInDenom, tt.tokenOutDenom, tt.takerFee, tt.liquidityCap)
 
 			if tt.expectedError != nil {
 				require.Equal(t, tt.expectedError, err)

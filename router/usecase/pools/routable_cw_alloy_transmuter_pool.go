@@ -88,28 +88,27 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context
 // CalculateTokenInByTokenOut implements domain.RoutablePool.
 // It calculates the amount of token in given the amount of token out for a transmuter pool.
 // Transmuter pool allows no slippage swaps. For v3, the ratio of token out to token in is dependent on the normalization factor.
+// The token in amount is rounded up, as the contract does for exact amount out swaps.
 // Returns error if:
-// - the underlying chain pool set on the routable pool is not of transmuter type
 // - the token out amount is greater than the balance of the token out
-// - the token out amount is greater than the balance of the token in
+// - the swap would push an asset over its static rate limit
 //
 // Note that balance validation does not apply to alloyed asset since it can be minted or burned by the pool.
-func (r *routableAlloyTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
-	tokenInAmt, err := r.CalcTokenInAmt(tokenIn, r.TokenOutDenom)
-	if err != nil {
-		return sdk.Coin{}, err
-	}
-
-	tokenInAmtInt := tokenInAmt.Dec().TruncateInt()
-
+// The token in balance is not validated since the swap only adds token in to the pool.
+func (r *routableAlloyTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
 	// Validate token out balance if not alloyed
-	if r.TokenInDenom != r.AlloyTransmuterData.AlloyedDenom {
-		if err := validateTransmuterBalance(tokenInAmtInt, r.Balances, r.TokenInDenom); err != nil {
+	if tokenOut.Denom != r.AlloyTransmuterData.AlloyedDenom {
+		if err := validateTransmuterBalance(tokenOut.Amount, r.Balances, tokenOut.Denom); err != nil {
 			return sdk.Coin{}, err
 		}
 	}
 
-	return sdk.Coin{Denom: r.TokenInDenom, Amount: tokenInAmtInt}, nil
+	tokenInAmt, err := r.CalcTokenInAmt(tokenOut, r.TokenInDenom)
+	if err != nil {
+		return sdk.Coin{}, err
+	}
+
+	return sdk.Coin{Denom: r.TokenInDenom, Amount: tokenInAmt}, nil
 }
 
 // GetTokenOutDenom implements RoutablePool.
@@ -158,7 +157,8 @@ func (r *routableAlloyTransmuterPoolImpl) SetTokenOutDenom(tokenOutDenom string)
 
 // CalcSpotPrice implements domain.RoutablePool.
 func (r *routableAlloyTransmuterPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom string, quoteDenom string) (osmomath.BigDec, error) {
-	return r.CalcTokenOutAmt(sdk.Coin{Denom: baseDenom, Amount: osmomath.OneInt()}, quoteDenom)
+	// The contract's spot price query does not apply rate limiters, so neither does this.
+	return r.convertTokenOutAmt(sdk.Coin{Denom: baseDenom, Amount: osmomath.OneInt()}, quoteDenom)
 }
 
 // GetSQSType implements domain.RoutablePool.
@@ -207,7 +207,27 @@ func (r *routableAlloyTransmuterPoolImpl) FindNormalizationFactors(tokenInDenom,
 //
 // token_out_amt / token_out_norm_factor = token_in_amt / token_in_norm_factor
 // token_out_amt = token_in_amt * token_out_norm_factor / token_in_norm_factor
+//
+// Returns error if the swap would push an asset over its static rate limit.
 func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, tokenOutDenom string) (osmomath.BigDec, error) {
+	tokenOutAmount, err := r.convertTokenOutAmt(tokenIn, tokenOutDenom)
+	if err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	// Check static upper rate limiter against the balances after the swap.
+	// For exact amount in, the contract rounds the token out down.
+	tokenOutCoin := sdk.Coin{Denom: tokenOutDenom, Amount: math.NewIntFromBigInt(tokenOutAmount.TruncateInt().BigInt())}
+	if err := r.checkStaticRateLimiter(tokenIn, tokenOutCoin); err != nil {
+		return osmomath.BigDec{}, err
+	}
+
+	return tokenOutAmount, nil
+}
+
+// convertTokenOutAmt converts the token in amount to the token out denom using the normalization
+// factors, without checking rate limiters.
+func (r *routableAlloyTransmuterPoolImpl) convertTokenOutAmt(tokenIn sdk.Coin, tokenOutDenom string) (osmomath.BigDec, error) {
 	tokenInNormFactor, tokenOutNormFactor, err := r.FindNormalizationFactors(tokenIn.Denom, tokenOutDenom)
 	if err != nil {
 		return osmomath.BigDec{}, err
@@ -221,11 +241,6 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOutDenom, PoolId: r.GetId()}
 	}
 
-	// Check static upper rate limiter
-	if err := r.checkStaticRateLimiter(tokenIn); err != nil {
-		return osmomath.BigDec{}, err
-	}
-
 	tokenInAmount := osmomath.BigDecFromSDKInt(tokenIn.Amount)
 
 	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())
@@ -236,39 +251,42 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenOutAmt(tokenIn sdk.Coin, toke
 	return tokenOutAmount, nil
 }
 
-// Calculate the token in amount based on the normalization factors:
+// Calculate the token in amount based on the normalization factors, rounded up as the contract does
+// for exact amount out swaps:
 //
-// token_in_amt = token_out_amt * token_in_norm_factor / token_out_norm_factor
-func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenOut sdk.Coin, tokenInDenom string) (osmomath.BigDec, error) {
+// token_in_amt = ceil(token_out_amt * token_in_norm_factor / token_out_norm_factor)
+func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenOut sdk.Coin, tokenInDenom string) (osmomath.Int, error) {
 	tokenInNormFactor, tokenOutNormFactor, err := r.FindNormalizationFactors(tokenInDenom, tokenOut.Denom)
 	if err != nil {
-		return osmomath.BigDec{}, err
+		return osmomath.Int{}, err
 	}
 
 	if tokenInNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenOut.Denom, PoolId: r.GetId()}
+		return osmomath.Int{}, domain.ZeroNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
 	}
 
 	if tokenOutNormFactor.IsZero() {
-		return osmomath.BigDec{}, domain.ZeroNormalizationFactorError{Denom: tokenInDenom, PoolId: r.GetId()}
+		return osmomath.Int{}, domain.ZeroNormalizationFactorError{Denom: tokenOut.Denom, PoolId: r.GetId()}
 	}
 
-	// Check static upper rate limiter
-	if err := r.checkStaticRateLimiter(tokenOut); err != nil {
-		return osmomath.BigDec{}, err
+	// Integer math so that any remainder rounds the token in amount up.
+	scaledTokenOut := tokenOut.Amount.Mul(tokenInNormFactor)
+	tokenInAmount := scaledTokenOut.Quo(tokenOutNormFactor)
+	if !scaledTokenOut.Mod(tokenOutNormFactor).IsZero() {
+		tokenInAmount = tokenInAmount.AddRaw(1)
 	}
 
-	tokenOutAmount := osmomath.BigDecFromSDKInt(tokenOut.Amount)
-
-	tokenOutNormFactorBig := osmomath.NewBigIntFromBigInt(tokenOutNormFactor.BigInt())
-	tokenInNormFactorBig := osmomath.NewBigIntFromBigInt(tokenInNormFactor.BigInt())
-
-	tokenInAmount := tokenOutAmount.MulInt(tokenInNormFactorBig).QuoInt(tokenOutNormFactorBig)
+	// Check static upper rate limiter against the balances after the swap.
+	tokenInCoin := sdk.Coin{Denom: tokenInDenom, Amount: tokenInAmount}
+	if err := r.checkStaticRateLimiter(tokenInCoin, tokenOut); err != nil {
+		return osmomath.Int{}, err
+	}
 
 	return tokenInAmount, nil
 }
 
-// checkStaticRateLimiter checks the static rate limiter.
+// checkStaticRateLimiter checks the static rate limiter against the balances after swapping
+// tokenInCoin into the pool and tokenOutCoin out of it.
 // If token in denom is not alloyed, we only need to validate the token in balance.
 // Since the token in balance is the only one that is increased by the current quote.
 //
@@ -279,7 +297,7 @@ func (r *routableAlloyTransmuterPoolImpl) CalcTokenInAmt(tokenOut sdk.Coin, toke
 // No-op if the static rate limiter is not set.
 // Returns error if the token in weight is greater than the upper limit.
 // Returns nil if the token in weight is less than or equal to the upper limit.
-func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk.Coin) error {
+func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin, tokenOutCoin sdk.Coin) error {
 	// If no static rate limiter is set, return
 	if len(r.AlloyTransmuterData.RateLimiterConfig.StaticLimiterByDenomMap) == 0 {
 		return nil
@@ -310,8 +328,8 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 		}
 
 		// Subtract the token out balance from the asset balance
-		if assetDenom == r.TokenOutDenom {
-			assetBalance = assetBalance.Sub(tokenInCoin.Amount)
+		if assetDenom == tokenOutCoin.Denom {
+			assetBalance = assetBalance.Sub(tokenOutCoin.Amount)
 		}
 
 		normalizationScalingFactor, ok := normalizationFactors[assetDenom]
@@ -329,6 +347,14 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 		normalizeTotal = normalizeTotal.Add(normalizedBalance)
 	}
 
+	// The contract skips limiter checks when the swap leaves no underlying assets in the pool,
+	// since weights are undefined then: transmuter v3.2.0 checks limiters only when
+	// TransmuterPool::weights is Some (swap.rs:131-132, 303-304, 362-363, 417-418), and it
+	// returns None for a zero total (transmuter_pool/weight.rs:37-38).
+	if normalizeTotal.IsZero() {
+		return nil
+	}
+
 	// If token in denom is alloyed, we need to validate limiters for all assets' balances except token out.
 	// Since the token out composition is decreasing, other assets' weights are increasing.
 	// else, we only need to validate the token in denom limiter.
@@ -343,7 +369,7 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin sdk
 			}
 
 			// skip if the asset is token out, since its weight is decreasing, no need to check limiter
-			if assetDenom == r.TokenOutDenom {
+			if assetDenom == tokenOutCoin.Denom {
 				continue
 			}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -1646,6 +1647,15 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mai
 			err: usecase.ErrTokenInDenomPoolNotFound,
 		},
 		{
+			name:         "Single pool: orderbook pools do not support exact-out",
+			tokenOut:     sdk.NewCoin(USDC, amountOut),
+			tokenInDenom: []string{NATIVE_WBTC},
+			poolID: []uint64{
+				1904, // WBTC - USDC orderbook
+			},
+			err: types.ErrValidationFailed,
+		},
+		{
 			name:         "Multi pool: OSMO-USDC - happy case",
 			tokenOut:     sdk.NewCoin(UOSMO, amountOut),
 			tokenInDenom: []string{AKT, USDC},
@@ -1686,6 +1696,129 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mai
 			s.Require().Len(routes, 1)
 
 			s.validateExpectedPoolIDsMultiHopRoute(routes[0].GetPools(), tc.expectedPoolID)
+
+			// The quoted input must buy at least the requested output when swapped forward
+			// through the same pools. The inverted quote this replaced understated it.
+			forwardPoolIDs := slices.Clone(tc.poolID)
+			slices.Reverse(forwardPoolIDs)
+			forwardOutDenoms := append([]string{tc.tokenOut.Denom}, tc.tokenInDenom[:len(tc.tokenInDenom)-1]...)
+			slices.Reverse(forwardOutDenoms)
+
+			amountIn := sdk.NewCoin(tc.tokenInDenom[len(tc.tokenInDenom)-1], quotes.GetAmountIn().Amount)
+			s.Require().Equal(amountIn.Denom, quotes.GetAmountIn().Denom)
+
+			forwardQuote, err := routerUsecase.GetCustomDirectQuoteMultiPoolOutGivenIn(context.Background(), amountIn, forwardOutDenoms, forwardPoolIDs)
+			s.Require().NoError(err)
+			s.Require().True(forwardQuote.GetAmountOut().Amount.GTE(tc.tokenOut.Amount),
+				"quoted amount in %s buys %s forward, less than the requested %s", amountIn, forwardQuote.GetAmountOut(), tc.tokenOut)
+		})
+	}
+}
+
+// Validates exact-out quotes through the allBTC alloyed transmuter (pool 1868), whose
+// ibc/7534... variant has a normalization factor of 1,000,000 against 1 for allBTC, on both
+// the pinned custom direct path and the router path. Routes through alloyed transmuters used
+// to be dropped on exact-out because the routable pool was built without its token in denom.
+func (s *RouterTestSuite) TestGetQuoteInGivenOut_Mainnet_AlloyedTransmuter() {
+	const (
+		allBTCPoolID = uint64(1868)
+		wbtcOsmoPool = uint64(1090) // WBTC - OSMO
+		// allBTC variant with normalization factor 1,000,000 in pool 1868.
+		btcVariantFactor1e6 = "ibc/75345531D87BD90BF108BE7240BD721CB2CB0A1F16D4EBA71B09EC3C43E15C8F"
+	)
+
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState)
+	routerUsecase := mainnetUsecase.Router
+
+	testCases := []struct {
+		name         string
+		tokenOut     sdk.Coin
+		tokenInDenom []string
+		poolIDs      []uint64
+
+		// expectedAmountIn is only set for single hops through the alloyed transmuter,
+		// which has a zero taker fee in the mainnet state.
+		expectedAmountIn osmomath.Int
+
+		// expectRouterAlloyRoute is set when the alloyed transmuter is the router's best route.
+		expectRouterAlloyRoute bool
+	}{
+		{
+			name:         "alloyed to variant",
+			tokenOut:     sdk.NewCoin(btcVariantFactor1e6, osmomath.NewInt(10_000_001)),
+			tokenInDenom: []string{ALLBTC},
+			poolIDs:      []uint64{allBTCPoolID},
+			// 10_000_001 * 1 / 1_000_000, rounded up.
+			expectedAmountIn:       osmomath.NewInt(11),
+			expectRouterAlloyRoute: true,
+		},
+		{
+			name:             "variant to alloyed",
+			tokenOut:         sdk.NewCoin(ALLBTC, osmomath.NewInt(10)),
+			tokenInDenom:     []string{btcVariantFactor1e6},
+			poolIDs:          []uint64{allBTCPoolID},
+			expectedAmountIn: osmomath.NewInt(10_000_000),
+		},
+		{
+			name:         "multi pool with an alloyed transmuter hop",
+			tokenOut:     sdk.NewCoin(btcVariantFactor1e6, osmomath.NewInt(10_000_001)),
+			tokenInDenom: []string{WBTC, UOSMO},
+			poolIDs:      []uint64{allBTCPoolID, wbtcOsmoPool},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			quote, err := routerUsecase.GetCustomDirectQuoteMultiPoolInGivenOut(context.Background(), tc.tokenOut, tc.tokenInDenom, tc.poolIDs)
+			s.Require().NoError(err)
+
+			routes := quote.GetRoute()
+			s.Require().Len(routes, 1)
+			s.validateExpectedPoolIDsMultiHopRoute(routes[0].GetPools(), tc.poolIDs)
+
+			amountIn := quote.GetAmountIn()
+			s.Require().Equal(tc.tokenInDenom[len(tc.tokenInDenom)-1], amountIn.Denom)
+			if !tc.expectedAmountIn.IsNil() {
+				s.Require().Equal(tc.expectedAmountIn.String(), amountIn.Amount.String())
+			}
+
+			// The quoted input must buy at least the requested output when swapped forward
+			// through the same pools.
+			forwardPoolIDs := slices.Clone(tc.poolIDs)
+			slices.Reverse(forwardPoolIDs)
+			forwardOutDenoms := append([]string{tc.tokenOut.Denom}, tc.tokenInDenom[:len(tc.tokenInDenom)-1]...)
+			slices.Reverse(forwardOutDenoms)
+
+			forwardQuote, err := routerUsecase.GetCustomDirectQuoteMultiPoolOutGivenIn(context.Background(), amountIn, forwardOutDenoms, forwardPoolIDs)
+			s.Require().NoError(err)
+			s.Require().True(forwardQuote.GetAmountOut().Amount.GTE(tc.tokenOut.Amount),
+				"quoted amount in %s buys %s forward, less than the requested %s", amountIn, forwardQuote.GetAmountOut(), tc.tokenOut)
+
+			if len(tc.poolIDs) != 1 {
+				return
+			}
+
+			// The pinned single pool quote must match the pinned custom direct endpoint.
+			directQuote, err := routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), tc.tokenOut, tc.tokenInDenom[0], tc.poolIDs[0])
+			s.Require().NoError(err)
+			s.Require().Equal(amountIn.String(), directQuote.GetAmountIn().String())
+
+			// The alloyed transmuter route is a router candidate, so the router never needs more input.
+			routerQuote, err := routerUsecase.GetOptimalQuoteInGivenOut(context.Background(), tc.tokenOut, tc.tokenInDenom[0])
+			s.Require().NoError(err)
+			s.Require().True(routerQuote.GetAmountIn().Amount.LTE(amountIn.Amount),
+				"router amount in %s is more than the alloyed transmuter's %s", routerQuote.GetAmountIn(), amountIn)
+
+			if !tc.expectRouterAlloyRoute {
+				return
+			}
+
+			// The router must find the alloyed transmuter route rather than dropping it.
+			s.Require().Equal(amountIn.String(), routerQuote.GetAmountIn().String())
+			routerRoutes := routerQuote.GetRoute()
+			s.Require().Len(routerRoutes, 1)
+			s.validateExpectedPoolIDsMultiHopRoute(routerRoutes[0].GetPools(), tc.poolIDs)
 		})
 	}
 }

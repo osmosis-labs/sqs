@@ -167,21 +167,21 @@ func (s *RoutablePoolTestSuite) TestCalculateTokenInByTokenOut_Transmuter() {
 			tokenInDenom: USDC,
 			balances:     defaultBalances,
 		},
-		"no error: token out is larger than balance of token out": {
+		"no error: token out is larger than balance of token in": {
 			tokenOut:     sdk.NewCoin(ETH, defaultAmount),
 			tokenInDenom: USDC,
-			// Make token out amount 1 smaller than the default amount
-			balances: sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount.Sub(osmomath.OneInt()))),
-		},
-		"error: token out is larger than balance of token in": {
-			tokenOut:     sdk.NewCoin(ETH, defaultAmount),
-			tokenInDenom: USDC,
-
 			// Make token in amount 1 smaller than the default amount
 			balances: sdk.NewCoins(sdk.NewCoin(ETH, defaultAmount), sdk.NewCoin(USDC, defaultAmount.Sub(osmomath.OneInt()))),
+		},
+		"error: token out is larger than balance of token out": {
+			tokenOut:     sdk.NewCoin(ETH, defaultAmount),
+			tokenInDenom: USDC,
+
+			// Make token out amount 1 smaller than the default amount
+			balances: sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount.Sub(osmomath.OneInt()))),
 
 			expectError: domain.TransmuterInsufficientBalanceError{
-				Denom:         USDC,
+				Denom:         ETH,
 				BalanceAmount: defaultAmount.Sub(osmomath.OneInt()).String(),
 				Amount:        defaultAmount.String(),
 			},
