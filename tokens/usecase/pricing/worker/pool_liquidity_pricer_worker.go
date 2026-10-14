@@ -101,7 +101,7 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 		_ = listener.OnPoolLiquidityCompute(ctx, height, blockPoolMetadata)
 	}
 
-	return nil
+	return err
 }
 
 // RepriceDenomsMetadata implements domain.PoolLiquidityPricerWorker
