@@ -219,8 +219,9 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	// Validate base denoms
-	if err := a.validateBaseDenoms(baseDenoms, isHumanDenoms); err != nil {
+	// Validate base denoms, leaving out any that are invalid.
+	baseDenoms, err = a.validateBaseDenoms(baseDenoms, isHumanDenoms)
+	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
@@ -301,29 +302,45 @@ func (a TokensHandler) getQuoteDenom(pricingSourceType domain.PricingSourceType)
 	}
 }
 
-// validateBaseDenoms validates the base denominations. If the base denominations are in human-readable format, it translates them to chain format.
+// validateBaseDenoms returns the valid base denominations, in chain format: human-readable ones are translated.
+// A denom that is unknown or not valid for pricing (e.g. unlisted) is left out, so that one such denom costs
+// only its own price rather than the whole request's; its price is omitted from the response, as for a denom
+// that cannot be priced. It returns an error, for the first denom left out, only if none is valid.
 // Check if the provided denoms (which can be human or chain) are valid and existing in the asset list
 // If human denoms, convert to chain denoms
 // If chain denoms, validate if they are valid chain denoms
 // If any of the denoms are invalid return an error
-func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms bool) (err error) {
-	for i, baseDenom := range baseDenoms {
+func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms bool) ([]string, error) {
+	valid := make([]string, 0, len(baseDenoms))
+	var firstErr error
+	for _, baseDenom := range baseDenoms {
 		// If human, convert to chain format
 		if isHumanBaseDenoms {
-			baseDenom, err = a.TUsecase.GetChainDenom(baseDenom)
+			chainDenom, err := a.TUsecase.GetChainDenom(baseDenom)
 			if err != nil {
-				return err
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
 			}
-
-			baseDenoms[i] = baseDenom
+			baseDenom = chainDenom
 		}
 
 		if !a.TUsecase.IsValidChainDenom(baseDenom) {
-			return fmt.Errorf("base denom is not a valid chain denom (%s)", baseDenom)
+			if firstErr == nil {
+				firstErr = fmt.Errorf("base denom is not a valid chain denom (%s)", baseDenom)
+			}
+			continue
 		}
+
+		valid = append(valid, baseDenom)
 	}
 
-	return nil
+	if len(valid) == 0 {
+		return nil, firstErr
+	}
+
+	return valid, nil
 }
 
 // validateDenomsParam validates the denoms param string

@@ -229,6 +229,30 @@ func (s *TokensHandlerSuite) TestGetPrices() {
 			expectedError:      true,
 		},
 		{
+			name: "invalid chain denom in a batch is left out",
+			queryParams: map[string]string{
+				"base": "uosmo,invalidchain,uatom",
+			},
+			handler: &tokensdelivery.TokensHandler{
+				TUsecase: &mocks.TokensUsecaseMock{
+					GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+						if len(baseDenoms) != 2 || baseDenoms[0] != "uosmo" || baseDenoms[1] != "uatom" {
+							return nil, errors.New("unexpected base denoms " + strings.Join(baseDenoms, ","))
+						}
+						return mockPriceResult, nil
+					},
+					IsValidChainDenomFunc: func(chainDenom string) bool {
+						return chainDenom != "invalidchain"
+					},
+					IsValidPricingSourceFunc: func(pricingSource int) bool {
+						return true
+					},
+				},
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   `{"uosmo":{"usdc":"1.250000000000000000000000000000000000"},"uatom":{"usdc":"10.500000000000000000000000000000000000"}}`,
+		},
+		{
 			name: "invalid debug parameter",
 			queryParams: map[string]string{
 				"base":  "uosmo",
