@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
+	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -29,6 +31,10 @@ type chainPricing struct {
 	// succeededAt holds the time of the last successful computation per pair, so that a failure
 	// that started before a newer success does not replace it in failedCache.
 	succeededAt *cache.Cache
+	// pairLocks make a computation's final cache update atomic per pair: a failure's check against
+	// succeededAt and its write to failedCache cannot interleave with a success's updates.
+	// Pairs are spread over the locks by key hash.
+	pairLocks [pairLockCount]sync.Mutex
 
 	defaultQuoteDenom string
 
@@ -73,6 +79,9 @@ const (
 	// outlives its context's deadline is never cached, and the longest deadline is the pricing worker's
 	// two-minute update timeout.
 	succeededAtExpiry = 5 * time.Minute
+
+	// pairLockCount is the number of locks pairs are spread over for their final cache update.
+	pairLockCount = 64
 )
 
 func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
@@ -153,6 +162,13 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 }
 
+// pairLock returns the lock that guards the final cache update for the pair under cacheKey.
+func (c *chainPricing) pairLock(cacheKey string) *sync.Mutex {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(cacheKey))
+	return &c.pairLocks[h.Sum32()%pairLockCount]
+}
+
 // succeededSince reports whether a computation for the pair under cacheKey succeeded at or after t.
 func (c *chainPricing) succeededSince(cacheKey string, t time.Time) bool {
 	succeededAt, found := c.succeededAt.Get(cacheKey)
@@ -178,6 +194,9 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic computing price for %s (base) -> %s (quote): %v", baseDenom, quoteDenom, r)
 		}
+		lock := c.pairLock(cacheKey)
+		lock.Lock()
+		defer lock.Unlock()
 		if err != nil {
 			c.cache.Delete(cacheKey)
 			if ctx.Err() == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) && !c.succeededSince(cacheKey, startedAt) {

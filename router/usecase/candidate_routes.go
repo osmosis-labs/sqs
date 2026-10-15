@@ -115,7 +115,11 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions, maxQueuedPaths int) (_ []candidateRouteWrapper, queuedPaths int, capped bool, _ error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
-	visitedPtr := visitedPools.Get().(*[]bool)
+	visitedPtr, ok := visitedPools.Get().(*[]bool)
+	if !ok {
+		visited := make([]bool, visitedPoolsSize)
+		visitedPtr = &visited
+	}
 	visited := *visitedPtr
 	defer func() {
 		clear(visited)
