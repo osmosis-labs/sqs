@@ -61,6 +61,10 @@ func candidateRoutePath(nodes []candidateRouteNode, last int, next candidatePool
 // Tests change it through export_test.go.
 var maxCandidateRouteSearchPaths = 100_000
 
+// ctxCheckInterval is how many expanded paths the candidate route search goes between checks of
+// its context, so that a search for an abandoned request stops quickly without a check per path.
+const ctxCheckInterval = 1000
+
 // visitedPoolsSize bounds the pool IDs the candidate route search can mark as visited.
 const visitedPoolsSize = 100_000
 
@@ -97,7 +101,7 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteSearcher.
 func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
-	routes, queuedPaths, capped, err := c.findCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, options, maxCandidateRouteSearchPaths)
+	routes, queuedPaths, capped, err := c.findCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, options, maxCandidateRouteSearchPaths)
 	if err != nil {
 		return ingesttypes.CandidateRoutes{}, err
 	}
@@ -112,7 +116,8 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 // findCandidateRoutesOutGivenIn searches for candidate routes, queuing at most maxQueuedPaths paths.
 // It returns the routes found, the number of paths queued, and whether a path was left out because of the bound.
-func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions, maxQueuedPaths int) (_ []candidateRouteWrapper, queuedPaths int, capped bool, _ error) {
+// It stops with the context's error once ctx is done, checked every ctxCheckInterval expanded paths.
+func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions, maxQueuedPaths int) (_ []candidateRouteWrapper, queuedPaths int, capped bool, _ error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
 	visitedPtr, ok := visitedPools.Get().(*[]bool)
@@ -169,6 +174,12 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(tokenIn sdk.Coin, to
 	}
 
 	for head := 0; head < len(queue) && len(routes) < options.MaxRoutes; head++ {
+		if head%ctxCheckInterval == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, 0, false, err
+			}
+		}
+
 		currentNode := queue[head]
 
 		currentRouteLen := 0

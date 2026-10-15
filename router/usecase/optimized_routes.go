@@ -22,11 +22,21 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
 
+	// A request that was abandoned or timed out is not quoted.
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+
 	// Compute token out for each route
 	routesWithAmountOut, errors := routes.CalculateTokenOutByTokenIn(ctx, tokenIn)
 
 	// If we skipped all routes due to errors, return the first error
 	if len(routesWithAmountOut) == 0 && len(errors) > 0 {
+		// Errors from a cancelled request say nothing about the routes, so the caches are kept.
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
+
 		// If we encounter this problem, we attempte to invalidate all caches to recompute the routes
 		// completely.
 		// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
@@ -65,6 +75,11 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenOut.Denom)
+	}
+
+	// A request that was abandoned or timed out is not quoted.
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
 	}
 
 	routesWithAmountIn := make([]route.RouteWithOutAmount, 0, len(routes))

@@ -380,6 +380,11 @@ func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 					}
 				}()
 
+				// A denom still queued when the request is abandoned or times out is not priced.
+				if err := ctx.Err(); err != nil {
+					return priceResults{baseDenom: baseDenom, err: err}, nil
+				}
+
 				prices, err := t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
 				if err != nil {
 					t.logger.Error("failed to get prices for base denom", zap.String("baseDenom", baseDenom), zap.Error(err))
@@ -448,6 +453,11 @@ func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 		price, routes, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 		if err == nil {
 			err = validatePrice(price)
+		}
+		// A request that was abandoned or timed out is neither priced from the fallback source
+		// nor answered with the pair left out as unpriced.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
 		}
 		if err != nil { // Check if we should fallback to another pricing source
 			fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
