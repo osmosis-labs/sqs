@@ -20,6 +20,10 @@ const (
 	expiryInterval = 10 * time.Second
 	// blockProcessTimeout bounds the fetch and pricing work for one block.
 	blockProcessTimeout = 15 * time.Second
+	// maxHeightAttempts is how many times one height is tried before it is
+	// skipped as a gap, so a block that fails every time (e.g. its results
+	// were pruned from the node) does not stop ingestion.
+	maxHeightAttempts = 3
 )
 
 // Ingester ingests trades from token_swapped events.
@@ -30,8 +34,9 @@ const (
 // RPC in its own goroutine. ProcessEndBlock never blocks the ingest path.
 //
 // Heights are processed strictly in order. A failed fetch is retried on the
-// next signal from the same height, and a lag of more than maxCatchUpBlocks
-// skips the oldest missed blocks (counted in the gap metric). The store is in
+// next signal from the same height, up to maxHeightAttempts times before the
+// height is skipped, and a lag of more than maxCatchUpBlocks skips the oldest
+// missed blocks. Skipped blocks are counted in the gap metric. The store is in
 // memory: after a restart, ingestion resumes forward from the first block
 // signalled and earlier trades are not recovered.
 type Ingester struct {
@@ -46,8 +51,11 @@ type Ingester struct {
 	latestHeight atomic.Int64
 	notify       chan struct{}
 
-	// lastProcessed is only accessed by the Run goroutine.
+	// lastProcessed, failedHeight and failedAttempts are only accessed by the Run goroutine.
 	lastProcessed int64
+	// failedHeight is the height whose processing last failed, tried failedAttempts times.
+	failedHeight   int64
+	failedAttempts int
 }
 
 var _ domain.EndBlockProcessPlugin = &Ingester{}
@@ -141,10 +149,27 @@ func (i *Ingester) catchUp(ctx context.Context) {
 		}
 
 		if err := i.processHeight(ctx, height); err != nil {
-			// Retried from this height on the next signal.
+			if ctx.Err() != nil {
+				return
+			}
 			telemetry.BlockFetchErrorCounter.Inc()
 			i.logger.Error("trades ingester failed to process block", zap.Int64("height", height), zap.Error(err))
-			return
+
+			if height != i.failedHeight {
+				i.failedHeight, i.failedAttempts = height, 0
+			}
+			i.failedAttempts++
+			if i.failedAttempts < maxHeightAttempts {
+				// Retried from this height on the next signal.
+				return
+			}
+
+			telemetry.GapBlocksCounter.Inc()
+			i.logger.Warn("trades ingester skipping block after repeated failures",
+				zap.Int64("height", height), zap.Int("attempts", i.failedAttempts))
+			i.failedHeight, i.failedAttempts = 0, 0
+			i.lastProcessed = height
+			continue
 		}
 
 		i.lastProcessed = height

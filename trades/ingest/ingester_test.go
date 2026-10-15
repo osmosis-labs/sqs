@@ -314,8 +314,9 @@ func (f *fakeFetcher) FetchBlock(_ context.Context, height int64) (BlockData, er
 }
 
 // Heights are processed in order, forward-only from the first signal, failed
-// heights are retried from where they stopped, and a lag beyond the catch-up
-// bound skips the oldest blocks.
+// heights are retried from where they stopped until they have failed
+// maxHeightAttempts times, and a lag beyond the catch-up bound skips the
+// oldest blocks.
 func TestIngesterCatchUp(t *testing.T) {
 	fetcher := &fakeFetcher{failAt: map[int64]bool{}}
 	repo := repository.New(8 * 24 * time.Hour)
@@ -357,4 +358,13 @@ func TestIngesterCatchUp(t *testing.T) {
 	signal(25)
 	require.Equal(t, []int64{10, 11, 12, 13, 14, 15, 23, 24, 25}, fetcher.fetched)
 	require.Equal(t, int64(25), repo.LastIngestedHeight())
+
+	// A height that keeps failing is skipped on its third attempt.
+	fetcher.failAt[26] = true
+	signal(26)
+	signal(26)
+	require.Equal(t, int64(25), repo.LastIngestedHeight())
+	signal(27)
+	require.Equal(t, []int64{10, 11, 12, 13, 14, 15, 23, 24, 25, 27}, fetcher.fetched)
+	require.Equal(t, int64(27), repo.LastIngestedHeight())
 }
