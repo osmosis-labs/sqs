@@ -182,9 +182,9 @@ func (c *chainPricing) succeededSince(cacheKey string, t time.Time) bool {
 // computePrice computes the price for a given base and quote denom
 // On failure, any previously cached price for the pair is evicted so that a stale price is not
 // served after its route stops being usable, and fallback pricing can take over.
-// The failure is kept in failedCache for failedPriceCacheExpiry, unless it came from the request's
-// context being cancelled or timing out, which says nothing about the pair. A failure that started
-// before a newer success for the pair does neither. A success clears it.
+// The failure is kept in failedCache for failedPriceCacheExpiry. A success clears it.
+// A failure that started before a newer success for the pair, or that came from the request's
+// context being cancelled or timing out, which says nothing about the pair, does neither.
 func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (_ osmomath.BigDec, _ []domain.SplitRoute, err error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 	startedAt := time.Now()
@@ -202,14 +202,13 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		lock.Lock()
 		defer lock.Unlock()
 		if err != nil {
-			// A newer success already holds the pair's current price.
-			if c.succeededSince(cacheKey, startedAt) {
+			// A newer success already holds the pair's current price, and a computation cut short
+			// by its context says nothing about the pair.
+			if c.succeededSince(cacheKey, startedAt) || ctx.Err() != nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return
 			}
 			c.cache.Delete(cacheKey)
-			if ctx.Err() == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-				c.failedCache.Set(cacheKey, err, failedPriceCacheExpiry)
-			}
+			c.failedCache.Set(cacheKey, err, failedPriceCacheExpiry)
 		} else {
 			if computed != nil {
 				c.cache.Set(cacheKey, *computed, computedTTL)

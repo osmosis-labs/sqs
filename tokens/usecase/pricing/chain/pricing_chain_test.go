@@ -221,6 +221,16 @@ func (s *PricingTestSuite) TestGetPrice_FailedRecomputeEvictsCachedPrice() {
 	s.Require().NoError(err)
 	s.Require().Equal(price, cachedPrice)
 
+	// A recompute cut short by its request's context keeps the cached price.
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _, err = pricingStrategy.GetPrice(cancelledCtx, ATOM, USDC, domain.WithRecomputePrices())
+	s.Require().Error(err)
+
+	cachedPrice, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+	s.Require().NoError(err)
+	s.Require().Equal(price, cachedPrice)
+
 	// System under test: the failed recompute evicts the cached price.
 	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
 	s.Require().Error(err)
