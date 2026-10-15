@@ -183,11 +183,15 @@ func (c *chainPricing) succeededSince(cacheKey string, t time.Time) bool {
 // On failure, any previously cached price for the pair is evicted so that a stale price is not
 // served after its route stops being usable, and fallback pricing can take over.
 // The failure is kept in failedCache for failedPriceCacheExpiry, unless it came from the request's
-// context being cancelled or timing out, which says nothing about the pair, or the pair's price was
-// computed successfully after this computation started. A success clears it.
+// context being cancelled or timing out, which says nothing about the pair. A failure that started
+// before a newer success for the pair does neither. A success clears it.
 func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (_ osmomath.BigDec, _ []domain.SplitRoute, err error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
 	startedAt := time.Now()
+	// The computed price is published to cache by the deferred update, under the pair's lock, so that
+	// an older failure cannot evict it between its publication and the record of its success.
+	var computed *domain.PriceResult
+	var computedTTL time.Duration
 
 	defer func() {
 		// A panic (e.g. from a malformed pool spot price) must evict too, so it is turned into an error.
@@ -198,11 +202,18 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		lock.Lock()
 		defer lock.Unlock()
 		if err != nil {
+			// A newer success already holds the pair's current price.
+			if c.succeededSince(cacheKey, startedAt) {
+				return
+			}
 			c.cache.Delete(cacheKey)
-			if ctx.Err() == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) && !c.succeededSince(cacheKey, startedAt) {
+			if ctx.Err() == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 				c.failedCache.Set(cacheKey, err, failedPriceCacheExpiry)
 			}
 		} else {
+			if computed != nil {
+				c.cache.Set(cacheKey, *computed, computedTTL)
+			}
 			c.succeededAt.Set(cacheKey, time.Now(), succeededAtExpiry)
 			c.failedCache.Delete(cacheKey)
 		}
@@ -320,7 +331,8 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	if quoteDenom == c.defaultQuoteDenom {
 		expirationTTL = defaultQuotePriceMaxAge
 	}
-	c.cache.Set(cacheKey, domain.NewPriceResult(chainPrice, routes), expirationTTL)
+	result := domain.NewPriceResult(chainPrice, routes)
+	computed, computedTTL = &result, expirationTTL
 
 	return chainPrice, routes, nil
 }
