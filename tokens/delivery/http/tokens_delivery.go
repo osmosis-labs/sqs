@@ -1,12 +1,14 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	_ "github.com/osmosis-labs/sqs/docs"
@@ -33,6 +35,12 @@ type TokensHandler struct {
 
 const (
 	routerResource = "/tokens"
+
+	// pricesRequestTimeout bounds the work for one /tokens/prices request. The server's write timeout
+	// only sets a socket deadline, so without it a request whose client stays connected keeps pricing
+	// after its response can no longer be written. It is below that write timeout, so the error
+	// response still reaches the client.
+	pricesRequestTimeout = 50 * time.Second
 )
 
 func formatTokensResource(resource string) string {
@@ -189,7 +197,8 @@ type GetPricesDebugResponse map[string]map[string]PriceDebug
 // @Success 200 {object} map[string]map[string]string "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price."
 // @Router /tokens/prices [get]
 func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(c.Request().Context(), pricesRequestTimeout)
+	defer cancel()
 
 	debug, err := deliveryhttp.ParseBooleanQueryParam(c, "debug")
 	if err != nil {
