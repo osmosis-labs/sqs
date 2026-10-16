@@ -10,6 +10,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 )
 
@@ -568,4 +569,43 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_ExcludedPoolIDs() {
 	s.Require().NoError(err)
 	s.Require().NotEmpty(candidateRoutes.Routes)
 	s.Require().False(foundExpectedPoolID(excludedPoolID, candidateRoutes.Routes))
+}
+
+// Validates that a search for a token that no pool holds, which would otherwise queue every path up to max
+// pools per route, stops queuing at the bound, and that searches for routable tokens are unchanged by the default bound.
+func (s *RouterTestSuite) TestCandidateRouteSearcher_QueuedPathBound() {
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+	candidateRouteOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           20,
+		MaxPoolsPerRoute:    4,
+		MinPoolLiquidityCap: 0,
+		PoolFiltersAnyOf:    []domain.CandidateRoutePoolFiltrerCb{domain.ShouldSkipOrderbookPool},
+	}
+	tenUSDC := sdk.NewCoin(USDC, osmomath.NewInt(10_000_000))
+
+	// An unroutable token reaches the bound and finds no routes.
+	const bound = 1_000
+	routes, queuedPaths, capped, err := usecase.FindCandidateRoutesOutGivenInWithBound(mainnetUsecase.CandidateRouteSearcher, tenUSDC, "unroutable", candidateRouteOptions, bound)
+	s.Require().NoError(err)
+	s.Require().Empty(routes)
+	s.Require().Equal(bound, queuedPaths)
+	s.Require().True(capped)
+
+	// Routable tokens find the same routes with the default bound as without one.
+	previousBound := usecase.SetMaxCandidateRouteSearchPaths(1 << 30)
+	unbounded := map[string]ingesttypes.CandidateRoutes{}
+	for _, denom := range routertesting.MainnetDenoms {
+		candidateRoutes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(context.Background(), tenUSDC, denom, candidateRouteOptions)
+		s.Require().NoError(err)
+		unbounded[denom] = candidateRoutes
+	}
+	usecase.SetMaxCandidateRouteSearchPaths(previousBound)
+
+	for _, denom := range routertesting.MainnetDenoms {
+		candidateRoutes, err := mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(context.Background(), tenUSDC, denom, candidateRouteOptions)
+		s.Require().NoError(err)
+		s.Require().Equal(unbounded[denom], candidateRoutes, denom)
+	}
 }

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"sync"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/sqs/domain"
@@ -22,6 +23,53 @@ type candidatePoolWrapper struct {
 type candidateRouteWrapper struct {
 	Pools                     []candidatePoolWrapper
 	IsCanonicalOrderboolRoute bool
+}
+
+// candidateRouteNode is a queued path in the candidate route search: the path's last pool and the
+// index of the node holding the path without it, so that queued paths share their prefixes instead
+// of each holding a copy. A parent of -1 means the path has only this pool.
+type candidateRouteNode struct {
+	pool   candidatePoolWrapper
+	parent int
+	length int
+}
+
+// candidateRoutePath returns the pools of the path ending at node index last, followed by next.
+// last may be -1 for the empty path.
+func candidateRoutePath(nodes []candidateRouteNode, last int, next candidatePoolWrapper) []candidatePoolWrapper {
+	length := 1
+	if last >= 0 {
+		length += nodes[last].length
+	}
+
+	path := make([]candidatePoolWrapper, length)
+	path[length-1] = next
+	for i, j := last, length-2; i >= 0; i, j = nodes[i].parent, j-1 {
+		path[j] = nodes[i].pool
+	}
+
+	return path
+}
+
+// maxCandidateRouteSearchPaths bounds the paths one candidate route search queues. Without a bound, a token
+// that cannot reach max routes, such as one with only dust pools between it and the other token, queues
+// every path up to max pools per route, which costs gigabytes of memory on mainnet when the min pool
+// liquidity cap is 0. The search is breadth-first over pools sorted by rating, so a search that reaches
+// the bound stops adding its deepest, lowest-rated paths. Queued paths are still expanded, so routes that
+// end one pool after them are still found. On mainnet, some tokens priced through low liquidity pools only
+// find their first route after tens of thousands of queued paths, so the bound sits well above that.
+// Tests change it through export_test.go.
+var maxCandidateRouteSearchPaths = 100_000
+
+// visitedPoolsSize bounds the pool IDs the candidate route search can mark as visited.
+const visitedPoolsSize = 100_000
+
+// visitedPools reuses the visited slices of finished searches, which are cleared before reuse.
+var visitedPools = sync.Pool{
+	New: func() any {
+		visited := make([]bool, visitedPoolsSize)
+		return &visited
+	},
 }
 
 type candidateRouteFinder struct {
@@ -49,20 +97,44 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteSearcher.
 func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+	routes, queuedPaths, capped, err := c.findCandidateRoutesOutGivenIn(tokenIn, tokenOutDenom, options, maxCandidateRouteSearchPaths)
+	if err != nil {
+		return ingesttypes.CandidateRoutes{}, err
+	}
+
+	if capped {
+		domain.SQSCandidateRouteSearchCappedCounter.Inc()
+		c.logger.Debug("candidate route search reached the queued path bound", zap.String("token_in", tokenIn.Denom), zap.String("token_out", tokenOutDenom), zap.Int("queued_paths", queuedPaths), zap.Int("routes", len(routes)))
+	}
+
+	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
+}
+
+// findCandidateRoutesOutGivenIn searches for candidate routes, queuing at most maxQueuedPaths paths.
+// It returns the routes found, the number of paths queued, and whether a path was left out because of the bound.
+func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(tokenIn sdk.Coin, tokenOutDenom string, options domain.CandidateRouteSearchOptions, maxQueuedPaths int) (_ []candidateRouteWrapper, queuedPaths int, capped bool, _ error) {
 	routes := make([]candidateRouteWrapper, 0, options.MaxRoutes)
 
-	// Preallocate constant visited map size to avoid reallocations.
-	// TODO: choose the best size for the visited map.
-	visited := make([]bool, 100_000)
+	visitedPtr, ok := visitedPools.Get().(*[]bool)
+	if !ok {
+		visited := make([]bool, visitedPoolsSize)
+		visitedPtr = &visited
+	}
+	visited := *visitedPtr
+	defer func() {
+		clear(visited)
+		visitedPools.Put(visitedPtr)
+	}()
 
-	// Preallocate constant queue size to avoid dynamic reallocations.
-	// TODO: choose the best size for the queue.
-	queue := make([][]candidatePoolWrapper, 0, 100)
-	queue = append(queue, make([]candidatePoolWrapper, 0, options.MaxPoolsPerRoute))
+	// The queue holds indexes into nodes, starting with the empty path (-1).
+	// TODO: choose the best initial size for the queue.
+	nodes := make([]candidateRouteNode, 0, 100)
+	queue := make([]int, 0, 100)
+	queue = append(queue, -1)
 
 	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenIn.Denom)
 	if err != nil {
-		return ingesttypes.CandidateRoutes{}, err
+		return nil, 0, false, err
 	}
 
 	if len(denomData.CanonicalOrderbooks) > 0 {
@@ -96,22 +168,22 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 		}
 	}
 
-	for len(queue) > 0 && len(routes) < options.MaxRoutes {
-		currentRoute := queue[0]
-		queue[0] = nil // Clear the slice to avoid holding onto references
-		queue = queue[1:]
+	for head := 0; head < len(queue) && len(routes) < options.MaxRoutes; head++ {
+		currentNode := queue[head]
 
+		currentRouteLen := 0
 		lastPoolID := uint64(0)
 		currenTokenInDenom := tokenIn.Denom
-		if len(currentRoute) > 0 {
-			lastPool := currentRoute[len(currentRoute)-1]
+		if currentNode >= 0 {
+			lastPool := nodes[currentNode].pool
+			currentRouteLen = nodes[currentNode].length
 			lastPoolID = lastPool.ID
 			currenTokenInDenom = lastPool.TokenOutDenom
 		}
 
 		denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
 		if err != nil {
-			return ingesttypes.CandidateRoutes{}, err
+			return nil, 0, false, err
 		}
 
 		if len(denomData.SortedPools) == 0 {
@@ -154,7 +226,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				}
 
 				// Avoid going through pools that has the initial token in denom twice.
-				if len(currentRoute) > 0 && denom == tokenIn.Denom {
+				if currentRouteLen > 0 && denom == tokenIn.Denom {
 					shouldSkipPool = true
 					break
 				}
@@ -169,7 +241,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 			}
 
 			// Microptimization for the first pool in the route.
-			if len(currentRoute) == 0 {
+			if currentRouteLen == 0 {
 				currentTokenInAmount := pool.Balances.AmountOf(currenTokenInDenom)
 
 				// HACK: alloyed LP share is not contained in balances.
@@ -192,7 +264,7 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 
 				denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
 				if err != nil {
-					return ingesttypes.CandidateRoutes{}, err
+					return nil, 0, false, err
 				}
 
 				if len(denomData.SortedPools) == 0 {
@@ -201,38 +273,37 @@ func (c candidateRouteFinder) FindCandidateRoutesOutGivenIn(ctx context.Context,
 				}
 
 				if lastPoolID == uint64(0) || lastPoolID != pool.ID {
-					newPath := make([]candidatePoolWrapper, len(currentRoute), len(currentRoute)+1)
-
-					copy(newPath, currentRoute)
-
-					newPath = append(newPath, candidatePoolWrapper{
+					nextPool := candidatePoolWrapper{
 						ID:            pool.ID,
 						TokenInDenom:  currenTokenInDenom,
 						TokenOutDenom: denom,
 						PoolDenoms:    poolDenoms,
-					})
+					}
 
-					if len(newPath) <= options.MaxPoolsPerRoute {
+					if currentRouteLen+1 <= options.MaxPoolsPerRoute {
 						if hasTokenOut {
 							routes = append(routes, candidateRouteWrapper{
-								Pools:                     newPath,
+								Pools:                     candidateRoutePath(nodes, currentNode, nextPool),
 								IsCanonicalOrderboolRoute: false,
 							})
 							break
+						} else if len(nodes) < maxQueuedPaths {
+							nodes = append(nodes, candidateRouteNode{pool: nextPool, parent: currentNode, length: currentRouteLen + 1})
+							queue = append(queue, len(nodes)-1)
 						} else {
-							queue = append(queue, newPath)
+							capped = true
 						}
 					}
 				}
 			}
 		}
 
-		for _, pool := range currentRoute {
-			visited[pool.ID] = true
+		for i := currentNode; i >= 0; i = nodes[i].parent {
+			visited[nodes[i].pool.ID] = true
 		}
 	}
 
-	return validateAndFilterRoutesOutGivenIn(routes, tokenIn.Denom, c.logger)
+	return routes, len(nodes), capped, nil
 }
 
 // FindCandidateRoutesInGivenOut implements domain.CandidateRouteSearcher.

@@ -2,7 +2,10 @@ package chainpricing
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"hash/fnv"
+	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -19,6 +22,19 @@ type chainPricing struct {
 
 	cache         *cache.Cache
 	cacheExpiryNs time.Duration
+	// failedCache holds the error of a recent failed price computation per pair, so that a pair
+	// without a usable route is not searched again on every request. It is separate from cache
+	// so that a failure still evicts the last good price there. It uses the same key as cache:
+	// a price computed at one min pool liquidity cap or in one direction serves the others, and
+	// so does a failure, which lets the pricing worker's failures answer requests too.
+	failedCache *cache.Cache
+	// succeededAt holds the time of the last successful computation per pair, so that a failure
+	// that started before a newer success does not replace it in failedCache.
+	succeededAt *cache.Cache
+	// pairLocks make a computation's final cache update atomic per pair: a failure's check against
+	// succeededAt and its write to failedCache cannot interleave with a success's updates.
+	// Pairs are spread over the locks by key hash.
+	pairLocks [pairLockCount]sync.Mutex
 
 	defaultQuoteDenom string
 
@@ -53,6 +69,19 @@ const (
 	// The pricing worker only reprices denoms in pools touched by a block, so without a bound a price
 	// derived through an intermediate denom (e.g. TOKEN/OSMO then OSMO/USDC) would never refresh.
 	defaultQuotePriceMaxAge = 10 * time.Minute
+
+	// failedPriceCacheExpiry is how long a failed price computation is served from failedCache
+	// before the price is computed again. Recomputes requested by the pricing worker ignore it.
+	failedPriceCacheExpiry = 10 * time.Second
+
+	// succeededAtExpiry is how long the time of a successful computation is kept. A failure that started
+	// before it is not cached, so it must outlast any computation still running: a computation that
+	// outlives its context's deadline is never cached, and the longest deadline is the pricing worker's
+	// two-minute update timeout.
+	succeededAtExpiry = 5 * time.Minute
+
+	// pairLockCount is the number of locks pairs are spread over for their final cache update.
+	pairLockCount = 64
 )
 
 func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
@@ -66,6 +95,8 @@ func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, 
 		TUsecase: tokenUseCase,
 
 		cache:                     cache.New(),
+		failedCache:               cache.New(),
+		succeededAt:               cache.New(),
 		cacheExpiryNs:             time.Duration(config.CacheExpiryMs) * time.Millisecond,
 		maxPoolsPerRoute:          config.MaxPoolsPerRoute,
 		maxRoutes:                 config.MaxRoutes,
@@ -120,23 +151,70 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 		domain.SQSPricingCacheMissesCounter.Inc()
 	}
 
+	// A recent failure is returned without searching for a route again.
+	if failedValue, found := c.failedCache.Get(cacheKey); found {
+		if failedErr, ok := failedValue.(error); ok {
+			return osmomath.BigDec{}, nil, failedErr
+		}
+	}
+
 	// If cache miss occurs, we compute the price.
 	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
+}
+
+// pairLock returns the lock that guards the final cache update for the pair under cacheKey.
+func (c *chainPricing) pairLock(cacheKey string) *sync.Mutex {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(cacheKey))
+	return &c.pairLocks[h.Sum32()%pairLockCount]
+}
+
+// succeededSince reports whether a computation for the pair under cacheKey succeeded at or after t.
+func (c *chainPricing) succeededSince(cacheKey string, t time.Time) bool {
+	succeededAt, found := c.succeededAt.Get(cacheKey)
+	if !found {
+		return false
+	}
+	at, ok := succeededAt.(time.Time)
+	return ok && !at.Before(t)
 }
 
 // computePrice computes the price for a given base and quote denom
 // On failure, any previously cached price for the pair is evicted so that a stale price is not
 // served after its route stops being usable, and fallback pricing can take over.
+// The failure is kept in failedCache for failedPriceCacheExpiry. A success clears it.
+// A failure that started before a newer success for the pair, or that came from the request's
+// context being cancelled or timing out, which says nothing about the pair, does neither.
 func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (_ osmomath.BigDec, _ []domain.SplitRoute, err error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
+	startedAt := time.Now()
+	// The computed price is published to cache by the deferred update, under the pair's lock, so that
+	// an older failure cannot evict it between its publication and the record of its success.
+	var computed *domain.PriceResult
+	var computedTTL time.Duration
 
 	defer func() {
 		// A panic (e.g. from a malformed pool spot price) must evict too, so it is turned into an error.
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic computing price for %s (base) -> %s (quote): %v", baseDenom, quoteDenom, r)
 		}
+		lock := c.pairLock(cacheKey)
+		lock.Lock()
+		defer lock.Unlock()
 		if err != nil {
+			// A newer success already holds the pair's current price, and a computation cut short
+			// by its context says nothing about the pair.
+			if c.succeededSince(cacheKey, startedAt) || ctx.Err() != nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return
+			}
 			c.cache.Delete(cacheKey)
+			c.failedCache.Set(cacheKey, err, failedPriceCacheExpiry)
+		} else {
+			if computed != nil {
+				c.cache.Set(cacheKey, *computed, computedTTL)
+			}
+			c.succeededAt.Set(cacheKey, time.Now(), succeededAtExpiry)
+			c.failedCache.Delete(cacheKey)
 		}
 	}()
 
@@ -252,7 +330,8 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 	if quoteDenom == c.defaultQuoteDenom {
 		expirationTTL = defaultQuotePriceMaxAge
 	}
-	c.cache.Set(cacheKey, domain.NewPriceResult(chainPrice, routes), expirationTTL)
+	result := domain.NewPriceResult(chainPrice, routes)
+	computed, computedTTL = &result, expirationTTL
 
 	return chainPrice, routes, nil
 }
