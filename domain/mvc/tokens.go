@@ -24,6 +24,10 @@ type TokenMetadataHolder interface {
 
 	//  GetMinPoolEffectiveLiquidityCap computes the min pool effective liquidity capitalization between the two denoms.
 	GetMinPoolEffectiveLiquidityCap(denomA, denomB string) (uint64, error)
+
+	// GetPoolDenomMetadata returns the pool denom metadata of a pool denom.
+	// This metadata is accumulated from all pools.
+	GetPoolDenomMetadata(chainDenom string) (domain.PoolDenomMetaData, error)
 }
 
 // TokensUsecase defines an interface for the tokens usecase.
@@ -57,10 +61,6 @@ type TokensUsecase interface {
 
 	// GetPrices returns prices for all given base and quote denoms given a pricing source type or, otherwise, error, if any.
 	domain.TokensPriceFetcher
-
-	// GetPoolDenomMetadata returns the pool denom metadata of a pool denom.
-	// This metadata is accumulated from all pools.
-	GetPoolDenomMetadata(chainDenom string) (domain.PoolDenomMetaData, error)
 
 	// GetPoolLiquidityCap returns the pool liquidity market cap for a given chain denom.
 	// This value is accumulated from all Osmosis pools.

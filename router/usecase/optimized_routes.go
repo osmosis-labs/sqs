@@ -15,9 +15,11 @@ import (
 )
 
 // Returns best quote as well as all routes sorted by amount out and error if any.
+// onAllRoutesFailed, if not nil, is called when every route fails. Callers that read or write the route caches
+// use it to invalidate the cache entries their request used.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes route.RouteImpls, tokenIn sdk.Coin) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, err error) {
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx context.Context, routes route.RouteImpls, tokenIn sdk.Coin, onAllRoutesFailed func()) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenIn.Denom)
 	}
@@ -33,12 +35,9 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 		// If the original routes were computed only through the zero liquidity token, they will be recomputed
 		// through another token due to changed order.
 
-		// Note: the zero length check occurred at the start of function.
-		tokenOutDenom := routes[0].GetTokenOutDenom()
-
-		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom))
-		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
-		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude))
+		if onAllRoutesFailed != nil {
+			onAllRoutesFailed()
+		}
 
 		return nil, nil, errors[0]
 	}
@@ -60,9 +59,11 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteOutGivenIn(ctx contex
 }
 
 // Returns best quote as well as all routes sorted by amount in and error if any.
+// onAllRoutesFailed, if not nil, is called when every route fails. Callers that read or write the route caches
+// use it to invalidate the cache entries their request used.
 // CONTRACT: router repository must be set on the router.
 // CONTRACT: pools reporitory must be set on the router
-func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, err error) {
+func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, tokenOut sdk.Coin, logger log.Logger, onAllRoutesFailed func()) (quote domain.Quote, sortedRoutesByAmtOut []route.RouteWithOutAmount, err error) {
 	if len(routes) == 0 {
 		return nil, nil, fmt.Errorf("no routes were provided for token in (%s)", tokenOut.Denom)
 	}
@@ -102,14 +103,9 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 		// If the original routes were computed only through the zero liquidity token, they will be recomputed
 		// through another token due to changed order.
 
-		// Note: the zero length check occurred at the start of function.
-		// In-given-out routes are ordered from the output side, so the input denom that the
-		// exact-out caches are keyed by is the token in of the route's last hop.
-		tokenInDenom := routes[0].GetTokenInDenom()
-
-		r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom))
-		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
-		r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude))
+		if onAllRoutesFailed != nil {
+			onAllRoutesFailed()
+		}
 
 		return nil, nil, errors[0]
 	}

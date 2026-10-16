@@ -120,7 +120,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 		// This is used for caching ranked routes as these might differ depending on the amount swapped in.
 		tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
 
-		candidateRankedRoutes, err = r.GetCachedRankedRoutes(ctx, domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
+		candidateRankedRoutes, err = r.GetCachedRankedRoutes(ctx, domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, options.MaxSplitRoutes)
 		if err != nil {
 			return nil, err
 		}
@@ -134,20 +134,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	// If no cached candidate routes are found, we attempt to
 	// compute them.
 	if len(candidateRankedRoutes.Routes) == 0 {
-		// Get the dynamic min pool liquidity cap for the given token in and token out denoms.
-		dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolEffectiveLiquidityCap(tokenIn.Denom, tokenOutDenom)
-		if err == nil {
-			// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
-			// Otherwise, use the default.
-			options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
-		} else {
-			// Fallback
-			// Get the dynamic min pool liquidity cap for the given token in and token out denoms.
-			dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenIn.Denom, tokenOutDenom)
-			if err == nil {
-				options.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
-			}
-		}
+		options.MinPoolLiquidityCap = r.getQuoteMinPoolLiquidityCapFilter(tokenIn.Denom, tokenOutDenom, options.MinPoolLiquidityCap)
 
 		// Find candidate routes and rank them by direct quotes.
 		topSingleRouteQuote, rankedRoutes, err = r.computeAndRankRoutesByDirectQuoteOutGivenIn(ctx, tokenIn, tokenOutDenom, options)
@@ -155,8 +142,13 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 			return nil, err
 		}
 	} else {
-		// Otherwise, simply compute quotes over cached ranked routes
-		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuoteOutGivenIn(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes)
+		// Otherwise, simply compute quotes over cached ranked routes.
+		// If every route fails, invalidate the entries this quote reads: the ranked routes and the candidate routes
+		// that a ranked route cache miss would search with.
+		onAllRoutesFailed := func() {
+			r.invalidateExactInRouteCaches(tokenIn, tokenOutDenom, options.MaxSplitRoutes)
+		}
+		topSingleRouteQuote, rankedRoutes, err = r.rankRoutesByDirectQuoteOutGivenIn(ctx, candidateRankedRoutes, tokenIn, tokenOutDenom, options.MaxSplitRoutes, onAllRoutesFailed)
 		if err != nil {
 			return nil, err
 		}
@@ -336,7 +328,8 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		return nil, nil, err
 	}
 
-	quote, routes, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn)
+	// The simple quote neither reads nor writes the route caches, so there is nothing to invalidate.
+	quote, routes, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -410,7 +403,8 @@ func filterAndConvertDuplicatePoolIDRankedRoutes(rankedRoutes []route.RouteWithO
 // - fails to read taker fees
 // - fails to convert candidate routes to routes
 // - fails to estimate direct quotes
-func (r *routerUseCaseImpl) rankRoutesByDirectQuoteOutGivenIn(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
+// onAllRoutesFailed, if not nil, is called when every route fails to estimate a direct quote.
+func (r *routerUseCaseImpl) rankRoutesByDirectQuoteOutGivenIn(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenIn sdk.Coin, tokenOutDenom string, maxSplitRoutes int, onAllRoutesFailed func()) (domain.Quote, []route.RouteImpl, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
 	routes, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
@@ -418,7 +412,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuoteOutGivenIn(ctx context.Contex
 		return nil, nil, err
 	}
 
-	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
+	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn, onAllRoutesFailed)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
@@ -440,7 +434,8 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuoteOutGivenIn(ctx context.Contex
 // - fails to read taker fees
 // - fails to convert candidate routes to routes
 // - fails to estimate direct quotes
-func (r *routerUseCaseImpl) rankRoutesByDirectQuoteInGivenOut(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenOut sdk.Coin, tokenInDenom string, maxSplitRoutes int) (domain.Quote, []route.RouteImpl, error) {
+// onAllRoutesFailed, if not nil, is called when every route fails to estimate a direct quote.
+func (r *routerUseCaseImpl) rankRoutesByDirectQuoteInGivenOut(ctx context.Context, candidateRoutes ingesttypes.CandidateRoutes, tokenOut sdk.Coin, tokenInDenom string, maxSplitRoutes int, onAllRoutesFailed func()) (domain.Quote, []route.RouteImpl, error) {
 	// Note that retrieving pools and taker fees is done in separate transactions.
 	// This is fine because taker fees don't change often.
 	routes, err := r.poolsUsecase.GetRoutesFromCandidatesInGivenOut(candidateRoutes)
@@ -448,7 +443,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuoteInGivenOut(ctx context.Contex
 		return nil, nil, err
 	}
 
-	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, r.logger)
+	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, r.logger, onAllRoutesFailed)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenInDenom)
 	}
@@ -487,23 +482,26 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteOutGivenIn(ctx cont
 		return nil, nil, err
 	}
 
+	// The candidate route cache is owned by handleCandidateRoutes, which only writes it on a miss.
+	// Re-setting it here would refresh its expiry on every ranked route cache miss, so that
+	// the candidate routes of an active pair would never be recomputed.
+	if !routingOptions.DisableCache && len(candidateRoutes.Routes) == 0 {
+		r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, routingOptions.MaxSplitRoutes), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
+
+		return nil, nil, fmt.Errorf("no candidate routes found")
+	}
+
+	// If every route fails, invalidate the entries this quote used.
+	// With the cache disabled, the quote used no cache entries.
+	var onAllRoutesFailed func()
 	if !routingOptions.DisableCache {
-		if len(candidateRoutes.Routes) > 0 {
-			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
-
-			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds)*time.Second)
-		} else {
-			// If no candidate routes found, cache them for quarter of the duration
-			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds/4)*time.Second)
-
-			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
-
-			return nil, nil, fmt.Errorf("no candidate routes found")
+		onAllRoutesFailed = func() {
+			r.invalidateExactInRouteCaches(tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes)
 		}
 	}
 
 	// Rank candidate routes by estimating direct quotes
-	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuoteOutGivenIn(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes)
+	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuoteOutGivenIn(ctx, candidateRoutes, tokenIn, tokenOutDenom, routingOptions.MaxSplitRoutes, onAllRoutesFailed)
 	if err != nil {
 		r.logger.Error("error getting ranked routes", zap.Error(err))
 		return nil, nil, err
@@ -531,7 +529,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteOutGivenIn(ctx cont
 
 		if !routingOptions.DisableCache {
 			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
-			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, routingOptions.MaxSplitRoutes), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
 		}
 	}
 
@@ -562,23 +560,26 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx cont
 		return nil, nil, err
 	}
 
+	// The candidate route cache is owned by handleCandidateRoutesInGivenOut, which only writes it on a miss.
+	// Re-setting it here would refresh its expiry on every quote, so that the candidate routes of an
+	// active pair would never be recomputed.
+	if !routingOptions.DisableCache && len(candidateRoutes.Routes) == 0 {
+		r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude, routingOptions.MaxSplitRoutes), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
+
+		return nil, nil, fmt.Errorf("no candidate routes found")
+	}
+
+	// If every route fails, invalidate the entries this quote used.
+	// With the cache disabled, the quote used no cache entries.
+	var onAllRoutesFailed func()
 	if !routingOptions.DisableCache {
-		if len(candidateRoutes.Routes) > 0 {
-			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
-
-			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds)*time.Second)
-		} else {
-			// If no candidate routes found, cache them for quarter of the duration
-			r.candidateRouteCache.Set(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom), candidateRoutes, time.Duration(routingOptions.CandidateRouteCacheExpirySeconds/4)*time.Second)
-
-			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
-
-			return nil, nil, fmt.Errorf("no candidate routes found")
+		onAllRoutesFailed = func() {
+			r.invalidateExactOutRouteCaches(tokenOut, tokenInDenom, routingOptions.MaxSplitRoutes)
 		}
 	}
 
 	// Rank candidate routes by estimating direct quotes
-	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuoteInGivenOut(ctx, candidateRoutes, tokenOut, tokenInDenom, routingOptions.MaxSplitRoutes)
+	topSingleRouteQuote, rankedRoutes, err := r.rankRoutesByDirectQuoteInGivenOut(ctx, candidateRoutes, tokenOut, tokenInDenom, routingOptions.MaxSplitRoutes, onAllRoutesFailed)
 	if err != nil {
 		r.logger.Error("error getting ranked routes", zap.Error(err))
 		return nil, nil, err
@@ -606,7 +607,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx cont
 
 		if !routingOptions.DisableCache {
 			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
-			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
+			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude, routingOptions.MaxSplitRoutes), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
 		}
 	}
 
@@ -650,7 +651,8 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 	}
 
 	// Compute direct quote
-	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn)
+	// The custom direct quote neither reads nor writes the route caches, so there is nothing to invalidate.
+	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -684,7 +686,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteInGivenOut(ctx context.Context, 
 	}
 
 	// Compute direct quote
-	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, r.logger)
+	bestSingleRouteQuote, _, err := r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, r.logger, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -820,7 +822,7 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.
 	}
 
 	// Compute direct quote
-	quote, _, err := r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, r.logger)
+	quote, _, err := r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, r.logger, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -918,7 +920,8 @@ func (r *routerUseCaseImpl) GetCachedCandidateRoutes(ctx context.Context, method
 }
 
 // GetCachedRankedRoutes implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string, tokenInOrderOfMagnitude int) (ingesttypes.CandidateRoutes, error) {
+// Ranked routes are cut to maxSplitRoutes before caching, so they are cached per maxSplitRoutes.
+func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string, tokenInOrderOfMagnitude int, maxSplitRoutes int) (ingesttypes.CandidateRoutes, error) {
 	if !r.defaultConfig.RouteCacheEnabled {
 		return ingesttypes.CandidateRoutes{}, nil
 	}
@@ -929,7 +932,7 @@ func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, method do
 		return ingesttypes.CandidateRoutes{}, err
 	}
 
-	cachedRankedRoutes, found := r.rankedRouteCache.Get(formatRankedRouteCacheKey(method, tokenInDenom, tokenOutDenom, tokenInOrderOfMagnitude))
+	cachedRankedRoutes, found := r.rankedRouteCache.Get(formatRankedRouteCacheKey(method, tokenInDenom, tokenOutDenom, tokenInOrderOfMagnitude, maxSplitRoutes))
 	if !found {
 		// Increase cache misses
 		domain.SQSRoutesCacheMissesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
@@ -973,7 +976,9 @@ func (r *routerUseCaseImpl) handleCandidateRoutesOutGivenIn(ctx context.Context,
 		r.logger.Debug("calculating routes")
 
 		start := time.Now()
-		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+		// The search is sized by a reference amount rather than the quote's amount, so that the cached
+		// candidate routes do not depend on the size of the quote that computed them. See getCandidateSearchCoin.
+		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, r.getCandidateSearchCoin(tokenIn), tokenOutDenom, candidateRouteSearchOptions)
 		if err != nil {
 			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return ingesttypes.CandidateRoutes{}, err
@@ -990,6 +995,14 @@ func (r *routerUseCaseImpl) handleCandidateRoutesOutGivenIn(ctx context.Context,
 				// If there are no routes, we want to cache the result for a shorter duration
 				// Add 1 to ensure that it is never 0 as zero signifies never clearing.
 				cacheDurationSeconds = cacheDurationSeconds/4 + 1
+			}
+
+			if len(candidateRoutes.Routes) > 0 {
+				requestURLPath, err := domain.GetURLPathFromContext(ctx)
+				if err != nil {
+					return ingesttypes.CandidateRoutes{}, err
+				}
+				domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, candidateRouteCacheLabel).Inc()
 			}
 
 			r.logger.Debug("persisting routes", zap.Int("num_routes", len(candidateRoutes.Routes)))
@@ -1025,7 +1038,9 @@ func (r *routerUseCaseImpl) handleCandidateRoutesInGivenOut(ctx context.Context,
 	if !isFoundCached {
 		r.logger.Debug("calculating routes")
 
-		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesInGivenOut(ctx, tokenOut, tokenInDenom, candidateRouteSearchOptions)
+		// The search is sized by a reference amount rather than the quote's amount, so that the cached
+		// candidate routes do not depend on the size of the quote that computed them. See getCandidateSearchCoin.
+		candidateRoutes, err = r.candidateRouteSearcher.FindCandidateRoutesInGivenOut(ctx, r.getCandidateSearchCoin(tokenOut), tokenInDenom, candidateRouteSearchOptions)
 		if err != nil {
 			r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 			return ingesttypes.CandidateRoutes{}, err
@@ -1141,14 +1156,39 @@ func formatRouteCacheKey(method domain.TokenSwapMethod, tokenInDenom string, tok
 	return fmt.Sprintf("%d%s%s%s", method, tokenInDenom, denomSeparatorChar, tokenOutDenom)
 }
 
-// formatRankedRouteCacheKey formats the given token in and token out denoms and order of magnitude to a string.
-func formatRankedRouteCacheKey(method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string, tokenIOrderOfMagnitude int) string {
-	return fmt.Sprintf("%s%s%d", formatRouteCacheKey(method, tokenInDenom, tokenOutDenom), denomSeparatorChar, tokenIOrderOfMagnitude)
+// formatRankedRouteCacheKey formats the given token in and token out denoms, order of magnitude and max split routes to a string.
+// Max split routes is part of the key because ranked routes are cut to it before caching.
+func formatRankedRouteCacheKey(method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string, tokenIOrderOfMagnitude int, maxSplitRoutes int) string {
+	return fmt.Sprintf("%s%s%d%s%d", formatRouteCacheKey(method, tokenInDenom, tokenOutDenom), denomSeparatorChar, tokenIOrderOfMagnitude, denomSeparatorChar, maxSplitRoutes)
 }
 
 // formatCandidateRouteCacheKey formats the given token in and token out denoms to a string.
 func formatCandidateRouteCacheKey(method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string) string {
 	return fmt.Sprintf("cr%s", formatRouteCacheKey(method, tokenInDenom, tokenOutDenom))
+}
+
+// candidateSearchReferenceValue is the value, in units of liquidity capitalization, of the amount that sizes the
+// candidate route search. It matches the amount of the quote denom that the pricing worker quotes.
+const candidateSearchReferenceValue = 10
+
+// getCandidateSearchCoin returns the coin that sizes the candidate route search for the given coin: the amount of
+// its denom worth candidateSearchReferenceValue, priced from the denom's total liquidity and its capitalization.
+// The search skips first pools holding less of the denom than this amount, so it drops dust pools without
+// depending on the size of the quote. Returns an amount of one if the denom has no priced liquidity, so that
+// only first pools holding none of the denom are skipped.
+func (r *routerUseCaseImpl) getCandidateSearchCoin(coin sdk.Coin) sdk.Coin {
+	poolDenomMetadata, err := r.tokenMetadataHolder.GetPoolDenomMetadata(coin.Denom)
+	if err != nil || poolDenomMetadata.TotalLiquidity.IsNil() || poolDenomMetadata.TotalLiquidityCap.IsNil() ||
+		!poolDenomMetadata.TotalLiquidity.IsPositive() || !poolDenomMetadata.TotalLiquidityCap.IsPositive() {
+		return sdk.NewCoin(coin.Denom, osmomath.OneInt())
+	}
+
+	referenceAmount := poolDenomMetadata.TotalLiquidity.MulRaw(candidateSearchReferenceValue).Quo(poolDenomMetadata.TotalLiquidityCap)
+	if !referenceAmount.IsPositive() {
+		referenceAmount = osmomath.OneInt()
+	}
+
+	return sdk.NewCoin(coin.Denom, referenceAmount)
 }
 
 // convertRankedToCandidateRoutes converts the given ranked routes to candidate routes.
@@ -1210,6 +1250,50 @@ func (r *routerUseCaseImpl) ConvertMinTokensPoolLiquidityCapToFilter(minTokensPo
 		}
 	}
 	return r.defaultConfig.MinPoolLiquidityCap
+}
+
+// getQuoteMinPoolLiquidityCapFilter returns the min pool liquidity cap filter that an exact in quote uses
+// for the candidate route search between the given denoms.
+// It is derived from the min pool effective liquidity cap, falling back to the min pool liquidity cap.
+// If neither is available, defaultFilter is returned.
+func (r *routerUseCaseImpl) getQuoteMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom string, defaultFilter uint64) uint64 {
+	// Get the dynamic min pool liquidity cap for the given token in and token out denoms.
+	dynamicMinPoolLiquidityCap, err := r.tokenMetadataHolder.GetMinPoolEffectiveLiquidityCap(tokenInDenom, tokenOutDenom)
+	if err == nil {
+		// Set the dynamic min pool liquidity cap only if there is no error retrieving it.
+		// Otherwise, use the default.
+		return r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+	}
+
+	// Fallback
+	// Get the dynamic min pool liquidity cap for the given token in and token out denoms.
+	dynamicMinPoolLiquidityCap, err = r.tokenMetadataHolder.GetMinPoolLiquidityCap(tokenInDenom, tokenOutDenom)
+	if err == nil {
+		return r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
+	}
+
+	return defaultFilter
+}
+
+// invalidateExactInRouteCaches deletes the exact in candidate and ranked route cache entries
+// that a quote for tokenIn with the given max split routes uses.
+// This helps in alloyed cases where the pool gets imbalanced and runs out of liquidity, so that
+// the routes are recomputed completely.
+func (r *routerUseCaseImpl) invalidateExactInRouteCaches(tokenIn sdk.Coin, tokenOutDenom string, maxSplitRoutes int) {
+	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
+
+	r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom))
+	r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, maxSplitRoutes))
+}
+
+// invalidateExactOutRouteCaches deletes the exact out candidate and ranked route cache entries that a quote for
+// tokenOut and tokenInDenom read or wrote: the candidate entry, and the ranked entry for the order of magnitude
+// of tokenOut and max split routes.
+func (r *routerUseCaseImpl) invalidateExactOutRouteCaches(tokenOut sdk.Coin, tokenInDenom string, maxSplitRoutes int) {
+	tokenOutOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
+
+	r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom))
+	r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenOutOrderOfMagnitude, maxSplitRoutes))
 }
 
 // getMinPoolLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
