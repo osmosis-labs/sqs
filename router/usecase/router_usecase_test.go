@@ -1094,7 +1094,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 	}
 }
 
-// Validates that the exact in candidate route search is sized by a reference amount rather than the quote's amount.
+// Validates that the exact in candidate routes shared by every quote on a pair come from a search sized by a reference
+// amount rather than the quote's amount, and that a large quote also caches a search sized by its own amount.
 // The candidate route search skips first hop pools holding less of the token in denom than the amount it is given.
 // A large quote used to cache its pruned candidate routes for all later quotes on the pair, regardless of their amount.
 // On the mainnet fixture, USDC -> WBTC has first hop pools holding less USDC than the large amount.
@@ -1154,6 +1155,13 @@ func (s *RouterTestSuite) TestGetOptimalQuote_CandidateRouteCache_LargeQuoteDoes
 	s.Require().NoError(err)
 	s.Require().True(isCached)
 	s.Require().Equal(expectedCandidateRoutes, actualCandidateRoutes)
+
+	// The large quote also cached the routes of a search sized by its amount, under its order of magnitude.
+	expectedSizedCandidateRoutes := findCandidateRoutes(mainnetUseCase, largeTokenIn)
+	actualSizedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedSizedCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, tokenInDenom, tokenOutDenom, usecase.GetPrecomputeOrderOfMagnitude(largeTokenIn.Amount))
+	s.Require().NoError(err)
+	s.Require().True(isCached)
+	s.Require().Equal(expectedSizedCandidateRoutes, actualSizedCandidateRoutes)
 
 	// The small quote after the large one is the same as with a cold cache.
 	s.Require().Equal(expectedSmallQuote.GetAmountOut(), actualSmallQuote.GetAmountOut())
