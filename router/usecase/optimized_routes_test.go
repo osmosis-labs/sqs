@@ -913,8 +913,8 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteInGivenOut_Main
 // and only fails if all routes error.
 // Additionally, validates that the highest amount route is chosen, routes
 // are correctly ranked by amounts out.
-// Lastly, validates, that the candidate and ranked route cache gets invalidated if
-// all routes error.
+// Lastly, validates that the all routes failed callback, which callers use to invalidate
+// the route caches, is called only if all routes error.
 func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 	// Setup mock router use case
 	mainnetState := s.SetupMainnetState()
@@ -925,7 +925,6 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 
 	// Token in amount that is used as input to all tests
 	tokenInAmount := osmomath.NewInt(5000000)
-	tokenInOrderOfMagnitude := routerusecase.GetPrecomputeOrderOfMagnitude(tokenInAmount)
 	defaultTokenIn := sdk.NewCoin(UOSMO, tokenInAmount)
 	tokenOutDenom := UION
 
@@ -1060,33 +1059,24 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			// Pre-set cache
-			routerUseCase.SetCandidateRouteCacheToMock(domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom)
-			routerUseCase.SetRankedRouteCacheToMock(domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
-
 			// Construct routes from mock pools
 			routes := []route.RouteImpl{}
 			for _, pools := range tc.routeMockPools {
 				routes = append(routes, WithRoutePools(EmptyRoute, pools))
 			}
 
+			allRoutesFailedCalls := 0
+			onAllRoutesFailed := func() { allRoutesFailedCalls++ }
+
 			// System under test
-			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteOutGivenIn(context.Background(), routes, defaultTokenIn)
-
-			// Get cache results
-			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom)
-			s.Require().NoError(err)
-
-			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), domain.TokenSwapMethodExactIn, defaultTokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude)
-			s.Require().NoError(err)
+			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteOutGivenIn(context.Background(), routes, defaultTokenIn, onAllRoutesFailed)
 
 			if tc.expectedError != nil {
 				s.Require().Error(sytErr)
 				s.Require().ErrorIs(sytErr, tc.expectedError)
 
-				// Validate cache was invalidated
-				s.Require().False(foundcandidateRoutes)
-				s.Require().Empty(cachedRankedRoutes)
+				// Validate the all routes failed callback was called
+				s.Require().Equal(1, allRoutesFailedCalls)
 				return
 			}
 
@@ -1101,9 +1091,8 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 				s.Require().Equal(tc.expectedRouteAmounstOut[i], route.GetAmountOut())
 			}
 
-			// Validate cache did not get invalidated
-			s.Require().True(foundcandidateRoutes)
-			s.Require().NotEmpty(cachedRankedRoutes)
+			// Validate the all routes failed callback was not called
+			s.Require().Equal(0, allRoutesFailedCalls)
 		})
 	}
 }
@@ -1112,8 +1101,8 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteOutGivenIn() {
 // and only fails if all routes error.
 // Additionally, validates that the highest amount route is chosen, routes
 // are correctly ranked by amounts out.
-// Lastly, validates, that the candidate and ranked route cache gets invalidated if
-// all routes error.
+// Lastly, validates that the all routes failed callback, which callers use to invalidate
+// the route caches, is called only if all routes error.
 func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 	// Setup mock router use case
 	mainnetState := s.SetupMainnetState()
@@ -1124,7 +1113,6 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 
 	// Token in amount that is used as input to all tests
 	tokenOutAmount := osmomath.NewInt(5000000)
-	tokenOutOrderOfMagnitude := routerusecase.GetPrecomputeOrderOfMagnitude(tokenOutAmount)
 	defaultTokenOut := sdk.NewCoin(UOSMO, tokenOutAmount)
 	tokenOutDenom := UION
 
@@ -1265,33 +1253,24 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			// Pre-set cache
-			routerUseCase.SetCandidateRouteCacheToMock(domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom)
-			routerUseCase.SetRankedRouteCacheToMock(domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom, tokenOutOrderOfMagnitude)
-
 			// Construct routes from mock pools
 			routes := []route.RouteImpl{}
 			for _, pools := range tc.routeMockPools {
 				routes = append(routes, WithRoutePools(EmptyRoute, pools))
 			}
 
+			allRoutesFailedCalls := 0
+			onAllRoutesFailed := func() { allRoutesFailedCalls++ }
+
 			// System under test
-			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteInGivenOut(context.Background(), routes, defaultTokenOut, &log.NoOpLogger{})
-
-			// Get cache results
-			_, foundcandidateRoutes, err := routerUseCase.GetCachedCandidateRoutes(context.Background(), domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom)
-			s.Require().NoError(err)
-
-			cachedRankedRoutes, err := routerUseCase.GetCachedRankedRoutes(context.Background(), domain.TokenSwapMethodExactOut, defaultTokenOut.Denom, tokenOutDenom, tokenOutOrderOfMagnitude)
-			s.Require().NoError(err)
+			quote, rankedRoutes, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteInGivenOut(context.Background(), routes, defaultTokenOut, &log.NoOpLogger{}, onAllRoutesFailed)
 
 			if tc.expectedError != nil {
 				s.Require().Error(sytErr)
 				s.Require().ErrorIs(sytErr, tc.expectedError)
 
-				// Validate cache was invalidated
-				s.Require().False(foundcandidateRoutes)
-				s.Require().Empty(cachedRankedRoutes)
+				// Validate the all routes failed callback was called
+				s.Require().Equal(1, allRoutesFailedCalls)
 				return
 			}
 
@@ -1306,9 +1285,8 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 				s.Require().Equal(tc.expectedRouteAmountsIn[i], route.GetAmountIn())
 			}
 
-			// Validate cache did not get invalidated
-			s.Require().True(foundcandidateRoutes)
-			s.Require().NotEmpty(cachedRankedRoutes)
+			// Validate the all routes failed callback was not called
+			s.Require().Equal(0, allRoutesFailedCalls)
 		})
 	}
 }
