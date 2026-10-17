@@ -65,6 +65,10 @@ func (r *routerUseCaseImpl) GetQuoteMinPoolLiquidityCapFilter(tokenInDenom, toke
 	return r.getQuoteMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom, r.defaultConfig.MinPoolLiquidityCap)
 }
 
+func FormatSizedCandidateRouteCacheKey(method domain.TokenSwapMethod, tokenInDenom string, tokenOutDenom string, orderOfMagnitude int) string {
+	return formatSizedCandidateRouteCacheKey(method, tokenInDenom, tokenOutDenom, orderOfMagnitude)
+}
+
 func (r *routerUseCaseImpl) GetCachedSizedCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, tokenInDenom, tokenOutDenom string, orderOfMagnitude int) (ingesttypes.CandidateRoutes, bool, error) {
 	return r.getCachedCandidateRoutesByKey(ctx, formatSizedCandidateRouteCacheKey(method, tokenInDenom, tokenOutDenom, orderOfMagnitude))
 }

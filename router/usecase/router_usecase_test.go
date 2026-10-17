@@ -1048,9 +1048,13 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRankedRoutesCache(rankedRouteCache), routertesting.WithCandidateRoutesCache(candidateRouteCache))
 
-			// Pre-set candidate route cache.
+			// Pre-set candidate route cache: the shared entry and the entry of the quote's order of magnitude,
+			// so that the quote searches neither.
+			preSetCandidateEntries := 0
 			if len(tc.preCachedCandidateRoutes.Routes) > 0 {
+				preSetCandidateEntries = 2
 				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, defaultTokenInDenom, defaultTokenOutDenom), tc.preCachedCandidateRoutes, tc.cacheExpiryDuration)
+				candidateRouteCache.Set(usecase.FormatSizedCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, defaultTokenInDenom, defaultTokenOutDenom, usecase.GetPrecomputeOrderOfMagnitude(tc.amountIn)), tc.preCachedCandidateRoutes, tc.cacheExpiryDuration)
 			}
 
 			// Pre-set ranked route cache under the default max split routes that the quote uses.
@@ -1087,7 +1091,7 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// Validate cache size is the same as before the update
 			if tc.isCacheOptionDisabled {
-				s.Require().Equal(len(tc.preCachedCandidateRoutes.Routes), candidateRouteCache.Len())
+				s.Require().Equal(preSetCandidateEntries, candidateRouteCache.Len())
 				s.Require().Equal(len(tc.preCachedRankedRoutes.Routes), rankedRouteCache.Len())
 			}
 		})

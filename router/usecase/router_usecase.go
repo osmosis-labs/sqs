@@ -847,7 +847,8 @@ func (r *routerUseCaseImpl) GetCandidateRoutes(ctx context.Context, tokenIn sdk.
 		candidateRouteSearchOptions.MinPoolLiquidityCap = r.ConvertMinTokensPoolLiquidityCapToFilter(dynamicMinPoolLiquidityCap)
 	}
 
-	candidateRoutes, err := r.handleCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, candidateRouteSearchOptions)
+	// The routes are not for a quote of a given size, so only the shared reference-sized search is used.
+	candidateRoutes, err := r.handleCandidateRoutesOutGivenIn(ctx, r.getCandidateSearchCoin(tokenIn), tokenOutDenom, candidateRouteSearchOptions)
 	if err != nil {
 		return ingesttypes.CandidateRoutes{}, err
 	}
@@ -959,11 +960,12 @@ func (r *routerUseCaseImpl) GetCachedRankedRoutes(ctx context.Context, method do
 }
 
 // handleCandidateRoutesOutGivenIn returns the exact in candidate routes for tokenIn and tokenOutDenom: the routes of a
-// search sized by the reference amount of the token in (see getCandidateSearchCoin) and, for a quote larger than that
-// amount, the routes of a search sized by the quote.
+// search sized by the reference amount of the token in (see getCandidateSearchCoin) and, for a quote of any other size,
+// the routes of a search sized by the quote.
 // The candidate route search skips first pools holding less of the token in than the amount it is given. A search sized
 // by the reference amount keeps deep pools that hold less of the token in than a large quote, and a search sized by the
-// quote leaves out small pools that would otherwise take the limited candidate route slots. Each set is cached, the first
+// quote leaves out small pools that would otherwise take the limited candidate route slots, or, for a quote smaller than
+// the reference amount, keeps small pools that it can use. Each set is cached, the first
 // per pair and the second per pair and order of magnitude (sized by the first quote of that order of magnitude), and the
 // quote ranks both together.
 // Errors if retrieving routes from cache or computing them fails.
@@ -991,7 +993,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutesInGivenOut(ctx context.Context,
 }
 
 // handleCandidateRoutes returns the union of the candidate routes of a search sized by the reference amount of coin and,
-// if coin is larger than that amount, of a search sized by coin, cached per order of magnitude of coin.
+// if coin is any other amount, of a search sized by coin, cached per order of magnitude of coin.
 // search returns the function that runs the candidate route search for the given coin.
 func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, method domain.TokenSwapMethod, coin sdk.Coin, otherDenom string, disableCache bool, search func(sdk.Coin) func() (ingesttypes.CandidateRoutes, error)) (ingesttypes.CandidateRoutes, error) {
 	referenceCoin := r.getCandidateSearchCoin(coin)
@@ -1001,7 +1003,7 @@ func (r *routerUseCaseImpl) handleCandidateRoutes(ctx context.Context, method do
 		return ingesttypes.CandidateRoutes{}, err
 	}
 
-	if coin.Amount.IsNil() || !coin.Amount.GT(referenceCoin.Amount) {
+	if coin.Amount.IsNil() || !coin.Amount.IsPositive() || coin.Amount.Equal(referenceCoin.Amount) {
 		return candidateRoutes, nil
 	}
 
