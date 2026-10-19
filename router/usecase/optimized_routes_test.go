@@ -703,8 +703,38 @@ func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounIn_Mainnet() {
 				s.Require().Equal(tc.tokenOutDenom, r.GetTokenOutDenom())
 			}
 
+			// Split routes must not share a pool, except transmuters, or the split would quote each route
+			// against the same reserves and overstate the output.
+			seenPoolIDs := map[uint64]struct{}{}
+			for _, r := range routes {
+				for _, p := range r.GetPools() {
+					if p.GetSQSType() == domain.AlloyedTransmuter || p.GetSQSType() == domain.TransmuterV1 {
+						continue
+					}
+					_, seen := seenPoolIDs[p.GetId()]
+					s.Require().False(seen, "pool %d is in more than one split route", p.GetId())
+					seenPoolIDs[p.GetId()] = struct{}{}
+				}
+			}
+
 			// Validate that the quote is not nil
 			s.Require().NotNil(quote.GetAmountOut())
+		})
+	}
+}
+
+// Validates that dust amounts, where routes can yield nothing, return a quote or an error rather than panicking
+// while the split candidates are compared.
+func (s *RouterTestSuite) TestGetOptimalQuoteExactAmounIn_Mainnet_Dust() {
+	mainnetState := s.SetupMainnetState()
+	mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
+	for name, tc := range optimalQuoteTestCases {
+		s.Run(name, func() {
+			for _, amount := range []int64{1, 10, 1000} {
+				s.Require().NotPanics(func() {
+					_, _ = mainnetUseCase.Router.GetOptimalQuoteOutGivenIn(context.Background(), sdk.NewCoin(tc.tokenInDenom, osmomath.NewInt(amount)), tc.tokenOutDenom)
+				})
+			}
 		})
 	}
 }

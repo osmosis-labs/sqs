@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sort"
 	"sync"
 	"time"
 
@@ -168,7 +169,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteOutGivenIn(ctx context.Context, token
 	}
 
 	// Compute split route quote
-	topSplitQuote, err := getSplitQuote(ctx, rankedRoutes, tokenIn)
+	topSplitQuote, err := getBestSplitQuote(ctx, rankedRoutes, tokenIn, options.MaxSplitRoutes)
 	if err != nil {
 		// If error occurs in splits, return the single route quote
 		// rather than failing.
@@ -418,13 +419,108 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuoteOutGivenIn(ctx context.Contex
 		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
 
-	// Update ranked routes with filtered ranked routes
-	routes = filterAndConvertDuplicatePoolIDRankedRoutes(routesWithAmtOut)
+	// Rank by the full amount, then add the routes that rank best at a split share.
+	rankedRoutes := cutRoutesForSplits(maxSplitRoutes, filterAndConvertDuplicatePoolIDRankedRoutes(routesWithAmtOut))
+	rankedRoutes = appendMissingRoutes(rankedRoutes, rankRoutesAtSplitShare(ctx, routes, tokenIn, maxSplitRoutes))
 
-	// Cut routes for splits
-	routes = cutRoutesForSplits(maxSplitRoutes, routes)
+	return topQuote, rankedRoutes, nil
+}
 
-	return topQuote, routes, nil
+// splitShare returns the amount of tokenIn that each route swaps in an even split over maxSplitRoutes routes.
+// Returns false when splits are disabled or the share would be zero.
+func splitShare(tokenIn sdk.Coin, maxSplitRoutes int) (sdk.Coin, bool) {
+	if maxSplitRoutes <= 1 || tokenIn.Amount.IsNil() {
+		return sdk.Coin{}, false
+	}
+	share := tokenIn.Amount.QuoRaw(int64(maxSplitRoutes))
+	if !share.IsPositive() {
+		return sdk.Coin{}, false
+	}
+	return sdk.NewCoin(tokenIn.Denom, share), true
+}
+
+// rankRoutesAtSplitShare returns the routes that rank best when each swaps an even split share of tokenIn,
+// without routes that share a pool and cut to maxSplitRoutes. Routes that fail to quote at the share are left out.
+// Ranking by the full amount alone can fill the split routes with routes that are best for the whole amount
+// but worse than others for the part of it a split gives them.
+func rankRoutesAtSplitShare(ctx context.Context, routes route.RouteImpls, tokenIn sdk.Coin, maxSplitRoutes int) []route.RouteImpl {
+	share, ok := splitShare(tokenIn, maxSplitRoutes)
+	if !ok {
+		return nil
+	}
+	routesWithAmtOut, _ := routes.CalculateTokenOutByTokenIn(ctx, share)
+	sort.SliceStable(routesWithAmtOut, func(i, j int) bool {
+		return routesWithAmtOut[i].OutAmount.GT(routesWithAmtOut[j].OutAmount)
+	})
+	return cutRoutesForSplits(maxSplitRoutes, filterAndConvertDuplicatePoolIDRankedRoutes(routesWithAmtOut))
+}
+
+// appendMissingRoutes returns routes followed by the routes of extra that routes does not hold.
+// Routes are the same when they go through the same pools in the same order.
+func appendMissingRoutes(routes, extra []route.RouteImpl) []route.RouteImpl {
+	for _, e := range extra {
+		if !slices.ContainsFunc(routes, func(r route.RouteImpl) bool { return sameRoutePools(r, e) }) {
+			routes = append(routes, e)
+		}
+	}
+	return routes
+}
+
+// sameRoutePools reports whether a and b go through the same pools in the same order.
+func sameRoutePools(a, b route.RouteImpl) bool {
+	ap, bp := a.GetPools(), b.GetPools()
+	if len(ap) != len(bp) {
+		return false
+	}
+	for i := range ap {
+		if ap[i].GetId() != bp[i].GetId() || ap[i].GetTokenOutDenom() != bp[i].GetTokenOutDenom() {
+			return false
+		}
+	}
+	return true
+}
+
+// getBestSplitQuote returns the better of the split quotes over two sets of routes chosen from rankedRoutes:
+// the best routes by the amount out of tokenIn as a whole, and the best by the amount out of an even split share.
+// Each set is filtered for shared pools on its own, since rankedRoutes joins two rankings and two of its routes
+// can share a pool even when it holds no more routes than maxSplitRoutes.
+func getBestSplitQuote(ctx context.Context, rankedRoutes []route.RouteImpl, tokenIn sdk.Coin, maxSplitRoutes int) (domain.Quote, error) {
+	byWhole, _ := route.RouteImpls(rankedRoutes).CalculateTokenOutByTokenIn(ctx, tokenIn)
+	sort.SliceStable(byWhole, func(i, j int) bool { return byWhole[i].OutAmount.GT(byWhole[j].OutAmount) })
+	wholeRoutes := cutRoutesForSplits(maxSplitRoutes, filterAndConvertDuplicatePoolIDRankedRoutes(byWhole))
+	shareRoutes := rankRoutesAtSplitShare(ctx, rankedRoutes, tokenIn, maxSplitRoutes)
+
+	wholeQuote, wholeErr := getSplitQuote(ctx, wholeRoutes, tokenIn)
+	if len(shareRoutes) == 0 || len(appendMissingRoutes(slices.Clone(wholeRoutes), shareRoutes)) == len(wholeRoutes) {
+		if wholeErr == nil && !hasPositiveAmountOut(wholeQuote) {
+			return nil, domain.ErrNoTokensOut
+		}
+		return wholeQuote, wholeErr
+	}
+	shareQuote, shareErr := getSplitQuote(ctx, shareRoutes, tokenIn)
+	wholeOK, shareOK := wholeErr == nil && hasPositiveAmountOut(wholeQuote), shareErr == nil && hasPositiveAmountOut(shareQuote)
+	switch {
+	case shareOK && (!wholeOK || shareQuote.GetAmountOut().Amount.GT(wholeQuote.GetAmountOut().Amount)):
+		return shareQuote, nil
+	case wholeOK:
+		return wholeQuote, nil
+	case wholeErr != nil:
+		return nil, wholeErr
+	case shareErr != nil:
+		return nil, shareErr
+	default:
+		return nil, domain.ErrNoTokensOut
+	}
+}
+
+// hasPositiveAmountOut reports whether quote yields a positive amount out. A split over routes that all yield
+// nothing, for example on a dust amount, can return a quote with no amount.
+func hasPositiveAmountOut(quote domain.Quote) bool {
+	if quote == nil {
+		return false
+	}
+	amount := quote.GetAmountOut().Amount
+	return !amount.IsNil() && amount.IsPositive()
 }
 
 // rankRoutesByDirectQuoteInGivenOut ranks the given candidate routes by estimating direct quotes over each route.
