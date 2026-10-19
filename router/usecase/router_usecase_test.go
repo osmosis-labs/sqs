@@ -1188,6 +1188,11 @@ func (s *RouterTestSuite) TestGetCandidateSearchCoin() {
 			poolDenomMetadata: map[string]domain.PoolDenomMetaData{denom: {TotalLiquidity: osmomath.NewInt(1), TotalLiquidityCap: osmomath.NewInt(1_000)}},
 			expectedAmount:    osmomath.OneInt(),
 		},
+		"capitalization no more than the reference value": {
+			// All of the denom's liquidity is worth 1, so the reference value would be ten times its total liquidity.
+			poolDenomMetadata: map[string]domain.PoolDenomMetaData{denom: {TotalLiquidity: osmomath.NewInt(1_000_000_000), TotalLiquidityCap: osmomath.NewInt(1)}},
+			expectedAmount:    osmomath.OneInt(),
+		},
 		"no capitalization": {
 			poolDenomMetadata: map[string]domain.PoolDenomMetaData{denom: {TotalLiquidity: osmomath.NewInt(1_000_000_000), TotalLiquidityCap: osmomath.ZeroInt()}},
 			expectedAmount:    osmomath.OneInt(),

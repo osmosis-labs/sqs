@@ -1215,11 +1215,13 @@ const candidateSearchReferenceValue = 10
 // its denom worth candidateSearchReferenceValue, priced from the denom's total liquidity and its capitalization.
 // The search skips first pools holding less of the denom than this amount, so it drops dust pools without
 // depending on the size of the quote. Returns an amount of one if the denom has no priced liquidity, so that
-// only first pools holding none of the denom are skipped.
+// only first pools holding none of the denom are skipped. It does the same if all of the denom's liquidity is
+// worth no more than the reference value: the capitalization is a whole number, so the reference amount would
+// then be at least the denom's total liquidity and every first pool would be skipped.
 func (r *routerUseCaseImpl) getCandidateSearchCoin(coin sdk.Coin) sdk.Coin {
 	poolDenomMetadata, err := r.tokenMetadataHolder.GetPoolDenomMetadata(coin.Denom)
 	if err != nil || poolDenomMetadata.TotalLiquidity.IsNil() || poolDenomMetadata.TotalLiquidityCap.IsNil() ||
-		!poolDenomMetadata.TotalLiquidity.IsPositive() || !poolDenomMetadata.TotalLiquidityCap.IsPositive() {
+		!poolDenomMetadata.TotalLiquidity.IsPositive() || poolDenomMetadata.TotalLiquidityCap.LTE(osmomath.NewInt(candidateSearchReferenceValue)) {
 		return sdk.NewCoin(coin.Denom, osmomath.OneInt())
 	}
 
