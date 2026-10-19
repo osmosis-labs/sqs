@@ -1,6 +1,7 @@
 package datafetchers
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -17,6 +18,11 @@ const (
 	numiaAPRsFetchRetries = 3
 	// numiaAPRsFetchRetryDelay is the delay between retries to fetch pool APRs from Numia.
 	numiaAPRsFetchRetryDelay = time.Second * 1
+
+	// poolFeesFetchRetries is the number of retries to fetch pool fees from the timeseries API.
+	poolFeesFetchRetries = 3
+	// poolFeesFetchRetryDelay is the delay between retries to fetch pool fees from the timeseries API.
+	poolFeesFetchRetryDelay = time.Second * 1
 )
 
 // GetFetchPoolAPRsFromNumiaCb returns a callback to fetch pool APRs from Numia.
@@ -58,34 +64,61 @@ func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClie
 }
 
 // GetFetchPoolPoolFeesFromTimeseries returns a callback to fetch pool fees from timeseries data stack.
-// It increments the error counter if the pool fees fetching fails.
+// It tries up to poolFeesFetchRetries times, waiting poolFeesFetchRetryDelay between attempts.
+// A response with no pools counts as a failed attempt, since caching it would erase the fee data of every pool.
+// It increments the error counter only if every attempt fails, and then returns the last error.
 // It returns a callback function that returns the pool fees on success.
 func GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.TimeSeriesHTTPClient, logger log.Logger) func() (map[uint64]sqspassthroughdomain.PoolFee, error) {
 	return func() (map[uint64]sqspassthroughdomain.PoolFee, error) {
-		// Fetch pool APRs from the passthrough grpc client
-		poolFees, err := timeseriesHTTPClient.GetPoolFees()
-		if err != nil {
-			logger.Error("Failed to fetch pool fees", zap.Error(err))
+		var err error
+		for attempt := range poolFeesFetchRetries {
+			if attempt > 0 {
+				time.Sleep(poolFeesFetchRetryDelay)
+			}
 
-			// Increment the error counter
-			domain.SQSPassthroughTimeseriesPoolFeesFetchErrorCounter.Inc()
-
-			return nil, err
-		}
-
-		poolFeesMap := make(map[uint64]sqspassthroughdomain.PoolFee, len(poolFees.Data))
-		for _, poolFee := range poolFees.Data {
-			// Convert pool ID to uint64
-			poolID, err := strconv.ParseUint(poolFee.PoolID, 10, 64)
+			var poolFeesMap map[uint64]sqspassthroughdomain.PoolFee
+			poolFeesMap, err = fetchPoolFeesFromTimeseries(timeseriesHTTPClient, logger)
 			if err != nil {
-				logger.Error("Failed to parse pool ID", zap.Error(err))
-				domain.SQSPassthroughTimeseriesPoolFeesFetchErrorCounter.Inc()
+				logger.Warn("Failed to fetch pool fees", zap.Error(err), zap.Int("attempt", attempt+1))
 				continue
 			}
 
-			poolFeesMap[poolID] = poolFee
+			return poolFeesMap, nil
 		}
 
-		return poolFeesMap, nil
+		logger.Error("Failed to fetch pool fees after retries", zap.Error(err), zap.Int("attempts", poolFeesFetchRetries))
+
+		// Increment the error counter
+		domain.SQSPassthroughTimeseriesPoolFeesFetchErrorCounter.Inc()
+
+		return nil, fmt.Errorf("fetching pool fees from timeseries failed after %d attempts: %w", poolFeesFetchRetries, err)
 	}
+}
+
+// fetchPoolFeesFromTimeseries fetches pool fees once and maps them by pool ID.
+// Returns an error if the request fails or the response has no pools.
+func fetchPoolFeesFromTimeseries(timeseriesHTTPClient passthroughdomain.TimeSeriesHTTPClient, logger log.Logger) (map[uint64]sqspassthroughdomain.PoolFee, error) {
+	poolFees, err := timeseriesHTTPClient.GetPoolFees()
+	if err != nil {
+		return nil, err
+	}
+
+	poolFeesMap := make(map[uint64]sqspassthroughdomain.PoolFee, len(poolFees.Data))
+	for _, poolFee := range poolFees.Data {
+		// Convert pool ID to uint64
+		poolID, err := strconv.ParseUint(poolFee.PoolID, 10, 64)
+		if err != nil {
+			logger.Error("Failed to parse pool ID", zap.Error(err))
+			domain.SQSPassthroughTimeseriesPoolFeesFetchErrorCounter.Inc()
+			continue
+		}
+
+		poolFeesMap[poolID] = poolFee
+	}
+
+	if len(poolFeesMap) == 0 {
+		return nil, errors.New("pool fees response has no pools")
+	}
+
+	return poolFeesMap, nil
 }

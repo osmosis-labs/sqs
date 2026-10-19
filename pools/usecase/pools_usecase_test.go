@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -1277,6 +1278,78 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 			}
 		})
 	}
+}
+
+// TestGetPoolsSortByFeesData verifies that pools whose fee or APR data failed to load sort last
+// in either direction, and that ties fall back to liquidity cap, so the order stays meaningful
+// when the passthrough source is down for every pool.
+func (s *PoolsUsecaseTestSuite) TestGetPoolsSortByFeesData() {
+	newPool := func(id uint64, volume24h float64, isError bool, liquidityCap int64) ingesttypes.PoolI {
+		return &mocks.MockRoutablePool{
+			ID:               id,
+			FeesData:         sqspassthroughdomain.PoolFeesDataStatusWrap{PoolFee: sqspassthroughdomain.PoolFee{Volume24h: volume24h}, IsError: isError},
+			PoolLiquidityCap: osmomath.NewInt(liquidityCap),
+		}
+	}
+
+	sortIDs := func(pools []ingesttypes.PoolI, desc bool) []uint64 {
+		sortFunc := usecase.GetPoolsSortFuncs["market.volume24hUsd"]
+		sort.Slice(pools, func(i, j int) bool { return sortFunc(pools[i], pools[j], desc) })
+
+		ids := make([]uint64, 0, len(pools))
+		for _, pool := range pools {
+			ids = append(ids, pool.GetId())
+		}
+		return ids
+	}
+
+	tests := []struct {
+		name   string
+		pools  []ingesttypes.PoolI
+		desc   bool
+		expIDs []uint64
+	}{
+		{
+			name:   "descending: unknown volume sorts last",
+			pools:  []ingesttypes.PoolI{newPool(1, 0, true, 900), newPool(2, 10, false, 1), newPool(3, 20, false, 1)},
+			desc:   true,
+			expIDs: []uint64{3, 2, 1},
+		},
+		{
+			name:   "ascending: unknown volume sorts last",
+			pools:  []ingesttypes.PoolI{newPool(1, 0, true, 900), newPool(2, 10, false, 1), newPool(3, 20, false, 1)},
+			desc:   false,
+			expIDs: []uint64{2, 3, 1},
+		},
+		{
+			name:   "no pool has fee data: sorted by liquidity cap",
+			pools:  []ingesttypes.PoolI{newPool(1, 0, true, 100), newPool(2, 0, true, 300), newPool(3, 0, true, 200)},
+			desc:   true,
+			expIDs: []uint64{2, 3, 1},
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			s.Require().Equal(tt.expIDs, sortIDs(tt.pools, tt.desc))
+		})
+	}
+
+	s.Run("APR: unknown APR sorts last", func() {
+		newAPRPool := func(id uint64, totalAPR float64, isError bool, liquidityCap int64) ingesttypes.PoolI {
+			return &mocks.MockRoutablePool{
+				ID:               id,
+				APRData:          sqspassthroughdomain.PoolAPRDataStatusWrap{PoolAPR: sqspassthroughdomain.PoolAPR{TotalAPR: sqspassthroughdomain.PoolDataRange{Upper: totalAPR}}, IsError: isError},
+				PoolLiquidityCap: osmomath.NewInt(liquidityCap),
+			}
+		}
+		pools := []ingesttypes.PoolI{newAPRPool(1, 0, true, 900), newAPRPool(2, 5, false, 1), newAPRPool(3, 0, true, 950)}
+
+		sortFunc := usecase.GetPoolsSortFuncs["incentives.aprBreakdown.total.upper"]
+		sort.Slice(pools, func(i, j int) bool { return sortFunc(pools[i], pools[j], true) })
+
+		s.Require().Equal([]uint64{2, 3, 1}, []uint64{pools[0].GetId(), pools[1].GetId(), pools[2].GetId()})
+	})
 }
 
 func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {

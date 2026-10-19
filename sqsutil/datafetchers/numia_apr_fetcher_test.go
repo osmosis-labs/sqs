@@ -52,3 +52,50 @@ func TestGetFetchPoolAPRsFromNumiaCb(t *testing.T) {
 		require.Equal(t, numiaAPRsFetchRetries, client.calls)
 	})
 }
+
+// timeseriesClientStub returns the queued pool fees responses in order.
+type timeseriesClientStub struct {
+	responses []*sqspassthroughdomain.PoolFees
+	calls     int
+}
+
+func (t *timeseriesClientStub) GetPoolFees() (*sqspassthroughdomain.PoolFees, error) {
+	response := t.responses[t.calls]
+	t.calls++
+	if response == nil {
+		return nil, errors.New("upstream 500")
+	}
+	return response, nil
+}
+
+// TestGetFetchPoolPoolFeesFromTimeseries verifies that a failed or empty response is retried,
+// so neither can replace cached fee data, and that once every attempt fails the error is returned.
+func TestGetFetchPoolPoolFeesFromTimeseries(t *testing.T) {
+	t.Parallel()
+
+	t.Run("succeeds after a failed and an empty attempt", func(t *testing.T) {
+		t.Parallel()
+
+		client := &timeseriesClientStub{responses: []*sqspassthroughdomain.PoolFees{
+			nil,
+			{},
+			{Data: []sqspassthroughdomain.PoolFee{{PoolID: "1", Volume24h: 10}}},
+		}}
+
+		poolFees, err := GetFetchPoolPoolFeesFromTimeseries(client, &log.NoOpLogger{})()
+		require.NoError(t, err)
+		require.Equal(t, 10.0, poolFees[1].Volume24h)
+		require.Equal(t, 3, client.calls)
+	})
+
+	t.Run("returns an error after every attempt fails", func(t *testing.T) {
+		t.Parallel()
+
+		client := &timeseriesClientStub{responses: []*sqspassthroughdomain.PoolFees{nil, nil, {}}}
+
+		poolFees, err := GetFetchPoolPoolFeesFromTimeseries(client, &log.NoOpLogger{})()
+		require.Error(t, err)
+		require.Nil(t, poolFees)
+		require.Equal(t, poolFeesFetchRetries, client.calls)
+	})
+}
