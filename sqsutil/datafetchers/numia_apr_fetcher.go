@@ -27,6 +27,7 @@ const (
 
 // GetFetchPoolAPRsFromNumiaCb returns a callback to fetch pool APRs from Numia.
 // It tries up to numiaAPRsFetchRetries times, waiting numiaAPRsFetchRetryDelay between attempts.
+// A response with no pools counts as a failed attempt, since caching it would erase the APR data of every pool.
 // It increments the error counter only if every attempt fails, and then returns the last error.
 // It returns a callback function that returns the pool APRs on success.
 func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClient, logger log.Logger) func() (map[uint64]sqspassthroughdomain.PoolAPR, error) {
@@ -41,6 +42,12 @@ func GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient passthroughdomain.NumiaHTTPClie
 			var poolAPRs []sqspassthroughdomain.PoolAPR
 			poolAPRs, err = numiaHTTPClient.GetPoolAPRsRange()
 			if err != nil {
+				logger.Warn("Failed to fetch pool APRs", zap.Error(err), zap.Int("attempt", attempt+1))
+				continue
+			}
+
+			if len(poolAPRs) == 0 {
+				err = errors.New("pool APRs response has no pools")
 				logger.Warn("Failed to fetch pool APRs", zap.Error(err), zap.Int("attempt", attempt+1))
 				continue
 			}

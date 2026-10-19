@@ -1073,6 +1073,8 @@ func calcExitPool(ctx sdk.Context, pool gammtypes.CFMMPoolI, exitingSharesIn osm
 // setPoolAPRAndFeeDataIfConfigured sets the APR and fee data for the pool if the options are configured.
 // No-op otherwise.
 // Logs an error if fails to get APR or pool fee data.
+// A pool missing from successfully fetched data is not marked as an error, since the source
+// simply has no data for it; only a failed fetch is.
 // The input pool parameter is mutated.
 // The input options parameter is used to determine whether to set APR and fee data.
 func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, options domain.PoolsOptions) {
@@ -1095,7 +1097,7 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, 
 		pool.SetAPRData(sqspassthroughdomain.PoolAPRDataStatusWrap{
 			PoolAPR: poolAPRData,
 			IsStale: isStale,
-			IsError: err != nil,
+			IsError: err != nil && !errors.Is(err, datafetchers.ErrKeyNotFound),
 		})
 
 		// Get pool fee data
@@ -1109,7 +1111,7 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, 
 		pool.SetFeesData(sqspassthroughdomain.PoolFeesDataStatusWrap{
 			PoolFee: poolFeeData,
 			IsStale: isStale,
-			IsError: err != nil,
+			IsError: err != nil && !errors.Is(err, datafetchers.ErrKeyNotFound),
 		})
 	}
 }

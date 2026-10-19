@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// errEmptyAPRsResponse makes numiaClientStub return a successful response with no pools.
+var errEmptyAPRsResponse = errors.New("empty response")
+
 // numiaClientStub returns the queued results of GetPoolAPRsRange in order.
 type numiaClientStub struct {
 	errs  []error
@@ -18,6 +21,9 @@ type numiaClientStub struct {
 func (n *numiaClientStub) GetPoolAPRsRange() ([]sqspassthroughdomain.PoolAPR, error) {
 	err := n.errs[n.calls]
 	n.calls++
+	if errors.Is(err, errEmptyAPRsResponse) {
+		return []sqspassthroughdomain.PoolAPR{}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +44,28 @@ func TestGetFetchPoolAPRsFromNumiaCb(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, poolAPRs, uint64(1))
 		require.Equal(t, 2, client.calls)
+	})
+
+	t.Run("retries a response with no pools", func(t *testing.T) {
+		t.Parallel()
+
+		client := &numiaClientStub{errs: []error{errEmptyAPRsResponse, nil}}
+
+		poolAPRs, err := GetFetchPoolAPRsFromNumiaCb(client, &log.NoOpLogger{})()
+		require.NoError(t, err)
+		require.Contains(t, poolAPRs, uint64(1))
+		require.Equal(t, 2, client.calls)
+	})
+
+	t.Run("fails when every response has no pools", func(t *testing.T) {
+		t.Parallel()
+
+		client := &numiaClientStub{errs: []error{errEmptyAPRsResponse, errEmptyAPRsResponse, errEmptyAPRsResponse}}
+
+		poolAPRs, err := GetFetchPoolAPRsFromNumiaCb(client, &log.NoOpLogger{})()
+		require.Error(t, err)
+		require.Nil(t, poolAPRs)
+		require.Equal(t, numiaAPRsFetchRetries, client.calls)
 	})
 
 	t.Run("returns the last error after every attempt fails", func(t *testing.T) {

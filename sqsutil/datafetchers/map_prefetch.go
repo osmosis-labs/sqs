@@ -1,9 +1,14 @@
 package datafetchers
 
 import (
+	"errors"
 	"fmt"
 	"time"
 )
+
+// ErrKeyNotFound is returned by GetByKey when the fetched data has no value for the key.
+// The fetch itself succeeded, so callers can tell a missing key apart from a failed fetch.
+var ErrKeyNotFound = errors.New("key not found")
 
 // MapFetcher is an interface that defines a fetchers that is represented
 // by mapped data internally with keys and values.
@@ -48,7 +53,7 @@ func (p *MapIntervalFetcher[K, V]) GetByKey(key K) (V, time.Time, bool, error) {
 	value, ok := resultMap[key]
 	if !ok {
 		var zeroValue V
-		return zeroValue, p.lastRetrievedTime, isStale, fmt.Errorf("key not found: %v", key)
+		return zeroValue, p.lastRetrievedTime, isStale, fmt.Errorf("%w: %v", ErrKeyNotFound, key)
 	}
 
 	return value, p.lastRetrievedTime, isStale, nil

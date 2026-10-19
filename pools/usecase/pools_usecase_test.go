@@ -30,6 +30,7 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 	"github.com/osmosis-labs/sqs/router/usecase/route"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
+	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 )
 
 type PoolsUsecaseTestSuite struct {
@@ -1419,7 +1420,7 @@ func (s *PoolsUsecaseTestSuite) TestSetPoolAPRAndFeeDataIfConfigured() {
 			expectedFeesData: defaultFeeData,
 		},
 		{
-			name: "APR and fees not confgiured due to different pool",
+			name: "pool missing from the fetched data is not an error",
 
 			pool: &mocks.MockRoutablePool{
 				ID: defaultPoolID + 1,
@@ -1510,6 +1511,9 @@ func getMockAPRFetcher(shouldForceAPRFetcherError, isAPRDataStale bool) *mocks.M
 			}
 
 			if key != defaultPoolID {
+				if err == nil {
+					err = fmt.Errorf("%w: %v", datafetchers.ErrKeyNotFound, key)
+				}
 				return sqspassthroughdomain.PoolAPR{}, defaultTime, isAPRDataStale, err
 			}
 
@@ -1529,6 +1533,9 @@ func getMockFeesFetcher(shouldForceFeesFetcherError, isFeeDataStale bool) *mocks
 			}
 
 			if key != defaultPoolID {
+				if err == nil {
+					err = fmt.Errorf("%w: %v", datafetchers.ErrKeyNotFound, key)
+				}
 				return sqspassthroughdomain.PoolFee{}, defaultTime, isFeeDataStale, err
 			}
 
