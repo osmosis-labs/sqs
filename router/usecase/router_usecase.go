@@ -579,12 +579,10 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteOutGivenIn(ctx cont
 		return nil, nil, err
 	}
 
-	// The candidate route cache is owned by handleCandidateRoutes, which only writes it on a miss.
-	// Re-setting it here would refresh its expiry on every ranked route cache miss, so that
-	// the candidate routes of an active pair would never be recomputed.
-	if !routingOptions.DisableCache && len(candidateRoutes.Routes) == 0 {
-		r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, routingOptions.MaxSplitRoutes), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
-
+	// The candidate route cache is owned by handleCandidateRoutes, which only writes it on a miss,
+	// and caches an empty result there for a shorter time. Re-setting it here would refresh its expiry
+	// on every ranked route cache miss, so that the candidate routes of an active pair would never be recomputed.
+	if len(candidateRoutes.Routes) == 0 {
 		return nil, nil, fmt.Errorf("no candidate routes found")
 	}
 
@@ -657,12 +655,10 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx cont
 		return nil, nil, err
 	}
 
-	// The candidate route cache is owned by handleCandidateRoutesInGivenOut, which only writes it on a miss.
-	// Re-setting it here would refresh its expiry on every quote, so that the candidate routes of an
-	// active pair would never be recomputed.
-	if !routingOptions.DisableCache && len(candidateRoutes.Routes) == 0 {
-		r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude, routingOptions.MaxSplitRoutes), candidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds/4)*time.Second)
-
+	// The candidate route cache is owned by handleCandidateRoutesInGivenOut, which only writes it on a miss,
+	// and caches an empty result there for a shorter time. Re-setting it here would refresh its expiry on
+	// every quote, so that the candidate routes of an active pair would never be recomputed.
+	if len(candidateRoutes.Routes) == 0 {
 		return nil, nil, fmt.Errorf("no candidate routes found")
 	}
 
