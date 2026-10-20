@@ -1319,6 +1319,28 @@ func (s *RouterTestSuite) TestEstimateAndRankSingleRouteQuoteInGivenOut() {
 			s.Require().Equal(0, allRoutesFailedCalls)
 		})
 	}
+
+	s.Run("request cancelled while every route fails -> caches kept", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancellingPool := &mocks.MockRoutablePool{
+			TakerFee: osmomath.ZeroDec(),
+
+			CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+				cancel()
+				return sdk.Coin{}, ctx.Err()
+			},
+
+			TokenInDenom:  tokenOutDenom,
+			TokenOutDenom: UOSMO,
+		}
+		routes := []route.RouteImpl{WithRoutePools(EmptyRoute, []domain.RoutablePool{cancellingPool})}
+
+		allRoutesFailedCalls := 0
+		_, _, sytErr := routerUseCase.EstimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, defaultTokenOut, &log.NoOpLogger{}, func() { allRoutesFailedCalls++ })
+
+		s.Require().ErrorIs(sytErr, context.Canceled)
+		s.Require().Equal(0, allRoutesFailedCalls)
+	})
 }
 
 // validates that the given quote has one route with one hop and the expected pool ID.

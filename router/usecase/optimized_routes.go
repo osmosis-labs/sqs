@@ -112,6 +112,11 @@ func (r *routerUseCaseImpl) estimateAndRankSingleRouteQuoteInGivenOut(ctx contex
 
 	// If we skipped all routes due to errors, return the first error
 	if len(routesWithAmountIn) == 0 && len(errors) > 0 {
+		// Errors from a cancelled request say nothing about the routes, so the caches are kept.
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
+
 		// If we encounter this problem, we attempte to invalidate all caches to recompute the routes
 		// completely.
 		// This might be helpful in alloyed cases where the pool gets imbalanced and runs out of liquidity.
