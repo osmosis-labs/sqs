@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	prototypes "github.com/osmosis-labs/osmosis/v28/ingest/types/proto/types"
+	prototypes "github.com/osmosis-labs/osmosis/v31/ingest/types/proto/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"

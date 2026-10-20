@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v31/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"

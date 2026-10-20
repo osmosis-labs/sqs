@@ -11,8 +11,8 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v28/ingest/types/cosmwasmpool"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	"github.com/osmosis-labs/osmosis/v31/ingest/types/cosmwasmpool"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/osmosis-labs/sqs/domain"

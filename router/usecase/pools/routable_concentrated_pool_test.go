@@ -13,9 +13,9 @@ import (
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/osmosis/v28/app/apptesting"
-	concentratedmodel "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/model"
-	cltypes "github.com/osmosis-labs/osmosis/v28/x/concentrated-liquidity/types"
+	"github.com/osmosis-labs/osmosis/v31/app/apptesting"
+	concentratedmodel "github.com/osmosis-labs/osmosis/v31/x/concentrated-liquidity/model"
+	cltypes "github.com/osmosis-labs/osmosis/v31/x/concentrated-liquidity/types"
 )
 
 func deepCopyTickModel(tickModel *ingesttypes.TickModel) *ingesttypes.TickModel {

@@ -10,9 +10,9 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v28/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v28/x/poolmanager"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	cwpoolmodel "github.com/osmosis-labs/osmosis/v31/x/cosmwasmpool/model"
+	"github.com/osmosis-labs/osmosis/v31/x/poolmanager"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 )
 
 var _ domain.RoutablePool = &routableTransmuterPoolImpl{}

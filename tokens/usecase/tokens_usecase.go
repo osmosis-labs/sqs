@@ -551,8 +551,8 @@ func (t *TokensUseCase) CalcScalingFactor(baseDenom string, quoteDenom string) (
 	tenDec := osmomath.NewBigDec(10)
 
 	// Calculate scaling factors based on token precision
-	baseScale := tenDec.Power(osmomath.NewBigDec(int64(baseDenomMetadata.Precision)))
-	quoteScale := tenDec.Power(osmomath.NewBigDec(int64(quoteDenomMetadata.Precision)))
+	baseScale := tenDec.PowerInteger(uint64(baseDenomMetadata.Precision))
+	quoteScale := tenDec.PowerInteger(uint64(quoteDenomMetadata.Precision))
 
 	// Calculate scale factor between quote and base
 	return quoteScale.Quo(baseScale), nil

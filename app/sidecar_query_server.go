@@ -26,8 +26,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/osmosis-labs/osmosis/v28/app"
-	txfeestypes "github.com/osmosis-labs/osmosis/v28/x/txfees/types"
+	"github.com/osmosis-labs/osmosis/v31/app"
+	txfeestypes "github.com/osmosis-labs/osmosis/v31/x/txfees/types"
 	chaininfoclient "github.com/osmosis-labs/sqs/chaininfo/client"
 	chaininforepo "github.com/osmosis-labs/sqs/chaininfo/repository"
 	chaininfousecase "github.com/osmosis-labs/sqs/chaininfo/usecase"
@@ -60,7 +60,7 @@ import (
 	tradesingest "github.com/osmosis-labs/sqs/trades/ingest"
 	tradesrepository "github.com/osmosis-labs/sqs/trades/repository"
 
-	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v31/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
 	"github.com/osmosis-labs/sqs/domain/cosmos/tx"

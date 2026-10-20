@@ -10,7 +10,7 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	poolmanagertypes "github.com/osmosis-labs/osmosis/v28/x/poolmanager/types"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 
 	"github.com/osmosis-labs/sqs/domain"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"

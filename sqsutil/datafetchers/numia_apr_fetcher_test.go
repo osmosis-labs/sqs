@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v28/ingest/types/passthroughdomain"
+	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v31/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/stretchr/testify/require"
 )
