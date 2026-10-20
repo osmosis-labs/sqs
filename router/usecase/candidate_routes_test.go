@@ -587,11 +587,17 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_QueuedPathBound() {
 
 	// An unroutable token reaches the bound and finds no routes.
 	const bound = 1_000
-	routes, queuedPaths, capped, err := usecase.FindCandidateRoutesOutGivenInWithBound(mainnetUsecase.CandidateRouteSearcher, tenUSDC, "unroutable", candidateRouteOptions, bound)
+	routes, queuedPaths, capped, err := usecase.FindCandidateRoutesOutGivenInWithBound(context.Background(), mainnetUsecase.CandidateRouteSearcher, tenUSDC, "unroutable", candidateRouteOptions, bound)
 	s.Require().NoError(err)
 	s.Require().Empty(routes)
 	s.Require().Equal(bound, queuedPaths)
 	s.Require().True(capped)
+
+	// A search whose request is gone stops with the context's error.
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _, _, err = usecase.FindCandidateRoutesOutGivenInWithBound(cancelledCtx, mainnetUsecase.CandidateRouteSearcher, tenUSDC, "unroutable", candidateRouteOptions, bound)
+	s.Require().ErrorIs(err, context.Canceled)
 
 	// Routable tokens find the same routes with the default bound as without one.
 	previousBound := usecase.SetMaxCandidateRouteSearchPaths(1 << 30)
