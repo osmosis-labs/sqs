@@ -12,6 +12,8 @@ import (
 
 type PoolsUsecase = poolsUseCase
 
+var GetPoolsSortFuncs = getPoolsSortFuncs
+
 const (
 	OriginalOrderbookAddress = "original-address"
 )

@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+// defaultEmptyCacheRetryInterval is how long to wait before retrying a failed fetch
+// while no value has ever been retrieved. Without it, a failed first fetch after startup
+// leaves the cache empty for a whole refetch interval.
+const defaultEmptyCacheRetryInterval = 15 * time.Second
+
 // Fetcher is an interface that provides a method to get a value.
 type Fetcher[T any] interface {
 	Get() (T, time.Time, error)
@@ -15,24 +20,34 @@ type Fetcher[T any] interface {
 // IntervalFetcher is a struct that prefetches a value at a given interval
 // and provides a method to get the latest value.
 // NOTE: It may return stale data if the update function takes longer than the interval.
+// A failed refresh keeps the previously retrieved value.
 type IntervalFetcher[T any] struct {
-	updateFn  func() (T, error)
-	interval  time.Duration
-	hasClosed bool
+	updateFn                func() (T, error)
+	interval                time.Duration
+	emptyCacheRetryInterval time.Duration
+	hasClosed               bool
 
 	lastRetrievedTime time.Time
 	cache             T
 	timer             *time.Ticker
-	mutex             sync.RWMutex
+	// done is closed by Close to stop the refresh loop.
+	done  chan struct{}
+	mutex sync.RWMutex
 }
 
 func NewIntervalFetcher[T any](updateFn func() (T, error), interval time.Duration) *IntervalFetcher[T] {
+	return newIntervalFetcher(updateFn, interval, defaultEmptyCacheRetryInterval)
+}
+
+func newIntervalFetcher[T any](updateFn func() (T, error), interval, emptyCacheRetryInterval time.Duration) *IntervalFetcher[T] {
 	if interval <= 0 {
 		panic("interval must be greater than 0")
 	}
 	prefetcher := &IntervalFetcher[T]{
-		updateFn: updateFn,
-		interval: interval,
+		updateFn:                updateFn,
+		interval:                interval,
+		emptyCacheRetryInterval: min(emptyCacheRetryInterval, interval),
+		done:                    make(chan struct{}),
 	}
 
 	go prefetcher.startTimer()
@@ -41,26 +56,50 @@ func NewIntervalFetcher[T any](updateFn func() (T, error), interval time.Duratio
 }
 
 func (p *IntervalFetcher[T]) startTimer() {
-	p.prefetch()
-	p.timer = time.NewTicker(p.interval)
+	// Retry on the short interval until the first value is retrieved.
+	for !p.prefetch() {
+		select {
+		case <-time.After(p.emptyCacheRetryInterval):
+		case <-p.done:
+			return
+		}
+	}
 
-	for range p.timer.C {
-		p.prefetch()
+	// The ticker is created under the lock so that Close either stops it
+	// or, if it runs first, prevents it from being started.
+	p.mutex.Lock()
+	if p.hasClosed {
+		p.mutex.Unlock()
+		return
+	}
+	timer := time.NewTicker(p.interval)
+	p.timer = timer
+	p.mutex.Unlock()
+
+	for {
+		select {
+		case <-timer.C:
+			p.prefetch()
+		case <-p.done:
+			return
+		}
 	}
 }
 
-func (p *IntervalFetcher[T]) prefetch() {
+// prefetch refreshes the cache and reports whether the refresh succeeded.
+func (p *IntervalFetcher[T]) prefetch() bool {
 	newValue, err := p.updateFn()
 	if err != nil {
 		// By silently skipping the error, the values would become stale,
 		// signaling that to the client.
-		return
+		return false
 	}
 
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.lastRetrievedTime = time.Now()
 	p.cache = newValue
+	return true
 }
 
 // Returns the latest value and the time it was last retrieved.
@@ -83,8 +122,15 @@ func (p *IntervalFetcher[T]) Close() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	if p.hasClosed {
+		return
+	}
 	p.hasClosed = true
-	p.timer.Stop()
+	close(p.done)
+	// The timer is nil until the first value is retrieved.
+	if p.timer != nil {
+		p.timer.Stop()
+	}
 }
 
 func (p *IntervalFetcher[T]) GetRefetchInterval() time.Duration {

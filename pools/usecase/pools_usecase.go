@@ -372,36 +372,50 @@ var getPoolsSortFuncs = map[string]func(a, b ingesttypes.PoolI, desc bool) bool{
 		}
 		return a.GetLiquidityCap().LT(b.GetLiquidityCap())
 	},
-	"market.feesSpent7dUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
-		if desc {
-			return a.GetFeesData().FeesSpent7d > b.GetFeesData().FeesSpent7d
+	"market.feesSpent7dUsd":  sortByPassthroughData(feesDataField(func(f sqspassthroughdomain.PoolFee) float64 { return f.FeesSpent7d })),
+	"market.feesSpent24hUsd": sortByPassthroughData(feesDataField(func(f sqspassthroughdomain.PoolFee) float64 { return f.FeesSpent24h })),
+	"market.volume7dUsd":     sortByPassthroughData(feesDataField(func(f sqspassthroughdomain.PoolFee) float64 { return f.Volume7d })),
+	"market.volume24hUsd":    sortByPassthroughData(feesDataField(func(f sqspassthroughdomain.PoolFee) float64 { return f.Volume24h })),
+	"incentives.aprBreakdown.total.upper": sortByPassthroughData(func(pool ingesttypes.PoolI) (float64, bool) {
+		aprData := pool.GetAPRData()
+		return aprData.TotalAPR.Upper, aprData.IsError
+	}),
+}
+
+// sortByPassthroughData returns a sort function over a field of the passthrough (Numia) data,
+// given as the field value and whether the pool's data failed to load.
+// Pools whose data failed to load sort last in either direction, since their zero values
+// are unknown rather than zero. Ties fall back to liquidity cap, so the order stays
+// meaningful when no pool has the data (e.g. the passthrough source is down).
+func sortByPassthroughData(field func(ingesttypes.PoolI) (value float64, isError bool)) func(a, b ingesttypes.PoolI, desc bool) bool {
+	return func(a, b ingesttypes.PoolI, desc bool) bool {
+		aValue, aIsError := field(a)
+		bValue, bIsError := field(b)
+		if aIsError != bIsError {
+			return bIsError
 		}
-		return a.GetFeesData().FeesSpent7d < b.GetFeesData().FeesSpent7d
-	},
-	"market.feesSpent24hUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
-		if desc {
-			return a.GetFeesData().FeesSpent24h > b.GetFeesData().FeesSpent24h
+
+		if !aIsError && aValue != bValue {
+			if desc {
+				return aValue > bValue
+			}
+			return aValue < bValue
 		}
-		return a.GetFeesData().FeesSpent24h < b.GetFeesData().FeesSpent24h
-	},
-	"market.volume7dUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
-		if desc {
-			return a.GetFeesData().Volume7d > b.GetFeesData().Volume7d
+
+		aCap, bCap := a.GetLiquidityCap(), b.GetLiquidityCap()
+		if aCap.IsNil() || bCap.IsNil() {
+			return bCap.IsNil() && !aCap.IsNil()
 		}
-		return a.GetFeesData().Volume7d < b.GetFeesData().Volume7d
-	},
-	"market.volume24hUsd": func(a, b ingesttypes.PoolI, desc bool) bool {
-		if desc {
-			return a.GetFeesData().Volume24h > b.GetFeesData().Volume24h
-		}
-		return a.GetFeesData().Volume24h < b.GetFeesData().Volume24h
-	},
-	"incentives.aprBreakdown.total.upper": func(a, b ingesttypes.PoolI, desc bool) bool {
-		if desc {
-			return a.GetAPRData().TotalAPR.Upper > b.GetAPRData().TotalAPR.Upper
-		}
-		return a.GetAPRData().TotalAPR.Upper < b.GetAPRData().TotalAPR.Upper
-	},
+		return aCap.GT(bCap)
+	}
+}
+
+// feesDataField adapts a fee data field for sortByPassthroughData.
+func feesDataField(field func(sqspassthroughdomain.PoolFee) float64) func(ingesttypes.PoolI) (float64, bool) {
+	return func(pool ingesttypes.PoolI) (float64, bool) {
+		feesData := pool.GetFeesData()
+		return field(feesData.PoolFee), feesData.IsError
+	}
 }
 
 // poolFilters is a map of available filters for getPools function.
@@ -1059,6 +1073,8 @@ func calcExitPool(ctx sdk.Context, pool gammtypes.CFMMPoolI, exitingSharesIn osm
 // setPoolAPRAndFeeDataIfConfigured sets the APR and fee data for the pool if the options are configured.
 // No-op otherwise.
 // Logs an error if fails to get APR or pool fee data.
+// A pool missing from successfully fetched data is not marked as an error, since the source
+// simply has no data for it; only a failed fetch is.
 // The input pool parameter is mutated.
 // The input options parameter is used to determine whether to set APR and fee data.
 func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, options domain.PoolsOptions) {
@@ -1081,7 +1097,7 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, 
 		pool.SetAPRData(sqspassthroughdomain.PoolAPRDataStatusWrap{
 			PoolAPR: poolAPRData,
 			IsStale: isStale,
-			IsError: err != nil,
+			IsError: err != nil && !errors.Is(err, datafetchers.ErrKeyNotFound),
 		})
 
 		// Get pool fee data
@@ -1095,7 +1111,7 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, 
 		pool.SetFeesData(sqspassthroughdomain.PoolFeesDataStatusWrap{
 			PoolFee: poolFeeData,
 			IsStale: isStale,
-			IsError: err != nil,
+			IsError: err != nil && !errors.Is(err, datafetchers.ErrKeyNotFound),
 		})
 	}
 }
