@@ -47,7 +47,7 @@ When running the SQS Docker container, mount your configuration file to `/osmosi
 docker run -d --name sqs \
   -v /path/to/your/config.json:/osmosis/config.json:ro \
   -p 9092:9092 \
-  osmolabs/sqs:local \
+  ghcr.io/osmosis-labs/sqs:local \
   -config /osmosis/config.json
 ```
 
@@ -59,7 +59,7 @@ docker run -d --name sqs \
   -e SQS_LOGGER_LEVEL="debug" \
   -e SQS_ROUTER_MAX_POOLS_PER_ROUTE="5" \
   -p 9093:9093 \
-  osmolabs/sqs:local
+  ghcr.io/osmosis-labs/sqs:local
 ```
 
 ### Combining Configuration File and Environment Variables
@@ -72,6 +72,6 @@ docker run -d --name sqs \
   -v /path/to/your/config.json:/osmosis/config.json:ro \
   -e SQS_SERVER_ADDRESS=":9093" \
   -p 9093:9093 \
-  osmolabs/sqs:local \
+  ghcr.io/osmosis-labs/sqs:local \
   -config /osmosis/config.json
 ```

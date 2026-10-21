@@ -84,8 +84,8 @@ build:
 
 docker-build:
 	@DOCKER_BUILDKIT=1 $(DOCKER) build \
-	-t osmolabs/sqs:$(VERSION) \
-	-t osmolabs/sqs:local \
+	-t ghcr.io/osmosis-labs/sqs:$(VERSION) \
+	-t ghcr.io/osmosis-labs/sqs:local \
 	--build-arg GO_VERSION=$(GO_VERSION) \
 	--build-arg GIT_VERSION=$(VERSION) \
 	--build-arg GIT_COMMIT=$(COMMIT) \
@@ -97,7 +97,7 @@ docker-build:
 # See README.md#Debugging for more details.
 docker-build-debug:
 	@DOCKER_BUILDKIT=1 $(DOCKER) build \
-	-t osmolabs/sqs:$(VERSION)-debug \
+	-t ghcr.io/osmosis-labs/sqs:$(VERSION)-debug \
 	--build-arg GO_VERSION=$(GO_VERSION) \
 	--build-arg GIT_VERSION=$(VERSION) \
 	--build-arg GIT_COMMIT=$(COMMIT) \

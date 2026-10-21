@@ -1,8 +1,8 @@
-# This workflow pushes new docker images to osmolabs/droid-dev:
+# This workflow pushes development images to ghcr.io/osmosis-labs/sqs-dev:
 #
-# 1. Every new commit to the main branch
-#     `osmolabs/sqs-dev:main-{SHORT_SHA}` is pushed.
-#     `osmolabs/sqs-dev:main-{SHORT_SHA}-$(date +%s)` is pushed.
+# For each matching branch push, release candidate tag, or manual run:
+#     `ghcr.io/osmosis-labs/sqs-dev:{REF_NAME}-{SHORT_SHA}` is pushed.
+#     `ghcr.io/osmosis-labs/sqs-dev:{REF_NAME}-{SHORT_SHA}-$(date +%s)` is pushed.
 #
 # Note: $(date +%s) is used to sort the tags in the docker registry.
 
@@ -15,15 +15,17 @@ on:
       - osmosis-main
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+-rc*' # include rc
-  workflow_dispatch:  
+  workflow_dispatch:
 
-  
 env:
-  DOCKER_REPOSITORY: osmolabs/sqs-dev
+  DOCKER_REPOSITORY: ghcr.io/osmosis-labs/sqs-dev
 
 jobs:
   docker:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
     -
       name: Check out repo
@@ -34,14 +36,15 @@ jobs:
       name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     -
-      name: Login to DockerHub
+      name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     -
       name: Create Docker Image Tags
-      run:  |
+      run: |
         SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-8)
         echo "DOCKER_IMAGE_TAG=${{ github.ref_name }}-${SHORT_SHA}" >> $GITHUB_ENV
         echo "DOCKER_IMAGE_TAG_WITH_DATE=${{ github.ref_name }}-${SHORT_SHA}-$(date +%s)" >> $GITHUB_ENV
@@ -60,6 +63,7 @@ jobs:
           ${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG }}
           ${{ env.DOCKER_REPOSITORY }}:${{ env.DOCKER_IMAGE_TAG_WITH_DATE }}
         labels: |
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           repository_full_name=${{ github.repository }}
           repository_docker=${{ env.DOCKER_REPOSITORY }}
           ref_name=${{ github.ref_name }}

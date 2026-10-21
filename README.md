@@ -396,6 +396,44 @@ Description: returns the version of the server
 
 Description: returns the configuration of the server, including the router.
 
+## Container Images
+
+SQS images are published to GitHub Container Registry (GHCR):
+
+| Image | Tags |
+|-------|------|
+| `ghcr.io/osmosis-labs/sqs` | Releases: `latest`, `<major>`, `<major>.<minor>`, `<major>.<minor>.<patch>` (without the `v` prefix) |
+| `ghcr.io/osmosis-labs/sqs-dev` | Development builds: `<ref>-<short-sha>` and `<ref>-<short-sha>-<unix-timestamp>` |
+
+Release images are published on stable version tags. Development images are
+published on pushes to `v<major>.x` and `osmosis-main`, release candidate tags,
+and manual runs of the **Push Dev Images** workflow. Published images target `linux/amd64`.
+
+```bash
+docker pull ghcr.io/osmosis-labs/sqs:latest
+```
+
+The publishing workflows authenticate with `GITHUB_TOKEN` and grant
+`contents: read` and `packages: write`. Docker Hub credentials are no longer required.
+
+### Registry Migration
+
+After the first publish, set both the `sqs` and `sqs-dev` packages to **Public**
+in their GitHub package settings to allow anonymous pulls. New GHCR packages
+[default to private](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+If either package already exists, grant the `osmosis-labs/sqs` repository write
+access under the package's **Manage Actions access** settings before publishing.
+
+Update deployment image references from `osmolabs/sqs` and `osmolabs/sqs-dev`
+to the GHCR paths above after verifying the required tags are available.
+Existing Docker Hub tags are not copied by these workflows; copy any historical
+images needed for rollback separately. Remove the `DOCKERHUB_USERNAME` and
+`DOCKERHUB_TOKEN` secrets once no other workflows need them.
+
+For local builds, `make docker-build` creates `ghcr.io/osmosis-labs/sqs:local`,
+which is used by `make run-docker`. `make docker-build-debug` creates
+`ghcr.io/osmosis-labs/sqs:<version>-debug`.
+
 ## Development Setup
 
 ### Mainnet

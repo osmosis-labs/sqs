@@ -27,7 +27,7 @@ run-state:
 
 run-docker:
 	$(DOCKER) rm -f sqs
-	$(DOCKER) run -d --name sqs -p 9092:9092 -p 26657:26657 -v $(PWD)/config.json:/osmosis/config.json:ro --net host osmolabs/sqs:local --config /osmosis/config.json
+	$(DOCKER) run -d --name sqs -p 9092:9092 -p 26657:26657 -v $(PWD)/config.json:/osmosis/config.json:ro --net host ghcr.io/osmosis-labs/sqs:local --config /osmosis/config.json
 	$(DOCKER) logs -f sqs
 
 run-race:
