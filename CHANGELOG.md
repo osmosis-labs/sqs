@@ -35,6 +35,51 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## v31.0.0
+
+Builds against the osmosis v31 module (`github.com/osmosis-labs/osmosis/v31`, `v31.0.3`) and Go 1.27.2. Release images are published to `ghcr.io/osmosis-labs/sqs` instead of Docker Hub.
+
+### Breaking
+
+- #716 | Move to the osmosis v31 module and patch vulnerable dependencies (grpc, echo, otel, x/net)
+- #717 | Publish container images to GitHub Container Registry
+- #709 | Gate the pprof and state dump endpoints behind config, off by default, and mask OTEL settings in `/config`
+
+### Features
+
+- #708 | Ingest swap and orderbook trades, and add `/trades/list` and `/trades/aggregates`
+- #693 | True exact-out (in-given-out) routing
+- #696 | Orderbook depth endpoint (`/passthrough/orderbook-ticks`)
+- #701 | Exclude configured pool IDs from routing and pricing (`router.excluded-pool-ids`)
+
+### Bug Fixes
+
+- #714 | Search candidate routes at a reference amount and at the quote's size, so a large quote no longer prunes the deep pools for later quotes
+- #713 | Leave invalid denoms out of a `/tokens/prices` batch instead of failing it
+- #712 | Stop price work for requests that were abandoned or timed out
+- #715 | Keep pool fee and APR data through Numia failures
+- #710 | Bound the candidate route search and cache failed chain prices
+- #711 | Process blocks in order and stop racing on the liquidity map
+- #707 | Unknown price impact, per-hop exact-in taker fees and router maths fixes
+- #703 | True exact-out for pinned-pool quotes and alloyed transmuters
+- #706 | Prune drained liquidity, demote drained canonical orderbooks and replace tick sets
+- #705 | Validate quote amounts, recover panics, bound timeouts and fix shutdown
+- #704 | Stop serving failed, stale and dust-pool token prices as valid
+- #694 | Repoint USDC quote denom constants to allUSDC
+- #702 | Exit non-zero when the OTEL tracer fails to initialize
+- #683 | Retry Numia APR queries
+- #686 | Handle errors in dynamic split route calculations
+- #684 | Copy the PriceInfo field in exact-out quote results
+- #682 | Prefer alloyed routes
+
+### Improvements
+
+- #698 | Go 1.27.1
+- #699 | Apply go fix modernizations
+- #700 | Remove unreachable code
+- #695 | Upgrade the Mergify configuration
+- #687, #688 | Remove the SonarCloud integration from CI
+
 ## v28.3.12
 
 - #680 - CHAIN-1116 | Update pool search `maxSearchQueryLength`
