@@ -1045,19 +1045,23 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			rankedRouteCache := cache.New()
 			candidateRouteCache := cache.New()
 
-			// Pre-set candidate route cache
-			if len(tc.preCachedCandidateRoutes.Routes) > 0 {
-				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, defaultTokenInDenom, defaultTokenOutDenom), tc.preCachedCandidateRoutes, tc.cacheExpiryDuration)
-			}
-
-			// Pre-set ranked route cache
-			if len(tc.preCachedRankedRoutes.Routes) > 0 {
-				tokeInOrderOfMagnitude := usecase.GetPrecomputeOrderOfMagnitude(tc.amountIn)
-				rankedRouteCache.Set(usecase.FormatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, defaultTokenInDenom, defaultTokenOutDenom, tokeInOrderOfMagnitude), tc.preCachedRankedRoutes, tc.cacheExpiryDuration)
-			}
-
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRankedRoutesCache(rankedRouteCache), routertesting.WithCandidateRoutesCache(candidateRouteCache))
+
+			// Pre-set candidate route cache: the shared entry and the entry of the quote's order of magnitude,
+			// so that the quote searches neither.
+			preSetCandidateEntries := 0
+			if len(tc.preCachedCandidateRoutes.Routes) > 0 {
+				preSetCandidateEntries = 2
+				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, defaultTokenInDenom, defaultTokenOutDenom), tc.preCachedCandidateRoutes, tc.cacheExpiryDuration)
+				candidateRouteCache.Set(usecase.FormatSizedCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, defaultTokenInDenom, defaultTokenOutDenom, usecase.GetPrecomputeOrderOfMagnitude(tc.amountIn)), tc.preCachedCandidateRoutes, tc.cacheExpiryDuration)
+			}
+
+			// Pre-set ranked route cache under the default max split routes that the quote uses.
+			if len(tc.preCachedRankedRoutes.Routes) > 0 {
+				tokeInOrderOfMagnitude := usecase.GetPrecomputeOrderOfMagnitude(tc.amountIn)
+				rankedRouteCache.Set(usecase.FormatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, defaultTokenInDenom, defaultTokenOutDenom, tokeInOrderOfMagnitude, routertesting.DefaultRouterConfig.MaxSplitRoutes), tc.preCachedRankedRoutes, tc.cacheExpiryDuration)
+			}
 
 			var options []domain.RouterOption
 			if tc.isCacheOptionDisabled {
@@ -1087,9 +1091,265 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 
 			// Validate cache size is the same as before the update
 			if tc.isCacheOptionDisabled {
-				s.Require().Equal(len(tc.preCachedCandidateRoutes.Routes), candidateRouteCache.Len())
+				s.Require().Equal(preSetCandidateEntries, candidateRouteCache.Len())
 				s.Require().Equal(len(tc.preCachedRankedRoutes.Routes), rankedRouteCache.Len())
 			}
+		})
+	}
+}
+
+// Validates that the exact in candidate routes shared by every quote on a pair come from a search sized by a reference
+// amount rather than the quote's amount, and that a large quote also caches a search sized by its own amount.
+// The candidate route search skips first hop pools holding less of the token in denom than the amount it is given.
+// A large quote used to cache its pruned candidate routes for all later quotes on the pair, regardless of their amount.
+// On the mainnet fixture, USDC -> WBTC has first hop pools holding less USDC than the large amount.
+func (s *RouterTestSuite) TestGetOptimalQuote_CandidateRouteCache_LargeQuoteDoesNotPrune() {
+	var (
+		tokenInDenom  = USDC
+		tokenOutDenom = WBTC
+
+		// 300K USDC, small enough for the quote to succeed with the pruned candidate routes.
+		largeTokenIn = sdk.NewCoin(tokenInDenom, osmomath.NewInt(300_000_000_000))
+		smallTokenIn = sdk.NewCoin(tokenInDenom, osmomath.NewInt(100_000_000))
+	)
+
+	ctx := context.Background()
+
+	mainnetState := s.SetupMainnetState()
+
+	// Candidate routes searched with a cold cache.
+	findCandidateRoutes := func(mainnetUseCase routertesting.MockMainnetUsecase, tokenIn sdk.Coin) ingesttypes.CandidateRoutes {
+		routerUseCaseImpl, ok := mainnetUseCase.Router.(*usecase.RouterUseCaseImpl)
+		s.Require().True(ok)
+
+		candidateRoutes, err := mainnetUseCase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(ctx, tokenIn, tokenOutDenom, domain.CandidateRouteSearchOptions{
+			MaxRoutes:           routertesting.DefaultRouterConfig.MaxRoutes,
+			MaxPoolsPerRoute:    routertesting.DefaultRouterConfig.MaxPoolsPerRoute,
+			MinPoolLiquidityCap: routerUseCaseImpl.GetQuoteMinPoolLiquidityCapFilter(tokenInDenom, tokenOutDenom),
+			PoolFiltersAnyOf:    []domain.CandidateRoutePoolFiltrerCb{},
+		})
+		s.Require().NoError(err)
+		return candidateRoutes
+	}
+
+	// Small quote with a cold cache.
+	expectedSmallQuote, err := s.SetupRouterAndPoolsUsecase(mainnetState).Router.GetOptimalQuoteOutGivenIn(ctx, smallTokenIn, tokenOutDenom)
+	s.Require().NoError(err)
+
+	mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+	routerUseCaseImpl, ok := mainnetUseCase.Router.(*usecase.RouterUseCaseImpl)
+	s.Require().True(ok)
+
+	searchCoin := routerUseCaseImpl.GetCandidateSearchCoin(largeTokenIn)
+	expectedCandidateRoutes := findCandidateRoutes(mainnetUseCase, searchCoin)
+
+	// Validate that the fixture is representative: a search sized by the large amount prunes some candidate routes.
+	s.Require().NotEqual(expectedCandidateRoutes, findCandidateRoutes(mainnetUseCase, largeTokenIn))
+
+	// Large quote followed by a small quote.
+	_, err = mainnetUseCase.Router.GetOptimalQuoteOutGivenIn(ctx, largeTokenIn, tokenOutDenom)
+	s.Require().NoError(err)
+
+	actualSmallQuote, err := mainnetUseCase.Router.GetOptimalQuoteOutGivenIn(ctx, smallTokenIn, tokenOutDenom)
+	s.Require().NoError(err)
+
+	// The cached candidate routes are those of a search sized by the reference amount, not by the large quote.
+	actualCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, tokenInDenom, tokenOutDenom)
+	s.Require().NoError(err)
+	s.Require().True(isCached)
+	s.Require().Equal(expectedCandidateRoutes, actualCandidateRoutes)
+
+	// The large quote also cached the routes of a search sized by its amount, under its order of magnitude.
+	expectedSizedCandidateRoutes := findCandidateRoutes(mainnetUseCase, largeTokenIn)
+	actualSizedCandidateRoutes, isCached, err := routerUseCaseImpl.GetCachedSizedCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, tokenInDenom, tokenOutDenom, usecase.GetPrecomputeOrderOfMagnitude(largeTokenIn.Amount))
+	s.Require().NoError(err)
+	s.Require().True(isCached)
+	s.Require().Equal(expectedSizedCandidateRoutes, actualSizedCandidateRoutes)
+
+	// The small quote after the large one is the same as with a cold cache.
+	s.Require().Equal(expectedSmallQuote.GetAmountOut(), actualSmallQuote.GetAmountOut())
+}
+
+// Validates the reference amount that sizes the candidate route search.
+func (s *RouterTestSuite) TestGetCandidateSearchCoin() {
+	const denom = "denom"
+
+	tests := map[string]struct {
+		poolDenomMetadata map[string]domain.PoolDenomMetaData
+		expectedAmount    osmomath.Int
+	}{
+		"priced from the total liquidity and its capitalization": {
+			// 1_000 tokens of 6 decimals worth 2_000, so the reference value of 10 is 5 tokens.
+			poolDenomMetadata: map[string]domain.PoolDenomMetaData{denom: {TotalLiquidity: osmomath.NewInt(1_000_000_000), TotalLiquidityCap: osmomath.NewInt(2_000)}},
+			expectedAmount:    osmomath.NewInt(5_000_000),
+		},
+		"rounds down to one at least": {
+			poolDenomMetadata: map[string]domain.PoolDenomMetaData{denom: {TotalLiquidity: osmomath.NewInt(1), TotalLiquidityCap: osmomath.NewInt(1_000)}},
+			expectedAmount:    osmomath.OneInt(),
+		},
+		"capitalization no more than the reference value": {
+			// All of the denom's liquidity is worth 1, so the reference value would be ten times its total liquidity.
+			poolDenomMetadata: map[string]domain.PoolDenomMetaData{denom: {TotalLiquidity: osmomath.NewInt(1_000_000_000), TotalLiquidityCap: osmomath.NewInt(1)}},
+			expectedAmount:    osmomath.OneInt(),
+		},
+		"no capitalization": {
+			poolDenomMetadata: map[string]domain.PoolDenomMetaData{denom: {TotalLiquidity: osmomath.NewInt(1_000_000_000), TotalLiquidityCap: osmomath.ZeroInt()}},
+			expectedAmount:    osmomath.OneInt(),
+		},
+		"no metadata": {
+			expectedAmount: osmomath.OneInt(),
+		},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			tokenMetaDataHolder := mocks.TokenMetadataHolderMock{MockPoolDenomMetadata: tc.poolDenomMetadata}
+
+			routerUseCase := usecase.NewRouterUsecase(routerrepo.New(&log.NoOpLogger{}), &mocks.PoolsUsecaseMock{}, mocks.CandidateRouteFinderMock{}, &tokenMetaDataHolder, domain.RouterConfig{}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+
+			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
+			s.Require().True(ok)
+
+			// System under test
+			actual := routerUseCaseImpl.GetCandidateSearchCoin(sdk.NewCoin(denom, osmomath.NewInt(1_000_000_000_000)))
+
+			s.Require().Equal(sdk.NewCoin(denom, tc.expectedAmount), actual)
+		})
+	}
+}
+
+// Validates that a single route quote does not change the ranked routes that a later split quote reads.
+// The ranked routes of a single route quote are cut to one route before caching.
+func (s *RouterTestSuite) TestGetOptimalQuote_RankedRouteCache_SingleRouteDoesNotAffectSplits() {
+	var (
+		tokenIn       = sdk.NewCoin(USDC, osmomath.NewInt(300_000_000_000))
+		tokenOutDenom = WBTC
+	)
+
+	ctx := context.Background()
+
+	mainnetState := s.SetupMainnetState()
+
+	// Split quote with a cold cache.
+	expectedQuote, err := s.SetupRouterAndPoolsUsecase(mainnetState).Router.GetOptimalQuoteOutGivenIn(ctx, tokenIn, tokenOutDenom)
+	s.Require().NoError(err)
+
+	// Validate that the split quote uses more than one route, so that cutting the ranked routes would change it.
+	s.Require().Greater(len(expectedQuote.GetRoute()), 1)
+
+	mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+	// Single route quote first.
+	_, err = mainnetUseCase.Router.GetOptimalQuoteOutGivenIn(ctx, tokenIn, tokenOutDenom, domain.WithDisableSplitRoutes())
+	s.Require().NoError(err)
+
+	// System under test
+	actualQuote, err := mainnetUseCase.Router.GetOptimalQuoteOutGivenIn(ctx, tokenIn, tokenOutDenom)
+	s.Require().NoError(err)
+
+	s.Require().Equal(len(expectedQuote.GetRoute()), len(actualQuote.GetRoute()))
+	s.Require().Equal(expectedQuote.GetAmountOut(), actualQuote.GetAmountOut())
+}
+
+// Validates that when every route of a quote fails, the quote invalidates exactly the candidate and ranked
+// route cache entries it used, including under a custom max split routes, and leaves the ranked entry of
+// other max split routes in place.
+func (s *RouterTestSuite) TestGetOptimalQuote_AllRoutesFail_InvalidatesOwnCacheEntries() {
+	const (
+		customMinPoolLiquidityCap  = uint64(2)
+		customMaxSplitRoutes       = 2
+		defaultMinPoolLiquidityCap = uint64(1000)
+		defaultMaxSplitRoutes      = 3
+	)
+
+	var (
+		tokenIn                 = sdk.NewCoin(UOSMO, osmomath.NewInt(5_000_000))
+		tokenOutDenom           = ATOM
+		tokenInOrderOfMagnitude = usecase.GetPrecomputeOrderOfMagnitude(tokenIn.Amount)
+
+		cachedRoutes = ingesttypes.CandidateRoutes{
+			Routes: []ingesttypes.CandidateRoute{
+				WithCandidateRoutePools(ingesttypes.CandidateRoute{}, []ingesttypes.CandidatePool{{ID: defaultPoolID, TokenOutDenom: tokenOutDenom}}),
+			},
+			UniquePoolIDs: map[uint64]struct{}{defaultPoolID: {}},
+		}
+
+		// Pool that returns errors, so that every route fails.
+		errorMockPool = &mocks.MockRoutablePool{
+			TakerFee: osmomath.ZeroDec(),
+			CalculateTokenOutByTokenInFunc: func(ctx context.Context, tokenIn sdk.Coin) (sdk.Coin, error) {
+				return sdk.Coin{}, fmt.Errorf("no liquidity")
+			},
+			TokenOutDenom: tokenOutDenom,
+		}
+	)
+
+	tests := map[string]struct {
+		isRankedRouteCached bool
+	}{
+		"ranked route cache hit":                 {isRankedRouteCached: true},
+		"ranked route cache miss, candidate hit": {isRankedRouteCached: false},
+	}
+
+	for name, tc := range tests {
+		s.Run(name, func() {
+			rankedRouteCache := cache.New()
+			candidateRouteCache := cache.New()
+
+			// Entries used by the quote.
+			candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom), cachedRoutes, time.Hour)
+			if tc.isRankedRouteCached {
+				rankedRouteCache.Set(usecase.FormatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, customMaxSplitRoutes), cachedRoutes, time.Hour)
+			}
+
+			// Entry of other max split routes that the quote did not use.
+			rankedRouteCache.Set(usecase.FormatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, defaultMaxSplitRoutes), cachedRoutes, time.Hour)
+
+			poolsUseCaseMock := &mocks.PoolsUsecaseMock{
+				GetRoutesFromCandidatesFunc: func(candidateRoutes ingesttypes.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error) {
+					return []route.RouteImpl{WithRoutePools(route.RouteImpl{}, []domain.RoutablePool{errorMockPool})}, nil
+				},
+			}
+
+			// No liquidity metadata, so that the quote keeps the custom min pool liquidity cap filter.
+			tokenMetaDataHolder := mocks.TokenMetadataHolderMock{
+				MockMinPoolLiquidityCapError:          fmt.Errorf("no metadata"),
+				MockMinPoolEffectiveLiquidityCapError: fmt.Errorf("no metadata"),
+			}
+
+			routerUseCase := usecase.NewRouterUsecase(routerrepo.New(&log.NoOpLogger{}), poolsUseCaseMock, mocks.CandidateRouteFinderMock{}, &tokenMetaDataHolder, domain.RouterConfig{
+				RouteCacheEnabled:                true,
+				MaxRoutes:                        20,
+				MaxPoolsPerRoute:                 4,
+				MaxSplitRoutes:                   defaultMaxSplitRoutes,
+				MinPoolLiquidityCap:              defaultMinPoolLiquidityCap,
+				CandidateRouteCacheExpirySeconds: 1200,
+				RankedRouteCacheExpirySeconds:    45,
+			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, rankedRouteCache, candidateRouteCache)
+
+			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
+			s.Require().True(ok)
+
+			ctx := context.Background()
+
+			// System under test
+			_, err := routerUseCase.GetOptimalQuoteOutGivenIn(ctx, tokenIn, tokenOutDenom, domain.WithMinPoolLiquidityCap(customMinPoolLiquidityCap), domain.WithMaxSplitRoutes(customMaxSplitRoutes))
+			s.Require().Error(err)
+
+			// The quote's own entries are invalidated.
+			_, isCached, err := routerUseCaseImpl.GetCachedCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom)
+			s.Require().NoError(err)
+			s.Require().False(isCached)
+
+			rankedRoutes, err := routerUseCaseImpl.GetCachedRankedRoutes(ctx, domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, customMaxSplitRoutes)
+			s.Require().NoError(err)
+			s.Require().Empty(rankedRoutes.Routes)
+
+			// The entry the quote did not use is kept.
+			rankedRoutes, err = routerUseCaseImpl.GetCachedRankedRoutes(ctx, domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, defaultMaxSplitRoutes)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(rankedRoutes.Routes)
 		})
 	}
 }
