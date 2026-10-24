@@ -64,6 +64,10 @@ func (f *fakeBlockRPC) TxSearch(_ context.Context, query string, _ bool, page, p
 	return &ctypes.ResultTxSearch{Txs: f.indexed[start:end], TotalCount: len(f.indexed)}, nil
 }
 
+func (f *fakeBlockRPC) Status(context.Context) (*ctypes.ResultStatus, error) {
+	return &ctypes.ResultStatus{}, nil
+}
+
 // txResult is a distinct result for the tx at index i, so tests can see which result landed where.
 func txResult(i int) *abcitypes.ExecTxResult {
 	return &abcitypes.ExecTxResult{Log: fmt.Sprintf("tx %d", i), Events: []abcitypes.Event{{Type: "token_swapped"}}}

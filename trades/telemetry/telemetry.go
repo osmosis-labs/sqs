@@ -107,6 +107,17 @@ var (
 		},
 	)
 
+	// sqs_trades_ingest_backfill_remaining_blocks
+	//
+	// gauge of the blocks the startup backfill has yet to read, zero once it has
+	// caught up with the chain or when backfill is off.
+	BackfillRemainingGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "sqs_trades_ingest_backfill_remaining_blocks",
+			Help: "blocks the trades startup backfill has yet to read",
+		},
+	)
+
 	// sqs_trades_ingest_repo_trim_evicted_total
 	//
 	// counter of trades evicted from memory after the retention period.
@@ -152,6 +163,7 @@ func init() {
 	prometheus.MustRegister(BlockSourceCounter)
 	prometheus.MustRegister(GapBlocksCounter)
 	prometheus.MustRegister(LastHeightGauge)
+	prometheus.MustRegister(BackfillRemainingGauge)
 	prometheus.MustRegister(RepoEvictedCounter)
 	prometheus.MustRegister(ListRequestsCounter)
 	prometheus.MustRegister(AggregatesRequestsCounter)

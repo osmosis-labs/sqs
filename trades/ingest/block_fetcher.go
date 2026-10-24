@@ -28,6 +28,8 @@ type BlockData struct {
 // BlockFetcher fetches a block's txs and their results.
 type BlockFetcher interface {
 	FetchBlock(ctx context.Context, height int64) (BlockData, error)
+	// EarliestHeight returns the oldest height whose block the node still keeps.
+	EarliestHeight(ctx context.Context) (int64, error)
 }
 
 // blockRPC is the part of the CometBFT RPC client the block fetcher uses.
@@ -35,6 +37,7 @@ type blockRPC interface {
 	Block(ctx context.Context, height *int64) (*ctypes.ResultBlock, error)
 	BlockResults(ctx context.Context, height *int64) (*ctypes.ResultBlockResults, error)
 	TxSearch(ctx context.Context, query string, prove bool, page, perPage *int, orderBy string) (*ctypes.ResultTxSearch, error)
+	Status(ctx context.Context) (*ctypes.ResultStatus, error)
 }
 
 type rpcBlockFetcher struct {
@@ -86,6 +89,15 @@ func (f *rpcBlockFetcher) FetchBlock(ctx context.Context, height int64) (BlockDa
 		TxHashes:  hashes,
 		TxResults: txResults,
 	}, nil
+}
+
+// EarliestHeight implements BlockFetcher.
+func (f *rpcBlockFetcher) EarliestHeight(ctx context.Context) (int64, error) {
+	status, err := f.client.Status(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("fetching node status: %w", err)
+	}
+	return status.SyncInfo.EarliestBlockHeight, nil
 }
 
 // blockResults returns the block's tx results from /block_results, which must hold one result per tx.

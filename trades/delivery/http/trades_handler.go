@@ -35,10 +35,10 @@ func NewTradesHandler(e *echo.Echo, repo mvc.TradesRepository) {
 }
 
 // @Summary Returns trades for a pool or an asset, newest first.
-// @Description Trades are token_swapped events ingested since SQS started (in-memory, bounded retention).
+// @Description Trades are token_swapped events ingested since SQS started, plus with trades.backfill-blocks the blocks before it that the node keeps (in-memory, bounded retention).
 // @Description A multi-hop swap appears as one trade per hop. Orderbook trades have source "orderbookFill".
 // @Description wallet is the swap message sender, not the fee payer; for swaps routed through a contract it is the contract.
-// @Description usdValueAtIngest uses the spot price when SQS ingested the block, not the price at the trade's height.
+// @Description usdValueAtIngest uses the spot price when SQS ingested the block, not the price at the trade's height. Backfilled trades are valued at their time, from a leg in the USD quote asset or the prices the trades before them imply.
 // @Produce  json
 // @Param  poolId            query  int     false  "Pool ID. At least one of poolId and coinMinimalDenom is required."
 // @Param  coinMinimalDenom  query  string  false  "Chain minimal denom traded in or out."
@@ -47,7 +47,7 @@ func NewTradesHandler(e *echo.Echo, repo mvc.TradesRepository) {
 // @Param  cursor            query  string  false  "nextCursor from the previous page."
 // @Success 200  {object}  types.TradesListResponse  "Trades"
 // @Failure 400  {object}  domain.ResponseError  "Invalid request"
-// @Failure 503  {object}  domain.ResponseError  "Trades not ingested yet"
+// @Failure 503  {object}  domain.ResponseError  "Trades not ingested yet, or the startup backfill is still running"
 // @Router /trades/list [get]
 func (h *TradesHandler) GetTrades(c echo.Context) error {
 	var (
@@ -79,7 +79,7 @@ func (h *TradesHandler) GetTrades(c echo.Context) error {
 // @Description With coinMinimalDenom, a buy is a trade that received that denom and a sell one that gave it up.
 // @Description With only poolId, buys and sells follow each trade's direction and trades without one are not counted.
 // @Description Volumes are sums of usdValueAtIngest over priced trades and are null when no trade on that side was priced.
-// @Description Windows only cover trades ingested since SQS started.
+// @Description Windows only cover trades ingested since SQS started, plus any backfill.
 // @Produce  json
 // @Param  poolId            query  int     false  "Pool ID. At least one of poolId and coinMinimalDenom is required."
 // @Param  coinMinimalDenom  query  string  false  "Chain minimal denom."
@@ -87,7 +87,7 @@ func (h *TradesHandler) GetTrades(c echo.Context) error {
 // @Param  windows           query  string  false  "Comma-separated subset of 24h,7d. Defaults to both."
 // @Success 200  {object}  types.AggregatesResponse  "Aggregates keyed by window"
 // @Failure 400  {object}  domain.ResponseError  "Invalid request"
-// @Failure 503  {object}  domain.ResponseError  "Trades not ingested yet"
+// @Failure 503  {object}  domain.ResponseError  "Trades not ingested yet, or the startup backfill is still running"
 // @Router /trades/aggregates [get]
 func (h *TradesHandler) GetAggregates(c echo.Context) error {
 	var (
