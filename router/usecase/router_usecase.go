@@ -323,6 +323,9 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 		r.logger.Error("error getting candidate routes for pricing", zap.Error(err))
 		return nil, nil, err
 	}
+	if len(candidateRoutes.Routes) == 0 {
+		return nil, nil, domain.ErrNoCandidateRoutes
+	}
 
 	routesImpl, err := r.poolsUsecase.GetRoutesFromCandidates(candidateRoutes, tokenIn.Denom, tokenOutDenom)
 	if err != nil {

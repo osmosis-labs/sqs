@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -191,9 +193,17 @@ func (s *TokensUseCaseTestSuite) TestGetChainDenom_Collisions() {
 // stubPricingSource returns the configured price for a base denom, or an error if it has none.
 type stubPricingSource struct {
 	prices map[string]osmomath.BigDec
+	// noPrice are denoms the source has no price for, as opposed to failing.
+	noPrice map[string]bool
+	// fallback is the source to fall back to. Zero, which is the chain source, means none:
+	// no stub falls back to the chain.
+	fallback domain.PricingSourceType
 }
 
 func (p stubPricingSource) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, []domain.SplitRoute, error) {
+	if p.noPrice[baseDenom] {
+		return osmomath.BigDec{}, nil, domain.NoPriceError{Err: fmt.Errorf("no route found for %s", baseDenom)}
+	}
 	price, ok := p.prices[baseDenom]
 	if !ok {
 		return osmomath.BigDec{}, nil, fmt.Errorf("no route for %s", baseDenom)
@@ -203,8 +213,11 @@ func (p stubPricingSource) GetPrice(ctx context.Context, baseDenom string, quote
 
 func (stubPricingSource) InitializeCache(*cache.Cache) {}
 
-func (stubPricingSource) GetFallbackStrategy(string) domain.PricingSourceType {
-	return domain.NoneSourceType
+func (p stubPricingSource) GetFallbackStrategy(string) domain.PricingSourceType {
+	if p.fallback == 0 {
+		return domain.NoneSourceType
+	}
+	return p.fallback
 }
 
 // Validates that denoms whose price fails, is zero or is unknown are omitted rather than priced at zero.
@@ -229,6 +242,110 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_OmitsUnpricedDenoms() {
 		_, ok := prices[denom][quoteDenom]
 		s.Require().False(ok, denom)
 	}
+}
+
+// Validates that a denom no source has a price for is counted as unpriced, and a failing one as a pricing error.
+func (s *TokensUseCaseTestSuite) TestGetPrices_CountsNoPriceApartFromErrors() {
+	const quoteDenom = "uquote"
+	usecase := tokensusecase.NewTokensUsecase(map[string]domain.Token{
+		"uilliquid": {HumanDenom: "illiquid", Precision: 6},
+		"ufailing":  {HumanDenom: "failing", Precision: 6},
+		quoteDenom:  {HumanDenom: "quote", Precision: 6},
+	}, 0, noOpLogger)
+	usecase.RegisterPricingStrategy(domain.ChainPricingSourceType, stubPricingSource{noPrice: map[string]bool{"uilliquid": true}})
+
+	unpricedBefore, errorsBefore := s.counterValue(domain.SQSPricingUnpricedCounterMetricName), s.counterValue(domain.SQSPricingErrorCounterMetricName)
+
+	prices, err := usecase.GetPrices(context.Background(), []string{"uilliquid", "ufailing"}, []string{quoteDenom}, domain.ChainPricingSourceType)
+	s.Require().NoError(err)
+	s.Require().Empty(prices["uilliquid"])
+	s.Require().Empty(prices["ufailing"])
+
+	s.Require().Equal(unpricedBefore+1, s.counterValue(domain.SQSPricingUnpricedCounterMetricName))
+	s.Require().Equal(errorsBefore+1, s.counterValue(domain.SQSPricingErrorCounterMetricName))
+
+	// With a fallback that has no price for either denom, the token without a chain price is
+	// still unpriced, but the chain failure stays a pricing error rather than being hidden.
+	usecase.RegisterPricingStrategy(domain.ChainPricingSourceType, stubPricingSource{
+		noPrice:  map[string]bool{"uilliquid": true},
+		fallback: domain.CoinGeckoPricingSourceType,
+	})
+	usecase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, stubPricingSource{noPrice: map[string]bool{"uilliquid": true, "ufailing": true}})
+	unpricedBefore, errorsBefore = s.counterValue(domain.SQSPricingUnpricedCounterMetricName), s.counterValue(domain.SQSPricingErrorCounterMetricName)
+
+	_, err = usecase.GetPrices(context.Background(), []string{"uilliquid", "ufailing"}, []string{quoteDenom}, domain.ChainPricingSourceType)
+	s.Require().NoError(err)
+	s.Require().Equal(unpricedBefore+1, s.counterValue(domain.SQSPricingUnpricedCounterMetricName))
+	s.Require().Equal(errorsBefore+1, s.counterValue(domain.SQSPricingErrorCounterMetricName))
+}
+
+// cancellingPricingSource cancels the request while it is being asked for a price, as when a
+// client disconnects while the fallback source is waited on.
+type cancellingPricingSource struct {
+	cancel context.CancelFunc
+}
+
+func (p cancellingPricingSource) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, []domain.SplitRoute, error) {
+	p.cancel()
+	return osmomath.BigDec{}, nil, ctx.Err()
+}
+
+func (cancellingPricingSource) InitializeCache(*cache.Cache) {}
+
+func (cancellingPricingSource) GetFallbackStrategy(string) domain.PricingSourceType {
+	return domain.NoneSourceType
+}
+
+// errorCountingLogger counts the errors logged.
+type errorCountingLogger struct {
+	log.NoOpLogger
+	errors int
+}
+
+func (l *errorCountingLogger) Error(string, ...zap.Field) {
+	l.errors++
+}
+
+func (l *errorCountingLogger) Named(string) log.Logger {
+	return l
+}
+
+// Validates that a request abandoned while the fallback source is waited on returns the context's
+// error, and is neither counted as a pricing error nor logged as one.
+func (s *TokensUseCaseTestSuite) TestGetPrices_AbandonedDuringFallbackIsNotAnError() {
+	const quoteDenom = "uquote"
+	logger := &errorCountingLogger{}
+	usecase := tokensusecase.NewTokensUsecase(map[string]domain.Token{
+		"uilliquid": {HumanDenom: "illiquid", Precision: 6},
+		quoteDenom:  {HumanDenom: "quote", Precision: 6},
+	}, 0, logger)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	usecase.RegisterPricingStrategy(domain.ChainPricingSourceType, stubPricingSource{
+		noPrice:  map[string]bool{"uilliquid": true},
+		fallback: domain.CoinGeckoPricingSourceType,
+	})
+	usecase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, cancellingPricingSource{cancel: cancel})
+	unpricedBefore, errorsBefore := s.counterValue(domain.SQSPricingUnpricedCounterMetricName), s.counterValue(domain.SQSPricingErrorCounterMetricName)
+
+	_, err := usecase.GetPrices(ctx, []string{"uilliquid"}, []string{quoteDenom}, domain.ChainPricingSourceType)
+	s.Require().ErrorIs(err, context.Canceled)
+	s.Require().Equal(unpricedBefore, s.counterValue(domain.SQSPricingUnpricedCounterMetricName))
+	s.Require().Equal(errorsBefore, s.counterValue(domain.SQSPricingErrorCounterMetricName))
+	s.Require().Zero(logger.errors)
+}
+
+// counterValue returns the value of the registered counter with the given name.
+func (s *TokensUseCaseTestSuite) counterValue(name string) float64 {
+	families, err := prometheus.DefaultGatherer.Gather()
+	s.Require().NoError(err)
+	for _, family := range families {
+		if family.GetName() == name {
+			return family.GetMetric()[0].GetCounter().GetValue()
+		}
+	}
+	s.FailNow("counter not registered", name)
+	return 0
 }
 
 // This test takes some mainnet denoms (routertesting.MainnetDenoms) and fetch their prices with USDC as a quote from Coingecko API endpoint.

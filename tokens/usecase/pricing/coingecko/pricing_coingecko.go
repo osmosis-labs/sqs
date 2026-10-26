@@ -133,7 +133,7 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 // Concurrent calls are batched into a single request, see priceBatcher.
 func (c *coingeckoPricing) GetPriceByCoingeckoId(ctx context.Context, baseDenom string, coingeckoId string) (osmomath.BigDec, error) {
 	if coingeckoId == "" {
-		return osmomath.BigDec{}, fmt.Errorf("coingecko ID is empty for base (%s)", baseDenom)
+		return osmomath.BigDec{}, domain.NoPriceError{Err: fmt.Errorf("coingecko ID is empty for base (%s)", baseDenom)}
 	}
 
 	result, err := c.batcher.getPrice(ctx, coingeckoId)
@@ -321,7 +321,7 @@ func (b *priceBatcher) request(ids []string) (map[string]float64, error) {
 func parsePrice(id string, prices map[string]float64) (osmomath.BigDec, error) {
 	price, ok := prices[id]
 	if !ok {
-		return osmomath.BigDec{}, fmt.Errorf("price not found for coingecko ID: %s", id)
+		return osmomath.BigDec{}, domain.NoPriceError{Err: fmt.Errorf("price not found for coingecko ID: %s", id)}
 	}
 
 	// Format with the shortest exact representation rather than %f, which rounds to 6 decimals

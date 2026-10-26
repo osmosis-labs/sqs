@@ -161,6 +161,7 @@ func TestGetPrice_RateLimitBackoff(t *testing.T) {
 
 	_, _, err := pricing.GetPrice(context.Background(), "atom", "")
 	require.Error(t, err)
+	require.False(t, domain.IsNoPrice(err), "a rate limit is a failure of the source, not a token without a price")
 	require.Equal(t, int32(1), fake.requests.Load())
 
 	// Within the Retry-After window no request is sent.
@@ -184,6 +185,10 @@ func TestGetPrice_ZeroOrMissingPriceIsError(t *testing.T) {
 	require.Error(t, errs["zero"])
 	require.Error(t, errs["missing"])
 	require.NoError(t, errs["tiny"])
+
+	// A missing price means Coingecko has none for the token; a zero price is an anomaly.
+	require.True(t, domain.IsNoPrice(errs["missing"]))
+	require.False(t, domain.IsNoPrice(errs["zero"]))
 
 	// Full precision is kept.
 	price, _, err := pricing.GetPrice(context.Background(), "tiny", "")
