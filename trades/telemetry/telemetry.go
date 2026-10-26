@@ -7,6 +7,13 @@ const (
 	SkipReasonMalformed    = "malformed"
 	SkipReasonPoolType     = "pool_type"
 	SkipReasonPoolNotFound = "pool_not_found"
+
+	// Sources for BlockSourceCounter.
+	BlockSourceBlockResults = "block_results"
+	BlockSourceTxSearch     = "tx_search"
+
+	// sourceLabel is the label naming where a trade or a block came from.
+	sourceLabel = "source"
 )
 
 var (
@@ -22,7 +29,7 @@ var (
 			Name: "sqs_trades_ingest_ingested_total",
 			Help: "counter of trades ingested from token_swapped events",
 		},
-		[]string{"source", "direction"},
+		[]string{sourceLabel, "direction"},
 	)
 
 	// sqs_trades_ingest_skipped_total
@@ -51,7 +58,7 @@ var (
 			Name: "sqs_trades_ingest_pricing_failed_total",
 			Help: "counter of trades stored with a null USD value because pricing failed",
 		},
-		[]string{"source"},
+		[]string{sourceLabel},
 	)
 
 	// sqs_trades_ingest_block_fetch_error_total
@@ -62,6 +69,21 @@ var (
 			Name: "sqs_trades_ingest_block_fetch_error_total",
 			Help: "counter of failed block or block_results fetches during trade ingestion",
 		},
+	)
+
+	// sqs_trades_ingest_block_source_total
+	//
+	// counter of blocks whose tx results were read from each source.
+	// tx_search is used when the node keeps no block results (discard_abci_responses).
+	//
+	// Has the following labels:
+	// * source - "block_results" or "tx_search"
+	BlockSourceCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sqs_trades_ingest_block_source_total",
+			Help: "counter of blocks whose tx results trade ingestion read from block_results or the tx index",
+		},
+		[]string{sourceLabel},
 	)
 
 	// sqs_trades_ingest_gap_blocks_total
@@ -127,6 +149,7 @@ func init() {
 	prometheus.MustRegister(SkippedCounter)
 	prometheus.MustRegister(PricingFailedCounter)
 	prometheus.MustRegister(BlockFetchErrorCounter)
+	prometheus.MustRegister(BlockSourceCounter)
 	prometheus.MustRegister(GapBlocksCounter)
 	prometheus.MustRegister(LastHeightGauge)
 	prometheus.MustRegister(RepoEvictedCounter)
