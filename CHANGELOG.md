@@ -55,6 +55,7 @@ Builds against the osmosis v31 module (`github.com/osmosis-labs/osmosis/v31`, `v
 ### Bug Fixes
 
 - #721 | Log tokens no pricing source has a price for (no route, or no Coingecko price) as warnings counted in `sqs_pricing_unpriced_total`, so `sqs_pricing_errors_total` counts only pricing failures
+- #719 | Read trade tx results from the tx index when the node keeps no block results (`discard_abci_responses`)
 - #714 | Search candidate routes at a reference amount and at the quote's size, so a large quote no longer prunes the deep pools for later quotes
 - #713 | Leave invalid denoms out of a `/tokens/prices` batch instead of failing it
 - #712 | Stop price work for requests that were abandoned or timed out
