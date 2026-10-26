@@ -269,9 +269,58 @@ func (n *normaliser) unitPrice(ctx context.Context, denom string) *osmomath.BigD
 	return &price
 }
 
+// tradeTimeValue returns the USD value of a trade at its time, for a trade read
+// too far behind the chain for the current spot price to measure it, or nil
+// if it cannot be valued. A leg in the USD quote denom gives the exact value.
+// Otherwise a leg with a price implied by the trades before it values the
+// trade, direct prices before derived ones and, within a tier, the quote side
+// first as at ingest. The other leg is then observed at the price this trade
+// implies, one tier down: a trade valued in the USD quote denom gives a direct
+// price, one valued at a direct price a derived price, and one valued at a
+// derived price none.
+func (n *normaliser) tradeTimeValue(ctx context.Context, tokenIn, tokenOut sdk.Coin, direction *domain.TradeDirection, at time.Time, cache priceCache, history *tradeTimePrices) *osmomath.BigDec {
+	first := pricedCoin(tokenIn, tokenOut, direction)
+	second := tokenOut
+	if first.Denom == tokenOut.Denom {
+		second = tokenIn
+	}
+
+	switch {
+	case first.Denom == n.usdQuoteDenom:
+		return observed(n.usdValue(ctx, first, cache), second, at, history.direct)
+	case second.Denom == n.usdQuoteDenom:
+		return observed(n.usdValue(ctx, second, cache), first, at, history.direct)
+	}
+
+	for _, tier := range []struct{ prices, observeIn *impliedPrices }{
+		{history.direct, history.derived},
+		{history.derived, nil},
+	} {
+		for _, legs := range [][2]sdk.Coin{{first, second}, {second, first}} {
+			if price := tier.prices.price(legs[0].Denom, at); price != nil {
+				value := osmomath.BigDecFromSDKInt(legs[0].Amount).Mul(*price)
+				return observed(&value, legs[1], at, tier.observeIn)
+			}
+		}
+	}
+	return nil
+}
+
+// observed records that a trade valued at usd moved other, in prices if it is
+// not nil, and returns usd.
+func observed(usd *osmomath.BigDec, other sdk.Coin, at time.Time, prices *impliedPrices) *osmomath.BigDec {
+	if usd != nil && prices != nil {
+		prices.observe(other.Denom, at, *usd, other.Amount)
+	}
+	return usd
+}
+
 // normalise converts one token_swapped event into a trade. Returns a non-empty
 // skip reason, and an error for malformed events, if the event is not ingested.
-func (n *normaliser) normalise(ctx context.Context, event abcitypes.Event, key domain.TradeKey, blockTime time.Time, txHash string, cache priceCache) (domain.Trade, string, error) {
+// With priced the trade is valued at the current spot price. Without it the
+// spot price is no measure of the trade, which is from a backfilled block, so
+// it is valued at its time from history, or has no USD value if history is nil.
+func (n *normaliser) normalise(ctx context.Context, event abcitypes.Event, key domain.TradeKey, blockTime time.Time, txHash string, cache priceCache, priced bool, history *tradeTimePrices) (domain.Trade, string, error) {
 	parsed, err := parseSwapEvent(event)
 	if err != nil {
 		return domain.Trade{}, telemetry.SkipReasonMalformed, err
@@ -287,8 +336,14 @@ func (n *normaliser) normalise(ctx context.Context, event abcitypes.Event, key d
 		return domain.Trade{}, skipReason, nil
 	}
 
-	usd := n.usdValue(ctx, pricedCoin(parsed.tokenIn, parsed.tokenOut, direction), cache)
-	if usd == nil {
+	var usd *osmomath.BigDec
+	switch {
+	case priced:
+		usd = n.usdValue(ctx, pricedCoin(parsed.tokenIn, parsed.tokenOut, direction), cache)
+	case history != nil:
+		usd = n.tradeTimeValue(ctx, parsed.tokenIn, parsed.tokenOut, direction, blockTime, cache, history)
+	}
+	if usd == nil && (priced || history != nil) {
 		telemetry.PricingFailedCounter.WithLabelValues(string(source)).Inc()
 	}
 

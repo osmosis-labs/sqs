@@ -483,6 +483,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 				tradesConfig.QuoteDenoms,
 				tradesRepository,
 				tradesConfig.MaxCatchUpBlocks,
+				tradesConfig.BackfillBlocks,
 				logger,
 			)
 			ingestUseCase.RegisterEndBlockProcessPlugin(tradesIngester)

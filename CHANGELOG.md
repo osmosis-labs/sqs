@@ -35,6 +35,12 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
+## Unreleased
+
+### Features
+
+- #720 | Backfill trades from the blocks the node keeps at startup (`trades.backfill-blocks`), so a restart does not empty the trade store, with backfilled trades valued in USD at their time
+
 ## v31.0.0
 
 Builds against the osmosis v31 module (`github.com/osmosis-labs/osmosis/v31`, `v31.0.3`) and Go 1.27.2. Release images are published to `ghcr.io/osmosis-labs/sqs` instead of Docker Hub.

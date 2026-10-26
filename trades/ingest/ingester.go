@@ -24,6 +24,21 @@ const (
 	// skipped as a gap, so a block that fails every time (e.g. its results
 	// were pruned from the node) does not stop ingestion.
 	maxHeightAttempts = 3
+	// backfillBatchBlocks is how many blocks one catch-up pass reads while
+	// backfilling before yielding, so window expiry keeps running.
+	backfillBatchBlocks = 500
+	// backfillPruneMargin keeps the backfill clear of the node's earliest
+	// block, which moves forward as the node prunes.
+	backfillPruneMargin = 1000
+	// maxBackfillSkips is how many consecutive blocks the backfill may skip
+	// before it gives up and ingestion goes live. A failed block is retried on
+	// the next signal, so a node that cannot serve old blocks (no block results
+	// kept, or pruned) would otherwise keep the backfill behind the chain, and
+	// the endpoints unavailable, indefinitely.
+	maxBackfillSkips = 10
+	// maxStatusAttempts is how many signals the node's earliest block is asked
+	// for before the ingester starts without backfill.
+	maxStatusAttempts = 3
 )
 
 // Ingester ingests trades from token_swapped events.
@@ -36,14 +51,26 @@ const (
 // Heights are processed strictly in order. A failed fetch is retried on the
 // next signal from the same height, up to maxHeightAttempts times before the
 // height is skipped, and a lag of more than maxCatchUpBlocks skips the oldest
-// missed blocks. Skipped blocks are counted in the gap metric. The store is in
-// memory: after a restart, ingestion resumes forward from the first block
-// signalled and earlier trades are not recovered.
+// missed blocks. Skipped blocks are counted in the gap metric.
+//
+// The store is in memory. With backfillBlocks set, the ingester first reads up
+// to that many blocks before the first signalled block, as far back as the
+// node keeps them, so a restart does not empty the store. A trade read more
+// than maxCatchUpBlocks behind the chain is not valued at the current spot
+// price, which is no measure of it, but at its time from the prices the
+// backfilled trades before it imply. The catch-up bound does not apply until the
+// backfill has caught up with the chain, and until then the last ingested
+// height stays unset, so the endpoints keep answering that trades are not
+// ingested yet rather than serving a partial store. If the backfill skips
+// maxBackfillSkips blocks in a row, it ends and ingestion goes live, with the
+// blocks it did not read counted as a gap. Without backfill, ingestion resumes
+// forward from the first block signalled.
 type Ingester struct {
 	fetcher          BlockFetcher
 	normaliser       *normaliser
 	repo             mvc.TradesRepository
 	maxCatchUpBlocks int64
+	backfillBlocks   int64
 	logger           log.Logger
 	now              func() time.Time
 
@@ -56,6 +83,15 @@ type Ingester struct {
 	// failedHeight is the height whose processing last failed, tried failedAttempts times.
 	failedHeight   int64
 	failedAttempts int
+	// backfilling is set from startup until the backfill catches up with the
+	// latest signalled height.
+	backfilling bool
+	// history holds the prices implied by the backfilled trades, while backfilling.
+	history *tradeTimePrices
+	// backfillSkips counts the blocks skipped in a row while backfilling.
+	backfillSkips int
+	// statusAttempts counts the failed reads of the node's earliest block at startup.
+	statusAttempts int
 }
 
 var _ domain.EndBlockProcessPlugin = &Ingester{}
@@ -71,6 +107,7 @@ func NewIngester(
 	quoteDenoms []string,
 	repo mvc.TradesRepository,
 	maxCatchUpBlocks int,
+	backfillBlocks int,
 	logger log.Logger,
 ) *Ingester {
 	return &Ingester{
@@ -78,6 +115,7 @@ func NewIngester(
 		normaliser:       newNormaliser(pools, pricing, usdQuoteDenom, scalingFactor, quoteDenoms),
 		repo:             repo,
 		maxCatchUpBlocks: int64(maxCatchUpBlocks),
+		backfillBlocks:   int64(backfillBlocks),
 		logger:           logger,
 		now:              time.Now,
 		notify:           make(chan struct{}, 1),
@@ -95,12 +133,17 @@ func (i *Ingester) ProcessEndBlock(_ context.Context, blockHeight uint64, _ doma
 		}
 	}
 
+	i.wake()
+	return nil
+}
+
+// wake schedules a catch-up pass without waiting for it.
+func (i *Ingester) wake() {
 	select {
 	case i.notify <- struct{}{}:
 	default:
 		// A wake-up is already pending and will pick up the latest height.
 	}
-	return nil
 }
 
 // Run processes signalled heights until ctx is cancelled.
@@ -128,14 +171,16 @@ func (i *Ingester) catchUp(ctx context.Context) {
 		return
 	}
 
-	if i.lastProcessed == 0 {
-		// Forward-only from the first block after startup. Recorded before
-		// fetching so that a failed first fetch is retried, not skipped.
-		i.lastProcessed = target - 1
+	if i.lastProcessed == 0 && !i.start(ctx, target) {
+		// Retried on the next signal.
+		return
 	}
 	from := i.lastProcessed + 1
 
-	if missed := target - from + 1; missed > i.maxCatchUpBlocks {
+	if i.backfilling {
+		// Read the backfill in batches, yielding between them.
+		target = min(target, from+backfillBatchBlocks-1)
+	} else if missed := target - from + 1; missed > i.maxCatchUpBlocks {
 		skipped := missed - i.maxCatchUpBlocks
 		telemetry.GapBlocksCounter.Add(float64(skipped))
 		i.logger.Warn("trades ingester fell behind, skipping blocks",
@@ -148,7 +193,12 @@ func (i *Ingester) catchUp(ctx context.Context) {
 			return
 		}
 
-		if err := i.processHeight(ctx, height); err != nil {
+		// Outside the backfill, and within the catch-up bound of the chain while
+		// backfilling, a trade is priced at ingest; further behind it is valued
+		// at its time. Live ingestion is always priced, even if the chain moves
+		// on past the bound during a pass.
+		priced := !i.backfilling || i.latestHeight.Load()-height < i.maxCatchUpBlocks
+		if err := i.processHeight(ctx, height, priced); err != nil {
 			if ctx.Err() != nil {
 				return
 			}
@@ -169,16 +219,104 @@ func (i *Ingester) catchUp(ctx context.Context) {
 				zap.Int64("height", height), zap.Int("attempts", i.failedAttempts))
 			i.failedHeight, i.failedAttempts = 0, 0
 			i.lastProcessed = height
+			if i.backfilling {
+				i.backfillSkips++
+				if i.backfillSkips >= maxBackfillSkips {
+					i.endBackfill()
+					i.logger.Warn("trades ingester backfill cannot read the node's blocks, going live without the rest of it",
+						zap.Int64("height", height), zap.Int("skipped_in_a_row", maxBackfillSkips))
+					// The next pass skips the rest of the backfill under the catch-up
+					// bound, rather than reading old blocks at the current spot price.
+					i.wake()
+					return
+				}
+			}
 			continue
 		}
 
+		i.backfillSkips = 0
 		i.lastProcessed = height
-		i.repo.SetLastIngestedHeight(height)
+		if !i.backfilling {
+			i.repo.SetLastIngestedHeight(height)
+		}
 		telemetry.LastHeightGauge.Set(float64(height))
+	}
+
+	if i.backfilling {
+		i.continueBackfill()
 	}
 }
 
-func (i *Ingester) processHeight(ctx context.Context, height int64) error {
+// start sets where ingestion begins on the first signal, at target, and
+// reports whether it did. Without backfill it is forward-only from target.
+// With backfill it starts up to backfillBlocks earlier, clear of the oldest
+// block the node keeps. If the node's earliest block cannot be read, start
+// returns false to be retried on the next signal, and after maxStatusAttempts
+// failures starts forward-only. The start is recorded before fetching so that
+// a failed first fetch is retried, not skipped.
+func (i *Ingester) start(ctx context.Context, target int64) bool {
+	if i.backfillBlocks == 0 {
+		i.lastProcessed = target - 1
+		return true
+	}
+
+	statusCtx, cancel := context.WithTimeout(ctx, blockProcessTimeout)
+	defer cancel()
+	earliest, err := i.fetcher.EarliestHeight(statusCtx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return false
+		}
+		i.statusAttempts++
+		if i.statusAttempts < maxStatusAttempts {
+			i.logger.Warn("trades ingester cannot read the node's earliest block, retrying on the next block", zap.Error(err))
+			return false
+		}
+		i.logger.Warn("trades ingester cannot read the node's earliest block, starting without backfill", zap.Error(err))
+		i.lastProcessed = target - 1
+		return true
+	}
+
+	i.lastProcessed = target - 1
+	from := max(target-i.backfillBlocks, earliest+backfillPruneMargin)
+	if from >= target {
+		return true
+	}
+
+	i.lastProcessed = from - 1
+	i.backfilling = true
+	i.history = newTradeTimePrices(impliedPriceWindow)
+	telemetry.BackfillRemainingGauge.Set(float64(target - from))
+	i.logger.Info("trades ingester backfilling",
+		zap.Int64("from", from), zap.Int64("to", target-1), zap.Int64("node_earliest", earliest))
+	return true
+}
+
+// continueBackfill ends the backfill once it has caught up with the latest
+// signalled height, which makes the store visible, or schedules the next batch.
+func (i *Ingester) continueBackfill() {
+	remaining := i.latestHeight.Load() - i.lastProcessed
+	if remaining > 0 {
+		telemetry.BackfillRemainingGauge.Set(float64(remaining))
+		i.wake()
+		return
+	}
+
+	i.endBackfill()
+	i.repo.SetLastIngestedHeight(i.lastProcessed)
+	i.logger.Info("trades ingester backfill caught up", zap.Int64("height", i.lastProcessed))
+}
+
+// endBackfill ends the backfill, after which ingestion is live.
+func (i *Ingester) endBackfill() {
+	i.backfilling = false
+	i.history = nil
+	i.backfillSkips = 0
+	telemetry.BackfillRemainingGauge.Set(0)
+}
+
+// processHeight stores the trades of one block. Without priced they are valued at their time.
+func (i *Ingester) processHeight(ctx context.Context, height int64, priced bool) error {
 	ctx, cancel := context.WithTimeout(ctx, blockProcessTimeout)
 	defer cancel()
 
@@ -187,7 +325,7 @@ func (i *Ingester) processHeight(ctx context.Context, height int64) error {
 		return err
 	}
 
-	trades, err := i.extractTrades(ctx, block)
+	trades, err := i.extractTrades(ctx, block, priced)
 	if err != nil {
 		return err
 	}
@@ -198,7 +336,7 @@ func (i *Ingester) processHeight(ctx context.Context, height int64) error {
 
 // extractTrades returns the block's trades ascending by key. Only successful
 // txs are read: a failed tx's events are discarded by the chain.
-func (i *Ingester) extractTrades(ctx context.Context, block BlockData) ([]domain.Trade, error) {
+func (i *Ingester) extractTrades(ctx context.Context, block BlockData, priced bool) ([]domain.Trade, error) {
 	if len(block.TxHashes) != len(block.TxResults) {
 		return nil, fmt.Errorf("block %d has %d tx hashes but %d tx results", block.Height, len(block.TxHashes), len(block.TxResults))
 	}
@@ -219,7 +357,7 @@ func (i *Ingester) extractTrades(ctx context.Context, block BlockData) ([]domain
 			}
 
 			key := domain.TradeKey{BlockHeight: block.Height, TxIndex: uint32(txIndex), EventIndex: uint32(eventIndex)}
-			trade, skipReason, err := i.normaliser.normalise(ctx, event, key, block.Time, block.TxHashes[txIndex], prices)
+			trade, skipReason, err := i.normaliser.normalise(ctx, event, key, block.Time, block.TxHashes[txIndex], prices, priced, i.history)
 			if skipReason != "" {
 				telemetry.SkippedCounter.WithLabelValues(skipReason).Inc()
 				if err != nil {

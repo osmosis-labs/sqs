@@ -107,7 +107,9 @@ type Trade struct {
 	TokenIn  sdk.Coin
 	TokenOut sdk.Coin
 	// UsdValueAtIngest is the trade's USD value at the spot price observed when
-	// SQS ingested the block, not at the trade's block height. Nil when the
+	// SQS ingested the block, not at the trade's block height. A trade read by
+	// the startup backfill is instead valued at its time, from a leg in the USD
+	// quote denom or from the prices the trades before it imply. Nil when the
 	// asset could not be priced.
 	UsdValueAtIngest *osmomath.BigDec
 	// Direction is nil when the pool has no canonical quote asset.
@@ -176,6 +178,10 @@ type TradesConfig struct {
 	// MaxCatchUpBlocks bounds how many missed blocks the ingester fetches when
 	// it falls behind. Older missed blocks are skipped and counted as a gap.
 	MaxCatchUpBlocks int `mapstructure:"max-catch-up-blocks"`
+	// BackfillBlocks is how many blocks before the first signalled block the
+	// ingester reads at startup, so a restart does not empty the store. Blocks
+	// the node no longer keeps are not read. Zero turns backfill off.
+	BackfillBlocks int `mapstructure:"backfill-blocks"`
 	// QuoteDenoms are the chain denoms used as the quote asset when classifying
 	// buy/sell on GAMM weighted and concentrated pools, highest priority first.
 	// The pricing default quote denom is always considered first.
@@ -192,6 +198,9 @@ func (c TradesConfig) Validate() error {
 	}
 	if c.MaxCatchUpBlocks <= 0 {
 		return fmt.Errorf("trades max-catch-up-blocks must be positive, got %d", c.MaxCatchUpBlocks)
+	}
+	if c.BackfillBlocks < 0 {
+		return fmt.Errorf("trades backfill-blocks must not be negative, got %d", c.BackfillBlocks)
 	}
 	for _, denom := range c.QuoteDenoms {
 		if err := sdk.ValidateDenom(denom); err != nil {
