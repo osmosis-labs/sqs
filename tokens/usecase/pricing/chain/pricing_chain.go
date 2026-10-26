@@ -252,15 +252,18 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 
 	// Compute a quote for one quote coin.
 	quote, routes, err := c.RUsecase.GetSimpleQuote(ctx, tenQuoteCoin, baseDenom, routingOptions...)
+	if errors.Is(err, domain.ErrNoCandidateRoutes) {
+		return osmomath.BigDec{}, nil, domain.NoPriceError{Err: fmt.Errorf("no route found when computing pricing for %s (base) -> %s (quote): %w", baseDenom, quoteDenom, err)}
+	}
 	if err != nil {
 		return osmomath.BigDec{}, nil, err
 	}
 	if quote == nil {
-		return osmomath.BigDec{}, nil, fmt.Errorf("no quote found when computing pricing for %s (base) -> %s (quote)", baseDenom, quoteDenom)
+		return osmomath.BigDec{}, nil, domain.NoPriceError{Err: fmt.Errorf("no quote found when computing pricing for %s (base) -> %s (quote)", baseDenom, quoteDenom)}
 	}
 
 	if len(routes) == 0 {
-		return osmomath.BigDec{}, nil, fmt.Errorf("no route found when computing pricing for %s (base) -> %s (quote)", baseDenom, quoteDenom)
+		return osmomath.BigDec{}, nil, domain.NoPriceError{Err: fmt.Errorf("no route found when computing pricing for %s (base) -> %s (quote)", baseDenom, quoteDenom)}
 	}
 
 	route := routes[0]
@@ -320,7 +323,7 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 
 	// A truncated or otherwise non-positive price is not a valid price.
 	if chainPrice.IsNil() || !chainPrice.IsPositive() {
-		return osmomath.BigDec{}, nil, fmt.Errorf("non-positive price computed for %s (base) -> %s (quote)", baseDenom, quoteDenom)
+		return osmomath.BigDec{}, nil, domain.NoPriceError{Err: fmt.Errorf("non-positive price computed for %s (base) -> %s (quote)", baseDenom, quoteDenom)}
 	}
 
 	expirationTTL := c.cacheExpiryNs

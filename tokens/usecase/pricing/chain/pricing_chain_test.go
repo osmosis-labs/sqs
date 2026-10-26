@@ -253,6 +253,35 @@ func (s *PricingTestSuite) TestGetPrice_FailedRecomputeEvictsCachedPrice() {
 	s.Require().Error(err)
 }
 
+// Validates that a pair with no candidate route has no price, also when the failure is served from
+// the failed price cache, while any other router error stays a pricing error.
+func (s *PricingTestSuite) TestGetPrice_NoCandidateRoutesIsNoPrice() {
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
+
+	routerErr := domain.ErrNoCandidateRoutes
+	routerMock := &mocks.RouterUsecaseMock{
+		GetSimpleQuoteFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, []domain.SplitRoute, error) {
+			return nil, nil, routerErr
+		},
+	}
+
+	pricingStrategy, err := pricing.NewPricingStrategy(defaultPricingConfig, mainnetUsecase.Tokens, routerMock)
+	s.Require().NoError(err)
+
+	for i := 0; i < 2; i++ {
+		_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
+		s.Require().Error(err)
+		s.Require().True(domain.IsNoPrice(err), "attempt %d: %v", i, err)
+		s.Require().ErrorIs(err, domain.ErrNoCandidateRoutes)
+	}
+
+	routerErr = errors.New("pool state unavailable")
+	_, _, err = pricingStrategy.GetPrice(context.Background(), UOSMO, USDC)
+	s.Require().Error(err)
+	s.Require().False(domain.IsNoPrice(err))
+}
+
 // Validates that a failed price computation is served from the failed price cache, so that a pair without
 // a usable route is not searched again on every request, while recomputes still search and a success clears it.
 // A failure caused by the request's context is not cached.

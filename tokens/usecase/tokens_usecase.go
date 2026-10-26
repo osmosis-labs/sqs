@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -386,7 +387,8 @@ func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 				}
 
 				prices, err := t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
-				if err != nil {
+				// A request abandoned or timed out is the client's, not a pricing failure.
+				if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 					t.logger.Error("failed to get prices for base denom", zap.String("baseDenom", baseDenom), zap.Error(err))
 				}
 
@@ -459,6 +461,10 @@ func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, ctxErr
 		}
+		// noPrice stays set only while every source tried has no price for the token, so
+		// that a fallback's "no price" does not hide a failure of the primary source.
+		noPrice := domain.IsNoPrice(err)
+		primaryErr, fellBack := err, false
 		if err != nil { // Check if we should fallback to another pricing source
 			fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
 			if fallbackSourceType != domain.NoneSourceType {
@@ -466,18 +472,35 @@ func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 				domain.SQSPricingFallbackCounter.Inc()
 				fallbackPricingStrategy, ok := t.pricingStrategyMap[fallbackSourceType]
 				if ok {
+					fellBack = true
 					price, routes, err = fallbackPricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 					if err == nil {
 						err = validatePrice(price)
 					}
+					noPrice = noPrice && domain.IsNoPrice(err)
 				}
 			}
 		}
+		// Likewise for a request abandoned while it waited on the fallback source.
+		if ctxErr := ctx.Err(); fellBack && ctxErr != nil {
+			return nil, ctxErr
+		}
 
 		if err != nil {
-			// Omit the quote rather than serving a zero price.
-			// Increase prometheus counter
-			t.logger.Error(domain.SQSPricingErrorCounterMetricName, zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom), zap.Error(err))
+			// Omit the quote rather than serving a zero price. A token with no price
+			// from any source is expected for illiquid and unlisted tokens, so it is
+			// a warning and counted apart from pricing errors.
+			if noPrice {
+				t.logger.Warn(domain.SQSPricingUnpricedCounterMetricName, zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom), zap.Error(err))
+				domain.SQSPricingUnpricedCounter.Inc()
+				continue
+			}
+			fields := []zap.Field{zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom), zap.Error(err)}
+			if fellBack {
+				// The fallback's error replaced the primary source's, which is kept for diagnosis.
+				fields = append(fields, zap.NamedError("primaryError", primaryErr))
+			}
+			t.logger.Error(domain.SQSPricingErrorCounterMetricName, fields...)
 			domain.SQSPricingErrorCounter.Inc()
 			continue
 		}

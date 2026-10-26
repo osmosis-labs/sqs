@@ -85,6 +85,14 @@ var (
 	// * err - the error message occurred
 	SQSPricingErrorCounterMetricName = "sqs_pricing_errors_total"
 
+	// sqs_pricing_unpriced_total
+	//
+	// counter that measures the number of prices left out because no pricing source
+	// has a price for the token (no route on chain and no Coingecko price), which is
+	// expected for illiquid and unlisted tokens. Pricing failures are counted in
+	// sqs_pricing_errors_total instead.
+	SQSPricingUnpricedCounterMetricName = "sqs_pricing_unpriced_total"
+
 	// sqs_pricing_fallback_total
 	//
 	// counter that measures the number of fallback from chain pricing source to coingecko
@@ -236,6 +244,12 @@ var (
 			Help: "Total number of pricing errors",
 		},
 	)
+	SQSPricingUnpricedCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingUnpricedCounterMetricName,
+			Help: "Total number of prices left out because no pricing source has a price for the token",
+		},
+	)
 	SQSPricingFallbackCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSPricingFallbackCounterMetricName,
@@ -348,6 +362,7 @@ func init() {
 	prometheus.MustRegister(SQSPoolLiquidityPricingWorkerComputeDurationGauge)
 	prometheus.MustRegister(SQSUpdateAssetsAtHeightIntervalErrorCounter)
 	prometheus.MustRegister(SQSPricingErrorCounter)
+	prometheus.MustRegister(SQSPricingUnpricedCounter)
 	prometheus.MustRegister(SQSPricingFallbackCounter)
 	prometheus.MustRegister(SQSPassthroughNumiaAPRsFetchErrorCounter)
 	prometheus.MustRegister(SQSPassthroughTimeseriesPoolFeesFetchErrorCounter)

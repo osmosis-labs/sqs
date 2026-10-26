@@ -15,7 +15,32 @@ var (
 	ErrConflict = errors.New("your Item already exist")
 	// ErrNoTokensOut will throw if the amount in is too small to produce any tokens out
 	ErrNoTokensOut = errors.New("best we can do is no tokens out")
+	// ErrNoCandidateRoutes is returned when no candidate route connects two denoms,
+	// for example when every pool between them is below the minimum liquidity.
+	ErrNoCandidateRoutes = errors.New("no candidate routes found")
 )
+
+// NoPriceError reports that a pricing source has no price for a token: on chain
+// no route, no quote or a non-positive price, and on Coingecko no ID or no price
+// for the ID. It is the expected answer for illiquid and unlisted tokens, unlike
+// a failure of the source itself, and keeps the message of the error it wraps.
+type NoPriceError struct {
+	Err error
+}
+
+func (e NoPriceError) Error() string {
+	return e.Err.Error()
+}
+
+func (e NoPriceError) Unwrap() error {
+	return e.Err
+}
+
+// IsNoPrice reports whether err is or wraps a NoPriceError.
+func IsNoPrice(err error) bool {
+	var noPrice NoPriceError
+	return errors.As(err, &noPrice)
+}
 
 var (
 	ErrBaseDenomNotValid       = errors.New("base denom is empty")
