@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,6 +35,8 @@ const (
 	maxIdsPerRequest = 100
 	// defaultRefreshInterval is how often tracked ids are re-fetched in bulk when the config leaves it unset.
 	defaultRefreshInterval = 5 * time.Minute
+	// maxRefreshInterval caps the configured interval, which also bounds how old a served price can be.
+	maxRefreshInterval = 10 * time.Minute
 	// noPriceCacheTTL is how long an id Coingecko has no price for is answered as unpriced without a request.
 	noPriceCacheTTL = 10 * time.Minute
 	// trackWindow is how long an id keeps being refreshed after its last lookup.
@@ -155,12 +158,13 @@ func (c *coingeckoPricing) GetPriceByCoingeckoId(ctx context.Context, baseDenom 
 	return result, nil
 }
 
-// refreshInterval returns the configured bulk refresh interval, or the default when unset.
+// refreshInterval returns the configured bulk refresh interval capped at maxRefreshInterval, or the
+// default when unset.
 func refreshInterval(config domain.PricingConfig) time.Duration {
 	if config.CoingeckoRefreshIntervalMs <= 0 {
 		return defaultRefreshInterval
 	}
-	return time.Duration(config.CoingeckoRefreshIntervalMs) * time.Millisecond
+	return min(time.Duration(config.CoingeckoRefreshIntervalMs)*time.Millisecond, maxRefreshInterval)
 }
 
 // priceBatcher coalesces Coingecko price lookups and keeps the prices of recently used ids fresh.
@@ -207,9 +211,9 @@ type priceCall struct {
 	err       error
 }
 
-func newPriceBatcher(url string, quoteCurrency string, refreshInterval time.Duration) *priceBatcher {
+func newPriceBatcher(coingeckoUrl string, quoteCurrency string, refreshInterval time.Duration) *priceBatcher {
 	return &priceBatcher{
-		url:             url,
+		url:             coingeckoUrl,
 		quoteCurrency:   quoteCurrency,
 		refreshInterval: refreshInterval,
 		// The grace past one interval covers a refresh that takes a while to complete.
@@ -288,6 +292,10 @@ func (b *priceBatcher) refresh() {
 			delete(b.resultAt, id)
 			continue
 		}
+		// An id Coingecko has no price for is asked about again only once its no-price answer expires.
+		if until, ok := b.noPrice[id]; ok && now.Before(until) {
+			continue
+		}
 		ids = append(ids, id)
 	}
 	if len(ids) == 0 {
@@ -344,6 +352,7 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	now := time.Now()
 	expiresAt := started.Add(b.priceTTL)
 	for _, id := range ids {
 		var (
@@ -353,6 +362,9 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 		if err != nil {
 			// A failed request leaves cached prices to expire on their own; it never extends them.
 			priceErr = fmt.Errorf("no price for coingecko ID %s: %w", id, err)
+		} else if !now.Before(expiresAt) {
+			// The request took longer than a price may be served for.
+			priceErr = fmt.Errorf("coingecko price for ID %s expired before its request completed", id)
 		} else {
 			price, priceErr = parsePrice(id, prices)
 			if last, ok := b.resultAt[id]; !ok || !last.After(started) {
@@ -370,11 +382,22 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 			}
 		}
 
-		if call, ok := b.pending[id]; ok && trigger == domain.CoingeckoTriggerOnDemand {
-			delete(b.pending, id)
-			call.price, call.expiresAt, call.err = price, expiresAt, priceErr
-			close(call.done)
+		call, ok := b.pending[id]
+		if !ok || trigger != domain.CoingeckoTriggerOnDemand {
+			continue
 		}
+		delete(b.pending, id)
+		call.price, call.expiresAt, call.err = price, expiresAt, priceErr
+		// A newer request's result is already stored for the id: hand waiters that instead.
+		if last := b.resultAt[id]; last.After(started) {
+			if cached, ok := b.cache[id]; ok && now.Before(cached.expiresAt) {
+				call.price, call.expiresAt, call.err = cached.price, cached.expiresAt, nil
+			} else if until, ok := b.noPrice[id]; ok && now.Before(until) {
+				call.price, call.expiresAt = osmomath.BigDec{}, time.Time{}
+				call.err = domain.NoPriceError{Err: fmt.Errorf("price not found for coingecko ID: %s", id)}
+			}
+		}
+		close(call.done)
 	}
 }
 
@@ -385,8 +408,9 @@ func (b *priceBatcher) request(ids []string, trigger string) (map[string]float64
 	domain.SQSPricingCoingeckoRequestsCounter.WithLabelValues(trigger).Inc()
 	domain.SQSPricingCoingeckoRequestedIdsCounter.WithLabelValues(trigger).Add(float64(len(ids)))
 
-	url := fmt.Sprintf("%s?ids=%s&vs_currencies=%s", b.url, strings.Join(ids, ","), b.quoteCurrency)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	// Escaped, so an id with a reserved character cannot cut off the ids after it in a bulk request.
+	query := url.Values{"ids": {strings.Join(ids, ",")}, "vs_currencies": {b.quoteCurrency}}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, b.url+"?"+query.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}

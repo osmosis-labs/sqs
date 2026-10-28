@@ -283,3 +283,29 @@ func TestGetPrice_FailedRefreshLetsPricesExpire(t *testing.T) {
 	require.Error(t, err)
 	require.False(t, domain.IsNoPrice(err), "a failed request is a failure of the source, not a token without a price")
 }
+
+func TestGetPrice_ReservedCharacterInIdDoesNotBreakTheBatch(t *testing.T) {
+	fake := newFakeCoingecko(t, map[string]float64{"a&b": 3, "atom": 5})
+	pricing := newBatchedPricing(fake.server.URL)
+
+	errs := getConcurrently(pricing, []string{"a&b", "atom"})
+	require.NoError(t, errs["a&b"])
+	require.NoError(t, errs["atom"])
+	require.Equal(t, int32(1), fake.requests.Load())
+}
+
+func TestGetPrice_RefreshSkipsIdsWithoutPrice(t *testing.T) {
+	fake := newFakeCoingecko(t, map[string]float64{"atom": 5})
+	pricing := newBatchedPricingWithRefresh(fake.server.URL, 300*time.Millisecond)
+
+	errs := getConcurrently(pricing, []string{"atom", "ibc-index"})
+	require.NoError(t, errs["atom"])
+	require.True(t, domain.IsNoPrice(errs["ibc-index"]))
+	require.Equal(t, int32(1), fake.requests.Load())
+
+	// The refresh asks only for the id that has a price; the no-price answer is still cached.
+	require.Eventually(t, func() bool { return fake.requests.Load() == 2 }, 2*time.Second, 10*time.Millisecond)
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	require.Equal(t, 1, fake.idCounts[len(fake.idCounts)-1])
+}
