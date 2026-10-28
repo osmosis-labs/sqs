@@ -32,6 +32,8 @@ type fakeCoingecko struct {
 	// status, when set, is returned once instead of a price response.
 	status     int
 	retryAfter string
+	// failStatus, when set, is returned instead of every price response until cleared.
+	failStatus int
 }
 
 func newFakeCoingecko(t *testing.T, prices map[string]float64) *fakeCoingecko {
@@ -46,6 +48,11 @@ func newFakeCoingecko(t *testing.T, prices map[string]float64) *fakeCoingecko {
 			w.Header().Set("Retry-After", f.retryAfter)
 			w.WriteHeader(f.status)
 			f.status = 0
+			return
+		}
+
+		if f.failStatus != 0 {
+			w.WriteHeader(f.failStatus)
 			return
 		}
 
@@ -67,6 +74,11 @@ func newFakeCoingecko(t *testing.T, prices map[string]float64) *fakeCoingecko {
 // newBatchedPricing returns a Coingecko pricing source using the default (batched) price getter.
 // Base denoms map to Coingecko ids of the same name.
 func newBatchedPricing(url string) domain.PricingSource {
+	return newBatchedPricingWithRefresh(url, 0)
+}
+
+// newBatchedPricingWithRefresh is newBatchedPricing with the bulk refresh interval set; zero uses the default.
+func newBatchedPricingWithRefresh(url string, refreshInterval time.Duration) domain.PricingSource {
 	tokensUsecase := &mocks.TokensUsecaseMock{
 		GetChainDenomFunc: func(humanDenom string) (string, error) {
 			return "", errors.New("not found")
@@ -77,9 +89,11 @@ func newBatchedPricing(url string) domain.PricingSource {
 	}
 
 	config := domain.PricingConfig{
-		CacheExpiryMs:          2000,
-		CoingeckoUrl:           url,
-		CoingeckoQuoteCurrency: "usd",
+		// Short enough that the outer per-denom cache never hides a batcher result in these tests.
+		CacheExpiryMs:              1,
+		CoingeckoUrl:               url,
+		CoingeckoQuoteCurrency:     "usd",
+		CoingeckoRefreshIntervalMs: int(refreshInterval / time.Millisecond),
 	}
 
 	return coingeckopricing.New(tokensUsecase, config, nil)
@@ -200,4 +214,72 @@ func TestGetPrice_ZeroOrMissingPriceIsError(t *testing.T) {
 	_, _, err = pricing.GetPrice(context.Background(), "zero", "")
 	require.Error(t, err)
 	require.Equal(t, requestsBefore+1, fake.requests.Load())
+}
+
+func TestGetPrice_NoPriceIsCached(t *testing.T) {
+	fake := newFakeCoingecko(t, map[string]float64{})
+	pricing := newBatchedPricing(fake.server.URL)
+
+	_, _, err := pricing.GetPrice(context.Background(), "ibc-index", "")
+	require.True(t, domain.IsNoPrice(err))
+	require.Equal(t, int32(1), fake.requests.Load())
+
+	// Coingecko has no price for the id: it is answered as unpriced without another request.
+	time.Sleep(10 * time.Millisecond)
+	_, _, err = pricing.GetPrice(context.Background(), "ibc-index", "")
+	require.True(t, domain.IsNoPrice(err))
+	require.Equal(t, int32(1), fake.requests.Load())
+}
+
+func TestGetPrice_RefreshFetchesTrackedIdsInOneRequest(t *testing.T) {
+	ids, prices := makeIds(10)
+	fake := newFakeCoingecko(t, prices)
+	// Longer than the ten sequential lookups below (each waits out the batch window).
+	pricing := newBatchedPricingWithRefresh(fake.server.URL, time.Second)
+
+	// Lookups spread out in time are fetched one at a time.
+	for _, id := range ids {
+		_, _, err := pricing.GetPrice(context.Background(), id, "")
+		require.NoError(t, err, id)
+	}
+	onDemand := fake.requests.Load()
+	require.Equal(t, int32(len(ids)), onDemand)
+
+	fake.mu.Lock()
+	fake.prices["token-0"] = 99
+	fake.mu.Unlock()
+
+	// One refresh re-fetches every tracked id in a single request.
+	require.Eventually(t, func() bool { return fake.requests.Load() == onDemand+1 }, 3*time.Second, 10*time.Millisecond)
+	fake.mu.Lock()
+	require.Equal(t, len(ids), fake.idCounts[len(fake.idCounts)-1])
+	fake.mu.Unlock()
+
+	// Lookups are then served from the refreshed prices without new requests.
+	time.Sleep(10 * time.Millisecond)
+	price, _, err := pricing.GetPrice(context.Background(), "token-0", "")
+	require.NoError(t, err)
+	require.Equal(t, osmomath.NewBigDec(99), price)
+	require.Equal(t, onDemand+1, fake.requests.Load())
+}
+
+func TestGetPrice_FailedRefreshLetsPricesExpire(t *testing.T) {
+	fake := newFakeCoingecko(t, map[string]float64{"atom": 5})
+	pricing := newBatchedPricingWithRefresh(fake.server.URL, 200*time.Millisecond)
+
+	price, _, err := pricing.GetPrice(context.Background(), "atom", "")
+	require.NoError(t, err)
+	require.Equal(t, osmomath.NewBigDec(5), price)
+
+	fake.mu.Lock()
+	fake.failStatus = http.StatusInternalServerError
+	fake.mu.Unlock()
+
+	// The refresh at 200ms fails, and the price expires at 240ms (interval plus 20%).
+	time.Sleep(300 * time.Millisecond)
+
+	// The old price is not served: the lookup fetches on demand and reports the failure.
+	_, _, err = pricing.GetPrice(context.Background(), "atom", "")
+	require.Error(t, err)
+	require.False(t, domain.IsNoPrice(err), "a failed request is a failure of the source, not a token without a price")
 }

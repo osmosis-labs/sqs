@@ -8,6 +8,14 @@ const (
 	cacheTypeLabel = "cache_type"
 )
 
+// CoingeckoTriggerLabel says what sent a Coingecko request: a lookup that missed the cache
+// (CoingeckoTriggerOnDemand) or the periodic bulk refresh (CoingeckoTriggerRefresh).
+const (
+	coingeckoTriggerLabel    = "trigger"
+	CoingeckoTriggerOnDemand = "on_demand"
+	CoingeckoTriggerRefresh  = "refresh"
+)
+
 var (
 	// sqs_ingest_usecase_process_block_height
 	//
@@ -164,6 +172,16 @@ var (
 	//
 	// counter that measures the number of pricing coingecko cache misses
 	SQSPricingCoingeckoCacheMissesCounterMetricName = "sqs_pricing_coingecko_cache_misses_total"
+
+	// sqs_pricing_coingecko_requests_total
+	//
+	// counter that measures the number of requests sent to Coingecko, by trigger
+	SQSPricingCoingeckoRequestsCounterMetricName = "sqs_pricing_coingecko_requests_total"
+
+	// sqs_pricing_coingecko_requested_ids_total
+	//
+	// counter that measures the number of Coingecko ids sent across all requests, by trigger
+	SQSPricingCoingeckoRequestedIdsCounterMetricName = "sqs_pricing_coingecko_requested_ids_total"
 
 	// sqs_pool_liq_pricing_worker_compute_duration
 	//
@@ -336,6 +354,22 @@ var (
 		},
 	)
 
+	SQSPricingCoingeckoRequestsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSPricingCoingeckoRequestsCounterMetricName,
+			Help: "Total number of requests sent to Coingecko",
+		},
+		[]string{coingeckoTriggerLabel},
+	)
+
+	SQSPricingCoingeckoRequestedIdsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSPricingCoingeckoRequestedIdsCounterMetricName,
+			Help: "Total number of Coingecko ids sent across all requests",
+		},
+		[]string{coingeckoTriggerLabel},
+	)
+
 	SQSCandidateRoutesComputeDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSCandidateRoutesComputeDurationMetricName,
@@ -375,6 +409,8 @@ func init() {
 	prometheus.MustRegister(SQSPricingSpotPriceError)
 	prometheus.MustRegister(SQSPricingCoingeckoCacheHitsCounter)
 	prometheus.MustRegister(SQSPricingCoingeckoCacheMissesCounter)
+	prometheus.MustRegister(SQSPricingCoingeckoRequestsCounter)
+	prometheus.MustRegister(SQSPricingCoingeckoRequestedIdsCounter)
 	prometheus.MustRegister(SQSCandidateRoutesComputeDurationGauge)
 	prometheus.MustRegister(SQSCandidateRouteSearchCappedCounter)
 }
