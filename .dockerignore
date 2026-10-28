@@ -1,0 +1,12 @@
+.git
+.github
+.vscode
+.idea
+build
+bin
+locust
+localnet
+tests
+**/*_test.go
+*.md
+*.log
