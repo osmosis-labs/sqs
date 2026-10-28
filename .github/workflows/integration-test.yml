@@ -8,9 +8,8 @@ on:
         required: true
         type: choice
         options:
-          - stage
           - prod
-        default: 'stage'
+        default: 'prod'
       commit_sha:
         description: 'Commit SHA (optional)'
         required: false
@@ -50,9 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # TODO: re-add prod environment ", prod"
-        # https://linear.app/osmosis/issue/DATA-198/production-deployment-june-11
-        environment: [stage]
+        environment: [prod]
       # Do not cancel concurrent jobs in matrix.
       fail-fast: false
     steps:

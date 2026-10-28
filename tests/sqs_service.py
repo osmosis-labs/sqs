@@ -1,6 +1,5 @@
 import requests
 
-SQS_STAGE = "https://sqs.stage.osmosis.zone"
 SQS_PROD = "https://sqs.osmosis.zone"
 SQS_LOCAL = "http://localhost:9092"
 

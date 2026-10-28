@@ -100,7 +100,6 @@ There are 3 possible triggers:
 ### Supported Environments
 
 - `prod` -> `https://sqs.osmosis.zone`
-- `stage` -> `https://sqs.stage.osmosis.zone`
 
 ### Environment Variables
 

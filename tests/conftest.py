@@ -44,20 +44,17 @@ def parse_coingecko_api_key():
 
 coingecko_api_key = parse_coingecko_api_key()
 
-SERVICE_SQS_STAGE = SQSService(SQS_STAGE, api_key)
 SERVICE_SQS_PROD = SQSService(SQS_PROD, api_key)
 SERVICE_SQS_LOCAL = SQSService(SQS_LOCAL, api_key)
 SERVICE_COINGECKO = CoingeckoService(coingecko_api_key)
 SERVICE_ASSET_LIST = AssetListService()
 
-STAGE_INPUT_NAME = "stage"
 PROD_INPUT_NAME = "prod"
 LOCAL_INPUT_NAME = "local"
 
 # Defines the mapping between the environment input name and the SQS URL.
-# E.g. stage -> SQS_STAGE
+# E.g. prod -> SQS_PROD
 INPUT_MAP = {
-    STAGE_INPUT_NAME: SQS_STAGE,
     PROD_INPUT_NAME: SQS_PROD,
     LOCAL_INPUT_NAME: SQS_LOCAL
 }
@@ -66,9 +63,9 @@ def parse_environments():
     """
     Parse the SQS_ENVIRONMENTS environment variable and return the corresponding SQS URLs
 
-    If the environment variable is not set, the default environment is STAGE_INPUT_NAME
+    If the environment variable is not set, the default environment is PROD_INPUT_NAME
     """
-    SQS_ENVIRONMENTS = os.getenv('SQS_ENVIRONMENTS', STAGE_INPUT_NAME)
+    SQS_ENVIRONMENTS = os.getenv('SQS_ENVIRONMENTS', PROD_INPUT_NAME)
 
     environments = SQS_ENVIRONMENTS.split(",")
     environment_urls = []
@@ -89,7 +86,6 @@ def environment_url(request):
     return request.param
 
 SERVICE_MAP = {
-    SQS_STAGE: SERVICE_SQS_STAGE,
     SQS_PROD: SERVICE_SQS_PROD,
     SQS_LOCAL: SERVICE_SQS_LOCAL
 }
