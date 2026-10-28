@@ -37,6 +37,8 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+## v32.0.0
+
 ### Features
 
 - #720 | Backfill trades from the blocks the node keeps at startup (`trades.backfill-blocks`), so a restart does not empty the trade store, with backfilled trades valued in USD at their time
