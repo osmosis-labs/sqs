@@ -37,6 +37,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+### Improvements
+
+- #726 | Coingecko fallback prices are refreshed in bulk every `pricing.coingecko-refresh-interval-ms` (default 5 minutes) instead of one id per request each minute, and ids Coingecko has no price for are not re-requested for 10 minutes; a price is never served more than the interval plus 20% after it was fetched
+
 ## v32.0.0
 
 ### Features
