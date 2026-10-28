@@ -263,10 +263,12 @@ func TestGetPrice_RefreshFetchesTrackedIdsInOneRequest(t *testing.T) {
 	require.Equal(t, onDemand+1, fake.requests.Load())
 }
 
-func TestGetPrice_FailedRefreshLetsPricesExpire(t *testing.T) {
+func TestGetPrice_FailedRefreshRemovesPrice(t *testing.T) {
 	fake := newFakeCoingecko(t, map[string]float64{"atom": 5})
-	pricing := newBatchedPricingWithRefresh(fake.server.URL, 200*time.Millisecond)
+	// Refresh at 500ms; the price would otherwise be served until 600ms (interval plus 20%).
+	pricing := newBatchedPricingWithRefresh(fake.server.URL, 500*time.Millisecond)
 
+	fetched := time.Now()
 	price, _, err := pricing.GetPrice(context.Background(), "atom", "")
 	require.NoError(t, err)
 	require.Equal(t, osmomath.NewBigDec(5), price)
@@ -275,10 +277,15 @@ func TestGetPrice_FailedRefreshLetsPricesExpire(t *testing.T) {
 	fake.failStatus = http.StatusInternalServerError
 	fake.mu.Unlock()
 
-	// The refresh at 200ms fails, and the price expires at 240ms (interval plus 20%).
-	time.Sleep(300 * time.Millisecond)
+	// Once the refresh has failed, the old price is not served even though it is within its lifetime:
+	// the lookup fetches on demand and reports the failure.
+	require.Eventually(t, func() bool { return fake.requests.Load() >= 2 }, 2*time.Second, time.Millisecond)
+	require.Eventually(t, func() bool {
+		_, _, err := pricing.GetPrice(context.Background(), "atom", "")
+		return err != nil
+	}, time.Second, time.Millisecond)
+	require.Less(t, time.Since(fetched), 600*time.Millisecond)
 
-	// The old price is not served: the lookup fetches on demand and reports the failure.
 	_, _, err = pricing.GetPrice(context.Background(), "atom", "")
 	require.Error(t, err)
 	require.False(t, domain.IsNoPrice(err), "a failed request is a failure of the source, not a token without a price")

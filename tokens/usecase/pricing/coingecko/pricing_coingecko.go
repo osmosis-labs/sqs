@@ -173,8 +173,8 @@ func refreshInterval(config domain.PricingConfig) time.Duration {
 // with one request per maxIdsPerRequest ids; callers waiting on the same id share one result.
 // Every id looked up in the last trackWindow is then re-fetched in bulk every refreshInterval, so
 // lookups are normally served from the cache. A price is served for at most priceTTL after the
-// request that fetched it started: when a refresh fails, prices expire and the next lookup fetches
-// on demand, so no older price is ever served. An id Coingecko has no price for is answered as
+// request that fetched it started, and a failed request for an id removes its price, so the next
+// lookup fetches on demand and an outage leaves the id unpriced rather than served an old price. An id Coingecko has no price for is answered as
 // unpriced for noPriceCacheTTL. Other failures (HTTP errors, zero prices) are not cached. A result
 // never replaces one from a request that started later. No request is sent while a 429 backoff is
 // active.
@@ -360,8 +360,13 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 			priceErr error
 		)
 		if err != nil {
-			// A failed request leaves cached prices to expire on their own; it never extends them.
+			// A failed request removes the price: once the source is known to be failing, the old
+			// price is not served for the rest of its lifetime.
 			priceErr = fmt.Errorf("no price for coingecko ID %s: %w", id, err)
+			if last, ok := b.resultAt[id]; !ok || !last.After(started) {
+				b.resultAt[id] = started
+				delete(b.cache, id)
+			}
 		} else if !now.Before(expiresAt) {
 			// The request took longer than a price may be served for.
 			priceErr = fmt.Errorf("coingecko price for ID %s expired before its request completed", id)
@@ -388,13 +393,15 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 		}
 		delete(b.pending, id)
 		call.price, call.expiresAt, call.err = price, expiresAt, priceErr
-		// A newer request's result is already stored for the id: hand waiters that instead.
+		// A newer request's result is already stored for the id: hand waiters only that.
 		if last := b.resultAt[id]; last.After(started) {
+			call.price, call.expiresAt = osmomath.BigDec{}, time.Time{}
 			if cached, ok := b.cache[id]; ok && now.Before(cached.expiresAt) {
 				call.price, call.expiresAt, call.err = cached.price, cached.expiresAt, nil
 			} else if until, ok := b.noPrice[id]; ok && now.Before(until) {
-				call.price, call.expiresAt = osmomath.BigDec{}, time.Time{}
 				call.err = domain.NoPriceError{Err: fmt.Errorf("price not found for coingecko ID: %s", id)}
+			} else {
+				call.err = fmt.Errorf("no current price for coingecko ID %s: a newer request returned none", id)
 			}
 		}
 		close(call.done)
