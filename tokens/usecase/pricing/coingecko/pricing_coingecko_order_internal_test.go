@@ -49,3 +49,34 @@ func TestFetchChunk_OlderResponseDoesNotOverwriteNewer(t *testing.T) {
 	defer b.mu.Unlock()
 	require.Equal(t, osmomath.NewBigDec(2), b.cache["atom"].price)
 }
+
+func TestClampRefreshInterval(t *testing.T) {
+	lo, hi := 10*time.Second, 10*time.Minute
+	require.Equal(t, lo, clampRefreshInterval(1, lo, hi))
+	require.Equal(t, 5*time.Minute, clampRefreshInterval(300000, lo, hi))
+	require.Equal(t, hi, clampRefreshInterval(3600000, lo, hi))
+	// Large enough to overflow time.Duration if converted before capping.
+	require.Equal(t, hi, clampRefreshInterval(9223372036855, lo, hi))
+}
+
+// A chunk that is not sent because of a backoff leaves cached prices to expire on their own.
+func TestFetchChunk_BackoffKeepsCachedPrices(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+	}))
+	t.Cleanup(server.Close)
+
+	b := newPriceBatcher(server.URL, "usd", time.Hour)
+	b.mu.Lock()
+	b.cache["atom"] = cachedPrice{price: osmomath.NewBigDec(5), expiresAt: time.Now().Add(time.Minute)}
+	b.backoffUntil = time.Now().Add(time.Minute)
+	b.mu.Unlock()
+
+	b.fetchChunk([]string{"atom"}, domain.CoingeckoTriggerRefresh)
+
+	require.Equal(t, int32(0), requests.Load())
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	require.Equal(t, osmomath.NewBigDec(5), b.cache["atom"].price)
+}

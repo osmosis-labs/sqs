@@ -135,13 +135,27 @@ func (c *coingeckoPricing) GetPriceByCoingeckoId(ctx context.Context, baseDenom 
 	return result, nil
 }
 
-// refreshInterval returns the configured bulk refresh interval capped at maxRefreshInterval, or the
-// default when unset.
+// minRefreshInterval keeps the interval (and so a price's lifetime) above the time one refresh of
+// Coingecko can take, so prices are not expired by the time their request completes. A variable
+// only so tests can use shorter intervals.
+var minRefreshInterval = 10 * time.Second
+
+// refreshInterval returns the configured bulk refresh interval within [minRefreshInterval,
+// maxRefreshInterval], or the default when unset.
 func refreshInterval(config domain.PricingConfig) time.Duration {
 	if config.CoingeckoRefreshIntervalMs <= 0 {
 		return defaultRefreshInterval
 	}
-	return min(time.Duration(config.CoingeckoRefreshIntervalMs)*time.Millisecond, maxRefreshInterval)
+	return clampRefreshInterval(config.CoingeckoRefreshIntervalMs, minRefreshInterval, maxRefreshInterval)
+}
+
+// clampRefreshInterval converts ms to a duration within [lo, hi]. It compares against hi before
+// converting, so a huge configured value cannot overflow time.Duration.
+func clampRefreshInterval(ms int, lo, hi time.Duration) time.Duration {
+	if int64(ms) >= int64(hi/time.Millisecond) {
+		return hi
+	}
+	return max(time.Duration(ms)*time.Millisecond, lo)
 }
 
 // priceBatcher coalesces Coingecko price lookups and keeps the prices of recently used ids fresh.
@@ -150,11 +164,11 @@ func refreshInterval(config domain.PricingConfig) time.Duration {
 // with one request per maxIdsPerRequest ids; callers waiting on the same id share one result.
 // Every id looked up in the last trackWindow is then re-fetched in bulk every refreshInterval, so
 // lookups are normally served from the cache. A price is served for at most priceTTL after the
-// request that fetched it started, and a failed request for an id removes its price, so the next
-// lookup fetches on demand and an outage leaves the id unpriced rather than served an old price. An id Coingecko has no price for is answered as
-// unpriced for noPriceCacheTTL. Other failures (HTTP errors, zero prices) are not cached. A result
-// never replaces one from a request that started later. No request is sent while a 429 backoff is
-// active.
+// request that fetched it started, and a request for an id that fails removes its price, so the
+// next lookup fetches on demand and an outage leaves the id unpriced rather than served an old
+// price. An id Coingecko has no price for is answered as unpriced for noPriceCacheTTL. Other
+// failures (HTTP errors, zero prices) are not cached. A result never replaces one from a request
+// that started later. No request is sent while a 429 backoff is active.
 type priceBatcher struct {
 	url             string
 	quoteCurrency   string
@@ -279,7 +293,12 @@ func (b *priceBatcher) refresh() {
 		ids = append(ids, id)
 	}
 	if len(ids) == 0 {
-		b.refreshArmed = false
+		// Every tracked id may be waiting out a no-price answer; keep refreshing while any is tracked.
+		if len(b.tracked) == 0 {
+			b.refreshArmed = false
+		} else {
+			time.AfterFunc(b.refreshInterval, b.refresh)
+		}
 		b.mu.Unlock()
 		return
 	}
@@ -313,21 +332,9 @@ func (b *priceBatcher) flush() {
 
 // fetchChunk requests prices for ids, stores the results and resolves any pending calls for them.
 func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
-	b.mu.Lock()
-	backoffUntil := b.backoffUntil
-	b.mu.Unlock()
-
-	var (
-		prices map[string]float64
-		err    error
-	)
 	// Freshness is measured from when the request started, the earliest the price could be from.
 	started := time.Now()
-	if started.Before(backoffUntil) {
-		err = fmt.Errorf("coingecko rate limited until %s", backoffUntil.UTC().Format(time.RFC3339))
-	} else {
-		prices, err = b.request(ids, trigger)
-	}
+	prices, sent, err := b.request(ids, trigger)
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -340,10 +347,11 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 			priceErr error
 		)
 		if err != nil {
-			// A failed request removes the price: once the source is known to be failing, the old
-			// price is not served for the rest of its lifetime.
+			// A request that was sent and failed removes the price: once the source is known to be
+			// failing, the old price is not served for the rest of its lifetime. A chunk not sent
+			// (backoff) leaves prices to expire on their own.
 			priceErr = fmt.Errorf("no price for coingecko ID %s: %w", id, err)
-			if last, ok := b.resultAt[id]; !ok || !last.After(started) {
+			if last, ok := b.resultAt[id]; sent && (!ok || !last.After(started)) {
 				b.resultAt[id] = started
 				delete(b.cache, id)
 			}
@@ -388,23 +396,30 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 	}
 }
 
-// request fetches prices for ids in one Coingecko request. It is not tied to any caller's
-// context so that one cancelled caller cannot fail the batch for the others; the shared
-// client's timeout bounds it.
-func (b *priceBatcher) request(ids []string, trigger string) (map[string]float64, error) {
-	domain.SQSPricingCoingeckoRequestsCounter.WithLabelValues(trigger).Inc()
-	domain.SQSPricingCoingeckoRequestedIdsCounter.WithLabelValues(trigger).Add(float64(len(ids)))
+// request fetches prices for ids in one Coingecko request and reports whether it was sent. It is
+// not tied to any caller's context so that one cancelled caller cannot fail the batch for the
+// others; the shared client's timeout bounds it.
+func (b *priceBatcher) request(ids []string, trigger string) (map[string]float64, bool, error) {
+	// Checked right before sending, so a 429 from an earlier chunk stops this one.
+	b.mu.Lock()
+	backoffUntil := b.backoffUntil
+	b.mu.Unlock()
+	if time.Now().Before(backoffUntil) {
+		return nil, false, fmt.Errorf("coingecko rate limited until %s", backoffUntil.UTC().Format(time.RFC3339))
+	}
 
 	// Escaped, so an id with a reserved character cannot cut off the ids after it in a bulk request.
 	query := url.Values{"ids": {strings.Join(ids, ",")}, "vs_currencies": {b.quoteCurrency}}
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, b.url+"?"+query.Encode(), nil)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
+	domain.SQSPricingCoingeckoRequestsCounter.WithLabelValues(trigger).Inc()
+	domain.SQSPricingCoingeckoRequestedIdsCounter.WithLabelValues(trigger).Add(float64(len(ids)))
 	resp, err := sqshttp.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, true, err
 	}
 	defer resp.Body.Close()
 
@@ -415,16 +430,16 @@ func (b *priceBatcher) request(ids []string, trigger string) (map[string]float64
 			b.backoffUntil = until
 		}
 		b.mu.Unlock()
-		return nil, fmt.Errorf("failed to get price from Coingecko: %s, backing off for %s", resp.Status, backoff)
+		return nil, true, fmt.Errorf("failed to get price from Coingecko: %s, backing off for %s", resp.Status, backoff)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get price from Coingecko: %s", resp.Status)
+		return nil, true, fmt.Errorf("failed to get price from Coingecko: %s", resp.Status)
 	}
 
 	var data map[string]map[string]float64
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, fmt.Errorf("failed to decode Coingecko response: %s", err)
+		return nil, true, fmt.Errorf("failed to decode Coingecko response: %s", err)
 	}
 
 	prices := make(map[string]float64, len(data))
@@ -434,7 +449,7 @@ func (b *priceBatcher) request(ids []string, trigger string) (map[string]float64
 		}
 	}
 
-	return prices, nil
+	return prices, true, nil
 }
 
 // parsePrice converts the Coingecko price for id, rejecting missing and non-positive prices.
