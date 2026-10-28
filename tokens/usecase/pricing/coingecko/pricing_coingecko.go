@@ -55,9 +55,10 @@ type CoingeckoPriceGetterFn func(ctx context.Context, baseDenom string, coingeck
 var DefaultCoingeckoPriceGetter CoingeckoPriceGetterFn = nil
 
 type coingeckoPricing struct {
-	TUsecase      mvc.TokensUsecase
+	TUsecase mvc.TokensUsecase
+	// cache is kept for domain.PricingSource; prices are cached by the batcher, which is the only
+	// layer that knows when a price stops being servable.
 	cache         *cache.Cache
-	cacheExpiryNs time.Duration
 	quoteCurrency string
 	coingeckoUrl  string
 	// defaultQuoteDenom is the chain denom resolved from config.DefaultQuoteHumanDenom.
@@ -78,7 +79,6 @@ func New(tokenUseCase mvc.TokensUsecase, config domain.PricingConfig, coingeckoP
 	coingeckoPricing := &coingeckoPricing{
 		TUsecase:      tokenUseCase,
 		cache:         cache.New(),
-		cacheExpiryNs: time.Duration(config.CacheExpiryMs) * time.Millisecond,
 		quoteCurrency: config.CoingeckoQuoteCurrency,
 		coingeckoUrl:  config.CoingeckoUrl,
 		batcher:       newPriceBatcher(config.CoingeckoUrl, config.CoingeckoQuoteCurrency, refreshInterval(config)),
@@ -113,23 +113,6 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 		return osmomath.BigDec{}, nil, err
 	}
 
-	cacheKey := domain.FormatPricingCacheKey(baseDenom, c.quoteCurrency)
-	cachedValue, found := c.cache.Get(cacheKey)
-
-	if found {
-		// Cast cached value to correct type.
-		cachedBigDecPrice, ok := cachedValue.(osmomath.BigDec)
-		if !ok {
-			return osmomath.BigDec{}, nil, fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
-		}
-		// Increase cache hits
-		domain.SQSPricingCoingeckoCacheHitsCounter.Inc()
-		return cachedBigDecPrice, nil, nil
-	} else if !found {
-		// Increase cache misses
-		domain.SQSPricingCoingeckoCacheMissesCounter.Inc()
-	}
-
 	price, err := c.priceGetterFn(ctx, baseDenom, coingeckoId)
 	if err != nil {
 		return osmomath.BigDec{}, nil, err
@@ -144,15 +127,9 @@ func (c *coingeckoPricing) GetPriceByCoingeckoId(ctx context.Context, baseDenom 
 		return osmomath.BigDec{}, domain.NoPriceError{Err: fmt.Errorf("coingecko ID is empty for base (%s)", baseDenom)}
 	}
 
-	result, expiresAt, err := c.batcher.getPrice(ctx, coingeckoId)
+	result, _, err := c.batcher.getPrice(ctx, coingeckoId)
 	if err != nil {
 		return osmomath.BigDec{}, err
-	}
-
-	// Never let this cache serve the price past the batcher's own deadline for it.
-	if ttl := min(c.cacheExpiryNs, time.Until(expiresAt)); ttl > 0 {
-		cacheKey := domain.FormatPricingCacheKey(baseDenom, c.quoteCurrency)
-		c.cache.Set(cacheKey, result, ttl)
 	}
 
 	return result, nil
@@ -234,13 +211,16 @@ func (b *priceBatcher) getPrice(ctx context.Context, coingeckoId string) (osmoma
 	b.track(coingeckoId, now)
 	if cached, ok := b.cache[coingeckoId]; ok && now.Before(cached.expiresAt) {
 		b.mu.Unlock()
+		domain.SQSPricingCoingeckoCacheHitsCounter.Inc()
 		return cached.price, cached.expiresAt, nil
 	}
 
 	if until, ok := b.noPrice[coingeckoId]; ok && now.Before(until) {
 		b.mu.Unlock()
+		domain.SQSPricingCoingeckoCacheHitsCounter.Inc()
 		return osmomath.BigDec{}, time.Time{}, domain.NoPriceError{Err: fmt.Errorf("price not found for coingecko ID: %s", coingeckoId)}
 	}
+	domain.SQSPricingCoingeckoCacheMissesCounter.Inc()
 
 	if now.Before(b.backoffUntil) {
 		until := b.backoffUntil

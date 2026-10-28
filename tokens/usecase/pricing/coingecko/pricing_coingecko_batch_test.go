@@ -89,8 +89,7 @@ func newBatchedPricingWithRefresh(url string, refreshInterval time.Duration) dom
 	}
 
 	config := domain.PricingConfig{
-		// Short enough that the outer per-denom cache never hides a batcher result in these tests.
-		CacheExpiryMs:              1,
+		CacheExpiryMs:              2000,
 		CoingeckoUrl:               url,
 		CoingeckoQuoteCurrency:     "usd",
 		CoingeckoRefreshIntervalMs: int(refreshInterval / time.Millisecond),
