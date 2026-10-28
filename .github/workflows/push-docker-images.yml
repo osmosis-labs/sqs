@@ -55,6 +55,11 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+              GIT_VERSION=${{ env.VERSION }}
+              GIT_COMMIT=${{ env.SHA }}
           tags: |
               ${{ env.DOCKER_REPOSITORY }}:latest
               ${{ env.DOCKER_REPOSITORY }}:${{ env.MAJOR_VERSION }}

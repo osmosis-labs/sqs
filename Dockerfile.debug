@@ -8,18 +8,19 @@ ARG RUNNER_IMAGE="golang:1.27"
 # Builder
 # --------------------------------------------------------
 
-FROM golang:${GO_VERSION}-alpine as builder
+FROM golang:${GO_VERSION}-alpine AS builder
 
 ARG GIT_VERSION
 ARG GIT_COMMIT
 
 WORKDIR /osmosis
 
-COPY go.mod go.sum ./
-COPY . .
+RUN set -eux; apk add --no-cache ca-certificates build-base linux-headers
 
-RUN set -eux; apk add --no-cache ca-certificates build-base linux-headers && \
-    go mod download
+# Dependencies are fetched before the source is copied so that source changes
+# reuse these layers.
+COPY go.mod go.sum ./
+RUN go mod download
 
 RUN ARCH=$(uname -m) && WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm | sed 's/.* //') && \
     wget https://github.com/CosmWasm/wasmvm/releases/download/$WASMVM_VERSION/libwasmvm_muslc.$ARCH.a \
@@ -27,7 +28,10 @@ RUN ARCH=$(uname -m) && WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm |
     wget https://github.com/CosmWasm/wasmvm/releases/download/$WASMVM_VERSION/checksums.txt -O /tmp/checksums.txt && \
     sha256sum /lib/libwasmvm_muslc.a | grep $(cat /tmp/checksums.txt | grep libwasmvm_muslc.$ARCH | cut -d ' ' -f 1)
 
-RUN BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
+COPY . .
+
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
     -tags "netgo,ledger,muslc" \
     -gcflags "all=-N -l" \
     -ldflags \
@@ -41,7 +45,7 @@ RUN BUILD_TAGS=muslc LINK_STATICALLY=true GOWORK=off go build -mod=readonly \
 
 FROM ${RUNNER_IMAGE}
 COPY --from=builder /osmosis/build/sqsd /bin/sqsd
-ENV HOME /osmosis
+ENV HOME=/osmosis
 WORKDIR $HOME
 EXPOSE 9092
 EXPOSE 50051
