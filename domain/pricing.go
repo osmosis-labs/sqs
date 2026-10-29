@@ -83,7 +83,8 @@ func WithMinPricingPoolLiquidityCap(minPoolLiquidityCap uint64) PricingOption {
 
 // PricingConfig defines the configuration for the pricing.
 type PricingConfig struct {
-	// The number of milliseconds to cache the pricing data for.
+	// The number of milliseconds to cache chain pricing data for. Coingecko prices are not
+	// cached by it; their lifetime follows CoingeckoRefreshIntervalMs.
 	CacheExpiryMs int `mapstructure:"cache-expiry-ms"`
 
 	// The default quote chain denom.
@@ -100,7 +101,8 @@ type PricingConfig struct {
 	CoingeckoQuoteCurrency string `mapstructure:"coingecko-quote-currency"`
 
 	// CoingeckoRefreshIntervalMs is how often the prices of recently requested Coingecko ids are
-	// refreshed in bulk. Zero or negative uses the default (5 minutes).
+	// refreshed in bulk. Zero or negative uses the default (5 minutes); other values are clamped to
+	// between 10 seconds and 10 minutes. A Coingecko price is served for at most the interval plus 20%.
 	CoingeckoRefreshIntervalMs int `mapstructure:"coingecko-refresh-interval-ms"`
 
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
