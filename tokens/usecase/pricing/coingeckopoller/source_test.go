@@ -430,6 +430,15 @@ func TestRefreshInterval(t *testing.T) {
 	require.Equal(t, maxInterval, refreshInterval(1<<62))
 }
 
+func TestMaxAge(t *testing.T) {
+	// The batcher this replaces served a price for the interval plus a fifth of it.
+	require.Equal(t, 6*time.Minute, maxAge(5*time.Minute))
+	require.Equal(t, 12*time.Minute, maxAge(maxInterval))
+	// Short intervals get at least minMaxAgeGrace past the interval.
+	require.Equal(t, 90*time.Second, maxAge(time.Minute))
+	require.Equal(t, 40*time.Second, maxAge(minInterval))
+}
+
 func TestNew(t *testing.T) {
 	const defaultQuote = "ibc/DEFAULT"
 	tokens := (&testTokens{ids: map[string]string{"uatom": "cosmos"}}).mock()

@@ -41,9 +41,8 @@ const (
 	// minInterval and maxInterval bound the configured interval.
 	minInterval = 10 * time.Second
 	maxInterval = 10 * time.Minute
-	// maxAgeIntervals is how many intervals an answer is used for after its request started, so
-	// that one failed refresh does not leave tokens unpriced.
-	maxAgeIntervals = 2
+	// minMaxAgeGrace is the least time an answer is used for past one interval (see maxAge).
+	minMaxAgeGrace = 30 * time.Second
 	// minBackoff is the first wait before retrying a failed refresh; it doubles up to the interval.
 	minBackoff = time.Second
 	// minRateLimitBackoff is the shortest wait after HTTP 429, used when Retry-After is missing:
@@ -119,7 +118,7 @@ func newSource(tokens mvc.TokensUsecase, fetch fetchFunc, interval time.Duration
 		logger:   logger,
 		fetch:    fetch,
 		interval: interval,
-		maxAge:   maxAgeIntervals * interval,
+		maxAge:   maxAge(interval),
 		now:      time.Now,
 		sleep:    sleep,
 	}
@@ -137,6 +136,15 @@ func refreshInterval(ms int) time.Duration {
 		return maxInterval
 	}
 	return max(time.Duration(ms)*time.Millisecond, minInterval)
+}
+
+// maxAge returns how long an answer is used for after its request started: one interval plus a
+// fifth of it, as the batcher this replaces served its prices (6 minutes at the default 5 minute
+// interval). Prices are shown as current, so they are not served much past the next refresh.
+// The grace is at least minMaxAgeGrace, so that at short intervals a slow refresh, or a failed
+// one retried after a few seconds of backoff, lands before the answers it replaces expire.
+func maxAge(interval time.Duration) time.Duration {
+	return interval + max(interval/5, minMaxAgeGrace)
 }
 
 // GetPrice implements domain.PricingSource. Coingecko prices are in USD, which is served for a
