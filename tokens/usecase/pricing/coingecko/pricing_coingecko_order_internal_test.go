@@ -239,3 +239,18 @@ func TestRefresh_TimedFromCycleStart(t *testing.T) {
 	gap := times[2].Sub(times[1])
 	require.Less(t, gap, 550*time.Millisecond)
 }
+
+// A price handed to a waiting lookup that expires before the lookup resumes is not returned.
+func TestGetPrice_WaiterDoesNotReturnExpiredPrice(t *testing.T) {
+	b := newTestBatcher(t, "http://127.0.0.1:0", time.Hour)
+	call := &priceCall{done: make(chan struct{}), price: osmomath.NewBigDec(5), expiresAt: time.Now().Add(-time.Millisecond)}
+	close(call.done)
+	b.mu.Lock()
+	b.pending["atom"] = call
+	b.mu.Unlock()
+
+	price, err := b.getPrice(context.Background(), "atom")
+	require.Error(t, err)
+	require.False(t, domain.IsNoPrice(err))
+	require.True(t, price.IsNil())
+}

@@ -197,11 +197,12 @@ type cachedPrice struct {
 	expiresAt time.Time
 }
 
-// priceCall is the shared result for one id; done is closed once price or err is set.
+// priceCall is the shared result for one id; done is closed once price (with expiresAt) or err is set.
 type priceCall struct {
-	done  chan struct{}
-	price osmomath.BigDec
-	err   error
+	done      chan struct{}
+	price     osmomath.BigDec
+	expiresAt time.Time
+	err       error
 }
 
 func newPriceBatcher(coingeckoUrl string, quoteCurrency string, refreshInterval time.Duration) *priceBatcher {
@@ -252,6 +253,10 @@ func (b *priceBatcher) getPrice(ctx context.Context, coingeckoId string) (osmoma
 
 	select {
 	case <-call.done:
+		// The price can expire between being handed over and this lookup resuming.
+		if call.err == nil && !time.Now().Before(call.expiresAt) {
+			return osmomath.BigDec{}, fmt.Errorf("coingecko price for ID %s expired before it was returned", coingeckoId)
+		}
 		return call.price, call.err
 	case <-ctx.Done():
 		return osmomath.BigDec{}, ctx.Err()
@@ -431,7 +436,7 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 			continue
 		}
 		delete(b.pending, id)
-		call.price, call.err = price, priceErr
+		call.price, call.expiresAt, call.err = price, expiresAt, priceErr
 		// When this result was not stored, or a newer request's result is: hand waiters only the
 		// stored answer.
 		if last := b.resultAt[id]; !informative || last.After(started) {
@@ -441,6 +446,8 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 				if call.err == nil {
 					call.err = fmt.Errorf("no current price for coingecko ID %s: a newer request returned none", id)
 				}
+			} else if call.err == nil {
+				call.expiresAt = b.cache[id].expiresAt
 			}
 		}
 		close(call.done)
