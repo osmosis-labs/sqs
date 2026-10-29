@@ -459,8 +459,7 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) (rateLimited boo
 		}
 		close(call.done)
 	}
-	// Only an active backoff makes an unanswered chunk rate limited; an empty answer is not.
-	return err != nil && !failed && now.Before(b.backoffUntil)
+	return err != nil && !failed
 }
 
 // request fetches prices for ids in one Coingecko request. On error it reports whether the request
@@ -510,12 +509,6 @@ func (b *priceBatcher) request(ids []string, trigger string) (map[string]float64
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, true, fmt.Errorf("failed to decode Coingecko response: %s", err)
 	}
-	// Coingecko leaves out only ids it does not know, so an empty answer to several ids is more
-	// likely a dropped response than none of them being known: it is not taken as a no-price answer.
-	if len(data) == 0 && len(ids) > 1 {
-		return nil, false, fmt.Errorf("empty Coingecko response for %d ids", len(ids))
-	}
-
 	prices := make(map[string]float64, len(data))
 	for id, quotes := range data {
 		if price, ok := quotes[b.quoteCurrency]; ok {

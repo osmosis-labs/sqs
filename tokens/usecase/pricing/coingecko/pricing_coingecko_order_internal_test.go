@@ -204,19 +204,35 @@ func TestRefresh_RetriedAfterRateLimit(t *testing.T) {
 	}, time.Second, time.Millisecond)
 }
 
-// An empty answer to several ids marks none of them unpriced and keeps their prices.
-func TestFetchChunk_EmptyAnswerIsNotNoPrice(t *testing.T) {
+// An empty answer keeps a priced id's price and marks only ids without one unpriced, so ids
+// Coingecko does not know are not asked about on every lookup. It is not a rate limit.
+func TestFetchChunk_EmptyAnswer(t *testing.T) {
 	server, _ := newTestServer(t, http.StatusOK, `{}`)
 	b := newTestBatcher(t, server.URL, time.Hour)
 	setFreshPrice(b, "atom", 5)
 
-	// Not a rate limit either, so it does not make the refresh retry early.
-	require.False(t, b.fetchChunk([]string{"atom", "osmo"}, domain.CoingeckoTriggerRefresh))
+	require.False(t, b.fetchChunk([]string{"atom", "unknown"}, domain.CoingeckoTriggerRefresh))
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	require.Equal(t, osmomath.NewBigDec(5), b.cache["atom"].price)
-	require.Empty(t, b.noPrice)
+	require.NotContains(t, b.noPrice, "atom")
+	require.Contains(t, b.noPrice, "unknown")
+}
+
+// A 429 whose backoff has already ended (Retry-After: 0) still counts as a rate limit.
+func TestFetchChunk_RateLimitWithoutBackoff(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Retry-After", "0")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	t.Cleanup(server.Close)
+	b := newTestBatcher(t, server.URL, time.Hour)
+
+	require.True(t, b.fetchChunk([]string{"atom", "osmo"}, domain.CoingeckoTriggerRefresh))
+	require.Equal(t, int32(1), requests.Load())
 }
 
 // A lookup whose chunk is held back by a backoff gets a price stored meanwhile by another request.
