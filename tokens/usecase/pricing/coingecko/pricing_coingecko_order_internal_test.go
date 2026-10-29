@@ -129,7 +129,7 @@ func TestFetchChunk_RateLimitKeepsCachedPrices(t *testing.T) {
 	setFreshPrice(b, "atom", 5)
 	setFreshPrice(b, "osmo", 1)
 
-	b.fetchChunk([]string{"atom", "osmo"}, domain.CoingeckoTriggerRefresh)
+	require.True(t, b.fetchChunk([]string{"atom", "osmo"}, domain.CoingeckoTriggerRefresh), "a 429 is a rate limit")
 
 	require.Equal(t, int32(1), requests.Load())
 	b.mu.Lock()
@@ -210,7 +210,8 @@ func TestFetchChunk_EmptyAnswerIsNotNoPrice(t *testing.T) {
 	b := newTestBatcher(t, server.URL, time.Hour)
 	setFreshPrice(b, "atom", 5)
 
-	b.fetchChunk([]string{"atom", "osmo"}, domain.CoingeckoTriggerRefresh)
+	// Not a rate limit either, so it does not make the refresh retry early.
+	require.False(t, b.fetchChunk([]string{"atom", "osmo"}, domain.CoingeckoTriggerRefresh))
 
 	b.mu.Lock()
 	defer b.mu.Unlock()

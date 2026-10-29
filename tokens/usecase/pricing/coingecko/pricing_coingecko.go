@@ -459,7 +459,8 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) (rateLimited boo
 		}
 		close(call.done)
 	}
-	return err != nil && !failed
+	// Only an active backoff makes an unanswered chunk rate limited; an empty answer is not.
+	return err != nil && !failed && now.Before(b.backoffUntil)
 }
 
 // request fetches prices for ids in one Coingecko request. On error it reports whether the request
