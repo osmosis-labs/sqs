@@ -99,6 +99,10 @@ type PricingConfig struct {
 	// Coingecko quote currency for fetching prices.
 	CoingeckoQuoteCurrency string `mapstructure:"coingecko-quote-currency"`
 
+	// CoingeckoRefreshIntervalMs is how often the prices of recently requested Coingecko ids are
+	// refreshed in bulk. Zero or negative uses the default (5 minutes).
+	CoingeckoRefreshIntervalMs int `mapstructure:"coingecko-refresh-interval-ms"`
+
 	MaxPoolsPerRoute int `mapstructure:"max-pools-per-route"`
 	MaxRoutes        int `mapstructure:"max-routes"`
 	// MinPoolLiquidityCap is the minimum liquidity capitalization required for a pool to be considered in the router.

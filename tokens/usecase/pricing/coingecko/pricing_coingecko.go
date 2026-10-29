@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,8 +33,14 @@ const (
 	batchWindow = 25 * time.Millisecond
 	// maxIdsPerRequest caps the number of Coingecko ids in a single request.
 	maxIdsPerRequest = 100
-	// priceCacheTTL is how long a price returned by Coingecko is served by id without another request.
-	priceCacheTTL = 60 * time.Second
+	// defaultRefreshInterval is how often tracked ids are re-fetched in bulk when the config leaves it unset.
+	defaultRefreshInterval = 5 * time.Minute
+	// maxRefreshInterval caps the configured interval, which also bounds how old a served price can be.
+	maxRefreshInterval = 10 * time.Minute
+	// noPriceCacheTTL is how long an id Coingecko has no price for is answered as unpriced without a request.
+	noPriceCacheTTL = 10 * time.Minute
+	// trackWindow is how long an id keeps being refreshed after its last lookup.
+	trackWindow = time.Hour
 	// defaultRateLimitBackoff is used on HTTP 429 when Retry-After is missing or unparsable.
 	defaultRateLimitBackoff = 10 * time.Second
 	// maxRateLimitBackoff caps the Retry-After delay honoured on HTTP 429.
@@ -47,9 +55,10 @@ type CoingeckoPriceGetterFn func(ctx context.Context, baseDenom string, coingeck
 var DefaultCoingeckoPriceGetter CoingeckoPriceGetterFn = nil
 
 type coingeckoPricing struct {
-	TUsecase      mvc.TokensUsecase
+	TUsecase mvc.TokensUsecase
+	// cache is kept for domain.PricingSource; prices are cached by the batcher, which is the only
+	// layer that knows when a price stops being servable.
 	cache         *cache.Cache
-	cacheExpiryNs time.Duration
 	quoteCurrency string
 	coingeckoUrl  string
 	// defaultQuoteDenom is the chain denom resolved from config.DefaultQuoteHumanDenom.
@@ -70,10 +79,9 @@ func New(tokenUseCase mvc.TokensUsecase, config domain.PricingConfig, coingeckoP
 	coingeckoPricing := &coingeckoPricing{
 		TUsecase:      tokenUseCase,
 		cache:         cache.New(),
-		cacheExpiryNs: time.Duration(config.CacheExpiryMs) * time.Millisecond,
 		quoteCurrency: config.CoingeckoQuoteCurrency,
 		coingeckoUrl:  config.CoingeckoUrl,
-		batcher:       newPriceBatcher(config.CoingeckoUrl, config.CoingeckoQuoteCurrency),
+		batcher:       newPriceBatcher(config.CoingeckoUrl, config.CoingeckoQuoteCurrency, refreshInterval(config)),
 	}
 
 	// If the default quote human denom does not resolve, only the stablecoin constants are accepted.
@@ -105,23 +113,6 @@ func (c *coingeckoPricing) GetPrice(ctx context.Context, baseDenom string, quote
 		return osmomath.BigDec{}, nil, err
 	}
 
-	cacheKey := domain.FormatPricingCacheKey(baseDenom, c.quoteCurrency)
-	cachedValue, found := c.cache.Get(cacheKey)
-
-	if found {
-		// Cast cached value to correct type.
-		cachedBigDecPrice, ok := cachedValue.(osmomath.BigDec)
-		if !ok {
-			return osmomath.BigDec{}, nil, fmt.Errorf("invalid type cached in pricing, expected BigDec, got (%T)", cachedValue)
-		}
-		// Increase cache hits
-		domain.SQSPricingCoingeckoCacheHitsCounter.Inc()
-		return cachedBigDecPrice, nil, nil
-	} else if !found {
-		// Increase cache misses
-		domain.SQSPricingCoingeckoCacheMissesCounter.Inc()
-	}
-
 	price, err := c.priceGetterFn(ctx, baseDenom, coingeckoId)
 	if err != nil {
 		return osmomath.BigDec{}, nil, err
@@ -136,30 +127,65 @@ func (c *coingeckoPricing) GetPriceByCoingeckoId(ctx context.Context, baseDenom 
 		return osmomath.BigDec{}, domain.NoPriceError{Err: fmt.Errorf("coingecko ID is empty for base (%s)", baseDenom)}
 	}
 
-	result, err := c.batcher.getPrice(ctx, coingeckoId)
+	result, _, err := c.batcher.getPrice(ctx, coingeckoId)
 	if err != nil {
 		return osmomath.BigDec{}, err
 	}
 
-	cacheKey := domain.FormatPricingCacheKey(baseDenom, c.quoteCurrency)
-	c.cache.Set(cacheKey, result, c.cacheExpiryNs)
-
 	return result, nil
 }
 
-// priceBatcher coalesces Coingecko price lookups. Ids requested within batchWindow are fetched
-// with one request per maxIdsPerRequest ids, callers waiting on the same id share one result,
-// prices are cached by id for priceCacheTTL, and no request is sent while a 429 backoff is active.
-// Failures are never cached.
-type priceBatcher struct {
-	url           string
-	quoteCurrency string
+// minRefreshInterval keeps the interval (and so a price's lifetime) above the time one refresh of
+// Coingecko can take, so prices are not expired by the time their request completes. A variable
+// only so tests can use shorter intervals.
+var minRefreshInterval = 10 * time.Second
 
-	mu           sync.Mutex
-	cache        map[string]cachedPrice
+// refreshInterval returns the configured bulk refresh interval within [minRefreshInterval,
+// maxRefreshInterval], or the default when unset.
+func refreshInterval(config domain.PricingConfig) time.Duration {
+	if config.CoingeckoRefreshIntervalMs <= 0 {
+		return defaultRefreshInterval
+	}
+	return clampRefreshInterval(config.CoingeckoRefreshIntervalMs, minRefreshInterval, maxRefreshInterval)
+}
+
+// clampRefreshInterval converts ms to a duration within [lo, hi]. It compares against hi before
+// converting, so a huge configured value cannot overflow time.Duration.
+func clampRefreshInterval(ms int, lo, hi time.Duration) time.Duration {
+	if int64(ms) >= int64(hi/time.Millisecond) {
+		return hi
+	}
+	return max(time.Duration(ms)*time.Millisecond, lo)
+}
+
+// priceBatcher coalesces Coingecko price lookups and keeps the prices of recently used ids fresh.
+//
+// A lookup that misses the cache joins the ids requested within batchWindow, which are fetched
+// with one request per maxIdsPerRequest ids; callers waiting on the same id share one result.
+// Every id looked up in the last trackWindow is then re-fetched in bulk every refreshInterval, so
+// lookups are normally served from the cache. A price is served for at most priceTTL after the
+// request that fetched it started, and a request for an id that fails removes its price, so the
+// next lookup fetches on demand and an outage leaves the id unpriced rather than served an old
+// price. An id Coingecko has no price for is answered as unpriced for noPriceCacheTTL. Other
+// failures (HTTP errors, zero prices) are not cached. A result never replaces one from a request
+// that started later. No request is sent while a 429 backoff is active.
+type priceBatcher struct {
+	url             string
+	quoteCurrency   string
+	refreshInterval time.Duration
+	priceTTL        time.Duration
+
+	mu      sync.Mutex
+	cache   map[string]cachedPrice
+	noPrice map[string]time.Time
+	// resultAt is the start time of the request whose result is stored for an id, so a slower,
+	// older response cannot overwrite a newer one.
+	resultAt     map[string]time.Time
+	tracked      map[string]time.Time
 	pending      map[string]*priceCall
 	queue        []string
 	flushArmed   bool
+	refreshArmed bool
 	backoffUntil time.Time
 }
 
@@ -168,36 +194,52 @@ type cachedPrice struct {
 	expiresAt time.Time
 }
 
-// priceCall is the shared result for one id; done is closed once price or err is set.
+// priceCall is the shared result for one id; done is closed once price (with expiresAt) or err is set.
 type priceCall struct {
-	done  chan struct{}
-	price osmomath.BigDec
-	err   error
+	done      chan struct{}
+	price     osmomath.BigDec
+	expiresAt time.Time
+	err       error
 }
 
-func newPriceBatcher(url string, quoteCurrency string) *priceBatcher {
+func newPriceBatcher(coingeckoUrl string, quoteCurrency string, refreshInterval time.Duration) *priceBatcher {
 	return &priceBatcher{
-		url:           url,
-		quoteCurrency: quoteCurrency,
-		cache:         make(map[string]cachedPrice),
-		pending:       make(map[string]*priceCall),
+		url:             coingeckoUrl,
+		quoteCurrency:   quoteCurrency,
+		refreshInterval: refreshInterval,
+		// The grace past one interval covers a refresh that takes a while to complete.
+		priceTTL: refreshInterval + refreshInterval/5,
+		cache:    make(map[string]cachedPrice),
+		noPrice:  make(map[string]time.Time),
+		resultAt: make(map[string]time.Time),
+		tracked:  make(map[string]time.Time),
+		pending:  make(map[string]*priceCall),
 	}
 }
 
-// getPrice returns the price for the given Coingecko id, waiting for the batch it joins.
-// The caller's ctx only bounds its own wait; it never cancels the shared request.
-func (b *priceBatcher) getPrice(ctx context.Context, coingeckoId string) (osmomath.BigDec, error) {
+// getPrice returns the price for the given Coingecko id and when it stops being servable, waiting
+// for the batch it joins. The caller's ctx only bounds its own wait; it never cancels the shared request.
+func (b *priceBatcher) getPrice(ctx context.Context, coingeckoId string) (osmomath.BigDec, time.Time, error) {
 	b.mu.Lock()
 	now := time.Now()
+	b.track(coingeckoId, now)
 	if cached, ok := b.cache[coingeckoId]; ok && now.Before(cached.expiresAt) {
 		b.mu.Unlock()
-		return cached.price, nil
+		domain.SQSPricingCoingeckoCacheHitsCounter.Inc()
+		return cached.price, cached.expiresAt, nil
 	}
+
+	if until, ok := b.noPrice[coingeckoId]; ok && now.Before(until) {
+		b.mu.Unlock()
+		domain.SQSPricingCoingeckoCacheHitsCounter.Inc()
+		return osmomath.BigDec{}, time.Time{}, domain.NoPriceError{Err: fmt.Errorf("price not found for coingecko ID: %s", coingeckoId)}
+	}
+	domain.SQSPricingCoingeckoCacheMissesCounter.Inc()
 
 	if now.Before(b.backoffUntil) {
 		until := b.backoffUntil
 		b.mu.Unlock()
-		return osmomath.BigDec{}, fmt.Errorf("coingecko rate limited until %s, no price for coingecko ID: %s", until.UTC().Format(time.RFC3339), coingeckoId)
+		return osmomath.BigDec{}, time.Time{}, fmt.Errorf("coingecko rate limited until %s, no price for coingecko ID: %s", until.UTC().Format(time.RFC3339), coingeckoId)
 	}
 
 	call, ok := b.pending[coingeckoId]
@@ -214,10 +256,63 @@ func (b *priceBatcher) getPrice(ctx context.Context, coingeckoId string) (osmoma
 
 	select {
 	case <-call.done:
-		return call.price, call.err
+		return call.price, call.expiresAt, call.err
 	case <-ctx.Done():
-		return osmomath.BigDec{}, ctx.Err()
+		return osmomath.BigDec{}, time.Time{}, ctx.Err()
 	}
+}
+
+// track records a lookup of id so the bulk refresh keeps its price fresh, and arms the refresh
+// if it is not running. Must be called with b.mu held.
+func (b *priceBatcher) track(id string, now time.Time) {
+	b.tracked[id] = now
+	if !b.refreshArmed {
+		b.refreshArmed = true
+		time.AfterFunc(b.refreshInterval, b.refresh)
+	}
+}
+
+// refresh re-fetches every id looked up within trackWindow, in chunks of maxIdsPerRequest, and
+// re-arms itself while any id is tracked. Ids not looked up within trackWindow are dropped.
+func (b *priceBatcher) refresh() {
+	b.mu.Lock()
+	now := time.Now()
+	ids := make([]string, 0, len(b.tracked))
+	for id, lastLookup := range b.tracked {
+		if now.Sub(lastLookup) > trackWindow {
+			delete(b.tracked, id)
+			delete(b.cache, id)
+			delete(b.noPrice, id)
+			delete(b.resultAt, id)
+			continue
+		}
+		// An id Coingecko has no price for is asked about again only once its no-price answer expires.
+		if until, ok := b.noPrice[id]; ok && now.Before(until) {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		// Every tracked id may be waiting out a no-price answer; keep refreshing while any is tracked.
+		if len(b.tracked) == 0 {
+			b.refreshArmed = false
+		} else {
+			time.AfterFunc(b.refreshInterval, b.refresh)
+		}
+		b.mu.Unlock()
+		return
+	}
+	b.mu.Unlock()
+
+	// A stable order keeps request URLs identical between refreshes, so caches in front of
+	// Coingecko can serve repeats.
+	sort.Strings(ids)
+	for start := 0; start < len(ids); start += maxIdsPerRequest {
+		end := min(start+maxIdsPerRequest, len(ids))
+		b.fetchChunk(ids[start:end], domain.CoingeckoTriggerRefresh)
+	}
+
+	time.AfterFunc(b.refreshInterval, b.refresh)
 }
 
 // flush sends the queued ids in chunks of maxIdsPerRequest, one request after another so that
@@ -231,60 +326,100 @@ func (b *priceBatcher) flush() {
 
 	for start := 0; start < len(ids); start += maxIdsPerRequest {
 		end := min(start+maxIdsPerRequest, len(ids))
-		b.fetchChunk(ids[start:end])
+		b.fetchChunk(ids[start:end], domain.CoingeckoTriggerOnDemand)
 	}
 }
 
-// fetchChunk requests prices for ids and resolves their pending calls.
-func (b *priceBatcher) fetchChunk(ids []string) {
-	b.mu.Lock()
-	backoffUntil := b.backoffUntil
-	b.mu.Unlock()
-
-	var (
-		prices map[string]float64
-		err    error
-	)
-	if time.Now().Before(backoffUntil) {
-		err = fmt.Errorf("coingecko rate limited until %s", backoffUntil.UTC().Format(time.RFC3339))
-	} else {
-		prices, err = b.request(ids)
-	}
+// fetchChunk requests prices for ids, stores the results and resolves any pending calls for them.
+func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
+	// Freshness is measured from when the request started, the earliest the price could be from.
+	started := time.Now()
+	prices, sent, err := b.request(ids, trigger)
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	now := time.Now()
+	expiresAt := started.Add(b.priceTTL)
 	for _, id := range ids {
-		call := b.pending[id]
-		delete(b.pending, id)
-
+		var (
+			price    osmomath.BigDec
+			priceErr error
+		)
 		if err != nil {
-			call.err = fmt.Errorf("no price for coingecko ID %s: %w", id, err)
+			// A request that was sent and failed removes the price: once the source is known to be
+			// failing, the old price is not served for the rest of its lifetime. A chunk not sent
+			// (backoff) leaves prices to expire on their own.
+			priceErr = fmt.Errorf("no price for coingecko ID %s: %w", id, err)
+			if last, ok := b.resultAt[id]; sent && (!ok || !last.After(started)) {
+				b.resultAt[id] = started
+				delete(b.cache, id)
+			}
+		} else if !now.Before(expiresAt) {
+			// The request took longer than a price may be served for.
+			priceErr = fmt.Errorf("coingecko price for ID %s expired before its request completed", id)
 		} else {
-			call.price, call.err = parsePrice(id, prices)
-			if call.err == nil {
-				b.cache[id] = cachedPrice{price: call.price, expiresAt: now.Add(priceCacheTTL)}
+			price, priceErr = parsePrice(id, prices)
+			if last, ok := b.resultAt[id]; !ok || !last.After(started) {
+				b.resultAt[id] = started
+				switch {
+				case priceErr == nil:
+					b.cache[id] = cachedPrice{price: price, expiresAt: expiresAt}
+					delete(b.noPrice, id)
+				case domain.IsNoPrice(priceErr):
+					delete(b.cache, id)
+					b.noPrice[id] = started.Add(noPriceCacheTTL)
+				default:
+					delete(b.cache, id)
+				}
 			}
 		}
 
+		call, ok := b.pending[id]
+		if !ok || trigger != domain.CoingeckoTriggerOnDemand {
+			continue
+		}
+		delete(b.pending, id)
+		call.price, call.expiresAt, call.err = price, expiresAt, priceErr
+		// A newer request's result is already stored for the id: hand waiters only that.
+		if last := b.resultAt[id]; last.After(started) {
+			call.price, call.expiresAt = osmomath.BigDec{}, time.Time{}
+			if cached, ok := b.cache[id]; ok && now.Before(cached.expiresAt) {
+				call.price, call.expiresAt, call.err = cached.price, cached.expiresAt, nil
+			} else if until, ok := b.noPrice[id]; ok && now.Before(until) {
+				call.err = domain.NoPriceError{Err: fmt.Errorf("price not found for coingecko ID: %s", id)}
+			} else {
+				call.err = fmt.Errorf("no current price for coingecko ID %s: a newer request returned none", id)
+			}
+		}
 		close(call.done)
 	}
 }
 
-// request fetches prices for ids in one Coingecko request. It is not tied to any caller's
-// context so that one cancelled caller cannot fail the batch for the others; the shared
-// client's timeout bounds it.
-func (b *priceBatcher) request(ids []string) (map[string]float64, error) {
-	url := fmt.Sprintf("%s?ids=%s&vs_currencies=%s", b.url, strings.Join(ids, ","), b.quoteCurrency)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
+// request fetches prices for ids in one Coingecko request and reports whether it was sent. It is
+// not tied to any caller's context so that one cancelled caller cannot fail the batch for the
+// others; the shared client's timeout bounds it.
+func (b *priceBatcher) request(ids []string, trigger string) (map[string]float64, bool, error) {
+	// Checked right before sending, so a 429 from an earlier chunk stops this one.
+	b.mu.Lock()
+	backoffUntil := b.backoffUntil
+	b.mu.Unlock()
+	if time.Now().Before(backoffUntil) {
+		return nil, false, fmt.Errorf("coingecko rate limited until %s", backoffUntil.UTC().Format(time.RFC3339))
 	}
 
+	// Escaped, so an id with a reserved character cannot cut off the ids after it in a bulk request.
+	query := url.Values{"ids": {strings.Join(ids, ",")}, "vs_currencies": {b.quoteCurrency}}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, b.url+"?"+query.Encode(), nil)
+	if err != nil {
+		return nil, false, err
+	}
+
+	domain.SQSPricingCoingeckoRequestsCounter.WithLabelValues(trigger).Inc()
+	domain.SQSPricingCoingeckoRequestedIdsCounter.WithLabelValues(trigger).Add(float64(len(ids)))
 	resp, err := sqshttp.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, true, err
 	}
 	defer resp.Body.Close()
 
@@ -295,16 +430,16 @@ func (b *priceBatcher) request(ids []string) (map[string]float64, error) {
 			b.backoffUntil = until
 		}
 		b.mu.Unlock()
-		return nil, fmt.Errorf("failed to get price from Coingecko: %s, backing off for %s", resp.Status, backoff)
+		return nil, true, fmt.Errorf("failed to get price from Coingecko: %s, backing off for %s", resp.Status, backoff)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get price from Coingecko: %s", resp.Status)
+		return nil, true, fmt.Errorf("failed to get price from Coingecko: %s", resp.Status)
 	}
 
 	var data map[string]map[string]float64
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, fmt.Errorf("failed to decode Coingecko response: %s", err)
+		return nil, true, fmt.Errorf("failed to decode Coingecko response: %s", err)
 	}
 
 	prices := make(map[string]float64, len(data))
@@ -314,7 +449,7 @@ func (b *priceBatcher) request(ids []string) (map[string]float64, error) {
 		}
 	}
 
-	return prices, nil
+	return prices, true, nil
 }
 
 // parsePrice converts the Coingecko price for id, rejecting missing and non-positive prices.
