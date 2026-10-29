@@ -155,6 +155,55 @@ func TestFetchChunk_MissingIdKeepsServablePrice(t *testing.T) {
 	require.Contains(t, b.noPrice, "unknown")
 }
 
+// An id missing from an answer after its price expired is not marked unpriced if it had a price
+// within noPriceCacheTTL; the expired price is not served.
+func TestFetchChunk_MissingIdRecentlyPricedIsNotNoPrice(t *testing.T) {
+	server, _ := newTestServer(t, http.StatusOK, `{"osmo":{"usd":1}}`)
+	b := newTestBatcher(t, server.URL, time.Hour)
+	call := &priceCall{done: make(chan struct{})}
+	b.mu.Lock()
+	b.cache["atom"] = cachedPrice{price: osmomath.NewBigDec(5), expiresAt: time.Now().Add(-time.Second)}
+	b.pricedAt["atom"] = time.Now().Add(-2 * time.Minute)
+	b.pending["atom"] = call
+	b.mu.Unlock()
+
+	b.fetchChunk([]string{"atom", "osmo"}, domain.CoingeckoTriggerOnDemand)
+
+	<-call.done
+	require.True(t, domain.IsNoPrice(call.err))
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	require.NotContains(t, b.noPrice, "atom")
+}
+
+// A refresh cut short by a 429 is retried once the backoff ends, not an interval later.
+func TestRefresh_RetriedAfterRateLimit(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) == 1 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		_, _ = w.Write([]byte(`{"atom":{"usd":5}}`))
+	}))
+	t.Cleanup(server.Close)
+	b := newTestBatcher(t, server.URL, time.Hour)
+
+	b.mu.Lock()
+	b.tracked["atom"] = time.Now()
+	b.armRefresh(0)
+	b.mu.Unlock()
+
+	require.Eventually(t, func() bool { return requests.Load() >= 2 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		_, ok := b.cache["atom"]
+		return ok
+	}, time.Second, time.Millisecond)
+}
+
 // An empty answer to several ids marks none of them unpriced and keeps their prices.
 func TestFetchChunk_EmptyAnswerIsNotNoPrice(t *testing.T) {
 	server, _ := newTestServer(t, http.StatusOK, `{}`)

@@ -167,9 +167,10 @@ func clampRefreshInterval(ms int, lo, hi time.Duration) time.Duration {
 // request that fetched it started, and a request for an id that fails removes its price, so the
 // next lookup fetches on demand and an outage leaves the id unpriced rather than served an old
 // price. A rate limit is not such a failure: it says nothing about the price, which is left to
-// expire on its own. An id Coingecko has no price for is answered as unpriced for
-// noPriceCacheTTL. Other failures (HTTP errors, zero prices) are not cached. A result never
-// replaces one from a request that started later. No request is sent while a 429 backoff is active.
+// expire on its own, and a refresh it cut short is retried once the backoff ends. An id Coingecko
+// has no price for is answered as unpriced for noPriceCacheTTL. Other failures (HTTP errors, zero
+// prices) are not cached. A result never replaces one from a request that started later. No
+// request is sent while a 429 backoff is active.
 type priceBatcher struct {
 	url             string
 	quoteCurrency   string
@@ -181,7 +182,9 @@ type priceBatcher struct {
 	noPrice map[string]time.Time
 	// resultAt is the start time of the request whose result is stored for an id, so a slower,
 	// older response cannot overwrite a newer one.
-	resultAt     map[string]time.Time
+	resultAt map[string]time.Time
+	// pricedAt is the start time of the last request that returned a price for an id.
+	pricedAt     map[string]time.Time
 	tracked      map[string]time.Time
 	pending      map[string]*priceCall
 	queue        []string
@@ -217,6 +220,7 @@ func newPriceBatcher(coingeckoUrl string, quoteCurrency string, refreshInterval 
 		cache:    make(map[string]cachedPrice),
 		noPrice:  make(map[string]time.Time),
 		resultAt: make(map[string]time.Time),
+		pricedAt: make(map[string]time.Time),
 		tracked:  make(map[string]time.Time),
 		pending:  make(map[string]*priceCall),
 	}
@@ -313,6 +317,7 @@ func (b *priceBatcher) refresh() {
 			delete(b.cache, id)
 			delete(b.noPrice, id)
 			delete(b.resultAt, id)
+			delete(b.pricedAt, id)
 			continue
 		}
 		// An id Coingecko has no price for is asked about again only once its no-price answer expires.
@@ -336,16 +341,25 @@ func (b *priceBatcher) refresh() {
 	// A stable order keeps request URLs identical between refreshes, so caches in front of
 	// Coingecko can serve repeats.
 	sort.Strings(ids)
+	rateLimited := false
 	for start := 0; start < len(ids); start += maxIdsPerRequest {
 		end := min(start+maxIdsPerRequest, len(ids))
-		b.fetchChunk(ids[start:end], domain.CoingeckoTriggerRefresh)
+		if b.fetchChunk(ids[start:end], domain.CoingeckoTriggerRefresh) {
+			rateLimited = true
+		}
 	}
 
 	// Timed from the start of this cycle, so each id is re-fetched about one interval after its
 	// last fetch began, inside its priceTTL, however long the cycle took. A cycle that overran
 	// still leaves a short gap before the next.
 	b.mu.Lock()
-	b.armRefresh(max(b.refreshInterval-time.Since(now), b.refreshInterval/10))
+	delay := max(b.refreshInterval-time.Since(now), b.refreshInterval/10)
+	// A cycle cut short by a rate limit is retried once the backoff ends, so its prices are not
+	// left to expire before the next scheduled refresh. At least a second apart, so it cannot spin.
+	if rateLimited {
+		delay = min(delay, max(time.Until(b.backoffUntil), time.Second))
+	}
+	b.armRefresh(delay)
 	b.mu.Unlock()
 }
 
@@ -365,7 +379,8 @@ func (b *priceBatcher) flush() {
 }
 
 // fetchChunk requests prices for ids, stores the results and resolves any pending calls for them.
-func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
+// It reports whether the chunk went unanswered because of a rate limit.
+func (b *priceBatcher) fetchChunk(ids []string, trigger string) (rateLimited bool) {
 	// Freshness is measured from when the request started, the earliest the price could be from.
 	started := time.Now()
 	prices, failed, err := b.request(ids, trigger)
@@ -396,11 +411,13 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 			informative = false
 		default:
 			price, priceErr = parsePrice(id, prices)
-			// An id missing from the answer while its price is still servable is more likely a
-			// dropped answer than a price Coingecko stopped having: the price expires on its own
-			// and the next refresh asks again, instead of the id being marked unpriced.
+			// An id missing from the answer while it still has a servable answer, or that had a
+			// price within noPriceCacheTTL, is more likely a dropped answer than a price Coingecko
+			// stopped having: it is not marked unpriced, so the next lookup or refresh asks again.
+			// An expired price is still not served.
 			if domain.IsNoPrice(priceErr) {
-				if _, ok, _ := b.stored(id, now); ok {
+				pricedAt, recent := b.pricedAt[id]
+				if _, ok, _ := b.stored(id, now); ok || (recent && started.Sub(pricedAt) < noPriceCacheTTL) {
 					informative = false
 				}
 			}
@@ -411,6 +428,7 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 			switch {
 			case priceErr == nil:
 				b.cache[id] = cachedPrice{price: price, expiresAt: expiresAt}
+				b.pricedAt[id] = started
 				delete(b.noPrice, id)
 			case domain.IsNoPrice(priceErr):
 				delete(b.cache, id)
@@ -441,6 +459,7 @@ func (b *priceBatcher) fetchChunk(ids []string, trigger string) {
 		}
 		close(call.done)
 	}
+	return err != nil && !failed
 }
 
 // request fetches prices for ids in one Coingecko request. On error it reports whether the request
