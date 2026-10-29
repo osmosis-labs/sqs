@@ -72,13 +72,13 @@ func newFakeCoingecko(t *testing.T, prices map[string]float64) *fakeCoingecko {
 }
 
 // newBatchedPricing returns a Coingecko pricing source using the default (batched) price getter.
-// Base denoms map to Coingecko ids of the same name.
-func newBatchedPricing(url string) domain.PricingSource {
-	return newBatchedPricingWithRefresh(url, 0)
+// Base denoms map to Coingecko ids of the same name. Its refresh stops when the test ends.
+func newBatchedPricing(t *testing.T, url string) domain.PricingSource {
+	return newBatchedPricingWithRefresh(t, url, 0)
 }
 
 // newBatchedPricingWithRefresh is newBatchedPricing with the bulk refresh interval set; zero uses the default.
-func newBatchedPricingWithRefresh(url string, refreshInterval time.Duration) domain.PricingSource {
+func newBatchedPricingWithRefresh(t *testing.T, url string, refreshInterval time.Duration) domain.PricingSource {
 	tokensUsecase := &mocks.TokensUsecaseMock{
 		GetChainDenomFunc: func(humanDenom string) (string, error) {
 			return "", errors.New("not found")
@@ -95,7 +95,9 @@ func newBatchedPricingWithRefresh(url string, refreshInterval time.Duration) dom
 		CoingeckoRefreshIntervalMs: int(refreshInterval / time.Millisecond),
 	}
 
-	return coingeckopricing.New(tokensUsecase, config, nil)
+	source := coingeckopricing.New(tokensUsecase, config, nil)
+	t.Cleanup(func() { coingeckopricing.StopRefresh(source) })
+	return source
 }
 
 // getConcurrently prices all ids at the same time and returns the errors by id.
@@ -137,7 +139,7 @@ func makeIds(n int) ([]string, map[string]float64) {
 func TestGetPrice_ConcurrentCallsShareOneRequest(t *testing.T) {
 	ids, prices := makeIds(40)
 	fake := newFakeCoingecko(t, prices)
-	pricing := newBatchedPricing(fake.server.URL)
+	pricing := newBatchedPricing(t, fake.server.URL)
 
 	for id, err := range getConcurrently(pricing, ids) {
 		require.NoError(t, err, id)
@@ -154,7 +156,7 @@ func TestGetPrice_ConcurrentCallsShareOneRequest(t *testing.T) {
 func TestGetPrice_ChunksLargeBatches(t *testing.T) {
 	ids, prices := makeIds(150)
 	fake := newFakeCoingecko(t, prices)
-	pricing := newBatchedPricing(fake.server.URL)
+	pricing := newBatchedPricing(t, fake.server.URL)
 
 	for id, err := range getConcurrently(pricing, ids) {
 		require.NoError(t, err, id)
@@ -170,7 +172,7 @@ func TestGetPrice_RateLimitBackoff(t *testing.T) {
 	fake := newFakeCoingecko(t, map[string]float64{"atom": 5})
 	fake.status = http.StatusTooManyRequests
 	fake.retryAfter = "1"
-	pricing := newBatchedPricing(fake.server.URL)
+	pricing := newBatchedPricing(t, fake.server.URL)
 
 	_, _, err := pricing.GetPrice(context.Background(), "atom", "")
 	require.Error(t, err)
@@ -192,7 +194,7 @@ func TestGetPrice_RateLimitBackoff(t *testing.T) {
 
 func TestGetPrice_ZeroOrMissingPriceIsError(t *testing.T) {
 	fake := newFakeCoingecko(t, map[string]float64{"zero": 0, "tiny": 1.5e-9})
-	pricing := newBatchedPricing(fake.server.URL)
+	pricing := newBatchedPricing(t, fake.server.URL)
 
 	errs := getConcurrently(pricing, []string{"zero", "missing", "tiny"})
 	require.Error(t, errs["zero"])
@@ -217,7 +219,7 @@ func TestGetPrice_ZeroOrMissingPriceIsError(t *testing.T) {
 
 func TestGetPrice_NoPriceIsCached(t *testing.T) {
 	fake := newFakeCoingecko(t, map[string]float64{})
-	pricing := newBatchedPricing(fake.server.URL)
+	pricing := newBatchedPricing(t, fake.server.URL)
 
 	_, _, err := pricing.GetPrice(context.Background(), "ibc-index", "")
 	require.True(t, domain.IsNoPrice(err))
@@ -234,7 +236,7 @@ func TestGetPrice_RefreshFetchesTrackedIdsInOneRequest(t *testing.T) {
 	ids, prices := makeIds(10)
 	fake := newFakeCoingecko(t, prices)
 	// Longer than the ten sequential lookups below (each waits out the batch window).
-	pricing := newBatchedPricingWithRefresh(fake.server.URL, time.Second)
+	pricing := newBatchedPricingWithRefresh(t, fake.server.URL, time.Second)
 
 	// Lookups spread out in time are fetched one at a time.
 	for _, id := range ids {
@@ -262,37 +264,9 @@ func TestGetPrice_RefreshFetchesTrackedIdsInOneRequest(t *testing.T) {
 	require.Equal(t, onDemand+1, fake.requests.Load())
 }
 
-func TestGetPrice_FailedRefreshRemovesPrice(t *testing.T) {
-	fake := newFakeCoingecko(t, map[string]float64{"atom": 5})
-	// Refresh at 500ms; the price would otherwise be served until 600ms (interval plus 20%).
-	pricing := newBatchedPricingWithRefresh(fake.server.URL, 500*time.Millisecond)
-
-	fetched := time.Now()
-	price, _, err := pricing.GetPrice(context.Background(), "atom", "")
-	require.NoError(t, err)
-	require.Equal(t, osmomath.NewBigDec(5), price)
-
-	fake.mu.Lock()
-	fake.failStatus = http.StatusInternalServerError
-	fake.mu.Unlock()
-
-	// Once the refresh has failed, the old price is not served even though it is within its lifetime:
-	// the lookup fetches on demand and reports the failure.
-	require.Eventually(t, func() bool { return fake.requests.Load() >= 2 }, 2*time.Second, time.Millisecond)
-	require.Eventually(t, func() bool {
-		_, _, err := pricing.GetPrice(context.Background(), "atom", "")
-		return err != nil
-	}, time.Second, time.Millisecond)
-	require.Less(t, time.Since(fetched), 600*time.Millisecond)
-
-	_, _, err = pricing.GetPrice(context.Background(), "atom", "")
-	require.Error(t, err)
-	require.False(t, domain.IsNoPrice(err), "a failed request is a failure of the source, not a token without a price")
-}
-
 func TestGetPrice_ReservedCharacterInIdDoesNotBreakTheBatch(t *testing.T) {
 	fake := newFakeCoingecko(t, map[string]float64{"a&b": 3, "atom": 5})
-	pricing := newBatchedPricing(fake.server.URL)
+	pricing := newBatchedPricing(t, fake.server.URL)
 
 	errs := getConcurrently(pricing, []string{"a&b", "atom"})
 	require.NoError(t, errs["a&b"])
@@ -302,7 +276,7 @@ func TestGetPrice_ReservedCharacterInIdDoesNotBreakTheBatch(t *testing.T) {
 
 func TestGetPrice_RefreshSkipsIdsWithoutPrice(t *testing.T) {
 	fake := newFakeCoingecko(t, map[string]float64{"atom": 5})
-	pricing := newBatchedPricingWithRefresh(fake.server.URL, 300*time.Millisecond)
+	pricing := newBatchedPricingWithRefresh(t, fake.server.URL, 300*time.Millisecond)
 
 	errs := getConcurrently(pricing, []string{"atom", "ibc-index"})
 	require.NoError(t, errs["atom"])

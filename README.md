@@ -556,7 +556,7 @@ Unless specified by using the parameter `pricingSource`, the [GET /tokens/prices
 1. The quote from on-chain pricing is unavailable for any reason.
 2. The quote is USDC quote.
 
-Internally, the Coingecko pricing source looks for the price quote in the its pricing cache and return it if it exists. Otherwise, it fetches the price from the Coingecko API endpoint and store it in the cache with an expiration time specified in the config.json file.
+Internally, the Coingecko pricing source serves a price from its cache if one is still valid. Otherwise, it fetches the price from the Coingecko API endpoint, batching lookups that arrive together. Ids looked up in the last hour are re-fetched in bulk every `pricing.coingecko-refresh-interval-ms` (default 5 minutes), and a price is served for at most that interval plus 20%. A failed request removes the price, so an outage leaves tokens unpriced rather than served an old price. Ids Coingecko has no price for are answered as unpriced for 10 minutes without another request.
 
 ### Configuration
 
