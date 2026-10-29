@@ -183,6 +183,12 @@ var (
 	// counter that measures the number of Coingecko ids sent across all requests, by trigger
 	SQSPricingCoingeckoRequestedIdsCounterMetricName = "sqs_pricing_coingecko_requested_ids_total"
 
+	// sqs_pricing_coingecko_oldest_answer_timestamp_seconds
+	//
+	// gauge that tracks the unix time at which the request behind the oldest Coingecko answer
+	// among the asset list ids started; 0 while any id has never been answered
+	SQSPricingCoingeckoOldestAnswerGaugeMetricName = "sqs_pricing_coingecko_oldest_answer_timestamp_seconds"
+
 	// sqs_pool_liq_pricing_worker_compute_duration
 	//
 	// gauge that tracks duration of candidate routes computation
@@ -370,6 +376,13 @@ var (
 		[]string{coingeckoTriggerLabel},
 	)
 
+	SQSPricingCoingeckoOldestAnswerGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: SQSPricingCoingeckoOldestAnswerGaugeMetricName,
+			Help: "Unix time at which the request behind the oldest Coingecko answer among the asset list ids started; 0 while any id has never been answered",
+		},
+	)
+
 	SQSCandidateRoutesComputeDurationGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSCandidateRoutesComputeDurationMetricName,
@@ -411,6 +424,7 @@ func init() {
 	prometheus.MustRegister(SQSPricingCoingeckoCacheMissesCounter)
 	prometheus.MustRegister(SQSPricingCoingeckoRequestsCounter)
 	prometheus.MustRegister(SQSPricingCoingeckoRequestedIdsCounter)
+	prometheus.MustRegister(SQSPricingCoingeckoOldestAnswerGauge)
 	prometheus.MustRegister(SQSCandidateRoutesComputeDurationGauge)
 	prometheus.MustRegister(SQSCandidateRouteSearchCappedCounter)
 }
