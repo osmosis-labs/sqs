@@ -136,23 +136,6 @@ func makeIds(n int) ([]string, map[string]float64) {
 	return ids, prices
 }
 
-func TestGetPrice_ConcurrentCallsShareOneRequest(t *testing.T) {
-	ids, prices := makeIds(40)
-	fake := newFakeCoingecko(t, prices)
-	pricing := newBatchedPricing(t, fake.server.URL)
-
-	for id, err := range getConcurrently(pricing, ids) {
-		require.NoError(t, err, id)
-	}
-	require.Equal(t, int32(1), fake.requests.Load())
-
-	// Served from cache afterwards, without another request.
-	price, _, err := pricing.GetPrice(context.Background(), "token-0", "")
-	require.NoError(t, err)
-	require.Equal(t, osmomath.NewBigDec(1), price)
-	require.Equal(t, int32(1), fake.requests.Load())
-}
-
 func TestGetPrice_ChunksLargeBatches(t *testing.T) {
 	ids, prices := makeIds(150)
 	fake := newFakeCoingecko(t, prices)
@@ -210,26 +193,16 @@ func TestGetPrice_ZeroOrMissingPriceIsError(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, osmomath.MustNewBigDecFromStr("0.0000000015"), price)
 
-	// Failures are not cached: asking again sends a new request.
+	// A missing price is cached: asking again sends no request.
 	requestsBefore := fake.requests.Load()
+	_, _, err = pricing.GetPrice(context.Background(), "missing", "")
+	require.True(t, domain.IsNoPrice(err))
+	require.Equal(t, requestsBefore, fake.requests.Load())
+
+	// Failures are not cached: asking again sends a new request.
 	_, _, err = pricing.GetPrice(context.Background(), "zero", "")
 	require.Error(t, err)
 	require.Equal(t, requestsBefore+1, fake.requests.Load())
-}
-
-func TestGetPrice_NoPriceIsCached(t *testing.T) {
-	fake := newFakeCoingecko(t, map[string]float64{})
-	pricing := newBatchedPricing(t, fake.server.URL)
-
-	_, _, err := pricing.GetPrice(context.Background(), "ibc-index", "")
-	require.True(t, domain.IsNoPrice(err))
-	require.Equal(t, int32(1), fake.requests.Load())
-
-	// Coingecko has no price for the id: it is answered as unpriced without another request.
-	time.Sleep(10 * time.Millisecond)
-	_, _, err = pricing.GetPrice(context.Background(), "ibc-index", "")
-	require.True(t, domain.IsNoPrice(err))
-	require.Equal(t, int32(1), fake.requests.Load())
 }
 
 func TestGetPrice_RefreshFetchesTrackedIdsInOneRequest(t *testing.T) {

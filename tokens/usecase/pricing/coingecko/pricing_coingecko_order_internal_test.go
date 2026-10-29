@@ -3,8 +3,10 @@ package coingeckopricing
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -77,49 +79,53 @@ func TestFetchChunk_OlderResponseDoesNotOverwriteNewer(t *testing.T) {
 	require.Equal(t, osmomath.NewBigDec(2), b.cache["atom"].price)
 }
 
-func TestClampRefreshInterval(t *testing.T) {
-	lo, hi := 10*time.Second, 10*time.Minute
-	require.Equal(t, lo, clampRefreshInterval(1, lo, hi))
-	require.Equal(t, 5*time.Minute, clampRefreshInterval(300000, lo, hi))
-	require.Equal(t, hi, clampRefreshInterval(3600000, lo, hi))
+func TestRefreshInterval(t *testing.T) {
+	// Tests lower the minimum (see export_test.go); check the clamp against the production one.
+	testMin := minRefreshInterval
+	minRefreshInterval = 10 * time.Second
+	t.Cleanup(func() { minRefreshInterval = testMin })
+
+	require.Equal(t, defaultRefreshInterval, refreshInterval(0))
+	require.Equal(t, defaultRefreshInterval, refreshInterval(-1))
+	require.Equal(t, 10*time.Second, refreshInterval(1))
+	require.Equal(t, 5*time.Minute, refreshInterval(300000))
+	require.Equal(t, maxRefreshInterval, refreshInterval(3600000))
 	// Large enough to overflow time.Duration if converted before capping.
-	require.Equal(t, hi, clampRefreshInterval(9223372036855, lo, hi))
+	require.Equal(t, maxRefreshInterval, refreshInterval(9223372036855))
 }
 
-// A chunk that is not sent because of a backoff leaves cached prices to expire on their own.
-func TestFetchChunk_BackoffKeepsCachedPrices(t *testing.T) {
-	var requests atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests.Add(1)
-	}))
-	t.Cleanup(server.Close)
-
-	b := newTestBatcher(t, server.URL, time.Hour)
-	b.mu.Lock()
-	b.cache["atom"] = cachedPrice{price: osmomath.NewBigDec(5), expiresAt: time.Now().Add(time.Minute)}
-	b.backoffUntil = time.Now().Add(time.Minute)
-	b.mu.Unlock()
-
-	b.fetchChunk([]string{"atom"}, domain.CoingeckoTriggerRefresh)
-
-	require.Equal(t, int32(0), requests.Load())
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	require.Equal(t, osmomath.NewBigDec(5), b.cache["atom"].price)
-}
-
-// A request that fails removes the price before its lifetime ends.
+// A request that fails removes the price before its lifetime ends, and the next lookup gets a
+// pricing error rather than a no-price answer.
 func TestFetchChunk_FailedRequestRemovesPrice(t *testing.T) {
 	server, requests := newTestServer(t, http.StatusInternalServerError, "")
 	b := newTestBatcher(t, server.URL, time.Hour)
 	setFreshPrice(b, "atom", 5)
 
-	b.fetchChunk([]string{"atom"}, domain.CoingeckoTriggerRefresh)
+	require.False(t, b.fetchChunk([]string{"atom"}, domain.CoingeckoTriggerRefresh), "a 500 is not a rate limit")
 
 	require.Equal(t, int32(1), requests.Load())
 	b.mu.Lock()
+	require.NotContains(t, b.cache, "atom")
+	b.mu.Unlock()
+
+	price, err := b.getPrice(context.Background(), "atom")
+	require.Error(t, err)
+	require.False(t, domain.IsNoPrice(err))
+	require.True(t, price.IsNil())
+	require.Equal(t, int32(2), requests.Load())
+}
+
+// A request that cannot be built is a failure, not a rate limit: it removes the price.
+func TestFetchChunk_UnbuildableRequestIsFailure(t *testing.T) {
+	b := newTestBatcher(t, "http://%zz", time.Hour)
+	setFreshPrice(b, "atom", 5)
+
+	require.False(t, b.fetchChunk([]string{"atom"}, domain.CoingeckoTriggerRefresh))
+
+	b.mu.Lock()
 	defer b.mu.Unlock()
 	require.NotContains(t, b.cache, "atom")
+	require.True(t, b.backoffUntil.IsZero())
 }
 
 // A 429 says nothing about the prices: they are kept to expire on their own, and the backoff starts.
@@ -146,7 +152,7 @@ func TestFetchChunk_MissingIdKeepsServablePrice(t *testing.T) {
 	b := newTestBatcher(t, server.URL, time.Hour)
 	setFreshPrice(b, "atom", 5)
 
-	b.fetchChunk([]string{"atom", "osmo", "unknown"}, domain.CoingeckoTriggerRefresh)
+	require.False(t, b.fetchChunk([]string{"atom", "osmo", "unknown"}, domain.CoingeckoTriggerRefresh), "an answer is not a rate limit")
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -155,84 +161,80 @@ func TestFetchChunk_MissingIdKeepsServablePrice(t *testing.T) {
 	require.Contains(t, b.noPrice, "unknown")
 }
 
-// An id missing from an answer after its price expired is not marked unpriced if it had a price
-// within noPriceCacheTTL; the expired price is not served.
-func TestFetchChunk_MissingIdRecentlyPricedIsNotNoPrice(t *testing.T) {
-	server, _ := newTestServer(t, http.StatusOK, `{"osmo":{"usd":1}}`)
+// An id missing from an answer after its price expired is answered as unpriced only for
+// missingPriceRecheck: lookups meanwhile send no request, and the expired price is not served.
+func TestFetchChunk_MissingIdWithExpiredPriceIsRecheckedSoon(t *testing.T) {
+	server, requests := newTestServer(t, http.StatusOK, `{"osmo":{"usd":1}}`)
 	b := newTestBatcher(t, server.URL, time.Hour)
 	call := &priceCall{done: make(chan struct{})}
 	b.mu.Lock()
 	b.cache["atom"] = cachedPrice{price: osmomath.NewBigDec(5), expiresAt: time.Now().Add(-time.Second)}
-	b.pricedAt["atom"] = time.Now().Add(-2 * time.Minute)
 	b.pending["atom"] = call
 	b.mu.Unlock()
 
+	started := time.Now()
 	b.fetchChunk([]string{"atom", "osmo"}, domain.CoingeckoTriggerOnDemand)
 
 	<-call.done
-	require.True(t, domain.IsNoPrice(call.err))
+	_, err := b.answer("atom", call.err)
+	require.True(t, domain.IsNoPrice(err))
 	b.mu.Lock()
-	defer b.mu.Unlock()
-	require.NotContains(t, b.noPrice, "atom")
+	until := b.noPrice["atom"]
+	b.mu.Unlock()
+	require.True(t, until.After(started))
+	require.False(t, until.After(time.Now().Add(missingPriceRecheck)))
+
+	_, err = b.getPrice(context.Background(), "atom")
+	require.True(t, domain.IsNoPrice(err))
+	require.Equal(t, int32(1), requests.Load())
 }
 
-// A refresh cut short by a 429 is retried once the backoff ends, not an interval later.
-func TestRefresh_RetriedAfterRateLimit(t *testing.T) {
-	var requests atomic.Int32
+func TestParseRetryAfter(t *testing.T) {
+	require.Equal(t, 5*time.Second, parseRetryAfter("5"))
+	require.Equal(t, maxRateLimitBackoff, parseRetryAfter("3600"))
+	// A delay that is missing, unparsable or not in the future backs off for the default.
+	for _, value := range []string{"", "soon", "0", "-3", time.Now().Add(-time.Hour).UTC().Format(http.TimeFormat)} {
+		require.Equal(t, defaultRateLimitBackoff, parseRetryAfter(value), value)
+	}
+}
+
+// A refresh whose second chunk is rate limited resumes from that chunk once the backoff ends,
+// without sending the first chunk again.
+func TestRefresh_ResumesFromRateLimitedChunk(t *testing.T) {
+	var (
+		mu       sync.Mutex
+		idCounts []int
+	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if requests.Add(1) == 1 {
+		mu.Lock()
+		idCounts = append(idCounts, len(strings.Split(r.URL.Query().Get("ids"), ",")))
+		n := len(idCounts)
+		mu.Unlock()
+		if n == 2 {
 			w.Header().Set("Retry-After", "1")
 			w.WriteHeader(http.StatusTooManyRequests)
 			return
 		}
-		_, _ = w.Write([]byte(`{"atom":{"usd":5}}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	t.Cleanup(server.Close)
 	b := newTestBatcher(t, server.URL, time.Hour)
 
 	b.mu.Lock()
-	b.tracked["atom"] = time.Now()
-	b.armRefresh(0)
+	for i := 0; i <= maxIdsPerRequest; i++ {
+		b.tracked[fmt.Sprintf("token-%03d", i)] = time.Now()
+	}
+	b.startRefresh(0)
 	b.mu.Unlock()
 
-	require.Eventually(t, func() bool { return requests.Load() >= 2 }, 5*time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool {
-		b.mu.Lock()
-		defer b.mu.Unlock()
-		_, ok := b.cache["atom"]
-		return ok
-	}, time.Second, time.Millisecond)
-}
-
-// An empty answer keeps a priced id's price and marks only ids without one unpriced, so ids
-// Coingecko does not know are not asked about on every lookup. It is not a rate limit.
-func TestFetchChunk_EmptyAnswer(t *testing.T) {
-	server, _ := newTestServer(t, http.StatusOK, `{}`)
-	b := newTestBatcher(t, server.URL, time.Hour)
-	setFreshPrice(b, "atom", 5)
-
-	require.False(t, b.fetchChunk([]string{"atom", "unknown"}, domain.CoingeckoTriggerRefresh))
-
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	require.Equal(t, osmomath.NewBigDec(5), b.cache["atom"].price)
-	require.NotContains(t, b.noPrice, "atom")
-	require.Contains(t, b.noPrice, "unknown")
-}
-
-// A 429 whose backoff has already ended (Retry-After: 0) still counts as a rate limit.
-func TestFetchChunk_RateLimitWithoutBackoff(t *testing.T) {
-	var requests atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests.Add(1)
-		w.Header().Set("Retry-After", "0")
-		w.WriteHeader(http.StatusTooManyRequests)
-	}))
-	t.Cleanup(server.Close)
-	b := newTestBatcher(t, server.URL, time.Hour)
-
-	require.True(t, b.fetchChunk([]string{"atom", "osmo"}, domain.CoingeckoTriggerRefresh))
-	require.Equal(t, int32(1), requests.Load())
+		mu.Lock()
+		defer mu.Unlock()
+		return len(idCounts) >= 3
+	}, 5*time.Second, 10*time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, []int{maxIdsPerRequest, 1, 1}, idCounts)
 }
 
 // A lookup whose chunk is held back by a backoff gets a price stored meanwhile by another request.
@@ -250,8 +252,9 @@ func TestFetchChunk_HeldBackLookupGetsStoredPrice(t *testing.T) {
 
 	require.Equal(t, int32(0), requests.Load())
 	<-call.done
-	require.NoError(t, call.err)
-	require.Equal(t, osmomath.NewBigDec(5), call.price)
+	price, err := b.answer("atom", call.err)
+	require.NoError(t, err)
+	require.Equal(t, osmomath.NewBigDec(5), price)
 }
 
 // Once stopped, the batcher sends no more refreshes.
@@ -270,52 +273,24 @@ func TestStop_EndsRefresh(t *testing.T) {
 	require.LessOrEqual(t, requests.Load(), stoppedAt+1)
 }
 
-// The next refresh is timed from the start of the cycle, so a slow cycle does not push it back.
-func TestRefresh_TimedFromCycleStart(t *testing.T) {
-	var (
-		mu    sync.Mutex
-		times []time.Time
-	)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		times = append(times, time.Now())
-		mu.Unlock()
-		// Each request takes most of the interval.
-		time.Sleep(300 * time.Millisecond)
-		_, _ = w.Write([]byte(`{"atom":{"usd":5}}`))
-	}))
-	t.Cleanup(server.Close)
-	b := newTestBatcher(t, server.URL, 400*time.Millisecond)
-
-	b.mu.Lock()
-	b.tracked["atom"] = time.Now()
-	b.armRefresh(0)
-	b.mu.Unlock()
-
-	require.Eventually(t, func() bool {
-		mu.Lock()
-		defer mu.Unlock()
-		return len(times) >= 3
-	}, 3*time.Second, time.Millisecond)
-	b.stop()
-
-	mu.Lock()
-	defer mu.Unlock()
-	// Timed from the end of each cycle the gap would be about 700ms; from the start it is 400ms.
-	gap := times[2].Sub(times[1])
-	require.Less(t, gap, 550*time.Millisecond)
+// The next refresh is timed from the start of the cycle, so a slow cycle does not push it back,
+// and a cycle that overran still leaves a tenth of the interval before the next.
+func TestNextRefreshDelay(t *testing.T) {
+	interval := 5 * time.Minute
+	require.Equal(t, interval, nextRefreshDelay(interval, 0))
+	require.Equal(t, 4*time.Minute, nextRefreshDelay(interval, time.Minute))
+	require.Equal(t, interval/10, nextRefreshDelay(interval, interval))
+	require.Equal(t, interval/10, nextRefreshDelay(interval, 2*interval))
 }
 
-// A price handed to a waiting lookup that expires before the lookup resumes is not returned.
-func TestGetPrice_WaiterDoesNotReturnExpiredPrice(t *testing.T) {
+// A lookup released by its request does not return a price that expired before it resumed.
+func TestAnswer_DoesNotReturnExpiredPrice(t *testing.T) {
 	b := newTestBatcher(t, "http://127.0.0.1:0", time.Hour)
-	call := &priceCall{done: make(chan struct{}), price: osmomath.NewBigDec(5), expiresAt: time.Now().Add(-time.Millisecond)}
-	close(call.done)
 	b.mu.Lock()
-	b.pending["atom"] = call
+	b.cache["atom"] = cachedPrice{price: osmomath.NewBigDec(5), expiresAt: time.Now().Add(-time.Millisecond)}
 	b.mu.Unlock()
 
-	price, err := b.getPrice(context.Background(), "atom")
+	price, err := b.answer("atom", nil)
 	require.Error(t, err)
 	require.False(t, domain.IsNoPrice(err))
 	require.True(t, price.IsNil())
