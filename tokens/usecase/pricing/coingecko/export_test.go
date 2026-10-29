@@ -17,11 +17,11 @@ func init() {
 func (b *priceBatcher) stop() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.stopped = true
-	if b.refreshTimer != nil {
-		b.refreshTimer.Stop()
+	select {
+	case <-b.quit:
+	default:
+		close(b.quit)
 	}
-	b.refreshArmed = false
 }
 
 // StopRefresh stops the bulk refresh of a source created by New, so it does not outlive the test.
