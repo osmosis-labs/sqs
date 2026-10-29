@@ -188,6 +188,8 @@ type priceBatcher struct {
 	flushArmed   bool
 	refreshArmed bool
 	refreshTimer *time.Timer
+	// stopped ends the refresh. Only tests set it (see stop): in production the batcher refreshes
+	// for the life of the process.
 	stopped      bool
 	backoffUntil time.Time
 }
@@ -292,19 +294,6 @@ func (b *priceBatcher) armRefresh(delay time.Duration) {
 		return
 	}
 	b.refreshTimer = time.AfterFunc(delay, b.refresh)
-}
-
-// stop ends the bulk refresh. The batcher otherwise refreshes for as long as ids are tracked,
-// which in production is the life of the process; tests stop it so that refreshes do not outlive
-// the test servers they call.
-func (b *priceBatcher) stop() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.stopped = true
-	if b.refreshTimer != nil {
-		b.refreshTimer.Stop()
-	}
-	b.refreshArmed = false
 }
 
 // refresh re-fetches every id looked up within trackWindow, in chunks of maxIdsPerRequest, and
