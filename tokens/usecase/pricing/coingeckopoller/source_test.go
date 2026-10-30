@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -546,4 +547,82 @@ func TestSleep(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	require.False(t, sleep(ctx, time.Hour))
+}
+
+// runInBackground runs Run with sleeps that advance the fake clock without waiting, and returns a
+// function that stops it and waits for it to return.
+func runInBackground(t *testing.T, ts *testSource) (stop func()) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	ts.Source.sleep = func(ctx context.Context, d time.Duration) bool {
+		ts.advance(d)
+		return ctx.Err() == nil
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ts.Run(ctx)
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+// requireIdleAfter waits until Run has made calls requests in total and is waiting for a lookup.
+func requireIdleAfter(t *testing.T, ts *testSource, calls int) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		return ts.idle.Load() && ts.fetch.numCalls() == calls
+	}, 5*time.Second, time.Millisecond)
+	require.Equal(t, 1.0, testutil.ToFloat64(domain.SQSPricingCoingeckoIdleGauge))
+}
+
+func TestRun_PausesWithoutLookupsAndResumesOnOne(t *testing.T) {
+	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(5)})
+	// One request per refresh, every minute: one at the start and one after each of the 60
+	// minutes in the demand window, then a pause.
+	refreshesPerWindow := int(demandWindow/testInterval) + 1
+	stop := runInBackground(t, ts)
+	defer stop()
+	requireIdleAfter(t, ts, refreshesPerWindow)
+
+	// Nothing is requested while paused, so the price expires.
+	ts.advance(demandWindow)
+	require.Equal(t, refreshesPerWindow, ts.fetch.numCalls())
+	_, err := ts.getPrice("uatom")
+	requireUnavailable(t, err)
+
+	// That lookup resumed refreshes for another demand window.
+	requireIdleAfter(t, ts, 2*refreshesPerWindow)
+	price, err := ts.getPrice("uatom")
+	require.NoError(t, err)
+	require.Equal(t, osmomath.NewBigDec(5), price)
+}
+
+func TestRun_LookupsKeepItRefreshing(t *testing.T) {
+	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(5)})
+	// A lookup during every second refresh, the last during refresh 150, keeps the demand window
+	// open until 60 refreshes after that one.
+	const refreshes = 150
+	var calls int
+	ts.fetch.onFetch = func() {
+		calls++
+		if calls%2 == 0 && calls <= refreshes {
+			_, _ = ts.getPrice("uatom")
+		}
+	}
+	stop := runInBackground(t, ts)
+	defer stop()
+
+	requireIdleAfter(t, ts, refreshes+int(demandWindow/testInterval))
+}
+
+func TestRun_StopsWhenCancelledWhilePaused(t *testing.T) {
+	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, nil)
+	stop := runInBackground(t, ts)
+	requireIdleAfter(t, ts, int(demandWindow/testInterval)+1)
+	stop()
+	require.False(t, ts.idle.Load())
+	require.Equal(t, 0.0, testutil.ToFloat64(domain.SQSPricingCoingeckoIdleGauge))
 }

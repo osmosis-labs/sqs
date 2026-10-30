@@ -4,6 +4,9 @@
 // background loop fetches all of them every interval and publishes the result as an immutable
 // snapshot. Lookups read the snapshot and never wait on the network, and the request rate to
 // Coingecko is fixed by the interval rather than by traffic or failures.
+//
+// Coingecko is a fallback, so the loop runs only on demand: it pauses after an hour without a
+// lookup and resumes on the next one.
 package coingeckopoller
 
 import (
@@ -48,6 +51,9 @@ const (
 	// minRateLimitBackoff is the shortest wait after HTTP 429, used when Retry-After is missing:
 	// the 429 itself says to slow down.
 	minRateLimitBackoff = 10 * time.Second
+	// demandWindow is how long refreshes go on after the last lookup, as the batcher this replaces
+	// kept refreshing an id for an hour after it was last looked up.
+	demandWindow = time.Hour
 )
 
 var (
@@ -88,6 +94,12 @@ type Source struct {
 
 	snap    atomic.Pointer[snapshot]
 	running atomic.Bool
+
+	// lastDemand is the unix time in nanoseconds of the latest lookup, or of the start of Run.
+	lastDemand atomic.Int64
+	// idle is set while Run waits for a lookup; wake carries the lookup that ends the wait.
+	idle atomic.Bool
+	wake chan struct{}
 }
 
 var _ domain.PricingSource = (*Source)(nil)
@@ -121,6 +133,7 @@ func newSource(tokens mvc.TokensUsecase, fetch fetchFunc, interval time.Duration
 		maxAge:   maxAge(interval),
 		now:      time.Now,
 		sleep:    sleep,
+		wake:     make(chan struct{}, 1),
 	}
 	s.snap.Store(&snapshot{entries: map[string]entry{}})
 	return s
@@ -149,7 +162,8 @@ func maxAge(interval time.Duration) time.Duration {
 
 // GetPrice implements domain.PricingSource. Coingecko prices are in USD, which is served for a
 // nil quote denom, the configured default quote denom, or a USD stablecoin: allUSDC, Noble USDC or USDT.
-// It never waits on the network.
+// It never waits on the network: a lookup that ends a pause in refreshes is answered from the
+// snapshot as it is, usually expired and so unavailable, and the refresh it starts serves the next ones.
 func (s *Source) GetPrice(ctx context.Context, baseDenom string, quoteDenom string, opts ...domain.PricingOption) (osmomath.BigDec, []domain.SplitRoute, error) {
 	if !s.isAllowedQuoteDenom(quoteDenom) {
 		return osmomath.BigDec{}, nil, fmt.Errorf("only the default quote denom, usdc/usdt denom or nil is allowed for the quote denom param")
@@ -163,6 +177,7 @@ func (s *Source) GetPrice(ctx context.Context, baseDenom string, quoteDenom stri
 	if id == "" {
 		return osmomath.BigDec{}, nil, domain.NoPriceError{Err: fmt.Errorf("coingecko ID is empty for base (%s)", baseDenom)}
 	}
+	s.recordDemand()
 
 	price, err := s.price(id)
 	if err != nil {
@@ -193,12 +208,14 @@ func (s *Source) price(id string) (osmomath.BigDec, error) {
 
 // Run refreshes the snapshot until ctx is done: once immediately, then one interval after the
 // start of the previous refresh, and after a failed refresh sooner, with a backoff that doubles
-// from minBackoff up to the interval and waits out a rate limit. It must be called once, since
-// the snapshot has a single writer.
+// from minBackoff up to the interval and waits out a rate limit. Starting counts as a lookup, so
+// the snapshot is filled before the first one; after demandWindow without a lookup, Run waits for
+// the next one. It must be called once, since the snapshot has a single writer.
 func (s *Source) Run(ctx context.Context) {
 	if !s.running.CompareAndSwap(false, true) {
 		panic("coingeckopoller: Run called more than once")
 	}
+	s.lastDemand.Store(s.now().UnixNano())
 
 	var backoff time.Duration
 	for {
@@ -213,10 +230,53 @@ func (s *Source) Run(ctx context.Context) {
 			delay = backoff
 			s.logger.Error("coingecko refresh failed", zap.Error(err), zap.Duration("retry_in", delay))
 		}
-		if !s.sleep(ctx, delay) {
+		if !s.sleep(ctx, delay) || !s.awaitDemand(ctx) {
 			return
 		}
 	}
+}
+
+// recordDemand notes a lookup and wakes Run if it is waiting for one.
+func (s *Source) recordDemand() {
+	s.lastDemand.Store(s.now().UnixNano())
+	// Run sets idle before its last look at lastDemand, so either it sees this lookup or this
+	// sees idle set. A wake left in the channel after Run resumed only makes its next wait look
+	// at lastDemand once more.
+	if s.idle.Load() {
+		select {
+		case s.wake <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// demanded reports whether there was a lookup within demandWindow.
+func (s *Source) demanded() bool {
+	return s.now().Sub(time.Unix(0, s.lastDemand.Load())) <= demandWindow
+}
+
+// awaitDemand returns true at once if there was a lookup within demandWindow, and otherwise
+// waits for the next lookup. It returns false if ctx is done first.
+func (s *Source) awaitDemand(ctx context.Context) bool {
+	if s.demanded() {
+		return true
+	}
+	s.idle.Store(true)
+	domain.SQSPricingCoingeckoIdleGauge.Set(1)
+	defer func() {
+		s.idle.Store(false)
+		domain.SQSPricingCoingeckoIdleGauge.Set(0)
+	}()
+	s.logger.Info("coingecko refresh paused: no lookup in the demand window", zap.Duration("demand_window", demandWindow))
+
+	for !s.demanded() {
+		select {
+		case <-s.wake:
+		case <-ctx.Done():
+			return false
+		}
+	}
+	return true
 }
 
 // refresh fetches every id in chunks, the ids answered longest ago first, and publishes each chunk
