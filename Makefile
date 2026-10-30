@@ -177,33 +177,6 @@ test-prices-mainnet:
 		-run TestPricingWorkerTestSuite/TestGetPrices_Chain_FindUnsupportedTokens \
 		github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker -v -count=1
 
-### E2E Test
-
-# Run E2E tests in verbose mode (-s) -n 4 concurrent workers
-e2e-run-stage:
-	SQS_ENVIRONMENTS=stage pytest -s -n 4 --ignore=tests/test_synthetic_geo.py
-
-e2e-run-local:
-	SQS_ENVIRONMENTS=local pytest -s -n 4 --ignore=tests/test_synthetic_geo.py
-
-#### E2E Python Setup
-
-# Setup virtual environment for e2e tests
-e2e-setup-venv:
-	python3 -m venv tests/venv
-
-# Activate virtual environment for e2e tests
-e2e-source-venv:
-	source tests/venv/bin/activate
-
-# 
-e2e-install-requirements:
-	pip install -r tests/requirements.txt
-
-# Persist any new dependencies to requirements.txt
-e2e-update-requirements:
-	pip freeze > tests/requirements.txt
-
 # Set DATADOG_API_KEY in the environment
 datadog-agent-start:
 	export DATADOG_API_KEY=@@REDACTED@@; \

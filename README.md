@@ -73,6 +73,9 @@ This is a deployment with 2 nodes that is used by our stage app
 `https://stage.osmosis.zone/`. It is less stable and may experience downtime
 due to experimental features.
 
+It is not public: requests from outside the Osmosis app get 403. Use
+`https://sqs.osmosis.zone` for your own queries.
+
 It operates on data from `osmosis-1` mainnet.
 
 Note that in this environment we block all endpoints at nginx level except for:
