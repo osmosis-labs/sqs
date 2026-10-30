@@ -40,7 +40,7 @@ const (
 	// maxIdsPerRequest caps the number of Coingecko ids in a single request.
 	maxIdsPerRequest = 100
 	// defaultInterval is how often every id is re-fetched when the config leaves it unset.
-	defaultInterval = time.Minute
+	defaultInterval = 5 * time.Minute
 	// minInterval and maxInterval bound the configured interval.
 	minInterval = 10 * time.Second
 	maxInterval = 10 * time.Minute
