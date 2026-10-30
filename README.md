@@ -74,7 +74,7 @@ This is a deployment with 2 nodes that is used by our stage app
 due to experimental features.
 
 It is not public: requests from outside the Osmosis app get 403. Use
-`https://sqs.osmosis.zone` for your own queries and tests.
+`https://sqs.osmosis.zone` for your own queries.
 
 It operates on data from `osmosis-1` mainnet.
 
