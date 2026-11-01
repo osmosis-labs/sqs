@@ -55,6 +55,7 @@ import (
 	tokenshttpdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
 	tokensusecase "github.com/osmosis-labs/sqs/tokens/usecase"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing"
+	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingeckopoller"
 	pricingWorker "github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 	tradesHttpDelivery "github.com/osmosis-labs/sqs/trades/delivery/http"
 	tradesingest "github.com/osmosis-labs/sqs/trades/ingest"
@@ -314,10 +315,9 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		return nil, err
 	}
 
-	// Use the same config to initialize coingecko pricing strategy
-	coingeckPricingConfig := *config.Pricing
-	coingeckPricingConfig.DefaultSource = domain.CoinGeckoPricingSourceType
-	coingeckoPricingSource, err := pricing.NewPricingStrategy(coingeckPricingConfig, tokensUseCase, nil)
+	// Coingecko is the fallback for chain pricing. Its source serves prices from a snapshot that
+	// Run refreshes in the background for the life of the server, starting now.
+	coingeckoPricingSource, err := coingeckopoller.New(tokensUseCase, *config.Pricing, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -325,6 +325,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	// Register pricing strategy on the tokens use case.
 	tokensUseCase.RegisterPricingStrategy(domain.ChainPricingSourceType, chainPricingSource)
 	tokensUseCase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, coingeckoPricingSource)
+	go coingeckoPricingSource.Run(ctx)
 
 	wasmQueryClient := wasmtypes.NewQueryClient(passthroughGRPCClient.GetChainGRPCClient())
 	orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)

@@ -41,6 +41,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 - #726 | Coingecko fallback prices are refreshed in bulk every `pricing.coingecko-refresh-interval-ms` (default 5 minutes) instead of one id per request each minute, and ids Coingecko has no price for are not re-requested for 10 minutes; a price is never served more than the interval plus 20% after it was fetched
 - #727 | Coingecko fallback prices are kept through a 429 and through an answer that leaves out a priced id, instead of being dropped (for the backoff and for 10 minutes respectively), a refresh cut short by a 429 resumes from the chunk it held back once the backoff ends, a 429 without a usable `Retry-After` backs off for 10 seconds rather than retrying at once, and the bulk refresh is timed from the start of the previous cycle so short intervals no longer let prices expire between refreshes
+- #730 | Coingecko fallback prices are served from a snapshot that a background loop refreshes for every asset list id each `pricing.coingecko-refresh-interval-ms`, so a lookup never waits on Coingecko; the loop pauses after an hour without a lookup and resumes on the next one (`sqs_pricing_coingecko_idle`), and Coingecko can no longer be configured as `pricing.default-source`, only as the fallback of chain pricing
 
 ## v32.0.0
 

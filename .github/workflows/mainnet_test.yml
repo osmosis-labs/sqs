@@ -35,7 +35,7 @@ jobs:
                   go test \
                     -timeout 300s \
                     -run TestCoingeckoPricingTestSuite/TestGetPrices_Coingecko_FindUnsupportedTokens \
-                    github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingecko -v -count=1
+                    github.com/osmosis-labs/sqs/tokens/usecase/pricing/coingeckopoller -v -count=1
 
     test_prices:
         runs-on: ubuntu-latest # This specifies the runner environment.
