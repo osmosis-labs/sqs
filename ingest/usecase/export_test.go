@@ -1,10 +1,13 @@
 package usecase
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v31/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/mvc"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
@@ -34,4 +37,8 @@ func ComputeNormalizationScalingFactors(standardNormalizationFactor osmomath.Int
 
 func ProcessAlloyedPool(sqsModel *ingesttypes.SQSPool) error {
 	return processAlloyedPool(sqsModel)
+}
+
+func RetryOrderbooksWithoutTicks(ingester mvc.IngestUsecase, ctx context.Context, height uint64) {
+	ingester.(*ingestUseCase).retryOrderbooksWithoutTicks(ctx, height)
 }
