@@ -572,7 +572,10 @@ func (s *IngestUseCaseTestSuite) TestRetryOrderbooksWithoutTicks() {
 	s.Require().ElementsMatch([]uint64{2, 3}, processedIDs())
 
 	// Within the retry interval nothing is retried, even though pools 2 and 3 still have no ticks.
+	// A wrongly started retry would only raise the count, so a short wait cannot flake.
 	usecase.RetryOrderbooksWithoutTicks(ingester, context.TODO(), 101)
+	time.Sleep(20 * time.Millisecond)
+	s.Require().Len(processedIDs(), 2)
 
 	// After the interval both are retried again. A retry is skipped while the previous load is
 	// still finishing, so call it until both have run.

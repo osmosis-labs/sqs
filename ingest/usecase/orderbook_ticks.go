@@ -19,7 +19,10 @@ const (
 	maxOrderbookTickRetriesPerBlock = 8
 
 	// orderbookTickRetryIntervalBlocks is the minimum number of blocks between two reloads of
-	// the same orderbook, so that a book that keeps failing does not take the retry slots of the others.
+	// the same orderbook, so that a book that keeps failing is not retried on every block.
+	// Candidates are taken in pool ID order, so while more than about
+	// maxOrderbookTickRetriesPerBlock * orderbookTickRetryIntervalBlocks books keep failing,
+	// the higher IDs wait until the lower ones recover.
 	orderbookTickRetryIntervalBlocks = 10
 )
 
@@ -34,7 +37,9 @@ type orderbookTickLoad struct {
 // startOrderbookTickLoad loads the pool's ticks in the background, at most orderbookTickLoadConcurrency
 // pools at a time. A load for a pool changed in the block (isRetry false) always starts: the
 // repository keeps the newest height, so a slower older load cannot overwrite it. A retry
-// starts only when no load is running for the pool and its last retry is old enough.
+// starts only when no load is running for the pool, its last retry is old enough, and fewer
+// than orderbookTickLoadConcurrency loads are queued or running, so retries never queue
+// ahead of the loads of pools that just changed.
 // It returns whether a load was started.
 func (p *ingestUseCase) startOrderbookTickLoad(ctx context.Context, height uint64, pool sqsingesttypes.PoolI, isRetry bool) bool {
 	poolID := pool.GetId()
@@ -42,7 +47,8 @@ func (p *ingestUseCase) startOrderbookTickLoad(ctx context.Context, height uint6
 	p.orderbookTickLoadsMu.Lock()
 	load := p.orderbookTickLoads[poolID]
 	if isRetry {
-		if load.inFlight > 0 || (load.lastRetryHeight != 0 && height < load.lastRetryHeight+orderbookTickRetryIntervalBlocks) {
+		if p.orderbookTickLoadsPending >= orderbookTickLoadConcurrency || load.inFlight > 0 ||
+			(load.lastRetryHeight != 0 && height < load.lastRetryHeight+orderbookTickRetryIntervalBlocks) {
 			p.orderbookTickLoadsMu.Unlock()
 			return false
 		}
@@ -50,6 +56,7 @@ func (p *ingestUseCase) startOrderbookTickLoad(ctx context.Context, height uint6
 	}
 	load.inFlight++
 	p.orderbookTickLoads[poolID] = load
+	p.orderbookTickLoadsPending++
 	p.orderbookTickLoadsMu.Unlock()
 
 	go func() {
@@ -58,6 +65,7 @@ func (p *ingestUseCase) startOrderbookTickLoad(ctx context.Context, height uint6
 			load := p.orderbookTickLoads[poolID]
 			load.inFlight--
 			p.orderbookTickLoads[poolID] = load
+			p.orderbookTickLoadsPending--
 			p.orderbookTickLoadsMu.Unlock()
 		}()
 

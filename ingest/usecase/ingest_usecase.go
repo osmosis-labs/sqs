@@ -61,8 +61,10 @@ type ingestUseCase struct {
 	// orderbookTickLoadSem bounds the concurrent orderbook tick loads (see startOrderbookTickLoad).
 	orderbookTickLoadSem chan struct{}
 	// orderbookTickLoads tracks the tick loads per orderbook pool ID.
-	orderbookTickLoads   map[uint64]orderbookTickLoad
-	orderbookTickLoadsMu sync.Mutex
+	orderbookTickLoads map[uint64]orderbookTickLoad
+	// orderbookTickLoadsPending is the number of tick loads queued or running, across all pools.
+	orderbookTickLoadsPending int
+	orderbookTickLoadsMu      sync.Mutex
 
 	// The first height observed after start-up
 	// See firstBlockPoolCountThreshold for details.
