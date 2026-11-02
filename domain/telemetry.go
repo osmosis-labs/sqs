@@ -42,6 +42,11 @@ var (
 	// * pool_id - the indentifier of the pool being processed
 	SQSIngestUsecaseProcessOrderbookPoolErrorMetricName = "sqs_ingest_usecase_process_orderbook_pool_error_total"
 
+	// sqs_ingest_usecase_orderbooks_without_ticks
+	//
+	// gauge of the orderbook pools whose ticks have not been stored yet; their orders are left out of active orders
+	SQSIngestUsecaseOrderbooksWithoutTicksMetricName = "sqs_ingest_usecase_orderbooks_without_ticks"
+
 	// sqs_ingest_usecase_process_block_error
 	//
 	// counter that measures the number of errors that occur during processing a block in ingest usecase
@@ -233,6 +238,13 @@ var (
 		},
 	)
 
+	SQSIngestUsecaseOrderbooksWithoutTicksGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: SQSIngestUsecaseOrderbooksWithoutTicksMetricName,
+			Help: "gauge of the orderbook pools whose ticks have not been stored yet",
+		},
+	)
+
 	SQSIngestHandlerPoolParseErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSIngestUsecaseParsePoolErrorMetricName,
@@ -416,6 +428,7 @@ func init() {
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockErrorCounter)
 	prometheus.MustRegister(SQSIngestHandlerProcessOrderbookPoolErrorCounter)
+	prometheus.MustRegister(SQSIngestUsecaseOrderbooksWithoutTicksGauge)
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
 	prometheus.MustRegister(SQSPricingWorkerComputeDurationGauge)
 	prometheus.MustRegister(SQSPricingWorkerComputeErrorCounter)

@@ -2,6 +2,7 @@ package orderbookorderscache
 
 import (
 	"context"
+	"errors"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
@@ -54,16 +55,60 @@ func (o *ordersCache) ProcessEndBlock(ctx context.Context, blockHeight uint64, m
 		return err
 	}
 
+	// A failing orderbook must not stop the others from being cached.
+	var errs []error
 	for _, orderbook := range orderbooks {
-		if _, ok := metadata.PoolIDs[orderbook.PoolID]; ok {
-			if err := o.fetchAndCacheOrdersForOrderbook(ctx, orderbook); err != nil {
-				o.config.Logger.Error("failed to fetch orders for orderbook", zap.Error(err), zap.Uint64("orderbook_id", orderbook.PoolID))
-				return err
-			}
+		if err := o.fetchAndCacheOrdersForOrderbook(ctx, orderbook); err != nil {
+			o.config.Logger.Error("failed to fetch orders for orderbook", zap.Error(err), zap.Uint64("orderbook_id", orderbook.PoolID))
+			errs = append(errs, err)
 		}
 	}
 
-	return nil
+	if blockHeight%uncachedOrdersRetryIntervalBlocks == 0 {
+		errs = append(errs, o.retryUncachedOrderbooks(ctx, metadata)...)
+	}
+
+	return errors.Join(errs...)
+}
+
+const (
+	// uncachedOrdersRetryIntervalBlocks is how often, in blocks, orderbooks whose orders were never cached are retried.
+	uncachedOrdersRetryIntervalBlocks = 10
+
+	// maxUncachedOrdersRetries is the number of orderbooks retried each time.
+	maxUncachedOrdersRetries = 8
+)
+
+// retryUncachedOrderbooks caches the orders of up to maxUncachedOrdersRetries orderbooks outside
+// the block whose orders were never cached. Orders are otherwise cached only for orderbooks
+// changed in a block, so a book whose orders failed to load at start-up showed none until it next traded.
+func (o *ordersCache) retryUncachedOrderbooks(ctx context.Context, metadata domain.BlockPoolMetadata) []error {
+	orderbooks, err := o.config.PoolsUsecase.GetAllOrderbookPoolIDs()
+	if err != nil {
+		return []error{err}
+	}
+
+	var errs []error
+	retried := 0
+	for _, orderbook := range orderbooks {
+		if retried >= maxUncachedOrdersRetries {
+			break
+		}
+		if _, inBlock := metadata.PoolIDs[orderbook.PoolID]; inBlock {
+			continue
+		}
+		if _, cached := o.config.OrderbookRepository.GetOrders(orderbook.PoolID, ""); cached {
+			continue
+		}
+
+		retried++
+		if err := o.fetchAndCacheOrdersForOrderbook(ctx, orderbook); err != nil {
+			o.config.Logger.Error("failed to fetch orders for uncached orderbook", zap.Error(err), zap.Uint64("orderbook_id", orderbook.PoolID))
+			errs = append(errs, err)
+		}
+	}
+
+	return errs
 }
 
 func (o *ordersCache) fetchAndCacheOrdersForOrderbook(ctx context.Context, orderbook domain.CanonicalOrderBooksResult) error {

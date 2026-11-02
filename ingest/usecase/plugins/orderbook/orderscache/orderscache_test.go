@@ -7,6 +7,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookorderscache "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/orderscache"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -126,6 +127,44 @@ func (s *OrdersCacheTestSuite) TestProcessEndBlock() {
 			}
 		})
 	}
+}
+
+// TestProcessEndBlock_FailingBookAndUncachedBooks checks that a failing orderbook does not stop
+// the others from being cached, and that an orderbook outside the block whose orders were never
+// cached is loaded, while one that is already cached is not.
+func (s *OrdersCacheTestSuite) TestProcessEndBlock_FailingBookAndUncachedBooks() {
+	orderbookRepo := &mocks.OrderbookRepositoryMock{}
+	poolsUsecase := &mocks.PoolsUsecaseMock{}
+	grpcClient := &mocks.PassthroughGRPCClientMock{}
+
+	poolsUsecase.GetAllOrderbookPoolIDsFunc = func() ([]domain.CanonicalOrderBooksResult, error) {
+		return []domain.CanonicalOrderBooksResult{{PoolID: 1}, {PoolID: 2}, {PoolID: 3}, {PoolID: 4}}, nil
+	}
+	grpcClient.MockGetOrderbookOrdersRawCb = func(ctx context.Context, poolID uint64) ([][]byte, error) {
+		if poolID == 1 {
+			return nil, fmt.Errorf("failed to get orders")
+		}
+		return nil, nil
+	}
+	// Pool 4 is already cached; pool 3 never was.
+	orderbookRepo.GetOrdersFunc = func(poolID uint64, ownerAddress string) ([]orderbookdomain.Order, bool) {
+		return nil, poolID == 4
+	}
+	var stored []uint64
+	orderbookRepo.StoreOrdersFunc = func(poolID uint64, orders []orderbookdomain.Order) error {
+		stored = append(stored, poolID)
+		return nil
+	}
+
+	cache := orderbookorderscache.New(orderbookRepo, poolsUsecase, &log.NoOpLogger{}, grpcClient)
+
+	// Pools 1 and 2 are in the block; height 10 is a retry height.
+	err := cache.ProcessEndBlock(context.Background(), 10, domain.BlockPoolMetadata{
+		PoolIDs: map[uint64]struct{}{1: {}, 2: {}},
+	})
+
+	s.Require().EqualError(err, "failed to get orders")
+	s.Require().Equal([]uint64{2, 3}, stored)
 }
 
 func (s *OrdersCacheTestSuite) TestGetOrderbooks() {

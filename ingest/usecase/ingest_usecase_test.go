@@ -6,12 +6,14 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v31/ingest/types/cosmwasmpool"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/ingest/usecase"
 	"github.com/osmosis-labs/sqs/log"
@@ -487,6 +489,9 @@ func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalSync() {
 					StorePoolsFunc: func(pools []ingesttypes.PoolI) error {
 						return nil
 					},
+					GetAllOrderbookPoolIDsFunc: func() ([]domain.CanonicalOrderBooksResult, error) {
+						return nil, nil
+					},
 				},
 				&mocks.RouterUsecaseMock{},
 				&mocks.RouterUsecaseMock{},
@@ -522,6 +527,60 @@ func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalSync() {
 			s.Require().Equal(tt.wantCallCount, got)
 		})
 	}
+}
+
+// TestRetryOrderbooksWithoutTicks checks that orderbooks whose ticks were never stored are
+// reloaded, that books with ticks are left alone, and that a book is not retried again
+// within the retry interval.
+func (s *IngestUseCaseTestSuite) TestRetryOrderbooksWithoutTicks() {
+	var (
+		mu        sync.Mutex
+		processed []uint64
+	)
+	processedIDs := func() []uint64 {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]uint64(nil), processed...)
+	}
+
+	poolsUsecase := &mocks.PoolsUsecaseMock{
+		GetAllOrderbookPoolIDsFunc: func() ([]domain.CanonicalOrderBooksResult, error) {
+			return []domain.CanonicalOrderBooksResult{{PoolID: 1}, {PoolID: 2}, {PoolID: 3}}, nil
+		},
+		GetPoolFunc: func(poolID uint64) (ingesttypes.PoolI, error) {
+			return &mocks.MockRoutablePool{ID: poolID}, nil
+		},
+	}
+	orderbookUsecase := &mocks.OrderbookUsecaseMock{
+		GetAllTicksFunc: func(poolID uint64) (map[int64]orderbookdomain.OrderbookTick, bool) {
+			// Only pool 1 has ticks.
+			return nil, poolID == 1
+		},
+		ProcessPoolFunc: func(ctx context.Context, height uint64, pool ingesttypes.PoolI) error {
+			mu.Lock()
+			processed = append(processed, pool.GetId())
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	ingester, err := usecase.NewIngestUsecase(poolsUsecase, &mocks.RouterUsecaseMock{}, &mocks.RouterUsecaseMock{}, &mocks.TokensUsecaseMock{}, &mocks.ChainInfoUsecaseMock{}, nil, &mocks.PricingWorkerMock{}, &mocks.CandidateRouteSearchDataWorkerMock{}, orderbookUsecase, noOpLogger)
+	s.Require().NoError(err)
+
+	usecase.RetryOrderbooksWithoutTicks(ingester, context.TODO(), 100)
+	s.Require().Eventually(func() bool { return len(processedIDs()) == 2 }, time.Second, time.Millisecond)
+	s.Require().ElementsMatch([]uint64{2, 3}, processedIDs())
+
+	// Within the retry interval nothing is retried, even though pools 2 and 3 still have no ticks.
+	usecase.RetryOrderbooksWithoutTicks(ingester, context.TODO(), 101)
+
+	// After the interval both are retried again. A retry is skipped while the previous load is
+	// still finishing, so call it until both have run.
+	s.Require().Eventually(func() bool {
+		usecase.RetryOrderbooksWithoutTicks(ingester, context.TODO(), 110)
+		return len(processedIDs()) == 4
+	}, time.Second, 5*time.Millisecond)
+	s.Require().ElementsMatch([]uint64{2, 3, 2, 3}, processedIDs())
 }
 
 func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {

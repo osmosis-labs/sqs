@@ -58,6 +58,12 @@ type ingestUseCase struct {
 	// endBlockProcessPlugins are the plugins to execute at the end of the block.
 	endBlockProcessPlugins []domain.EndBlockProcessPlugin
 
+	// orderbookTickLoadSem bounds the concurrent orderbook tick loads (see startOrderbookTickLoad).
+	orderbookTickLoadSem chan struct{}
+	// orderbookTickLoads tracks the tick loads per orderbook pool ID.
+	orderbookTickLoads   map[uint64]orderbookTickLoad
+	orderbookTickLoadsMu sync.Mutex
+
 	// The first height observed after start-up
 	// See firstBlockPoolCountThreshold for details.
 	firstHeightAfterStartUp atomic.Uint64
@@ -111,6 +117,9 @@ func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUse
 
 		orderBookUseCase: orderBookUseCase,
 
+		orderbookTickLoadSem: make(chan struct{}, orderbookTickLoadConcurrency),
+		orderbookTickLoads:   make(map[uint64]orderbookTickLoad),
+
 		candidateRouteSearchWorker: candidateRouteSearchWorker,
 
 		firstHeightAfterStartUp: atomic.Uint64{},
@@ -154,6 +163,9 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	if err := p.poolsUseCase.StorePools(pools); err != nil {
 		return err
 	}
+
+	// Reload orderbooks whose ticks failed to load in an earlier block.
+	p.retryOrderbooksWithoutTicks(ctx, height)
 
 	// A canonical orderbook change affects the candidate routes of both denoms of its pair,
 	// even when only one of them is in this block's balances. This also picks up changes made
@@ -339,12 +351,7 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, height uint64, poolDa
 			if cosmWasmModel != nil && cosmWasmModel.IsOrderbook() {
 				// Process the orderbook pool asynchronously as to avoid blocking the main ingest goroutine
 				// and to avoid potential deadlock.
-				go func() {
-					if err := p.orderBookUseCase.ProcessPool(ctx, height, poolResult.pool); err != nil {
-						domain.SQSIngestHandlerProcessOrderbookPoolErrorCounter.Inc()
-						p.logger.Error(domain.SQSIngestUsecaseProcessOrderbookPoolErrorMetricName, zap.Error(err), zap.Uint64("pool_id", poolID))
-					}
-				}()
+				p.startOrderbookTickLoad(ctx, height, poolResult.pool, false)
 			}
 
 			// Update unique pools.
