@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -125,6 +126,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	// Step 4: validate the found choice
 	totalIncrementsInSplits := uint8(0)
 	resultRoutes := make([]domain.SplitRoute, 0, len(routes))
+	resultRouteIdx := make([]int, 0, len(routes))
 	totalAmoutOutFromSplits := osmomath.ZeroInt()
 	for i, currentRouteIncrement := range bestSplit.routeIncrements {
 		currentRoute := routes[i]
@@ -155,6 +157,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 			InAmount:  inAmount,
 			OutAmount: currentRouteAmtOut,
 		})
+		resultRouteIdx = append(resultRouteIdx, i)
 
 		totalIncrementsInSplits += currentRouteIncrement
 		totalAmoutOutFromSplits = totalAmoutOutFromSplits.Add(currentRouteAmtOut)
@@ -170,6 +173,13 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 		return nil, fmt.Errorf("total increments (%d) does not match expected total increments (%d)", totalIncrementsInSplits, totalIncrements)
 	}
 
+	// Legs sharing a transmuter are only checked against it one at a time above; check the sum.
+	if remaining, dropped, err := routesWithoutOverdrawnLegs(ctx, routes, resultRoutes, resultRouteIdx, tokenIn.Denom, true); err != nil {
+		return nil, err
+	} else if dropped {
+		return getSplitQuote(ctx, remaining, tokenIn)
+	}
+
 	quote := &quoteExactAmountIn{
 		AmountIn:  tokenIn,
 		AmountOut: bestSplit.amountOut,
@@ -177,6 +187,195 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	}
 
 	return quote, nil
+}
+
+func isTransmuter(pool domain.RoutablePool) bool {
+	t := pool.GetSQSType()
+	return t == domain.AlloyedTransmuter || t == domain.TransmuterV1
+}
+
+// transmuterHop is the amount passing through one transmuter in one direction.
+type transmuterHop struct {
+	pool   domain.RoutablePool
+	amount osmomath.Int
+}
+
+// transmuterHopKey groups hops. An entry with balance set has no token in denom: it groups by
+// the denom withdrawn only, since legs entering a multi-asset transmuter through different
+// variants draw on the same balance of the denom they withdraw.
+type transmuterHopKey struct {
+	poolID        uint64
+	tokenInDenom  string
+	tokenOutDenom string
+	balance       bool
+}
+
+// legTransmuterHops walks a leg hop by hop, as the route calculation does, and returns the
+// amount that enters each transmuter on it (exact-in) or leaves it (exact-out), after taker fees,
+// and, under the balance key, the amount that leaves it in both directions.
+// Exact-out routes list pools from token out, so the walk runs output side first. denom is the
+// quote's token in (exact-in) or token out (exact-out); the walk reads each hop's denoms from the
+// coin it carries, since routable pools only know their token in denom once the result is prepared.
+func legTransmuterHops(ctx context.Context, leg domain.SplitRoute, denom string, exactIn bool) (map[transmuterHopKey]transmuterHop, error) {
+	hops := make(map[transmuterHopKey]transmuterHop)
+	pools := leg.GetPools()
+	if len(pools) == 0 {
+		return hops, nil
+	}
+
+	coin := sdk.NewCoin(denom, leg.GetAmountOut())
+	if exactIn {
+		coin = sdk.NewCoin(denom, leg.GetAmountIn())
+	}
+
+	var err error
+	for _, pool := range pools {
+		if exactIn {
+			coin = pool.ChargeTakerFeeExactIn(coin)
+		}
+		hopAmount, hopDenom := coin.Amount, coin.Denom
+		if exactIn {
+			coin, err = pool.CalculateTokenOutByTokenIn(ctx, coin)
+		} else {
+			coin, err = pool.CalculateTokenInByTokenOut(ctx, coin)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if isTransmuter(pool) {
+			id, in, out := pool.GetId(), hopDenom, coin.Denom
+			if !exactIn {
+				in, out = coin.Denom, hopDenom
+			}
+			outAmount := hopAmount
+			if exactIn {
+				outAmount = coin.Amount
+			}
+			hops[transmuterHopKey{id, in, out, false}] = transmuterHop{pool, hopAmount}
+			hops[transmuterHopKey{poolID: id, tokenOutDenom: out, balance: true}] = transmuterHop{pool, outAmount}
+		}
+		if !exactIn {
+			coin = pool.ChargeTakerFeeExactOut(coin)
+		}
+	}
+	return hops, nil
+}
+
+// routesWithoutOverdrawnLegs checks every transmuter that more than one leg of a split passes
+// through, at any hop. The DP scores each leg against the transmuter's full balance and static
+// limit on its own, so the sum of the legs may be more than the pool allows. The amounts the legs
+// send through the same transmuter and direction are summed and run through the pool's own
+// calculation. Legs are kept largest first while the running total fits; the others are dropped.
+// legRoutes[i] is the index in routes of legs[i]. It returns routes without the routes of the
+// dropped legs and whether any was dropped.
+func routesWithoutOverdrawnLegs(ctx context.Context, routes []route.RouteImpl, legs []domain.SplitRoute, legRoutes []int, denom string, exactIn bool) ([]route.RouteImpl, bool, error) {
+	// Nothing to check unless a transmuter is on more than one leg.
+	legsPerPool := make(map[uint64]int)
+	shared := false
+	for _, leg := range legs {
+		seen := make(map[uint64]struct{})
+		for _, pool := range leg.GetPools() {
+			if _, ok := seen[pool.GetId()]; ok || !isTransmuter(pool) {
+				continue
+			}
+			seen[pool.GetId()] = struct{}{}
+			legsPerPool[pool.GetId()]++
+			shared = shared || legsPerPool[pool.GetId()] > 1
+		}
+	}
+	if !shared {
+		return routes, false, nil
+	}
+
+	legHops := make([]map[transmuterHopKey]transmuterHop, len(legs))
+	legsByKey := make(map[transmuterHopKey][]int)
+	for i, leg := range legs {
+		hops, err := legTransmuterHops(ctx, leg, denom, exactIn)
+		if err != nil {
+			return nil, false, err
+		}
+		legHops[i] = hops
+		for key := range hops {
+			legsByKey[key] = append(legsByKey[key], i)
+		}
+	}
+
+	keys := make([]transmuterHopKey, 0, len(legsByKey))
+	for key, sharing := range legsByKey {
+		if len(sharing) > 1 {
+			keys = append(keys, key)
+		}
+	}
+	sort.Slice(keys, func(a, b int) bool {
+		if keys[a].poolID != keys[b].poolID {
+			return keys[a].poolID < keys[b].poolID
+		}
+		if keys[a].tokenInDenom != keys[b].tokenInDenom {
+			return keys[a].tokenInDenom < keys[b].tokenInDenom
+		}
+		if keys[a].tokenOutDenom != keys[b].tokenOutDenom {
+			return keys[a].tokenOutDenom < keys[b].tokenOutDenom
+		}
+		return !keys[a].balance && keys[b].balance
+	})
+
+	dropped := make(map[int]struct{})
+	for _, key := range keys {
+		sharing := make([]int, 0, len(legsByKey[key]))
+		for _, i := range legsByKey[key] {
+			if _, ok := dropped[i]; !ok {
+				sharing = append(sharing, i)
+			}
+		}
+		if len(sharing) < 2 {
+			continue
+		}
+		sort.SliceStable(sharing, func(a, b int) bool {
+			return legHops[sharing[a]][key].amount.GT(legHops[sharing[b]][key].amount)
+		})
+
+		pool := legHops[sharing[0]][key].pool
+		total := osmomath.ZeroInt()
+		for n, i := range sharing {
+			next := total.Add(legHops[i][key].amount)
+			var err error
+			switch {
+			case key.balance:
+				// Only the balance of the withdrawn denom is checked here; the limiter is
+				// checked per token in denom.
+				_, err = pool.CalculateTokenInByTokenOut(ctx, sdk.NewCoin(key.tokenOutDenom, next))
+				if !errors.As(err, &domain.TransmuterInsufficientBalanceError{}) {
+					err = nil
+				}
+			case exactIn:
+				_, err = pool.CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(key.tokenInDenom, next))
+			default:
+				_, err = pool.CalculateTokenInByTokenOut(ctx, sdk.NewCoin(key.tokenOutDenom, next))
+			}
+			// The largest leg already passed on its own when the DP scored it.
+			if err != nil && n > 0 {
+				dropped[i] = struct{}{}
+				continue
+			}
+			total = next
+		}
+	}
+
+	if len(dropped) == 0 {
+		return routes, false, nil
+	}
+
+	droppedRoutes := make(map[int]struct{}, len(dropped))
+	for i := range dropped {
+		droppedRoutes[legRoutes[i]] = struct{}{}
+	}
+	kept := make([]route.RouteImpl, 0, len(routes))
+	for i, r := range routes {
+		if _, ok := droppedRoutes[i]; !ok {
+			kept = append(kept, r)
+		}
+	}
+	return kept, true, nil
 }
 
 // unreachableInput is a sentinel marker for a dynamic-programming state that cannot be
@@ -397,6 +596,17 @@ func getSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, toke
 	// The split outputs must sum to exactly the requested output.
 	if !totalAmountOutFromSplits.Equal(tokenOut.Amount) {
 		return nil, fmt.Errorf("total output from splits (%s) does not equal requested output (%s)", totalAmountOutFromSplits, tokenOut.Amount)
+	}
+
+	// See getSplitQuote: legs sharing a transmuter are only checked against it one at a time.
+	legRoutes := make([]int, len(selectedRoutes))
+	for i, sel := range selectedRoutes {
+		legRoutes[i] = sel.routeIndex
+	}
+	if remaining, dropped, err := routesWithoutOverdrawnLegs(ctx, routes, resultRoutes, legRoutes, tokenOut.Denom, false); err != nil {
+		return nil, err
+	} else if dropped {
+		return getSplitQuoteInGivenOut(ctx, remaining, tokenOut)
 	}
 
 	quote := &quoteExactAmountOut{
