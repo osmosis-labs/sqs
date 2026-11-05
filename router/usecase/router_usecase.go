@@ -758,6 +758,10 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteOutGivenIn(ctx context.Context, 
 
 // GetCustomDirectQuoteOutGivenIn implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) GetCustomDirectQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, poolID uint64) (domain.Quote, error) {
+	if osmoutils.Contains(r.defaultConfig.ExcludedPoolIDs, poolID) {
+		return nil, fmt.Errorf("%w: pool %d is excluded from routing", routertypes.ErrValidationFailed, poolID)
+	}
+
 	pool, err := r.poolsUsecase.GetPool(poolID)
 	if err != nil {
 		return nil, err
@@ -876,6 +880,10 @@ func (r *routerUseCaseImpl) GetCustomDirectQuoteMultiPoolInGivenOut(ctx context.
 	// then the previous pool's input.
 	hopOutDenom := tokenOut.Denom
 	for i, poolID := range poolIDs {
+		if osmoutils.Contains(r.defaultConfig.ExcludedPoolIDs, poolID) {
+			return nil, fmt.Errorf("%w: pool %d is excluded from routing", routertypes.ErrValidationFailed, poolID)
+		}
+
 		pool, err := r.poolsUsecase.GetPool(poolID)
 		if err != nil {
 			return nil, err
