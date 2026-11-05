@@ -108,6 +108,49 @@ func TestGetHealthStatus(t *testing.T) {
 			expectedBody:       `Node is still catching up`,
 		},
 		{
+			name: "Store height ahead of chain status height is not a lag",
+			setupMock: func(mock *mocks.ChainInfoUsecaseMock) {
+				mock.GetLatestHeightFunc = func() (uint64, error) {
+					return 105, nil
+				}
+				mock.GetClientFunc = func() chaininfoclient.Client {
+					return &mocks.ChainInfoClientMock{
+						GetStatusFunc: func(ctx context.Context) (*ctypes.ResultStatus, error) {
+							return &ctypes.ResultStatus{
+								SyncInfo: ctypes.SyncInfo{
+									LatestBlockHeight: 100,
+								},
+							}, nil
+						},
+					}
+				}
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedBody:       `{"chain_latest_height":"100","grpc_gateway_status":"running","store_latest_height":"105"}`,
+		},
+		{
+			name: "Orderbook ticks missing",
+			setupMock: func(mock *mocks.ChainInfoUsecaseMock) {
+				mock.GetLatestHeightFunc = func() (uint64, error) {
+					return 100, nil
+				}
+				mock.ValidateOrderbookTicksFunc = func() error {
+					return fmt.Errorf("133 of 196 orderbooks have had no ticks")
+				}
+				mock.GetClientFunc = func() chaininfoclient.Client {
+					return &mocks.ChainInfoClientMock{
+						GetStatusFunc: func(ctx context.Context) (*ctypes.ResultStatus, error) {
+							return &ctypes.ResultStatus{
+								SyncInfo: ctypes.SyncInfo{LatestBlockHeight: 100},
+							}, nil
+						},
+					}
+				}
+			},
+			expectedStatusCode: http.StatusServiceUnavailable,
+			expectedBody:       `133 of 196 orderbooks have had no ticks`,
+		},
+		{
 			name: "Node not synced",
 			setupMock: func(mock *mocks.ChainInfoUsecaseMock) {
 				mock.GetLatestHeightFunc = func() (uint64, error) {

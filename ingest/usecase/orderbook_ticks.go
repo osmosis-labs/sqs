@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"runtime/debug"
 
 	"go.uber.org/zap"
 
@@ -72,6 +73,15 @@ func (p *ingestUseCase) startOrderbookTickLoad(ctx context.Context, height uint6
 		p.orderbookTickLoadSem <- struct{}{}
 		defer func() { <-p.orderbookTickLoadSem }()
 
+		// ProcessPool stores a pool's ticks only once all of them are loaded, so a recovered
+		// panic leaves the pool's previous ticks in place.
+		defer func() {
+			if r := recover(); r != nil {
+				domain.SQSIngestUsecasePanicRecoveredCounter.WithLabelValues("orderbook_ticks").Inc()
+				p.logger.Error("recovered panic while loading orderbook ticks", zap.Uint64("pool_id", poolID), zap.Any("panic", r), zap.ByteString("stack", debug.Stack()))
+			}
+		}()
+
 		if err := p.orderBookUseCase.ProcessPool(ctx, height, pool); err != nil {
 			domain.SQSIngestHandlerProcessOrderbookPoolErrorCounter.Inc()
 			p.logger.Error(domain.SQSIngestUsecaseProcessOrderbookPoolErrorMetricName, zap.Error(err), zap.Uint64("pool_id", poolID), zap.Bool("retry", isRetry))
@@ -94,12 +104,23 @@ func (p *ingestUseCase) retryOrderbooksWithoutTicks(ctx context.Context, height 
 		return
 	}
 
+	// Retries cover every orderbook, but the health share counts canonical orderbooks only,
+	// as those are the books quotes and the app use.
 	withoutTicks, started := 0, 0
+	canonicalWithoutTicks, canonicalTotal := 0, 0
 	for _, orderbook := range orderbooks {
+		isCanonical := p.poolsUseCase.IsCanonicalOrderbookPool(orderbook.PoolID)
+		if isCanonical {
+			canonicalTotal++
+		}
+
 		if _, ok := p.orderBookUseCase.GetAllTicks(orderbook.PoolID); ok {
 			continue
 		}
 		withoutTicks++
+		if isCanonical {
+			canonicalWithoutTicks++
+		}
 
 		if started >= maxOrderbookTickRetriesPerBlock {
 			continue
@@ -117,4 +138,5 @@ func (p *ingestUseCase) retryOrderbooksWithoutTicks(ctx context.Context, height 
 	}
 
 	domain.SQSIngestUsecaseOrderbooksWithoutTicksGauge.Set(float64(withoutTicks))
+	p.chainInfoUseCase.SetOrderbooksWithoutTicks(canonicalWithoutTicks, canonicalTotal)
 }
