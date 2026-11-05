@@ -258,7 +258,18 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 				// HACK: alloyed LP share is not contained in balances.
 				// TODO: remove the hack and ingest the LP share balance on the Osmosis side.
 				// https://linear.app/osmosis/issue/DATA-236/bug-alloyed-lp-share-is-not-present-in-balances
-				if currentTokenInAmount.LT(tokenIn.Amount) && !pool.IsAlloyTransmuter {
+				minFirstPoolAmount := tokenIn.Amount
+				// Exact-out: a pool that holds only a split share of the token out can still fill that share.
+				if options.ExactOut && options.MaxSplitRoutes > 1 {
+					if share := tokenIn.Amount.QuoRaw(int64(options.MaxSplitRoutes)); share.IsPositive() {
+						minFirstPoolAmount = share
+					}
+				}
+
+				// Exact-out searches from the token out, which a transmuter pays out of its balance unless it is the
+				// alloyed LP share. Exact-in keeps the bypass for every alloy transmuter, as does a transmuter without alloyed denom data.
+				bypassBalanceCheck := pool.IsAlloyTransmuter && (!options.ExactOut || pool.AlloyedDenom == "" || currenTokenInDenom == pool.AlloyedDenom)
+				if currentTokenInAmount.LT(minFirstPoolAmount) && !bypassBalanceCheck {
 					visited[pool.ID] = true
 					// Not enough tokenIn to swap.
 					continue
@@ -321,6 +332,7 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	// Fetching the candidate routes as for the exact amount of token in swap method
 	// That will be the same as the exact amount out swap method with inverted token denominations
+	options.ExactOut = true
 	routes, err := c.FindCandidateRoutesOutGivenIn(ctx, tokenOut, tokenInDenom, options)
 	if err != nil {
 		return ingesttypes.CandidateRoutes{}, err
