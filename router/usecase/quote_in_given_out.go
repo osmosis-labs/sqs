@@ -33,6 +33,9 @@ type quoteExactAmountOut struct {
 	PriceImpactUnknown      bool                `json:"price_impact_unknown,omitempty"`
 	InBaseOutQuoteSpotPrice osmomath.Dec        `json:"in_base_out_quote_spot_price"`
 	PriceInfo               *domain.TxFeeInfo   `json:"price_info,omitempty"`
+	DeviationFromReference  *osmomath.Dec       `json:"deviation_from_reference,omitempty"`
+	DeviationWarning        bool                `json:"deviation_warning,omitempty"`
+	ReferenceSource         string              `json:"reference_source,omitempty"`
 }
 
 // GetAmountIn implements Quote.
@@ -137,6 +140,15 @@ func (q *quoteExactAmountOut) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 
 	// in a new implementation q.quoteExactAmountIn is no longer set
 	q.PriceInfo = info
+}
+
+// SetDeviationFromReference implements domain.Quote.
+// The fields are always set on the outer quote: it is what gets serialized, including when
+// it wraps an inverted exact-in quote whose fields PrepareResult has already copied over.
+func (q *quoteExactAmountOut) SetDeviationFromReference(deviation osmomath.Dec, warning bool, source string) {
+	q.DeviationFromReference = &deviation
+	q.DeviationWarning = warning
+	q.ReferenceSource = source
 }
 
 // PrepareResult implements domain.Quote.
