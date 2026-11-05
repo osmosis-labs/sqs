@@ -22,6 +22,8 @@ type CosmWasmPoolsParams struct {
 	Config                domain.CosmWasmPoolRouterConfig
 	WasmClient            wasmtypes.QueryClient
 	ScalingFactorGetterCb domain.ScalingFactorGetterCb
+	// TransmuterStatuses holds the paused and corrupted state of transmuters. May be nil.
+	TransmuterStatuses *domain.TransmuterStatuses
 }
 
 // QueryCosmwasmContract queries the cosmwasm contract given the contract address, request and response

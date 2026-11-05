@@ -513,6 +513,7 @@ func (s *IngestUseCaseTestSuite) TestCallUpdateAssetsAtHeightIntervalSync() {
 				},
 				&mocks.CandidateRouteSearchDataWorkerMock{},
 				nil,
+				nil,
 				noOpLogger,
 			)
 			s.Require().NoError(err)
@@ -564,7 +565,7 @@ func (s *IngestUseCaseTestSuite) TestRetryOrderbooksWithoutTicks() {
 		},
 	}
 
-	ingester, err := usecase.NewIngestUsecase(poolsUsecase, &mocks.RouterUsecaseMock{}, &mocks.RouterUsecaseMock{}, &mocks.TokensUsecaseMock{}, &mocks.ChainInfoUsecaseMock{}, nil, &mocks.PricingWorkerMock{}, &mocks.CandidateRouteSearchDataWorkerMock{}, orderbookUsecase, noOpLogger)
+	ingester, err := usecase.NewIngestUsecase(poolsUsecase, &mocks.RouterUsecaseMock{}, &mocks.RouterUsecaseMock{}, &mocks.TokensUsecaseMock{}, &mocks.ChainInfoUsecaseMock{}, nil, &mocks.PricingWorkerMock{}, &mocks.CandidateRouteSearchDataWorkerMock{}, orderbookUsecase, nil, noOpLogger)
 	s.Require().NoError(err)
 
 	usecase.RetryOrderbooksWithoutTicks(ingester, context.TODO(), 100)
