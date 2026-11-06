@@ -2,6 +2,11 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	prototypes "github.com/osmosis-labs/osmosis/v31/ingest/types/proto/types"
@@ -26,9 +31,17 @@ type IngestGRPCHandler struct {
 
 	prototypes.UnimplementedSQSIngesterServer
 
-	// blockJobs is a FIFO queue drained by a single goroutine so that
+	// queueMu guards pendingJobs. A job is removed from pendingJobs under this
+	// lock before processing starts, so a queued job is merged into only
+	// while it has not started.
+	queueMu sync.Mutex
+
+	// pendingJobs is a FIFO queue drained by a single goroutine so that
 	// blocks are applied strictly in the order they were received.
-	blockJobs chan blockJob
+	pendingJobs []*blockJob
+
+	// jobsReady wakes the processing goroutine when a job is queued.
+	jobsReady chan struct{}
 
 	// blockErrs holds block processing errors to be surfaced on the next RPC.
 	blockErrs chan blockError
@@ -39,6 +52,10 @@ type blockJob struct {
 	req *prototypes.ProcessBlockRequest
 
 	takerFeeMap ingesttypes.TakerFeeMap
+
+	// poolIndex maps a pool id to its index in req.Pools. It is built lazily
+	// the first time the job is merged into.
+	poolIndex map[uint64]int
 }
 
 type blockError struct {
@@ -48,8 +65,9 @@ type blockError struct {
 
 const (
 	// blockQueueSize is the max number of blocks waiting to be processed.
-	// When full, the RPC fails rather than blocking the node, which triggers
-	// the node's fallback of re-ingesting all data on the next block.
+	// When full, the incoming block is merged into the newest queued block
+	// rather than rejected, since a failed RPC makes the node re-send all data
+	// on the next block.
 	blockQueueSize = 8
 
 	tracerName = "sqs-ingest-handler"
@@ -66,7 +84,7 @@ func NewIngestGRPCHandler(us mvc.IngestUsecase, grpcIngesterConfig domain.GRPCIn
 	ingestHandler := &IngestGRPCHandler{
 		ingestUseCase: us,
 		logger:        logger,
-		blockJobs:     make(chan blockJob, blockQueueSize),
+		jobsReady:     make(chan struct{}, 1),
 		blockErrs:     make(chan blockError, blockQueueSize),
 	}
 
@@ -112,12 +130,27 @@ func (i *IngestGRPCHandler) ProcessBlock(ctx context.Context, req *prototypes.Pr
 	// of the RPC call will be cancelled after the RPC call is done.
 	jobCtx := trace.ContextWithSpan(context.Background(), trace.SpanFromContext(parentCtx))
 
-	select {
-	case i.blockJobs <- blockJob{ctx: jobCtx, req: req, takerFeeMap: takerFeeMap}:
-	default:
-		domain.SQSIngestHandlerProcessBlockErrorCounter.Inc()
-		return nil, status.Errorf(codes.ResourceExhausted, "block processing queue is full, dropping block %d", req.BlockHeight)
+	job := &blockJob{ctx: jobCtx, req: req, takerFeeMap: takerFeeMap}
+
+	i.queueMu.Lock()
+	if len(i.pendingJobs) < blockQueueSize {
+		i.pendingJobs = append(i.pendingJobs, job)
+		i.queueMu.Unlock()
+		i.signalJobsReady()
+		return &prototypes.ProcessBlockReply{}, nil
 	}
+
+	// Queue is full: merge into the newest queued block. Blocks carry per-pool
+	// upserts and a taker fee upsert map, so the merge is equivalent to applying
+	// both in order.
+	err := mergeBlockJobs(i.pendingJobs[len(i.pendingJobs)-1], job)
+	i.queueMu.Unlock()
+	if err != nil {
+		domain.SQSIngestHandlerProcessBlockErrorCounter.Inc()
+		return nil, status.Errorf(codes.ResourceExhausted, "block processing queue is full, dropping block %d: %v", req.BlockHeight, err)
+	}
+
+	domain.SQSIngestHandlerCoalescedBlocksCounter.Inc()
 
 	return &prototypes.ProcessBlockReply{}, nil
 }
@@ -125,7 +158,8 @@ func (i *IngestGRPCHandler) ProcessBlock(ctx context.Context, req *prototypes.Pr
 // processBlocks processes queued blocks sequentially in FIFO order.
 // Runs for the lifetime of the process.
 func (i *IngestGRPCHandler) processBlocks() {
-	for job := range i.blockJobs {
+	for {
+		job := i.nextJob()
 		height := job.req.BlockHeight
 
 		err := i.ingestUseCase.ProcessBlockData(job.ctx, height, job.takerFeeMap, job.req.Pools)
@@ -144,6 +178,125 @@ func (i *IngestGRPCHandler) processBlocks() {
 		default:
 		}
 	}
+}
+
+// signalJobsReady wakes the processing goroutine without blocking.
+func (i *IngestGRPCHandler) signalJobsReady() {
+	select {
+	case i.jobsReady <- struct{}{}:
+	default:
+	}
+}
+
+// nextJob blocks until a job is queued and removes it from the queue.
+func (i *IngestGRPCHandler) nextJob() *blockJob {
+	for {
+		i.queueMu.Lock()
+		if len(i.pendingJobs) > 0 {
+			job := i.pendingJobs[0]
+			i.pendingJobs[0] = nil
+			i.pendingJobs = i.pendingJobs[1:]
+			i.queueMu.Unlock()
+			return job
+		}
+		i.queueMu.Unlock()
+		<-i.jobsReady
+	}
+}
+
+// mergeBlockJobs merges the later block into the earlier, not yet started, job
+// so that applying the result equals applying both blocks in order:
+//   - a pool present in both takes the later block's data,
+//   - taker fees are upserted per denom pair with the later block winning,
+//   - the height becomes the later height.
+//
+// An error leaves the earlier job unchanged. It is returned if the later block
+// is not newer, or if a pool id cannot be determined.
+func mergeBlockJobs(earlier, later *blockJob) error {
+	if later.req.BlockHeight <= earlier.req.BlockHeight {
+		return fmt.Errorf("block height %d is not newer than queued height %d", later.req.BlockHeight, earlier.req.BlockHeight)
+	}
+
+	poolIndex := earlier.poolIndex
+	if poolIndex == nil {
+		var err error
+		poolIndex, err = indexPools(earlier.req.Pools)
+		if err != nil {
+			return err
+		}
+	}
+
+	laterIDs := make([]uint64, len(later.req.Pools))
+	for idx, pool := range later.req.Pools {
+		id, err := poolID(pool)
+		if err != nil {
+			return err
+		}
+		laterIDs[idx] = id
+	}
+
+	pools := make([]*prototypes.PoolData, len(earlier.req.Pools), len(earlier.req.Pools)+len(later.req.Pools))
+	copy(pools, earlier.req.Pools)
+	for idx, pool := range later.req.Pools {
+		if at, ok := poolIndex[laterIDs[idx]]; ok {
+			pools[at] = pool
+			continue
+		}
+		poolIndex[laterIDs[idx]] = len(pools)
+		pools = append(pools, pool)
+	}
+
+	takerFees := make(ingesttypes.TakerFeeMap, len(earlier.takerFeeMap)+len(later.takerFeeMap))
+	for pair, fee := range earlier.takerFeeMap {
+		takerFees[pair] = fee
+	}
+	for pair, fee := range later.takerFeeMap {
+		takerFees[pair] = fee
+	}
+
+	merged := *later.req
+	merged.Pools = pools
+	earlier.req = &merged
+	earlier.takerFeeMap = takerFees
+	earlier.poolIndex = poolIndex
+	earlier.ctx = later.ctx
+
+	return nil
+}
+
+func indexPools(pools []*prototypes.PoolData) (map[uint64]int, error) {
+	index := make(map[uint64]int, len(pools))
+	for idx, pool := range pools {
+		id, err := poolID(pool)
+		if err != nil {
+			return nil, err
+		}
+		index[id] = idx
+	}
+	return index, nil
+}
+
+// poolID reads the pool id from the chain model JSON, which carries it as a
+// top-level "id" (gamm, concentrated) or "pool_id" (cosmwasm) field.
+func poolID(pool *prototypes.PoolData) (uint64, error) {
+	var model struct {
+		ID     json.RawMessage `json:"id"`
+		PoolID json.RawMessage `json:"pool_id"`
+	}
+	if err := json.Unmarshal(pool.ChainModel, &model); err != nil {
+		return 0, fmt.Errorf("unable to read pool id: %w", err)
+	}
+
+	raw := model.ID
+	if len(raw) == 0 {
+		raw = model.PoolID
+	}
+
+	id, err := strconv.ParseUint(strings.Trim(string(raw), `"`), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unable to read pool id: %w", err)
+	}
+	return id, nil
 }
 
 // emptyErrors drains the error queue and returns the first error encountered if any.
