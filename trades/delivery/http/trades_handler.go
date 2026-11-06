@@ -36,6 +36,7 @@ func NewTradesHandler(e *echo.Echo, repo mvc.TradesRepository) {
 
 // @Summary Returns trades for a pool or an asset, newest first.
 // @Description Trades are token_swapped events ingested since SQS started, plus with trades.backfill-blocks the blocks before it that the node keeps (in-memory, bounded retention).
+// @Description coverage_since is the oldest block ingested since SQS started (height and block time in unix seconds). Trades before it are missing, which matters after a restart without backfill.
 // @Description A multi-hop swap appears as one trade per hop. Orderbook trades have source "orderbookFill".
 // @Description wallet is the swap message sender, not the fee payer; for swaps routed through a contract it is the contract.
 // @Description usdValueAtIngest uses the spot price when SQS ingested the block, not the price at the trade's height. Backfilled trades are valued at their time, from a leg in the USD quote asset or the prices the trades before them imply.
@@ -72,14 +73,16 @@ func (h *TradesHandler) GetTrades(c echo.Context) error {
 
 	trades, next := h.repo.ListTrades(req.Filter(), req.Cursor, req.Limit)
 
-	return c.JSON(http.StatusOK, types.NewTradesListResponse(trades, next))
+	return c.JSON(http.StatusOK, types.NewTradesListResponse(trades, next, h.repo.Coverage()))
 }
 
 // @Summary Returns rolling 24h and 7d trade aggregates for a pool or an asset.
 // @Description With coinMinimalDenom, a buy is a trade that received that denom and a sell one that gave it up.
 // @Description With only poolId, buys and sells follow each trade's direction and trades without one are not counted.
 // @Description Volumes are sums of usdValueAtIngest over priced trades and are null when no trade on that side was priced.
-// @Description Windows only cover trades ingested since SQS started, plus any backfill.
+// @Description Windows only cover trades ingested since SQS started, plus any backfill. coverage_since (height and block time in unix seconds) is the oldest block ingested: a window is partial when its start (now minus 24h or 7d) is earlier than coverage_since.timestamp. Partial windows are returned, not refused.
+// @Description pricedBuys and pricedSells count the trades behind each volume; buys and sells are the totals, so the unpriced share is 1 - priced/total.
+// @Description Volume is per hop: each hop of a multi-hop swap is a separate trade, so a pair's volume can be overstated relative to user swaps.
 // @Produce  json
 // @Param  poolId            query  int     false  "Pool ID. At least one of poolId and coinMinimalDenom is required."
 // @Param  coinMinimalDenom  query  string  false  "Chain minimal denom."
@@ -112,5 +115,5 @@ func (h *TradesHandler) GetAggregates(c echo.Context) error {
 
 	aggregates := h.repo.GetAggregates(req.Filter(), req.Windows, h.now())
 
-	return c.JSON(http.StatusOK, types.AggregatesResponse(aggregates))
+	return c.JSON(http.StatusOK, types.AggregatesResponse{Windows: aggregates, CoverageSince: h.repo.Coverage()})
 }

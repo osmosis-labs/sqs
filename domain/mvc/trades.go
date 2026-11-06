@@ -29,6 +29,13 @@ type TradesRepository interface {
 	// completed, or zero if none has been ingested since startup.
 	LastIngestedHeight() int64
 
+	// RecordBlock notes that the ingester read the block at height. The first
+	// block recorded since startup is the store's coverage start.
+	RecordBlock(height int64, blockTime time.Time)
+
+	// Coverage returns the first block recorded since startup, or nil if none.
+	Coverage() *domain.TradesCoverage
+
 	// SetLastIngestedHeight records that the ingester completed the given height.
 	SetLastIngestedHeight(height int64)
 }

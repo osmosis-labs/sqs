@@ -67,7 +67,7 @@ func TestWindowExpiry(t *testing.T) {
 
 	got := repo.GetAggregates(poolScope, domain.TradeWindows, now)
 	require.Equal(t, domain.TradeWindowAggregates{
-		Buys: 1, Sells: 2, BuyVolumeUsd: strPtr(osmomath.MustNewBigDecFromStr("20").String()), SellVolumeUsd: strPtr(osmomath.MustNewBigDecFromStr("5").String()),
+		Buys: 1, Sells: 2, PricedBuys: 1, PricedSells: 1, BuyVolumeUsd: strPtr(osmomath.MustNewBigDecFromStr("20").String()), SellVolumeUsd: strPtr(osmomath.MustNewBigDecFromStr("5").String()),
 		DistinctBuyers: 1, DistinctSellers: 1,
 	}, got[domain.TradeWindow24h])
 	require.Equal(t, 2, got[domain.TradeWindow7d].Buys)
@@ -218,4 +218,28 @@ func TestListTradesPagination(t *testing.T) {
 	require.Len(t, trades, 2)
 	require.Equal(t, domain.TradeKey{BlockHeight: 11, TxIndex: 0, EventIndex: 4}, trades[0].Key)
 	require.Equal(t, domain.TradeKey{BlockHeight: 10, TxIndex: 0, EventIndex: 3}, trades[1].Key)
+}
+
+// After a restart the store is empty: coverage starts at the first block read,
+// stays there as more blocks arrive, and the window counts show how many of
+// the trades behind each volume were priced.
+func TestCoverageAndPricedCountsAfterRestart(t *testing.T) {
+	repo := New(8 * 24 * time.Hour)
+	require.Nil(t, repo.Coverage())
+
+	repo.RecordBlock(500, now.Add(-time.Hour))
+	repo.StoreTrades([]domain.Trade{
+		newTrade(500, 0, 0, time.Hour, 1, usdc, uosmo, walletA, usd("10"), dir(domain.TradeDirectionBuy)),
+		newTrade(500, 1, 0, time.Hour, 1, usdc, uosmo, walletA, nil, dir(domain.TradeDirectionBuy)),
+	}, now)
+	repo.RecordBlock(501, now.Add(-time.Minute))
+
+	require.Equal(t, &domain.TradesCoverage{Height: 500, Timestamp: now.Add(-time.Hour).Unix()}, repo.Coverage())
+
+	got := repo.GetAggregates(domain.TradesFilter{PoolID: u64(1)}, domain.TradeWindows, now)
+	for _, w := range domain.TradeWindows {
+		require.Equal(t, 2, got[w].Buys)
+		require.Equal(t, 1, got[w].PricedBuys)
+		require.Equal(t, 0, got[w].PricedSells)
+	}
 }

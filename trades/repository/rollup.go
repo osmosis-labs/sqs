@@ -67,6 +67,8 @@ func (r *rollup) toAggregates() domain.TradeWindowAggregates {
 	result := domain.TradeWindowAggregates{
 		Buys:            r.buys,
 		Sells:           r.sells,
+		PricedBuys:      r.pricedBuys,
+		PricedSells:     r.pricedSells,
 		DistinctBuyers:  len(r.buyers),
 		DistinctSellers: len(r.sellers),
 	}
