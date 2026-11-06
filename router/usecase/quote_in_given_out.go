@@ -36,6 +36,7 @@ type quoteExactAmountOut struct {
 	DeviationFromReference  *osmomath.Dec       `json:"deviation_from_reference,omitempty"`
 	DeviationWarning        bool                `json:"deviation_warning,omitempty"`
 	ReferenceSource         string              `json:"reference_source,omitempty"`
+	QuoteUSDPeg             *domain.QuoteUSDPeg `json:"quote_usd_peg,omitempty"`
 }
 
 // GetAmountIn implements Quote.
@@ -140,6 +141,11 @@ func (q *quoteExactAmountOut) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 
 	// in a new implementation q.quoteExactAmountIn is no longer set
 	q.PriceInfo = info
+}
+
+// SetQuoteUSDPeg implements domain.Quote.
+func (q *quoteExactAmountOut) SetQuoteUSDPeg(peg *domain.QuoteUSDPeg) {
+	q.QuoteUSDPeg = peg
 }
 
 // SetDeviationFromReference implements domain.Quote.

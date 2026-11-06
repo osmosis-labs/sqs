@@ -175,6 +175,11 @@ var DefaultConfig = Config{
 		CoingeckoQuoteCurrency:     "usd",
 		CoingeckoRefreshIntervalMs: 5 * 60 * 1000,
 		WorkerMinPoolLiquidityCap:  1000,
+		QuoteUSDPeg: QuoteUSDPegConfig{
+			Enabled:         false,
+			WarnDeviation:   0.01,
+			SevereDeviation: 0.05,
+		},
 	},
 	Passthrough: &passthroughdomain.PassthroughConfig{
 		NumiaURL:                     "https://data.app.osmosis.zone",
@@ -394,6 +399,12 @@ func (c Config) Validate() error {
 	// Validate the quote reference check thresholds.
 	if _, err := c.Router.QuoteReferenceCheck.Thresholds(); err != nil {
 		return err
+	}
+
+	if c.Pricing != nil {
+		if err := c.Pricing.QuoteUSDPeg.Validate(); err != nil {
+			return err
+		}
 	}
 
 	if c.Trades != nil {
