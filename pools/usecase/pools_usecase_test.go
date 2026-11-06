@@ -967,7 +967,6 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
 }
 
 // TestCalcExitPool is a copy of node's TestCalcExitPool
-// This implementation includes several specific test cases to cover arithmetic on floats instead of sdk math data types.
 // @link https://github.com/osmosis-labs/osmosis/blob/fde1776476d9c2f849dcbfb30ca3ec64d0e12863/x/gamm/pool-models/internal/cfmm_common/lp_test.go#L31
 func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 	emptyContext := sdk.Context{}
@@ -1081,6 +1080,12 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 			name:          "fourth-asset pool with exit fee, valid exiting shares, overflow amount",
 			pool:          &fourthAssetPoolWithExitFee,
 			exitingShares: osmomath.NewIntFromUint64(7000000000000),
+			expError:      false,
+		},
+		{
+			name:          "fourth-asset pool with exit fee, exit amount above int64 range",
+			pool:          &fourthAssetPoolWithExitFee,
+			exitingShares: fourthAssetPoolWithExitFee.GetTotalShares().MulRaw(6).QuoRaw(10),
 			expError:      false,
 		},
 	}

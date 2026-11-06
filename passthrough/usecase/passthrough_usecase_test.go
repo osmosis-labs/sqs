@@ -410,15 +410,15 @@ func (s *PassthroughUseCaseTestSuite) TestGetCoinsFromLocks() {
 			expectedCoins: dafultResult,
 		},
 		{
-			name: "happy path with unlocking",
+			name: "unlocking coins are not counted twice",
 
 			address: defaultAddress,
 
 			mockAccountLockedCoinsIfDefaultAddress:    defaultBalances,
 			mockAccountUnlockingCoinsIfDefaultAddress: defaultBalances,
 
-			// 2x for locked and unlocking.
-			expectedCoins: dafultResult.Add(dafultResult...),
+			// AccountLockedCoins already includes unlocking coins.
+			expectedCoins: dafultResult,
 		},
 		{
 			name: "concentrated shares are skipped",
