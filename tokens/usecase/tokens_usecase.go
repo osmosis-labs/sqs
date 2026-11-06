@@ -139,7 +139,6 @@ func (t *TokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.T
 		t.tokenMetadataByChainDenom.Store(chainDenom, tokenMetadata)
 
 		t.chainDenoms.Store(chainDenom, struct{}{})
-
 	}
 
 	canonicalCoingeckoDenoms := canonicalDenomsByCoingeckoID(tokenMetadataByChainDenom)
