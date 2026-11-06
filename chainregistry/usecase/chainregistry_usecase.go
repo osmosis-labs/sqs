@@ -224,7 +224,7 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.
 		return nil, nil // nothing to do
 	}
 
-	prices, err := p.tokensUseCase.GetPrices(ctx, []string{p.baseDenom}, []string{p.quoteDenom}, domain.ChainPricingSourceType)
+	prices, err := p.tokensUseCase.GetPrices(ctx, []string{p.baseDenom}, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithNoFallback())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get prices: %w", err)
 	}
@@ -254,7 +254,7 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.
 		}
 
 		// Get the price of the token
-		prices, err := p.tokensUseCase.GetPrices(ctx, []string{v.Denom}, []string{p.quoteDenom}, domain.ChainPricingSourceType)
+		prices, err := p.tokensUseCase.GetPrices(ctx, []string{v.Denom}, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithNoFallback())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get prices: %w", err)
 		}
