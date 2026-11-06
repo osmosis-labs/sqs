@@ -72,6 +72,11 @@ func (m *MockQuote) SetDeviationFromReference(deviation math.LegacyDec, warning 
 	panic("unimplemented")
 }
 
+// SetQuoteUSDPeg implements domain.Quote.
+func (m *MockQuote) SetQuoteUSDPeg(peg *domain.QuoteUSDPeg) {
+	panic("unimplemented")
+}
+
 // String implements domain.Quote.
 func (m *MockQuote) String() string {
 	panic("unimplemented")

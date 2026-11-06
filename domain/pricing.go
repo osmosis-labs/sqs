@@ -111,6 +111,9 @@ type PricingConfig struct {
 	MinPoolLiquidityCap uint64 `mapstructure:"min-pool-liquidity-cap"`
 	// WorkerMinPoolLiquiidtyCap is the minimum liquidity capitalization required for a pool to be considered in the pricing worker.
 	WorkerMinPoolLiquidityCap uint64 `mapstructure:"worker-min-pool-liquidity-cap"`
+
+	// QuoteUSDPeg configures the check of the default quote denom against US dollars. Off by default.
+	QuoteUSDPeg QuoteUSDPegConfig `mapstructure:"quote-usd-peg"`
 }
 
 // FormatCacheKey formats the cache key for the given denoms.
