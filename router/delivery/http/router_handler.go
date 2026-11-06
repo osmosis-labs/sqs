@@ -31,6 +31,9 @@ type RouterHandler struct {
 	RUsecase       mvc.RouterUsecase
 	TUsecase       mvc.TokensUsecase
 	QuoteSimulator domain.QuoteSimulator
+	// ReferenceCheck sanity-checks /router/quote responses against reference prices.
+	// Nil disables the check.
+	ReferenceCheck *QuoteReferenceChecker
 	logger         log.Logger
 }
 
@@ -51,6 +54,10 @@ type Config struct {
 
 	// DebugEndpointsEnabled registers POST /router/store-state and GET /router/state.
 	DebugEndpointsEnabled bool
+
+	// QuoteReferenceChecker checks /router/quote responses against reference prices.
+	// Nil disables the check.
+	QuoteReferenceChecker *QuoteReferenceChecker
 }
 
 // NewRouterHandler will initialize the pools/ resources endpoint
@@ -67,6 +74,7 @@ func NewRouterHandler(
 		RUsecase:       us,
 		TUsecase:       tu,
 		QuoteSimulator: qs,
+		ReferenceCheck: config.QuoteReferenceChecker,
 		logger:         logger,
 	}
 
@@ -173,6 +181,33 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 
 	span.SetAttributes(attribute.Stringer("token_out", quote.GetAmountOut()))
 	span.SetAttributes(attribute.Stringer("price_impact", quote.GetPriceImpact()))
+
+	// Sanity-check the quote against reference prices, if enabled. This runs on the user
+	// quote endpoint only, so internal callers of the router (pricing, custom direct
+	// quotes) are unaffected.
+	if a.ReferenceCheck != nil {
+		var (
+			tokenInDenom, outDenom string
+			amountIn, amountOut    osmomath.Int
+		)
+		if req.SwapMethod() == domain.TokenSwapMethodExactIn {
+			tokenInDenom, amountIn = tokenIn.Denom, tokenIn.Amount
+			outDenom, amountOut = tokenOutDenom, quote.GetAmountOut().Amount
+		} else {
+			// For exact-out, tokenIn holds the desired output and tokenOutDenom the input denom.
+			tokenInDenom, outDenom, amountOut = tokenOutDenom, tokenIn.Denom, tokenIn.Amount
+			// Only use the quoted input if it is in the requested input denom.
+			if quotedIn := quote.GetAmountIn(); quotedIn.Denom == tokenInDenom {
+				amountIn = quotedIn.Amount
+			}
+		}
+
+		// A refused quote is a well-formed request that cannot be filled at an acceptable
+		// price, so it is reported as 422 rather than as a bad request or a server error.
+		if err := a.ReferenceCheck.Check(quote, tokenInDenom, amountIn, outDenom, amountOut); err != nil {
+			return c.JSON(http.StatusUnprocessableEntity, domain.ResponseError{Message: err.Error()})
+		}
+	}
 
 	// Simulate quote if applicable.
 	// Note: only single routes (non-splits) are supported for simulation.

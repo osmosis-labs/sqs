@@ -50,6 +50,9 @@ type quoteExactAmountIn struct {
 	PriceImpactUnknown      bool                `json:"price_impact_unknown,omitempty"`
 	InBaseOutQuoteSpotPrice osmomath.Dec        `json:"in_base_out_quote_spot_price"`
 	PriceInfo               *domain.TxFeeInfo   `json:"price_info,omitempty"`
+	DeviationFromReference  *osmomath.Dec       `json:"deviation_from_reference,omitempty"`
+	DeviationWarning        bool                `json:"deviation_warning,omitempty"`
+	ReferenceSource         string              `json:"reference_source,omitempty"`
 }
 
 // PrepareResult implements domain.Quote.
@@ -217,4 +220,11 @@ func (q *quoteExactAmountIn) GetInBaseOutQuoteSpotPrice() osmomath.Dec {
 // SetQuotePriceInfo implements domain.Quote.
 func (q *quoteExactAmountIn) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 	q.PriceInfo = info
+}
+
+// SetDeviationFromReference implements domain.Quote.
+func (q *quoteExactAmountIn) SetDeviationFromReference(deviation osmomath.Dec, warning bool, source string) {
+	q.DeviationFromReference = &deviation
+	q.DeviationWarning = warning
+	q.ReferenceSource = source
 }

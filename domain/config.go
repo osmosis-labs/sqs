@@ -156,6 +156,13 @@ var DefaultConfig = Config{
 				FilterValue:  1,
 			},
 		},
+		QuoteReferenceCheck: QuoteReferenceCheckConfig{
+			Enabled:          false,
+			WarnDeviation:    0.2,
+			RefuseDustQuotes: true,
+			DustThreshold:    0.99,
+			CoingeckoMargin:  0.1,
+		},
 	},
 	Pricing: &PricingConfig{
 		CacheExpiryMs:              2000,
@@ -381,6 +388,11 @@ type FlightRecordConfig struct {
 func (c Config) Validate() error {
 	// Validate the dynamic min liquidity cap filters.
 	if err := validateDynamicMinLiquidityCapDesc(c.Router.DynamicMinLiquidityCapFiltersDesc); err != nil {
+		return err
+	}
+
+	// Validate the quote reference check thresholds.
+	if _, err := c.Router.QuoteReferenceCheck.Thresholds(); err != nil {
 		return err
 	}
 
