@@ -153,8 +153,11 @@ func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Node is still catching up")
 	}
 
-	// If the node is not synced, return HTTP 503
-	if latestChainHeight-latestStoreHeight > heightTolerance {
+	// If the node is not synced, return HTTP 503.
+	// The store height can be ahead of the status height when the status is served by a
+	// node that is behind the one pushing state; that is not a lag, and an unsigned
+	// subtraction would wrap it into one.
+	if latestChainHeight > latestStoreHeight && latestChainHeight-latestStoreHeight > heightTolerance {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, fmt.Sprintf("Node is not synced, chain height (%d), store height (%d), tolerance (%d)", latestChainHeight, latestStoreHeight, heightTolerance))
 	}
 
@@ -170,6 +173,11 @@ func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 
 	// Validate candidate route search data updates
 	if err := h.CIUsecase.ValidateCandidateRouteSearchDataUpdates(); err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
+	}
+
+	// Validate that the orderbook ticks of the initial state have been loaded
+	if err := h.CIUsecase.ValidateOrderbookTicks(); err != nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
 	}
 
