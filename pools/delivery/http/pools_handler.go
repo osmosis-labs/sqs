@@ -136,16 +136,7 @@ func getStatusCode(err error) int {
 	}
 
 	logrus.Error(err)
-	switch err {
-	case domain.ErrInternalServerError:
-		return http.StatusInternalServerError
-	case domain.ErrNotFound:
-		return http.StatusNotFound
-	case domain.ErrConflict:
-		return http.StatusConflict
-	default:
-		return http.StatusInternalServerError
-	}
+	return domain.GetStatusCode(err)
 }
 
 // @Summary Get canonical orderbook pool ID for the given base and quote.
