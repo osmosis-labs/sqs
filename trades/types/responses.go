@@ -1,6 +1,8 @@
 package types
 
 import (
+	"encoding/json"
+
 	"github.com/osmosis-labs/sqs/domain"
 )
 
@@ -31,14 +33,31 @@ type TradesListResponse struct {
 	Trades []TradeResponse `json:"trades"`
 	// Opaque cursor for the next (older) page, or null when there are no more trades.
 	NextCursor *string `json:"nextCursor"`
+	// Oldest block the store has ingested since SQS started. Trades before it
+	// are missing, so a window reaching further back is partial.
+	CoverageSince *domain.TradesCoverage `json:"coverage_since"`
 }
 
 // AggregatesResponse is the /trades/aggregates response, keyed by window ("24h", "7d").
-type AggregatesResponse map[domain.TradeWindow]domain.TradeWindowAggregates
+// It also carries "coverage_since", the oldest block the store has ingested.
+type AggregatesResponse struct {
+	Windows       map[domain.TradeWindow]domain.TradeWindowAggregates
+	CoverageSince *domain.TradesCoverage
+}
+
+// MarshalJSON puts coverage_since beside the window keys.
+func (r AggregatesResponse) MarshalJSON() ([]byte, error) {
+	out := make(map[string]any, len(r.Windows)+1)
+	for w, a := range r.Windows {
+		out[string(w)] = a
+	}
+	out["coverage_since"] = r.CoverageSince
+	return json.Marshal(out)
+}
 
 // NewTradesListResponse converts trades to the wire shape.
-func NewTradesListResponse(trades []domain.Trade, next *domain.TradeKey) TradesListResponse {
-	result := TradesListResponse{Trades: make([]TradeResponse, 0, len(trades))}
+func NewTradesListResponse(trades []domain.Trade, next *domain.TradeKey, coverage *domain.TradesCoverage) TradesListResponse {
+	result := TradesListResponse{Trades: make([]TradeResponse, 0, len(trades)), CoverageSince: coverage}
 
 	for _, trade := range trades {
 		response := TradeResponse{
