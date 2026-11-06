@@ -70,13 +70,9 @@ func (c *QuoteReferenceChecker) WithCoingecko(source CoingeckoPriceSource) *Quot
 	return c
 }
 
-// NewQuoteReferenceChecker returns a checker for the given config, or nil when the check
-// is disabled. Returns an error if the config thresholds are invalid.
+// NewQuoteReferenceChecker returns a checker for the given config. Callers build one only
+// when config.Enabled is set. Returns an error if the config thresholds are invalid.
 func NewQuoteReferenceChecker(config domain.QuoteReferenceCheckConfig, prices ReferencePriceSource, logger log.Logger) (*QuoteReferenceChecker, error) {
-	if !config.Enabled {
-		return nil, nil
-	}
-
 	thresholds, err := config.Thresholds()
 	if err != nil {
 		return nil, err

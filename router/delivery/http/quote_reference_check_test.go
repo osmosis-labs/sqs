@@ -294,12 +294,11 @@ func TestQuoteReferenceChecker(t *testing.T) {
 	}
 }
 
-// TestQuoteReferenceCheckOffByDefault checks that the default config builds no checker,
-// so the handler leaves quotes untouched, and that unset fields are not serialized.
+// TestQuoteReferenceCheckOffByDefault checks that the default config leaves the check off,
+// so no checker is built and the handler leaves quotes untouched, and that unset fields
+// are not serialized.
 func TestQuoteReferenceCheckOffByDefault(t *testing.T) {
-	checker, err := routerdelivery.NewQuoteReferenceChecker(domain.DefaultConfig.Router.QuoteReferenceCheck, referencePricesMock{}, &log.NoOpLogger{})
-	require.NoError(t, err)
-	require.Nil(t, checker)
+	require.False(t, domain.DefaultConfig.Router.QuoteReferenceCheck.Enabled)
 
 	for _, quote := range []any{&usecase.QuoteExactAmountIn{}, &usecase.QuoteExactAmountOut{}} {
 		bz, err := json.Marshal(quote)

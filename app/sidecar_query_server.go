@@ -349,11 +349,12 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	quoteReferenceChecker, err := routerHttpDelivery.NewQuoteReferenceChecker(config.Router.QuoteReferenceCheck, tokensUseCase, logger)
-	if err != nil {
-		return nil, err
-	}
-	if quoteReferenceChecker != nil {
+	var quoteReferenceChecker *routerHttpDelivery.QuoteReferenceChecker
+	if config.Router.QuoteReferenceCheck.Enabled {
+		quoteReferenceChecker, err = routerHttpDelivery.NewQuoteReferenceChecker(config.Router.QuoteReferenceCheck, tokensUseCase, logger)
+		if err != nil {
+			return nil, err
+		}
 		quoteReferenceChecker.WithCoingecko(coingeckoPricingSource)
 		logger.Info("quote reference check enabled",
 			zap.Float64("warn_deviation", config.Router.QuoteReferenceCheck.WarnDeviation),
