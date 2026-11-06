@@ -51,6 +51,9 @@ type PricingOptions struct {
 	RecomputePricesIsSpotPriceComputeMethod bool
 	// MinPoolLiquidityCap defines the minimum liquidity required to consider a pool for pricing.
 	MinPoolLiquidityCap uint64
+	// NoFallback skips the fallback pricing source when the primary one has no price, so that the
+	// price is known to come from the primary source.
+	NoFallback bool
 }
 
 // PricingOption configures the pricing options.
@@ -69,6 +72,14 @@ func WithRecomputePricesQuoteBasedMethod() PricingOption {
 	return func(o *PricingOptions) {
 		o.RecomputePrices = true
 		o.RecomputePricesIsSpotPriceComputeMethod = false
+	}
+}
+
+// WithNoFallback configures the pricing options to leave a token unpriced when the primary pricing
+// source has no price for it, instead of falling back to another source such as Coingecko.
+func WithNoFallback() PricingOption {
+	return func(o *PricingOptions) {
+		o.NoFallback = true
 	}
 }
 

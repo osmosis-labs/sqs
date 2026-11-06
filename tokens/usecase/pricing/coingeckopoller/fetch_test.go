@@ -40,7 +40,7 @@ func mustFetch(t *testing.T, rawURL, quoteCurrency string, client *http.Client) 
 
 func TestHTTPFetch_KeepsOnlyUsablePrices(t *testing.T) {
 	body := `{
-		"atom": {"usd": 4.25},
+		"atom": {"usd": 4.25, "last_updated_at": 1700000000},
 		"tiny": {"usd": 1.5e-09},
 		"a&b": {"usd": 3},
 		"zero": {"usd": 0},
@@ -58,12 +58,14 @@ func TestHTTPFetch_KeepsOnlyUsablePrices(t *testing.T) {
 	// The quote currency is matched in lower case, as Coingecko answers.
 	prices, err := mustFetch(t, server.URL, " USD ", server.Client())(context.Background(), ids)
 	require.NoError(t, err)
-	require.Equal(t, map[string]osmomath.BigDec{
-		"atom": osmomath.MustNewBigDecFromStr("4.25"),
+	require.Equal(t, map[string]fetchedPrice{
+		// Coingecko's own time is kept, and is zero when the answer has none.
+		"atom": {price: osmomath.MustNewBigDecFromStr("4.25"), updatedAt: time.Unix(1700000000, 0)},
 		// Full precision is kept.
-		"tiny": osmomath.MustNewBigDecFromStr("0.0000000015"),
-		"a&b":  osmomath.NewBigDec(3),
+		"tiny": {price: osmomath.MustNewBigDecFromStr("0.0000000015")},
+		"a&b":  {price: osmomath.NewBigDec(3)},
 	}, prices)
+	require.Equal(t, "true", query.Get("include_last_updated_at"))
 	// The reserved character is escaped, so it does not cut off the ids after it.
 	require.Equal(t, strings.Join(ids, ","), query.Get("ids"))
 	require.Equal(t, "usd", query.Get("vs_currencies"))
