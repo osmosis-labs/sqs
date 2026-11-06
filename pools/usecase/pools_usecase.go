@@ -190,16 +190,16 @@ func (p *poolsUseCase) GetRoutesFromCandidatesInGivenOut(candidateRoutes ingestt
 // takerFeeDenoms returns the (token in, token out) denom pair used to look up the taker fee
 // of the hop at hopIndex in candidateRoute.
 func (p *poolsUseCase) getRoutesFromCandidates(candidateRoutes ingesttypes.CandidateRoutes, takerFeeDenoms func(candidateRoute ingesttypes.CandidateRoute, hopIndex int) (string, string)) ([]route.RouteImpl, error) {
-	// We track whether a route contains a generalized cosmwasm pool
-	// so that we can exclude it from split quote logic.
-	// The reason for this is that making network requests to chain is expensive.
-	// As a result, we want to minimize the number of requests we make.
-	containsGeneralizedCosmWasmPool := false
-
 	// Convert each candidate route into the actual route with all pool data
 	routes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
 		routablePools := make([]domain.RoutablePool, 0, len(candidateRoute.Pools))
+
+		// We track whether this route contains a generalized cosmwasm pool
+		// so that we can exclude it from split quote logic.
+		// The reason for this is that making network requests to chain is expensive.
+		// As a result, we want to minimize the number of requests we make.
+		containsGeneralizedCosmWasmPool := false
 
 		// For fault tolerance, instead of bubbling up the error and skipping an entire
 		// request, we should detect the error and skip the route.
