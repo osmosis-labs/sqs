@@ -13,6 +13,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	stdosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
+	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"go.uber.org/zap"
 )
@@ -315,7 +316,25 @@ func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]s
 		pools[i].SetLiquidityCapError(poolLiquidityCapError)
 	}
 
-	if err := p.poolHandler.StorePools(pools); err != nil {
+	// Pricing runs alongside ingest, so a later block may have stored a newer version of a pool
+	// while it was being priced. Storing the version read above would put its older balances back.
+	// Such a pool is skipped: the later block reprices it.
+	current, _, err := p.poolHandler.GetPools(domain.WithPoolIDFilter(blockPoolIDs))
+	if err != nil {
+		return err
+	}
+	currentByID := make(map[uint64]ingesttypes.PoolI, len(current))
+	for _, pool := range current {
+		currentByID[pool.GetId()] = pool
+	}
+	unchanged := pools[:0]
+	for _, pool := range pools {
+		if currentByID[pool.GetId()] == pool {
+			unchanged = append(unchanged, pool)
+		}
+	}
+
+	if err := p.poolHandler.StorePools(unchanged); err != nil {
 		return err
 	}
 
