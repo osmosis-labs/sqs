@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-
 	"cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
