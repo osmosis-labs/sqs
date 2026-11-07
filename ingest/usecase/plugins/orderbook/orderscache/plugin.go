@@ -10,7 +10,7 @@ import (
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 
-	"encoding/json"
+	"encoding/json/v2"
 
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
