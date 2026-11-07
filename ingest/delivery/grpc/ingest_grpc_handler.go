@@ -96,6 +96,8 @@ func (i *IngestGRPCHandler) ProcessBlock(ctx context.Context, req *prototypes.Pr
 	parentCtx, span := tracer.Start(parentCtx, "IngestGRPCHandler.ProcessBlock", trace.WithSpanKind(trace.SpanKindServer))
 	defer span.End()
 
+	// Retained codec boundary: TakerFeeMap owns its wire format ("denom0|denom1" keys) and
+	// decodes it with encoding/json internally, matching the node that encodes it.
 	if err := takerFeeMap.UnmarshalJSON(req.TakerFeesMap); err != nil {
 		return nil, err
 	}

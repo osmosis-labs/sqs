@@ -1,13 +1,13 @@
 package parsing_test
 
 import (
+	"encoding/json/v2"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/osmosis-labs/osmosis/v31/ingest/types/json"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"

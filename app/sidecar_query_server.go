@@ -176,7 +176,7 @@ func (sqs *sideCarQueryServer) Start(context.Context) error {
 // NewSideCarQueryServer creates a new sidecar query server (SQS).
 func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config domain.Config, logger log.Logger) (SideCarQueryServer, error) {
 	// Setup echo server
-	e := echo.New()
+	e := deliveryhttp.NewEcho()
 	e.Server.ReadHeaderTimeout = serverReadHeaderTimeout
 	e.Server.ReadTimeout = serverReadTimeout
 	e.Server.WriteTimeout = serverWriteTimeout

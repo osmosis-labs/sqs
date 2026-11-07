@@ -2,7 +2,7 @@ package http
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 
@@ -78,6 +78,8 @@ func (ev *Event) MarshalTo(w io.Writer) error {
 }
 
 // WriteEvent writes the given data to the given ResponseWriter as an Event.
+// The payload is encoded in full before anything is written, so an encoding failure never
+// leaves a partial event on the stream.
 func WriteEvent(w *echo.Response, data any) error {
 	b, err := json.Marshal(data)
 	if err != nil {
