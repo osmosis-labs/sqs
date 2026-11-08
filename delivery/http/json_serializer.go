@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/osmosis-labs/sqs/domain/osmomath"
 )
 
 // MaxJSONRequestBodyBytes bounds a JSON request body decoded through the Echo serializer.
@@ -28,9 +30,12 @@ var responseBufferPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 //
 // Responses use v2 defaults: nil slices and maps encode as [] and {}, omitempty omits only
 // values that encode as empty JSON (null, "", {}, []), invalid UTF-8 is an error, and map
-// entries are not sorted. Requests are decoded with v2 defaults: field names match case
-// sensitively, duplicate names and invalid UTF-8 are rejected, and the body must hold exactly
-// one JSON value. Unknown fields are ignored.
+// entries are not sorted. Osmosis decimals and integers are written through
+// osmomath.JSONMarshalOptions, which produces the same bytes as their MarshalJSON methods.
+//
+// Requests are decoded with v2 defaults: field names match case sensitively, duplicate names
+// and invalid UTF-8 are rejected, and the body must hold exactly one JSON value. Unknown
+// fields are ignored.
 type JSONSerializer struct{}
 
 var _ echo.JSONSerializer = JSONSerializer{}
@@ -47,11 +52,11 @@ func (JSONSerializer) Serialize(c echo.Context, i any, indent string) error {
 		}
 	}()
 
-	var opts []json.Options
+	opts := osmomath.JSONMarshalOptions
 	if indent != "" {
-		opts = append(opts, jsontext.WithIndent(indent))
+		opts = json.JoinOptions(opts, jsontext.WithIndent(indent))
 	}
-	if err := json.MarshalWrite(buf, i, opts...); err != nil {
+	if err := json.MarshalWrite(buf, i, opts); err != nil {
 		return err
 	}
 	buf.WriteByte('\n')

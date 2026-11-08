@@ -1,8 +1,12 @@
 package osmomath_test
 
 import (
+	"bytes"
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"sync"
@@ -273,9 +277,9 @@ func fuzzMatchesMethod[T number](t *testing.T, value string) {
 	}
 }
 
-// TestJSONUnmarshalOptions_ConcurrentUse shares the package-level option, as concurrent ingest
-// workers do. Run with -race.
-func TestJSONUnmarshalOptions_ConcurrentUse(t *testing.T) {
+// TestJSONOptions_ConcurrentUse shares the package-level options, as concurrent ingest workers and
+// HTTP handlers do. Run with -race.
+func TestJSONOptions_ConcurrentUse(t *testing.T) {
 	type model struct {
 		D sdkmath.LegacyDec `json:"d"`
 		I sdkmath.Int       `json:"i"`
@@ -292,6 +296,15 @@ func TestJSONUnmarshalOptions_ConcurrentUse(t *testing.T) {
 					errs <- err
 					return
 				}
+				got, err := json.Marshal(m, sqsosmomath.JSONMarshalOptions)
+				if err != nil {
+					errs <- err
+					return
+				}
+				if want := `{"d":"1.500000000000000000","i":"7","b":"0.250000000000000000000000000000000000"}`; string(got) != want {
+					errs <- fmt.Errorf("got %s, want %s", got, want)
+					return
+				}
 			}
 		})
 	}
@@ -300,4 +313,134 @@ func TestJSONUnmarshalOptions_ConcurrentUse(t *testing.T) {
 	for err := range errs {
 		require.NoError(t, err)
 	}
+}
+
+// marshalModel places LegacyDec and Int in every position response models use. The oracle is the
+// same value encoded without JSONMarshalOptions, which reaches the types' MarshalJSON methods.
+type marshalModel struct {
+	D        sdkmath.LegacyDec            `json:"d"`
+	I        sdkmath.Int                  `json:"i"`
+	DPtr     *sdkmath.LegacyDec           `json:"d_ptr"`
+	IPtr     *sdkmath.Int                 `json:"i_ptr"`
+	NilPtr   *sdkmath.LegacyDec           `json:"nil_ptr"`
+	DOmit    sdkmath.LegacyDec            `json:"d_omit,omitempty"`
+	IOmit    sdkmath.Int                  `json:"i_omit,omitempty"`
+	NilOmit  *sdkmath.Int                 `json:"nil_omit,omitempty"`
+	DZero    sdkmath.LegacyDec            `json:"d_zero,omitzero"`
+	IZero    sdkmath.Int                  `json:"i_zero,omitzero"`
+	Decs     []sdkmath.LegacyDec          `json:"decs"`
+	Ints     []*sdkmath.Int               `json:"ints"`
+	DecMap   map[string]sdkmath.LegacyDec `json:"dec_map"`
+	IntMap   map[string]sdkmath.Int       `json:"int_map"`
+	Any      any                          `json:"any"`
+	AnyPtr   any                          `json:"any_ptr"`
+	AnySlice []any                        `json:"any_slice"`
+	BigDec   cosmosmath.BigDec            `json:"big_dec"` // not registered: still its method
+}
+
+func newMarshalModel(d sdkmath.LegacyDec, i sdkmath.Int) marshalModel {
+	// omitzero calls IsZero, which panics on a nil-backed value with or without the option, so
+	// those fields hold the value only when it is initialized.
+	var dZero sdkmath.LegacyDec
+	var iZero sdkmath.Int
+	if !d.IsNil() {
+		dZero = d
+	} else {
+		dZero = sdkmath.LegacyZeroDec()
+	}
+	if !i.IsNil() {
+		iZero = i
+	} else {
+		iZero = sdkmath.ZeroInt()
+	}
+	return marshalModel{
+		D: d, I: i, DPtr: &d, IPtr: &i,
+		DOmit: d, IOmit: i,
+		DZero: dZero, IZero: iZero,
+		Decs:     []sdkmath.LegacyDec{d, {}, sdkmath.LegacyOneDec()},
+		Ints:     []*sdkmath.Int{&i, nil},
+		DecMap:   map[string]sdkmath.LegacyDec{"a": d, "b": {}},
+		IntMap:   map[string]sdkmath.Int{"a": i, "b": {}},
+		Any:      d,
+		AnyPtr:   &i,
+		AnySlice: []any{d, i, &d, nil},
+		BigDec:   cosmosmath.MustNewBigDecFromStr("0.25"),
+	}
+}
+
+// TestJSONMarshalOptions_MatchesMethod requires byte-identical output to the methods for nil-backed,
+// initialized zero, signed and boundary values in every position, compact and indented.
+func TestJSONMarshalOptions_MatchesMethod(t *testing.T) {
+	maxInt256, ok := sdkmath.NewIntFromString(maxInt)
+	require.True(t, ok)
+	decs := []sdkmath.LegacyDec{
+		{}, sdkmath.LegacyZeroDec(), sdkmath.LegacyOneDec(), sdkmath.LegacyMustNewDecFromStr("-1"),
+		sdkmath.LegacySmallestDec(), sdkmath.LegacySmallestDec().Neg(),
+		sdkmath.LegacyMustNewDecFromStr("-0.000123456789012345"),
+		sdkmath.LegacyMustNewDecFromStr(maxLegacyDec), sdkmath.LegacyMustNewDecFromStr("-" + maxLegacyDec),
+	}
+	ints := []sdkmath.Int{
+		{}, sdkmath.ZeroInt(), sdkmath.OneInt(), sdkmath.NewInt(-7),
+		sdkmath.NewInt(math.MaxInt64), sdkmath.NewInt(math.MinInt64), maxInt256, maxInt256.Neg(),
+	}
+	formats := map[string][]json.Options{
+		"compact":  nil,
+		"indented": {jsontext.WithIndent("  ")},
+	}
+	for _, d := range decs {
+		for _, i := range ints {
+			for name, opts := range formats {
+				model := newMarshalModel(d, i)
+				// Maps are unordered in v2; Deterministic makes the byte comparison meaningful.
+				opts = append(opts, json.Deterministic(true))
+				want, err := json.Marshal(model, opts...)
+				require.NoError(t, err)
+				got, err := json.Marshal(model, append(opts, sqsosmomath.JSONMarshalOptions)...)
+				require.NoError(t, err)
+				require.Equal(t, string(want), string(got), "%s, dec %v, int %v", name, d, i)
+
+				// Encoding neither initializes nil-backed values nor changes others.
+				require.Equal(t, d.IsNil(), model.D.IsNil())
+				require.Equal(t, i.IsNil(), model.I.IsNil())
+				after, err := json.Marshal(model, opts...)
+				require.NoError(t, err)
+				require.Equal(t, string(want), string(after), "encoding changed the input")
+			}
+		}
+	}
+}
+
+// TestJSONMarshalOptions_PinnedValues pins the representations the differential test relies on,
+// so a dependency upgrade that changes them is noticed rather than silently absorbed.
+func TestJSONMarshalOptions_PinnedValues(t *testing.T) {
+	maxInt256, ok := sdkmath.NewIntFromString(maxInt)
+	require.True(t, ok)
+	got, err := json.Marshal(struct {
+		NilDec, ZeroDec, NegDec sdkmath.LegacyDec
+		NilInt, ZeroInt, MaxInt sdkmath.Int
+		NilPtr                  *sdkmath.LegacyDec
+	}{
+		ZeroDec: sdkmath.LegacyZeroDec(), NegDec: sdkmath.LegacySmallestDec().Neg(),
+		ZeroInt: sdkmath.ZeroInt(), MaxInt: maxInt256,
+	}, sqsosmomath.JSONMarshalOptions)
+	require.NoError(t, err)
+	require.Equal(t, `{"NilDec":"0","ZeroDec":"0.000000000000000000","NegDec":"-0.000000000000000001",`+
+		`"NilInt":"0","ZeroInt":"0","MaxInt":"`+maxInt+`","NilPtr":null}`, string(got))
+}
+
+// TestJSONMarshalOptions_SkipsNestedEncoder checks the option takes effect: the methods allocate
+// for the nested json.Marshal, the adapter does not.
+func TestJSONMarshalOptions_SkipsNestedEncoder(t *testing.T) {
+	v := struct {
+		D sdkmath.LegacyDec
+		I sdkmath.Int
+	}{sdkmath.LegacyMustNewDecFromStr("12.5"), sdkmath.NewInt(12345)}
+	var buf bytes.Buffer
+	allocs := func(opts ...json.Options) float64 {
+		return testing.AllocsPerRun(100, func() {
+			buf.Reset()
+			require.NoError(t, json.MarshalWrite(&buf, v, opts...))
+		})
+	}
+	require.Less(t, allocs(sqsosmomath.JSONMarshalOptions), allocs())
 }

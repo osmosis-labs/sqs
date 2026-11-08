@@ -1,6 +1,6 @@
-# JSON v2 migration: decoding performance results
+# JSON v2 migration: performance results
 
-Companion to [json-v2-migration.md](json-v2-migration.md). Measured on an Apple M1 Pro with go1.27.3, fixture `router/usecase/routertesting/parsing/pools.json`, `-count 10`, compared with benchstat, with no other benchmarks running at the same time.
+Companion to [json-v2-migration.md](json-v2-migration.md). The first part covers decoding of ingest models; [Encoding: quote responses](#encoding-quote-responses) covers the response serializer. Measured on an Apple M1 Pro with go1.27.3, fixture `router/usecase/routertesting/parsing/pools.json`, `-count 10`, compared with benchstat, with no other benchmarks running at the same time.
 
 ## Finding
 
@@ -36,7 +36,7 @@ Echo request decoding and all other call sites keep plain v2 defaults.
 
 Compared with the wrapper, allocated bytes fall by 25–50% and allocation counts by 32–47%.
 
-Quote serialization is unchanged by this work: 27.6 µs → 25.2 µs (−8.9%) and 26.9 kB → 9.0 kB per response, compared with Echo's default serializer.
+Quote serialization is unchanged by this decoding work: 27.6 µs → 25.2 µs (−8.9%) and 26.9 kB → 9.0 kB per response, compared with Echo's default serializer. The numeric encoding option below changes that.
 
 ### Remaining tradeoff
 
@@ -81,8 +81,86 @@ The adapter parses nothing itself; the dependencies own grammar, precision, rang
 - If an upgrade makes a constructor diverge from its `UnmarshalJSON`, the differential and fuzz tests fail with a concrete input.
 - If a dependency later implements `UnmarshalJSONFrom`, remove its registration, or the whole adapter.
 
+## Encoding: quote responses
+
+### Finding
+
+A CPU profile of `BenchmarkQuoteResponseSerialization` on the plain v2 serializer showed the numeric methods dominating. Cumulative shares overlap:
+
+- `LegacyDec.MarshalJSON`: 22%
+- `Int.MarshalJSON`: 22%
+- nested `encoding/json.Marshal`: 26%
+- method dispatch, including children: 59%
+
+The decimal method formats the value with `String`; the integer method uses `big.Int.MarshalText`, which produces the same decimal text as `String`. Both quote the text with a nested `json.Marshal` into a new slice. The outer v2 encoder then scans and copies that slice again.
+
+### Change
+
+`domain/osmomath.JSONMarshalOptions` registers a `json.MarshalToFunc` for `LegacyDec` and for `Int`. For a non-nil value, the function writes `v.String()` as a single string token to the encoder. It does no formatting of its own. For a nil-backed value (the zero struct), it returns `errors.ErrUnsupported` before writing anything. The type's own `MarshalJSON` then encodes it, so the dependencies keep ownership of that representation (currently `"0"`).
+
+`delivery/http.JSONSerializer` passes the option on every response, with `jsontext.WithIndent` joined in for indented responses. Buffering, the trailing newline and encoding-failure atomicity are unchanged. Request decoding, SSE events (`WriteEvent`) and all other `json.Marshal` call sites keep plain v2 defaults.
+
+`BigDec` is not registered. Quote responses carry none, and the endpoints that do (token prices) have not been measured.
+
+### Results
+
+`BenchmarkQuoteResponseSerialization` uses a prepared quote with 4 routes of 3 hops each (about 4.3 kB of JSON), run with `-count 10`. It compares three variants:
+
+- `v1-echo-default`: Echo's default serializer, the original production codec
+- `v2-plain`: the previous v2 serializer, without the option
+- `v2`: production
+
+| Comparison | time/op | B/op | allocs/op |
+|---|---|---|---|
+| previous v2 (HEAD before change) → v2 | 25.6 µs → 19.0 µs (−25.8%) | 8.99 kB → 5.00 kB (−44%) | 416 → 220 (−47%) |
+| `v2-plain` → `v2` (same run) | 26.1 µs → 19.0 µs (−27.2%) | 8.99 kB → 5.00 kB (−44%) | 416 → 220 (−47%) |
+| `v1-echo-default` → `v2` (same run) | 28.8 µs → 19.0 µs (−34.0%) | 26.9 kB → 5.0 kB (−81%) | 426 → 220 (−48%) |
+
+All deltas have p < 0.001 (benchstat, n = 10 + 10). The control variant `v1-echo-default` did not move between the two runs (p = 0.08).
+
+This measures serializing an already-built quote. It excludes routing, handler work and network I/O, so these figures do not establish the end-to-end latency improvement. That has not been measured.
+
+After the change, the largest remaining costs are the owners' own formatting (`big.Int.String`, about 15% cumulative) and `sdk.Coins.MarshalJSON` (about 5%), which still uses its nested encoder.
+
+### Behaviour and tests
+
+The output is byte-identical to the methods.
+
+- `TestJSONMarshalOptions_MatchesMethod` (`domain/osmomath/json_test.go`) compares output with and without the option, compact and indented. It covers these values:
+  - nil-backed and initialized zero
+  - ±1 and ±10⁻¹⁸
+  - `int64` limits
+  - the 256-bit `Int` and `LegacyDec` limits
+
+  Each value appears in every position response models use:
+  - value and pointer fields, including nil pointers
+  - `omitempty` and `omitzero`
+  - slices and maps
+  - `any`
+
+  The test also checks that encoding does not modify the input.
+- `TestJSONMarshalOptions_PinnedValues` pins the representations: nil `LegacyDec` and nil `Int` are `"0"`, and an initialized zero `LegacyDec` is `"0.000000000000000000"`.
+- `TestQuoteResponseSerialization_MatchesPlainV2` compares the benchmark quote, compact and indented.
+- The serializer tests cover wiring, indentation, the trailing newline, and a failure after numeric output, which still leaves the response uncommitted.
+- Handler tests for other endpoints run through `NewEcho` unchanged.
+- A shared-option concurrency test runs under `-race`.
+
+### Limitations
+
+- `omitzero` on a nil-backed `LegacyDec` or `Int` panics in `IsZero`, with or without the option. This is unchanged dependency behaviour.
+- The option reaches only values encoded by the encoder it is passed to. A type whose `MarshalJSON` calls `json.Marshal` internally, such as `sdk.Coins`, still encodes its contents through the dependencies' methods.
+- If a dependency changes `String` or `MarshalJSON` so that they diverge, the differential tests fail. If a dependency later implements `MarshalJSONTo`, remove its registration.
+
 ## Validation
 
 The implementation passed the repository build, `make test-unit`, focused race checks on the numeric adapter, parsing and ingest packages, and golangci-lint v2.14.0. Differential fuzzing ran for 90 seconds without divergence.
 
 Integration added explicit escaped-string and exact overflow-boundary cases, clarified error-mutation behavior, and passed the full suite with coverage (`go test -mod=readonly ./... -coverprofile=... -covermode=count`). CI-version lint and `git diff --check` also passed after integration. The installed older linter cannot load this Go version; validation used the separately built CI version.
+
+The encoding option passed:
+
+- `go build -mod=readonly ./...`
+- `make test-unit`
+- the full suite with coverage; the new functions are 100% covered
+- `-race` on the numeric, serializer, router use case and HTTP delivery packages
+- golangci-lint v2.14.0, gofmt and `git diff --check`

@@ -33,6 +33,38 @@ var JSONUnmarshalOptions = json.WithUnmarshalers(json.JoinUnmarshalers(
 	stringNumber(cosmosmath.NewBigDecFromStr),
 ))
 
+// JSONMarshalOptions encodes sdkmath.LegacyDec and Int (alias osmomath.Dec and osmomath.Int)
+// straight into the encoder. Pass it to json.Marshal where responses carry many such numbers; the
+// Echo response serializer uses it.
+//
+// Each type's MarshalJSON formats the value (String for decimals, big.Int.MarshalText for integers),
+// then runs a nested json.Marshal to quote it, and the outer encoder scans and copies those bytes
+// again. Writing String() as a string token skips the nested encoder and intermediate slice. These
+// formatters produce identical numeric text, so the JSON bytes are unchanged.
+//
+// BigDec is not registered: quote responses carry none, and the remaining endpoints that do (token
+// prices) have not been measured to need it. Reuse this value rather than rebuilding it per call:
+// json caches its per-type function lookups on it.
+var JSONMarshalOptions = json.WithMarshalers(json.JoinMarshalers(
+	stringNumberTo[sdkmath.LegacyDec](),
+	stringNumberTo[sdkmath.Int](),
+))
+
+// stringNumberTo encodes a non-nil value as a JSON string holding v.String(). A nil-backed value
+// (the zero struct) falls through to the type's own MarshalJSON, which owns its representation of
+// it (currently "0"; String would print "<nil>").
+func stringNumberTo[T interface {
+	IsNil() bool
+	String() string
+}]() *json.Marshalers {
+	return json.MarshalToFunc(func(enc *jsontext.Encoder, v T) error {
+		if v.IsNil() {
+			return errors.ErrUnsupported // nothing written, so json falls back to the method
+		}
+		return enc.WriteToken(jsontext.String(v.String()))
+	})
+}
+
 // parseInt adapts sdkmath.NewIntFromString, which reports failure as a bool, to an error.
 func parseInt(s string) (sdkmath.Int, error) {
 	v, ok := sdkmath.NewIntFromString(s)

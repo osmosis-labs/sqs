@@ -1,6 +1,9 @@
 package usecase_test
 
 import (
+	"bytes"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -57,8 +60,52 @@ func benchmarkQuote() *usecase.QuoteExactAmountIn {
 	return quote
 }
 
+// plainV2Serializer is deliveryhttp.JSONSerializer without osmomath.JSONMarshalOptions: the
+// numeric types go through their MarshalJSON methods. It is the baseline the option is measured
+// and checked against. Like the production pool, buf is reused across calls (not concurrently).
+type plainV2Serializer struct {
+	echo.DefaultJSONSerializer // Deserialize, unused here
+	buf                        *bytes.Buffer
+}
+
+func (s plainV2Serializer) Serialize(c echo.Context, i any, indent string) error {
+	var opts []json.Options
+	if indent != "" {
+		opts = append(opts, jsontext.WithIndent(indent))
+	}
+	buf := s.buf
+	buf.Reset()
+	if err := json.MarshalWrite(buf, i, opts...); err != nil {
+		return err
+	}
+	buf.WriteByte('\n')
+	_, err := c.Response().Write(buf.Bytes())
+	return err
+}
+
+func serializeQuote(t testing.TB, serializer echo.JSONSerializer, indent string) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(httptest.NewRequest(http.MethodGet, "/router/quote", nil), rec)
+	if err := serializer.Serialize(c, benchmarkQuote(), indent); err != nil {
+		t.Fatal(err)
+	}
+	return rec.Body.String()
+}
+
+// The production serializer's numeric option must not change a quote's bytes.
+func TestQuoteResponseSerialization_MatchesPlainV2(t *testing.T) {
+	for _, indent := range []string{"", "  "} {
+		want := serializeQuote(t, plainV2Serializer{buf: new(bytes.Buffer)}, indent)
+		if got := serializeQuote(t, deliveryhttp.JSONSerializer{}, indent); got != want {
+			t.Fatalf("indent %q:\nwant %s\ngot  %s", indent, want, got)
+		}
+	}
+}
+
 // BenchmarkQuoteResponseSerialization compares Echo's default encoding/json serializer (the
-// previous production codec) with the encoding/json/v2 serializer on the same quote.
+// original production codec), plain encoding/json/v2, and the production v2 serializer with
+// osmomath.JSONMarshalOptions on the same quote.
 func BenchmarkQuoteResponseSerialization(b *testing.B) {
 	quote := benchmarkQuote()
 	for _, bc := range []struct {
@@ -66,6 +113,7 @@ func BenchmarkQuoteResponseSerialization(b *testing.B) {
 		serializer echo.JSONSerializer
 	}{
 		{name: "v1-echo-default", serializer: echo.DefaultJSONSerializer{}},
+		{name: "v2-plain", serializer: plainV2Serializer{buf: new(bytes.Buffer)}},
 		{name: "v2", serializer: deliveryhttp.JSONSerializer{}},
 	} {
 		b.Run(bc.name, func(b *testing.B) {

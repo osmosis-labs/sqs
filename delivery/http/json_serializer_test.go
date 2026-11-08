@@ -20,6 +20,10 @@ import (
 type serializerResponse struct {
 	Amount       osmomath.Int      `json:"amount"`
 	Price        osmomath.Dec      `json:"price"`
+	NilAmount    osmomath.Int      `json:"nil_amount"`
+	NilPrice     osmomath.Dec      `json:"nil_price"`
+	ZeroPrice    osmomath.Dec      `json:"zero_price"`
+	PricePtr     *osmomath.Dec     `json:"price_ptr"`
 	Coin         sdk.Coin          `json:"coin"`
 	Pools        []uint64          `json:"pools"`
 	Labels       map[string]string `json:"labels"`
@@ -47,9 +51,10 @@ func TestJSONSerializer_Response(t *testing.T) {
 	require.True(t, ok)
 
 	rec := serveJSON(t, "/", serializerResponse{
-		Amount: amount,
-		Price:  osmomath.MustNewDecFromStr("0.000000000000000001"),
-		Coin:   sdk.NewCoin("uosmo", osmomath.NewInt(5)),
+		Amount:    amount,
+		Price:     osmomath.MustNewDecFromStr("0.000000000000000001"),
+		ZeroPrice: osmomath.ZeroDec(),
+		Coin:      sdk.NewCoin("uosmo", osmomath.NewInt(5)),
 	})
 
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -58,9 +63,14 @@ func TestJSONSerializer_Response(t *testing.T) {
 
 	// v2 representation: nil slice and map are [] and {}; zero numbers and false booleans are
 	// encoded even with omitempty; omitzero, empty strings and nil pointers are omitted.
+	// Uninitialized Osmosis numbers keep their methods' "0"; an initialized zero Dec has 18 digits.
 	require.JSONEq(t, `{
 		"amount": "1208925819614629174706176",
 		"price": "0.000000000000000001",
+		"nil_amount": "0",
+		"nil_price": "0",
+		"zero_price": "0.000000000000000000",
+		"price_ptr": null,
 		"coin": {"denom": "uosmo", "amount": "5"},
 		"pools": [],
 		"labels": {},
@@ -72,10 +82,10 @@ func TestJSONSerializer_Response(t *testing.T) {
 }
 
 func TestJSONSerializer_PrettyResponse(t *testing.T) {
-	rec := serveJSON(t, "/?pretty", map[string]int{"a": 1})
+	rec := serveJSON(t, "/?pretty", map[string]osmomath.Dec{"a": osmomath.OneDec()})
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, "{\n  \"a\": 1\n}\n", rec.Body.String())
+	require.Equal(t, "{\n  \"a\": \"1.000000000000000000\"\n}\n", rec.Body.String())
 }
 
 // An encoding failure must not leave a partial body behind: Echo's error handler then writes
@@ -84,7 +94,7 @@ func TestJSONSerializer_EncodingFailureLeavesResponseUncommitted(t *testing.T) {
 	for name, value := range map[string]any{
 		"invalid UTF-8":      map[string]any{"ok": strings.Repeat("x", 8192), "bad": "\xff"},
 		"unsupported type":   map[string]any{"ok": 1, "bad": make(chan int)},
-		"failure after data": []any{strings.Repeat("y", 64<<10), func() {}},
+		"failure after data": []any{strings.Repeat("y", 64<<10), osmomath.OneDec(), osmomath.OneInt(), func() {}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			e := deliveryhttp.NewEcho()
