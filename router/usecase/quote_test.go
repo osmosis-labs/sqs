@@ -2,7 +2,7 @@ package usecase_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"

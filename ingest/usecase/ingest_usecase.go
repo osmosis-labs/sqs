@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"maps"
 	"runtime"
@@ -22,12 +23,12 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	sqsosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
 	"github.com/osmosis-labs/sqs/domain/recovery"
 	sqsingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 
-	"github.com/osmosis-labs/osmosis/v31/ingest/types/json"
 	"github.com/osmosis-labs/osmosis/v31/ingest/types/proto/types"
 )
 
@@ -564,6 +565,11 @@ func copyDenomPoolLiquidityData(data domain.DenomPoolLiquidityData) domain.Denom
 
 // parsePool parses the pool data and returns the pool object
 // For concentrated pools, it also processes the tick model
+//
+// The chain model is a protobuf Any and goes through the interface registry codec. The SQS and
+// tick models are plain JSON written by the Osmosis node's ingester (jsoniter, standard-library
+// compatible) and are decoded with encoding/json/v2 and sqsosmomath.JSONUnmarshalOptions.
+// The Osmosis models use exact JSON field names and string-encoded integers and decimals.
 func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, error) {
 	var chainModel poolmanagertypes.PoolI
 	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, &chainModel); err != nil {
@@ -571,7 +577,7 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, e
 	}
 
 	var sqsModel ingesttypes.SQSPool
-	if err := json.Unmarshal(pool.SqsModel, &sqsModel); err != nil {
+	if err := json.Unmarshal(pool.SqsModel, &sqsModel, sqsosmomath.JSONUnmarshalOptions); err != nil {
 		return nil, err
 	}
 
@@ -583,7 +589,7 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, e
 	poolWrapper := sqsingesttypes.NewPool(chainModel, sqsModel)
 	if poolWrapper.GetType() == poolmanagertypes.Concentrated {
 		var tickModel ingesttypes.TickModel
-		if err := json.Unmarshal(pool.TickModel, &tickModel); err != nil {
+		if err := json.Unmarshal(pool.TickModel, &tickModel, sqsosmomath.JSONUnmarshalOptions); err != nil {
 			return nil, err
 		}
 		if err := poolWrapper.SetTickModel(&tickModel); err != nil {

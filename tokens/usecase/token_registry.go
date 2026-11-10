@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"crypto/md5"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -10,11 +9,15 @@ import (
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/sqsutil/sqshttp"
 )
 
 // chainRegistryHTTPClient fetches the asset list. The timeout is generous because the
 // file is large, but it bounds a hung connection that would otherwise block startup and updates.
 var chainRegistryHTTPClient = &http.Client{Timeout: 60 * time.Second}
+
+// maxAssetListBytes bounds the asset list body. The Osmosis asset list is a few MiB.
+const maxAssetListBytes = 64 << 20
 
 // GetTokensFromChainRegistryFunc is a GetTokensFromChainRegistry function signature.
 type GetTokensFromChainRegistryFunc func(chainRegistryAssetsFileURL string) (map[string]domain.Token, string, error)
@@ -33,22 +36,14 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 		return nil, "", fmt.Errorf("failed to fetch chain registry assets: %s", response.Status)
 	}
 
-	// read the response body once to be used for
-	// decoding and for checksum
-	data, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, "", err
-	}
-
-	// Calculate the MD5 checksum of the data
-	checksum := fmt.Sprintf("%x", md5.Sum(data))
-
-	// Decode the JSON data
+	// Decode the body while hashing it. The decoder reads to EOF, so the checksum covers
+	// the whole body.
+	hash := md5.New()
 	var assetList AssetList
-	err = json.Unmarshal(data, &assetList)
-	if err != nil {
+	if err := sqshttp.DecodeJSON(io.TeeReader(response.Body, hash), maxAssetListBytes, &assetList); err != nil {
 		return nil, "", err
 	}
+	checksum := fmt.Sprintf("%x", hash.Sum(nil))
 
 	tokensByChainDenom := make(map[string]domain.Token)
 

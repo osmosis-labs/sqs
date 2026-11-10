@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/middleware"
@@ -16,7 +17,7 @@ import (
 // TestRecoverMiddleware checks that a panicking handler returns a generic 500
 // without the panic text, and that the server keeps serving afterwards.
 func TestRecoverMiddleware(t *testing.T) {
-	e := echo.New()
+	e := deliveryhttp.NewEcho()
 	m := middleware.InitMiddleware(&domain.CORSConfig{}, &domain.FlightRecordConfig{}, &log.NoOpLogger{})
 	e.Use(m.RecoverMiddleware())
 	e.GET("/panic", func(c echo.Context) error {
