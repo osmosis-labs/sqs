@@ -1,6 +1,8 @@
 package pools
 
 import (
+	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
-	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 )
 
 func TestGetPoolsRequestFilter_IsPresent(t *testing.T) {
@@ -263,8 +264,8 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 	}
 }
 
-// Validates that parsing a pools request validates its pagination, which is what bounds the
-// page size. The validation rules themselves are covered by the pagination tests.
+// Validates that parsing a pools request accepts every page size, as /pools always has, and
+// rejects only a page offset that overflows.
 func TestGetPoolsRequest_ParseValidatesPagination(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -284,9 +285,30 @@ func TestGetPoolsRequest_ParseValidatesPagination(t *testing.T) {
 			query: "page[size]=10",
 		},
 		{
-			name:        "size above the maximum",
-			query:       "page[cursor]=0&page[size]=1000000000000",
-			expectedErr: v1beta1.ErrLimitTooLarge,
+			name:  "size above the generic maximum fetches every pool in one page",
+			query: "page[size]=2000",
+		},
+		{
+			name:  "cursor without size",
+			query: "page[cursor]=50",
+		},
+		{
+			name:  "page number without size",
+			query: "page[number]=3",
+		},
+		{
+			name:  "largest page offset",
+			query: fmt.Sprintf("page[number]=%d&page[size]=1", math.MaxInt),
+		},
+		{
+			name:        "page offset overflows",
+			query:       fmt.Sprintf("page[number]=%d&page[size]=2", math.MaxInt/2+1),
+			expectedErr: ErrPageOffsetOverflow,
+		},
+		{
+			name:        "cursor overflows",
+			query:       fmt.Sprintf("page[cursor]=%d&page[size]=10", uint64(math.MaxInt)+1),
+			expectedErr: ErrPageOffsetOverflow,
 		},
 	}
 
