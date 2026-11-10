@@ -5,7 +5,6 @@
 build
 bin
 locust
-localnet
 tests
 **/*_test.go
 *.md
