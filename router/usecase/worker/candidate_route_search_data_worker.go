@@ -68,7 +68,9 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 
 	wg := sync.WaitGroup{}
 
-	c.logger.Info("computing candidate route data", zap.Any("denoms", (blockPoolMetaData.UpdatedDenoms)))
+	// The denoms are counted, not listed: the first block updates every denom, and the full map
+	// was encoded into the log on every block.
+	c.logger.Info("computing candidate route data", zap.Int("num_denoms", len(blockPoolMetaData.UpdatedDenoms)))
 	for denom := range blockPoolMetaData.UpdatedDenoms {
 		wg.Add(1)
 

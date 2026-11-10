@@ -663,11 +663,20 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 
 // StorePools implements mvc.PoolsUsecase.
 func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
+	// The pools are stored in one write. The pool map is copied on every write, so storing
+	// them one at a time copied the whole map once per pool, on every block.
+	poolsByID := make(map[uint64]ingesttypes.PoolI, len(pools))
 	for _, pool := range pools {
 		// Set liquidity capitalization for the pool to previous value if it is nil or zero.
 		// This value will be used for candidate route search and will be recomputed later.
+		// The previous value is the one of an earlier entry for the same pool in this call,
+		// if any, and of the stored pool otherwise.
 		poolID := pool.GetId()
-		oldPool, err := p.GetPool(poolID)
+		oldPool, isInBatch := poolsByID[poolID]
+		var err error
+		if !isInBatch {
+			oldPool, err = p.GetPool(poolID)
+		}
 		if err == nil {
 			liquidityCap := pool.GetLiquidityCap()
 			if liquidityCap.IsNil() || liquidityCap.Equal(osmomath.ZeroInt()) {
@@ -676,7 +685,15 @@ func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 			}
 		}
 
-		p.pools.Set(poolID, pool)
+		poolsByID[poolID] = pool
+	}
+
+	p.pools.Store(poolsByID)
+
+	// The orderbooks are processed once every pool is stored, so that electing a canonical
+	// orderbook reads the current state of all of them.
+	for _, pool := range pools {
+		poolID := pool.GetId()
 
 		// If orderbook, update top liquidity pool for base and quote denom if it has higher liquidity capitalization.
 		sqsModel := pool.GetSQSPoolModel()
