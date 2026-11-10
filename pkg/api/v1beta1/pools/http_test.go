@@ -2,11 +2,16 @@ package pools
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
+	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
 )
 
 func TestGetPoolsRequestFilter_IsPresent(t *testing.T) {
@@ -254,6 +259,64 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				assert.Equal(t, tt.expectedFilter.MinLiquidityCap, filter.MinLiquidityCap)
 				assert.Equal(t, tt.expectedFilter.WithMarketIncentives, filter.WithMarketIncentives)
 			}
+		})
+	}
+}
+
+// Validates that parsing a pools request validates its pagination, which bounds the page
+// size, and that pages start at zero.
+func TestGetPoolsRequest_ParseValidatesPagination(t *testing.T) {
+	tests := []struct {
+		name        string
+		query       string
+		expectedErr error
+	}{
+		{
+			name:  "no pagination",
+			query: "",
+		},
+		{
+			name:  "first page",
+			query: "page[number]=0&page[size]=10",
+		},
+		{
+			name:  "size only defaults to the first page",
+			query: "page[size]=10",
+		},
+		{
+			name:  "cursor",
+			query: "page[cursor]=20&page[size]=10",
+		},
+		{
+			name:        "size above the maximum",
+			query:       "page[cursor]=0&page[size]=1000000000000",
+			expectedErr: v1beta1.ErrLimitTooLarge,
+		},
+		{
+			name:        "page without a size",
+			query:       "page[number]=1",
+			expectedErr: v1beta1.ErrLimitNotValid,
+		},
+		{
+			name:        "page above the maximum",
+			query:       "page[number]=1000001&page[size]=10",
+			expectedErr: v1beta1.ErrPageTooLarge,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/pools?"+tt.query, nil)
+			c := e.NewContext(req, httptest.NewRecorder())
+
+			var request GetPoolsRequest
+			err := deliveryhttp.ParseRequest(c, &request)
+			if tt.expectedErr != nil {
+				require.ErrorIs(t, err, tt.expectedErr)
+				return
+			}
+			require.NoError(t, err)
 		})
 	}
 }

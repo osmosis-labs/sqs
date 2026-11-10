@@ -60,6 +60,16 @@ func (r *GetPoolsRequest) UnmarshalHTTPRequest(c echo.Context) error {
 	return nil
 }
 
+// Validate implements validator.Validator, so that the request is validated when it is parsed.
+// Only the pagination has constraints: the page size sizes the response, so it is bounded.
+func (r *GetPoolsRequest) Validate() error {
+	if r.Pagination != nil {
+		return r.Pagination.Validate()
+	}
+
+	return nil
+}
+
 // IsLegacy checks if request contains deprecated query parameters.
 // It's used to determine backward compatibility.
 func (r *GetPoolsRequest) IsLegacy(c echo.Context) bool {
