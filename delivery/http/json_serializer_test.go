@@ -81,6 +81,20 @@ func TestJSONSerializer_Response(t *testing.T) {
 	}`, rec.Body.String())
 }
 
+// Handlers echo user input in error messages. Invalid UTF-8 there is replaced with U+FFFD, as v1
+// did, so a bad query parameter still yields its 400 rather than an encoding failure.
+func TestJSONSerializer_InvalidUTF8IsReplaced(t *testing.T) {
+	e := deliveryhttp.NewEcho()
+	e.GET("/", func(c echo.Context) error {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "invalid denom: " + c.QueryParam("base")})
+	})
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/?base=%FF", nil))
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.JSONEq(t, `{"message":"invalid denom: \ufffd"}`, rec.Body.String())
+}
+
 func TestJSONSerializer_PrettyResponse(t *testing.T) {
 	rec := serveJSON(t, "/?pretty", map[string]osmomath.Dec{"a": osmomath.OneDec()})
 
@@ -92,7 +106,6 @@ func TestJSONSerializer_PrettyResponse(t *testing.T) {
 // a complete error response, so the client receives exactly one JSON document.
 func TestJSONSerializer_EncodingFailureLeavesResponseUncommitted(t *testing.T) {
 	for name, value := range map[string]any{
-		"invalid UTF-8":      map[string]any{"ok": strings.Repeat("x", 8192), "bad": "\xff"},
 		"unsupported type":   map[string]any{"ok": 1, "bad": make(chan int)},
 		"failure after data": []any{strings.Repeat("y", 64<<10), osmomath.OneDec(), osmomath.OneInt(), func() {}},
 	} {
@@ -192,7 +205,7 @@ func TestWriteEvent(t *testing.T) {
 		rec := httptest.NewRecorder()
 		res := echo.NewResponse(rec, deliveryhttp.NewEcho())
 
-		require.Error(t, deliveryhttp.WriteEvent(res, map[string]any{"bad": "\xff"}))
+		require.Error(t, deliveryhttp.WriteEvent(res, map[string]any{"bad": make(chan int)}))
 		require.Zero(t, rec.Body.Len())
 		require.False(t, rec.Flushed)
 	})

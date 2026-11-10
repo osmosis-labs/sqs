@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
@@ -13,6 +14,9 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/osmosis-labs/sqs/domain/osmomath"
+
+	"github.com/osmosis-labs/osmosis/v31/ingest/types/passthroughdomain"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 )
 
 // MaxJSONRequestBodyBytes bounds a JSON request body decoded through the Echo serializer.
@@ -26,12 +30,45 @@ const maxPooledResponseBufferBytes = 1 << 20
 
 var responseBufferPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 
+// responseOptions encode every Echo response and server-sent event. Built once so json can cache
+// its per-type function lookups on the marshalers.
+var responseOptions = json.JoinOptions(
+	json.WithMarshalers(json.JoinMarshalers(osmomath.JSONMarshalers, dependencyMarshalers)),
+	// Handlers echo user input (query parameters, denoms) in error messages. v1 replaced invalid
+	// UTF-8 with U+FFFD; rejecting it would turn those 400s into 500s.
+	jsontext.AllowInvalidUTF8(true),
+)
+
+// dependencyMarshalers write Osmosis-owned response types with encoding/json v1, byte for byte as
+// before the v2 migration. v2 refuses some of them outright: the passthrough status wraps embed
+// PoolAPR and PoolFee, which define UnmarshalJSON, and v2 does not inline an embedded struct with
+// JSON methods. Others encode differently: the chain models' generated `omitempty` tags omit zero
+// numbers only under v1 (a concentrated pool would gain "current_tick": 0). These types are not
+// ours to retag, so they keep v1 semantics. Responses carrying them are encoded twice per value,
+// which is what Echo's v1 serializer did for every response.
+var dependencyMarshalers = json.JoinMarshalers(
+	marshalWithV1[poolmanagertypes.PoolI](),
+	marshalWithV1[passthroughdomain.PoolAPRDataStatusWrap](),
+	marshalWithV1[passthroughdomain.PoolFeesDataStatusWrap](),
+)
+
+func marshalWithV1[T any]() *json.Marshalers {
+	return json.MarshalToFunc(func(enc *jsontext.Encoder, v T) error {
+		b, err := jsonv1.Marshal(v)
+		if err != nil {
+			return err
+		}
+		return enc.WriteValue(b)
+	})
+}
+
 // JSONSerializer is an echo.JSONSerializer backed by encoding/json/v2.
 //
 // Responses use v2 defaults: nil slices and maps encode as [] and {}, omitempty omits only
-// values that encode as empty JSON (null, "", {}, []), invalid UTF-8 is an error, and map
-// entries are not sorted. Osmosis decimals and integers are written through
-// osmomath.JSONMarshalOptions, which produces the same bytes as their MarshalJSON methods.
+// values that encode as empty JSON (null, "", {}, []), HTML characters are not escaped, and map
+// entries are not sorted. Invalid UTF-8 in strings is replaced with U+FFFD, as v1 did. Osmosis
+// decimals and integers are written through osmomath.JSONMarshalers, which produce the same bytes
+// as their MarshalJSON methods; dependencyMarshalers keep v1 bytes for Osmosis-owned pool types.
 //
 // Requests are decoded with v2 defaults: field names match case sensitively, duplicate names
 // and invalid UTF-8 are rejected, and the body must hold exactly one JSON value. Unknown
@@ -52,7 +89,7 @@ func (JSONSerializer) Serialize(c echo.Context, i any, indent string) error {
 		}
 	}()
 
-	opts := osmomath.JSONMarshalOptions
+	opts := responseOptions
 	if indent != "" {
 		opts = json.JoinOptions(opts, jsontext.WithIndent(indent))
 	}

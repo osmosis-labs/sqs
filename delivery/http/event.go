@@ -81,7 +81,7 @@ func (ev *Event) MarshalTo(w io.Writer) error {
 // The payload is encoded in full before anything is written, so an encoding failure never
 // leaves a partial event on the stream.
 func WriteEvent(w *echo.Response, data any) error {
-	b, err := json.Marshal(data)
+	b, err := json.Marshal(data, responseOptions)
 	if err != nil {
 		return err
 	}

@@ -45,10 +45,15 @@ var JSONUnmarshalOptions = json.WithUnmarshalers(json.JoinUnmarshalers(
 // BigDec is not registered: quote responses carry none, and the remaining endpoints that do (token
 // prices) have not been measured to need it. Reuse this value rather than rebuilding it per call:
 // json caches its per-type function lookups on it.
-var JSONMarshalOptions = json.WithMarshalers(json.JoinMarshalers(
+var JSONMarshalOptions = json.WithMarshalers(JSONMarshalers)
+
+// JSONMarshalers are the marshalers behind JSONMarshalOptions. Callers that register marshalers
+// of their own must join these into the same json.WithMarshalers option: a later WithMarshalers
+// replaces an earlier one instead of adding to it.
+var JSONMarshalers = json.JoinMarshalers(
 	stringNumberTo[sdkmath.LegacyDec](),
 	stringNumberTo[sdkmath.Int](),
-))
+)
 
 // stringNumberTo encodes a non-nil value as a JSON string holding v.String(). A nil-backed value
 // (the zero struct) falls through to the type's own MarshalJSON, which owns its representation of
