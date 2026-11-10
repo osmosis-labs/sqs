@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 	"crypto/md5"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"time"
 

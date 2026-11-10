@@ -88,7 +88,7 @@ func (s *PassthroughHandlerTestSuite) TestGetActiveOrders() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(echo.GET, "/", nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			q := req.URL.Query()
@@ -214,7 +214,7 @@ func (s *PassthroughHandlerTestSuite) TestGetActiveOrdersStream() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(echo.GET, "/", nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			q := req.URL.Query()
@@ -475,7 +475,7 @@ func (s *PassthroughHandlerTestSuite) TestGetOrderbookTicks() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(echo.GET, "/", nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			q := req.URL.Query()
@@ -562,7 +562,7 @@ func (s *PassthroughHandlerTestSuite) TestGetActiveOrdersStreamOutlivesServerTim
 		Logger:   &log.NoOpLogger{},
 	}
 
-	e := echo.New()
+	e := deliveryhttp.NewEcho()
 	e.GET("/stream", handler.GetActiveOrdersStream)
 	server := httptest.NewUnstartedServer(e)
 	server.Config.ReadTimeout = serverTimeout
@@ -605,7 +605,7 @@ func (s *PassthroughHandlerTestSuite) TestGetActiveOrdersStreamEndsOnShutdown() 
 		Logger:   &log.NoOpLogger{},
 	}
 
-	e := echo.New()
+	e := deliveryhttp.NewEcho()
 	e.GET("/stream", handler.GetActiveOrdersStream)
 	server := httptest.NewUnstartedServer(e)
 	deliveryhttp.WithShutdownSignal(server.Config)

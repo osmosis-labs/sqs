@@ -3,6 +3,10 @@ package usecase
 import (
 	"context"
 
+	"github.com/cosmos/cosmos-sdk/codec"
+	prototypes "github.com/osmosis-labs/osmosis/v31/ingest/types/proto/types"
+	"github.com/osmosis-labs/sqs/log"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v31/ingest/types/cosmwasmpool"
@@ -41,4 +45,8 @@ func ProcessAlloyedPool(sqsModel *ingesttypes.SQSPool) error {
 
 func RetryOrderbooksWithoutTicks(ingester mvc.IngestUsecase, ctx context.Context, height uint64) {
 	ingester.(*ingestUseCase).retryOrderbooksWithoutTicks(ctx, height)
+}
+
+func ParsePool(codec codec.Codec, pool *prototypes.PoolData) (ingesttypes.PoolI, error) {
+	return (&ingestUseCase{codec: codec, logger: &log.NoOpLogger{}}).parsePool(pool)
 }
