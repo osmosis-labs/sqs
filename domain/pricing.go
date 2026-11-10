@@ -113,14 +113,23 @@ type PricingConfig struct {
 	WorkerMinPoolLiquidityCap uint64 `mapstructure:"worker-min-pool-liquidity-cap"`
 }
 
-// FormatCacheKey formats the cache key for the given denoms.
+// pricingCacheKeySeparator separates the denoms in a pricing cache key. It cannot occur in a denom.
+const pricingCacheKeySeparator = "|"
+
+// FormatPricingCacheKey formats the cache key for the given denoms.
+//
+// The key does not depend on the order of the denoms: a pair shares one entry in both
+// directions, which lets a failure cached by the pricing worker answer a request in the other
+// direction. The separator keeps two different pairs from joining into the same string.
 func FormatPricingCacheKey(a, b string) string {
 	if a < b {
 		a, b = b, a
 	}
 
 	var sb strings.Builder
+	sb.Grow(len(a) + len(pricingCacheKeySeparator) + len(b))
 	sb.WriteString(a)
+	sb.WriteString(pricingCacheKeySeparator)
 	sb.WriteString(b)
 	return sb.String()
 }
