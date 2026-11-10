@@ -37,7 +37,18 @@ func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, minLiquidityCap uin
 
 // UpdatePrices implements PricingWorker.
 func (p *pricingWorker) UpdatePricesAsync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
-	go p.UpdatePricesSync(ctx, height, uniqueBlockPoolMetaData)
+	go func() {
+		// Nothing recovers a panic in this goroutine: without this, a panic in pricing or in a
+		// listener would take the whole process down. The update is counted as failed instead.
+		defer func() {
+			if r := recover(); r != nil {
+				p.logger.Error("recovered panic in pricing pre-computation", zap.Uint64("height", height), zap.Any("panic", r))
+				domain.SQSPricingWorkerComputeErrorCounter.Inc()
+			}
+		}()
+
+		p.UpdatePricesSync(ctx, height, uniqueBlockPoolMetaData)
+	}()
 }
 
 func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {

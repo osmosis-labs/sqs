@@ -258,6 +258,13 @@ func (p *ingestUseCase) RegisterEndBlockProcessPlugin(plugin domain.EndBlockProc
 // Any error that occurs during the update is recorded in the error counter.
 func (p *ingestUseCase) updateAssetsAtHeightIntervalAsync(height uint64) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				p.logger.Error("recovered panic while updating assets", zap.Uint64("height", height), zap.Any("panic", r))
+				domain.SQSUpdateAssetsAtHeightIntervalErrorCounter.Inc()
+			}
+		}()
+
 		if err := p.tokensUsecase.UpdateAssetsAtHeightIntervalSync(height); err != nil {
 			p.logger.Error(domain.SQSUpdateAssetsAtHeightIntervalMetricName, zap.Uint64("height", height), zap.Error(err))
 			domain.SQSUpdateAssetsAtHeightIntervalErrorCounter.Inc()

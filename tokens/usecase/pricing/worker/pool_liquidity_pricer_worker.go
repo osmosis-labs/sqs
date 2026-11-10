@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +79,13 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	wg := sync.WaitGroup{}
 
 	wg.Go(func() {
+		// The worker runs outside any recover, in the pricing goroutine of a block.
+		defer func() {
+			if r := recover(); r != nil {
+				p.logger.Error("recovered panic while repricing denom metadata", zap.Uint64("height", height), zap.Any("panic", r))
+			}
+		}()
+
 		// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
 		// for concurrency.
 		repricedTokenMetadata := p.RepriceDenomsMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
@@ -87,6 +95,12 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	})
 
 	wg.Go(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic while repricing pool liquidity caps at height %d: %v", height, r)
+			}
+		}()
+
 		// Note: the error is propagated to the caller because
 		// the callee only errors on fatal issues that should invalidate health check.
 		err = p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates)

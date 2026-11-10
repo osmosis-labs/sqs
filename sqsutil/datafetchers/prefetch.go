@@ -87,7 +87,15 @@ func (p *IntervalFetcher[T]) startTimer() {
 }
 
 // prefetch refreshes the cache and reports whether the refresh succeeded.
-func (p *IntervalFetcher[T]) prefetch() bool {
+func (p *IntervalFetcher[T]) prefetch() (ok bool) {
+	// A panic in the update must end neither the refetch loop nor the process. It is treated
+	// like a failed update: the value is kept and goes stale.
+	defer func() {
+		if r := recover(); r != nil {
+			ok = false
+		}
+	}()
+
 	newValue, err := p.updateFn()
 	if err != nil {
 		// By silently skipping the error, the values would become stale,

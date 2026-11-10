@@ -75,6 +75,13 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 		go func(denom string) {
 			defer wg.Done()
 
+			// A denom whose data cannot be computed keeps its previous search data.
+			defer func() {
+				if r := recover(); r != nil {
+					c.logger.Error("recovered panic in candidate route worker", zap.String("denom", denom), zap.Any("panic", r))
+				}
+			}()
+
 			denomLiquidityData, ok := blockPoolMetaData.DenomPoolLiquidityMap[denom]
 			if !ok {
 				// TODO: add counter

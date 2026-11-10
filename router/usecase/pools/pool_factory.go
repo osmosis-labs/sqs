@@ -1,6 +1,8 @@
 package pools
 
 import (
+	"fmt"
+
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
@@ -15,23 +17,32 @@ import (
 )
 
 // NewRoutablePool creates a new RoutablePool.
-// Panics if pool is of invalid type or if does not contain tick data when a concentrated pool.
-func NewRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams) (domain.RoutablePool, error) {
+// Returns an error if the pool is of an invalid type, does not contain tick data when it is a
+// concentrated pool, or cannot be constructed from its chain model.
+func NewRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams) (_ domain.RoutablePool, err error) {
+	// Constructing a pool from malformed chain data must fail that pool, not the caller: callers
+	// skip a route whose pool cannot be built, and several of them run outside any recover.
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic constructing routable pool: %v", r)
+		}
+	}()
+
 	poolType := pool.GetType()
 	chainPool := pool.GetUnderlyingPool()
 	if poolType == poolmanagertypes.Concentrated {
 		// Check if pools is concentrated
 		concentratedPool, ok := chainPool.(*concentratedmodel.Pool)
 		if !ok {
-			panic(domain.FailedToCastPoolModelError{
+			return nil, domain.FailedToCastPoolModelError{
 				ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Concentrated)],
 				ActualModel:   poolmanagertypes.PoolType_name[int32(poolType)],
-			})
+			}
 		}
 
 		tickModel, err := pool.GetTickModel()
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		return &routableConcentratedPoolImpl{
@@ -51,18 +62,18 @@ func NewRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom 
 	if pool.GetType() == poolmanagertypes.Stableswap {
 		// Must be stableswap
 		if poolType != poolmanagertypes.Stableswap {
-			panic(domain.InvalidPoolTypeError{
+			return nil, domain.InvalidPoolTypeError{
 				PoolType: int32(poolType),
-			})
+			}
 		}
 
 		// Check if pools is stableswap
 		stableswapPool, ok := chainPool.(*stableswap.Pool)
 		if !ok {
-			panic(domain.FailedToCastPoolModelError{
+			return nil, domain.FailedToCastPoolModelError{
 				ExpectedModel: poolmanagertypes.PoolType_name[int32(poolmanagertypes.Stableswap)],
 				ActualModel:   poolmanagertypes.PoolType_name[int32(poolType)],
-			})
+			}
 		}
 
 		return &routableStableswapPoolImpl{

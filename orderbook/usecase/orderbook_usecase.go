@@ -273,7 +273,15 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 //
 // For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
 // This is a best-effort process.
-func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(_ context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(_ context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) (_ []orderbookdomain.LimitOrder, _ bool, err error) {
+	// Runs in a goroutine per orderbook, for active orders and for their stream, outside the
+	// HTTP recover middleware: a panic here would take the whole process down.
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic processing active orders of orderbook %d: %v", orderbook.PoolID, r)
+		}
+	}()
+
 	if err := orderbook.Validate(); err != nil {
 		return nil, false, err
 	}
