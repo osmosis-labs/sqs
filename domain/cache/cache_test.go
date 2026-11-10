@@ -146,8 +146,9 @@ func TestCache_SetExpiration(t *testing.T) {
 	}
 }
 
-// Validates that expired items are removed by a sweep even if they are never read again,
-// and that the sweep keeps the items that have not expired.
+// Validates that expired items are removed by the sweep in Set even if they are never read
+// again, and that the sweep keeps the items that have not expired. The cache is smaller than
+// one sweep batch, so a single Set sweeps all of it.
 func TestCache_SweepsExpiredItems(t *testing.T) {
 	c := cache.New()
 
@@ -157,19 +158,33 @@ func TestCache_SweepsExpiredItems(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	// No sweep is due yet, so the expired item is still held.
 	c.Set("other", 4, time.Hour)
-	require.Equal(t, 4, c.Len())
-
-	// A sweep is due: the next Set removes the expired item.
-	c.SetNextSweep(time.Now().Add(-time.Second))
-	c.Set("another", 5, time.Hour)
-	require.Equal(t, 4, c.Len())
+	require.Equal(t, 3, c.Len())
 
 	_, found := c.Get("expired")
 	require.False(t, found)
-	for _, key := range []string{"live", "no-expiry", "other", "another"} {
+	for _, key := range []string{"live", "no-expiry", "other"} {
 		_, found := c.Get(key)
 		require.True(t, found, key)
 	}
+}
+
+// Validates that one Set examines at most one sweep batch, so that the time it holds the write
+// lock does not grow with the cache.
+func TestCache_SweepIsBounded(t *testing.T) {
+	c := cache.New()
+
+	const numExpired = 4 * cache.SweepBatchSize
+	for i := 0; i < numExpired; i++ {
+		c.Set(fmt.Sprintf("expired-%d", i), i, 50*time.Millisecond)
+	}
+	// The TTL is long enough that no item expires while they are inserted, so none has
+	// been swept yet; wait for all of them to expire.
+	time.Sleep(60 * time.Millisecond)
+	require.Equal(t, numExpired, c.Len())
+
+	c.Set("live", 0, time.Hour)
+
+	// Every examined item is expired, so exactly one batch is removed and one item is added.
+	require.Equal(t, numExpired-cache.SweepBatchSize+1, c.Len())
 }

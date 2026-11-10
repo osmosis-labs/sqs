@@ -7,15 +7,17 @@ import (
 
 // Cache is a concurrent cache structure.
 //
-// An expired item is removed when it is read, and by a sweep of all items that Set runs at
-// most once per sweepInterval. Without the sweep, an item that is never read again would
+// An expired item is removed when it is read, and by an incremental sweep that every Set runs
+// over at most sweepBatchSize items. Without the sweep, an item that is never read again would
 // stay forever, and caches keyed by request input would grow for the life of the process.
+//
+// The sweep is bounded rather than periodic and complete: a full pass holds the write lock for
+// time linear in the cache size and stalls every concurrent Get on the quote path. Map
+// iteration starts at a random position, so successive batches sample the whole cache, and each
+// Set examines more items than it adds, which keeps the share of expired items bounded.
 type Cache struct {
 	data  map[string]CacheItem
 	mutex sync.RWMutex
-
-	// nextSweep is the earliest time of the next sweep. Guarded by mutex.
-	nextSweep time.Time
 }
 
 // CacheItem represents an item in the cache.
@@ -26,14 +28,14 @@ type CacheItem struct {
 
 const NoExpirationTTL time.Duration = 0
 
-// sweepInterval is the minimum time between two sweeps of expired items.
-const sweepInterval = time.Minute
+// sweepBatchSize is the maximum number of items that one Set examines for expiry. It bounds the
+// time Set holds the write lock independently of the cache size.
+const sweepBatchSize = 32
 
 // New creates a new concurrent cache.
 func New() *Cache {
 	return &Cache{
-		data:      make(map[string]CacheItem),
-		nextSweep: time.Now().Add(sweepInterval),
+		data: make(map[string]CacheItem),
 	}
 }
 
@@ -55,15 +57,17 @@ func (c *Cache) Set(key string, value any, expiration time.Duration) {
 	}
 }
 
-// sweepExpiredLocked removes every expired item if a sweep is due.
+// sweepExpiredLocked examines at most sweepBatchSize items, starting at a random position, and
+// removes the expired ones. A cache of at most sweepBatchSize items is swept completely.
 // CONTRACT: mutex is held for writing.
 func (c *Cache) sweepExpiredLocked(now time.Time) {
-	if now.Before(c.nextSweep) {
-		return
-	}
-	c.nextSweep = now.Add(sweepInterval)
-
+	examined := 0
 	for key, item := range c.data {
+		if examined == sweepBatchSize {
+			return
+		}
+		examined++
+
 		if !item.Expiration.IsZero() && now.After(item.Expiration) {
 			delete(c.data, key)
 		}
