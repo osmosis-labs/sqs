@@ -146,22 +146,6 @@ func (s *TokensUseCaseTestSuite) TestParseAssetList() {
 	s.Require().NotEmpty(aaveToken.CoinMinimalDenom)
 }
 
-func (s *TokensUseCaseTestSuite) TestParseExponents_Testnet() {
-	s.T().Skip("skip the test that does network call and is used for debugging")
-
-	const (
-		testnetAssetListFileURL = "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmo-test-5/osmo-test-5.assetlist.json"
-	)
-	tokensMap, _, err := tokensusecase.GetTokensFromChainRegistry(testnetAssetListFileURL)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(tokensMap)
-
-	// uosmo is present
-	osmoToken, ok := tokensMap[UOSMO]
-	s.Require().True(ok)
-	s.Require().Equal(defaultCosmosExponent, osmoToken.Precision)
-}
-
 // Validates that human denoms shared by several assets resolve deterministically:
 // exact case first, then listed over preview, then the smallest chain denom.
 func (s *TokensUseCaseTestSuite) TestGetChainDenom_Collisions() {
@@ -425,18 +409,6 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	result := wbtcErrorTolerance.CompareBigDec(expectedwBTCPrice, actualwBTCUSDCPrice)
 	s.Require().Zero(result)
-}
-
-// Convinience test to test and print a result for a specific token
-func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_Specific() {
-	// Set up mainnet mock state.
-	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
-
-	// System under test.
-	price, err := mainnetUsecase.Tokens.GetPrices(context.Background(), []string{STEVMOS}, []string{USDC}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(1))
-	s.Require().NoError(err)
-
-	fmt.Println(price)
 }
 
 // Test to validate the pricing options work as expected.

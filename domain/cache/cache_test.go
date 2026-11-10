@@ -12,49 +12,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/cache"
 )
 
-// This is a basic ChatGPT generates test case for the cache.
-func TestCache(t *testing.T) {
-	cache := cache.New()
-
-	const defaultKeyToSet = "key1"
-
-	// Test cases
-	testCases := []struct {
-		name       string
-		key        string
-		value      any
-		expiration time.Duration
-		sleep      time.Duration
-		expected   any
-	}{
-		{"ValidKey", defaultKeyToSet, "value1", time.Second * 5, 0, "value1"},
-		{"ExpiredKey", defaultKeyToSet, "value2", time.Nanosecond, time.Millisecond * 10, nil},
-		{"NonExistentKey", "key2", "value3", time.Second * 5, 0, nil},
-	}
-
-	// Run tests
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cache.Set(defaultKeyToSet, tc.value, tc.expiration)
-
-			// Sleep if necessary to simulate expiration
-			time.Sleep(tc.sleep)
-
-			val, exists := cache.Get(tc.key)
-
-			// Check existence and value
-			if exists != (tc.expected != nil) {
-				t.Errorf("Expected existence: %v, Got: %v", tc.expected != nil, exists)
-			}
-
-			// Check value if it exists
-			if exists && val != tc.expected {
-				t.Errorf("Expected value: %v, Got: %v", tc.expected, val)
-			}
-		})
-	}
-}
-
 // This test does basic validation against concurrency.
 // That is, it tests that there are no deadlocks.
 func TestConcurrentCache(t *testing.T) {
@@ -181,6 +138,11 @@ func TestCache_SetExpiration(t *testing.T) {
 				t.Errorf("Expected value for key %s: %v, got: %v", tt.key, tt.value, value)
 			}
 		})
+	}
+
+	// A key that was never set does not exist.
+	if _, exists := c.Get("never-set"); exists {
+		t.Errorf("Expected a key that was never set not to exist")
 	}
 }
 

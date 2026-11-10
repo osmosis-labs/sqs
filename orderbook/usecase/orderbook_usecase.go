@@ -196,8 +196,11 @@ func (o *OrderbookUseCaseImpl) GetActiveOrdersStream(ctx context.Context, addres
 	go fetchOrders(ctx)
 
 	// Pull orders periodically based on duration
+	// The interval is read here, not in the goroutine below, so that it is fixed when the stream starts.
+	fetchEvery := fetchActiveOrdersDuration
+
 	go func() {
-		ticker := time.NewTicker(fetchActiveOrdersDuration)
+		ticker := time.NewTicker(fetchEvery)
 		defer ticker.Stop()
 		for {
 			select {

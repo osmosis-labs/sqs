@@ -263,8 +263,8 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 	}
 }
 
-// Validates that parsing a pools request validates its pagination, which bounds the page
-// size, and that pages start at zero.
+// Validates that parsing a pools request validates its pagination, which is what bounds the
+// page size. The validation rules themselves are covered by the pagination tests.
 func TestGetPoolsRequest_ParseValidatesPagination(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -284,23 +284,9 @@ func TestGetPoolsRequest_ParseValidatesPagination(t *testing.T) {
 			query: "page[size]=10",
 		},
 		{
-			name:  "cursor",
-			query: "page[cursor]=20&page[size]=10",
-		},
-		{
 			name:        "size above the maximum",
 			query:       "page[cursor]=0&page[size]=1000000000000",
 			expectedErr: v1beta1.ErrLimitTooLarge,
-		},
-		{
-			name:        "page without a size",
-			query:       "page[number]=1",
-			expectedErr: v1beta1.ErrLimitNotValid,
-		},
-		{
-			name:        "page above the maximum",
-			query:       "page[number]=1000001&page[size]=10",
-			expectedErr: v1beta1.ErrPageTooLarge,
 		},
 	}
 
