@@ -59,7 +59,6 @@ func TestConcurrentCache(t *testing.T) {
 	cache := cache.New()
 
 	seed := int64(10)
-	rand := rand.New(rand.NewSource(seed))
 
 	// Number of goroutines
 	numGoroutines := 10
@@ -78,6 +77,9 @@ func TestConcurrentCache(t *testing.T) {
 	for i := range numGoroutines {
 		go func(index int) {
 			defer wg.Done()
+
+			// A generator is not safe for concurrent use, so each goroutine has its own.
+			rand := rand.New(rand.NewSource(seed + int64(index)))
 
 			for range numRunsPerRoutine {
 

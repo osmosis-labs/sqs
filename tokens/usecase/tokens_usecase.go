@@ -593,6 +593,12 @@ func (t *TokensUseCase) CalcScalingFactor(baseDenom string, quoteDenom string) (
 
 // UpdateAssetsAtHeightIntervalSync updates assets at configured height interval.
 func (t *TokensUseCase) UpdateAssetsAtHeightIntervalSync(height uint64) error {
+	// A non-positive interval turns the periodic update off. Zero would divide by zero here,
+	// in a goroutine with no recover, and a negative one would wrap around.
+	if t.updateAssetsHeightInterval <= 0 {
+		return nil
+	}
+
 	if height%uint64(t.updateAssetsHeightInterval) == 0 {
 		if err := t.tokenLoader.FetchAndUpdateTokens(); err != nil {
 			return err

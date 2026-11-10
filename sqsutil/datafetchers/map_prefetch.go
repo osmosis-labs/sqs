@@ -39,7 +39,12 @@ func (p *MapIntervalFetcher[K, V]) GetByKey(key K) (V, time.Time, bool, error) {
 	isStale := false
 
 	// If 2x more time passed since last update, set stale flag
-	timeDiff := time.Since(p.lastRetrievedTime)
+	// The time is written by the refetch goroutine under the mutex, so it is read under it too.
+	p.mutex.RLock()
+	lastRetrievedTime := p.lastRetrievedTime
+	p.mutex.RUnlock()
+
+	timeDiff := time.Since(lastRetrievedTime)
 	if timeDiff > 2*p.interval {
 		isStale = true
 	}
@@ -47,14 +52,14 @@ func (p *MapIntervalFetcher[K, V]) GetByKey(key K) (V, time.Time, bool, error) {
 	resultMap, _, err := p.IntervalFetcher.Get()
 	if err != nil {
 		var zeroValue V
-		return zeroValue, p.lastRetrievedTime, isStale, err
+		return zeroValue, lastRetrievedTime, isStale, err
 	}
 
 	value, ok := resultMap[key]
 	if !ok {
 		var zeroValue V
-		return zeroValue, p.lastRetrievedTime, isStale, fmt.Errorf("%w: %v", ErrKeyNotFound, key)
+		return zeroValue, lastRetrievedTime, isStale, fmt.Errorf("%w: %v", ErrKeyNotFound, key)
 	}
 
-	return value, p.lastRetrievedTime, isStale, nil
+	return value, lastRetrievedTime, isStale, nil
 }

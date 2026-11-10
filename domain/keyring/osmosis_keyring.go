@@ -86,6 +86,9 @@ func New() (*keyringImpl, error) {
 
 	// Get the right type
 	localRecord := keyringRecord.GetLocal()
+	if localRecord == nil || localRecord.PrivKey == nil {
+		return nil, fmt.Errorf("keyring record [ %s ] holds no local private key", keyringKeyName)
+	}
 
 	// Unmarshal the private key
 	privKey := secp256k1.PrivKey{}

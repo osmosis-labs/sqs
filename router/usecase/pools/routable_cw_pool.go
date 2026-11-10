@@ -240,7 +240,13 @@ func (r *routableCosmWasmPoolImpl) CalcSpotPrice(ctx context.Context, baseDenom 
 		return osmomath.BigDec{}, err
 	}
 
-	return osmomath.MustNewBigDecFromStr(response.SpotPrice), nil
+	// The spot price is contract output: a malformed value is an error, not a panic.
+	spotPrice, err := osmomath.NewBigDecFromStr(response.SpotPrice)
+	if err != nil {
+		return osmomath.BigDec{}, fmt.Errorf("invalid spot price (%s) returned by pool (%d): %w", response.SpotPrice, r.ChainPool.PoolId, err)
+	}
+
+	return spotPrice, nil
 }
 
 // GetSQSType implements domain.RoutablePool.

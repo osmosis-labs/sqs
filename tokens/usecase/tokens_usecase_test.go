@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 
@@ -1235,6 +1236,19 @@ func (s *TokensUseCaseTestSuite) TestCalcSpotPrice() {
 				s.Assert().NoError(err)
 				s.Assert().True(result.Equal(tt.expected), "Expected %s, got %s", tt.expected.String(), result.String())
 			}
+		})
+	}
+}
+
+// Validates that a non-positive update interval turns the periodic asset update off
+// instead of dividing by zero or wrapping around.
+func TestUpdateAssetsAtHeightIntervalSync_NonPositiveInterval(t *testing.T) {
+	for _, interval := range []int{0, -1} {
+		// No token loader is set: reaching it would panic.
+		tokensUsecase := tokensusecase.NewTokensUsecase(map[string]domain.Token{}, interval, &log.NoOpLogger{})
+
+		require.NotPanics(t, func() {
+			require.NoError(t, tokensUsecase.UpdateAssetsAtHeightIntervalSync(100))
 		})
 	}
 }

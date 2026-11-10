@@ -157,7 +157,7 @@ debug:
 # Validates that SQS concentrated liquidity pool state is
 # consistent with the state of the chain.
 validate-cl-state:
-	scripts/validate-cl-state.sh "http://localhost:9092"
+	scripts/validate_cl_state.sh "http://localhost:9092"
 
 # Compares the quotes between SQS and chain over pool 1136
 # which is concentrated.
@@ -179,7 +179,7 @@ test-prices-mainnet:
 
 # Set DATADOG_API_KEY in the environment
 datadog-agent-start:
-	export DATADOG_API_KEY=@@REDACTED@@; \
+	@test -n "$$DATADOG_API_KEY" || { echo "DATADOG_API_KEY is not set"; exit 1; }
 	docker run --cgroupns host \
 				--pid host \
 				-v /var/run/docker.sock:/var/run/docker.sock:ro \

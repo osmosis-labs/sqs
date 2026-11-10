@@ -69,7 +69,6 @@ func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase, ou mvc.Orde
 
 	e.GET(formatPassthroughResource("/portfolio-assets/:address"), handler.GetPortfolioAssetsByAddress)
 	e.GET(formatPassthroughResource("/orderbook-ticks"), handler.GetOrderbookTicks)
-	e.GET(formatPassthroughResource("/active-orders"), handler.GetActiveOrders)
 	e.GET(formatPassthroughResource("/active-orders"), func(c echo.Context) error {
 		if c.QueryParam("sse") != "" {
 			return handler.GetActiveOrdersStream(c) // Server-Sent Events (SSE)

@@ -55,11 +55,21 @@ func (c *Cache) Get(key string) (any, bool) {
 		// Unlock before locking again
 		c.mutex.RUnlock()
 
-		// Acquire write mutex.
+		// Acquire write mutex. The entry is re-read under it: a concurrent Set may have
+		// replaced the expired item with a fresh one between the two locks, and that one
+		// must be neither deleted nor missed.
 		c.mutex.Lock()
-		delete(c.data, key)
-		c.mutex.Unlock()
-		return nil, false
+		defer c.mutex.Unlock()
+
+		item, exists = c.data[key]
+		if !exists {
+			return nil, false
+		}
+		if !item.Expiration.IsZero() && time.Now().After(item.Expiration) {
+			delete(c.data, key)
+			return nil, false
+		}
+		return item.Value, true
 	}
 
 	c.mutex.RUnlock()

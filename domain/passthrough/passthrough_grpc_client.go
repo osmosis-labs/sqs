@@ -153,9 +153,9 @@ func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, addre
 		pageRequest    *query.PageRequest
 	)
 
-	for isFirstRequest || response.Pagination.NextKey != nil {
+	for isFirstRequest || response.Pagination.GetNextKey() != nil {
 		if !isFirstRequest {
-			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
+			pageRequest = &query.PageRequest{Key: response.Pagination.GetNextKey()}
 		}
 
 		response, err = p.concentratedLiquidityQueryClient.UserPositions(ctx, &concentratedLiquidity.UserPositionsRequest{Address: address, Pagination: pageRequest})
@@ -224,7 +224,7 @@ func paginateRequest(ctx context.Context, fetchCoinsFn func(ctx context.Context,
 		}
 
 		allCoins = allCoins.Add(coins...)
-		pageRequest.Key = response.NextKey
+		pageRequest.Key = response.GetNextKey()
 		isFirstRequest = false
 	}
 

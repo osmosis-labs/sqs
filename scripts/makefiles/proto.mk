@@ -16,7 +16,6 @@ proto-help:
 	@echo "  image-push  Push the protobuf Docker image"
 
 proto: proto-help
-proto-all: proto-format proto-gen
 
 protoVer=0.15.1
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
