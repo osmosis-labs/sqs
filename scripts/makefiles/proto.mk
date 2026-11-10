@@ -9,15 +9,17 @@ proto-help:
 	@echo "  make proto-[command]"
 	@echo ""
 	@echo "Available Commands:"
-	@echo "  all        Run proto-format and proto-gen"
+	@echo "  all        Run proto-format, proto-lint and proto-gen"
 	@echo "  format     Format Protobuf files"
 	@echo "  gen        Generate Protobuf files"
-	@echo "  image-build  Build the protobuf Docker image"
-	@echo "  image-push  Push the protobuf Docker image"
+	@echo "  lint       Lint Protobuf files"
+	@echo "  check-breaking  Check Protobuf files for breaking changes against main"
+	@echo "  update-deps     Update Protobuf dependencies"
 
 proto: proto-help
 
 protoVer=0.15.1
+HTTPS_GIT := https://github.com/osmosis-labs/sqs.git
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
 protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName)
 
@@ -27,11 +29,6 @@ proto-all: proto-format proto-lint proto-gen
 #? proto-gen: Generate Protobuf files
 proto-gen:
 	@$(protoImage) sh ./scripts/protocgen.sh
-
-#? proto-swagger-gen: Generate Protobuf Swagger
-proto-swagger-gen:
-	@echo "Generating Protobuf Swagger"
-	@$(protoImage) sh ./scripts/protoc-swagger-gen.sh
 
 #? proto-format: Format proto file
 proto-format:
@@ -50,4 +47,4 @@ proto-update-deps:
 	@echo "Updating Protobuf dependencies"
 	$(DOCKER) run --rm -v $(CURDIR)/proto:/workspace --workdir /workspace $(protoImageName) buf mod update
 
-.PHONY: proto-all proto-gen proto-swagger-gen proto-format proto-lint proto-check-breaking proto-update-deps
+.PHONY: proto-all proto-gen proto-format proto-lint proto-check-breaking proto-update-deps

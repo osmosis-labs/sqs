@@ -162,10 +162,7 @@ validate-cl-state:
 # Compares the quotes between SQS and chain over pool 1136
 # which is concentrated.
 quote-compare:
-	scripts/quote.sh "http://localhost:9092"
-
-sqs-quote-compare-stage:
-	ingest/sqs/scripts/quote.sh "http://165.227.168.61"
+	scripts/quote.sh "http://localhost:9092" "http://localhost:26657"
 
 # Bench tests pricing
 bench-pricing:
