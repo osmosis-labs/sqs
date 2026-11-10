@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/osmosis-labs/sqs/domain/cache"
 )
 
@@ -179,5 +181,33 @@ func TestCache_SetExpiration(t *testing.T) {
 				t.Errorf("Expected value for key %s: %v, got: %v", tt.key, tt.value, value)
 			}
 		})
+	}
+}
+
+// Validates that expired items are removed by a sweep even if they are never read again,
+// and that the sweep keeps the items that have not expired.
+func TestCache_SweepsExpiredItems(t *testing.T) {
+	c := cache.New()
+
+	c.Set("expired", 1, time.Millisecond)
+	c.Set("live", 2, time.Hour)
+	c.Set("no-expiry", 3, cache.NoExpirationTTL)
+
+	time.Sleep(10 * time.Millisecond)
+
+	// No sweep is due yet, so the expired item is still held.
+	c.Set("other", 4, time.Hour)
+	require.Equal(t, 4, c.Len())
+
+	// A sweep is due: the next Set removes the expired item.
+	c.SetNextSweep(time.Now().Add(-time.Second))
+	c.Set("another", 5, time.Hour)
+	require.Equal(t, 4, c.Len())
+
+	_, found := c.Get("expired")
+	require.False(t, found)
+	for _, key := range []string{"live", "no-expiry", "other", "another"} {
+		_, found := c.Get(key)
+		require.True(t, found, key)
 	}
 }
