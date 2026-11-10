@@ -1,7 +1,7 @@
 package parsing_test
 
 import (
-	"path/filepath"
+	"os"
 	"testing"
 	"time"
 
@@ -56,7 +56,7 @@ var (
 // back into the system. The file is written to a temporary directory: the file of the same
 // name next to this test is the mainnet state that the other tests read.
 func TestStoreFilesAndReadBack(t *testing.T) {
-	testFileName := filepath.Join(t.TempDir(), "pools.json")
+	testFileName := t.TempDir() + string(os.PathSeparator) + "pools.json"
 
 	err := parsing.StorePools([]ingesttypes.PoolI{testPoolToMarshal}, map[uint64]*ingesttypes.TickModel{
 		testPoolToMarshal.GetId(): &defaultTickModel,
