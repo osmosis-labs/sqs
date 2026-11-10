@@ -116,21 +116,17 @@ type PricingConfig struct {
 // pricingCacheKeySeparator separates the denoms in a pricing cache key. It cannot occur in a denom.
 const pricingCacheKeySeparator = "|"
 
-// FormatPricingCacheKey formats the cache key for the given denoms.
+// FormatPricingCacheKey formats the cache key for the price of baseDenom in quoteDenom.
 //
-// The key does not depend on the order of the denoms: a pair shares one entry in both
-// directions, which lets a failure cached by the pricing worker answer a request in the other
-// direction. The separator keeps two different pairs from joining into the same string.
-func FormatPricingCacheKey(a, b string) string {
-	if a < b {
-		a, b = b, a
-	}
-
+// The key depends on the order of the denoms: the price of a pair in one direction is the
+// inverse of the price in the other, so the two must never share an entry. The separator keeps
+// two different pairs from joining into the same string.
+func FormatPricingCacheKey(baseDenom, quoteDenom string) string {
 	var sb strings.Builder
-	sb.Grow(len(a) + len(pricingCacheKeySeparator) + len(b))
-	sb.WriteString(a)
+	sb.Grow(len(baseDenom) + len(pricingCacheKeySeparator) + len(quoteDenom))
+	sb.WriteString(baseDenom)
 	sb.WriteString(pricingCacheKeySeparator)
-	sb.WriteString(b)
+	sb.WriteString(quoteDenom)
 	return sb.String()
 }
 
