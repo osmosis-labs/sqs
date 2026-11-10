@@ -357,14 +357,14 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 
 	// Iniitialize data fetcher for pool APRs
 	fetchPoolAPRsCallback := datafetchers.GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
-	var aprFetcher datafetchers.MapFetcher[uint64, sqspassthroughdomain.PoolAPR] = datafetchers.NewMapFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes))
+	var aprFetcher datafetchers.MapFetcher[uint64, sqspassthroughdomain.PoolAPR] = datafetchers.NewMapFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes), logger)
 	// Register the APR fetcher with the passthrough use case
 	poolsUseCase.RegisterAPRFetcher(aprFetcher)
 
 	// Initialize data fetcher for pool fees
 	timeseriesHTTPClient := passthroughdomain.NewTimeSeriesHTTPClient(passthroughConfig.TimeseriesURL)
 	fetchPoolFeesCallback := datafetchers.GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient, logger)
-	poolFeesFetcher := datafetchers.NewMapFetcher(fetchPoolFeesCallback, time.Minute*time.Duration(passthroughConfig.PoolFeesFetchIntervalMinutes))
+	poolFeesFetcher := datafetchers.NewMapFetcher(fetchPoolFeesCallback, time.Minute*time.Duration(passthroughConfig.PoolFeesFetchIntervalMinutes), logger)
 
 	// Register the pool fees fetcher with the passthrough use case
 	poolsUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)

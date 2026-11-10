@@ -6,6 +6,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 	"go.uber.org/zap"
 )
@@ -37,21 +38,15 @@ func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, minLiquidityCap uin
 
 // UpdatePrices implements PricingWorker.
 func (p *pricingWorker) UpdatePricesAsync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
-	go func() {
-		// Nothing recovers a panic in this goroutine: without this, a panic in pricing or in a
-		// listener would take the whole process down. The update is counted as failed instead.
-		defer func() {
-			if r := recover(); r != nil {
-				p.logger.Error("recovered panic in pricing pre-computation", zap.Uint64("height", height), zap.Any("panic", r))
-				domain.SQSPricingWorkerComputeErrorCounter.Inc()
-			}
-		}()
-
-		p.UpdatePricesSync(ctx, height, uniqueBlockPoolMetaData)
-	}()
+	go p.UpdatePricesSync(ctx, height, uniqueBlockPoolMetaData)
 }
 
 func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+	// Nothing above this recovers a panic: UpdatePricesAsync runs it in its own goroutine, and
+	// ingest calls it directly for the first block. Without this, a panic in pricing or in a
+	// listener would take the whole process down. The update is counted as failed instead.
+	defer recovery.Log(p.logger, "recovered panic in pricing pre-computation", domain.SQSPricingWorkerComputeErrorCounter, zap.Uint64("height", height))
+
 	baseDenoms := domain.KeysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
 
 	ctx, cancel := context.WithTimeout(ctx, priceUpdateTimeout)

@@ -1,9 +1,8 @@
 package pools
 
 import (
-	"fmt"
-
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -22,11 +21,7 @@ import (
 func NewRoutablePool(pool ingesttypes.PoolI, tokenInDenom string, tokenOutDenom string, takerFee osmomath.Dec, cosmWasmPoolsParams cosmwasmdomain.CosmWasmPoolsParams) (_ domain.RoutablePool, err error) {
 	// Constructing a pool from malformed chain data must fail that pool, not the caller: callers
 	// skip a route whose pool cannot be built, and several of them run outside any recover.
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic constructing routable pool: %v", r)
-		}
-	}()
+	defer recovery.ToErrorf(&err, "constructing routable pool")
 
 	poolType := pool.GetType()
 	chainPool := pool.GetUnderlyingPool()

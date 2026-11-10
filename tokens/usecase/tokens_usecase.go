@@ -10,10 +10,12 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 )
@@ -69,13 +71,6 @@ type AssetList struct {
 		CoingeckoID      string `json:"coingeckoId"`
 		Preview          bool   `json:"preview"`
 	} `json:"assets"`
-}
-
-// Define a result struct to hold the base denom and prices for each possible quote denom or error
-type priceResults struct {
-	baseDenom string
-	prices    map[string]domain.PriceResult
-	err       error
 }
 
 var _ mvc.TokensUsecase = &TokensUseCase{}
@@ -359,38 +354,39 @@ func (t *TokensUseCase) GetChainScalingFactorByDenomMut(denom string) (osmomath.
 // GetPrices implements pricing.PricingStrategy.
 func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
 	byBaseDenomResult := make(domain.PricesResult, len(baseDenoms))
+	var resultMu sync.Mutex
 
-	// The base denoms are priced concurrently, at most maxNumWorkes at a time.
-	workerSlots := make(chan struct{}, min(len(baseDenoms), maxNumWorkes))
-	// Buffered for every result, so that a worker never blocks on sending its own.
-	results := make(chan priceResults, len(baseDenoms))
+	// The base denoms are priced concurrently, at most maxNumWorkes at a time. Wait returns the
+	// first error, once every started worker has finished.
+	var workers errgroup.Group
+	workers.SetLimit(maxNumWorkes)
 
-	// For every base denom, create a map with quote denom prices.
+	var abandonedErr error
 	for _, baseDenom := range baseDenoms {
-		workerSlots <- struct{}{}
-
-		go func() {
-			defer func() { <-workerSlots }()
-
-			results <- t.priceBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
-		}()
-	}
-
-	var firstErr error
-	for range baseDenoms {
-		result := <-results
-
-		if result.err != nil {
-			if firstErr == nil {
-				firstErr = result.err
-			}
-			continue
+		// Go blocks while every worker is busy. A request abandoned or timed out meanwhile
+		// starts no more workers, and fails with the context's error.
+		if abandonedErr = ctx.Err(); abandonedErr != nil {
+			break
 		}
-		byBaseDenomResult[result.baseDenom] = result.prices
+
+		workers.Go(func() error {
+			prices, err := t.priceBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
+			if err != nil {
+				return err
+			}
+
+			resultMu.Lock()
+			defer resultMu.Unlock()
+			byBaseDenomResult[baseDenom] = prices
+			return nil
+		})
 	}
 
-	if firstErr != nil {
-		return nil, firstErr
+	if err := workers.Wait(); err != nil {
+		return nil, err
+	}
+	if abandonedErr != nil {
+		return nil, abandonedErr
 	}
 
 	return byBaseDenomResult, nil
@@ -398,33 +394,21 @@ func (t *TokensUseCase) GetPrices(ctx context.Context, baseDenoms []string, quot
 
 // priceBaseDenom returns the prices of baseDenom in the given quote denoms, or the error that
 // prevented pricing it. It runs in a goroutine of its own, so a panic is returned as an error.
-func (t *TokensUseCase) priceBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (result priceResults) {
-	defer func() {
-		// Recover from panic if one occurred
-		if r := recover(); r != nil {
-			result = priceResults{
-				baseDenom: baseDenom,
-				err:       fmt.Errorf("panic in GetPrices for base denom (%s): %v", baseDenom, r),
-			}
-		}
-	}()
+func (t *TokensUseCase) priceBaseDenom(ctx context.Context, baseDenom string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (prices map[string]domain.PriceResult, err error) {
+	defer recovery.ToErrorf(&err, "in GetPrices for base denom (%s)", baseDenom)
 
 	// A denom still waiting when the request is abandoned or times out is not priced.
 	if err := ctx.Err(); err != nil {
-		return priceResults{baseDenom: baseDenom, err: err}
+		return nil, err
 	}
 
-	prices, err := t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
+	prices, err = t.getPricesForBaseDenom(ctx, baseDenom, quoteDenoms, pricingSourceType, opts...)
 	// A request abandoned or timed out is the client's, not a pricing failure.
 	if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 		t.logger.Error("failed to get prices for base denom", zap.String("baseDenom", baseDenom), zap.Error(err))
 	}
 
-	return priceResults{
-		baseDenom: baseDenom,
-		prices:    prices,
-		err:       err,
-	}
+	return prices, err
 }
 
 // getPricesForBaseDenom fetches all prices for base denom given a slice of quotes and pricing options.

@@ -14,6 +14,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 )
 
@@ -406,11 +407,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 // Returns error if fails to get prices for the coins. However, a best-effort account coins result is returned even if prices fail to be computed.
 func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) (_ []passthroughdomain.AccountCoinsResult, _ osmomath.Dec, err error) {
 	// Runs in the goroutines of GetPortfolioAssets, outside the HTTP recover middleware.
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic computing capitalization: %v", r)
-		}
-	}()
+	defer recovery.ToErrorf(&err, "computing capitalization")
 
 	coinDenomsToPrice := make([]string, 0, len(coins))
 	for _, coin := range coins {
@@ -609,22 +606,14 @@ func (p *passthroughUseCase) tryAccumulateGammShares(coinsTarget *sdk.Coins, coi
 // HTTP recover middleware and would take the whole process down. As an error, it only marks
 // the affected category as best effort.
 func recoverCoins(fetch func() (sdk.Coins, error)) (coins sdk.Coins, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			coins, err = nil, fmt.Errorf("panic fetching portfolio assets: %v", r)
-		}
-	}()
+	defer recovery.ToErrorf(&err, "fetching portfolio assets")
 
 	return fetch()
 }
 
 // recoverCoinsPair is recoverCoins for a fetch that returns two sets of coins.
 func recoverCoinsPair(fetch func() (sdk.Coins, sdk.Coins, error)) (first sdk.Coins, second sdk.Coins, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			first, second, err = nil, nil, fmt.Errorf("panic fetching portfolio assets: %v", r)
-		}
-	}()
+	defer recovery.ToErrorf(&err, "fetching portfolio assets")
 
 	return fetch()
 }
@@ -632,11 +621,9 @@ func recoverCoinsPair(fetch func() (sdk.Coins, sdk.Coins, error)) (first sdk.Coi
 // addCoins returns total plus coins. Coins.Add panics on coins that are not sorted or not
 // valid; in that case total is returned unchanged, with an error.
 func addCoins(total, coins sdk.Coins) (sum sdk.Coins, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			sum, err = total, fmt.Errorf("panic adding coins (%s): %v", coins, r)
-		}
-	}()
+	// On a panic, sum keeps this value.
+	sum = total
+	defer recovery.ToErrorf(&err, "adding coins (%s)", coins)
 
 	return total.Add(coins...), nil
 }

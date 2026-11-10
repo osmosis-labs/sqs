@@ -22,6 +22,7 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	sqsingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
@@ -258,12 +259,7 @@ func (p *ingestUseCase) RegisterEndBlockProcessPlugin(plugin domain.EndBlockProc
 // Any error that occurs during the update is recorded in the error counter.
 func (p *ingestUseCase) updateAssetsAtHeightIntervalAsync(height uint64) {
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				p.logger.Error("recovered panic while updating assets", zap.Uint64("height", height), zap.Any("panic", r))
-				domain.SQSUpdateAssetsAtHeightIntervalErrorCounter.Inc()
-			}
-		}()
+		defer recovery.Log(p.logger, "recovered panic while updating assets", domain.SQSUpdateAssetsAtHeightIntervalErrorCounter, zap.Uint64("height", height))
 
 		if err := p.tokensUsecase.UpdateAssetsAtHeightIntervalSync(height); err != nil {
 			p.logger.Error(domain.SQSUpdateAssetsAtHeightIntervalMetricName, zap.Uint64("height", height), zap.Error(err))

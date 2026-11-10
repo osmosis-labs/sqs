@@ -12,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/orderbook/telemetry"
@@ -279,11 +280,7 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(_ context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) (_ []orderbookdomain.LimitOrder, _ bool, err error) {
 	// Runs in a goroutine per orderbook, for active orders and for their stream, outside the
 	// HTTP recover middleware: a panic here would take the whole process down.
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic processing active orders of orderbook %d: %v", orderbook.PoolID, r)
-		}
-	}()
+	defer recovery.ToErrorf(&err, "processing active orders of orderbook %d", orderbook.PoolID)
 
 	if err := orderbook.Validate(); err != nil {
 		return nil, false, err

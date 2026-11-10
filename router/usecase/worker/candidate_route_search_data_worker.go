@@ -6,6 +6,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 
@@ -78,11 +79,7 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 			defer wg.Done()
 
 			// A denom whose data cannot be computed keeps its previous search data.
-			defer func() {
-				if r := recover(); r != nil {
-					c.logger.Error("recovered panic in candidate route worker", zap.String("denom", denom), zap.Any("panic", r))
-				}
-			}()
+			defer recovery.Log(c.logger, "recovered panic in candidate route worker", nil, zap.String("denom", denom))
 
 			denomLiquidityData, ok := blockPoolMetaData.DenomPoolLiquidityMap[denom]
 			if !ok {

@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	stdosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 	"go.uber.org/zap"
 )
@@ -80,11 +80,7 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 
 	wg.Go(func() {
 		// The worker runs outside any recover, in the pricing goroutine of a block.
-		defer func() {
-			if r := recover(); r != nil {
-				p.logger.Error("recovered panic while repricing denom metadata", zap.Uint64("height", height), zap.Any("panic", r))
-			}
-		}()
+		defer recovery.Log(p.logger, "recovered panic while repricing denom metadata", nil, zap.Uint64("height", height))
 
 		// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
 		// for concurrency.
@@ -95,11 +91,7 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	})
 
 	wg.Go(func() {
-		defer func() {
-			if r := recover(); r != nil {
-				err = fmt.Errorf("panic while repricing pool liquidity caps at height %d: %v", height, r)
-			}
-		}()
+		defer recovery.ToErrorf(&err, "repricing pool liquidity caps at height %d", height)
 
 		// Note: the error is propagated to the caller because
 		// the callee only errors on fatal issues that should invalidate health check.
