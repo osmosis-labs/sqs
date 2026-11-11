@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -39,9 +38,6 @@ type routerUseCaseImpl struct {
 	logger              log.Logger
 
 	rankedRouteCache *cache.Cache
-
-	sortedPoolsMu sync.RWMutex
-	sortedPools   []ingesttypes.PoolI
 
 	candidateRouteCache *cache.Cache
 }
@@ -78,9 +74,6 @@ func NewRouterUsecase(
 
 		rankedRouteCache:    rankedRouteCache,
 		candidateRouteCache: candidateRouteCache,
-
-		sortedPools:   make([]ingesttypes.PoolI, 0),
-		sortedPoolsMu: sync.RWMutex{},
 	}
 }
 
@@ -635,8 +628,6 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteOutGivenIn(ctx cont
 }
 
 func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, routingOptions domain.RouterOptions) (domain.Quote, []route.RouteImpl, error) {
-	tokenInOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
-
 	candidateRouteSearchOptions := domain.CandidateRouteSearchOptions{
 		MaxRoutes:           routingOptions.MaxRoutes,
 		MaxPoolsPerRoute:    routingOptions.MaxPoolsPerRoute,
@@ -652,12 +643,6 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx cont
 		return nil, nil, err
 	}
 
-	// Get request path for metrics
-	requestURLPath, err := domain.GetURLPathFromContext(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	// The candidate route cache is owned by handleCandidateRoutesInGivenOut, which only writes it on a miss,
 	// and caches an empty result there for a shorter time. Re-setting it here would refresh its expiry on
 	// every quote, so that the candidate routes of an active pair would never be recomputed.
@@ -670,7 +655,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx cont
 	var onAllRoutesFailed func()
 	if !routingOptions.DisableCache {
 		onAllRoutesFailed = func() {
-			r.invalidateExactOutRouteCaches(tokenOut, tokenInDenom, routingOptions.MaxSplitRoutes)
+			r.invalidateExactOutRouteCaches(tokenOut, tokenInDenom)
 		}
 	}
 
@@ -685,27 +670,9 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx cont
 		return nil, nil, fmt.Errorf("no ranked routes found")
 	}
 
-	// Convert ranked routes back to candidate for caching
-	convertedCandidateRoutes := convertRankedToCandidateRoutes(rankedRoutes)
-
-	if len(rankedRoutes) > 0 {
-		// We would like to always consider the canonical orderbook route so that if new limits appear
-		// we can detect them. Oterwise, our cache would have to expire to detect them.
-		if !convertedCandidateRoutes.ContainsCanonicalOrderbook && candidateRoutes.ContainsCanonicalOrderbook {
-			// Find the canonical orderbook route and add it to the converted candidate routes.
-			for _, candidateRoute := range candidateRoutes.Routes {
-				if candidateRoute.IsCanonicalOrderboolRoute {
-					convertedCandidateRoutes.Routes = append(convertedCandidateRoutes.Routes, candidateRoute)
-					break
-				}
-			}
-		}
-
-		if !routingOptions.DisableCache {
-			domain.SQSRoutesCacheWritesCounter.WithLabelValues(requestURLPath, rankedRouteCacheLabel).Inc()
-			r.rankedRouteCache.Set(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenInOrderOfMagnitude, routingOptions.MaxSplitRoutes), convertedCandidateRoutes, time.Duration(routingOptions.RankedRouteCacheExpirySeconds)*time.Second)
-		}
-	}
+	// The ranked routes are not cached: no exact out quote reads the ranked route cache, and its entries
+	// keep only each pool's token out denom, which is not enough to rebuild an exact out route. Entries
+	// written here were never read, and so never expired either.
 
 	return topSingleRouteQuote, rankedRoutes, nil
 }
@@ -1424,15 +1391,13 @@ func (r *routerUseCaseImpl) invalidateExactInRouteCaches(tokenIn sdk.Coin, token
 	r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom, tokenInOrderOfMagnitude, maxSplitRoutes))
 }
 
-// invalidateExactOutRouteCaches deletes the exact out candidate and ranked route cache entries that a quote for
-// tokenOut and tokenInDenom read or wrote: both candidate route entries, and the ranked entry for the order of
-// magnitude of tokenOut and max split routes.
-func (r *routerUseCaseImpl) invalidateExactOutRouteCaches(tokenOut sdk.Coin, tokenInDenom string, maxSplitRoutes int) {
+// invalidateExactOutRouteCaches deletes the exact out candidate route cache entries that a quote for tokenOut and
+// tokenInDenom read or wrote. Exact out quotes do not use the ranked route cache.
+func (r *routerUseCaseImpl) invalidateExactOutRouteCaches(tokenOut sdk.Coin, tokenInDenom string) {
 	tokenOutOrderOfMagnitude := GetPrecomputeOrderOfMagnitude(tokenOut.Amount)
 
 	r.candidateRouteCache.Delete(formatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom))
 	r.candidateRouteCache.Delete(formatSizedCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenOutOrderOfMagnitude))
-	r.rankedRouteCache.Delete(formatRankedRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOut.Denom, tokenInDenom, tokenOutOrderOfMagnitude, maxSplitRoutes))
 }
 
 // getMinPoolLiquidityCapFilter returns the min liquidity cap filter for the given tokenIn and tokenOutDenom.
@@ -1474,22 +1439,9 @@ func (r *routerUseCaseImpl) GetBaseFee() domain.BaseFee {
 	return r.routerRepository.GetBaseFee()
 }
 
-// SetSortedPools implements mvc.RouterUsecase.
-func (r *routerUseCaseImpl) SetSortedPools(pools []ingesttypes.PoolI) {
-	r.sortedPoolsMu.Lock()
-	r.sortedPools = pools
-	r.sortedPoolsMu.Unlock()
-}
-
 // SetTakerFees implements mvc.RouterUsecase.
 func (r *routerUseCaseImpl) SetTakerFees(takerFees ingesttypes.TakerFeeMap) {
 	r.routerRepository.SetTakerFees(takerFees)
-}
-
-// GetSortedPools implements mvc.RouterUsecase.
-// Note that this method is not thread safe.
-func (r *routerUseCaseImpl) GetSortedPools() []ingesttypes.PoolI {
-	return r.sortedPools
 }
 
 // GetConfig implements mvc.RouterUsecase.

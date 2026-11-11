@@ -80,7 +80,7 @@ type InvalidPoolTypeError struct {
 }
 
 func (e InvalidPoolTypeError) Error() string {
-	return "invalid pool type: " + string(e.PoolType)
+	return fmt.Sprintf("invalid pool type: %d", e.PoolType)
 }
 
 // UnsupportedCosmWasmPoolError is an error type for unsupported CosmWasm pool.

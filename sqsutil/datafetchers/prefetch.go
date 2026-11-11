@@ -4,6 +4,9 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/osmosis-labs/sqs/domain/recovery"
+	"github.com/osmosis-labs/sqs/log"
 )
 
 // defaultEmptyCacheRetryInterval is how long to wait before retrying a failed fetch
@@ -26,6 +29,7 @@ type IntervalFetcher[T any] struct {
 	interval                time.Duration
 	emptyCacheRetryInterval time.Duration
 	hasClosed               bool
+	logger                  log.Logger
 
 	lastRetrievedTime time.Time
 	cache             T
@@ -35,11 +39,11 @@ type IntervalFetcher[T any] struct {
 	mutex sync.RWMutex
 }
 
-func NewIntervalFetcher[T any](updateFn func() (T, error), interval time.Duration) *IntervalFetcher[T] {
-	return newIntervalFetcher(updateFn, interval, defaultEmptyCacheRetryInterval)
+func NewIntervalFetcher[T any](updateFn func() (T, error), interval time.Duration, logger log.Logger) *IntervalFetcher[T] {
+	return newIntervalFetcher(updateFn, interval, defaultEmptyCacheRetryInterval, logger)
 }
 
-func newIntervalFetcher[T any](updateFn func() (T, error), interval, emptyCacheRetryInterval time.Duration) *IntervalFetcher[T] {
+func newIntervalFetcher[T any](updateFn func() (T, error), interval, emptyCacheRetryInterval time.Duration, logger log.Logger) *IntervalFetcher[T] {
 	if interval <= 0 {
 		panic("interval must be greater than 0")
 	}
@@ -48,6 +52,7 @@ func newIntervalFetcher[T any](updateFn func() (T, error), interval, emptyCacheR
 		interval:                interval,
 		emptyCacheRetryInterval: min(emptyCacheRetryInterval, interval),
 		done:                    make(chan struct{}),
+		logger:                  logger,
 	}
 
 	go prefetcher.startTimer()
@@ -87,7 +92,12 @@ func (p *IntervalFetcher[T]) startTimer() {
 }
 
 // prefetch refreshes the cache and reports whether the refresh succeeded.
-func (p *IntervalFetcher[T]) prefetch() bool {
+func (p *IntervalFetcher[T]) prefetch() (ok bool) {
+	// A panic in the update must end neither the refetch loop nor the process. It is treated
+	// like a failed update: the value is kept and goes stale. It is logged, since unlike an
+	// error it is not reported by the update itself.
+	defer recovery.Log(p.logger, "recovered panic in interval fetcher update", nil)
+
 	newValue, err := p.updateFn()
 	if err != nil {
 		// By silently skipping the error, the values would become stale,

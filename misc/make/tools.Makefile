@@ -17,7 +17,9 @@ mockery: bin/mockery ## Installs mockery (mocks generation)
 
 bin/mockery: VERSION := 2.35.3
 bin/mockery: GITHUB  := vektra/mockery
-bin/mockery: ARCHIVE := mockery_$(VERSION)_$(OSTYPE)_x86_64.tar.gz
+# The release archives are named by architecture: x86_64 or arm64 (aarch64 on Linux).
+bin/mockery: ARCH    := $(shell uname -m | sed 's/aarch64/arm64/')
+bin/mockery: ARCHIVE := mockery_$(VERSION)_$(OSTYPE)_$(ARCH).tar.gz
 bin/mockery: bin
 	@ printf "Install mockery... "
 	@ curl -Ls $(call github_url) | tar -zOxf -  mockery > $@ && chmod +x $@

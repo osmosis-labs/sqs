@@ -420,3 +420,28 @@ func TestSyncMapTransformerClone(t *testing.T) {
 		})
 	}
 }
+
+// Validates that every sort criterion takes part in the order: later criteria break the
+// ties left by earlier ones instead of being ignored.
+func TestMapTransformerSort_MultipleCriteria(t *testing.T) {
+	type item struct {
+		group int
+		id    int
+	}
+
+	m := atomic.NewMap(map[int]item{
+		1: {group: 2, id: 1},
+		2: {group: 1, id: 2},
+		3: {group: 2, id: 3},
+		4: {group: 1, id: 4},
+		5: {group: 3, id: 5},
+	})
+
+	transformer := NewSyncMapTransformer(m)
+	transformer.Sort(
+		func(a, b item) bool { return a.group < b.group }, // group ascending
+		func(a, b item) bool { return a.id > b.id },       // then id descending
+	)
+
+	require.Equal(t, []int{4, 2, 3, 1, 5}, transformer.Keys())
+}

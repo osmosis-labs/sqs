@@ -58,6 +58,10 @@ func requireSameV2Encoding(t testing.TB, want, got any) {
 	require.Equal(t, string(wantBz), string(gotBz))
 }
 
+// mainnetPoolsFixture is the mainnet pool state fixture next to this test, written by the
+// Osmosis jsoniter wrapper. Tests only read it.
+const mainnetPoolsFixture = "pools.json"
+
 func readFixture(t testing.TB, name string) []byte {
 	t.Helper()
 	bz, err := os.ReadFile(name)
@@ -69,7 +73,7 @@ func readFixture(t testing.TB, name string) []byte {
 // fixture (written by the Osmosis jsoniter wrapper) into the same SQS models, tick models and
 // chain pool models, so case-sensitive matching and the stricter grammar lose nothing.
 func TestPoolFixtureDecodesLikeOsmosisWrapper(t *testing.T) {
-	bz := readFixture(t, testFileName)
+	bz := readFixture(t, mainnetPoolsFixture)
 
 	var viaWrapper []wrapperSerializedPool
 	require.NoError(t, osmojson.Unmarshal(bz, &viaWrapper))
@@ -130,7 +134,7 @@ func requireSameChainPoolDecode[T any](t *testing.T, raw jsontext.Value, opts js
 // with encoding/json/v2.
 func TestIngestedSQSModelDecodesLikeOsmosisWrapper(t *testing.T) {
 	var pools []wrapperSerializedPool
-	require.NoError(t, osmojson.Unmarshal(readFixture(t, testFileName), &pools))
+	require.NoError(t, osmojson.Unmarshal(readFixture(t, mainnetPoolsFixture), &pools))
 
 	for name, opts := range map[string]json.Options{"v2": json.DefaultOptionsV2(), "v2-sqs-numeric": sqsosmomath.JSONUnmarshalOptions} {
 		t.Run(name, func(t *testing.T) {
@@ -216,7 +220,7 @@ func requireSameFixtureDecode[T any](t *testing.T, name string) {
 // ReadPools. The export uses v2 encoding, so this also checks that v2 output (zero numbers and
 // false booleans no longer omitted, [] for nil slices) imports to the same pools.
 func TestPoolStateRoundTrip(t *testing.T) {
-	pools, tickModels, err := parsing.ReadPools(testFileName)
+	pools, tickModels, err := parsing.ReadPools(mainnetPoolsFixture)
 	require.NoError(t, err)
 
 	exported := filepath.Join(t.TempDir(), "pools.json")
@@ -244,7 +248,7 @@ func TestPoolStateRoundTrip(t *testing.T) {
 
 // TestIngestStateRoundTrip covers the numeric (uint64) map keys of the denom liquidity map.
 func TestIngestStateRoundTrip(t *testing.T) {
-	pools, _, err := parsing.ReadPools(testFileName)
+	pools, _, err := parsing.ReadPools(mainnetPoolsFixture)
 	require.NoError(t, err)
 
 	liquidity := domain.DenomPoolLiquidityMap{}
@@ -334,7 +338,7 @@ var ingestBenchmarkCodecs = []struct {
 // ingestBenchmarkPayloads returns the node-encoded SQS and tick models of every fixture pool.
 func ingestBenchmarkPayloads(b *testing.B) (sqsModels, tickModels [][]byte) {
 	var pools []wrapperSerializedPool
-	require.NoError(b, osmojson.Unmarshal(readFixture(b, testFileName), &pools))
+	require.NoError(b, osmojson.Unmarshal(readFixture(b, mainnetPoolsFixture), &pools))
 	for _, pool := range pools {
 		bz, err := osmojson.Marshal(pool.SQSModel)
 		require.NoError(b, err)
@@ -414,7 +418,7 @@ func BenchmarkIngestModelDecodingBySize(b *testing.B) {
 
 // BenchmarkPoolStateFileDecoding compares the codecs on the full pool state file.
 func BenchmarkPoolStateFileDecoding(b *testing.B) {
-	bz := readFixture(b, testFileName)
+	bz := readFixture(b, mainnetPoolsFixture)
 	b.Run("osmosis-wrapper", func(b *testing.B) {
 		b.SetBytes(int64(len(bz)))
 		b.ReportAllocs()

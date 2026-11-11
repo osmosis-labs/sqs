@@ -55,6 +55,13 @@ func GetTokensFromChainRegistry(chainRegistryAssetsFileURL string) (map[string]d
 			continue
 		}
 
+		// Scaling factors are powers of ten of the decimals: they are precomputed up to
+		// maxDecPrecision, and CalcScalingFactor raises ten to this value directly.
+		if *asset.Decimals < 0 || *asset.Decimals >= maxDecPrecision {
+			log.Printf("skipping asset %s (%s): decimals (%d) out of range [0, %d)", asset.Symbol, asset.CoinMinimalDenom, *asset.Decimals, maxDecPrecision)
+			continue
+		}
+
 		token := domain.Token{}
 		token.Precision = *asset.Decimals
 		token.HumanDenom = asset.Symbol

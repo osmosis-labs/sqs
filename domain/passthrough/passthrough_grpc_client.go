@@ -89,7 +89,7 @@ func (p *passthroughGRPCClient) AccountLockedCoins(ctx context.Context, address 
 	if err != nil {
 		return nil, err
 	}
-	return response.Coins, nil
+	return response.GetCoins(), nil
 }
 
 func (p *passthroughGRPCClient) AccountUnlockingCoins(ctx context.Context, address string) (sdk.Coins, error) {
@@ -98,7 +98,7 @@ func (p *passthroughGRPCClient) AccountUnlockingCoins(ctx context.Context, addre
 		return nil, err
 	}
 
-	return response.Coins, nil
+	return response.GetCoins(), nil
 }
 
 func (p *passthroughGRPCClient) AllBalances(ctx context.Context, address string) (sdk.Coins, error) {
@@ -107,7 +107,7 @@ func (p *passthroughGRPCClient) AllBalances(ctx context.Context, address string)
 		if err != nil {
 			return nil, nil, err
 		}
-		return response.Pagination, response.Balances, nil
+		return response.GetPagination(), response.GetBalances(), nil
 	})
 }
 
@@ -118,10 +118,10 @@ func (p *passthroughGRPCClient) DelegatorDelegations(ctx context.Context, addres
 			return nil, nil, err
 		}
 		coin := sdk.Coin{Denom: defaultBondDenom, Amount: zero}
-		for _, delegation := range response.DelegationResponses {
+		for _, delegation := range response.GetDelegationResponses() {
 			coin = coin.Add(delegation.Balance)
 		}
-		return response.Pagination, sdk.Coins{coin}, nil
+		return response.GetPagination(), sdk.Coins{coin}, nil
 	})
 }
 
@@ -132,12 +132,12 @@ func (p *passthroughGRPCClient) DelegatorUnbondingDelegations(ctx context.Contex
 			return nil, nil, err
 		}
 		coin := sdk.Coin{Denom: defaultBondDenom, Amount: zero}
-		for _, delegation := range response.UnbondingResponses {
+		for _, delegation := range response.GetUnbondingResponses() {
 			for _, entry := range delegation.Entries {
 				coin.Amount = coin.Amount.Add(entry.Balance)
 			}
 		}
-		return response.Pagination, sdk.Coins{coin}, nil
+		return response.GetPagination(), sdk.Coins{coin}, nil
 	})
 }
 
@@ -153,9 +153,9 @@ func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, addre
 		pageRequest    *query.PageRequest
 	)
 
-	for isFirstRequest || response.Pagination.NextKey != nil {
+	for isFirstRequest || response.GetPagination().GetNextKey() != nil {
 		if !isFirstRequest {
-			pageRequest = &query.PageRequest{Key: response.Pagination.NextKey}
+			pageRequest = &query.PageRequest{Key: response.GetPagination().GetNextKey()}
 		}
 
 		response, err = p.concentratedLiquidityQueryClient.UserPositions(ctx, &concentratedLiquidity.UserPositionsRequest{Address: address, Pagination: pageRequest})
@@ -163,7 +163,7 @@ func (p *passthroughGRPCClient) UserPositionsBalances(ctx context.Context, addre
 			return nil, nil, err
 		}
 
-		for _, position := range response.Positions {
+		for _, position := range response.GetPositions() {
 			pooledCoins = pooledCoins.Add(position.Asset0)
 			pooledCoins = pooledCoins.Add(position.Asset1)
 			rewardCoins = rewardCoins.Add(position.ClaimableSpreadRewards...)
@@ -198,7 +198,7 @@ func (p *passthroughGRPCClient) GetOrderbookOrdersRaw(ctx context.Context, poolI
 	if err != nil {
 		return nil, err
 	}
-	return response.Values, nil
+	return response.GetValues(), nil
 }
 
 // GetChainGRPCClient implements PassthroughGRPCClient.
@@ -224,7 +224,7 @@ func paginateRequest(ctx context.Context, fetchCoinsFn func(ctx context.Context,
 		}
 
 		allCoins = allCoins.Add(coins...)
-		pageRequest.Key = response.NextKey
+		pageRequest.Key = response.GetNextKey()
 		isFirstRequest = false
 	}
 

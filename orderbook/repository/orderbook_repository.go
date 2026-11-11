@@ -3,6 +3,7 @@ package orderbookrepository
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -33,7 +34,10 @@ type orderbookRepositoryImpl struct {
 	tickMapByPoolIDLock sync.RWMutex
 	tickMapByPoolID     map[uint64]*poolTickState
 	ordersByPoolIDLock  sync.RWMutex
-	ordersByPoolID      map[uint64][]orderbookdomain.Order
+	// ordersByPoolID holds the orders of each pool, grouped by owner in the order they were
+	// stored. A pool's orders are looked up per owner for every active orders request and every
+	// tick of every active orders stream, so they are indexed once, when stored.
+	ordersByPoolID map[uint64]map[string][]orderbookdomain.Order
 }
 
 var _ orderbookdomain.OrderBookRepository = &orderbookRepositoryImpl{}
@@ -42,7 +46,7 @@ func New() *orderbookRepositoryImpl {
 	return &orderbookRepositoryImpl{
 		tickMapByPoolID:     map[uint64]*poolTickState{},
 		tickMapByPoolIDLock: sync.RWMutex{},
-		ordersByPoolID:      map[uint64][]orderbookdomain.Order{},
+		ordersByPoolID:      map[uint64]map[string][]orderbookdomain.Order{},
 		ordersByPoolIDLock:  sync.RWMutex{},
 	}
 }
@@ -168,26 +172,26 @@ func (o *orderbookRepositoryImpl) StoreTicks(poolID uint64, height uint64, ticks
 }
 
 func (o *orderbookRepositoryImpl) StoreOrders(poolID uint64, orders []orderbookdomain.Order) error {
+	ordersByOwner := make(map[string][]orderbookdomain.Order)
+	for _, order := range orders {
+		ordersByOwner[order.Owner] = append(ordersByOwner[order.Owner], order)
+	}
+
 	o.ordersByPoolIDLock.Lock()
-	o.ordersByPoolID[poolID] = orders
+	o.ordersByPoolID[poolID] = ordersByOwner
 	o.ordersByPoolIDLock.Unlock()
 	return nil
 }
 
 func (o *orderbookRepositoryImpl) GetOrders(poolID uint64, ownerAddress string) ([]orderbookdomain.Order, bool) {
 	o.ordersByPoolIDLock.RLock()
-	orders, ok := o.ordersByPoolID[poolID]
+	ordersByOwner, ok := o.ordersByPoolID[poolID]
 	o.ordersByPoolIDLock.RUnlock()
 	if !ok {
 		return nil, false
 	}
 
-	var result []orderbookdomain.Order
-	for _, order := range orders {
-		if order.Owner == ownerAddress {
-			result = append(result, order)
-		}
-	}
-
-	return result, true
+	// A stored index is never modified, only replaced, so it is read without the lock.
+	// The caller gets its own slice.
+	return slices.Clone(ordersByOwner[ownerAddress]), true
 }

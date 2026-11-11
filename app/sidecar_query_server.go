@@ -89,6 +89,9 @@ const (
 	serverIdleTimeout       = 120 * time.Second
 )
 
+// grpcGatewayStatusTimeout bounds the start-up check of the chain gRPC endpoint.
+const grpcGatewayStatusTimeout = 10 * time.Second
+
 // SideCarQueryServer defines an interface for sidecar query server (SQS).
 // It encapsulates all logic for ingesting chain data into the server
 // and exposes endpoints for querying formatter and processed data from frontend.
@@ -305,11 +308,8 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 
 	// Initialize passthrough query use case
 	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, liquidityPricer, defaultQuoteDenom, logger)
-	if err != nil {
-		return nil, err
-	}
 
-	// Initialize passthrough query use case
+	// Initialize chain registry use case
 	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(ctx, config.ChainRegistryTokenFeesFileURL, tokensUseCase, defaultQuoteDenom, logger)
 	if err != nil {
 		return nil, err
@@ -357,14 +357,14 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 
 	// Iniitialize data fetcher for pool APRs
 	fetchPoolAPRsCallback := datafetchers.GetFetchPoolAPRsFromNumiaCb(numiaHTTPClient, logger)
-	var aprFetcher datafetchers.MapFetcher[uint64, sqspassthroughdomain.PoolAPR] = datafetchers.NewMapFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes))
+	var aprFetcher datafetchers.MapFetcher[uint64, sqspassthroughdomain.PoolAPR] = datafetchers.NewMapFetcher(fetchPoolAPRsCallback, time.Minute*time.Duration(passthroughConfig.APRFetchIntervalMinutes), logger)
 	// Register the APR fetcher with the passthrough use case
 	poolsUseCase.RegisterAPRFetcher(aprFetcher)
 
 	// Initialize data fetcher for pool fees
 	timeseriesHTTPClient := passthroughdomain.NewTimeSeriesHTTPClient(passthroughConfig.TimeseriesURL)
 	fetchPoolFeesCallback := datafetchers.GetFetchPoolPoolFeesFromTimeseries(timeseriesHTTPClient, logger)
-	poolFeesFetcher := datafetchers.NewMapFetcher(fetchPoolFeesCallback, time.Minute*time.Duration(passthroughConfig.PoolFeesFetchIntervalMinutes))
+	poolFeesFetcher := datafetchers.NewMapFetcher(fetchPoolFeesCallback, time.Minute*time.Duration(passthroughConfig.PoolFeesFetchIntervalMinutes), logger)
 
 	// Register the pool fees fetcher with the passthrough use case
 	poolsUseCase.RegisterPoolFeesFetcher(poolFeesFetcher)
@@ -458,6 +458,14 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 
 					// Note: uncomment your plugin here
 					// currentPlugin = customfillbot.New(poolsUseCase, routerUsecase, tokensUseCase, passthroughGRPCClient, orderBookAPIClient, signer, defaultQuoteDenom, logger)
+				}
+
+				// An enabled plugin with no implementation wired above (for example the custom
+				// submodule plugin left commented out) must not be registered: a nil plugin
+				// panics on every block.
+				if currentPlugin == nil {
+					logger.Error("enabled plugin has no implementation registered, skipping", zap.String("plugin", plugin.GetName()))
+					continue
 				}
 
 				// Register the plugin with the ingest use case
@@ -561,9 +569,15 @@ func checkGRPCGatewayStatus(grpcGatewayEndpoint string) error {
 	if err != nil {
 		return err
 	}
+	// The connection only serves this check.
+	defer grpcClient.Close()
 
 	tendermintGRPCClient := tenderminapi.NewServiceClient(grpcClient)
-	if _, err := tendermintGRPCClient.GetLatestBlock(context.Background(), &tenderminapi.GetLatestBlockRequest{}); err != nil {
+	// Bounded: an endpoint that accepts the connection but never answers must not hang start-up.
+	ctx, cancel := context.WithTimeout(context.Background(), grpcGatewayStatusTimeout)
+	defer cancel()
+
+	if _, err := tendermintGRPCClient.GetLatestBlock(ctx, &tenderminapi.GetLatestBlockRequest{}); err != nil {
 		return err
 	}
 
