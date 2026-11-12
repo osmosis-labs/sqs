@@ -1,8 +1,6 @@
 package worker_test
 
 import (
-	"context"
-	"fmt"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -158,79 +156,6 @@ func (s *PoolLiquidityComputeWorkerSuite) TestComputeCoinCap() {
 
 			s.Require().Equal(tt.expectedLiquidityCap, usdcLiquidity)
 		})
-	}
-}
-
-// TestComputeCoinCap_AllCoin tests the ComputeCoinCap method for all listed coins
-// by estimating 10^6 amount in terms of USDC using mainnet state.
-// This test is skipped by default but is kept for ease of debugging in case we start
-// having edge cases failures for some denom pairs. In that case, we can quickly
-// run this test and debug.
-func (s *PoolLiquidityComputeWorkerSuite) TestPriceCoin_AllCoin() {
-	s.T().Parallel()
-	s.T().Skip("skipping long-running test by default. To be used in cases where we need to identify breakages across all coins")
-
-	// Set up mainnet mock state.
-	mainnetState := s.SetupMainnetState()
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState)
-
-	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata()
-	s.Require().NoError(err)
-
-	baseDenoms := make([]string, 0, len(tokenMetadata))
-	for chainDenom := range tokenMetadata {
-		baseDenoms = append(baseDenoms, chainDenom)
-	}
-
-	quoteChainDenom, err := mainnetUsecase.Tokens.GetChainDenom(defaultPricingConfig.DefaultQuoteHumanDenom)
-	s.Require().NoError(err)
-
-	prices, err := mainnetUsecase.Tokens.GetPrices(context.TODO(), baseDenoms, []string{quoteChainDenom}, domain.ChainPricingSourceType, domain.WithMinPricingPoolLiquidityCap(0))
-	s.Require().NoError(err)
-
-	type errorData struct {
-		humanDenom string
-		err        error
-	}
-
-	errors := make([]errorData, 0)
-
-	s.Require().NotZero(len(tokenMetadata))
-	for chainDenom, token := range tokenMetadata {
-		chainAmount := osmomath.NewDec(10).PowerMut(uint64(token.Precision + 1)).TruncateInt()
-
-		baseDenomPrices, ok := prices[chainDenom]
-		s.Require().True(ok)
-
-		baseQuotePrice, ok := baseDenomPrices[quoteChainDenom]
-		s.Require().True(ok)
-
-		scalingFactor, err := mainnetUsecase.Tokens.GetChainScalingFactorByDenomMut(chainDenom)
-		s.Require().NoError(err)
-
-		baseDenomPriceInfo := domain.DenomPriceInfo{
-			Price:         baseQuotePrice.Price,
-			ScalingFactor: scalingFactor,
-		}
-
-		// System under test
-		usdcLiquidity, err := worker.ComputeCoinCap(sdk.NewCoin(chainDenom, chainAmount), baseDenomPriceInfo)
-
-		if err != nil {
-			errors = append(errors, errorData{
-				humanDenom: token.HumanDenom,
-				err:        err,
-			})
-		} else {
-			fmt.Printf("Liquidity for 10 %s in %s: %s\n", token.HumanDenom, defaultPricingConfig.DefaultQuoteHumanDenom, usdcLiquidity.String())
-
-			// Sanity check that stables are roughly equal to 10
-		}
-	}
-
-	fmt.Printf("\n\nErrors:\n")
-	for _, err := range errors {
-		fmt.Printf("denom: %s, error: %s\n", err.humanDenom, err.err.Error())
 	}
 }
 

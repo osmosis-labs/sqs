@@ -1,7 +1,8 @@
 package atomic
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
+	"strconv"
 	"sync/atomic"
 )
 
@@ -26,12 +27,13 @@ type Uint64 struct {
 	atomic.Uint64
 }
 
-// MarshalJSON implements json.Marshaler
+// MarshalJSON implements json.Marshaler. The value is a JSON number.
 func (a *Uint64) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.Load())
+	return strconv.AppendUint(nil, a.Load(), 10), nil
 }
 
-// UnmarshalJSON implements json.Unmarshaler
+// UnmarshalJSON implements json.Unmarshaler. It accepts a JSON number that fits a uint64;
+// null stores zero.
 func (a *Uint64) UnmarshalJSON(data []byte) error {
 	var val uint64
 	if err := json.Unmarshal(data, &val); err != nil {

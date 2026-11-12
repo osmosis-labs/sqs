@@ -710,3 +710,58 @@ func (s *PassthroughUseCaseTestSuite) validatePortfolioAssetsResult(expectedResu
 		s.Require().Equal(expectedCategory.IsBestEffort, actualCategory.IsBestEffort, categoryName)
 	}
 }
+
+// Validates that a panic in any of the portfolio fetches, which run in goroutines outside
+// the HTTP recover middleware, is contained: the request completes and the categories the
+// fetch feeds are marked as best effort, instead of the panic taking the process down.
+func (s *PassthroughUseCaseTestSuite) TestGetPortfolioAssets_FetchPanicIsContained() {
+	tokensUsecaseMock := mocks.TokensUsecaseMock{
+		GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+			return defaultPriceResult, nil
+		},
+
+		IsValidChainDenomFunc: isValidChainDenomFuncMock,
+	}
+
+	noCoins := func(ctx context.Context, address string) (sdk.Coins, error) {
+		return sdk.Coins{}, nil
+	}
+	panicking := func(ctx context.Context, address string) (sdk.Coins, error) {
+		panic("fetch panicked")
+	}
+
+	grpcClientMock := mocks.PassthroughGRPCClientMock{
+		MockAllBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			return sdk.NewCoins(osmoCoin), nil
+		},
+		MockAccountLockedCoinsCb:            panicking,
+		MockAccountUnlockingCoinsCb:         noCoins,
+		MockDelegatorDelegationsCb:          panicking,
+		MockDelegatorUnbondingDelegationsCb: noCoins,
+		MockUserPositionsBalancesCb: func(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
+			panic("fetch panicked")
+		},
+		MockDelegationRewardsCb: panicking,
+	}
+
+	poolsUseCaseMock := mocks.PoolsUsecaseMock{
+		CalcExitCFMMPoolFunc: func(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error) {
+			return sdk.Coins{}, nil
+		},
+	}
+
+	pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+
+	// System under test
+	actualPortfolioAssets, err := pu.GetPortfolioAssets(context.TODO(), defaultAddress)
+	s.Require().NoError(err)
+
+	bestEffort := 0
+	for _, category := range actualPortfolioAssets.Categories {
+		if category.IsBestEffort {
+			bestEffort++
+		}
+	}
+	// Staked, in locks, unclaimed rewards, pooled and the total built from them.
+	s.Require().Equal(5, bestEffort)
+}

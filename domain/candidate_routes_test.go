@@ -22,38 +22,28 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 		defaultPoolID = uint64(1)
 	)
 
-	defaultNonOrderBookPool := ingesttypes.PoolWrapper{}
-	defaultNonOrderBookPool.SetUnderlyingPool(&mocks.ChainPoolMock{
-		ID: defaultPoolID,
-	})
+	// Pools are built in place and passed by pointer: a pool wrapper holds a mutex and
+	// must not be copied.
+	newPool := func(poolID uint64, isOrderbook bool) *ingesttypes.PoolWrapper {
+		sqsModel := ingesttypes.SQSPool{}
+		if isOrderbook {
+			sqsModel.CosmWasmPoolModel = &cosmwasmpool.CosmWasmPoolModel{
+				ContractInfo: cosmwasmpool.ContractInfo{
+					Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+					Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+				},
+				Data: cosmwasmpool.CosmWasmPoolData{
+					Orderbook: &cosmwasmpool.OrderbookData{},
+				},
+			}
+		}
+
+		return ingesttypes.NewPool(&mocks.ChainPoolMock{ID: poolID}, sqsModel)
+	}
 
 	var (
-
-		// instruments the given pool with orderbook data, returning new copy.
-		withOrderBookPool = func(pool ingesttypes.PoolWrapper) ingesttypes.PoolWrapper {
-			pool.SetSQSPoolModel(ingesttypes.SQSPool{
-				CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
-					ContractInfo: cosmwasmpool.ContractInfo{
-						Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
-						Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
-					},
-					Data: cosmwasmpool.CosmWasmPoolData{
-						Orderbook: &cosmwasmpool.OrderbookData{},
-					},
-				},
-			})
-			return pool
-		}
-
-		// instruments the given pool with a new id returning new copy
-		withPoolID = func(pool ingesttypes.PoolWrapper, newPoolID uint64) ingesttypes.PoolWrapper {
-			pool.SetUnderlyingPool(&mocks.ChainPoolMock{
-				ID: newPoolID,
-			})
-			return pool
-		}
-
-		defaultOrderbookPool = withPoolID(withOrderBookPool(defaultNonOrderBookPool), defaultPoolID+1)
+		defaultNonOrderBookPool = newPool(defaultPoolID, false)
+		defaultOrderbookPool    = newPool(defaultPoolID+1, true)
 	)
 
 	tests := []struct {
@@ -61,7 +51,7 @@ func TestCandidateRouteSearchOptions_ShouldSkipPool(t *testing.T) {
 
 		poolIDsToFilter map[uint64]struct{}
 
-		poolToTest ingesttypes.PoolWrapper
+		poolToTest *ingesttypes.PoolWrapper
 
 		expectedShouldSkip bool
 	}{

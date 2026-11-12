@@ -29,7 +29,10 @@ func NewEndBlockUpdatePlugin(routerRepository routerrepo.RouterRepository, txfee
 func (p *baseFeeEndBlockUpdatePlugin) ProcessEndBlock(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) error {
 	baseFee, err := tx.CalculateFeePrice(ctx, p.txfeesClient)
 	if err != nil {
-		p.logger.Error("failed to calculate fee price", zap.Error(err))
+		// Keep the last known base fee: storing the empty one returned with the error would
+		// wipe it until the next successful query.
+		p.logger.Error("failed to calculate fee price", zap.Error(err), zap.Uint64("block_height", blockHeight))
+		return nil
 	}
 
 	p.routerRepository.SetBaseFee(baseFee)

@@ -209,8 +209,10 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 		pools, _, err := r.poolHandler.GetPools(domain.WithPoolIDFilter(domain.KeysFromMap(zeroCapPoolIDs)))
 		if err == nil {
 			for _, p := range pools {
-				if p.GetLiquidityCap().GT(osmomath.ZeroInt()) {
-					liquidityCaps[p.GetId()] = sqsosmomath.SafeUint64(p.GetLiquidityCap())
+				// SafeUint64 is zero for a nil, zero or negative capitalization. A pool that
+				// has not been priced yet has a nil one, which cannot be compared.
+				if liquidityCap := sqsosmomath.SafeUint64(p.GetLiquidityCap()); liquidityCap > 0 {
+					liquidityCaps[p.GetId()] = liquidityCap
 				}
 			}
 		}
