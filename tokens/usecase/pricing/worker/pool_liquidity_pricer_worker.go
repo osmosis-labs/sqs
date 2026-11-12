@@ -13,6 +13,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	stdosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 	"go.uber.org/zap"
 )
@@ -72,12 +73,15 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 
 	defer func() {
 		// Measure duration
-		domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Add(float64(time.Since(start).Milliseconds()))
+		domain.SQSPoolLiquidityPricingWorkerComputeDurationGauge.Set(float64(time.Since(start).Milliseconds()))
 	}()
 
 	wg := sync.WaitGroup{}
 
 	wg.Go(func() {
+		// The worker runs outside any recover, in the pricing goroutine of a block.
+		defer recovery.Log(p.logger, "recovered panic while repricing denom metadata", nil, zap.Uint64("height", height))
+
 		// Note: in the future, if we add pool liquidity pricing, we can process the computation in separate goroutines
 		// for concurrency.
 		repricedTokenMetadata := p.RepriceDenomsMetadata(height, baseDenomPriceUpdates, quoteDenom, blockPoolMetadata)
@@ -87,6 +91,8 @@ func (p *poolLiquidityPricerWorker) OnPricingUpdate(ctx context.Context, height 
 	})
 
 	wg.Go(func() {
+		defer recovery.ToErrorf(&err, "repricing pool liquidity caps at height %d", height)
+
 		// Note: the error is propagated to the caller because
 		// the callee only errors on fatal issues that should invalidate health check.
 		err = p.repricePoolLiquidityCap(blockPoolMetadata.PoolIDs, baseDenomPriceUpdates)

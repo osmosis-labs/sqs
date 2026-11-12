@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	tokensdelivery "github.com/osmosis-labs/sqs/tokens/delivery/http"
@@ -304,7 +305,7 @@ func (s *TokensHandlerSuite) TestGetPrices() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(echo.GET, "/", nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			q := req.URL.Query()

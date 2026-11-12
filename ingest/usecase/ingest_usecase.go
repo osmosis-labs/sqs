@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"maps"
 	"runtime"
@@ -22,12 +23,12 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	sqsosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	sqsingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
-	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting/parsing"
 
-	"github.com/osmosis-labs/osmosis/v31/ingest/types/json"
 	"github.com/osmosis-labs/osmosis/v31/ingest/types/proto/types"
 )
 
@@ -137,9 +138,22 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 	if lastHeight := p.lastProcessedHeight.Load(); height < lastHeight {
 		return fmt.Errorf("received block height %d lower than last processed height %d", height, lastHeight)
 	}
+	// firstBlockPending is true from the moment this call marks its block as the first one
+	// until the first block branch below takes over signalling its completion.
+	firstBlockPending := false
 	defer func() {
 		if err == nil {
 			p.lastProcessedHeight.Store(height)
+			return
+		}
+
+		if firstBlockPending {
+			// The first block failed before reaching the first block branch. Forget it and
+			// release the wait group: otherwise every later block would wait forever for a
+			// first block that never completes. The next block carrying all pools, which the
+			// node sends after an error, is then treated as the first one.
+			p.firstHeightAfterStartUp.Store(0)
+			p.firstBlockWg.Done()
 		}
 	}()
 
@@ -147,6 +161,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		p.logger.Info("setting first block height", zap.Uint64("height", height))
 		p.firstHeightAfterStartUp.Store(height)
 		p.firstBlockWg.Add(1)
+		firstBlockPending = true
 	}
 
 	p.logger.Info("starting block processing", zap.Uint64("height", height))
@@ -176,17 +191,6 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		uniqueBlockPoolMetadata.UpdatedDenoms[denom] = struct{}{}
 	}
 
-	// Get all pools (already updated with the newly ingested pools)
-	allPools, err := p.poolsUseCase.GetAllPools()
-	if err != nil {
-		return err
-	}
-
-	// Sort and store pools.
-	p.logger.Info("sorting pools", zap.Uint64("height", height), zap.Int("num_pools", len(allPools)), zap.Duration("duration_since_start", time.Since(startProcessingTime)))
-
-	p.sortAndStorePools(allPools)
-
 	// If an error occurs, we should return it and not proceed with the next steps.
 	// The pricing relies on the search data. As a result, by returnining an error we trigger a fallback mechanism
 	// Note that compute search data is always synchronous because it is needed for all subsequent pre-computations within a block.
@@ -200,6 +204,7 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		// For the first block, we need to update the prices synchronously.
 		// and let any subsequent block wait before starting its computation
 		// to avoid overloading the system.
+		firstBlockPending = false
 		defer p.firstBlockWg.Done()
 
 		// Set the first block flag.
@@ -255,24 +260,13 @@ func (p *ingestUseCase) RegisterEndBlockProcessPlugin(plugin domain.EndBlockProc
 // Any error that occurs during the update is recorded in the error counter.
 func (p *ingestUseCase) updateAssetsAtHeightIntervalAsync(height uint64) {
 	go func() {
+		defer recovery.Log(p.logger, "recovered panic while updating assets", domain.SQSUpdateAssetsAtHeightIntervalErrorCounter, zap.Uint64("height", height))
+
 		if err := p.tokensUsecase.UpdateAssetsAtHeightIntervalSync(height); err != nil {
 			p.logger.Error(domain.SQSUpdateAssetsAtHeightIntervalMetricName, zap.Uint64("height", height), zap.Error(err))
 			domain.SQSUpdateAssetsAtHeightIntervalErrorCounter.Inc()
 		}
 	}()
-}
-
-// sortAndStorePools sorts the pools and stores them in the router.
-// TODO: instead of resorting all pools every block, we should put the updated pools in the correct position
-func (p *ingestUseCase) sortAndStorePools(pools []sqsingesttypes.PoolI) {
-	cosmWasmPoolConfig := p.poolsUseCase.GetCosmWasmPoolConfig()
-	routerConfig := p.routerUsecase.GetConfig()
-
-	sortedPools, _ := routerusecase.ValidateAndSortPools(pools, cosmWasmPoolConfig, routerConfig.PreferredPoolIDs, p.logger)
-
-	// Sort the pools and store them in the router.
-	p.routerUsecase.SetSortedPools(sortedPools)
-	p.pricingRouterUsecase.SetSortedPools(sortedPools)
 }
 
 // parsePoolData parses the pool data and returns the pool objects.
@@ -571,6 +565,11 @@ func copyDenomPoolLiquidityData(data domain.DenomPoolLiquidityData) domain.Denom
 
 // parsePool parses the pool data and returns the pool object
 // For concentrated pools, it also processes the tick model
+//
+// The chain model is a protobuf Any and goes through the interface registry codec. The SQS and
+// tick models are plain JSON written by the Osmosis node's ingester (jsoniter, standard-library
+// compatible) and are decoded with encoding/json/v2 and sqsosmomath.JSONUnmarshalOptions.
+// The Osmosis models use exact JSON field names and string-encoded integers and decimals.
 func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, error) {
 	var chainModel poolmanagertypes.PoolI
 	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, &chainModel); err != nil {
@@ -578,7 +577,7 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, e
 	}
 
 	var sqsModel ingesttypes.SQSPool
-	if err := json.Unmarshal(pool.SqsModel, &sqsModel); err != nil {
+	if err := json.Unmarshal(pool.SqsModel, &sqsModel, sqsosmomath.JSONUnmarshalOptions); err != nil {
 		return nil, err
 	}
 
@@ -590,7 +589,7 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, e
 	poolWrapper := sqsingesttypes.NewPool(chainModel, sqsModel)
 	if poolWrapper.GetType() == poolmanagertypes.Concentrated {
 		var tickModel ingesttypes.TickModel
-		if err := json.Unmarshal(pool.TickModel, &tickModel); err != nil {
+		if err := json.Unmarshal(pool.TickModel, &tickModel, sqsosmomath.JSONUnmarshalOptions); err != nil {
 			return nil, err
 		}
 		if err := poolWrapper.SetTickModel(&tickModel); err != nil {

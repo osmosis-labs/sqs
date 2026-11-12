@@ -205,6 +205,12 @@ func TestPrepareBatchClaimMsg(t *testing.T) {
 			claims: orderbookdomain.Orders{},
 			want:   []byte(`{"batch_claim":{"orders":[]}}`),
 		},
+		{
+			// The contract expects an array; null would not deserialize.
+			name:   "Nil claims",
+			claims: nil,
+			want:   []byte(`{"batch_claim":{"orders":[]}}`),
+		},
 	}
 
 	for _, tt := range tests {
