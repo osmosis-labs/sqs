@@ -273,16 +273,6 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 					continue
 				}
 
-				denomData, err := c.candidateRouteDataHolder.GetDenomData(currenTokenInDenom)
-				if err != nil {
-					return nil, 0, false, err
-				}
-
-				if len(denomData.SortedPools) == 0 {
-					c.logger.Debug("no pools found for denom in candidate route search", zap.String("denom", denom))
-					continue
-				}
-
 				if lastPoolID == uint64(0) || lastPoolID != pool.ID {
 					nextPool := candidatePoolWrapper{
 						ID:            pool.ID,

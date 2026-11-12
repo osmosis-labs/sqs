@@ -166,16 +166,16 @@ func (p *chainInfoUseCase) ValidatePriceUpdates() error {
 	latestPriceUpdateHeight := p.latestPricesUpdateHeight
 	p.priceUpdateHeightMx.RUnlock()
 
-	return validateUpdate(latestPriceUpdateHeight, p.lastIngestedHeight, pricingUpdateName)
+	return validateUpdate(latestPriceUpdateHeight, p.getLastIngestedHeight(), pricingUpdateName)
 }
 
 // ValidatePoolLiquidityUpdates implements mvc.ChainInfoUsecase.
 func (p *chainInfoUseCase) ValidatePoolLiquidityUpdates() error {
-	p.priceUpdateHeightMx.RLock()
+	p.poolLiquidityUpdateHeightMx.RLock()
 	latestPoolLiquidityUpdateHeight := p.latestPoolLiquidityUpdateHeight
-	p.priceUpdateHeightMx.RUnlock()
+	p.poolLiquidityUpdateHeightMx.RUnlock()
 
-	return validateUpdate(latestPoolLiquidityUpdateHeight, p.lastIngestedHeight, poolLiquidityPricingUpdateName)
+	return validateUpdate(latestPoolLiquidityUpdateHeight, p.getLastIngestedHeight(), poolLiquidityPricingUpdateName)
 }
 
 // ValidateCandidateRouteSearchDataUpdates implements mvc.ChainInfoUsecase.
@@ -184,7 +184,15 @@ func (p *chainInfoUseCase) ValidateCandidateRouteSearchDataUpdates() error {
 	latestCandidateRouteSearchDataUpdateHeight := p.latestCandidateRouteSearchDataUpdateHeight
 	p.candidateRouteSearchDataUpdateHeightMx.RUnlock()
 
-	return validateUpdate(latestCandidateRouteSearchDataUpdateHeight, p.lastIngestedHeight, candidateRouteSearchDataUpdateName)
+	return validateUpdate(latestCandidateRouteSearchDataUpdateHeight, p.getLastIngestedHeight(), candidateRouteSearchDataUpdateName)
+}
+
+// getLastIngestedHeight returns the height last observed by GetLatestHeight.
+func (p *chainInfoUseCase) getLastIngestedHeight() uint64 {
+	p.lastSeenMx.Lock()
+	defer p.lastSeenMx.Unlock()
+
+	return p.lastIngestedHeight
 }
 
 // validateUpdate validates the update for the given update name, current update height, and latest ingested height.
@@ -198,7 +206,9 @@ func validateUpdate(currentUpdateHeight uint64, latestIngestedHeight uint64, upd
 	}
 
 	// Check that the pool liquidity updates have been occurring
-	if currentUpdateHeight < latestIngestedHeight-updateHeightThreshold {
+	// The threshold is added rather than subtracted: the heights are unsigned, so the subtraction
+	// would wrap around below the threshold and fail every update on a young chain.
+	if currentUpdateHeight+updateHeightThreshold < latestIngestedHeight {
 		return fmt.Errorf("latest %s update height is less than the latest ingested height", updateName)
 	}
 

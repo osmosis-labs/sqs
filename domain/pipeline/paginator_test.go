@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"math"
 	"testing"
 
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
@@ -175,4 +176,20 @@ func TestFetchPageByCursor(t *testing.T) {
 			require.Equal(t, tt.expected, got, "FetchPageByCursor() returned unexpected result")
 		})
 	}
+}
+
+// Validates that a page limit far above the number of items, which not every caller
+// validates, returns the available items without sizing an allocation by the limit.
+func TestGetPage_HugeLimit(t *testing.T) {
+	items := []int{1, 2, 3}
+
+	for _, pagination := range []*v1beta1.PaginationRequest{
+		{Strategy: v1beta1.PaginationStrategy_CURSOR, Cursor: 0, Limit: math.MaxUint64},
+		{Strategy: v1beta1.PaginationStrategy_PAGE, Page: 0, Limit: math.MaxUint64},
+	} {
+		paginator := NewPaginator[int, int](&MockIterator{items: items}, pagination)
+		require.Equal(t, items, paginator.GetPage())
+	}
+
+	require.LessOrEqual(t, pageCapacity(math.MaxUint64), uint64(v1beta1.MaxLimit))
 }

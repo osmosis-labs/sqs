@@ -2,7 +2,8 @@ package coingeckopoller
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/sqsutil/sqshttp"
 )
 
 // maxResponseBytes bounds a response body: a full answer for maxIdsPerRequest ids is a few KiB.
@@ -76,16 +78,17 @@ func newHTTPFetch(rawURL, quoteCurrency string, client *http.Client) (fetchFunc,
 		case resp.StatusCode != http.StatusOK:
 			return nil, fmt.Errorf("coingecko request failed: %s", resp.Status)
 		}
-		return decodePrices(io.LimitReader(resp.Body, maxResponseBytes), ids, quoteCurrency)
+		return decodePrices(resp.Body, ids, quoteCurrency)
 	}, nil
 }
 
 // decodePrices returns the usable prices for ids from a response body, {"<id>": {"usd": 1.23}}.
 // A body that answers for none of ids, such as {} or an error object, is an error rather than
 // "no price" for every id; an id answered without a usable price, {"<id>": {}}, is left out.
+// A body over maxResponseBytes, or with data after the object, is an error.
 func decodePrices(body io.Reader, ids []string, quoteCurrency string) (map[string]osmomath.BigDec, error) {
-	var answers map[string]json.RawMessage
-	if err := json.NewDecoder(body).Decode(&answers); err != nil {
+	var answers map[string]jsontext.Value
+	if err := sqshttp.DecodeJSON(body, maxResponseBytes, &answers); err != nil {
 		return nil, fmt.Errorf("failed to decode coingecko response: %w", err)
 	}
 
@@ -109,7 +112,7 @@ func decodePrices(body io.Reader, ids []string, quoteCurrency string) (map[strin
 
 // parsePrice returns the positive price in quoteCurrency from one id's answer, {"usd": 1.23}.
 // A missing, null, malformed or non-positive price is not usable.
-func parsePrice(raw json.RawMessage, quoteCurrency string) (osmomath.BigDec, bool) {
+func parsePrice(raw jsontext.Value, quoteCurrency string) (osmomath.BigDec, bool) {
 	var quotes map[string]*float64
 	if err := json.Unmarshal(raw, &quotes); err != nil {
 		return osmomath.BigDec{}, false

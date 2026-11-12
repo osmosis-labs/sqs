@@ -381,7 +381,10 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin, to
 			}
 
 			// Validate upper limit
-			upperLimitInt := osmomath.MustNewDecFromStr(staticLimiter.UpperLimit)
+			upperLimitInt, err := osmomath.NewDecFromStr(staticLimiter.UpperLimit)
+			if err != nil {
+				return fmt.Errorf("invalid static limiter upper limit (%s) for denom (%s): %w", staticLimiter.UpperLimit, assetDenom, err)
+			}
 
 			// Asset weight
 			assetWeight := normalizedBalances[assetDenom].ToLegacyDec().Quo(normalizeTotal.ToLegacyDec())
@@ -402,7 +405,10 @@ func (r *routableAlloyTransmuterPoolImpl) checkStaticRateLimiter(tokenInCoin, to
 		}
 
 		// Validate upper limit
-		upperLimitInt := osmomath.MustNewDecFromStr(tokeInStaticLimiter.UpperLimit)
+		upperLimitInt, err := osmomath.NewDecFromStr(tokeInStaticLimiter.UpperLimit)
+		if err != nil {
+			return fmt.Errorf("invalid static limiter upper limit (%s) for denom (%s): %w", tokeInStaticLimiter.UpperLimit, tokenInCoin.Denom, err)
+		}
 
 		// Token in weight
 		tokenInWeight := normalizedBalances[tokenInCoin.Denom].ToLegacyDec().Quo(normalizeTotal.ToLegacyDec())

@@ -1490,9 +1490,6 @@ func (s *PoolsUsecaseTestSuite) newRoutablePool(pool ingesttypes.PoolI, tokenInD
 	return routablePool
 }
 
-func (s *PoolsUsecaseTestSuite) TestetPoolAPRAndFeeDataIfConfigured() {
-}
-
 func (s *PoolsUsecaseTestSuite) newDefaultPoolsUseCase() *usecase.PoolsUsecase {
 	routerRepo := routerrepo.New(&log.NoOpLogger{})
 	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
