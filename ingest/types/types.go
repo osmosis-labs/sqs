@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain/sync/atomic"
@@ -72,6 +73,10 @@ var _ PoolI = &PoolWrapper{}
 type PoolWrapper struct {
 	chainModel atomic.CopyOnWrite[poolmanagertypes.PoolI]
 	sqsModel   atomic.CopyOnWrite[SQSPool]
+	// sqsModelMu serialises the writers of sqsModel. The liquidity cap setters read the model,
+	// change one field and store it back, from both the ingest and the pricing goroutines:
+	// unserialised, one of two concurrent updates is lost. Readers do not take it.
+	sqsModelMu sync.Mutex
 	aprData    atomic.CopyOnWrite[passthroughdomain.PoolAPRDataStatusWrap]
 	feesData   atomic.CopyOnWrite[passthroughdomain.PoolFeesDataStatusWrap]
 	tickModel  atomic.CopyOnWrite[*TickModel]
@@ -122,6 +127,9 @@ func (p *PoolWrapper) GetUnderlyingPool() poolmanagertypes.PoolI {
 
 // GetSQSPoolModel implements PoolI.
 func (p *PoolWrapper) SetSQSPoolModel(model SQSPool) {
+	p.sqsModelMu.Lock()
+	defer p.sqsModelMu.Unlock()
+
 	p.sqsModel.Store(model)
 }
 
@@ -201,6 +209,9 @@ func (p *PoolWrapper) GetLiquidityCap() osmomath.Int {
 
 // SetLiquidityCap implements PoolI.
 func (p *PoolWrapper) SetLiquidityCap(liquidityCap math.Int) {
+	p.sqsModelMu.Lock()
+	defer p.sqsModelMu.Unlock()
+
 	sqsModel := p.GetSQSPoolModel()
 	sqsModel.PoolLiquidityCap = liquidityCap
 
@@ -214,6 +225,9 @@ func (p *PoolWrapper) GetLiquidityCapError() string {
 
 // SetLiquidityCapError implements PoolI.
 func (p *PoolWrapper) SetLiquidityCapError(liquidityCapError string) {
+	p.sqsModelMu.Lock()
+	defer p.sqsModelMu.Unlock()
+
 	sqsModel := p.GetSQSPoolModel()
 	sqsModel.PoolLiquidityCapError = liquidityCapError
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	chaininfoclient "github.com/osmosis-labs/sqs/chaininfo/client"
+	sqsdeliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
@@ -134,7 +135,7 @@ func TestGetHealthStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
-			e := echo.New()
+			e := sqsdeliveryhttp.NewEcho()
 			req := httptest.NewRequest(http.MethodGet, "/healthcheck", nil)
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
@@ -218,7 +219,7 @@ func TestExtractVersion(t *testing.T) {
 // TestPprofRoutesGatedByConfig checks that the pprof endpoints are only registered when enabled.
 func TestPprofRoutesGatedByConfig(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
-		e := echo.New()
+		e := sqsdeliveryhttp.NewEcho()
 		deliveryhttp.NewSystemHandler(e, domain.Config{PprofEnabled: enabled}, &log.NoOpLogger{}, nil)
 
 		for _, path := range []string{"/debug/pprof/", "/debug/pprof/heap", "/debug/pprof/cmdline"} {
@@ -236,7 +237,7 @@ func TestPprofRoutesGatedByConfig(t *testing.T) {
 
 // TestGetConfigMasksOTEL checks that /config omits the OTEL settings.
 func TestGetConfigMasksOTEL(t *testing.T) {
-	e := echo.New()
+	e := sqsdeliveryhttp.NewEcho()
 	deliveryhttp.NewSystemHandler(e, domain.Config{OTEL: &domain.OTELConfig{Enabled: true, Environment: "secret-env"}}, &log.NoOpLogger{}, nil)
 
 	rec := httptest.NewRecorder()

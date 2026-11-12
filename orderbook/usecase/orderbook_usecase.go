@@ -12,6 +12,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	orderbookgrpcclientdomain "github.com/osmosis-labs/sqs/domain/orderbook/grpcclient"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/orderbook/telemetry"
@@ -196,8 +197,11 @@ func (o *OrderbookUseCaseImpl) GetActiveOrdersStream(ctx context.Context, addres
 	go fetchOrders(ctx)
 
 	// Pull orders periodically based on duration
+	// The interval is read here, not in the goroutine below, so that it is fixed when the stream starts.
+	fetchEvery := fetchActiveOrdersDuration
+
 	go func() {
-		ticker := time.NewTicker(fetchActiveOrdersDuration)
+		ticker := time.NewTicker(fetchEvery)
 		defer ticker.Stop()
 		for {
 			select {
@@ -273,7 +277,11 @@ func (o *OrderbookUseCaseImpl) GetActiveOrders(ctx context.Context, address stri
 //
 // For every order, if an error occurs processing the order, it is skipped rather than failing the entire process.
 // This is a best-effort process.
-func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(_ context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) ([]orderbookdomain.LimitOrder, bool, error) {
+func (o *OrderbookUseCaseImpl) processOrderBookActiveOrders(_ context.Context, orderbook domain.CanonicalOrderBooksResult, ownerAddress string) (_ []orderbookdomain.LimitOrder, _ bool, err error) {
+	// Runs in a goroutine per orderbook, for active orders and for their stream, outside the
+	// HTTP recover middleware: a panic here would take the whole process down.
+	defer recovery.ToErrorf(&err, "processing active orders of orderbook %d", orderbook.PoolID)
+
 	if err := orderbook.Validate(); err != nil {
 		return nil, false, err
 	}

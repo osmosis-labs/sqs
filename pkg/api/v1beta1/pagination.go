@@ -19,9 +19,6 @@ const (
 )
 
 var (
-	// ErrPageNotValid is the error returned when the page is not valid.
-	ErrPageNotValid = fmt.Errorf("page is not valid")
-
 	// ErrLimitNotValid is the error returned when the limit is not valid.
 	ErrLimitNotValid = fmt.Errorf("limit is not valid")
 
@@ -77,10 +74,11 @@ func (r *PaginationRequest) UnmarshalHTTPRequest(c echo.Context) error {
 		}
 	}
 
-	// Determine strategy
+	// Determine strategy. A request that only gives the page size is page based, starting at
+	// the first page: the strategy defaults to PAGE and the page to zero.
 	if cursorParam != "" {
 		r.Strategy = PaginationStrategy_CURSOR
-	} else if pageParam != "" {
+	} else if pageParam != "" || limitParam != "" {
 		r.Strategy = PaginationStrategy_PAGE
 	} else {
 		r.Strategy = PaginationStrategy_UNKNOWN
@@ -90,11 +88,8 @@ func (r *PaginationRequest) UnmarshalHTTPRequest(c echo.Context) error {
 }
 
 // Validate validates the pagination request.
+// Pages start at zero, so every page number up to MaxPage is valid.
 func (r *PaginationRequest) Validate() error {
-	if r.Page == 0 && r.Strategy == PaginationStrategy_PAGE {
-		return ErrPageNotValid
-	}
-
 	if r.Page > MaxPage {
 		return ErrPageTooLarge
 	}

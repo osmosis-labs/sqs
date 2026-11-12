@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	"github.com/osmosis-labs/sqs/sqsutil/sqshttp"
 )
 
 // newTestServer serves body with status for every request and records the last request's query.
@@ -104,6 +105,8 @@ func TestHTTPFetch_FailedRequests(t *testing.T) {
 		{"answers for no requested id", http.StatusOK, `{}`},
 		{"error object", http.StatusOK, `{"status": {"error_code": 429, "error_message": "rate limited"}}`},
 		{"body over the size limit", http.StatusOK, `{"atom": {"usd": 4}, "pad": "` + strings.Repeat("x", maxResponseBytes) + `"}`},
+		{"data after the object", http.StatusOK, `{"atom": {"usd": 4}} {"atom": {"usd": 5}}`},
+		{"duplicate id", http.StatusOK, `{"atom": {"usd": 4}, "atom": {"usd": 5}}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -153,4 +156,14 @@ func TestParseRetryAfter(t *testing.T) {
 			require.Equal(t, tt.want, parseRetryAfter(tt.value, now))
 		})
 	}
+}
+
+// A body over the limit is rejected as too large rather than decoded from a truncated prefix,
+// even when the prefix is a complete answer.
+func TestHTTPFetch_RejectsOversizedBody(t *testing.T) {
+	body := `{"atom": {"usd": 4}}` + strings.Repeat(" ", maxResponseBytes)
+	server, _ := newTestServer(t, http.StatusOK, nil, body)
+
+	_, err := mustFetch(t, server.URL, "usd", server.Client())(context.Background(), []string{"atom"})
+	require.ErrorIs(t, err, sqshttp.ErrBodyTooLarge)
 }

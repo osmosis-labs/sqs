@@ -1,11 +1,15 @@
 package parsing
 
 import (
+	"cmp"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"os"
+	"slices"
 
-	"github.com/osmosis-labs/osmosis/v31/ingest/types/json"
 	"github.com/osmosis-labs/sqs/domain"
+	sqsosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 
 	concentratedmodel "github.com/osmosis-labs/osmosis/v31/x/concentrated-liquidity/model"
@@ -15,10 +19,18 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 )
 
+// stateFileOptions sorts map entries so that state files written from the same state are
+// byte-identical and diff cleanly.
+var stateFileOptions = json.Deterministic(true)
+
+// stateFileDecodeOptions keeps encoding/json/v2 defaults and only streams the many Osmosis
+// decimals in pool and tick models; see sqsosmomath.JSONUnmarshalOptions.
+var stateFileDecodeOptions = sqsosmomath.JSONUnmarshalOptions
+
 // SerializedPool is a struct that is used to serialize a pool to JSON.
 type SerializedPool struct {
 	Type      poolmanagertypes.PoolType `json:"type"`
-	ChainPool json.RawMessage           `json:"data"`
+	ChainPool jsontext.Value            `json:"data"`
 	SQSModel  ingesttypes.SQSPool       `json:"sqs_model"`
 	TickModel *ingesttypes.TickModel    `json:"tick_model,omitempty"`
 }
@@ -30,7 +42,7 @@ func LoadIngest(ingestFile string) (domain.DenomPoolLiquidityMap, error) {
 	}
 
 	var denomLiquidityMap domain.DenomPoolLiquidityMap
-	err = json.Unmarshal(ingestBytes, &denomLiquidityMap)
+	err = json.Unmarshal(ingestBytes, &denomLiquidityMap, stateFileDecodeOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
@@ -47,7 +59,7 @@ func StoreIngest(denomLiquidityMap domain.DenomPoolLiquidityMap, ingestFile stri
 		}
 		defer file.Close()
 
-		ingestJSON, err := json.Marshal(denomLiquidityMap)
+		ingestJSON, err := json.Marshal(denomLiquidityMap, stateFileOptions)
 		if err != nil {
 			return err
 		}
@@ -73,7 +85,7 @@ func StorePools(actualPools []ingesttypes.PoolI, tickModelMap map[uint64]*ingest
 		}
 		defer file.Close()
 
-		pools := make([]json.RawMessage, 0, len(actualPools))
+		pools := make([]jsontext.Value, 0, len(actualPools))
 
 		for _, pool := range actualPools {
 			if pool.GetType() == poolmanagertypes.Concentrated {
@@ -96,7 +108,7 @@ func StorePools(actualPools []ingesttypes.PoolI, tickModelMap map[uint64]*ingest
 			pools = append(pools, poolData)
 		}
 
-		poolsJSON, err := json.Marshal(pools)
+		poolsJSON, err := json.Marshal(pools, stateFileOptions)
 		if err != nil {
 			return err
 		}
@@ -122,7 +134,7 @@ func StoreTakerFees(takerFeesFile string, takerFeesMap ingesttypes.TakerFeeMap) 
 		}
 		defer file.Close()
 
-		takerFeesJSON, err := json.Marshal(takerFeesMap)
+		takerFeesJSON, err := json.Marshal(takerFeesMap, stateFileOptions)
 		if err != nil {
 			return err
 		}
@@ -146,7 +158,7 @@ func StoreTokensMetadata(poolDenomMetaData map[string]domain.Token, tokensFile s
 		}
 		defer file.Close()
 
-		tokensJSON, err := json.Marshal(poolDenomMetaData)
+		tokensJSON, err := json.Marshal(poolDenomMetaData, stateFileOptions)
 		if err != nil {
 			return err
 		}
@@ -170,7 +182,7 @@ func StorePoolDenomMetaData(poolDenomMetaData domain.PoolDenomMetaDataMap, poolD
 		}
 		defer file.Close()
 
-		takerFeesJSON, err := json.Marshal(poolDenomMetaData)
+		takerFeesJSON, err := json.Marshal(poolDenomMetaData, stateFileOptions)
 		if err != nil {
 			return err
 		}
@@ -186,13 +198,13 @@ func StorePoolDenomMetaData(poolDenomMetaData domain.PoolDenomMetaDataMap, poolD
 
 type candidateRouteSerializedData struct {
 	Denom      string                              `json:"denom"`
-	Pool       []json.RawMessage                   `json:"pool"`
+	Pool       []jsontext.Value                    `json:"pool"`
 	Orderbooks []candidateRouteOrderbookSearchData `json:"orderbooks"`
 }
 
 type candidateRouteOrderbookSearchData struct {
-	PairDenom string          `json:"pair_denom"`
-	Orderbook json.RawMessage `json:"orderbook"`
+	PairDenom string         `json:"pair_denom"`
+	Orderbook jsontext.Value `json:"orderbook"`
 }
 
 // StoreCandidateRouteSearchData stores the candidate route search data to disk at the given path.
@@ -208,9 +220,9 @@ func StoreCandidateRouteSearchData(candidateRouteSearchData map[string]*domain.C
 		serializedResult := make([]candidateRouteSerializedData, 0, len(candidateRouteSearchData))
 
 		for denom, candidateRouteSearchData := range candidateRouteSearchData {
-			serializedPools := make([]json.RawMessage, 0)
+			serializedPools := make([]jsontext.Value, 0)
 			for _, pool := range candidateRouteSearchData.SortedPools {
-				serializedPool, err := json.Marshal(pool)
+				serializedPool, err := json.Marshal(pool, stateFileOptions)
 				if err != nil {
 					return err
 				}
@@ -219,7 +231,7 @@ func StoreCandidateRouteSearchData(candidateRouteSearchData map[string]*domain.C
 
 			serializedOrderbooks := make([]candidateRouteOrderbookSearchData, 0)
 			for pairDenom, orderbook := range candidateRouteSearchData.CanonicalOrderbooks {
-				serializedOrderbook, err := json.Marshal(orderbook)
+				serializedOrderbook, err := json.Marshal(orderbook, stateFileOptions)
 				if err != nil {
 					return err
 				}
@@ -231,6 +243,9 @@ func StoreCandidateRouteSearchData(candidateRouteSearchData map[string]*domain.C
 
 				serializedOrderbooks = append(serializedOrderbooks, orderbookData)
 			}
+			slices.SortFunc(serializedOrderbooks, func(a, b candidateRouteOrderbookSearchData) int {
+				return cmp.Compare(a.PairDenom, b.PairDenom)
+			})
 
 			serializedResult = append(serializedResult, candidateRouteSerializedData{
 				Denom:      denom,
@@ -239,7 +254,12 @@ func StoreCandidateRouteSearchData(candidateRouteSearchData map[string]*domain.C
 			})
 		}
 
-		candidateRouteSearchDataJSON, err := json.Marshal(serializedResult)
+		// These arrays originate from maps, so the encoder's deterministic map ordering
+		// cannot sort them. Preserve SortedPools order, which carries routing priority.
+		slices.SortFunc(serializedResult, func(a, b candidateRouteSerializedData) int {
+			return cmp.Compare(a.Denom, b.Denom)
+		})
+		candidateRouteSearchDataJSON, err := json.Marshal(serializedResult, stateFileOptions)
 		if err != nil {
 			return err
 		}
@@ -261,7 +281,7 @@ func ReadPools(poolsFile string) ([]ingesttypes.PoolI, map[uint64]*ingesttypes.T
 	}
 
 	var serializedPools []SerializedPool
-	err = json.Unmarshal(poolBytes, &serializedPools)
+	err = json.Unmarshal(poolBytes, &serializedPools, stateFileDecodeOptions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -294,7 +314,7 @@ func ReadTakerFees(takerFeeFileName string) (ingesttypes.TakerFeeMap, error) {
 	}
 
 	takerFeeMap := ingesttypes.TakerFeeMap{}
-	err = json.Unmarshal(takerFeeBytes, &takerFeeMap)
+	err = json.Unmarshal(takerFeeBytes, &takerFeeMap, stateFileDecodeOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +330,7 @@ func ReadTokensMetadata(tokensMetadataFileName string) (map[string]domain.Token,
 	}
 
 	tokensMetadata := map[string]domain.Token{}
-	err = json.Unmarshal(tokensMetadataBytes, &tokensMetadata)
+	err = json.Unmarshal(tokensMetadataBytes, &tokensMetadata, stateFileDecodeOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +346,7 @@ func ReadPoolDenomsMetaData(poolDenomMetaData string) (domain.PoolDenomMetaDataM
 	}
 
 	tokensMetadata := domain.PoolDenomMetaDataMap{}
-	err = json.Unmarshal(tokensMetadataBytes, &tokensMetadata)
+	err = json.Unmarshal(tokensMetadataBytes, &tokensMetadata, stateFileDecodeOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +362,7 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 	}
 
 	serialized := make([]candidateRouteSerializedData, 0)
-	err = json.Unmarshal(candidateRouteSearchDataBytes, &serialized)
+	err = json.Unmarshal(candidateRouteSearchDataBytes, &serialized, stateFileDecodeOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
@@ -353,7 +373,7 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 		pools := make([]domain.CandidatePoolWrapper, 0, len(data.Pool))
 		for _, poolData := range data.Pool {
 			var pool domain.CandidatePoolWrapper
-			if err := json.Unmarshal(poolData, &pool); err != nil {
+			if err := json.Unmarshal(poolData, &pool, stateFileDecodeOptions); err != nil {
 				return nil, err
 			}
 
@@ -363,7 +383,7 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 		orderbooks := make(map[string]domain.CandidatePoolWrapper)
 		for _, orderbookData := range data.Orderbooks {
 			var pool domain.CandidatePoolWrapper
-			if err := json.Unmarshal(orderbookData.Orderbook, &pool); err != nil {
+			if err := json.Unmarshal(orderbookData.Orderbook, &pool, stateFileDecodeOptions); err != nil {
 				return nil, err
 			}
 
@@ -380,12 +400,12 @@ func ReadCandidateRouteSearchData(candidateRouteSearchDataFile string) (map[stri
 }
 
 // MarshalPool marshals a pool to JSON.
-func MarshalPool(pool ingesttypes.PoolI) (json.RawMessage, error) {
+func MarshalPool(pool ingesttypes.PoolI) (jsontext.Value, error) {
 	poolType := pool.GetType()
 
 	underlyingPool := pool.GetUnderlyingPool()
 
-	chainPoolBz, err := json.Marshal(underlyingPool)
+	chainPoolBz, err := json.Marshal(underlyingPool, stateFileOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +425,7 @@ func MarshalPool(pool ingesttypes.PoolI) (json.RawMessage, error) {
 		TickModel: tickModel,
 	}
 
-	poolData, err := json.Marshal(serializedPool)
+	poolData, err := json.Marshal(serializedPool, stateFileOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -420,28 +440,28 @@ func UnmarshalPool(serializedPool SerializedPool) (ingesttypes.PoolI, error) {
 	switch serializedPool.Type {
 	case poolmanagertypes.Concentrated:
 		var concentratedPool concentratedmodel.Pool
-		err := json.Unmarshal(serializedPool.ChainPool, &concentratedPool)
+		err := json.Unmarshal(serializedPool.ChainPool, &concentratedPool, stateFileDecodeOptions)
 		if err != nil {
 			return nil, err
 		}
 		chainModel = &concentratedPool
 	case poolmanagertypes.CosmWasm:
 		var transmuterPool cosmwasmpoolmodel.CosmWasmPool
-		err := json.Unmarshal(serializedPool.ChainPool, &transmuterPool)
+		err := json.Unmarshal(serializedPool.ChainPool, &transmuterPool, stateFileDecodeOptions)
 		if err != nil {
 			return nil, err
 		}
 		chainModel = &transmuterPool
 	case poolmanagertypes.Stableswap:
 		var balancerPool stableswap.Pool
-		err := json.Unmarshal(serializedPool.ChainPool, &balancerPool)
+		err := json.Unmarshal(serializedPool.ChainPool, &balancerPool, stateFileDecodeOptions)
 		if err != nil {
 			return nil, err
 		}
 		chainModel = &balancerPool
 	case poolmanagertypes.Balancer:
 		var balancerPool balancer.Pool
-		err := json.Unmarshal(serializedPool.ChainPool, &balancerPool)
+		err := json.Unmarshal(serializedPool.ChainPool, &balancerPool, stateFileDecodeOptions)
 		if err != nil {
 			return nil, err
 		}

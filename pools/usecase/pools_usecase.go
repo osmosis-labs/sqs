@@ -15,6 +15,7 @@ import (
 	"cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
+	sqsosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
 	"github.com/osmosis-labs/sqs/domain/pipeline"
 	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
@@ -367,10 +368,11 @@ var getPoolsSortFuncs = map[string]func(a, b ingesttypes.PoolI, desc bool) bool{
 		return a.GetId() < b.GetId()
 	},
 	"totalFiatValueLocked": func(a, b ingesttypes.PoolI, desc bool) bool {
+		aCap, bCap := liquidityCapOrZero(a), liquidityCapOrZero(b)
 		if desc {
-			return a.GetLiquidityCap().GT(b.GetLiquidityCap())
+			return aCap.GT(bCap)
 		}
-		return a.GetLiquidityCap().LT(b.GetLiquidityCap())
+		return aCap.LT(bCap)
 	},
 	"market.feesSpent7dUsd":  sortByPassthroughData(feesDataField(func(f sqspassthroughdomain.PoolFee) float64 { return f.FeesSpent7d })),
 	"market.feesSpent24hUsd": sortByPassthroughData(feesDataField(func(f sqspassthroughdomain.PoolFee) float64 { return f.FeesSpent24h })),
@@ -380,6 +382,15 @@ var getPoolsSortFuncs = map[string]func(a, b ingesttypes.PoolI, desc bool) bool{
 		aprData := pool.GetAPRData()
 		return aprData.TotalAPR.Upper, aprData.IsError
 	}),
+}
+
+// liquidityCapOrZero returns the pool's liquidity capitalization, or zero for a pool that
+// has none yet. A nil capitalization cannot be compared.
+func liquidityCapOrZero(pool ingesttypes.PoolI) osmomath.Int {
+	if liquidityCap := pool.GetLiquidityCap(); !liquidityCap.IsNil() {
+		return liquidityCap
+	}
+	return osmomath.ZeroInt()
 }
 
 // sortByPassthroughData returns a sort function over a field of the passthrough (Numia) data,
@@ -444,7 +455,9 @@ var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pip
 	"minLiquidityCap": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
 		if f != nil && f.MinLiquidityCap > 0 {
 			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return pool.GetLiquidityCap().Uint64() >= f.MinLiquidityCap
+				// A pool with no capitalization yet counts as zero, and one above the uint64
+				// range as the largest value; Uint64 panics on both.
+				return sqsosmomath.SafeUint64(pool.GetLiquidityCap()) >= f.MinLiquidityCap
 			})
 		}
 	},
@@ -626,6 +639,14 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 			}
 		}
 	}
+	// Pages are cut from the key order, which starts as map iteration order and so differs
+	// between requests. Pool ID breaks every tie left by the requested sort, so that
+	// consecutive pages neither repeat nor skip pools.
+	if options.Pagination != nil {
+		sortopts = append(sortopts, func(a, b ingesttypes.PoolI) bool {
+			return a.GetId() < b.GetId()
+		})
+	}
 	transformer.Sort(sortopts...) // apply sort options
 
 	var pools []ingesttypes.PoolI
@@ -642,11 +663,20 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 
 // StorePools implements mvc.PoolsUsecase.
 func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
+	// The pools are stored in one write. The pool map is copied on every write, so storing
+	// them one at a time copied the whole map once per pool, on every block.
+	poolsByID := make(map[uint64]ingesttypes.PoolI, len(pools))
 	for _, pool := range pools {
 		// Set liquidity capitalization for the pool to previous value if it is nil or zero.
 		// This value will be used for candidate route search and will be recomputed later.
+		// The previous value is the one of an earlier entry for the same pool in this call,
+		// if any, and of the stored pool otherwise.
 		poolID := pool.GetId()
-		oldPool, err := p.GetPool(poolID)
+		oldPool, isInBatch := poolsByID[poolID]
+		var err error
+		if !isInBatch {
+			oldPool, err = p.GetPool(poolID)
+		}
 		if err == nil {
 			liquidityCap := pool.GetLiquidityCap()
 			if liquidityCap.IsNil() || liquidityCap.Equal(osmomath.ZeroInt()) {
@@ -655,7 +685,15 @@ func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 			}
 		}
 
-		p.pools.Set(poolID, pool)
+		poolsByID[poolID] = pool
+	}
+
+	p.pools.Store(poolsByID)
+
+	// The orderbooks are processed once every pool is stored, so that electing a canonical
+	// orderbook reads the current state of all of them.
+	for _, pool := range pools {
+		poolID := pool.GetId()
 
 		// If orderbook, update top liquidity pool for base and quote denom if it has higher liquidity capitalization.
 		sqsModel := pool.GetSQSPoolModel()
@@ -1088,8 +1126,9 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, 
 
 		// Get APR data
 		poolAPRData, _, isStale, err := p.aprPrefetcher.GetByKey(poolID)
-		if err != nil {
-			// Log error if fails to get APR data
+		if err != nil && !errors.Is(err, datafetchers.ErrKeyNotFound) {
+			// Log error if fails to get APR data. A pool the source has no data for is not
+			// an error, and logging it would write a line per such pool on every request.
 			p.logger.Error("failed to get APR data", zap.Uint64("poolID", poolID), zap.Error(err))
 		}
 
@@ -1102,7 +1141,7 @@ func (p *poolsUseCase) setPoolAPRAndFeeDataIfConfigured(pool ingesttypes.PoolI, 
 
 		// Get pool fee data
 		poolFeeData, _, isStale, err := p.poolFeesPrefetcher.GetByKey(poolID)
-		if err != nil {
+		if err != nil && !errors.Is(err, datafetchers.ErrKeyNotFound) {
 			// Log error if fails to get pool fee data
 			p.logger.Error("failed to get pool fee data", zap.Uint64("poolID", poolID), zap.Error(err))
 		}

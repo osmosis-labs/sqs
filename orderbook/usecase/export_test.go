@@ -8,6 +8,11 @@ import (
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 )
 
+// FetchActiveOrdersEveryDuration returns the fetchActiveOrdersDuration, so that a test can restore it.
+func (o *OrderbookUseCaseImpl) FetchActiveOrdersEveryDuration() time.Duration {
+	return fetchActiveOrdersDuration
+}
+
 // SetFetchActiveOrdersEveryDuration overrides the fetchActiveOrdersDuration for testing purposes
 func (o *OrderbookUseCaseImpl) SetFetchActiveOrdersEveryDuration(duration time.Duration) {
 	fetchActiveOrdersDuration = duration

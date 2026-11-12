@@ -1,13 +1,13 @@
 package parsing_test
 
 import (
+	"encoding/json/v2"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/osmosis-labs/osmosis/v31/ingest/types/json"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
@@ -17,8 +17,6 @@ import (
 	concentratedmodel "github.com/osmosis-labs/osmosis/v31/x/concentrated-liquidity/model"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 )
-
-const testFileName = "pools.json"
 
 var (
 	zeroMinPoolLiquidityCap                   = osmomath.ZeroInt()
@@ -54,38 +52,13 @@ var (
 	}
 )
 
-// This test validates that ReadPools can read a file from the state.
-func TestReadPoolsFileFromState(t *testing.T) {
-	t.Skip("This test is not meant to be run in CI. Use for debugging only")
-
-	pools, _, err := parsing.ReadPools(testFileName)
-	require.NoError(t, err)
-
-	require.NotEmpty(t, pools)
-	require.Greater(t, len(pools), 500)
-
-	for _, pool := range pools {
-		err := pool.Validate(zeroMinPoolLiquidityCap)
-		if err != nil {
-			t.Logf("pool %d failed validation: %s", pool.GetId(), err)
-		}
-	}
-}
-
-// This test validates that StorePools succesfull stores pools to a file
-// that ReadPools can then read back into the system.
+// This test validates that StorePools stores pools to a file that ReadPools can then read
+// back into the system. The file is written to a temporary directory: the file of the same
+// name next to this test is the mainnet state that the other tests read.
 func TestStoreFilesAndReadBack(t *testing.T) {
+	testFileName := t.TempDir() + string(os.PathSeparator) + "pools.json"
 
-	t.Skip("This test is not meant to be run in CI. Use for debugging only")
-
-	// Delete test file if exists since the system under test recreates it.
-	_, err := os.Stat(testFileName)
-	if err == nil {
-		err = os.Remove(testFileName)
-		require.NoError(t, err)
-	}
-
-	err = parsing.StorePools([]ingesttypes.PoolI{testPoolToMarshal}, map[uint64]*ingesttypes.TickModel{
+	err := parsing.StorePools([]ingesttypes.PoolI{testPoolToMarshal}, map[uint64]*ingesttypes.TickModel{
 		testPoolToMarshal.GetId(): &defaultTickModel,
 	}, testFileName)
 	require.NoError(t, err)

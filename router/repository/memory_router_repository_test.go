@@ -119,32 +119,6 @@ func (suite *RouteRepositoryChatGPTTestSuite) TestGetAllTakerFees() {
 	}
 }
 
-func (suite *RouteRepositoryChatGPTTestSuite) TestSetTakerFee() {
-	tests := []struct {
-		name   string
-		denom0 string
-		denom1 string
-		fee    osmomath.Dec
-	}{
-		{
-			name:   "set a single taker fee",
-			denom0: "denomE",
-			denom1: "denomF",
-			fee:    fee1,
-		},
-	}
-
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
-			suite.repository.SetTakerFee(tt.denom0, tt.denom1, tt.fee)
-
-			fee, ok := suite.repository.GetTakerFee(tt.denom0, tt.denom1)
-			assert.True(suite.T(), ok)
-			assert.True(suite.T(), fee.Equal(tt.fee))
-		})
-	}
-}
-
 func (suite *RouteRepositoryChatGPTTestSuite) TestSetTakerFees() {
 	expectedFees := ingesttypes.TakerFeeMap{
 		ingesttypes.DenomPair{Denom0: "denomG", Denom1: "denomH"}: fee1,

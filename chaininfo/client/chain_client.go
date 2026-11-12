@@ -3,14 +3,8 @@ package client
 import (
 	"context"
 
-	clpoolmodel "github.com/osmosis-labs/osmosis/v31/x/concentrated-liquidity/model"
-	cwpoolmodel "github.com/osmosis-labs/osmosis/v31/x/cosmwasmpool/model"
-	"github.com/osmosis-labs/osmosis/v31/x/gamm/pool-models/balancer"
-	"github.com/osmosis-labs/osmosis/v31/x/gamm/pool-models/stableswap"
-
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 )
 
 type Client interface {
@@ -27,12 +21,6 @@ func NewClient(ctx context.Context, chainID string, nodeURI string, timeout uint
 	if err != nil {
 		return nil, err
 	}
-
-	interfaceRegistry := codectypes.NewInterfaceRegistry()
-	balancer.RegisterInterfaces(interfaceRegistry)
-	stableswap.RegisterInterfaces(interfaceRegistry)
-	clpoolmodel.RegisterInterfaces(interfaceRegistry)
-	cwpoolmodel.RegisterInterfaces(interfaceRegistry)
 
 	return &chainClient{
 		rpcClient: rpcClient,
