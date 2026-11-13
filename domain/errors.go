@@ -92,6 +92,16 @@ func (e UnsupportedCosmWasmPoolError) Error() string {
 	return fmt.Sprintf("Pool %d is a CosmWasm pool but is not supported", e.PoolId)
 }
 
+// GeneralizedCosmWasmPoolExactOutError is returned for exact out through a generalized CosmWasm pool,
+// which can deliver less than the requested amount.
+type GeneralizedCosmWasmPoolExactOutError struct {
+	PoolId uint64
+}
+
+func (e GeneralizedCosmWasmPoolExactOutError) Error() string {
+	return fmt.Sprintf("exact out is not supported through generalized CosmWasm pool %d", e.PoolId)
+}
+
 type PoolNotFoundError struct {
 	PoolID uint64
 }

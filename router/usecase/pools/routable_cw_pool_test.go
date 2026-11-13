@@ -168,62 +168,16 @@ func (s *CosmWasmPoolSuite) TestChargeTakerFeeExactIn() {
 	}
 }
 
+// TestCalculateTokenInByTokenOut checks that a generalized CosmWasm pool refuses exact out, since such a
+// pool can deliver less than the requested token out.
 func (s *CosmWasmPoolSuite) TestCalculateTokenInByTokenOut() {
-	defaultAmount := DefaultAmt0
-	defaultBalances := sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount))
+	s.Setup()
 
-	tests := map[string]struct {
-		tokenOut          sdk.Coin
-		tokenInDenom      string
-		balances          sdk.Coins
-		isInvalidPoolType bool
-		expectError       error
-	}{
-		"valid CosmWasm quote": {
-			tokenOut:     sdk.NewCoin(USDC, defaultAmount),
-			tokenInDenom: ETH,
-			balances:     defaultBalances,
-		},
-		"no error: token in is larger than balance of token in": {
-			tokenOut:     sdk.NewCoin(USDC, defaultAmount),
-			tokenInDenom: ETH,
-			// Make token in amount 1 smaller than the default amount
-			balances: sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount.Sub(osmomath.OneInt())), sdk.NewCoin(ETH, defaultAmount)),
-		},
-		"error: token in is larger than balance of token out": {
-			tokenOut:     sdk.NewCoin(USDC, defaultAmount),
-			tokenInDenom: ETH,
+	tokenOut := sdk.NewCoin(USDC, DefaultAmt0)
+	routablePool := s.newPool(domain.TokenSwapMethodExactOut, tokenOut, ETH, false, noTakerFee, nil)
 
-			// Make token out amount 1 smaller than the default amount
-			balances: sdk.NewCoins(sdk.NewCoin(USDC, defaultAmount), sdk.NewCoin(ETH, defaultAmount.Sub(osmomath.OneInt()))),
-
-			expectError: domain.TransmuterInsufficientBalanceError{
-				Denom:         ETH,
-				BalanceAmount: defaultAmount.Sub(osmomath.OneInt()).String(),
-				Amount:        defaultAmount.String(),
-			},
-		},
-	}
-
-	for name, tc := range tests {
-		s.Run(name, func() {
-			s.Setup()
-
-			routablePool := s.newPool(domain.TokenSwapMethodExactOut, tc.tokenOut, tc.tokenInDenom, tc.isInvalidPoolType, noTakerFee, tc.expectError)
-
-			tokenIn, err := routablePool.CalculateTokenInByTokenOut(context.TODO(), tc.tokenOut)
-
-			if tc.expectError != nil {
-				s.Require().Error(err)
-				s.Require().ErrorIs(err, tc.expectError)
-				return
-			}
-			s.Require().NoError(err)
-
-			// No slippage swaps on success
-			s.Require().Equal(tc.tokenOut.Amount, tokenIn.Amount)
-		})
-	}
+	_, err := routablePool.CalculateTokenInByTokenOut(context.TODO(), tokenOut)
+	s.Require().ErrorIs(err, domain.GeneralizedCosmWasmPoolExactOutError{PoolId: routablePool.GetId()})
 }
 
 func (s *CosmWasmPoolSuite) TestChargeTakerFeeExactOut() {
