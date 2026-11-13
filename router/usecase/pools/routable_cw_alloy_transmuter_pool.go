@@ -27,6 +27,8 @@ type routableAlloyTransmuterPoolImpl struct {
 	TakerFee            osmomath.Dec                      `json:"taker_fee"`
 	SpreadFactor        osmomath.Dec                      `json:"spread_factor"`
 	LiquidityCap        osmomath.Int                      `json:"liquidity_cap"`
+	// Statuses reports whether the contract is paused or has corrupted denoms. May be nil.
+	Statuses *domain.TransmuterStatuses `json:"-"`
 }
 
 // GetId implements domain.RoutablePool.
@@ -75,6 +77,10 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context
 
 	tokenOutAmtInt := tokenOutAmt.Dec().TruncateInt()
 
+	if err := r.Statuses.CheckSwap(r.GetId(), tokenIn.Denom, r.TokenOutDenom, r.AlloyTransmuterData.AlloyedDenom, tokenOutAmtInt, r.Balances); err != nil {
+		return sdk.Coin{}, err
+	}
+
 	// Validate token out balance if not alloyed
 	if r.TokenOutDenom != r.AlloyTransmuterData.AlloyedDenom {
 		if err := validateTransmuterBalance(tokenOutAmtInt, r.Balances, r.TokenOutDenom); err != nil {
@@ -96,6 +102,10 @@ func (r *routableAlloyTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context
 // Note that balance validation does not apply to alloyed asset since it can be minted or burned by the pool.
 // The token in balance is not validated since the swap only adds token in to the pool.
 func (r *routableAlloyTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+	if err := r.Statuses.CheckSwap(r.GetId(), r.TokenInDenom, tokenOut.Denom, r.AlloyTransmuterData.AlloyedDenom, tokenOut.Amount, r.Balances); err != nil {
+		return sdk.Coin{}, err
+	}
+
 	// Validate token out balance if not alloyed
 	if tokenOut.Denom != r.AlloyTransmuterData.AlloyedDenom {
 		if err := validateTransmuterBalance(tokenOut.Amount, r.Balances, tokenOut.Denom); err != nil {

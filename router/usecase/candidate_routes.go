@@ -81,7 +81,9 @@ type candidateRouteFinder struct {
 	// excludedPools are skipped by every search regardless of the per-call options,
 	// so that neither routing nor pricing can produce a route through them.
 	excludedPools domain.CandidateRoutePoolIDFilterOptionCb
-	logger        log.Logger
+	// transmuterStatuses lets the search skip transmuters that are paused. May be nil.
+	transmuterStatuses *domain.TransmuterStatuses
+	logger             log.Logger
 }
 
 var _ domain.CandidateRouteSearcher = candidateRouteFinder{}
@@ -97,6 +99,12 @@ func NewCandidateRouteFinder(candidateRouteDataHolder mvc.CandidateRouteSearchDa
 		excludedPools:            domain.CandidateRoutePoolIDFilterOptionCb{PoolIDsToSkip: poolIDsToSkip},
 		logger:                   logger,
 	}
+}
+
+// WithTransmuterStatuses returns the finder set to skip transmuters that the contract reports as paused.
+func (c candidateRouteFinder) WithTransmuterStatuses(statuses *domain.TransmuterStatuses) candidateRouteFinder {
+	c.transmuterStatuses = statuses
+	return c
 }
 
 // FindCandidateRoutesOutGivenIn implements domain.CandidateRouteSearcher.
@@ -210,7 +218,7 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 
 			// If the pool is excluded by config or the option is configured to skip it,
 			// we mark it as visited and continue.
-			if c.excludedPools.ShouldSkipPool(pool) || options.ShouldSkipPool(pool) {
+			if c.excludedPools.ShouldSkipPool(pool) || c.transmuterStatuses.IsInactive(pool.ID) || options.ShouldSkipPool(pool) {
 				visited[pool.ID] = true
 				continue
 			}

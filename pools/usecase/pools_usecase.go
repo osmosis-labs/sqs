@@ -1008,6 +1008,12 @@ func (p *poolsUseCase) IsCanonicalOrderbookPool(poolID uint64) bool {
 }
 
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
+// SetTransmuterStatuses sets where routable transmuter pools read their paused and corrupted state.
+// Must be called before the pool usecase is used.
+func (p *poolsUseCase) SetTransmuterStatuses(statuses *domain.TransmuterStatuses) {
+	p.cosmWasmPoolsParams.TransmuterStatuses = statuses
+}
+
 func (p *poolsUseCase) GetCosmWasmPoolConfig() domain.CosmWasmPoolRouterConfig {
 	return p.cosmWasmPoolsParams.Config
 }

@@ -265,11 +265,16 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 
 	routerRepository.SetPoolHandler(poolsUseCase)
 
+	// Transmuter contracts report whether they are paused and which assets are corrupted.
+	transmuterStatuses := domain.NewTransmuterStatuses()
+	poolsUseCase.SetTransmuterStatuses(transmuterStatuses)
+	transmuterStatusTracker := poolsUseCase.NewTransmuterStatusTracker(transmuterStatuses, logger)
+
 	// Initialize candidate route searcher
 	if len(config.Router.ExcludedPoolIDs) > 0 {
 		logger.Info("excluding pools from routing and pricing", zap.Uint64s("pool_ids", config.Router.ExcludedPoolIDs))
 	}
-	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, config.Router.ExcludedPoolIDs, logger)
+	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, config.Router.ExcludedPoolIDs, logger).WithTransmuterStatuses(transmuterStatuses)
 
 	// Initialize router repository, usecase
 	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
@@ -400,6 +405,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 			quotePriceUpdateWorker,
 			candidateRouteSearchDataWorker,
 			orderBookUseCase,
+			transmuterStatusTracker,
 			logger,
 		)
 		if err != nil {
