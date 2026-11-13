@@ -30,6 +30,9 @@ type TokensHandler struct {
 	defaultQuoteChainDenom string
 	defaultCoingeckoDenom  string
 
+	// usdPeg reports the default quote denom's peg against US dollars. Nil when disabled.
+	usdPeg *domain.QuoteUSDPegChecker
+
 	logger log.Logger
 }
 
@@ -49,7 +52,7 @@ func formatTokensResource(resource string) string {
 
 // NewTokensHandler will initialize the pools/ resources endpoint
 // The POST /tokens/store-state endpoint is registered only if debugEndpointsEnabled is set.
-func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, debugEndpointsEnabled bool, logger log.Logger) (err error) {
+func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, debugEndpointsEnabled bool, usdPeg *domain.QuoteUSDPegChecker, logger log.Logger) (err error) {
 	defaultQuoteChainDenom, err := ts.GetChainDenom(pricingConfig.DefaultQuoteHumanDenom)
 	if err != nil {
 		return err
@@ -62,6 +65,8 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 		defaultQuoteChainDenom: defaultQuoteChainDenom,
 		// Coingecko prices are in USD, which SQS serves under the default quote denom.
 		defaultCoingeckoDenom: defaultQuoteChainDenom,
+
+		usdPeg: usdPeg,
 
 		logger: logger,
 	}
@@ -194,6 +199,7 @@ type GetPricesDebugResponse map[string]map[string]PriceDebug
 // @Param   humanDenoms   query     bool    false "Specify true if input denominations are in human-readable format; defaults to false"
 // @Param	pricingSource query     int     false "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)"
 // @Param   debug         query     bool    false "Specify true to include the routes used in the selection of the quote for price calculation; defaults to false"
+// @Param   includeQuoteUsdPeg query bool false "Specify true to wrap the response as {\"prices\": ..., \"quote_usd_peg\": ...}, where quote_usd_peg is the quote denom's peg against US dollars (omitted if the check is disabled); defaults to false"
 // @Success 200 {object} map[string]map[string]string "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price."
 // @Router /tokens/prices [get]
 func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
@@ -201,6 +207,11 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 	defer cancel()
 
 	debug, err := deliveryhttp.ParseBooleanQueryParam(c, "debug")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
+
+	includePeg, err := deliveryhttp.ParseBooleanQueryParam(c, "includeQuoteUsdPeg")
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
@@ -248,7 +259,7 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 				result[baseDenom][quoteDenom] = price.Price
 			}
 		}
-		return c.JSON(http.StatusOK, result)
+		return a.respondPrices(c, result, includePeg)
 	}
 
 	// If we are in debug mode, we return the prices with routes
@@ -276,7 +287,25 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		}
 	}
 
-	return c.JSON(http.StatusOK, result)
+	return a.respondPrices(c, result, includePeg)
+}
+
+// GetPricesWithPegResponse is the /tokens/prices response when includeQuoteUsdPeg is set. The prices keep
+// their usual shape under Prices, so that clients that do not ask for the peg are unaffected.
+type GetPricesWithPegResponse struct {
+	Prices      any                 `json:"prices"`
+	QuoteUSDPeg *domain.QuoteUSDPeg `json:"quote_usd_peg,omitempty"`
+}
+
+// respondPrices writes the prices, wrapped with the quote denom's USD peg if the client asked for it.
+func (a *TokensHandler) respondPrices(c echo.Context, prices any, includePeg bool) error {
+	if !includePeg {
+		return c.JSON(http.StatusOK, prices)
+	}
+	return c.JSON(http.StatusOK, GetPricesWithPegResponse{
+		Prices:      prices,
+		QuoteUSDPeg: a.usdPeg.Check(c.Request().Context()),
+	})
 }
 
 // getPricingSource retrieves the pricing sources.
