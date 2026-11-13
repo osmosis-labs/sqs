@@ -30,14 +30,14 @@ func TestQuoteChainStateValidatorMiddleware(t *testing.T) {
 			name:                 "GetLatestHeight Error",
 			enableValidation:     true,
 			getLatestHeightErr:   errors.New("failed to get latest height"),
-			expectedStatusCode:   http.StatusInternalServerError,
+			expectedStatusCode:   http.StatusServiceUnavailable,
 			expectedResponseBody: `{"message":"no candidate routes found"}`,
 		},
 		{
 			name:                 "ValidateCandidateRouteSearchDataUpdates Error",
 			enableValidation:     true,
 			validateUpdatesErr:   errors.New("failed to validate updates"),
-			expectedStatusCode:   http.StatusInternalServerError,
+			expectedStatusCode:   http.StatusServiceUnavailable,
 			expectedResponseBody: `{"message":"no candidate routes found"}`,
 		},
 	}

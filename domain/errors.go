@@ -18,6 +18,10 @@ var (
 	// ErrNoCandidateRoutes is returned when no candidate route connects two denoms,
 	// for example when every pool between them is below the minimum liquidity.
 	ErrNoCandidateRoutes = errors.New("no candidate routes found")
+	// ErrDesiredOutputNotProducible is returned when no combination of routes can fill the requested exact out amount.
+	ErrDesiredOutputNotProducible = errors.New("desired output cannot be produced by the available routes")
+	// ErrAmountOutZero is returned when a split quote would produce no tokens out.
+	ErrAmountOutZero = errors.New("amount out is zero, try increasing amount in")
 )
 
 // NoPriceError reports that a pricing source has no price for a token: on chain
@@ -49,21 +53,33 @@ var (
 	ErrContractAddressNotValid = errors.New("contract address is empty")
 )
 
-// GetStatusCode returbs status code given error
+// GetStatusCode returns the HTTP status code for an error. Errors caused by the request
+// (unknown pool, no route, a swap the pools cannot fill) map to 4xx; anything else is a 500.
+// Wrapped errors are matched too, so the response message can carry extra context.
 func GetStatusCode(err error) int {
 	if err == nil {
 		return http.StatusOK
 	}
 
-	switch err {
-	case ErrInternalServerError:
+	var (
+		poolNotFound           PoolNotFoundError
+		concentratedNoLiq      ConcentratedNotEnoughLiquidityToCompleteSwapError
+		orderbookNoLiq         OrderbookNotEnoughLiquidityToCompleteSwapError
+		transmuterInsufficient TransmuterInsufficientBalanceError
+	)
+
+	switch {
+	case errors.Is(err, ErrInternalServerError):
 		return http.StatusInternalServerError
-	case ErrNotFound:
+	case errors.Is(err, ErrNotFound), errors.As(err, &poolNotFound), errors.Is(err, ErrNoCandidateRoutes):
 		return http.StatusNotFound
-	case ErrConflict:
+	case errors.Is(err, ErrConflict):
 		return http.StatusConflict
-	case ErrNoTokensOut:
+	case errors.Is(err, ErrNoTokensOut):
 		return http.StatusBadRequest
+	case errors.Is(err, ErrDesiredOutputNotProducible), errors.Is(err, ErrAmountOutZero),
+		errors.As(err, &concentratedNoLiq), errors.As(err, &orderbookNoLiq), errors.As(err, &transmuterInsufficient):
+		return http.StatusUnprocessableEntity
 	default:
 		return http.StatusInternalServerError
 	}
