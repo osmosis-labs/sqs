@@ -405,6 +405,10 @@ func (c Config) Validate() error {
 		if err := c.Pricing.QuoteUSDPeg.Validate(); err != nil {
 			return err
 		}
+		// The peg check reads CoinGecko prices as US dollars, so another quote currency would report false depegs.
+		if c.Pricing.QuoteUSDPeg.Enabled && !strings.EqualFold(strings.TrimSpace(c.Pricing.CoingeckoQuoteCurrency), "usd") {
+			return fmt.Errorf("quote USD peg check needs coingecko-quote-currency usd, got %q", c.Pricing.CoingeckoQuoteCurrency)
+		}
 	}
 
 	if c.Trades != nil {
