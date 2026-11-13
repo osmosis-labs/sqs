@@ -194,20 +194,36 @@ func isTransmuter(pool domain.RoutablePool) bool {
 	return t == domain.AlloyedTransmuter || t == domain.TransmuterV1
 }
 
-// transmuterHop is the amount passing through one transmuter in one direction.
+// transmuterHop is the amount passing through one transmuter in one direction. outDenom is the
+// denom the leg withdraws, kept for deposit entries, whose key has no token out denom.
 type transmuterHop struct {
-	pool   domain.RoutablePool
-	amount osmomath.Int
+	pool     domain.RoutablePool
+	amount   osmomath.Int
+	outDenom string
 }
 
 // transmuterHopKey groups hops. An entry with balance set has no token in denom: it groups by
 // the denom withdrawn only, since legs entering a multi-asset transmuter through different
-// variants draw on the same balance of the denom they withdraw.
+// variants draw on the same balance of the denom they withdraw. An entry with deposit set has no
+// token out denom: legs depositing the same denom raise its share of the pool together, whatever
+// they withdraw, so their deposits are checked against its static limit together.
 type transmuterHopKey struct {
 	poolID        uint64
 	tokenInDenom  string
 	tokenOutDenom string
 	balance       bool
+	deposit       bool
+}
+
+// rank orders the checks for one pool: per direction, then deposits, then balances.
+func (k transmuterHopKey) rank() int {
+	switch {
+	case k.deposit:
+		return 1
+	case k.balance:
+		return 2
+	}
+	return 0
 }
 
 // legTransmuterHops walks a leg hop by hop, as the route calculation does, and returns the
@@ -247,12 +263,13 @@ func legTransmuterHops(ctx context.Context, leg domain.SplitRoute, denom string,
 			if !exactIn {
 				in, out = coin.Denom, hopDenom
 			}
-			outAmount := hopAmount
+			outAmount, inAmount := hopAmount, coin.Amount
 			if exactIn {
-				outAmount = coin.Amount
+				outAmount, inAmount = coin.Amount, hopAmount
 			}
-			hops[transmuterHopKey{id, in, out, false}] = transmuterHop{pool, hopAmount}
-			hops[transmuterHopKey{poolID: id, tokenOutDenom: out, balance: true}] = transmuterHop{pool, outAmount}
+			hops[transmuterHopKey{poolID: id, tokenInDenom: in, tokenOutDenom: out}] = transmuterHop{pool, hopAmount, out}
+			hops[transmuterHopKey{poolID: id, tokenOutDenom: out, balance: true}] = transmuterHop{pool, outAmount, out}
+			hops[transmuterHopKey{poolID: id, tokenInDenom: in, deposit: true}] = transmuterHop{pool, inAmount, out}
 		}
 		if !exactIn {
 			coin = pool.ChargeTakerFeeExactOut(coin)
@@ -316,7 +333,7 @@ func routesWithoutOverdrawnLegs(ctx context.Context, routes []route.RouteImpl, l
 		if keys[a].tokenOutDenom != keys[b].tokenOutDenom {
 			return keys[a].tokenOutDenom < keys[b].tokenOutDenom
 		}
-		return !keys[a].balance && keys[b].balance
+		return keys[a].rank() < keys[b].rank()
 	})
 
 	dropped := make(map[int]struct{})
@@ -336,10 +353,13 @@ func routesWithoutOverdrawnLegs(ctx context.Context, routes []route.RouteImpl, l
 
 		pool := legHops[sharing[0]][key].pool
 		total := osmomath.ZeroInt()
+		kept := make([]int, 0, len(sharing))
 		for n, i := range sharing {
 			next := total.Add(legHops[i][key].amount)
 			var err error
 			switch {
+			case key.deposit:
+				err = depositOverLimit(ctx, key.tokenInDenom, next, legHops, append(kept, i), key)
 			case key.balance:
 				// Only the balance of the withdrawn denom is checked here; the limiter is
 				// checked per token in denom.
@@ -357,6 +377,7 @@ func routesWithoutOverdrawnLegs(ctx context.Context, routes []route.RouteImpl, l
 				dropped[i] = struct{}{}
 				continue
 			}
+			kept = append(kept, i)
 			total = next
 		}
 	}
@@ -376,6 +397,28 @@ func routesWithoutOverdrawnLegs(ctx context.Context, routes []route.RouteImpl, l
 		}
 	}
 	return kept, true, nil
+}
+
+// depositOverLimit reports a static limit error if depositing amount of tokenInDenom would push it
+// over its limit. Only the limit is checked; balances are checked under the balance key. Each
+// denom the legs withdraw is tried with the whole deposit: a swap to another variant keeps the
+// pool's normalized total, so it never understates the new share, while a swap that mints the
+// alloyed denom grows the total and would. A routable pool carries its token out denom, so each
+// leg's own pool is used.
+func depositOverLimit(ctx context.Context, tokenInDenom string, amount osmomath.Int, legHops []map[transmuterHopKey]transmuterHop, legs []int, key transmuterHopKey) error {
+	tried := make(map[string]struct{}, len(legs))
+	for _, i := range legs {
+		hop := legHops[i][key]
+		if _, ok := tried[hop.outDenom]; ok {
+			continue
+		}
+		tried[hop.outDenom] = struct{}{}
+		_, err := hop.pool.CalculateTokenOutByTokenIn(ctx, sdk.NewCoin(tokenInDenom, amount))
+		if errors.As(err, &domain.StaticRateLimiterInvalidUpperLimitError{}) {
+			return err
+		}
+	}
+	return nil
 }
 
 // unreachableInput is a sentinel marker for a dynamic-programming state that cannot be
