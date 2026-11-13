@@ -937,6 +937,19 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteInGivenOut_Main
 	quote, err := routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
+
+	// A pinned pool on the exclusion list is rejected on both exact-out paths, while another pool still quotes.
+	config.ExcludedPoolIDs = []uint64{expectedPoolID}
+	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	_, err = routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	s.Require().ErrorIs(err, routertypes.ErrValidationFailed)
+	_, err = routerUsecase.GetCustomDirectQuoteMultiPoolInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), []string{UION}, []uint64{expectedPoolID})
+	s.Require().ErrorIs(err, routertypes.ErrValidationFailed)
+
+	config.ExcludedPoolIDs = []uint64{uint64(1110)}
+	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	_, err = routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	s.Require().NoError(err)
 }
 
 // Validates that the logic skips errors from individual routes
