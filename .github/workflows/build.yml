@@ -42,3 +42,24 @@ jobs:
         path: |
           coverage.out
           report.json
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+    -
+      name: Checkout repository
+      uses: actions/checkout@v4
+    -
+      name: 🐿 Setup Golang
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    -
+      name: Install govulncheck
+      run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+    -
+      name: Run govulncheck
+      # Non-blocking while the findings on main are triaged: the step reports them in its log and the
+      # job stays green. Remove this line to make findings fail the build.
+      continue-on-error: true
+      run: govulncheck ./...
