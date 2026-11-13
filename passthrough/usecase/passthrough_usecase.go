@@ -100,9 +100,6 @@ const (
 	// 1. Unclaimed rewards from concentrated positions
 	// 2. Unclaimed rewards from staking rewards
 	unclaimedRewardsNumJobs = 2
-
-	// locked + unlocking
-	numInLocksQueries = 2
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
@@ -489,48 +486,19 @@ func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string,
 }
 
 // getCoinsFromLocks returns the user's coins from locks
-// Returns both locked and unlocking coins.
+// Returns locked coins, which already include unlocking coins.
 // If encountering GAMM shares, it will convert them to underlying coins
 // If encountering concentrated shares, it will skip them
 // For every coin, adds the underlying coins to the total coins.
 // Returns error if fails to get locked coins but the best-effort result is returned still
 func (p *passthroughUseCase) getCoinsFromLocks(ctx context.Context, address string) (sdk.Coins, error) {
-	result := make(chan coinsResult, numInLocksQueries)
-	defer close(result)
-
-	for _, fetchLocksFn := range []passthroughdomain.PassthroughFetchFn{
-		p.passthroughGRPCClient.AccountLockedCoins,
-		p.passthroughGRPCClient.AccountUnlockingCoins,
-	} {
-		go func(fetchLocksFn passthroughdomain.PassthroughFetchFn) {
-			lockedCoins, err := recoverCoins(func() (sdk.Coins, error) {
-				return p.getLockedCoins(ctx, address, fetchLocksFn)
-			})
-			result <- coinsResult{
-				coins: lockedCoins,
-				err:   err,
-			}
-		}(fetchLocksFn)
+	// AccountLockedCoins already includes locks that are unlocking, so no separate unlocking query.
+	coins, err := p.getLockedCoins(ctx, address, p.passthroughGRPCClient.AccountLockedCoins)
+	if err != nil {
+		return sdk.Coins{}, err
 	}
 
-	var (
-		coinsResult = sdk.Coins{}
-		finalErr    error
-	)
-
-	for range numInLocksQueries {
-		res := <-result
-		if res.err != nil {
-			// Skip silently and continue
-			finalErr = res.err
-			continue
-		}
-
-		coinsResult = coinsResult.Add(res.coins...)
-	}
-
-	// Return best-effort result and error.
-	return coinsResult, finalErr
+	return coins, nil
 }
 
 // getBankBalances returns the user's bank balances

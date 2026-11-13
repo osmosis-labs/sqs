@@ -10,8 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	sdkmath "math"
-
 	"cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
@@ -1035,44 +1033,28 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingSharesIn osmomath.
 }
 
 // errMsgFormatSharesLargerThanMax is the error message format for when the exiting shares are larger than the max allowed.
-const errMsgFormatSharesLargerThanMax = "cannot exit all shares in a pool. Attempted to exit %f shares, max allowed is %f"
+const errMsgFormatSharesLargerThanMax = "cannot exit all shares in a pool. Attempted to exit %s shares, max allowed is %s"
 
 // calcExitPool is a helper function to calculate the exit pool.
-// It is a direct port of the CalcExitPool function from the Gamm module with some modifications
-// to optimize the calculation for performance.
+// It is a direct port of the CalcExitPool function from the Gamm module, using exact
+// integer and decimal maths so that amounts above the int64 range are not corrupted.
 // @link https://github.com/osmosis-labs/osmosis/blob/fde1776476d9c2f849dcbfb30ca3ec64d0e12863/x/gamm/pool-models/internal/cfmm_common/lp.go#L18
 func calcExitPool(ctx sdk.Context, pool gammtypes.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {
-	totalShares, err := strconv.ParseFloat(pool.GetTotalShares().String(), 64)
-	if err != nil {
-		return sdk.Coins{}, err
-	}
-
-	exitingShares, err := strconv.ParseFloat(exitingSharesIn.String(), 64)
-	if err != nil {
-		return sdk.Coins{}, err
-	}
-
-	if exitingShares >= totalShares {
-		return sdk.Coins{}, errorsmod.Wrapf(gammtypes.ErrLimitMaxAmount, errMsgFormatSharesLargerThanMax, exitingShares, totalShares-float64(osmomath.OneInt().Int64()))
+	totalShares := pool.GetTotalShares()
+	if exitingSharesIn.GTE(totalShares) {
+		return sdk.Coins{}, errorsmod.Wrapf(gammtypes.ErrLimitMaxAmount, errMsgFormatSharesLargerThanMax, exitingSharesIn, totalShares.Sub(osmomath.OneInt()))
 	}
 
 	// refundedShares = exitingShares * (1 - exit fee)
 	// with 0 exit fee optimization
-	var refundedShares float64
+	var refundedShares osmomath.Dec
 	if !exitFee.IsZero() {
-		f, err := exitFee.Float64()
-		if err != nil {
-			return sdk.Coins{}, err
-		}
-
-		// exitingShares * (1 - exit fee)
-		oneSubExitFee := 1.0 - f
-		refundedShares = exitingShares * oneSubExitFee
+		refundedShares = osmomath.OneDec().Sub(exitFee).MulInt(exitingSharesIn)
 	} else {
-		refundedShares = exitingShares
+		refundedShares = exitingSharesIn.ToLegacyDec()
 	}
 
-	shareOutRatio := refundedShares / totalShares
+	shareOutRatio := refundedShares.QuoInt(totalShares)
 
 	// exitedCoins = shareOutRatio * pool liquidity
 	poolLiquidity := pool.GetTotalPoolLiquidity(ctx)
@@ -1080,28 +1062,18 @@ func calcExitPool(ctx sdk.Context, pool gammtypes.CFMMPoolI, exitingSharesIn osm
 
 	for _, asset := range poolLiquidity {
 		// round down here, due to not wanting to over-exit
-		amount, err := strconv.ParseFloat(asset.Amount.String(), 64)
-		if err != nil {
-			return sdk.Coins{}, err
-		}
-
-		exitAmt := shareOutRatio * amount
-		if exitAmt <= 0 {
+		exitAmt := shareOutRatio.MulInt(asset.Amount).TruncateInt()
+		if !exitAmt.IsPositive() {
 			continue
 		}
 
-		if exitAmt >= amount {
+		if exitAmt.GTE(asset.Amount) {
 			return sdk.Coins{}, errors.New("too many shares out")
-		}
-
-		// If the exit amount is within 1e-9 of an integer, round it to the nearest integer
-		if sdkmath.Abs(exitAmt-sdkmath.Round(exitAmt)) < 1e-9 {
-			exitAmt = (sdkmath.Round(exitAmt))
 		}
 
 		exitedCoins = append(exitedCoins, sdk.Coin{
 			Denom:  asset.Denom,
-			Amount: math.NewInt(int64(exitAmt)),
+			Amount: exitAmt,
 		})
 	}
 
