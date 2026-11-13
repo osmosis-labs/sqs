@@ -234,7 +234,10 @@ func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
 	// The worker minimum pool liquidity cap is now 1000 and is no longer lowered by the dynamic
 	// liquidity filter, so tokens whose only pools are below it are unsupported too: 33 with a
 	// cap of 1 and 89 with the default of 1000.
-	s.Require().Equal(89, unsupportedCounter)
+	//
+	// The worker no longer falls back to CoinGecko prices, so tokens priced only by CoinGecko
+	// in this fixture are unsupported too: 140.
+	s.Require().Equal(140, unsupportedCounter)
 }
 
 func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {

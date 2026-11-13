@@ -67,8 +67,9 @@ var (
 // entry is what Coingecko last said about one id.
 type entry struct {
 	price osmomath.BigDec
-	// pricedAt is when the request that returned price started, the earliest the price could be
-	// from; zero if Coingecko has not returned a price for the id.
+	// pricedAt is the time Coingecko reports for price (last_updated_at), or when the request that
+	// returned it started if Coingecko reports none, the earliest the price could be from; zero if
+	// Coingecko has not returned a price for the id.
 	pricedAt time.Time
 	// answeredAt is when the last request answered for the id started, with or without a price.
 	answeredAt time.Time
@@ -313,7 +314,7 @@ func (s *Source) refresh(ctx context.Context) error {
 
 // publish stores the answer to a request for chunk that started at answeredAt. The snapshot keeps
 // only ids, the current ids from the token metadata.
-func (s *Source) publish(ids, chunk []string, prices map[string]osmomath.BigDec, answeredAt time.Time) {
+func (s *Source) publish(ids, chunk []string, prices map[string]fetchedPrice, answeredAt time.Time) {
 	prev := s.snap.Load()
 	next := make(map[string]entry, len(ids))
 	for _, id := range ids {
@@ -325,8 +326,18 @@ func (s *Source) publish(ids, chunk []string, prices map[string]osmomath.BigDec,
 		e := next[id]
 		e.answeredAt = answeredAt
 		// An id answered without a price keeps its previous price, which expires on its own.
-		if price, ok := prices[id]; ok {
-			e.price, e.pricedAt = price, answeredAt
+		if fetched, ok := prices[id]; ok {
+			// Coingecko's own time, so that a price an edge cache held for long is not served as
+			// fresh. A time after the request started is not believed, and none falls back to it.
+			pricedAt := answeredAt
+			if !fetched.updatedAt.IsZero() && fetched.updatedAt.Before(answeredAt) {
+				pricedAt = fetched.updatedAt
+			}
+			// Edge caches can answer successive requests with different ages, so an older answer
+			// never replaces a newer stored price.
+			if !pricedAt.Before(e.pricedAt) {
+				e.price, e.pricedAt = fetched.price, pricedAt
+			}
 		}
 		next[id] = e
 	}

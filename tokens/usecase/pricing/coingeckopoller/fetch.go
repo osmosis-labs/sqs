@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -21,9 +22,16 @@ import (
 // maxResponseBytes bounds a response body: a full answer for maxIdsPerRequest ids is a few KiB.
 const maxResponseBytes = 1 << 20
 
+// fetchedPrice is one price from Coingecko with the time Coingecko says it was last updated.
+type fetchedPrice struct {
+	price osmomath.BigDec
+	// updatedAt is zero when the answer has no usable last_updated_at.
+	updatedAt time.Time
+}
+
 // fetchFunc returns the positive prices Coingecko has for ids. An id without a usable price is
 // left out. An error means the request failed and says nothing about the prices.
-type fetchFunc func(ctx context.Context, ids []string) (map[string]osmomath.BigDec, error)
+type fetchFunc func(ctx context.Context, ids []string) (map[string]fetchedPrice, error)
 
 // rateLimitError is returned on HTTP 429. retryAfter is the delay from its Retry-After header,
 // zero when missing or unparsable.
@@ -52,12 +60,15 @@ func newHTTPFetch(rawURL, quoteCurrency string, client *http.Client) (fetchFunc,
 		return nil, errors.New("coingecko quote currency is empty")
 	}
 
-	return func(ctx context.Context, ids []string) (map[string]osmomath.BigDec, error) {
+	return func(ctx context.Context, ids []string) (map[string]fetchedPrice, error) {
 		requestURL := *baseURL
 		query := requestURL.Query()
 		// Escaped, so an id with a reserved character cannot cut off the ids after it.
 		query.Set("ids", strings.Join(ids, ","))
 		query.Set("vs_currencies", quoteCurrency)
+		// Asks for the time of each price, so that a price served from an edge cache is aged by
+		// when Coingecko computed it rather than by when it was requested.
+		query.Set("include_last_updated_at", "true")
 		requestURL.RawQuery = query.Encode()
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
 		if err != nil {
@@ -86,14 +97,14 @@ func newHTTPFetch(rawURL, quoteCurrency string, client *http.Client) (fetchFunc,
 // A body that answers for none of ids, such as {} or an error object, is an error rather than
 // "no price" for every id; an id answered without a usable price, {"<id>": {}}, is left out.
 // A body over maxResponseBytes, or with data after the object, is an error.
-func decodePrices(body io.Reader, ids []string, quoteCurrency string) (map[string]osmomath.BigDec, error) {
+func decodePrices(body io.Reader, ids []string, quoteCurrency string) (map[string]fetchedPrice, error) {
 	var answers map[string]jsontext.Value
 	if err := sqshttp.DecodeJSON(body, maxResponseBytes, &answers); err != nil {
 		return nil, fmt.Errorf("failed to decode coingecko response: %w", err)
 	}
 
 	answered := false
-	prices := make(map[string]osmomath.BigDec, len(ids))
+	prices := make(map[string]fetchedPrice, len(ids))
 	for _, id := range ids {
 		raw, ok := answers[id]
 		if !ok {
@@ -101,7 +112,7 @@ func decodePrices(body io.Reader, ids []string, quoteCurrency string) (map[strin
 		}
 		answered = true
 		if price, ok := parsePrice(raw, quoteCurrency); ok {
-			prices[id] = price
+			prices[id] = fetchedPrice{price: price, updatedAt: parseUpdatedAt(raw)}
 		}
 	}
 	if !answered {
@@ -128,6 +139,20 @@ func parsePrice(raw jsontext.Value, quoteCurrency string) (osmomath.BigDec, bool
 		return osmomath.BigDec{}, false
 	}
 	return result, true
+}
+
+// parseUpdatedAt returns the time of one id's answer, {"usd": 1.23, "last_updated_at": 1700000000}
+// (unix seconds), or the zero time when it is missing or not a positive number.
+func parseUpdatedAt(raw jsontext.Value) time.Time {
+	var fields map[string]*float64
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return time.Time{}
+	}
+	seconds := fields["last_updated_at"]
+	if seconds == nil || *seconds <= 0 || *seconds > float64(math.MaxInt32)*100 {
+		return time.Time{}
+	}
+	return time.Unix(int64(*seconds), 0)
 }
 
 // parseRetryAfter returns the delay from a Retry-After header (seconds or HTTP date) relative to
