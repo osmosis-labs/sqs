@@ -8,8 +8,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
+	sqsatomic "github.com/osmosis-labs/sqs/domain/sync/atomic"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
+	"github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 )
@@ -614,4 +616,57 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_QueuedPathBound() {
 		s.Require().NoError(err)
 		s.Require().Equal(unbounded[denom], candidateRoutes, denom)
 	}
+}
+
+// TestCandidateRouteSearcherInGivenOut_FirstPoolCapacity checks the first pool balance check of the exact-out search:
+// a pool holding a split share of the token out is kept, an alloy transmuter is checked for the token out balance
+// unless the token out is its alloyed LP share, and the pools of a route stay ordered from the token out side.
+func (s *RouterTestSuite) TestCandidateRouteSearcherInGivenOut_FirstPoolCapacity() {
+	const out, mid, in = "uout", "umid", "uinn"
+	pool := func(id uint64, denoms []string, balances sdk.Coins, alloyedDenom string) domain.CandidatePoolWrapper {
+		return domain.CandidatePoolWrapper{
+			ID: id, PoolDenoms: denoms, Balances: balances, PoolLiquidityCap: sqsatomic.NewUint64(1_000_000),
+			IsAlloyTransmuter: alloyedDenom != "", AlloyedDenom: alloyedDenom,
+		}
+	}
+	tokenOut := sdk.NewCoin(out, osmomath.NewInt(100))
+
+	find := func(pools map[string][]domain.CandidatePoolWrapper, maxSplitRoutes int) [][]uint64 {
+		holder := routerrepo.New(noOpLogger)
+		data := map[string]*domain.CandidateRouteDenomData{}
+		for denom, p := range pools {
+			data[denom] = &domain.CandidateRouteDenomData{SortedPools: p}
+		}
+		holder.SetCandidateRouteSearchData(data)
+		options := domain.CandidateRouteSearchOptions{MaxRoutes: 5, MaxPoolsPerRoute: 3, MaxSplitRoutes: maxSplitRoutes}
+		routes, err := usecase.NewCandidateRouteFinder(holder, nil, noOpLogger).FindCandidateRoutesInGivenOut(context.Background(), tokenOut, in, options)
+		if err != nil {
+			return nil
+		}
+		ids := [][]uint64{}
+		for _, r := range routes.Routes {
+			poolIDs := []uint64{}
+			for _, p := range r.Pools {
+				poolIDs = append(poolIDs, p.ID)
+			}
+			ids = append(ids, poolIDs)
+		}
+		return ids
+	}
+
+	// Pool 1 holds 40 of the 100 out, pool 2 links mid to in.
+	partial := pool(1, []string{out, mid}, sdk.NewCoins(sdk.NewInt64Coin(out, 40), sdk.NewInt64Coin(mid, 1000)), "")
+	link := pool(2, []string{mid, in}, sdk.NewCoins(sdk.NewInt64Coin(mid, 1000), sdk.NewInt64Coin(in, 1000)), "")
+	pools := map[string][]domain.CandidatePoolWrapper{out: {partial}, mid: {partial, link}, in: {link}}
+
+	s.Require().Empty(find(pools, 0), "a pool short of the whole amount is skipped when the search has no split share")
+	s.Require().Equal([][]uint64{{1, 2}}, find(pools, 3), "kept with its pool order from the token out side")
+
+	// An alloy transmuter holding 10 of the out variant is skipped, but kept when out is its alloyed LP share.
+	alloy := func(alloyedDenom string) map[string][]domain.CandidatePoolWrapper {
+		t := pool(3, []string{out, in}, sdk.NewCoins(sdk.NewInt64Coin(in, 1000), sdk.NewInt64Coin(out, 10)), alloyedDenom)
+		return map[string][]domain.CandidatePoolWrapper{out: {t}, in: {t}}
+	}
+	s.Require().Empty(find(alloy("other"), 3))
+	s.Require().Equal([][]uint64{{3}}, find(alloy(out), 3))
 }
