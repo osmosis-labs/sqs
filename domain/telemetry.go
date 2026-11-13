@@ -210,6 +210,20 @@ var (
 	// counter that measures the number of candidate route searches that reached the queued path bound
 	SQSCandidateRouteSearchCappedMetricName = "sqs_candidate_route_search_capped_total"
 
+	// sqs_quote_reference_check_total
+	//
+	// counter that measures the outcomes of checking user quotes against the reference price
+	//
+	// Has the following labels:
+	// * outcome - one of ok, warned, refused_dust, skipped_no_price
+	SQSQuoteReferenceCheckMetricName = "sqs_quote_reference_check_total"
+
+	// sqs_quote_reference_coingecko_disagreement_total
+	//
+	// counter that measures how often a denom's chain reference price differed from its cached
+	// CoinGecko price by more than the configured margin, so the chain price was not trusted
+	SQSQuoteReferenceCoingeckoDisagreementMetricName = "sqs_quote_reference_coingecko_disagreement_total"
+
 	SQSIngestHandlerProcessBlockHeightGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockHeightMetricName,
@@ -421,6 +435,21 @@ var (
 			Help: "Total number of candidate route searches that reached the queued path bound",
 		},
 	)
+
+	SQSQuoteReferenceCheckCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSQuoteReferenceCheckMetricName,
+			Help: "Total number of user quotes checked against the reference price, by outcome",
+		},
+		[]string{"outcome"},
+	)
+
+	SQSQuoteReferenceCoingeckoDisagreementCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSQuoteReferenceCoingeckoDisagreementMetricName,
+			Help: "Total number of reference prices where the chain price disagreed with the cached CoinGecko price beyond the margin",
+		},
+	)
 )
 
 func init() {
@@ -454,4 +483,6 @@ func init() {
 	prometheus.MustRegister(SQSPricingCoingeckoIdleGauge)
 	prometheus.MustRegister(SQSCandidateRoutesComputeDurationGauge)
 	prometheus.MustRegister(SQSCandidateRouteSearchCappedCounter)
+	prometheus.MustRegister(SQSQuoteReferenceCheckCounter)
+	prometheus.MustRegister(SQSQuoteReferenceCoingeckoDisagreementCounter)
 }

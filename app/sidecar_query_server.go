@@ -349,7 +349,21 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState, DebugEndpointsEnabled: config.DebugEndpointsEnabled}, logger)
+	var quoteReferenceChecker *routerHttpDelivery.QuoteReferenceChecker
+	if config.Router.QuoteReferenceCheck.Enabled {
+		quoteReferenceChecker, err = routerHttpDelivery.NewQuoteReferenceChecker(config.Router.QuoteReferenceCheck, tokensUseCase, logger)
+		if err != nil {
+			return nil, err
+		}
+		quoteReferenceChecker.WithCoingecko(coingeckoPricingSource)
+		logger.Info("quote reference check enabled",
+			zap.Float64("warn_deviation", config.Router.QuoteReferenceCheck.WarnDeviation),
+			zap.Bool("refuse_dust_quotes", config.Router.QuoteReferenceCheck.RefuseDustQuotes),
+			zap.Float64("dust_threshold", config.Router.QuoteReferenceCheck.DustThreshold),
+			zap.Float64("coingecko_margin", config.Router.QuoteReferenceCheck.CoingeckoMargin),
+		)
+	}
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState, DebugEndpointsEnabled: config.DebugEndpointsEnabled, QuoteReferenceChecker: quoteReferenceChecker}, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough

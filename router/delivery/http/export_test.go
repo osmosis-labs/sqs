@@ -1,1 +1,3 @@
 package http
+
+var ComputeDeviationFromReference = computeDeviationFromReference
