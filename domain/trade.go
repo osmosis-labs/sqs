@@ -161,10 +161,19 @@ type TradesFilter struct {
 type TradeWindowAggregates struct {
 	Buys            int     `json:"buys"`
 	Sells           int     `json:"sells"`
+	PricedBuys      int     `json:"pricedBuys"`    // buys with a usdValueAtIngest; the rest are missing from BuyVolumeUsd
+	PricedSells     int     `json:"pricedSells"`   // sells with a usdValueAtIngest; the rest are missing from SellVolumeUsd
 	BuyVolumeUsd    *string `json:"buyVolumeUsd"`  // null when no buy in the window was priced
 	SellVolumeUsd   *string `json:"sellVolumeUsd"` // null when no sell in the window was priced
 	DistinctBuyers  int     `json:"distinctBuyers"`
 	DistinctSellers int     `json:"distinctSellers"`
+}
+
+// TradesCoverage is the oldest block the in-memory trade store has ingested
+// since SQS started. Windows reaching further back than this are partial.
+type TradesCoverage struct {
+	Height    int64 `json:"height"`
+	Timestamp int64 `json:"timestamp"` // block time, unix seconds
 }
 
 // TradesConfig configures trade ingestion and the /trades endpoints.

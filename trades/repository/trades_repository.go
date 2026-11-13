@@ -48,6 +48,9 @@ type tradesRepository struct {
 	denoms map[string]string
 
 	lastIngestedHeight atomic.Int64
+
+	// coverage is the first block ingested since startup. Set once.
+	coverage atomic.Pointer[domain.TradesCoverage]
 }
 
 var _ mvc.TradesRepository = &tradesRepository{}
@@ -303,11 +306,19 @@ func matches(trade *domain.Trade, filter domain.TradesFilter) bool {
 
 // GetAggregates implements mvc.TradesRepository.
 func (r *tradesRepository) GetAggregates(filter domain.TradesFilter, windows []domain.TradeWindow, now time.Time) map[domain.TradeWindow]domain.TradeWindowAggregates {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	// Expire first so the windows end exactly at now rather than at the last block.
-	r.expireLocked(now)
+	// Expire first so the windows end exactly at now rather than at the last
+	// block. The scan itself only reads, so it runs under the read lock; the
+	// write lock is held just for the expiry, and only when a trade has aged
+	// out since the last block or expiry tick.
+	r.mu.RLock()
+	if r.needsExpiryLocked(now) {
+		r.mu.RUnlock()
+		r.mu.Lock()
+		r.expireLocked(now)
+		r.mu.Unlock()
+		r.mu.RLock()
+	}
+	defer r.mu.RUnlock()
 
 	result := make(map[domain.TradeWindow]domain.TradeWindowAggregates, len(windows))
 
@@ -338,6 +349,18 @@ func (r *tradesRepository) GetAggregates(filter domain.TradesFilter, windows []d
 	}
 
 	return result
+}
+
+// needsExpiryLocked reports whether the oldest trade in any window has aged
+// out as of now. The caller holds r.mu for reading or writing.
+func (r *tradesRepository) needsExpiryLocked(now time.Time) bool {
+	endSeq := r.baseSeq + uint64(len(r.trades))
+	for _, w := range r.windows {
+		if w.head < endSeq && !r.trades[w.head-r.baseSeq].Timestamp.After(now.Add(-w.duration)) {
+			return true
+		}
+	}
+	return false
 }
 
 // walletAggregates computes a wallet's aggregates from its own trades. The
@@ -374,6 +397,16 @@ func (r *tradesRepository) windowState(w domain.TradeWindow) *windowState {
 		}
 	}
 	return nil
+}
+
+// RecordBlock implements mvc.TradesRepository.
+func (r *tradesRepository) RecordBlock(height int64, blockTime time.Time) {
+	r.coverage.CompareAndSwap(nil, &domain.TradesCoverage{Height: height, Timestamp: blockTime.Unix()})
+}
+
+// Coverage implements mvc.TradesRepository.
+func (r *tradesRepository) Coverage() *domain.TradesCoverage {
+	return r.coverage.Load()
 }
 
 // LastIngestedHeight implements mvc.TradesRepository.
