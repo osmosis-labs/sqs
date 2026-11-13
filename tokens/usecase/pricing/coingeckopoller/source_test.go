@@ -293,6 +293,16 @@ func TestRefresh_NewerPriceReplacesOlder(t *testing.T) {
 	price, err := ts.getPrice("uatom")
 	require.NoError(t, err)
 	require.Equal(t, osmomath.NewBigDec(6), price)
+
+	// A later answer that an edge cache computed before the stored price does not replace it.
+	ts.advance(testInterval)
+	ts.fetch.prices = map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(7)}
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-2 * testInterval)}
+	require.NoError(t, ts.refresh())
+
+	price, err = ts.getPrice("uatom")
+	require.NoError(t, err)
+	require.Equal(t, osmomath.NewBigDec(6), price)
 }
 
 func TestRefresh_ChunksUniqueIdsInStableOrder(t *testing.T) {

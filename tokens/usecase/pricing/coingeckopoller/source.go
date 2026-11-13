@@ -333,7 +333,11 @@ func (s *Source) publish(ids, chunk []string, prices map[string]fetchedPrice, an
 			if !fetched.updatedAt.IsZero() && fetched.updatedAt.Before(answeredAt) {
 				pricedAt = fetched.updatedAt
 			}
-			e.price, e.pricedAt = fetched.price, pricedAt
+			// Edge caches can answer successive requests with different ages, so an older answer
+			// never replaces a newer stored price.
+			if !pricedAt.Before(e.pricedAt) {
+				e.price, e.pricedAt = fetched.price, pricedAt
+			}
 		}
 		next[id] = e
 	}
