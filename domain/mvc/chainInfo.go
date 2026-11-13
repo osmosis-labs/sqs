@@ -33,6 +33,15 @@ type ChainInfoUsecase interface {
 	// - The initial candidate route search data update has not been received
 	ValidateCandidateRouteSearchDataUpdates() error
 
+	// SetOrderbooksWithoutTicks records how many of the total orderbooks have no ticks stored yet.
+	// Called by ingest once per block.
+	SetOrderbooksWithoutTicks(withoutTicks, total int)
+
+	// ValidateOrderbookTicks returns an error when a large share of the orderbooks
+	// has had no ticks stored for longer than a grace period, that is, when the
+	// initial state is incomplete. A few orderbooks without ticks do not fail it.
+	ValidateOrderbookTicks() error
+
 	// GetClient returns the chain client used to interact with the chain.
 	GetClient() chaininfoclient.Client
 }
