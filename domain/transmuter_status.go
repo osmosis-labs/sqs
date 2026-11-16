@@ -7,6 +7,8 @@ import (
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	sqsatomic "github.com/osmosis-labs/sqs/domain/sync/atomic"
 )
 
 // TransmuterInactiveError is returned when a swap goes through a transmuter that is paused.
@@ -40,13 +42,18 @@ type transmuterStatus struct {
 // A pool without an entry, or with a value that failed to load, is routed as active with no corrupted denoms:
 // the chain still rejects a swap that is not allowed, and excluded-pool-ids stays the operator override.
 // All methods are safe for concurrent use and safe to call on a nil receiver.
+//
+// Reads are lock-free: candidate route search and every transmuter quote read this on their hot path,
+// many goroutines at once, while writes happen only when a status query returns.
 type TransmuterStatuses struct {
-	mu       sync.RWMutex
-	statuses map[uint64]transmuterStatus
+	// writeMu serialises the read-modify-write of one entry, so that SetActive and SetCorruptedDenoms
+	// on the same pool cannot drop each other's update.
+	writeMu  sync.Mutex
+	statuses sqsatomic.Map[uint64, transmuterStatus]
 }
 
 func NewTransmuterStatuses() *TransmuterStatuses {
-	return &TransmuterStatuses{statuses: make(map[uint64]transmuterStatus)}
+	return &TransmuterStatuses{}
 }
 
 // SetActive records the is_active value reported by the pool's contract.
@@ -54,11 +61,11 @@ func (s *TransmuterStatuses) SetActive(poolID uint64, active bool) {
 	if s == nil {
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	status := s.statuses[poolID]
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	status, _ := s.statuses.Get(poolID)
 	status.inactive = !active
-	s.statuses[poolID] = status
+	s.statuses.Set(poolID, status)
 }
 
 // SetCorruptedDenoms records the get_corrupted_denoms value reported by the pool's contract.
@@ -66,11 +73,11 @@ func (s *TransmuterStatuses) SetCorruptedDenoms(poolID uint64, denoms []string) 
 	if s == nil {
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	status := s.statuses[poolID]
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	status, _ := s.statuses.Get(poolID)
 	status.corruptedDenoms = slices.Clone(denoms)
-	s.statuses[poolID] = status
+	s.statuses.Set(poolID, status)
 }
 
 // IsInactive returns true if the pool's contract reported that it is paused.
@@ -78,9 +85,8 @@ func (s *TransmuterStatuses) IsInactive(poolID uint64) bool {
 	if s == nil {
 		return false
 	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.statuses[poolID].inactive
+	status, _ := s.statuses.Get(poolID)
+	return status.inactive
 }
 
 // CheckSwap returns an error if the transmuter does not allow swapping tokenInDenom for tokenOutDenom.
@@ -102,9 +108,7 @@ func (s *TransmuterStatuses) CheckSwap(poolID uint64, tokenInDenom, tokenOutDeno
 	if s == nil {
 		return nil
 	}
-	s.mu.RLock()
-	status := s.statuses[poolID]
-	s.mu.RUnlock()
+	status, _ := s.statuses.Get(poolID)
 
 	if status.inactive {
 		return TransmuterInactiveError{PoolID: poolID}
