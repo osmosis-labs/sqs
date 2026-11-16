@@ -6,7 +6,7 @@
 # The config used is the `config.json` in root which is expected to be as close
 # to mainnet as possible.
 #
-# The mainnet state must be manually updated when needed with 'make sqs-update-mainnet-state' against a local node.
+# The mainnet state must be manually updated when needed with 'make state-update-mainnet' against a local node.
 name: Mainnet Tests
 
 on:

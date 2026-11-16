@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"os"
 	"sync"
@@ -94,25 +93,24 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 				// Note: we skip error handling since we don't want to interrupt the request handling
 				// with tracing errors.
 
+				// The errors below are local on purpose: assigning them to err would replace
+				// the handler's result, turning a failed request into a success or the reverse.
+
 				// Grab the snapshot.
 				var b bytes.Buffer
-				_, err = fr.WriteTo(&b)
-				if err != nil {
-					m.logger.Error("failed to write trace to buffer", zap.Error(err))
+				if _, traceErr := fr.WriteTo(&b); traceErr != nil {
+					m.logger.Error("failed to write trace to buffer", zap.Error(traceErr))
 					return
 				}
 
 				// Write it to a file.
-				err = os.WriteFile(m.flightRecordConfig.TraceFileName, b.Bytes(), 0o755)
-				if err != nil {
-					m.logger.Error("failed to write trace to file", zap.Error(err))
+				if traceErr := os.WriteFile(m.flightRecordConfig.TraceFileName, b.Bytes(), 0o644); traceErr != nil {
+					m.logger.Error("failed to write trace to file", zap.Error(traceErr))
 					return
 				}
 
-				err = fr.Stop()
-				if err != nil {
-					fmt.Println("failed to stop flight recorder: ", err)
-					m.logger.Error("failed to stop fligt recorder", zap.Error(err))
+				if traceErr := fr.Stop(); traceErr != nil {
+					m.logger.Error("failed to stop flight recorder", zap.Error(traceErr))
 					return
 				}
 			})

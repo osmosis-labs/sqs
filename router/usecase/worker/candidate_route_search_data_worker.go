@@ -6,6 +6,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 	routerusecase "github.com/osmosis-labs/sqs/router/usecase"
 
@@ -68,12 +69,17 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 
 	wg := sync.WaitGroup{}
 
-	c.logger.Info("computing candidate route data", zap.Any("denoms", (blockPoolMetaData.UpdatedDenoms)))
+	// The denoms are counted, not listed: the first block updates every denom, and the full map
+	// was encoded into the log on every block.
+	c.logger.Info("computing candidate route data", zap.Int("num_denoms", len(blockPoolMetaData.UpdatedDenoms)))
 	for denom := range blockPoolMetaData.UpdatedDenoms {
 		wg.Add(1)
 
 		go func(denom string) {
 			defer wg.Done()
+
+			// A denom whose data cannot be computed keeps its previous search data.
+			defer recovery.Log(c.logger, "recovered panic in candidate route worker", nil, zap.String("denom", denom))
 
 			denomLiquidityData, ok := blockPoolMetaData.DenomPoolLiquidityMap[denom]
 			if !ok {

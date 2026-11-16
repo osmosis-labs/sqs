@@ -11,6 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/labstack/echo/v4"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
@@ -224,7 +225,7 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 	}
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(echo.POST, "/", nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			q := req.URL.Query()
@@ -446,7 +447,7 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(echo.POST, "/", nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			q := req.URL.Query()
@@ -483,7 +484,7 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 // TestDebugEndpointsGatedByConfig checks that the router state dump endpoints are only registered when enabled.
 func TestDebugEndpointsGatedByConfig(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
-		e := echo.New()
+		e := deliveryhttp.NewEcho()
 		routerdelivery.NewRouterHandler(e, nil, nil, nil, nil, &routerdelivery.Config{DebugEndpointsEnabled: enabled}, &log.NoOpLogger{})
 
 		registered := map[string]bool{}

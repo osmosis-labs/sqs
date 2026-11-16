@@ -32,10 +32,8 @@ type RouterUsecaseMock struct {
 	StoreRouterStateFilesFunc                    func() error
 	LoadRouterStateFilesFunc                     func() error
 	GetRouterStateFunc                           func() (domain.RouterState, error)
-	GetSortedPoolsFunc                           func() []ingesttypes.PoolI
 	GetConfigFunc                                func() domain.RouterConfig
 	ConvertMinTokensPoolLiquidityCapToFilterFunc func(minTokensPoolLiquidityCap uint64) uint64
-	SetSortedPoolsFunc                           func(pools []ingesttypes.PoolI)
 	GetMinPoolLiquidityCapFilterFunc             func(tokenInDenom string, tokenOutDenom string) (uint64, error)
 
 	BaseFee domain.BaseFee
@@ -165,13 +163,6 @@ func (m *RouterUsecaseMock) GetRouterState() (domain.RouterState, error) {
 	return domain.RouterState{}, nil
 }
 
-func (m *RouterUsecaseMock) GetSortedPools() []ingesttypes.PoolI {
-	if m.GetSortedPoolsFunc != nil {
-		return m.GetSortedPoolsFunc()
-	}
-	return nil
-}
-
 func (m *RouterUsecaseMock) GetConfig() domain.RouterConfig {
 	if m.GetConfigFunc != nil {
 		return m.GetConfigFunc()
@@ -184,10 +175,4 @@ func (m *RouterUsecaseMock) ConvertMinTokensPoolLiquidityCapToFilter(minTokensPo
 		return m.ConvertMinTokensPoolLiquidityCapToFilterFunc(minTokensPoolLiquidityCap)
 	}
 	panic("unimplemented")
-}
-
-func (m *RouterUsecaseMock) SetSortedPools(pools []ingesttypes.PoolI) {
-	if m.SetSortedPoolsFunc != nil {
-		m.SetSortedPoolsFunc(pools)
-	}
 }

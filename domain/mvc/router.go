@@ -110,9 +110,6 @@ type RouterUsecase interface {
 
 	GetRouterState() (domain.RouterState, error)
 
-	// GetSortedPools returns the sorted pools based on the router configuration.
-	GetSortedPools() []ingesttypes.PoolI
-
 	GetConfig() domain.RouterConfig
 
 	// GetMinPoolLiquidityCapFilter returns the min pool liquidity capitalization filter for the given tokenIn and tokenOutDenom.
@@ -128,9 +125,4 @@ type RouterUsecase interface {
 	// If there is no entry in the config that has min tokens capitalization smaller than the given value,
 	// the default router min pool liquidity capitalization is returned.
 	ConvertMinTokensPoolLiquidityCapToFilter(minTokensPoolLiquidityCap uint64) uint64
-
-	// SetSortedPools stores the pools in the router.
-	// CONTRACT: the pools are already sorted according to the desired parameters.
-	// See sortPools() function.
-	SetSortedPools(pools []ingesttypes.PoolI)
 }

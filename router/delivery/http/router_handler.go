@@ -295,12 +295,12 @@ func (a *RouterHandler) GetCandidateRoutes(c echo.Context) error {
 
 	tokenOutDenom, tokenIn, err := getValidTokenInTokenOutStr(c)
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, []string{tokenIn, tokenOutDenom})
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	// Update the tokenIn and tokenOutDenom with the chain denoms if they were translated from human to chain.
@@ -340,7 +340,7 @@ func (a *RouterHandler) GetCachedCandidateRoutes(c echo.Context) error {
 
 	tokenOutDenom, tokenIn, err := getValidTokenInTokenOutStr(c)
 	if err != nil {
-		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
 	routes, _, err := a.RUsecase.GetCachedCandidateRoutes(ctx, domain.TokenSwapMethodExactIn, tokenIn, tokenOutDenom)

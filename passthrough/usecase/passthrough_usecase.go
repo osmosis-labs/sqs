@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 )
 
@@ -98,9 +100,6 @@ const (
 	// 1. Unclaimed rewards from concentrated positions
 	// 2. Unclaimed rewards from staking rewards
 	unclaimedRewardsNumJobs = 2
-
-	// locked + unlocking
-	numInLocksQueries = 2
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
@@ -135,7 +134,9 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 
 	go func() {
 		// Fetch bank balances and gamm shares concurrently
-		bankBalances, gammShareCoins, err := p.getBankBalances(ctx, address)
+		bankBalances, gammShareCoins, err := recoverCoinsPair(func() (sdk.Coins, sdk.Coins, error) {
+			return p.getBankBalances(ctx, address)
+		})
 
 		// Send the results to the user balances channel
 		bankBalancesChan <- coinsResult{
@@ -152,7 +153,9 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 
 	go func() {
 		// Fetch concentrated positions and unclaimed rewards concurrently
-		positionBalances, unclaimedRewads, err := p.passthroughGRPCClient.UserPositionsBalances(ctx, address)
+		positionBalances, unclaimedRewads, err := recoverCoinsPair(func() (sdk.Coins, sdk.Coins, error) {
+			return p.passthroughGRPCClient.UserPositionsBalances(ctx, address)
+		})
 
 		// Send the position balances to the pooled balances channel
 		pooledBalancesChan <- coinsResult{
@@ -169,7 +172,9 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 
 	go func() {
 		// Fetch unclaimed staking rewards concurrently
-		unclaimedStakingRewards, err := p.passthroughGRPCClient.DelegationRewards(ctx, address)
+		unclaimedStakingRewards, err := recoverCoins(func() (sdk.Coins, error) {
+			return p.passthroughGRPCClient.DelegationRewards(ctx, address)
+		})
 
 		// Send unclaimed rewards to the unclaimed rewards channel
 		unclaimedRewardsChan <- coinsResult{
@@ -280,7 +285,9 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	for _, fetchJob := range fetchJobs {
 		go func(job fetchBalancesPortfolioAssetsJob) {
 			// Fetch the balances for the category
-			result, finalErr := job.fetchFn(ctx, address)
+			result, finalErr := recoverCoins(func() (sdk.Coins, error) {
+				return job.fetchFn(ctx, address)
+			})
 
 			if finalErr != nil {
 				p.logger.Error("error fetching balances for category", zap.Error(finalErr), zap.String("category", job.name), zap.String("address", address))
@@ -331,7 +338,8 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 				// Attempt to add the coins to the total assets composition
 				// even if an error occurred.
 				if len(job.coins) > 0 && !job.coins.IsAnyNil() {
-					totalAssetsCompositionCoins = totalAssetsCompositionCoins.Add(job.coins...)
+					// The job's own error is already persisted below.
+					totalAssetsCompositionCoins, _ = addCoins(totalAssetsCompositionCoins, job.coins)
 				}
 
 				// Rather than returning the error, persist it
@@ -343,7 +351,11 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 				continue
 			}
 
-			totalAssetsCompositionCoins = totalAssetsCompositionCoins.Add(job.coins...)
+			var addErr error
+			totalAssetsCompositionCoins, addErr = addCoins(totalAssetsCompositionCoins, job.coins)
+			if addErr != nil {
+				finalErr = errors.Join(finalErr, addErr)
+			}
 		}
 
 		totalAssetsResult, totalAssetsCap, err := p.computeCapitalizationForCoins(ctx, totalAssetsCompositionCoins)
@@ -390,7 +402,10 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 // Returns a slice of entries containing each coin and their capialization values. Additionally, returns the capitalization total.
 // If coin is not valid, it is skipped from pricing and its capitalization is set to zero.
 // Returns error if fails to get prices for the coins. However, a best-effort account coins result is returned even if prices fail to be computed.
-func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
+func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) (_ []passthroughdomain.AccountCoinsResult, _ osmomath.Dec, err error) {
+	// Runs in the goroutines of GetPortfolioAssets, outside the HTTP recover middleware.
+	defer recovery.ToErrorf(&err, "computing capitalization")
+
 	coinDenomsToPrice := make([]string, 0, len(coins))
 	for _, coin := range coins {
 		if p.tokensUseCase.IsValidChainDenom(coin.Denom) {
@@ -471,46 +486,19 @@ func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string,
 }
 
 // getCoinsFromLocks returns the user's coins from locks
-// Returns both locked and unlocking coins.
+// Returns locked coins, which already include unlocking coins.
 // If encountering GAMM shares, it will convert them to underlying coins
 // If encountering concentrated shares, it will skip them
 // For every coin, adds the underlying coins to the total coins.
 // Returns error if fails to get locked coins but the best-effort result is returned still
 func (p *passthroughUseCase) getCoinsFromLocks(ctx context.Context, address string) (sdk.Coins, error) {
-	result := make(chan coinsResult, numInLocksQueries)
-	defer close(result)
-
-	for _, fetchLocksFn := range []passthroughdomain.PassthroughFetchFn{
-		p.passthroughGRPCClient.AccountLockedCoins,
-		p.passthroughGRPCClient.AccountUnlockingCoins,
-	} {
-		go func(fetchLocksFn passthroughdomain.PassthroughFetchFn) {
-			lockedCoins, err := p.getLockedCoins(ctx, address, fetchLocksFn)
-			result <- coinsResult{
-				coins: lockedCoins,
-				err:   err,
-			}
-		}(fetchLocksFn)
+	// AccountLockedCoins already includes locks that are unlocking, so no separate unlocking query.
+	coins, err := p.getLockedCoins(ctx, address, p.passthroughGRPCClient.AccountLockedCoins)
+	if err != nil {
+		return sdk.Coins{}, err
 	}
 
-	var (
-		coinsResult = sdk.Coins{}
-		finalErr    error
-	)
-
-	for range numInLocksQueries {
-		res := <-result
-		if res.err != nil {
-			// Skip silently and continue
-			finalErr = res.err
-			continue
-		}
-
-		coinsResult = coinsResult.Add(res.coins...)
-	}
-
-	// Return best-effort result and error.
-	return coinsResult, finalErr
+	return coins, nil
 }
 
 // getBankBalances returns the user's bank balances
@@ -578,4 +566,32 @@ func (p *passthroughUseCase) tryAccumulateGammShares(coinsTarget *sdk.Coins, coi
 		return true, nil
 	}
 	return false, nil
+}
+
+// recoverCoins runs fetch and returns its result, turning a panic into an error.
+//
+// The portfolio fetches run in goroutines of their own, where a panic is not caught by the
+// HTTP recover middleware and would take the whole process down. As an error, it only marks
+// the affected category as best effort.
+func recoverCoins(fetch func() (sdk.Coins, error)) (coins sdk.Coins, err error) {
+	defer recovery.ToErrorf(&err, "fetching portfolio assets")
+
+	return fetch()
+}
+
+// recoverCoinsPair is recoverCoins for a fetch that returns two sets of coins.
+func recoverCoinsPair(fetch func() (sdk.Coins, sdk.Coins, error)) (first sdk.Coins, second sdk.Coins, err error) {
+	defer recovery.ToErrorf(&err, "fetching portfolio assets")
+
+	return fetch()
+}
+
+// addCoins returns total plus coins. Coins.Add panics on coins that are not sorted or not
+// valid; in that case total is returned unchanged, with an error.
+func addCoins(total, coins sdk.Coins) (sum sdk.Coins, err error) {
+	// On a panic, sum keeps this value.
+	sum = total
+	defer recovery.ToErrorf(&err, "adding coins (%s)", coins)
+
+	return total.Add(coins...), nil
 }

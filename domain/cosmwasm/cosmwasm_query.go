@@ -2,9 +2,8 @@ package cosmwasmdomain
 
 import (
 	"context"
+	"encoding/json/v2"
 	"time"
-
-	"github.com/osmosis-labs/osmosis/v31/ingest/types/json"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/osmosis-labs/sqs/domain"

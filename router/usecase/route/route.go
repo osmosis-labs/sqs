@@ -108,13 +108,20 @@ func (r RouteImpls) CalculateTokenOutByTokenIn(ctx context.Context, tokenIn sdk.
 	return routesWithAmountOut, errors
 }
 
-var spotPriceErrorResultCounter = prometheus.NewCounterVec(
+// spotPriceErrorResultCounter counts the pools whose spot price could not be computed when
+// preparing a quote result. It has no labels: the denoms involved are in the error log, and as
+// labels they would create a series per combination of three denoms.
+var spotPriceErrorResultCounter = prometheus.NewCounter(
 	prometheus.CounterOpts{
 		Name: "sqs_routes_spot_price_error_total",
 		Help: "Spot price error when preparing result pools",
 	},
-	[]string{"token_in", "cur_token_out_denom", "route_token_out_denom"},
 )
+
+func init() {
+	// The counter was declared and incremented but never registered, so it was never exported.
+	prometheus.MustRegister(spotPriceErrorResultCounter)
+}
 
 // PrepareResultPoolsOutGivenIn implements domain.Route.
 // Strips away unnecessary fields from each pool in the route,
@@ -149,7 +156,7 @@ func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk
 			spotPriceInBaseOutQuote, err = pool.CalcSpotPrice(ctx, tokenIn.Denom, pool.GetTokenOutDenom())
 		}
 		if err != nil {
-			logger.Error("failed to calculate spot price for pool", zap.Error(err))
+			logger.Error("failed to calculate spot price for pool", zap.Uint64("pool_id", pool.GetId()), zap.String("base_denom", tokenIn.Denom), zap.String("quote_denom", pool.GetTokenOutDenom()), zap.Error(err))
 
 			// We don't want to fail the entire quote if one pool fails to calculate spot price.
 			// The zero spot price makes the route spot price zero, which PrepareResult reports
@@ -157,11 +164,7 @@ func (r RouteImpl) PrepareResultPoolsOutGivenIn(ctx context.Context, tokenIn sdk
 			spotPriceInBaseOutQuote = osmomath.ZeroBigDec()
 
 			// Increment the counter for the error
-			spotPriceErrorResultCounter.WithLabelValues(
-				tokenIn.Denom,
-				pool.GetTokenOutDenom(),
-				r.Pools[len(r.Pools)-1].GetTokenOutDenom(),
-			).Inc()
+			spotPriceErrorResultCounter.Inc()
 		}
 
 		// Charge taker fee
@@ -220,7 +223,7 @@ func (r RouteImpl) PrepareResultPoolsInGivenOut(ctx context.Context, tokenOut sd
 		// Compute spot price before swap.
 		spotPriceOutBaseInQuote, err := pool.CalcSpotPrice(ctx, tokenOut.Denom, pool.GetTokenInDenom())
 		if err != nil {
-			logger.Error("failed to calculate spot price for pool", zap.Error(err))
+			logger.Error("failed to calculate spot price for pool", zap.Uint64("pool_id", pool.GetId()), zap.String("base_denom", tokenOut.Denom), zap.String("quote_denom", pool.GetTokenInDenom()), zap.Error(err))
 
 			// We don't want to fail the entire quote if one pool fails to calculate spot price.
 			// The zero spot price makes the route spot price zero, which PrepareResult reports
@@ -228,11 +231,7 @@ func (r RouteImpl) PrepareResultPoolsInGivenOut(ctx context.Context, tokenOut sd
 			spotPriceOutBaseInQuote = osmomath.ZeroBigDec()
 
 			// Increment the counter for the error
-			spotPriceErrorResultCounter.WithLabelValues(
-				tokenOut.Denom,
-				pool.GetTokenOutDenom(),
-				r.Pools[len(r.Pools)-1].GetTokenOutDenom(),
-			).Inc()
+			spotPriceErrorResultCounter.Inc()
 		}
 
 		tokenIn, err := pool.CalculateTokenInByTokenOut(ctx, tokenOut)

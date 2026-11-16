@@ -1,12 +1,18 @@
 package pools
 
 import (
+	"fmt"
+	"math"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 )
 
 func TestGetPoolsRequestFilter_IsPresent(t *testing.T) {
@@ -254,6 +260,71 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				assert.Equal(t, tt.expectedFilter.MinLiquidityCap, filter.MinLiquidityCap)
 				assert.Equal(t, tt.expectedFilter.WithMarketIncentives, filter.WithMarketIncentives)
 			}
+		})
+	}
+}
+
+// Validates that parsing a pools request accepts every page size, as /pools always has, and
+// rejects only a page offset that overflows.
+func TestGetPoolsRequest_ParseValidatesPagination(t *testing.T) {
+	tests := []struct {
+		name        string
+		query       string
+		expectedErr error
+	}{
+		{
+			name:  "no pagination",
+			query: "",
+		},
+		{
+			name:  "first page",
+			query: "page[number]=0&page[size]=10",
+		},
+		{
+			name:  "size only defaults to the first page",
+			query: "page[size]=10",
+		},
+		{
+			name:  "size above the generic maximum fetches every pool in one page",
+			query: "page[size]=2000",
+		},
+		{
+			name:  "cursor without size",
+			query: "page[cursor]=50",
+		},
+		{
+			name:  "page number without size",
+			query: "page[number]=3",
+		},
+		{
+			name:  "largest page offset",
+			query: fmt.Sprintf("page[number]=%d&page[size]=1", math.MaxInt),
+		},
+		{
+			name:        "page offset overflows",
+			query:       fmt.Sprintf("page[number]=%d&page[size]=2", math.MaxInt/2+1),
+			expectedErr: ErrPageOffsetOverflow,
+		},
+		{
+			name:        "cursor overflows",
+			query:       fmt.Sprintf("page[cursor]=%d&page[size]=10", uint64(math.MaxInt)+1),
+			expectedErr: ErrPageOffsetOverflow,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/pools?"+tt.query, nil)
+			c := e.NewContext(req, httptest.NewRecorder())
+
+			var request GetPoolsRequest
+			err := deliveryhttp.ParseRequest(c, &request)
+			if tt.expectedErr != nil {
+				require.ErrorIs(t, err, tt.expectedErr)
+				return
+			}
+			require.NoError(t, err)
 		})
 	}
 }

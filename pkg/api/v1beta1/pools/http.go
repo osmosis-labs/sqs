@@ -2,6 +2,7 @@ package pools
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -55,6 +56,39 @@ func (r *GetPoolsRequest) UnmarshalHTTPRequest(c echo.Context) error {
 		}
 
 		r.Sort = sort
+	}
+
+	return nil
+}
+
+// ErrPageOffsetOverflow is returned when the offset of the requested page, page[cursor] or
+// page[number] * page[size], does not fit in an int.
+var ErrPageOffsetOverflow = fmt.Errorf("page offset is too large")
+
+// Validate implements validator.Validator, so that the request is validated when it is parsed.
+//
+// It deliberately does not apply v1beta1.PaginationRequest.Validate. /pools has always accepted
+// any page size: clients fetch every pool in one page with a page size above
+// v1beta1.MaxLimit, and a request without a page size has always returned an empty page.
+// Rejecting those would break existing clients and protects nothing: the page is bounded by
+// the number of pools, which a request without pagination returns in full, and the paginator
+// bounds its preallocation. Only a page offset that overflows an int is rejected: the
+// paginator converts it to an int, so it would wrap around and silently serve another page.
+func (r *GetPoolsRequest) Validate() error {
+	p := r.Pagination
+	if p == nil {
+		return nil
+	}
+
+	switch p.Strategy {
+	case v1beta1.PaginationStrategy_CURSOR:
+		if p.Cursor > math.MaxInt {
+			return ErrPageOffsetOverflow
+		}
+	case v1beta1.PaginationStrategy_PAGE:
+		if p.Limit != 0 && p.Page > math.MaxInt/p.Limit {
+			return ErrPageOffsetOverflow
+		}
 	}
 
 	return nil

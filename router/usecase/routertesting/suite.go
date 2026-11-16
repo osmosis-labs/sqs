@@ -403,11 +403,6 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
 
-	// Validate and sort pools
-	sortedPools, _ := routerusecase.ValidateAndSortPools(mainnetState.Pools, poolsUsecase.GetCosmWasmPoolConfig(), options.RouterConfig.PreferredPoolIDs, logger)
-
-	routerUsecase.SetSortedPools(sortedPools)
-
 	// Set up on-chain pricing strategy
 	pricingSource, err := pricing.NewPricingStrategy(options.PricingConfig, tokensUsecase, routerUsecase)
 	s.Require().NoError(err)

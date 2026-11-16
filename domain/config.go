@@ -211,8 +211,8 @@ var DefaultConfig = Config{
 		Environment: "sqs-dev",
 	},
 	CORS: &CORSConfig{
-		AllowedHeaders: "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
-		AllowedMethods: "HEAD, GET, POST, HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
+		AllowedHeaders: "Origin, Accept, Content-Type, X-Requested-With, X-Server-Time, Accept-Encoding, sentry-trace, baggage",
+		AllowedMethods: "HEAD, GET, POST, DELETE, OPTIONS, PATCH, PUT",
 		AllowedOrigin:  "*",
 	},
 }

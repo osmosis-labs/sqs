@@ -14,6 +14,13 @@ func NewPaginator[K, V any](iterator Iterator[K, V], p *v1beta1.PaginationReques
 	}
 }
 
+// pageCapacity returns the capacity to preallocate for a page of the given limit.
+// The limit comes from the request and not every caller validates it, so it must not
+// size an allocation directly: it is bounded by the largest valid page.
+func pageCapacity(limit uint64) uint64 {
+	return min(limit, v1beta1.MaxLimit)
+}
+
 // Paginator relies on Iterator to fetch paginated data without knowing the data type
 type Paginator[K, V any] struct {
 	iterator   Iterator[K, V]
@@ -37,7 +44,7 @@ func (p *Paginator[K, V]) FetchPageByPageNumber() []V {
 	// Set the offset based on the page number to avoid fetching data from the beginning
 	p.iterator.SetOffset(int(p.pagination.Page * p.pagination.Limit))
 
-	items := make([]V, 0, p.pagination.Limit)
+	items := make([]V, 0, pageCapacity(p.pagination.Limit))
 	for i := uint64(0); i < p.pagination.Limit && p.iterator.HasNext(); i++ {
 		elem, err := p.iterator.Next()
 		if err == nil {
@@ -56,7 +63,7 @@ func (p *Paginator[K, V]) FetchPageByCursor() []V {
 	// Set the offset based on the page number to avoid fetching data from the beginning
 	p.iterator.SetOffset(int(p.pagination.Cursor))
 
-	items := make([]V, 0, p.pagination.Limit)
+	items := make([]V, 0, pageCapacity(p.pagination.Limit))
 	for i := uint64(0); i < p.pagination.Limit && p.iterator.HasNext(); i++ {
 		elem, err := p.iterator.Next()
 		if err == nil {

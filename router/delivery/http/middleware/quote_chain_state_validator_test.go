@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/stretchr/testify/assert"
 )
@@ -44,7 +45,7 @@ func TestQuoteChainStateValidatorMiddleware(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)

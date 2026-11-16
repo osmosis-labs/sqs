@@ -361,7 +361,7 @@ func validateDenomsParam(denomsStr string) ([]string, error) {
 
 	denoms := strings.Split(denomsStr, ",")
 
-	for _, denom := range denoms {
+	for i, denom := range denoms {
 		denom, err := url.PathUnescape(denom)
 		if err != nil {
 			return nil, err
@@ -370,6 +370,9 @@ func validateDenomsParam(denomsStr string) ([]string, error) {
 		if err := sdk.ValidateDenom(denom); err != nil {
 			return nil, err
 		}
+
+		// Return the denom that was validated, not the escaped form it was given in.
+		denoms[i] = denom
 	}
 
 	return denoms, nil
