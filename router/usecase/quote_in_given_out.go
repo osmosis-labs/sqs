@@ -34,7 +34,7 @@ type quoteExactAmountOut struct {
 	InBaseOutQuoteSpotPrice osmomath.Dec        `json:"in_base_out_quote_spot_price"`
 	PriceInfo               *domain.TxFeeInfo   `json:"price_info,omitempty"`
 	DeviationFromReference  *osmomath.Dec       `json:"deviation_from_reference,omitempty"`
-	DeviationWarning        bool                `json:"deviation_warning,omitempty"`
+	DeviationWarning        bool                `json:"deviation_warning,omitzero"`
 	ReferenceSource         string              `json:"reference_source,omitempty"`
 	QuoteUSDPeg             *domain.QuoteUSDPeg `json:"quote_usd_peg,omitempty"`
 }
