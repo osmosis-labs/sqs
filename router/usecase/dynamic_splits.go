@@ -119,7 +119,7 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	tokenAmountDec := tokenIn.Amount.ToLegacyDec()
 
 	if bestSplit.amountOut.IsZero() {
-		return nil, errors.New("amount out is zero, try increasing amount in")
+		return nil, domain.ErrAmountOutZero
 	}
 
 	// Step 4: validate the found choice
@@ -293,7 +293,7 @@ func getSplitQuoteInGivenOut(ctx context.Context, routes []route.RouteImpl, toke
 	// If the full desired output cannot be produced by any combination, fail rather than
 	// returning a partial fill.
 	if !isReachable(dp[totalIncrements][len(routes)]) {
-		return nil, errors.New("desired output cannot be produced by the available routes")
+		return nil, domain.ErrDesiredOutputNotProducible
 	}
 
 	// Step 3: trace back to find the optimal proportions.

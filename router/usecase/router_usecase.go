@@ -329,7 +329,7 @@ func (r *routerUseCaseImpl) GetSimpleQuote(ctx context.Context, tokenIn sdk.Coin
 	// The simple quote neither reads nor writes the route caches, so there is nothing to invalidate.
 	quote, routes, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routesImpl, tokenIn, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
+		return nil, nil, fmt.Errorf("%w, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
 
 	var splitRoutes []domain.SplitRoute
@@ -412,7 +412,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuoteOutGivenIn(ctx context.Contex
 
 	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteOutGivenIn(ctx, routes, tokenIn, onAllRoutesFailed)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenOutDenom)
+		return nil, nil, fmt.Errorf("%w, tokenOutDenom (%s)", err, tokenOutDenom)
 	}
 
 	// Rank by the full amount, then add the routes that rank best at a split share.
@@ -538,7 +538,7 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuoteInGivenOut(ctx context.Contex
 
 	topQuote, routesWithAmtOut, err := r.estimateAndRankSingleRouteQuoteInGivenOut(ctx, routes, tokenOut, r.logger, onAllRoutesFailed)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, tokenOutDenom (%s)", err, tokenInDenom)
+		return nil, nil, fmt.Errorf("%w, tokenOutDenom (%s)", err, tokenInDenom)
 	}
 
 	// Update ranked routes with filtered ranked routes
@@ -579,7 +579,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteOutGivenIn(ctx cont
 	// and caches an empty result there for a shorter time. Re-setting it here would refresh its expiry
 	// on every ranked route cache miss, so that the candidate routes of an active pair would never be recomputed.
 	if len(candidateRoutes.Routes) == 0 {
-		return nil, nil, fmt.Errorf("no candidate routes found")
+		return nil, nil, domain.ErrNoCandidateRoutes
 	}
 
 	// If every route fails, invalidate the entries this quote used.
@@ -647,7 +647,7 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx cont
 	// and caches an empty result there for a shorter time. Re-setting it here would refresh its expiry on
 	// every quote, so that the candidate routes of an active pair would never be recomputed.
 	if len(candidateRoutes.Routes) == 0 {
-		return nil, nil, fmt.Errorf("no candidate routes found")
+		return nil, nil, domain.ErrNoCandidateRoutes
 	}
 
 	// If every route fails, invalidate the entries this quote used.
