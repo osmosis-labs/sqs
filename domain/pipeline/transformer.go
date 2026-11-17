@@ -78,18 +78,24 @@ func (dt *SyncMapTransformer[K, V]) Sort(less ...func(V, V) bool) *SyncMapTransf
 	}
 
 	sort.Slice(dt.keys, func(i, j int) bool {
+		vi, ok := dt.load(dt.keys[i])
+		if !ok {
+			return false
+		}
+
+		vj, ok := dt.load(dt.keys[j])
+		if !ok {
+			return false
+		}
+
+		// The first criterion that orders the pair decides; later ones only break its ties.
 		for _, criterion := range less {
-			vi, ok := dt.load(dt.keys[i])
-			if !ok {
-				continue
+			if criterion(vi, vj) {
+				return true
 			}
-
-			vj, ok := dt.load(dt.keys[j])
-			if !ok {
-				continue
+			if criterion(vj, vi) {
+				return false
 			}
-
-			return criterion(vi, vj)
 		}
 		return false
 	})

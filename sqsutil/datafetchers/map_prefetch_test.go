@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/sqsutil/datafetchers"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,7 +34,7 @@ func TestMapIntervalFetcher_GetByKey(t *testing.T) {
 
 	// Create a new MapIntervalFetcher with a short interval
 	interval := 2 * time.Second
-	fetcher := datafetchers.NewMapFetcher(updateFn, interval)
+	fetcher := datafetchers.NewMapFetcher(updateFn, interval, &log.NoOpLogger{})
 
 	time.Sleep(1 * time.Second)
 

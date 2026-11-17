@@ -11,6 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/labstack/echo/v4"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/log"
@@ -104,6 +105,52 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 				RUsecase: &mocks.RouterUsecaseMock{
 					GetOptimalQuoteOutGivenInFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
 						return s.NewExactAmountInQuote(poolOne, poolTwo, poolThree), nil
+					},
+				},
+				QuoteSimulator: &mocks.QuoteSimulatorMock{
+					SimulateQuoteFn: func(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier math.LegacyDec, simulatorAddress string) domain.TxFeeInfo {
+						return domain.TxFeeInfo{
+							AdjustedGasUsed: 1_000_000,
+							FeeCoin:         sdk.NewCoin("uosmo", math.NewInt(1000)),
+							BaseFee:         osmomath.NewDecWithPrec(5, 1),
+						}
+					},
+				},
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   s.MustReadFile("../../usecase/routertesting/parsing/quote_amount_in_response_simulated.json"),
+		},
+		{
+			name: "valid exact in request (simulated, with base fee)",
+			queryParams: map[string]string{
+				"tokenIn":                     "1000ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5",
+				"tokenOutDenom":               "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+				"singleRoute":                 "true",
+				"applyExponents":              "true",
+				"simulatorAddress":            "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+				"simulationSlippageTolerance": "1.01",
+				"appendBaseFee":               "true",
+			},
+			handler: &routerdelivery.RouterHandler{
+				TUsecase: &mocks.TokensUsecaseMock{
+					GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+						return domain.PoolDenomMetaDataMap{
+							"ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4": {TotalLiquidityCap: osmomath.NewInt(851696596)},
+							"ibc/EA1D43981D5C9A1C4AAEA9C23BB1D4FA126BA9BC7020A25E0AE4AA841EA25DC5": {TotalLiquidityCap: osmomath.NewInt(5119159)},
+							"ibc/4ABBEF4C8926DDDB320AE5188CFD63267ABBCEFC0583E4AE05D6E5AA2401DDAB": {TotalLiquidityCap: osmomath.NewInt(86519)},
+						}
+					},
+					IsValidChainDenomFunc: func(chainDenom string) bool {
+						return true
+					},
+				},
+				RUsecase: &mocks.RouterUsecaseMock{
+					GetOptimalQuoteOutGivenInFunc: func(ctx context.Context, tokenIn sdk.Coin, tokenOutDenom string, opts ...domain.RouterOption) (domain.Quote, error) {
+						return s.NewExactAmountInQuote(poolOne, poolTwo, poolThree), nil
+					},
+					BaseFee: domain.BaseFee{
+						Denom:      "uosmo",
+						CurrentFee: osmomath.NewDecWithPrec(5, 1),
 					},
 				},
 				QuoteSimulator: &mocks.QuoteSimulatorMock{
@@ -224,7 +271,7 @@ func (s *RouterHandlerSuite) TestGetOptimalQuote() {
 	}
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(echo.POST, "/", nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			q := req.URL.Query()
@@ -446,7 +493,7 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(echo.POST, "/", nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			q := req.URL.Query()
@@ -483,7 +530,7 @@ func (s *RouterHandlerSuite) TestGetDirectCustomQuote() {
 // TestDebugEndpointsGatedByConfig checks that the router state dump endpoints are only registered when enabled.
 func TestDebugEndpointsGatedByConfig(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
-		e := echo.New()
+		e := deliveryhttp.NewEcho()
 		routerdelivery.NewRouterHandler(e, nil, nil, nil, nil, &routerdelivery.Config{DebugEndpointsEnabled: enabled}, &log.NoOpLogger{})
 
 		registered := map[string]bool{}

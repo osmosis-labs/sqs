@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/stretchr/testify/assert"
 )
@@ -29,14 +30,14 @@ func TestQuoteChainStateValidatorMiddleware(t *testing.T) {
 			name:                 "GetLatestHeight Error",
 			enableValidation:     true,
 			getLatestHeightErr:   errors.New("failed to get latest height"),
-			expectedStatusCode:   http.StatusInternalServerError,
+			expectedStatusCode:   http.StatusServiceUnavailable,
 			expectedResponseBody: `{"message":"no candidate routes found"}`,
 		},
 		{
 			name:                 "ValidateCandidateRouteSearchDataUpdates Error",
 			enableValidation:     true,
 			validateUpdatesErr:   errors.New("failed to validate updates"),
-			expectedStatusCode:   http.StatusInternalServerError,
+			expectedStatusCode:   http.StatusServiceUnavailable,
 			expectedResponseBody: `{"message":"no candidate routes found"}`,
 		},
 	}
@@ -44,7 +45,7 @@ func TestQuoteChainStateValidatorMiddleware(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
-			e := echo.New()
+			e := deliveryhttp.NewEcho()
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)

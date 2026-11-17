@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/osmosis-labs/sqs/log"
 )
 
 // TestWaitUntilFirstResult tests the behavior of the WaitUntilFirstResult method in the Prefetcher type.
@@ -22,7 +24,7 @@ func TestWaitUntilFirstResult(t *testing.T) {
 		return 42, nil
 	}
 
-	p := NewIntervalFetcher(updateFn, 1*time.Second)
+	p := NewIntervalFetcher(updateFn, 1*time.Second, &log.NoOpLogger{})
 	v, timestamp, err := p.Get()
 	require.Error(t, err)
 	require.Equal(t, 0, v)
@@ -53,13 +55,34 @@ func TestIntervalFetcherFailedFetch(t *testing.T) {
 			return 42, nil
 		}
 
-		p := newIntervalFetcher(updateFn, time.Hour, 10*time.Millisecond)
+		p := newIntervalFetcher(updateFn, time.Hour, 10*time.Millisecond, &log.NoOpLogger{})
 
 		require.Eventually(t, func() bool {
 			v, _, err := p.Get()
 			return err == nil && v == 42
 		}, 2*time.Second, 5*time.Millisecond)
 		require.Equal(t, int32(3), calls.Load())
+	})
+
+	t.Run("no cache: a panicking update is retried like a failed one", func(t *testing.T) {
+		t.Parallel()
+
+		var calls atomic.Int32
+		updateFn := func() (int, error) {
+			if calls.Add(1) == 1 {
+				panic("malformed upstream response")
+			}
+			return 42, nil
+		}
+
+		p := newIntervalFetcher(updateFn, time.Hour, 10*time.Millisecond, &log.NoOpLogger{})
+		defer p.Close()
+
+		require.Eventually(t, func() bool {
+			v, _, err := p.Get()
+			return err == nil && v == 42
+		}, 2*time.Second, 5*time.Millisecond)
+		require.Equal(t, int32(2), calls.Load())
 	})
 
 	t.Run("no cache: Close during the retries does not panic", func(t *testing.T) {
@@ -71,7 +94,7 @@ func TestIntervalFetcherFailedFetch(t *testing.T) {
 			return 0, errors.New("upstream 500")
 		}
 
-		p := newIntervalFetcher(updateFn, time.Hour, 10*time.Millisecond)
+		p := newIntervalFetcher(updateFn, time.Hour, 10*time.Millisecond, &log.NoOpLogger{})
 		require.Eventually(t, func() bool { return calls.Load() >= 1 }, 2*time.Second, 5*time.Millisecond)
 
 		require.NotPanics(t, p.Close)
@@ -94,7 +117,7 @@ func TestIntervalFetcherFailedFetch(t *testing.T) {
 			return 0, errors.New("upstream 500")
 		}
 
-		p := newIntervalFetcher(updateFn, 10*time.Millisecond, 10*time.Millisecond)
+		p := newIntervalFetcher(updateFn, 10*time.Millisecond, 10*time.Millisecond, &log.NoOpLogger{})
 
 		require.Eventually(t, func() bool { return calls.Load() >= 3 }, 2*time.Second, 5*time.Millisecond)
 

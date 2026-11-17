@@ -25,8 +25,9 @@ type chainPricing struct {
 	// failedCache holds the error of a recent failed price computation per pair, so that a pair
 	// without a usable route is not searched again on every request. It is separate from cache
 	// so that a failure still evicts the last good price there. It uses the same key as cache:
-	// a price computed at one min pool liquidity cap or in one direction serves the others, and
-	// so does a failure, which lets the pricing worker's failures answer requests too.
+	// a price computed at one min pool liquidity cap serves the others, and so does a failure,
+	// which lets the pricing worker's failures answer requests too. Each direction of a pair has
+	// its own key, since one price is the inverse of the other.
 	failedCache *cache.Cache
 	// succeededAt holds the time of the last successful computation per pair, so that a failure
 	// that started before a newer success does not replace it in failedCache.

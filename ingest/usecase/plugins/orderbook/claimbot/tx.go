@@ -2,7 +2,7 @@ package claimbot
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 
 	sqstx "github.com/osmosis-labs/sqs/domain/cosmos/tx"

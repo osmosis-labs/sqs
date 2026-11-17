@@ -7,51 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/osmosis-labs/sqs/domain/cache"
 )
-
-// This is a basic ChatGPT generates test case for the cache.
-func TestCache(t *testing.T) {
-	cache := cache.New()
-
-	const defaultKeyToSet = "key1"
-
-	// Test cases
-	testCases := []struct {
-		name       string
-		key        string
-		value      any
-		expiration time.Duration
-		sleep      time.Duration
-		expected   any
-	}{
-		{"ValidKey", defaultKeyToSet, "value1", time.Second * 5, 0, "value1"},
-		{"ExpiredKey", defaultKeyToSet, "value2", time.Nanosecond, time.Millisecond * 10, nil},
-		{"NonExistentKey", "key2", "value3", time.Second * 5, 0, nil},
-	}
-
-	// Run tests
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cache.Set(defaultKeyToSet, tc.value, tc.expiration)
-
-			// Sleep if necessary to simulate expiration
-			time.Sleep(tc.sleep)
-
-			val, exists := cache.Get(tc.key)
-
-			// Check existence and value
-			if exists != (tc.expected != nil) {
-				t.Errorf("Expected existence: %v, Got: %v", tc.expected != nil, exists)
-			}
-
-			// Check value if it exists
-			if exists && val != tc.expected {
-				t.Errorf("Expected value: %v, Got: %v", tc.expected, val)
-			}
-		})
-	}
-}
 
 // This test does basic validation against concurrency.
 // That is, it tests that there are no deadlocks.
@@ -59,7 +18,6 @@ func TestConcurrentCache(t *testing.T) {
 	cache := cache.New()
 
 	seed := int64(10)
-	rand := rand.New(rand.NewSource(seed))
 
 	// Number of goroutines
 	numGoroutines := 10
@@ -78,6 +36,9 @@ func TestConcurrentCache(t *testing.T) {
 	for i := range numGoroutines {
 		go func(index int) {
 			defer wg.Done()
+
+			// A generator is not safe for concurrent use, so each goroutine has its own.
+			rand := rand.New(rand.NewSource(seed + int64(index)))
 
 			for range numRunsPerRoutine {
 
@@ -178,4 +139,52 @@ func TestCache_SetExpiration(t *testing.T) {
 			}
 		})
 	}
+
+	// A key that was never set does not exist.
+	if _, exists := c.Get("never-set"); exists {
+		t.Errorf("Expected a key that was never set not to exist")
+	}
+}
+
+// Validates that expired items are removed by the sweep in Set even if they are never read
+// again, and that the sweep keeps the items that have not expired. The cache is smaller than
+// one sweep batch, so a single Set sweeps all of it.
+func TestCache_SweepsExpiredItems(t *testing.T) {
+	c := cache.New()
+
+	c.Set("expired", 1, time.Millisecond)
+	c.Set("live", 2, time.Hour)
+	c.Set("no-expiry", 3, cache.NoExpirationTTL)
+
+	time.Sleep(10 * time.Millisecond)
+
+	c.Set("other", 4, time.Hour)
+	require.Equal(t, 3, c.Len())
+
+	_, found := c.Get("expired")
+	require.False(t, found)
+	for _, key := range []string{"live", "no-expiry", "other"} {
+		_, found := c.Get(key)
+		require.True(t, found, key)
+	}
+}
+
+// Validates that one Set examines at most one sweep batch, so that the time it holds the write
+// lock does not grow with the cache.
+func TestCache_SweepIsBounded(t *testing.T) {
+	c := cache.New()
+
+	const numExpired = 4 * cache.SweepBatchSize
+	for i := 0; i < numExpired; i++ {
+		c.Set(fmt.Sprintf("expired-%d", i), i, 50*time.Millisecond)
+	}
+	// The TTL is long enough that no item expires while they are inserted, so none has
+	// been swept yet; wait for all of them to expire.
+	time.Sleep(60 * time.Millisecond)
+	require.Equal(t, numExpired, c.Len())
+
+	c.Set("live", 0, time.Hour)
+
+	// Every examined item is expired, so exactly one batch is removed and one item is added.
+	require.Equal(t, numExpired-cache.SweepBatchSize+1, c.Len())
 }

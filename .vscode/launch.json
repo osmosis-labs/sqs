@@ -109,7 +109,7 @@
         "-test.timeout",
         "30m",
         "-test.run",
-        "TestTokensUseCaseTestSuite/TestGetPrices_Chain_Specific",
+        "TestTokensUseCaseTestSuite/TestGetPrices_Chain",
         "-test.v"
       ]
     },

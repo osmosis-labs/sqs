@@ -56,6 +56,12 @@ var (
 	// * height - the height of the block being processed
 	SQSIngestUsecaseProcessBlockErrorMetricName = "sqs_ingest_usecase_process_block_error_total"
 
+	// sqs_ingest_handler_coalesced_blocks_total
+	//
+	// counter that measures the number of blocks merged into the newest queued block
+	// because the ingest queue was full
+	SQSIngestHandlerCoalescedBlocksMetricName = "sqs_ingest_handler_coalesced_blocks_total"
+
 	// sqs_ingest_usecase_parse_pool_error_total
 	//
 	// counter that measures the number of errors that occur during pool parsing in ingest usecase
@@ -242,6 +248,13 @@ var (
 		prometheus.CounterOpts{
 			Name: SQSIngestUsecaseProcessBlockErrorMetricName,
 			Help: "counter that measures the number of errors that occur during processing a block in ingest usecase",
+		},
+	)
+
+	SQSIngestHandlerCoalescedBlocksCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSIngestHandlerCoalescedBlocksMetricName,
+			Help: "counter that measures the number of blocks merged into a queued block because the ingest queue was full",
 		},
 	)
 
@@ -456,6 +469,7 @@ func init() {
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockHeightGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockErrorCounter)
+	prometheus.MustRegister(SQSIngestHandlerCoalescedBlocksCounter)
 	prometheus.MustRegister(SQSIngestHandlerProcessOrderbookPoolErrorCounter)
 	prometheus.MustRegister(SQSIngestUsecaseOrderbooksWithoutTicksGauge)
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)

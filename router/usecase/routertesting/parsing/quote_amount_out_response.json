@@ -65,5 +65,6 @@
   "liquidity_cap_overflow": false,
   "effective_fee": "0.010946000000000000",
   "price_impact": "-0.593435820925030124",
+  "price_impact_unknown": false,
   "in_base_out_quote_spot_price": "3.500000000000000000"
 }

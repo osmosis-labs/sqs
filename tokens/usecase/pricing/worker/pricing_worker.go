@@ -6,6 +6,7 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 	"go.uber.org/zap"
 )
@@ -41,6 +42,11 @@ func (p *pricingWorker) UpdatePricesAsync(ctx context.Context, height uint64, un
 }
 
 func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+	// Nothing above this recovers a panic: UpdatePricesAsync runs it in its own goroutine, and
+	// ingest calls it directly for the first block. Without this, a panic in pricing or in a
+	// listener would take the whole process down. The update is counted as failed instead.
+	defer recovery.Log(p.logger, "recovered panic in pricing pre-computation", domain.SQSPricingWorkerComputeErrorCounter, zap.Uint64("height", height))
+
 	baseDenoms := domain.KeysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
 
 	ctx, cancel := context.WithTimeout(ctx, priceUpdateTimeout)

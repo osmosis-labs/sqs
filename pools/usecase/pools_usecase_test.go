@@ -590,6 +590,38 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidatesOutGivenIn_Directiona
 	s.Require().Equal(twoToThreeFee.String(), routePools[1].GetTakerFee().String())
 }
 
+// Validates that the generalized CosmWasm flag is set per route: a route that follows one through
+// a generalized CosmWasm pool must not inherit the flag, or it is dropped from split quotes.
+func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates_GeneralizedCosmWasmFlagPerRoute() {
+	s.Setup()
+
+	balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoin(denomOne, defaultAmt0), sdk.NewCoin(denomTwo, defaultAmt1))
+	balancerPool, err := s.App.GAMMKeeper.GetPool(s.Ctx, balancerPoolID)
+	s.Require().NoError(err)
+
+	cwPool := s.PrepareCustomTransmuterPoolCustomProject(s.TestAccs[0], []string{denomOne, denomTwo}, "sqs", "scripts")
+
+	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{GeneralCosmWasmCodeIDs: []uint64{cwPool.GetCodeId()}}, "node-uri-placeholder", routerrepo.New(&log.NoOpLogger{}), domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	poolsUsecase.StorePools([]ingesttypes.PoolI{
+		&mocks.MockRoutablePool{ChainPoolModel: balancerPool, ID: balancerPoolID},
+		&mocks.MockRoutablePool{ChainPoolModel: cwPool.AsSerializablePool(), PoolType: poolmanagertypes.CosmWasm, ID: cwPool.GetId()},
+	})
+
+	// Candidate order: generalized CosmWasm route first, balancer route second.
+	routes, err := poolsUsecase.GetRoutesFromCandidates(ingesttypes.CandidateRoutes{
+		Routes: []ingesttypes.CandidateRoute{
+			{Pools: []ingesttypes.CandidatePool{{ID: cwPool.GetId(), TokenOutDenom: denomTwo}}},
+			{Pools: []ingesttypes.CandidatePool{{ID: balancerPoolID, TokenOutDenom: denomTwo}}},
+		},
+	}, denomOne, denomTwo)
+	s.Require().NoError(err)
+	s.Require().Len(routes, 2)
+
+	s.Require().True(routes[0].HasGeneralizedCosmWasmPool)
+	s.Require().False(routes[1].HasGeneralizedCosmWasmPool)
+}
+
 func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
 	const (
 		differentPoolID        = defaultPoolID + 1
@@ -967,7 +999,6 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitCFMMPool_HappyPath() {
 }
 
 // TestCalcExitPool is a copy of node's TestCalcExitPool
-// This implementation includes several specific test cases to cover arithmetic on floats instead of sdk math data types.
 // @link https://github.com/osmosis-labs/osmosis/blob/fde1776476d9c2f849dcbfb30ca3ec64d0e12863/x/gamm/pool-models/internal/cfmm_common/lp_test.go#L31
 func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 	emptyContext := sdk.Context{}
@@ -1081,6 +1112,12 @@ func (s *PoolsUsecaseTestSuite) TestCalcExitPool() {
 			name:          "fourth-asset pool with exit fee, valid exiting shares, overflow amount",
 			pool:          &fourthAssetPoolWithExitFee,
 			exitingShares: osmomath.NewIntFromUint64(7000000000000),
+			expError:      false,
+		},
+		{
+			name:          "fourth-asset pool with exit fee, exit amount above int64 range",
+			pool:          &fourthAssetPoolWithExitFee,
+			exitingShares: fourthAssetPoolWithExitFee.GetTotalShares().MulRaw(6).QuoRaw(10),
 			expError:      false,
 		},
 	}
@@ -1488,9 +1525,6 @@ func (s *PoolsUsecaseTestSuite) newRoutablePool(pool ingesttypes.PoolI, tokenInD
 	routablePool, err := pools.NewRoutablePool(pool, tokenInDenom, tokenOutDenom, takerFee, cosmWasmPoolsParams)
 	s.Require().NoError(err)
 	return routablePool
-}
-
-func (s *PoolsUsecaseTestSuite) TestetPoolAPRAndFeeDataIfConfigured() {
 }
 
 func (s *PoolsUsecaseTestSuite) newDefaultPoolsUseCase() *usecase.PoolsUsecase {

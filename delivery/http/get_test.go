@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -37,6 +38,14 @@ func TestGet(t *testing.T) {
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(20 * time.Millisecond)
 				w.Write([]byte("Too late"))
+			},
+		},
+		{
+			name:          "Body over the limit",
+			url:           "/large",
+			expectedError: true,
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.Write(bytes.Repeat([]byte("x"), sqshttp.MaxGetBodyBytes+1))
 			},
 		},
 		{

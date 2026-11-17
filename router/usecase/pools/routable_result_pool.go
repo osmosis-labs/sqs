@@ -33,7 +33,8 @@ type routableResultPoolImpl struct {
 	TokenInDenom  string                    `json:"token_in_denom,omitempty"`
 	TakerFee      osmomath.Dec              `json:"taker_fee"`
 	LiquidityCap  osmomath.Int              `json:"liquidity_cap"`
-	CodeID        uint64                    `json:"code_id,omitempty"`
+	// CodeID is set only for CosmWasm pools; zero means "not a CosmWasm pool" and is omitted.
+	CodeID uint64 `json:"code_id,omitzero"`
 }
 
 // GetCodeID implements domain.RoutablePool.

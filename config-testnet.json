@@ -1,7 +1,7 @@
 {
     "chain-id": "osmo-test-5",
     "chain-registry-assets-url": "https://raw.githubusercontent.com/osmosis-labs/assetlists/main/osmo-test-5/osmo-test-5.assetlist.json",
-    "flight-recording": {
+    "flight-record": {
         "enabled": false
     },
     "pools": {

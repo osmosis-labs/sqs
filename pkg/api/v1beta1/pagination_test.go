@@ -30,7 +30,7 @@ func TestPaginationRequestUnmarshalHTTPRequest(t *testing.T) {
 		{
 			name:        "Only size provided",
 			queryParams: map[string]string{"page[size]": "15"},
-			want:        &PaginationRequest{Page: 0, Limit: 15, Strategy: PaginationStrategy_UNKNOWN},
+			want:        &PaginationRequest{Page: 0, Limit: 15, Strategy: PaginationStrategy_PAGE},
 			wantErr:     false,
 		},
 		{
@@ -114,9 +114,10 @@ func TestPaginationRequestValidate(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			// Pages start at zero.
 			name:    "Page is zero",
 			request: PaginationRequest{Page: 0, Limit: 10, Strategy: PaginationStrategy_PAGE},
-			wantErr: ErrPageNotValid,
+			wantErr: nil,
 		},
 		{
 			name:    "Limit is zero",

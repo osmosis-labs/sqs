@@ -104,7 +104,7 @@ func (s *OrdersCacheTestSuite) TestProcessEndBlock() {
 			metadata: domain.BlockPoolMetadata{
 				PoolIDs: map[uint64]struct{}{1: {}},
 			},
-			expectedError: fmt.Errorf("invalid character 'i' looking for beginning of value"),
+			expectedError: fmt.Errorf("jsontext: invalid character 'i' at start of value"),
 		},
 	}
 

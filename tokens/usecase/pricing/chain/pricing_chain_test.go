@@ -326,25 +326,31 @@ func (s *PricingTestSuite) TestGetPrice_FailedPriceIsCached() {
 	s.Require().Error(err)
 	s.Require().Equal(2, quoteCalls)
 
-	// Like a cached price, the failure also answers a search at another min pool liquidity cap or in the
-	// other direction, so the pricing worker's failures spare requests the search.
+	// Like a cached price, the failure also answers a search at another min pool liquidity cap,
+	// so the pricing worker's failures spare requests the search.
 	_, _, err = pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithMinPricingPoolLiquidityCap(123_456_789))
 	s.Require().Error(err)
 	s.Require().Equal(2, quoteCalls)
 
+	// The other direction is another price, the inverse of this one, so it has an entry of its
+	// own: it searches, and its failure is then cached in turn.
 	_, _, err = pricingStrategy.GetPrice(context.Background(), USDC, ATOM)
 	s.Require().Error(err)
-	s.Require().Equal(2, quoteCalls)
+	s.Require().Equal(3, quoteCalls)
+
+	_, _, err = pricingStrategy.GetPrice(context.Background(), USDC, ATOM)
+	s.Require().Error(err)
+	s.Require().Equal(3, quoteCalls)
 
 	// A recompute ignores the failed price cache, and its success clears it.
 	routeUnusable = false
 	price, _, err := pricingStrategy.GetPrice(context.Background(), ATOM, USDC, domain.WithRecomputePrices())
 	s.Require().NoError(err)
 	s.Require().True(price.IsPositive())
-	s.Require().Equal(3, quoteCalls)
+	s.Require().Equal(4, quoteCalls)
 
 	cachedPrice, _, err := pricingStrategy.GetPrice(context.Background(), ATOM, USDC)
 	s.Require().NoError(err)
 	s.Require().Equal(price, cachedPrice)
-	s.Require().Equal(3, quoteCalls)
+	s.Require().Equal(4, quoteCalls)
 }
