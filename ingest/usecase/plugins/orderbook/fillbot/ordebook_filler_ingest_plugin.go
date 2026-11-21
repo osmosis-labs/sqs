@@ -160,26 +160,40 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 		}
 	}
 
-	originalMsgs := blockCtx.tx.msgs
-	if err := o.tryFill(blockCtx, blockCtx.tx); err != nil {
-		if len(originalMsgs) == 1 {
-			o.logger.Error("failed to fill", zap.Error(err))
-			return err
-		}
-		o.logger.Error("failed to fill batch of arbs as one tx - falling back to executing each message as separate tx", zap.Error(err))
-
-		// Try to fill each message individually
-		for _, msg := range originalMsgs {
-			curTx := newTxContext()
-			curTx.addMsg(msg)
-
-			if err := o.tryFill(blockCtx, curTx); err != nil {
-				o.logger.Error("failed to fill individual msg tx", zap.Error(err))
-			}
-		}
+	if err := o.fillWithFallback(blockCtx, o.tryFill); err != nil {
+		return err
 	}
 
 	o.logger.Info("processed end block in orderbook filler ingest plugin", zap.Uint64("block_height", blockHeight))
+	return nil
+}
+
+// fillWithFallback attempts to execute all collected messages as a single batch tx.
+// If the batch fails and more than one non-overlapping message survived rankAndFilterMsgs,
+// it falls back to executing only those surviving messages individually so dropped
+// overlapping messages are never executed with stale profitability estimates.
+func (o *orderbookFillerIngestPlugin) fillWithFallback(blockCtx *blockContext, tryFill func(*blockContext, *txContext) error) error {
+	err := tryFill(blockCtx, blockCtx.tx)
+	if err == nil {
+		return nil
+	}
+
+	filteredMsgs := blockCtx.tx.msgs
+	if len(filteredMsgs) <= 1 {
+		o.logger.Error("failed to fill", zap.Error(err))
+		return err
+	}
+
+	o.logger.Error("failed to fill batch of arbs as one tx - falling back to executing each message as separate tx", zap.Error(err))
+	for _, msg := range filteredMsgs {
+		curTx := newTxContext()
+		curTx.addMsg(msg)
+
+		if err := tryFill(blockCtx, curTx); err != nil {
+			o.logger.Error("failed to fill individual msg tx", zap.Error(err))
+		}
+	}
+
 	return nil
 }
 
@@ -327,6 +341,9 @@ func (o *orderbookFillerIngestPlugin) tryFill(blockCtx *blockContext, txCtx *txC
 
 	// Rank and filter pools
 	txCtx.rankAndFilterMsgs()
+	if len(txCtx.msgs) == 0 {
+		return nil
+	}
 
 	// Simulate transaction messages
 	_, adjustedGasAmount, err := o.simulateMsgs(blockCtx.ctx, txCtx.sdkMsgs())
