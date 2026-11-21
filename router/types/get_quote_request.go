@@ -14,6 +14,13 @@ import (
 // maxSimulationSlippageTolerance is the upper bound accepted for simulationSlippageTolerance.
 var maxSimulationSlippageTolerance = osmomath.NewDec(2)
 
+// maxSimulationSlippageToleranceLen bounds the encoded length of simulationSlippageTolerance
+// before it reaches arbitrary-precision decimal parsing. Every legitimate value in
+// (0, maxSimulationSlippageTolerance] fits in 20 characters (e.g. "1.999999999999999999":
+// one integer digit, a dot and the 18 fractional digits LegacyDec supports); 32 leaves
+// room for redundant leading or trailing zeros while rejecting huge inputs cheaply.
+const maxSimulationSlippageToleranceLen = 32
+
 // GetQuoteRequest represents swap quote request for the /router/quote endpoint.
 type GetQuoteRequest struct {
 	TokenIn                     *sdk.Coin
@@ -96,6 +103,10 @@ func validateSimulationParams(swapMethod domain.TokenSwapMethod, simulatorAddres
 
 		if slippageToleranceStr == "" {
 			return osmomath.Dec{}, fmt.Errorf("slippage tolerance is required for simulation")
+		}
+
+		if len(slippageToleranceStr) > maxSimulationSlippageToleranceLen {
+			return osmomath.Dec{}, fmt.Errorf("slippage tolerance must be at most %d characters, got %d", maxSimulationSlippageToleranceLen, len(slippageToleranceStr))
 		}
 
 		slippageTolerance, err := osmomath.NewDecFromStr(slippageToleranceStr)

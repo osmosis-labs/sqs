@@ -3,12 +3,14 @@ package quotesimulator
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
 	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
 
+	"cosmossdk.io/math"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/osmosis/v31/app/params"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
@@ -58,7 +60,10 @@ func (q *quoteSimulator) SimulateQuoteOutGivenIn(ctx context.Context, quote doma
 
 	// Slippage bound from the token in and provided slippage tolerance multiplier
 	tokenOutAmt := quote.GetAmountOut()
-	slippageBound := tokenOutAmt.Amount.ToLegacyDec().Mul(slippageToleranceMultiplier).TruncateInt()
+	slippageBound, err := computeSlippageBound(tokenOutAmt.Amount, slippageToleranceMultiplier)
+	if err != nil {
+		return domain.TxFeeInfo{Err: err.Error()}
+	}
 
 	// Create the swap message
 	swapMsg := &poolmanagertypes.MsgSwapExactAmountIn{
@@ -75,6 +80,25 @@ func (q *quoteSimulator) SimulateQuoteOutGivenIn(ctx context.Context, quote doma
 	}
 
 	return q.msgSimulator.PriceMsgs(ctx, q.encodingConfig.TxConfig, baseAccount, q.chainID, swapMsg)
+}
+
+// computeSlippageBound returns floor(amountOut * multiplier), the TokenOutMinAmount for the
+// simulated swap. It matches amountOut.ToLegacyDec().Mul(multiplier).TruncateInt() but works on
+// big.Int directly and returns an error when the product does not fit in an sdk Int, where the
+// LegacyDec path panics (e.g. an amount out near 2^256 with a multiplier above 1).
+func computeSlippageBound(amountOut osmomath.Int, multiplier osmomath.Dec) (osmomath.Int, error) {
+	if amountOut.IsNil() || multiplier.IsNil() {
+		return osmomath.Int{}, fmt.Errorf("slippage bound: amount out and multiplier must be set")
+	}
+
+	product := new(big.Int).Mul(amountOut.BigInt(), multiplier.BigInt())
+	product.Quo(product, osmomath.OneDec().BigInt())
+
+	if product.BitLen() > math.MaxBitLen {
+		return osmomath.Int{}, fmt.Errorf("slippage bound overflows: amount out %s times multiplier %s exceeds %d bits", amountOut, multiplier, math.MaxBitLen)
+	}
+
+	return osmomath.NewIntFromBigInt(product), nil
 }
 
 var _ domain.QuoteSimulator = &quoteSimulator{}
