@@ -87,6 +87,153 @@ func (s *RouterTestSuite) TestGetSplitQuote_RouteErrorHandling() {
 		"Expected positive output from good route, got zero")
 }
 
+// TestGetSplitQuote_SharedTransmuter checks that a split may use one transmuter from several
+// legs only when the combined amount fits: each leg alone fits the transmuter's per-call
+// capacity, the sum may not. The transmuter is the last hop of the exact-in legs and,
+// because exact-out routes list pools from token out, the first of the exact-out legs.
+// When the sum does not fit, only the leg that does not fit is dropped.
+func (s *RouterTestSuite) TestGetSplitQuote_SharedTransmuter() {
+	const denom = "uusdc"
+
+	for name, tc := range map[string]struct {
+		exactIn       bool
+		transmuterCap int64
+		expectLegs    int
+	}{
+		"exact in, combined amount fits: both legs keep the transmuter":  {exactIn: true, transmuterCap: 800, expectLegs: 2},
+		"exact in, combined amount does not fit: one leg":                {exactIn: true, transmuterCap: 500, expectLegs: 1},
+		"exact out, combined amount fits: both legs keep the transmuter": {exactIn: false, transmuterCap: 800, expectLegs: 2},
+		"exact out, combined amount does not fit: one leg":               {exactIn: false, transmuterCap: 500, expectLegs: 1},
+	} {
+		s.Run(name, func() {
+			capacity := osmomath.NewInt(tc.transmuterCap)
+			checkCap := func(amt osmomath.Int) error {
+				if amt.GT(capacity) {
+					return errors.New("insufficient balance")
+				}
+				return nil
+			}
+
+			newPool := func(id uint64, sqsType domain.SQSPoolType) *mocks.MockRoutablePool {
+				return &mocks.MockRoutablePool{
+					ID:            id,
+					SQSPoolType:   sqsType,
+					TokenInDenom:  denom,
+					TokenOutDenom: denom,
+					TakerFee:      osmomath.ZeroDec(),
+					SpreadFactor:  osmomath.ZeroDec(),
+				}
+			}
+
+			transmuter := newPool(10, domain.TransmuterV1)
+			transmuter.CalculateTokenOutByTokenInFunc = func(_ context.Context, in sdk.Coin) (sdk.Coin, error) {
+				return in, checkCap(in.Amount)
+			}
+			transmuter.CalculateTokenInByTokenOutFunc = func(_ context.Context, out sdk.Coin) (sdk.Coin, error) {
+				return out, checkCap(out.Amount)
+			}
+
+			// Slippage so that splitting across routes is attractive.
+			slippy := func(id uint64) *mocks.MockRoutablePool {
+				p := newPool(id, domain.Balancer)
+				p.CalculateTokenOutByTokenInFunc = func(_ context.Context, in sdk.Coin) (sdk.Coin, error) {
+					return sdk.NewCoin(denom, in.Amount.Sub(in.Amount.Mul(in.Amount).QuoRaw(2000))), nil
+				}
+				p.CalculateTokenInByTokenOutFunc = func(_ context.Context, out sdk.Coin) (sdk.Coin, error) {
+					return sdk.NewCoin(denom, out.Amount.Add(out.Amount.Mul(out.Amount).QuoRaw(2000))), nil
+				}
+				return p
+			}
+
+			withTransmuter := func(p domain.RoutablePool) route.RouteImpl {
+				if tc.exactIn {
+					return route.RouteImpl{Pools: []domain.RoutablePool{p, transmuter}}
+				}
+				return route.RouteImpl{Pools: []domain.RoutablePool{transmuter, p}}
+			}
+			routes := []route.RouteImpl{
+				withTransmuter(slippy(1)),
+				withTransmuter(slippy(2)),
+				{Pools: []domain.RoutablePool{slippy(3)}},
+			}
+
+			coin := sdk.NewCoin(denom, osmomath.NewInt(1000))
+
+			var (
+				quote domain.Quote
+				err   error
+			)
+			if tc.exactIn {
+				quote, err = usecase.GetSplitQuote(context.TODO(), routes, coin)
+			} else {
+				quote, err = usecase.GetSplitQuoteInGivenOut(context.TODO(), routes, coin)
+			}
+			s.Require().NoError(err)
+
+			transmuterLegs := 0
+			for _, leg := range quote.GetRoute() {
+				for _, pool := range leg.GetPools() {
+					if pool.GetId() == transmuter.ID {
+						transmuterLegs++
+					}
+				}
+			}
+			s.Require().Equal(tc.expectLegs, transmuterLegs)
+			// The route that does not use the transmuter is kept either way.
+			s.Require().Len(quote.GetRoute(), tc.expectLegs+1)
+		})
+	}
+}
+
+// TestGetSplitQuote_SharedTransmuterDeposit checks two legs that deposit the same denom into one
+// alloy transmuter and withdraw different variants. Each deposit fits the static limit alone; the
+// two together do not, so one leg is dropped even though the legs share no direction or withdrawn
+// denom.
+func (s *RouterTestSuite) TestGetSplitQuote_SharedTransmuterDeposit() {
+	const in, final = "uaaa", "uxxx"
+	limit := osmomath.NewInt(500)
+
+	transmuterTo := func(out string) *mocks.MockRoutablePool {
+		return &mocks.MockRoutablePool{
+			ID: 10, SQSPoolType: domain.AlloyedTransmuter, TokenInDenom: in, TokenOutDenom: out,
+			TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+			CalculateTokenOutByTokenInFunc: func(_ context.Context, c sdk.Coin) (sdk.Coin, error) {
+				if c.Amount.GT(limit) {
+					return sdk.Coin{}, domain.StaticRateLimiterInvalidUpperLimitError{UpperLimit: "0.5", Denom: in}
+				}
+				return sdk.NewCoin(out, c.Amount), nil
+			},
+		}
+	}
+	slippy := func(id uint64, from string) *mocks.MockRoutablePool {
+		return &mocks.MockRoutablePool{
+			ID: id, SQSPoolType: domain.Balancer, TokenInDenom: from, TokenOutDenom: final,
+			TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+			CalculateTokenOutByTokenInFunc: func(_ context.Context, c sdk.Coin) (sdk.Coin, error) {
+				return sdk.NewCoin(final, c.Amount.Sub(c.Amount.Mul(c.Amount).QuoRaw(2000))), nil
+			},
+		}
+	}
+	routes := []route.RouteImpl{
+		{Pools: []domain.RoutablePool{transmuterTo("ubbb"), slippy(1, "ubbb")}},
+		{Pools: []domain.RoutablePool{transmuterTo("uccc"), slippy(2, "uccc")}},
+		{Pools: []domain.RoutablePool{slippy(3, in)}},
+	}
+
+	quote, err := usecase.GetSplitQuote(context.TODO(), routes, sdk.NewCoin(in, osmomath.NewInt(1000)))
+	s.Require().NoError(err)
+
+	transmuterLegs, deposited := 0, osmomath.ZeroInt()
+	for _, leg := range quote.GetRoute() {
+		if leg.GetPools()[0].GetId() == 10 {
+			transmuterLegs++
+			deposited = deposited.Add(leg.GetAmountIn())
+		}
+	}
+	s.Require().Equal(1, transmuterLegs)
+	s.Require().True(deposited.LTE(limit), "deposits into the transmuter %s exceed its limit %s", deposited, limit)
+}
+
 // Sanity check that the exact-out (in-given-out) split optimizer returns a non-nil quote
 // for a real mainnet pair, and that the split outputs sum to exactly the requested output.
 func (s *RouterTestSuite) TestGetSplitQuoteInGivenOut() {
