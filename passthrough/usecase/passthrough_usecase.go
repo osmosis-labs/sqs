@@ -163,26 +163,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	})
 
 	// Collect all unique valid denoms once and fetch prices in a single batched call.
-	seenDenoms := make(map[string]struct{}, len(totalCoins))
-	denomsToPrice := make([]string, 0, len(totalCoins))
-	for _, cat := range categories {
-		for _, coin := range cat.coins {
-			if _, ok := seenDenoms[coin.Denom]; ok {
-				continue
-			}
-			seenDenoms[coin.Denom] = struct{}{}
-			if p.tokensUseCase.IsValidChainDenom(coin.Denom) {
-				denomsToPrice = append(denomsToPrice, coin.Denom)
-			} else {
-				p.logger.Debug("denom is not valid & skipped from pricing in portfolio", zap.String("denom", coin.Denom))
-			}
-		}
-	}
-
-	priceResult, priceErr := p.tokensUseCase.GetPrices(ctx, denomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
-	if priceErr != nil {
-		priceResult = domain.PricesResult{}
-	}
+	priceResult, priceErr := p.fetchPricesForCoins(ctx, bankCoins, unstakingCoins, stakedCoins, inLocksCoins, unclaimedCoins, pooledCoins)
 
 	finalResult := passthroughdomain.PortfolioAssetsResult{
 		Categories: make(map[string]passthroughdomain.PortfolioAssetsCategoryResult, len(categories)),
@@ -206,28 +187,29 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	return finalResult, nil
 }
 
-// computeCapitalizationForCoins instruments the coins with their liquidity capitalization values.
-// Returns a slice of entries containing each coin and its capitalization value, plus the total capitalization.
-// If a coin is not valid, it is skipped from pricing and its capitalization is set to zero.
-// Returns an error if prices fail to be computed, while still returning a best-effort result.
-func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) (_ []passthroughdomain.AccountCoinsResult, _ osmomath.Dec, err error) {
-	defer recovery.ToErrorf(&err, "computing capitalization")
-
-	coinDenomsToPrice := make([]string, 0, len(coins))
-	for _, coin := range coins {
-		if p.tokensUseCase.IsValidChainDenom(coin.Denom) {
-			coinDenomsToPrice = append(coinDenomsToPrice, coin.Denom)
-		} else {
-			p.logger.Debug("denom is not valid & skipped from pricing in portfolio", zap.String("denom", coin.Denom))
+// fetchPricesForCoins deduplicates valid denoms across coinSets and fetches their prices in one call.
+func (p *passthroughUseCase) fetchPricesForCoins(ctx context.Context, coinSets ...sdk.Coins) (domain.PricesResult, error) {
+	seenDenoms := make(map[string]struct{})
+	var denomsToPrice []string
+	for _, coins := range coinSets {
+		for _, coin := range coins {
+			if _, ok := seenDenoms[coin.Denom]; ok {
+				continue
+			}
+			seenDenoms[coin.Denom] = struct{}{}
+			if p.tokensUseCase.IsValidChainDenom(coin.Denom) {
+				denomsToPrice = append(denomsToPrice, coin.Denom)
+			} else {
+				p.logger.Debug("denom is not valid & skipped from pricing in portfolio", zap.String("denom", coin.Denom))
+			}
 		}
 	}
 
-	priceResult, priceErr := p.tokensUseCase.GetPrices(ctx, coinDenomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
-	if priceErr != nil {
-		priceResult = domain.PricesResult{}
+	priceResult, err := p.tokensUseCase.GetPrices(ctx, denomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	if err != nil {
+		return domain.PricesResult{}, err
 	}
-
-	return p.priceCoins(coins, priceResult, priceErr)
+	return priceResult, nil
 }
 
 func (p *passthroughUseCase) priceCoins(coins sdk.Coins, priceResult domain.PricesResult, priceErr error) (_ []passthroughdomain.AccountCoinsResult, _ osmomath.Dec, err error) {
