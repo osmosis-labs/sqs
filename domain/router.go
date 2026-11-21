@@ -93,6 +93,9 @@ type Quote interface {
 	// and whether it is beyond the warning threshold.
 	SetDeviationFromReference(deviation osmomath.Dec, warning bool, source string)
 
+	// SetQuoteUSDPeg sets the peg of the pricing quote denom against US dollars. Nil leaves it out.
+	SetQuoteUSDPeg(peg *QuoteUSDPeg)
+
 	String() string
 }
 

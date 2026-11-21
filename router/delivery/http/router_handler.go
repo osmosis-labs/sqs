@@ -34,7 +34,9 @@ type RouterHandler struct {
 	// ReferenceCheck sanity-checks /router/quote responses against reference prices.
 	// Nil disables the check.
 	ReferenceCheck *QuoteReferenceChecker
-	logger         log.Logger
+	// USDPeg adds the quote denom's peg against US dollars to /router/quote responses. Nil disables it.
+	USDPeg *domain.QuoteUSDPegChecker
+	logger log.Logger
 }
 
 const routerResource = "/router"
@@ -58,6 +60,9 @@ type Config struct {
 	// QuoteReferenceChecker checks /router/quote responses against reference prices.
 	// Nil disables the check.
 	QuoteReferenceChecker *QuoteReferenceChecker
+
+	// QuoteUSDPegChecker adds the quote denom's USD peg to /router/quote responses. Nil disables it.
+	QuoteUSDPegChecker *domain.QuoteUSDPegChecker
 }
 
 // NewRouterHandler will initialize the pools/ resources endpoint
@@ -75,6 +80,7 @@ func NewRouterHandler(
 		TUsecase:       tu,
 		QuoteSimulator: qs,
 		ReferenceCheck: config.QuoteReferenceChecker,
+		USDPeg:         config.QuoteUSDPegChecker,
 		logger:         logger,
 	}
 
@@ -207,6 +213,12 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		if err := a.ReferenceCheck.Check(quote, tokenInDenom, amountIn, outDenom, amountOut); err != nil {
 			return c.JSON(http.StatusUnprocessableEntity, domain.ResponseError{Message: err.Error()})
 		}
+	}
+
+	// Report the peg of the pricing quote denom against US dollars, if enabled. Unknown when no
+	// fresh reference price exists. It never changes the quote.
+	if a.USDPeg != nil {
+		quote.SetQuoteUSDPeg(a.USDPeg.Check(ctx))
 	}
 
 	// Simulate quote if applicable.
