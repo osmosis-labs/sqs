@@ -335,7 +335,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase, poolsUseCase, logger)
-	chainregistryHttpDelivery.NewChainregistryHandler(e, chainregistryUseCase, logger)
+	chainregistryHttpDelivery.NewChainregistryHandler(e, chainregistryUseCase)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
 	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, config.DebugEndpointsEnabled, logger); err != nil {
 		return nil, err
