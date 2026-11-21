@@ -33,6 +33,15 @@ type CandidateRouteSearchOptions struct {
 	// If at least one of the callbacks in-slice returns true, the ShouldSkipPool function will
 	// also return true.
 	PoolFiltersAnyOf []CandidateRoutePoolFiltrerCb
+
+	// ExactOut is set by the exact-out search. The search runs from the token out, so the first pool must hold
+	// the token out, and that balance is checked for alloy transmuters too, except for the alloyed LP share
+	// that a transmuter mints.
+	ExactOut bool
+	// MaxSplitRoutes is read by the exact-out search only. When it is above one, a first pool needs to hold only
+	// an even split share (1/MaxSplitRoutes) of the token out, so that pools that fill part of the amount can
+	// take part in a split.
+	MaxSplitRoutes int
 }
 
 // ShouldSkipPool returns true if the candidate route algorithm should skip
@@ -90,11 +99,18 @@ type CandidatePoolWrapper struct {
 	PoolLiquidityCap  *sqsatomic.Uint64 // Note: the value is truncated if it is larger than uint64
 	Balances          sdk.Coins
 	IsAlloyTransmuter bool
-	IsOrderbook       bool
+	// AlloyedDenom is the alloyed LP share denom of an alloy transmuter, empty for any other pool.
+	AlloyedDenom string
+	IsOrderbook  bool
 }
 
 func NewCandidatePoolWrapper(id uint64, p osmoingesttypes.SQSPool) CandidatePoolWrapper {
+	alloyedDenom := ""
+	if p.CosmWasmPoolModel != nil && p.CosmWasmPoolModel.IsAlloyTransmuter() && p.CosmWasmPoolModel.Data.AlloyTransmuter != nil {
+		alloyedDenom = p.CosmWasmPoolModel.Data.AlloyTransmuter.AlloyedDenom
+	}
 	return CandidatePoolWrapper{
+		AlloyedDenom:      alloyedDenom,
 		ID:                id,
 		PoolDenoms:        p.PoolDenoms,
 		PoolLiquidityCap:  sqsatomic.NewUint64(osmomath.SafeUint64(p.PoolLiquidityCap)),
