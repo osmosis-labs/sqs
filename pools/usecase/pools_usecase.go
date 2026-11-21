@@ -426,6 +426,14 @@ func feesDataField(field func(sqspassthroughdomain.PoolFee) float64) func(ingest
 	}
 }
 
+func uint64Set(ids []uint64) map[uint64]struct{} {
+	set := make(map[uint64]struct{}, len(ids))
+	for _, id := range ids {
+		set[id] = struct{}{}
+	}
+	return set
+}
+
 func filterPools(pools []ingesttypes.PoolI, keep func(ingesttypes.PoolI) bool) []ingesttypes.PoolI {
 	filtered := make([]ingesttypes.PoolI, 0, len(pools))
 	for _, pool := range pools {
@@ -579,18 +587,24 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 
 	if f := options.Filter; f != nil {
 		if len(f.PoolId) > 0 {
+			allowed := uint64Set(f.PoolId)
 			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
-				return slices.Contains(f.PoolId, pool.GetId())
+				_, ok := allowed[pool.GetId()]
+				return ok
 			})
 		}
 		if len(f.PoolIdNotIn) > 0 {
+			excluded := uint64Set(f.PoolIdNotIn)
 			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
-				return !slices.Contains(f.PoolIdNotIn, pool.GetId())
+				_, ok := excluded[pool.GetId()]
+				return !ok
 			})
 		}
 		if len(f.Type) > 0 {
+			allowedTypes := uint64Set(f.Type)
 			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
-				return slices.Contains(f.Type, uint64(pool.GetType()))
+				_, ok := allowedTypes[uint64(pool.GetType())]
+				return ok
 			})
 		}
 		if f.MinLiquidityCap > 0 {

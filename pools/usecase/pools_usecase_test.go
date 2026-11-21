@@ -25,6 +25,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
+	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 	"github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -1118,6 +1119,96 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 			if tt.validateFunc != nil {
 				tt.validateFunc(s, pools)
 			}
+		})
+	}
+}
+
+// TestGetPools_PoolIDNotInAndTypeFilters verifies the set-based pool ID exclusion and pool type
+// filters of GetPools: matching pools are kept, the rest dropped, duplicate filter entries change
+// nothing, and the surviving pools come back in the requested order.
+func (s *PoolsUsecaseTestSuite) TestGetPools_PoolIDNotInAndTypeFilters() {
+	var (
+		balancer     = poolmanagertypes.Balancer
+		stableswap   = poolmanagertypes.Stableswap
+		concentrated = poolmanagertypes.Concentrated
+	)
+
+	// Pool i+1 has type poolTypes[i].
+	poolTypes := []poolmanagertypes.PoolType{balancer, stableswap, concentrated, balancer, stableswap, concentrated}
+	storedPools := make([]ingesttypes.PoolI, 0, len(poolTypes))
+	for i, poolType := range poolTypes {
+		id := uint64(i + 1)
+		storedPools = append(storedPools, &mocks.MockRoutablePool{
+			ChainPoolModel: &mocks.ChainPoolMock{ID: id, Type: poolType},
+			ID:             id,
+			PoolType:       poolType,
+		})
+	}
+
+	poolsUsecase := s.newDefaultPoolsUseCase()
+	s.Require().NoError(poolsUsecase.StorePools(storedPools))
+
+	// Pools are read from a map, so only a requested sort gives the result a fixed order.
+	byIDDescending := domain.WithSort(&v1beta1.SortRequest{
+		Fields: []*v1beta1.SortField{{Field: "id", Direction: v1beta1.SortDirection_DESCENDING}},
+	})
+
+	tests := []struct {
+		name   string
+		filter api.GetPoolsRequestFilter
+		expIDs []uint64
+	}{
+		{
+			name:   "not_in excludes the listed pools",
+			filter: api.GetPoolsRequestFilter{PoolIdNotIn: []uint64{2, 5}},
+			expIDs: []uint64{6, 4, 3, 1},
+		},
+		{
+			name:   "not_in with duplicates excludes each listed pool once",
+			filter: api.GetPoolsRequestFilter{PoolIdNotIn: []uint64{2, 5, 2, 5, 2}},
+			expIDs: []uint64{6, 4, 3, 1},
+		},
+		{
+			name:   "not_in with unknown IDs excludes nothing",
+			filter: api.GetPoolsRequestFilter{PoolIdNotIn: []uint64{99, 100}},
+			expIDs: []uint64{6, 5, 4, 3, 2, 1},
+		},
+		{
+			name:   "type keeps only pools of that type",
+			filter: api.GetPoolsRequestFilter{Type: []uint64{uint64(stableswap)}},
+			expIDs: []uint64{5, 2},
+		},
+		{
+			name:   "type with several types and duplicates keeps pools of any listed type",
+			filter: api.GetPoolsRequestFilter{Type: []uint64{uint64(balancer), uint64(concentrated), uint64(balancer)}},
+			expIDs: []uint64{6, 4, 3, 1},
+		},
+		{
+			name:   "type matching no pool returns none",
+			filter: api.GetPoolsRequestFilter{Type: []uint64{uint64(poolmanagertypes.CosmWasm)}},
+			expIDs: []uint64{},
+		},
+		{
+			name: "type and not_in combine",
+			filter: api.GetPoolsRequestFilter{
+				Type:        []uint64{uint64(balancer), uint64(concentrated)},
+				PoolIdNotIn: []uint64{3, 4},
+			},
+			expIDs: []uint64{6, 1},
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			pools, total, err := poolsUsecase.GetPools(domain.WithFilter(&tt.filter), byIDDescending)
+			s.Require().NoError(err)
+
+			ids := make([]uint64, 0, len(pools))
+			for _, pool := range pools {
+				ids = append(ids, pool.GetId())
+			}
+			s.Require().Equal(tt.expIDs, ids)
+			s.Require().Equal(uint64(len(tt.expIDs)), total)
 		})
 	}
 }

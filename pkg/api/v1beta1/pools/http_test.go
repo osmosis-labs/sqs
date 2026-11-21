@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -166,6 +167,93 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				assert.Equal(t, tt.expectedFilter.MinLiquidityCap, filter.MinLiquidityCap)
 				assert.Equal(t, tt.expectedFilter.WithMarketIncentives, filter.WithMarketIncentives)
 			}
+		})
+	}
+}
+
+// repeatList returns n copies of item joined by commas.
+func repeatList(item string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	return strings.Repeat(item+",", n-1) + item
+}
+
+// unmarshalFilter parses a pools filter from the given query parameters.
+func unmarshalFilter(queryParams map[string]string) (*GetPoolsRequestFilter, error) {
+	q := url.Values{}
+	for k, v := range queryParams {
+		q.Add(k, v)
+	}
+	req := http.Request{URL: &url.URL{RawQuery: q.Encode()}}
+	filter := &GetPoolsRequestFilter{}
+	err := filter.UnmarshalHTTPRequest(echo.New().NewContext(&req, nil))
+	return filter, err
+}
+
+// Validates that every bounded list parameter accepts exactly its limit and rejects one entry
+// more, so an off-by-one in any bound check fails here.
+func TestGetPoolsRequestFilter_UnmarshalHTTPRequest_ListLimits(t *testing.T) {
+	poolIDs := func(f *GetPoolsRequestFilter) int { return len(f.PoolId) }
+	single := func(param, item string) func(n int) map[string]string {
+		return func(n int) map[string]string { return map[string]string{param: repeatList(item, n)} }
+	}
+
+	params := []struct {
+		name  string
+		limit int
+		query func(n int) map[string]string
+		count func(*GetPoolsRequestFilter) int
+	}{
+		{name: "IDs", limit: maxPoolIDs, query: single(queryIDs, "1"), count: poolIDs},
+		{name: "filter[id]", limit: maxPoolIDs, query: single(queryFilterID, "1"), count: poolIDs},
+		{
+			name:  "IDs and filter[id] share one budget",
+			limit: maxPoolIDs,
+			query: func(n int) map[string]string {
+				return map[string]string{
+					queryIDs:      repeatList("1", maxPoolIDs/2),
+					queryFilterID: repeatList("2", n-maxPoolIDs/2),
+				}
+			},
+			count: poolIDs,
+		},
+		{
+			name:  "filter[id][not_in]",
+			limit: maxPoolIDs,
+			query: single(queryFilterIDNotIn, "1"),
+			count: func(f *GetPoolsRequestFilter) int { return len(f.PoolIdNotIn) },
+		},
+		{
+			name:  "filter[type]",
+			limit: maxPoolTypes,
+			query: single(queryFilterType, "1"),
+			count: func(f *GetPoolsRequestFilter) int { return len(f.Type) },
+		},
+		{
+			name:  "filter[incentive]",
+			limit: maxIncentiveTypes,
+			query: single(queryFilterIncentive, "1"),
+			count: func(f *GetPoolsRequestFilter) int { return len(f.Incentive) },
+		},
+		{
+			name:  "filter[denom]",
+			limit: maxDenoms,
+			query: single(queryFilterDenom, "uosmo"),
+			count: func(f *GetPoolsRequestFilter) int { return len(f.Denom) },
+		},
+	}
+
+	for _, p := range params {
+		t.Run(p.name+" at limit is accepted", func(t *testing.T) {
+			filter, err := unmarshalFilter(p.query(p.limit))
+			require.NoError(t, err)
+			assert.Equal(t, p.limit, p.count(filter))
+		})
+		t.Run(p.name+" over limit is rejected", func(t *testing.T) {
+			_, err := unmarshalFilter(p.query(p.limit + 1))
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), fmt.Sprintf("max: %d", p.limit))
 		})
 	}
 }
