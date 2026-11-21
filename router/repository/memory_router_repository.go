@@ -206,7 +206,7 @@ func (r *routerRepo) SetCandidateRouteSearchData(data map[string]*domain.Candida
 
 	if len(zeroCapPoolIDs) > 0 {
 		liquidityCaps := make(map[uint64]uint64, len(zeroCapPoolIDs))
-		pools, _, err := r.poolHandler.GetPools(domain.WithPoolIDFilter(domain.KeysFromMap(zeroCapPoolIDs)))
+		pools, _, err := r.poolHandler.GetPools(domain.WithPoolIDFilter(slices.Collect(maps.Keys(zeroCapPoolIDs))))
 		if err == nil {
 			for _, p := range pools {
 				// SafeUint64 is zero for a nil, zero or negative capitalization. A pool that

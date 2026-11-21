@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -824,7 +825,7 @@ func (p *poolsUseCase) TakeCanonicalOrderbookChangedDenoms() []string {
 	p.canonicalOrderbookMu.Lock()
 	defer p.canonicalOrderbookMu.Unlock()
 
-	denoms := domain.KeysFromMap(p.canonicalOrderbookChangedDenoms)
+	denoms := slices.Collect(maps.Keys(p.canonicalOrderbookChangedDenoms))
 	p.canonicalOrderbookChangedDenoms = nil
 
 	return denoms

@@ -3,6 +3,7 @@ package claimbot
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync/atomic"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -10,7 +11,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/keyring"
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
-	"github.com/osmosis-labs/sqs/domain/slices"
 	"github.com/osmosis-labs/sqs/log"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
@@ -166,7 +166,7 @@ func (o *claimbot) processOrderbookOrders(ctx context.Context, account *authtype
 		return nil
 	}
 
-	for _, chunk := range slices.Split(orders, maxBatchOfClaimableOrders) {
+	for chunk := range slices.Chunk(orders, maxBatchOfClaimableOrders) {
 		if len(chunk) == 0 {
 			continue
 		}
