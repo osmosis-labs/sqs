@@ -254,6 +254,42 @@ func (s *TokensHandlerSuite) TestGetPrices() {
 			expectedResponse:   `{"uosmo":{"usdc":"1.250000000000000000000000000000000000"},"uatom":{"usdc":"10.500000000000000000000000000000000000"}}`,
 		},
 		{
+			name: "duplicate base denoms are deduplicated before pricing",
+			queryParams: map[string]string{
+				"base": "uosmo,uatom,uosmo,uatom,uosmo",
+			},
+			handler: &tokensdelivery.TokensHandler{
+				TUsecase: &mocks.TokensUsecaseMock{
+					GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+						if len(baseDenoms) != 2 || baseDenoms[0] != "uosmo" || baseDenoms[1] != "uatom" {
+							return nil, errors.New("unexpected base denoms " + strings.Join(baseDenoms, ","))
+						}
+						return mockPriceResult, nil
+					},
+					IsValidChainDenomFunc: func(chainDenom string) bool {
+						return true
+					},
+					IsValidPricingSourceFunc: func(pricingSource int) bool {
+						return true
+					},
+				},
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   `{"uosmo":{"usdc":"1.250000000000000000000000000000000000"},"uatom":{"usdc":"10.500000000000000000000000000000000000"}}`,
+		},
+		{
+			name: "too many base denoms rejected",
+			queryParams: map[string]string{
+				"base": strings.Repeat("uosmo,", 500) + "uosmo",
+			},
+			handler: &tokensdelivery.TokensHandler{
+				TUsecase: &mocks.TokensUsecaseMock{},
+			},
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse:   `{"message":"too many denoms, max: 500"}`,
+			expectedError:      true,
+		},
+		{
 			name: "invalid debug parameter",
 			queryParams: map[string]string{
 				"base":  "uosmo",
@@ -332,6 +368,29 @@ func (s *TokensHandlerSuite) TestGetPrices() {
 				strings.TrimSpace(tc.expectedResponse),
 				strings.TrimSpace(rec.Body.String()),
 			)
+		})
+	}
+}
+
+func (s *TokensHandlerSuite) TestDenomsParamLimitOnMetadataEndpoints() {
+	tooManyDenoms := strings.Repeat("uosmo,", 500) + "uosmo"
+	handler := &tokensdelivery.TokensHandler{
+		TUsecase: &mocks.TokensUsecaseMock{},
+	}
+
+	for name, call := range map[string]func(echo.Context) error{
+		"GetMetadata":          handler.GetMetadata,
+		"GetPoolDenomMetadata": handler.GetPoolDenomMetadata,
+	} {
+		s.Run(name, func() {
+			e := deliveryhttp.NewEcho()
+			req := httptest.NewRequest(echo.GET, "/?denoms="+tooManyDenoms, nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			s.Require().NoError(call(c))
+			s.Assert().Equal(http.StatusBadRequest, rec.Code)
+			s.Assert().JSONEq(`{"message":"too many denoms, max: 500"}`, rec.Body.String())
 		})
 	}
 }

@@ -16,6 +16,9 @@ import (
 const (
 	maxSearchQueryLength = 200
 	maxDenoms            = 8
+	maxPoolIDs           = 500
+	maxPoolTypes         = 16
+	maxIncentiveTypes    = 16
 )
 
 const (
@@ -122,33 +125,56 @@ func (r *GetPoolsRequestFilter) UnmarshalHTTPRequest(c echo.Context) error {
 	var err error
 
 	// Deprecated: use filter[ID]
-	r.PoolId, err = number.ParseNumbers(c.QueryParam(queryIDs))
+	rawIDs := c.QueryParam(queryIDs)
+	if strings.Count(rawIDs, ",") >= maxPoolIDs {
+		return fmt.Errorf("too many pool IDs, max: %d", maxPoolIDs)
+	}
+	r.PoolId, err = number.ParseNumbers(rawIDs)
 	if err != nil {
 		return err
 	}
 
 	// Parse query filter by ID
-	id, err := number.ParseNumbers(c.QueryParam(queryFilterID))
+	rawFilterID := c.QueryParam(queryFilterID)
+	if strings.Count(rawFilterID, ",") >= maxPoolIDs {
+		return fmt.Errorf("too many pool IDs, max: %d", maxPoolIDs)
+	}
+	id, err := number.ParseNumbers(rawFilterID)
 	if err != nil {
 		return err
 	}
 	r.PoolId = append(r.PoolId, id...)
+	if len(r.PoolId) > maxPoolIDs {
+		return fmt.Errorf("too many pool IDs, max: %d", maxPoolIDs)
+	}
 
 	// Parse query filter by ID not in
-	idNotIn, err := number.ParseNumbers(c.QueryParam(queryFilterIDNotIn))
+	rawIDNotIn := c.QueryParam(queryFilterIDNotIn)
+	if strings.Count(rawIDNotIn, ",") >= maxPoolIDs {
+		return fmt.Errorf("too many excluded pool IDs, max: %d", maxPoolIDs)
+	}
+	idNotIn, err := number.ParseNumbers(rawIDNotIn)
 	if err != nil {
 		return err
 	}
 	r.PoolIdNotIn = append(r.PoolIdNotIn, idNotIn...)
 
 	// Parse query filter by type
-	r.Type, err = number.ParseNumbers(c.QueryParam(queryFilterType))
+	rawType := c.QueryParam(queryFilterType)
+	if strings.Count(rawType, ",") >= maxPoolTypes {
+		return fmt.Errorf("too many pool types, max: %d", maxPoolTypes)
+	}
+	r.Type, err = number.ParseNumbers(rawType)
 	if err != nil {
 		return err
 	}
 
 	// Parse query filter by incentive
-	r.Incentive, err = number.ParseNumberType(c.QueryParam(queryFilterIncentive), func(s string) (IncentiveType, error) {
+	rawIncentive := c.QueryParam(queryFilterIncentive)
+	if strings.Count(rawIncentive, ",") >= maxIncentiveTypes {
+		return fmt.Errorf("too many incentive types, max: %d", maxIncentiveTypes)
+	}
+	r.Incentive, err = number.ParseNumberType(rawIncentive, func(s string) (IncentiveType, error) {
 		i, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
 			return 0, fmt.Errorf("invalid IncentiveType '%s': %w", s, err)

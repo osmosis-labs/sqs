@@ -41,6 +41,10 @@ const (
 	// after its response can no longer be written. It is below that write timeout, so the error
 	// response still reaches the client.
 	pricesRequestTimeout = 50 * time.Second
+
+	// maxDenomsParam bounds the number of comma-separated denoms accepted on /tokens/* endpoints
+	// to prevent CPU and memory amplification from oversized or repeated query lists.
+	maxDenomsParam = 500
 )
 
 func formatTokensResource(resource string) string {
@@ -95,20 +99,14 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusOK, tokenMetadata)
 	}
 
-	denoms := strings.Split(denomsStr, ",")
+	denoms, err := validateDenomsParam(denomsStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
 
 	tokenMetadataResult := make(map[string]domain.Token, len(denoms))
 
 	for _, denom := range denoms {
-		denom, err := url.PathUnescape(denom)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-		}
-
-		if err := sdk.ValidateDenom(denom); err != nil {
-			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-		}
-
 		tokenMetadata, err := a.TUsecase.GetMetadataByChainDenom(denom)
 		if err == nil {
 			tokenMetadataResult[denom] = tokenMetadata
@@ -150,14 +148,18 @@ func (a *TokensHandler) GetPoolDenomMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusOK, result)
 	}
 
-	denoms := strings.Split(denomsStr, ",")
+	if strings.Count(denomsStr, ",") >= maxDenomsParam {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("too many denoms, max: %d", maxDenomsParam)})
+	}
+
+	denoms := deduplicateStrings(strings.Split(denomsStr, ","))
 	// Validate denom parameters and convert to chain denoms if necessary.
 	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, denoms)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	result := a.TUsecase.GetPoolDenomsMetadata(chainDenoms)
+	result := a.TUsecase.GetPoolDenomsMetadata(deduplicateStrings(chainDenoms))
 	return c.JSON(http.StatusOK, result)
 }
 
@@ -320,6 +322,7 @@ func (a TokensHandler) getQuoteDenom(pricingSourceType domain.PricingSourceType)
 // If any of the denoms are invalid return an error
 func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms bool) ([]string, error) {
 	valid := make([]string, 0, len(baseDenoms))
+	seen := make(map[string]struct{}, len(baseDenoms))
 	var firstErr error
 	for _, baseDenom := range baseDenoms {
 		// If human, convert to chain format
@@ -341,6 +344,10 @@ func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms
 			continue
 		}
 
+		if _, dup := seen[baseDenom]; dup {
+			continue
+		}
+		seen[baseDenom] = struct{}{}
 		valid = append(valid, baseDenom)
 	}
 
@@ -351,16 +358,22 @@ func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms
 	return valid, nil
 }
 
-// validateDenomsParam validates the denoms param string
-// returns a denom slice if validation passes. Error otherwise
+// validateDenomsParam validates the denoms param string and deduplicates entries while preserving order.
+// Returns a denom slice if validation passes. Error otherwise.
 func validateDenomsParam(denomsStr string) ([]string, error) {
 	if len(denomsStr) == 0 {
 		return nil, errors.New("denoms input must be non-empty")
 	}
 
-	denoms := strings.Split(denomsStr, ",")
+	if strings.Count(denomsStr, ",") >= maxDenomsParam {
+		return nil, fmt.Errorf("too many denoms, max: %d", maxDenomsParam)
+	}
 
-	for i, denom := range denoms {
+	rawDenoms := strings.Split(denomsStr, ",")
+	denoms := make([]string, 0, len(rawDenoms))
+	seen := make(map[string]struct{}, len(rawDenoms))
+
+	for _, denom := range rawDenoms {
 		denom, err := url.PathUnescape(denom)
 		if err != nil {
 			return nil, err
@@ -370,11 +383,32 @@ func validateDenomsParam(denomsStr string) ([]string, error) {
 			return nil, err
 		}
 
+		if _, dup := seen[denom]; dup {
+			continue
+		}
+		seen[denom] = struct{}{}
+
 		// Return the denom that was validated, not the escaped form it was given in.
-		denoms[i] = denom
+		denoms = append(denoms, denom)
 	}
 
 	return denoms, nil
+}
+
+func deduplicateStrings(items []string) []string {
+	if len(items) <= 1 {
+		return items
+	}
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if _, dup := seen[item]; dup {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
 
 func (a *TokensHandler) StoreTokensStateInFiles(c echo.Context) error {

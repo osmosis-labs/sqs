@@ -15,6 +15,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/orderbook/types"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/labstack/echo/v4"
 
 	"go.uber.org/zap"
@@ -91,7 +92,11 @@ func (a *PassthroughHandler) GetPortfolioAssetsByAddress(c echo.Context) error {
 	address := c.Param("address")
 
 	if address == "" {
-		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: "invalid address: cannot be empty"})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "invalid address: cannot be empty"})
+	}
+
+	if _, err := sdk.AccAddressFromBech32(address); err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("invalid address: %v", err)})
 	}
 
 	portfolioAssetsResult, err := a.PUsecase.GetPortfolioAssets(c.Request().Context(), address)

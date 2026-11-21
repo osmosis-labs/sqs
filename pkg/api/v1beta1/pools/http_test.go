@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -226,6 +227,49 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 			name: "Invalid Search ( too long )",
 			queryParams: map[string]string{
 				queryFilterSearch: "TestGetPoolsRequestFilter_UnmarshalHTTPRequest/Invalid_Search_(_too_long_very_long_search_query_that_exceeds_the_max_length_of_200_characters_lore_ipsum_dolor_sit_amet_consectetur_adipiscing_elit_sed_do_eiusmod_tempor_incididunt_ut",
+			},
+			expectError: true,
+		},
+		{
+			name: "Too many legacy IDs",
+			queryParams: map[string]string{
+				queryIDs: strings.Repeat("1,", maxPoolIDs) + "1",
+			},
+			expectError: true,
+		},
+		{
+			name: "Too many filter[id]",
+			queryParams: map[string]string{
+				queryFilterID: strings.Repeat("1,", maxPoolIDs) + "1",
+			},
+			expectError: true,
+		},
+		{
+			name: "Combined IDs and filter[id] exceed max",
+			queryParams: map[string]string{
+				queryIDs:      strings.Repeat("1,", maxPoolIDs/2) + "1",
+				queryFilterID: strings.Repeat("2,", maxPoolIDs/2) + "2",
+			},
+			expectError: true,
+		},
+		{
+			name: "Too many filter[id][not_in]",
+			queryParams: map[string]string{
+				queryFilterIDNotIn: strings.Repeat("1,", maxPoolIDs) + "1",
+			},
+			expectError: true,
+		},
+		{
+			name: "Too many filter[type]",
+			queryParams: map[string]string{
+				queryFilterType: strings.Repeat("1,", maxPoolTypes) + "1",
+			},
+			expectError: true,
+		},
+		{
+			name: "Too many filter[incentive]",
+			queryParams: map[string]string{
+				queryFilterIncentive: strings.Repeat("1,", maxIncentiveTypes) + "1",
 			},
 			expectError: true,
 		},

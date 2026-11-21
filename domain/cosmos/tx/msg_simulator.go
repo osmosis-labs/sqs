@@ -36,6 +36,7 @@ type MsgSimulator interface {
 	// adjusted gas used, and any error encountered. It uses the provided gRPC client, encoding config,
 	// account details, and chain ID to create a transaction factory for the simulation.
 	SimulateMsgs(
+		ctx context.Context,
 		encodingConfig cosmosclient.TxConfig,
 		account *authtypes.BaseAccount,
 		chainID string,
@@ -125,8 +126,24 @@ func (c *txGasCalulator) BuildTx(
 	return txBuilder, nil
 }
 
+// contextClientConn wraps a gRPC client connection so that calls made by txclient.CalculateGas
+// (which internally passes context.Background()) inherit the caller's request context, allowing
+// client disconnects and simulation timeouts to cancel in-flight chain simulations.
+type contextClientConn struct {
+	gogogrpc.ClientConn
+	ctx context.Context
+}
+
+func (c contextClientConn) Invoke(_ context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
+	return c.ClientConn.Invoke(c.ctx, method, args, reply, opts...)
+}
+
+func (c contextClientConn) NewStream(_ context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	return c.ClientConn.NewStream(c.ctx, desc, method, opts...)
+}
+
 // SimulateMsgs implements MsgSimulator.
-func (c *txGasCalulator) SimulateMsgs(encodingConfig cosmosclient.TxConfig, account *authtypes.BaseAccount, chainID string, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
+func (c *txGasCalulator) SimulateMsgs(ctx context.Context, encodingConfig cosmosclient.TxConfig, account *authtypes.BaseAccount, chainID string, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
 	txFactory := txclient.Factory{}
 	txFactory = txFactory.WithTxConfig(encodingConfig)
 	txFactory = txFactory.WithAccountNumber(account.AccountNumber)
@@ -134,9 +151,14 @@ func (c *txGasCalulator) SimulateMsgs(encodingConfig cosmosclient.TxConfig, acco
 	txFactory = txFactory.WithChainID(chainID)
 	txFactory = txFactory.WithGasAdjustment(1.15)
 
+	clientCtx := c.clientCtx
+	if clientCtx != nil && ctx != nil {
+		clientCtx = contextClientConn{ClientConn: clientCtx, ctx: ctx}
+	}
+
 	// Estimate transaction
 	gasResult, adjustedGasUsed, err := c.calculateGas(
-		c.clientCtx,
+		clientCtx,
 		txFactory,
 		msgs...,
 	)
@@ -158,6 +180,7 @@ func (c *txGasCalulator) PriceMsgs(ctx context.Context, encodingConfig cosmoscli
 	}
 
 	_, gasAdjusted, err := c.SimulateMsgs(
+		ctx,
 		encodingConfig,
 		account,
 		chainID,

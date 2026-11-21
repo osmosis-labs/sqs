@@ -349,6 +349,27 @@ func TestValidateSimulationParams(t *testing.T) {
 			expectedError:        true,
 		},
 		{
+			name:                 "zero slippage tolerance",
+			swapMethod:           domain.TokenSwapMethodExactIn,
+			simulatorAddress:     "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+			slippageToleranceStr: "0",
+			expectedError:        true,
+		},
+		{
+			name:                 "slippage tolerance at upper bound",
+			swapMethod:           domain.TokenSwapMethodExactIn,
+			simulatorAddress:     "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+			slippageToleranceStr: "2",
+			want:                 osmomath.NewDec(2),
+		},
+		{
+			name:                 "slippage tolerance above upper bound",
+			swapMethod:           domain.TokenSwapMethodExactIn,
+			simulatorAddress:     "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+			slippageToleranceStr: "2.01",
+			expectedError:        true,
+		},
+		{
 			name:                 "exact out with no simulator address or slippage tolerance",
 			swapMethod:           domain.TokenSwapMethodExactOut,
 			simulatorAddress:     "",

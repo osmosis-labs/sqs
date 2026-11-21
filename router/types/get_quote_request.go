@@ -11,6 +11,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// maxSimulationSlippageTolerance is the upper bound accepted for simulationSlippageTolerance.
+var maxSimulationSlippageTolerance = osmomath.NewDec(2)
+
 // GetQuoteRequest represents swap quote request for the /router/quote endpoint.
 type GetQuoteRequest struct {
 	TokenIn                     *sdk.Coin
@@ -102,6 +105,13 @@ func validateSimulationParams(swapMethod domain.TokenSwapMethod, simulatorAddres
 
 		if slippageTolerance.LTE(osmomath.ZeroDec()) {
 			return osmomath.Dec{}, fmt.Errorf("slippage tolerance must be greater than 0")
+		}
+
+		// Bound the slippage multiplier so arbitrary huge decimals cannot overflow
+		// TokenOutMinAmount calculations during quote simulation. Values up to 2
+		// accommodate both fraction tolerances (e.g. 0.99) and >1 multipliers (e.g. 1.01).
+		if slippageTolerance.GT(maxSimulationSlippageTolerance) {
+			return osmomath.Dec{}, fmt.Errorf("slippage tolerance must not exceed %s", maxSimulationSlippageTolerance)
 		}
 
 		return slippageTolerance, nil
