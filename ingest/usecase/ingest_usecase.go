@@ -628,12 +628,7 @@ func (p *ingestUseCase) executeEndBlockProcessPlugins(ctx context.Context, block
 // executeEndBlockProcessPlugin runs one plugin. A panic in the plugin is recovered, so it
 // neither crashes SQS nor stops the plugins after it.
 func (p *ingestUseCase) executeEndBlockProcessPlugin(ctx context.Context, plugin domain.EndBlockProcessPlugin, blockHeight uint64, metadata domain.BlockPoolMetadata) {
-	defer func() {
-		if r := recover(); r != nil {
-			domain.SQSIngestUsecasePanicRecoveredCounter.WithLabelValues("end_block_plugin").Inc()
-			p.logger.Error("recovered panic in end block process plugin", zap.String("plugin", fmt.Sprintf("%T", plugin)), zap.Uint64("block_height", blockHeight), zap.Any("panic", r), zap.ByteString("stack", debug.Stack()))
-		}
-	}()
+	defer recovery.Log(p.logger, "recovered panic in end block process plugin", domain.SQSIngestUsecasePanicRecoveredCounter.WithLabelValues("end_block_plugin"), zap.String("plugin", fmt.Sprintf("%T", plugin)), zap.Uint64("block_height", blockHeight))
 
 	if err := plugin.ProcessEndBlock(ctx, blockHeight, metadata); err != nil {
 		p.logger.Error("error executing end block process plugin", zap.Error(err), zap.Uint64("block_height", blockHeight))

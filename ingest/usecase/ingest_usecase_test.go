@@ -594,6 +594,63 @@ func (s *IngestUseCaseTestSuite) TestRetryOrderbooksWithoutTicks() {
 	s.Require().ElementsMatch([]uint64{2, 3, 2, 3}, processedIDs())
 }
 
+// TestRetryOrderbooksWithoutTicks_CanonicalFirst checks that persistently failing non-canonical
+// books with lower pool IDs cannot use up the per-block retry budget: the canonical book, which
+// the health check counts, is retried first. The counts reported stay those of all books.
+func (s *IngestUseCaseTestSuite) TestRetryOrderbooksWithoutTicks_CanonicalFirst() {
+	const canonicalID = uint64(100)
+
+	var (
+		mu        sync.Mutex
+		processed []uint64
+	)
+	processedIDs := func() []uint64 {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]uint64(nil), processed...)
+	}
+
+	// More non-canonical books with lower IDs than the per-block budget.
+	var books []domain.CanonicalOrderBooksResult
+	for id := uint64(1); id <= 12; id++ {
+		books = append(books, domain.CanonicalOrderBooksResult{PoolID: id})
+	}
+	books = append(books, domain.CanonicalOrderBooksResult{PoolID: canonicalID})
+
+	poolsUsecase := &mocks.PoolsUsecaseMock{
+		GetAllOrderbookPoolIDsFunc: func() ([]domain.CanonicalOrderBooksResult, error) { return books, nil },
+		GetPoolFunc: func(poolID uint64) (ingesttypes.PoolI, error) {
+			return &mocks.MockRoutablePool{ID: poolID}, nil
+		},
+		IsCanonicalOrderbookPoolFunc: func(poolID uint64) bool { return poolID == canonicalID },
+	}
+	var healthWithout, healthTotal int
+	chainInfoUsecase := &mocks.ChainInfoUsecaseMock{
+		SetOrderbooksWithoutTicksFunc: func(withoutTicks, total int) { healthWithout, healthTotal = withoutTicks, total },
+	}
+	orderbookUsecase := &mocks.OrderbookUsecaseMock{
+		// No book has ticks.
+		GetAllTicksFunc: func(uint64) (map[int64]orderbookdomain.OrderbookTick, bool) { return nil, false },
+		ProcessPoolFunc: func(ctx context.Context, height uint64, pool ingesttypes.PoolI) error {
+			mu.Lock()
+			processed = append(processed, pool.GetId())
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	ingester, err := usecase.NewIngestUsecase(poolsUsecase, &mocks.RouterUsecaseMock{}, &mocks.RouterUsecaseMock{}, &mocks.TokensUsecaseMock{}, chainInfoUsecase, nil, &mocks.PricingWorkerMock{}, &mocks.CandidateRouteSearchDataWorkerMock{}, orderbookUsecase, noOpLogger)
+	s.Require().NoError(err)
+
+	usecase.RetryOrderbooksWithoutTicks(ingester, context.TODO(), 100)
+
+	// The health share covers the canonical book only, which has no ticks.
+	s.Require().Equal([]int{1, 1}, []int{healthWithout, healthTotal})
+	s.Require().Eventually(func() bool { return len(processedIDs()) == 8 }, time.Second, time.Millisecond)
+	s.Require().Contains(processedIDs(), canonicalID)
+	s.Require().ElementsMatch([]uint64{canonicalID, 1, 2, 3, 4, 5, 6, 7}, processedIDs())
+}
+
 func (s *IngestUseCaseTestSuite) TestProcessSQSModelMut() {
 
 	var (
