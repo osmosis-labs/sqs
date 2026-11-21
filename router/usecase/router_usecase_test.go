@@ -285,7 +285,7 @@ func (s *RouterTestSuite) TestHandleRoutesOutGivenIn() {
 		s.Run(tc.name, func() {
 			routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
 
-			candidateRouteCache := cache.New()
+			candidateRouteCache := cache.New("test")
 
 			if !tc.shouldSkipAddToCache {
 				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenInDenom, tokenOutDenom), tc.repositoryRoutes, time.Hour)
@@ -300,7 +300,7 @@ func (s *RouterTestSuite) TestHandleRoutesOutGivenIn() {
 
 			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, candidateRouteFinderMock, &tokenMetaDataHolder, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheConfigDisabled,
-			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
+			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), candidateRouteCache)
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
@@ -545,7 +545,7 @@ func (s *RouterTestSuite) TestHandleRoutesInGivenOut() {
 
 			routerRepositoryMock := routerrepo.New(&log.NoOpLogger{})
 
-			candidateRouteCache := cache.New()
+			candidateRouteCache := cache.New("test")
 
 			if !tc.shouldSkipAddToCache {
 				candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactOut, tokenOutDenom, tokenInDenom), tc.repositoryRoutes, time.Hour)
@@ -560,7 +560,7 @@ func (s *RouterTestSuite) TestHandleRoutesInGivenOut() {
 
 			routerUseCase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUseCaseMock, candidateRouteFinderMock, &tokenMetaDataHolder, domain.RouterConfig{
 				RouteCacheEnabled: !tc.isCacheConfigDisabled,
-			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), candidateRouteCache)
+			}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), candidateRouteCache)
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
@@ -1042,8 +1042,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_Cache_Overwrites() {
 			// Setup mainnet router
 			mainnetState := s.SetupMainnetState()
 
-			rankedRouteCache := cache.New()
-			candidateRouteCache := cache.New()
+			rankedRouteCache := cache.New("test")
+			candidateRouteCache := cache.New("test")
 
 			// Mock router use case.
 			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRankedRoutesCache(rankedRouteCache), routertesting.WithCandidateRoutesCache(candidateRouteCache))
@@ -1206,7 +1206,7 @@ func (s *RouterTestSuite) TestGetCandidateSearchCoin() {
 		s.Run(name, func() {
 			tokenMetaDataHolder := mocks.TokenMetadataHolderMock{MockPoolDenomMetadata: tc.poolDenomMetadata}
 
-			routerUseCase := usecase.NewRouterUsecase(routerrepo.New(&log.NoOpLogger{}), &mocks.PoolsUsecaseMock{}, mocks.CandidateRouteFinderMock{}, &tokenMetaDataHolder, domain.RouterConfig{}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+			routerUseCase := usecase.NewRouterUsecase(routerrepo.New(&log.NoOpLogger{}), &mocks.PoolsUsecaseMock{}, mocks.CandidateRouteFinderMock{}, &tokenMetaDataHolder, domain.RouterConfig{}, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), cache.New("test"))
 
 			routerUseCaseImpl, ok := routerUseCase.(*usecase.RouterUseCaseImpl)
 			s.Require().True(ok)
@@ -1294,8 +1294,8 @@ func (s *RouterTestSuite) TestGetOptimalQuote_AllRoutesFail_InvalidatesOwnCacheE
 
 	for name, tc := range tests {
 		s.Run(name, func() {
-			rankedRouteCache := cache.New()
-			candidateRouteCache := cache.New()
+			rankedRouteCache := cache.New("test")
+			candidateRouteCache := cache.New("test")
 
 			// Entries used by the quote.
 			candidateRouteCache.Set(usecase.FormatCandidateRouteCacheKey(domain.TokenSwapMethodExactIn, tokenIn.Denom, tokenOutDenom), cachedRoutes, time.Hour)
@@ -1694,7 +1694,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_UOSMO
 	tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
 	candidateRouteFinderMock := mocks.CandidateRouteFinderMock{}
 
-	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinderMock, &tokenMetaDataHolder, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinderMock, &tokenMetaDataHolder, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), cache.New("test"))
 
 	// Test cases
 	testCases := []struct {
@@ -1838,7 +1838,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotesInGivenOut_Mai
 	tokenMetaDataHolder := mocks.TokenMetadataHolderMock{}
 	candidateRouteFinderMock := mocks.CandidateRouteFinderMock{}
 
-	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinderMock, &tokenMetaDataHolder, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := usecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinderMock, &tokenMetaDataHolder, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), cache.New("test"))
 
 	// Test cases
 	testCases := []struct {
@@ -2120,7 +2120,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuotes_Mainnet_Order
 		OrderbookCodeIDs: map[uint64]struct{}{
 			orderbookCodeId: {},
 		},
-	}, &log.NoOpLogger{}, cache.New(), cache.New())
+	}, &log.NoOpLogger{}, cache.New("test"), cache.New("test"))
 
 	// Test cases
 	testCases := []struct {

@@ -29,13 +29,11 @@ type chainPricing struct {
 	// which lets the pricing worker's failures answer requests too. Each direction of a pair has
 	// its own key, since one price is the inverse of the other.
 	failedCache *cache.Cache
-	// succeededAt holds the time of the last successful computation per pair, so that a failure
-	// that started before a newer success does not replace it in failedCache.
-	succeededAt *cache.Cache
-	// pairLocks make a computation's final cache update atomic per pair: a failure's check against
-	// succeededAt and its write to failedCache cannot interleave with a success's updates.
-	// Pairs are spread over the locks by key hash.
-	pairLocks [pairLockCount]sync.Mutex
+	// pairShards hold the ordering state of the pairs with a computation in flight, so that a failure
+	// that started before a newer success of its pair does not evict that success's price or replace it
+	// in failedCache. Each shard's lock also makes a computation's final cache update atomic per pair.
+	// Pairs are spread over the shards by key hash.
+	pairShards [pairShardCount]pairShard
 
 	defaultQuoteDenom string
 
@@ -75,14 +73,8 @@ const (
 	// before the price is computed again. Recomputes requested by the pricing worker ignore it.
 	failedPriceCacheExpiry = 10 * time.Second
 
-	// succeededAtExpiry is how long the time of a successful computation is kept. A failure that started
-	// before it is not cached, so it must outlast any computation still running: a computation that
-	// outlives its context's deadline is never cached, and the longest deadline is the pricing worker's
-	// two-minute update timeout.
-	succeededAtExpiry = 5 * time.Minute
-
-	// pairLockCount is the number of locks pairs are spread over for their final cache update.
-	pairLockCount = 64
+	// pairShardCount is the number of shards pairs are spread over for their ordering state and final cache update.
+	pairShardCount = 64
 )
 
 func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, config domain.PricingConfig) domain.PricingSource {
@@ -95,9 +87,8 @@ func New(routerUseCase mvc.SimpleRouterUsecase, tokenUseCase mvc.TokensUsecase, 
 		RUsecase: routerUseCase,
 		TUsecase: tokenUseCase,
 
-		cache:                     cache.New(),
-		failedCache:               cache.New(),
-		succeededAt:               cache.New(),
+		cache:                     cache.New("chain_prices"),
+		failedCache:               cache.New("chain_failed_prices"),
 		cacheExpiryNs:             time.Duration(config.CacheExpiryMs) * time.Millisecond,
 		maxPoolsPerRoute:          config.MaxPoolsPerRoute,
 		maxRoutes:                 config.MaxRoutes,
@@ -163,21 +154,65 @@ func (c *chainPricing) GetPrice(ctx context.Context, baseDenom string, quoteDeno
 	return c.computePrice(ctx, baseDenom, quoteDenom, options.MinPoolLiquidityCap, options.RecomputePricesIsSpotPriceComputeMethod)
 }
 
-// pairLock returns the lock that guards the final cache update for the pair under cacheKey.
-func (c *chainPricing) pairLock(cacheKey string) *sync.Mutex {
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(cacheKey))
-	return &c.pairLocks[h.Sum32()%pairLockCount]
+// pairShard holds the ordering state of the pairs whose keys hash to it and that have a
+// computation in flight. A pair's state lives exactly as long as one of its computations runs, so
+// the shard holds at most one entry per concurrent computation and none is ever evicted early.
+type pairShard struct {
+	mu    sync.Mutex
+	pairs map[string]*pairOrder
 }
 
-// succeededSince reports whether a computation for the pair under cacheKey succeeded at or after t.
-func (c *chainPricing) succeededSince(cacheKey string, t time.Time) bool {
-	succeededAt, found := c.succeededAt.Get(cacheKey)
-	if !found {
-		return false
+// pairOrder is the ordering state of one pair while at least one of its computations runs.
+type pairOrder struct {
+	// inFlight is the number of computations of the pair that have begun and not yet finished.
+	inFlight int
+	// successes counts the successful computations of the pair since its state was created.
+	successes uint64
+}
+
+// begin records the start of a computation of the pair under key and returns the pair's success
+// count, which the computation passes back to finishLocked.
+func (s *pairShard) begin(key string) uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.pairs == nil {
+		s.pairs = make(map[string]*pairOrder)
 	}
-	at, ok := succeededAt.(time.Time)
-	return ok && !at.Before(t)
+	order, ok := s.pairs[key]
+	if !ok {
+		order = &pairOrder{}
+		s.pairs[key] = order
+	}
+	order.inFlight++
+	return order.successes
+}
+
+// finishLocked records the end of a computation of the pair under key that began with
+// startSuccesses successes, and reports whether another computation of the pair succeeded since.
+// CONTRACT: s.mu is held, and begin was called for key by the finishing computation.
+func (s *pairShard) finishLocked(key string, startSuccesses uint64, succeeded bool) (succeededSince bool) {
+	order, ok := s.pairs[key]
+	if !ok || order.inFlight <= 0 {
+		panic(fmt.Sprintf("pricing pair %s finished a computation it did not begin", key))
+	}
+
+	succeededSince = order.successes != startSuccesses
+	if succeeded {
+		order.successes++
+	}
+	order.inFlight--
+	if order.inFlight == 0 {
+		delete(s.pairs, key)
+	}
+	return succeededSince
+}
+
+// pairShard returns the shard that holds the ordering state of the pair under cacheKey.
+func (c *chainPricing) pairShard(cacheKey string) *pairShard {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(cacheKey))
+	return &c.pairShards[h.Sum32()%pairShardCount]
 }
 
 // computePrice computes the price for a given base and quote denom
@@ -188,9 +223,10 @@ func (c *chainPricing) succeededSince(cacheKey string, t time.Time) bool {
 // context being cancelled or timing out, which says nothing about the pair, does neither.
 func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quoteDenom string, minPoolLiquidityCap uint64, isSpotPriceComputeMethod bool) (_ osmomath.BigDec, _ []domain.SplitRoute, err error) {
 	cacheKey := domain.FormatPricingCacheKey(baseDenom, quoteDenom)
-	startedAt := time.Now()
-	// The computed price is published to cache by the deferred update, under the pair's lock, so that
-	// an older failure cannot evict it between its publication and the record of its success.
+	shard := c.pairShard(cacheKey)
+	startSuccesses := shard.begin(cacheKey)
+	// The computed price is published to cache by the deferred update, under the pair's shard lock, so
+	// that an older failure cannot evict it between its publication and the record of its success.
 	var computed *domain.PriceResult
 	var computedTTL time.Duration
 
@@ -199,13 +235,13 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic computing price for %s (base) -> %s (quote): %v", baseDenom, quoteDenom, r)
 		}
-		lock := c.pairLock(cacheKey)
-		lock.Lock()
-		defer lock.Unlock()
+		shard.mu.Lock()
+		defer shard.mu.Unlock()
+		succeededSince := shard.finishLocked(cacheKey, startSuccesses, err == nil)
 		if err != nil {
 			// A newer success already holds the pair's current price, and a computation cut short
 			// by its context says nothing about the pair.
-			if c.succeededSince(cacheKey, startedAt) || ctx.Err() != nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			if succeededSince || ctx.Err() != nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return
 			}
 			c.cache.Delete(cacheKey)
@@ -214,7 +250,6 @@ func (c *chainPricing) computePrice(ctx context.Context, baseDenom string, quote
 			if computed != nil {
 				c.cache.Set(cacheKey, *computed, computedTTL)
 			}
-			c.succeededAt.Set(cacheKey, time.Now(), succeededAtExpiry)
 			c.failedCache.Delete(cacheKey)
 		}
 	}()

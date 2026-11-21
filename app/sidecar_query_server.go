@@ -272,7 +272,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	candidateRouteSearcher := routerUseCase.NewCandidateRouteFinder(routerRepository, config.Router.ExcludedPoolIDs, logger)
 
 	// Initialize router repository, usecase
-	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	routerUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, poolsUseCase.GetCosmWasmPoolConfig(), logger, cache.New("ranked_routes"), cache.New("candidate_routes"))
 	if config.ServeFromState {
 		if err := routerUsecase.LoadRouterStateFiles(); err != nil {
 			panic(fmt.Errorf("failed to load router state files: %w", err))
@@ -282,7 +282,7 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	cosmWasmPoolConfig := poolsUseCase.GetCosmWasmPoolConfig()
 
 	// Initialize chain pricing strategy
-	pricingSimpleRouterUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, cosmWasmPoolConfig, logger, cache.New(), cache.New())
+	pricingSimpleRouterUsecase := routerUseCase.NewRouterUsecase(routerRepository, poolsUseCase, candidateRouteSearcher, tokensUseCase, *config.Router, cosmWasmPoolConfig, logger, cache.New("pricing_ranked_routes"), cache.New("pricing_candidate_routes"))
 	chainPricingSource, err := pricing.NewPricingStrategy(*config.Pricing, tokensUseCase, pricingSimpleRouterUsecase)
 	if err != nil {
 		return nil, err

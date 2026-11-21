@@ -360,9 +360,9 @@ func (s *RouterTestHelper) setupMainnetStatePath(path string) MockMainnetState {
 func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetState, cacheOpts ...MainnetTestOption) MockMainnetUsecase {
 	// Initialize empty caches
 	options := &MainnetTestOptions{
-		CandidateRoutes:  cache.New(),
-		RankedRoutes:     cache.New(),
-		Pricing:          cache.New(),
+		CandidateRoutes:  cache.New("test"),
+		RankedRoutes:     cache.New("test"),
+		Pricing:          cache.New("test"),
 		RouterConfig:     DefaultRouterConfig,
 		PricingConfig:    DefaultPricingConfig,
 		PoolsConfig:      DefaultPoolsConfig,
@@ -401,7 +401,7 @@ func (s *RouterTestHelper) SetupRouterAndPoolsUsecase(mainnetState MockMainnetSt
 
 	routerUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, options.RankedRoutes, options.CandidateRoutes)
 
-	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New(), cache.New())
+	pricingRouterUsecase := routerusecase.NewRouterUsecase(routerRepositoryMock, poolsUsecase, candidateRouteFinder, tokensUsecase, options.RouterConfig, poolsUsecase.GetCosmWasmPoolConfig(), logger, cache.New("test"), cache.New("test"))
 
 	// Set up on-chain pricing strategy
 	pricingSource, err := pricing.NewPricingStrategy(options.PricingConfig, tokensUsecase, routerUsecase)

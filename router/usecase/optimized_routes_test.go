@@ -880,7 +880,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteOutGivenIn_Main
 	tokenMetaDataHolderMock := &mocks.TokenMetadataHolderMock{}
 	candidateRouteFinderMock := &mocks.CandidateRouteFinderMock{}
 
-	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), cache.New("test"))
 
 	// This pool ID is second best: https://app.osmosis.zone/pool/2
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected
@@ -898,7 +898,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteOutGivenIn_Main
 
 	// A pinned pool on the exclusion list is rejected rather than quoted.
 	config.ExcludedPoolIDs = []uint64{expectedPoolID}
-	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), cache.New("test"))
 	_, err = routerUsecase.GetCustomDirectQuoteOutGivenIn(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().ErrorIs(err, routertypes.ErrValidationFailed)
 }
@@ -926,7 +926,7 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteInGivenOut_Main
 	tokenMetaDataHolderMock := &mocks.TokenMetadataHolderMock{}
 	candidateRouteFinderMock := &mocks.CandidateRouteFinderMock{}
 
-	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase := routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), cache.New("test"))
 
 	// This pool ID is second best: https://app.osmosis.zone/pool/2
 	// The top one is https://app.osmosis.zone/pool/1110 which is not selected
@@ -940,14 +940,14 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteInGivenOut_Main
 
 	// A pinned pool on the exclusion list is rejected on both exact-out paths, while another pool still quotes.
 	config.ExcludedPoolIDs = []uint64{expectedPoolID}
-	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), cache.New("test"))
 	_, err = routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().ErrorIs(err, routertypes.ErrValidationFailed)
 	_, err = routerUsecase.GetCustomDirectQuoteMultiPoolInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), []string{UION}, []uint64{expectedPoolID})
 	s.Require().ErrorIs(err, routertypes.ErrValidationFailed)
 
 	config.ExcludedPoolIDs = []uint64{uint64(1110)}
-	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New("test"), cache.New("test"))
 	_, err = routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 }

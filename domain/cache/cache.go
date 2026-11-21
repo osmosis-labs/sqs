@@ -3,6 +3,8 @@ package cache
 import (
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Cache is a concurrent cache structure.
@@ -19,11 +21,16 @@ import (
 // To protect memory against bursts of unique unexpired keys within a TTL window, the cache also
 // enforces a hard entry cap (maxEntries). When a new key arrives at capacity, a small random
 // sample is inspected and the first expired item, or otherwise the soonest-expiring item, is
-// evicted. Get remains a pure read-lock lookup.
+// evicted, and counted in EvictionsCounter under the cache's name. Get remains a pure read-lock
+// lookup.
 type Cache struct {
 	data       map[string]CacheItem
 	maxEntries int
 	mutex      sync.RWMutex
+
+	// evictedExpired and evictedUnexpired are this cache's series of EvictionsCounter.
+	evictedExpired   prometheus.Counter
+	evictedUnexpired prometheus.Counter
 }
 
 // CacheItem represents an item in the cache.
@@ -44,20 +51,26 @@ const sweepBatchSize = 32
 // evictSampleSize is the maximum number of items sampled when evicting a single entry at capacity.
 const evictSampleSize = 16
 
-// New creates a new concurrent cache bounded to DefaultMaxEntries.
-func New() *Cache {
-	return NewWithMaxEntries(DefaultMaxEntries)
+// New creates a new concurrent cache bounded to DefaultMaxEntries. The name labels the cache's metrics;
+// it must be non-empty and come from a fixed set, since each name is a metric series.
+func New(name string) *Cache {
+	return NewWithMaxEntries(name, DefaultMaxEntries)
 }
 
 // NewWithMaxEntries creates a new concurrent cache bounded to maxEntries items.
-// A non-positive maxEntries falls back to DefaultMaxEntries.
-func NewWithMaxEntries(maxEntries int) *Cache {
+// A non-positive maxEntries falls back to DefaultMaxEntries. The name is as for New.
+func NewWithMaxEntries(name string, maxEntries int) *Cache {
+	if name == "" {
+		panic("cache: name must be non-empty")
+	}
 	if maxEntries <= 0 {
 		maxEntries = DefaultMaxEntries
 	}
 	return &Cache{
-		data:       make(map[string]CacheItem),
-		maxEntries: maxEntries,
+		data:             make(map[string]CacheItem),
+		maxEntries:       maxEntries,
+		evictedExpired:   EvictionsCounter.WithLabelValues(name, EvictionReasonExpired),
+		evictedUnexpired: EvictionsCounter.WithLabelValues(name, EvictionReasonUnexpired),
 	}
 }
 
@@ -114,6 +127,7 @@ func (c *Cache) evictOneLocked(now time.Time) {
 		if !item.Expiration.IsZero() {
 			if now.After(item.Expiration) {
 				delete(c.data, key)
+				c.evictedExpired.Inc()
 				return
 			}
 			if !hasVictim || item.Expiration.Before(victimExp) {
@@ -126,8 +140,10 @@ func (c *Cache) evictOneLocked(now time.Time) {
 
 	if hasVictim {
 		delete(c.data, victimKey)
+		c.evictedUnexpired.Inc()
 	} else if hasFallback {
 		delete(c.data, fallbackKey)
+		c.evictedUnexpired.Inc()
 	}
 }
 

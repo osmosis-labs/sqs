@@ -489,7 +489,7 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
 			// Initialize pricing cache.
-			pricingCache := cache.New()
+			pricingCache := cache.New("test")
 
 			// Pre-set cache if configured.
 			if !tt.cachedPrice.IsNil() {
