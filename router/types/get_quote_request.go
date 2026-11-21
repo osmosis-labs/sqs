@@ -11,6 +11,16 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// maxSimulationSlippageTolerance is the upper bound accepted for simulationSlippageTolerance.
+var maxSimulationSlippageTolerance = osmomath.NewDec(2)
+
+// maxSimulationSlippageToleranceLen bounds the encoded length of simulationSlippageTolerance
+// before it reaches arbitrary-precision decimal parsing. Every legitimate value in
+// (0, maxSimulationSlippageTolerance] fits in 20 characters (e.g. "1.999999999999999999":
+// one integer digit, a dot and the 18 fractional digits LegacyDec supports); 32 leaves
+// room for redundant leading or trailing zeros while rejecting huge inputs cheaply.
+const maxSimulationSlippageToleranceLen = 32
+
 // GetQuoteRequest represents swap quote request for the /router/quote endpoint.
 type GetQuoteRequest struct {
 	TokenIn                     *sdk.Coin
@@ -95,6 +105,10 @@ func validateSimulationParams(swapMethod domain.TokenSwapMethod, simulatorAddres
 			return osmomath.Dec{}, fmt.Errorf("slippage tolerance is required for simulation")
 		}
 
+		if len(slippageToleranceStr) > maxSimulationSlippageToleranceLen {
+			return osmomath.Dec{}, fmt.Errorf("slippage tolerance must be at most %d characters, got %d", maxSimulationSlippageToleranceLen, len(slippageToleranceStr))
+		}
+
 		slippageTolerance, err := osmomath.NewDecFromStr(slippageToleranceStr)
 		if err != nil {
 			return osmomath.Dec{}, fmt.Errorf("slippage tolerance is not valid: %w", err)
@@ -102,6 +116,13 @@ func validateSimulationParams(swapMethod domain.TokenSwapMethod, simulatorAddres
 
 		if slippageTolerance.LTE(osmomath.ZeroDec()) {
 			return osmomath.Dec{}, fmt.Errorf("slippage tolerance must be greater than 0")
+		}
+
+		// Bound the slippage multiplier so arbitrary huge decimals cannot overflow
+		// TokenOutMinAmount calculations during quote simulation. Values up to 2
+		// accommodate both fraction tolerances (e.g. 0.99) and >1 multipliers (e.g. 1.01).
+		if slippageTolerance.GT(maxSimulationSlippageTolerance) {
+			return osmomath.Dec{}, fmt.Errorf("slippage tolerance must not exceed %s", maxSimulationSlippageTolerance)
 		}
 
 		return slippageTolerance, nil

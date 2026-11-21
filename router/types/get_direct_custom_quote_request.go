@@ -2,6 +2,7 @@ package types
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -11,6 +12,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/labstack/echo/v4"
 )
+
+// MaxCustomDirectQuotePools bounds the number of hops accepted on /router/custom-direct-quote.
+const MaxCustomDirectQuotePools = 16
 
 // GetDirectCustomQuoteRequest represents
 type GetDirectCustomQuoteRequest struct {
@@ -47,15 +51,28 @@ func (r *GetDirectCustomQuoteRequest) UnmarshalHTTPRequest(c echo.Context) error
 		r.TokenOut = &tokenOutCoin
 	}
 
-	r.TokenInDenom = strings.Split(c.QueryParam("tokenInDenom"), ",")
-	r.TokenOutDenom = strings.Split(c.QueryParam("tokenOutDenom"), ",")
+	tokenInDenomRaw := c.QueryParam("tokenInDenom")
+	if strings.Count(tokenInDenomRaw, ",") >= MaxCustomDirectQuotePools {
+		return fmt.Errorf("%w: max %d", ErrTooManyPools, MaxCustomDirectQuotePools)
+	}
+	r.TokenInDenom = strings.Split(tokenInDenomRaw, ",")
 
-	// We accept two poolIDs and poolID parameters, and require at least one of them to be filled
-	poolIDStr := strings.Split(c.QueryParam("poolID"), ",")
-	if len(poolIDStr) == 0 {
+	tokenOutDenomRaw := c.QueryParam("tokenOutDenom")
+	if strings.Count(tokenOutDenomRaw, ",") >= MaxCustomDirectQuotePools {
+		return fmt.Errorf("%w: max %d", ErrTooManyPools, MaxCustomDirectQuotePools)
+	}
+	r.TokenOutDenom = strings.Split(tokenOutDenomRaw, ",")
+
+	poolIDRaw := c.QueryParam("poolID")
+	if poolIDRaw == "" {
 		return errors.New("poolID is required")
 	}
+	if strings.Count(poolIDRaw, ",") >= MaxCustomDirectQuotePools {
+		return fmt.Errorf("%w: max %d", ErrTooManyPools, MaxCustomDirectQuotePools)
+	}
 
+	poolIDStr := strings.Split(poolIDRaw, ",")
+	r.PoolID = make([]uint64, 0, len(poolIDStr))
 	for _, v := range poolIDStr {
 		i, err := strconv.ParseUint(v, 10, 64)
 		if err != nil {
