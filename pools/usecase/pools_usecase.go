@@ -427,26 +427,40 @@ func feesDataField(field func(sqspassthroughdomain.PoolFee) float64) func(ingest
 	}
 }
 
+func uint64Set(ids []uint64) map[uint64]struct{} {
+	set := make(map[uint64]struct{}, len(ids))
+	for _, id := range ids {
+		set[id] = struct{}{}
+	}
+	return set
+}
+
 // poolFilters is a map of available filters for getPools function.
 var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]){
 	"poolId": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
 		if f != nil && len(f.PoolId) > 0 {
+			allowed := uint64Set(f.PoolId)
 			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return slices.Contains(f.PoolId, pool.GetId()) // TODO: with keys method to avoid O(n)
+				_, ok := allowed[pool.GetId()]
+				return ok
 			})
 		}
 	},
 	"poolIdNotIn": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
 		if f != nil && len(f.PoolIdNotIn) > 0 {
+			excluded := uint64Set(f.PoolIdNotIn)
 			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return !slices.Contains(f.PoolIdNotIn, pool.GetId())
+				_, ok := excluded[pool.GetId()]
+				return !ok
 			})
 		}
 	},
 	"type": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
 		if f != nil && len(f.Type) > 0 {
+			allowed := uint64Set(f.Type)
 			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return slices.Contains(f.Type, uint64(pool.GetType()))
+				_, ok := allowed[uint64(pool.GetType())]
+				return ok
 			})
 		}
 	},
