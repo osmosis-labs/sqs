@@ -17,6 +17,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
+	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/orderbook/types"
@@ -620,4 +621,65 @@ func (s *PassthroughHandlerTestSuite) TestGetActiveOrdersStreamEndsOnShutdown() 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	s.Require().NoError(server.Config.Shutdown(ctx))
+}
+
+type stubPassthroughUsecase struct {
+	called bool
+	result passthroughdomain.PortfolioAssetsResult
+	err    error
+}
+
+func (m *stubPassthroughUsecase) GetPortfolioAssets(_ context.Context, _ string) (passthroughdomain.PortfolioAssetsResult, error) {
+	m.called = true
+	return m.result, m.err
+}
+
+func (s *PassthroughHandlerTestSuite) TestGetPortfolioAssetsByAddress() {
+	testCases := []struct {
+		name               string
+		address            string
+		expectedStatusCode int
+		expectUsecaseCall  bool
+	}{
+		{
+			name:               "empty address returns 400",
+			address:            "",
+			expectedStatusCode: http.StatusBadRequest,
+			expectUsecaseCall:  false,
+		},
+		{
+			name:               "invalid bech32 address returns 400",
+			address:            "not-a-valid-address",
+			expectedStatusCode: http.StatusBadRequest,
+			expectUsecaseCall:  false,
+		},
+		{
+			name:               "valid bech32 address returns 200",
+			address:            "osmo1ugku28hwyexpljrrmtet05nd6kjlrvr9jz6z00",
+			expectedStatusCode: http.StatusOK,
+			expectUsecaseCall:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			e := deliveryhttp.NewEcho()
+			req := httptest.NewRequest(echo.GET, "/passthrough/portfolio-assets/"+tc.address, nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("address")
+			c.SetParamValues(tc.address)
+
+			uc := &stubPassthroughUsecase{
+				result: passthroughdomain.PortfolioAssetsResult{
+					Categories: map[string]passthroughdomain.PortfolioAssetsCategoryResult{},
+				},
+			}
+			handler := passthroughdelivery.PassthroughHandler{PUsecase: uc}
+
+			s.Require().NoError(handler.GetPortfolioAssetsByAddress(c))
+			s.Assert().Equal(tc.expectedStatusCode, rec.Code)
+			s.Assert().Equal(tc.expectUsecaseCall, uc.called)
+		})
+	}
 }

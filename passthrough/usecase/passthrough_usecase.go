@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
@@ -100,6 +101,11 @@ const (
 	// 1. Unclaimed rewards from concentrated positions
 	// 2. Unclaimed rewards from staking rewards
 	unclaimedRewardsNumJobs = 2
+
+	// portfolioAssetsRequestTimeout bounds the fan-out chain gRPC calls for one
+	// /passthrough/portfolio-assets request. It stays below the HTTP server write timeout
+	// so stalled gRPC calls cannot leak goroutines after the socket deadline expires.
+	portfolioAssetsRequestTimeout = 30 * time.Second
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
@@ -119,6 +125,9 @@ func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGR
 
 // GetPortfolioBalances implements mvc.PassthroughUsecase.
 func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address string) (passthroughdomain.PortfolioAssetsResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, portfolioAssetsRequestTimeout)
+	defer cancel()
+
 	// Channel to fetch bank balances concurrently.
 	bankBalancesChan := make(chan coinsResult)
 	defer close(bankBalancesChan)

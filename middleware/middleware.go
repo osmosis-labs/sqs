@@ -120,25 +120,79 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 	}
 }
 
+// maxSpanQueryParamValLen caps the length of any single query parameter value attached to an
+// OpenTelemetry span so oversized request parameters cannot bloat trace payloads.
+const maxSpanQueryParamValLen = 256
+
+// allowedSpanQueryParams is the set of known SQS query parameters attached to OTEL spans.
+// Using an explicit allowlist prevents unbounded span attribute cardinality from arbitrary
+// client-supplied keys and avoids recording unexpected or sensitive parameters.
+var allowedSpanQueryParams = map[string]struct{}{
+	"tokenIn":                        {},
+	"tokenOut":                       {},
+	"tokenInDenom":                   {},
+	"tokenOutDenom":                  {},
+	"singleRoute":                    {},
+	"applyExponents":                 {},
+	"simulatorAddress":               {},
+	"simulationSlippageTolerance":    {},
+	"appendBaseFee":                  {},
+	"poolID":                         {},
+	"poolId":                         {},
+	"humanDenoms":                    {},
+	"quoteAsset":                     {},
+	"baseAsset":                      {},
+	"base":                           {},
+	"quote":                          {},
+	"denoms":                         {},
+	"debug":                          {},
+	"pricingSource":                  {},
+	"IDs":                            {},
+	"min_liquidity_cap":              {},
+	"with_market_incentives":         {},
+	"filter[id]":                     {},
+	"filter[id][not_in]":             {},
+	"filter[type]":                   {},
+	"filter[incentive]":              {},
+	"filter[denom]":                  {},
+	"filter[min_liquidity_cap]":      {},
+	"filter[with_market_incentives]": {},
+	"filter[search]":                 {},
+	"page[number]":                   {},
+	"page[size]":                     {},
+	"page[cursor]":                   {},
+	"sort":                           {},
+	"userOsmoAddress":                {},
+	"sse":                            {},
+	"coinMinimalDenom":               {},
+	"wallet":                         {},
+	"limit":                          {},
+	"cursor":                         {},
+	"windows":                        {},
+	"pretty":                         {},
+}
+
 // Middleware to capture request parameters
 func (m *GoMiddleware) TraceWithParamsMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			// Get span from context (it is initialized by the preceding echo OTEL middleware)
 			span := trace.SpanFromContext(c.Request().Context())
-
-			// Iterate through query parameters and add them as attributes to the span
-			// Ensure to filter out any sensitive parameters here
-			for key, values := range c.QueryParams() {
-				// As a simple approach, we're adding only the first value of each parameter
-				// Consider handling multiple values differently if necessary
-				span.SetAttributes(attribute.String(key, values[0]))
+			if span.IsRecording() {
+				for key, values := range c.QueryParams() {
+					if _, ok := allowedSpanQueryParams[key]; !ok || len(values) == 0 {
+						continue
+					}
+					val := values[0]
+					if len(val) > maxSpanQueryParamValLen {
+						val = val[:maxSpanQueryParamValLen]
+					}
+					span.SetAttributes(attribute.String(key, val))
+				}
 			}
 
 			// Proceed with the request handling
-			err := next(c)
-
-			return err
+			return next(c)
 		}
 	}
 }
