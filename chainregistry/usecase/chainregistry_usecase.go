@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/json/v2"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	sqshttp "github.com/osmosis-labs/sqs/delivery/http"
@@ -22,21 +23,6 @@ var (
 	processFeeTokensInterval = 1 * time.Second
 )
 
-// cmd is an interface for command types
-type cmd any
-
-// updateCommand is a command for updating the state
-type updateCommand struct {
-	tokens []*api.FeeToken
-	hash   string
-	resp   chan error
-}
-
-// getTokensCommand is a command for reading tokens from the state
-type getTokensCommand struct {
-	result chan []*api.FeeToken
-}
-
 // chainregistryUseCase is a use case for managing chain registry data.
 type chainregistryUseCase struct {
 	tokensUseCase        mvc.TokensUsecase
@@ -45,15 +31,10 @@ type chainregistryUseCase struct {
 	chainRegistryFileURL string
 	logger               log.Logger
 
-	// command is a channel for sending commands to the run loop.
-	command chan cmd
-
-	// internal state managed only by the run loop.
-	tokens []*api.FeeToken
-	hash   string
+	tokens atomic.Pointer[api.FeeTokens]
 }
 
-// NewChainregistryUseCase creates a new use case and starts the run loop.
+// NewChainregistryUseCase creates a new use case and starts its background refresh loop.
 // defaultQuoteDenom is the chain denom that fee token values are priced in. It must be the same
 // denom the pricing worker pre-computes prices for so that fee token pricing is served from cache
 // and falls back to Coingecko when no on-chain route exists.
@@ -64,15 +45,9 @@ func NewChainregistryUseCase(ctx context.Context, chainRegistryTokenFeesFileURL 
 		baseDenom:            "uosmo",
 		quoteDenom:           defaultQuoteDenom,
 		logger:               logger,
-		command:              make(chan cmd),
 	}
 
-	// start state management loop
-	go us.run()
-
-	// Start background tasks.
-	go us.fetchTokensPeriodically(ctx)
-	go us.processTokensPeriodically(ctx)
+	go us.run(ctx)
 
 	return us, nil
 }
@@ -80,13 +55,17 @@ func NewChainregistryUseCase(ctx context.Context, chainRegistryTokenFeesFileURL 
 // GetFeeTokens implements mvc.ChainregistryUsecase.
 // Tokens without any positive gas price (i.e. tokens that could not be priced) are not served.
 func (p *chainregistryUseCase) GetFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
-	tokens, err := p.getStoredFeeTokens(ctx)
-	if err != nil {
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	result := make([]*api.FeeToken, 0, len(tokens))
-	for _, token := range tokens {
+	stored := p.tokens.Load()
+	if stored == nil {
+		return []*api.FeeToken{}, nil
+	}
+
+	result := make([]*api.FeeToken, 0, len(*stored))
+	for _, token := range *stored {
 		if token.FixedMinGasPrice > 0 || token.LowGasPrice > 0 || token.AverageGasPrice > 0 || token.HighGasPrice > 0 {
 			result = append(result, token)
 		}
@@ -95,126 +74,58 @@ func (p *chainregistryUseCase) GetFeeTokens(ctx context.Context) ([]*api.FeeToke
 	return result, nil
 }
 
-// getStoredFeeTokens returns all fee tokens held in the state, including the ones withheld by GetFeeTokens.
-func (p *chainregistryUseCase) getStoredFeeTokens(ctx context.Context) ([]*api.FeeToken, error) {
-	respChan := make(chan []*api.FeeToken)
-	select {
-	case p.command <- getTokensCommand{result: respChan}:
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+// run periodically fetches the fee token list from the chain registry and refreshes
+// derived gas prices, publishing each new snapshot atomically for lock-free reads.
+func (p *chainregistryUseCase) run(ctx context.Context) {
+	var (
+		lastHash  string
+		rawTokens api.FeeTokens
+	)
 
-	select {
-	case tokens := <-respChan:
-		return tokens, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-// run is responsible for managing the internal state of the use case
-// by listening for commands on the command channel.
-func (p *chainregistryUseCase) run() {
-	for cmd := range p.command {
-		switch c := cmd.(type) {
-		case updateCommand:
-			// Skip update if hash is unchanged.
-			if c.hash != "" && c.hash == p.hash {
-				c.resp <- nil
-				continue
-			}
-
-			// Process the new tokens.
-			result, err := p.processFeeTokens(context.Background(), c.tokens)
-			if err != nil {
-				c.resp <- fmt.Errorf("failed to process fee tokens: %w", err)
-				continue
-			}
-
-			// Update the state
-			p.tokens = result
-			p.hash = c.hash
-			c.resp <- nil
-		case getTokensCommand:
-			c.result <- p.tokens
-		}
-	}
-}
-
-// fetchTokensPeriodically fetches the tokens from the chain registry periodically.
-func (p *chainregistryUseCase) fetchTokensPeriodically(ctx context.Context) {
-	// Fetch tokens initially
-	if err := p.fetchTokens(ctx); err != nil {
-		p.logger.Error("initial fetch tokens failed ", zap.Error(err))
-	}
-
-	// Fetch tokens periodically
-	ticker := time.NewTicker(fetchTokensInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			if err := p.fetchTokens(ctx); err != nil {
-				p.logger.Error("periodical fetch tokens failed", zap.Error(err))
-				continue
-			}
-		case <-ctx.Done():
+	fetch := func() {
+		tokens, hash, err := getFeeTokensFromChainRegistry(ctx, p.chainRegistryFileURL)
+		if err != nil {
+			p.logger.Error("failed to fetch fee tokens", zap.Error(err))
 			return
 		}
+		if hash != "" && hash == lastHash {
+			return
+		}
+		rawTokens = tokens
+		lastHash = hash
+		p.refreshFeeTokens(ctx, rawTokens)
 	}
-}
 
-func (p *chainregistryUseCase) fetchTokens(ctx context.Context) error {
-	tokens, hash, err := getFeeTokensFromChainRegistry(ctx, p.chainRegistryFileURL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch fee tokens: %w", err)
-	}
+	fetch()
 
-	respChan := make(chan error)
+	fetchTicker := time.NewTicker(fetchTokensInterval)
+	defer fetchTicker.Stop()
 
-	p.command <- updateCommand{
-		tokens: tokens,
-		hash:   hash,
-		resp:   respChan,
-	}
-	return <-respChan
-}
+	processTicker := time.NewTicker(processFeeTokensInterval)
+	defer processTicker.Stop()
 
-// processTokensPeriodically remains largely unchanged.
-func (p *chainregistryUseCase) processTokensPeriodically(ctx context.Context) {
-	ticker := time.NewTicker(processFeeTokensInterval)
-	defer ticker.Stop()
 	for {
 		select {
-		case <-ticker.C:
-			tokens, err := p.getStoredFeeTokens(ctx)
-			if err != nil {
-				p.logger.Error("failed to get fee tokens", zap.Error(err))
-				continue
-			}
-			if err := p.processAndUpdateFeeTokens(ctx, tokens); err != nil {
-				p.logger.Error("failed to process fee tokens", zap.Error(err))
-			}
 		case <-ctx.Done():
 			return
+		case <-fetchTicker.C:
+			fetch()
+		case <-processTicker.C:
+			p.refreshFeeTokens(ctx, rawTokens)
 		}
 	}
 }
 
-// processAndUpdateFeeTokens now sends an update command via the channel.
-func (p *chainregistryUseCase) processAndUpdateFeeTokens(ctx context.Context, tokens api.FeeTokens) error {
+func (p *chainregistryUseCase) refreshFeeTokens(ctx context.Context, tokens api.FeeTokens) {
+	if len(tokens) == 0 {
+		return
+	}
 	result, err := p.processFeeTokens(ctx, tokens)
 	if err != nil {
-		return fmt.Errorf("failed to process fee tokens: %w", err)
+		p.logger.Error("failed to process fee tokens", zap.Error(err))
+		return
 	}
-
-	respChan := make(chan error)
-
-	p.command <- updateCommand{
-		tokens: result,
-		resp:   respChan,
-	}
-	return <-respChan
+	p.tokens.Store(&result)
 }
 
 // processFeeTokens processes the fee tokens by calculating the market values for each token.
@@ -240,7 +151,7 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.
 		return nil, fmt.Errorf("failed to get fee token for base denom %s", p.baseDenom)
 	}
 
-	fixedMinGasMarketValue, lowGasMarketValue, averageGasMarketValue, highGasMarketValue, err := calculateFeeTokenMarketValue(ctx, baseDenomFee, fee.Price)
+	fixedMinGasMarketValue, lowGasMarketValue, averageGasMarketValue, highGasMarketValue, err := calculateFeeTokenMarketValue(baseDenomFee, fee.Price)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate fee token prices: %w", err)
 	}
@@ -268,22 +179,22 @@ func (p *chainregistryUseCase) processFeeTokens(ctx context.Context, tokens api.
 			continue
 		}
 
-		fixedMinGasPrice, err := calculateTokenQuantity(ctx, fixedMinGasMarketValue, pricePerToken.Price).Float64()
+		fixedMinGasPrice, err := calculateTokenQuantity(fixedMinGasMarketValue, pricePerToken.Price).Float64()
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate fixed min gas price: %w", err)
 		}
 
-		lowGasPrice, err := calculateTokenQuantity(ctx, lowGasMarketValue, pricePerToken.Price).Float64()
+		lowGasPrice, err := calculateTokenQuantity(lowGasMarketValue, pricePerToken.Price).Float64()
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate low gas price: %w", err)
 		}
 
-		averageGasPrice, err := calculateTokenQuantity(ctx, averageGasMarketValue, pricePerToken.Price).Float64()
+		averageGasPrice, err := calculateTokenQuantity(averageGasMarketValue, pricePerToken.Price).Float64()
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate average gas price: %w", err)
 		}
 
-		highGasPrice, err := calculateTokenQuantity(ctx, highGasMarketValue, pricePerToken.Price).Float64()
+		highGasPrice, err := calculateTokenQuantity(highGasMarketValue, pricePerToken.Price).Float64()
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate high gas price: %w", err)
 		}
@@ -329,26 +240,26 @@ func getFeeTokensFromChainRegistry(ctx context.Context, chainRegistryTokenFeesFi
 // calculateFeeTokenMarketValue calculates the market values of gas fees for given gas fee token.
 // nolint directive is used to ignore the revive max return parameters rule.
 // nolint: revive
-func calculateFeeTokenMarketValue(ctx context.Context, gasFeeToken *api.FeeToken, unitPrice osmomath.BigDec) (fixedMinGasMarketValue, lowGasMarketValue, averageGasMarketValue, highGasMarketValue osmomath.BigDec, err error) {
-	fixedMinGasMarketValue, err = calculateMarketValue(ctx, gasFeeToken.FixedMinGasPrice, unitPrice)
+func calculateFeeTokenMarketValue(gasFeeToken *api.FeeToken, unitPrice osmomath.BigDec) (fixedMinGasMarketValue, lowGasMarketValue, averageGasMarketValue, highGasMarketValue osmomath.BigDec, err error) {
+	fixedMinGasMarketValue, err = calculateMarketValue(gasFeeToken.FixedMinGasPrice, unitPrice)
 	if err != nil {
 		err = fmt.Errorf("failed to calculate fixed min gas price: %w", err)
 		return
 	}
 
-	lowGasMarketValue, err = calculateMarketValue(ctx, gasFeeToken.LowGasPrice, unitPrice)
+	lowGasMarketValue, err = calculateMarketValue(gasFeeToken.LowGasPrice, unitPrice)
 	if err != nil {
 		err = fmt.Errorf("failed to calculate low gas price: %w", err)
 		return
 	}
 
-	averageGasMarketValue, err = calculateMarketValue(ctx, gasFeeToken.AverageGasPrice, unitPrice)
+	averageGasMarketValue, err = calculateMarketValue(gasFeeToken.AverageGasPrice, unitPrice)
 	if err != nil {
 		err = fmt.Errorf("failed to calculate average gas price: %w", err)
 		return
 	}
 
-	highGasMarketValue, err = calculateMarketValue(ctx, gasFeeToken.HighGasPrice, unitPrice)
+	highGasMarketValue, err = calculateMarketValue(gasFeeToken.HighGasPrice, unitPrice)
 	if err != nil {
 		err = fmt.Errorf("failed to calculate high gas price: %w", err)
 		return
@@ -358,7 +269,7 @@ func calculateFeeTokenMarketValue(ctx context.Context, gasFeeToken *api.FeeToken
 }
 
 // calculateMarketValue calculates the market value of a token quantity.
-func calculateMarketValue(_ context.Context, tokenQuantity float64, unitPrice osmomath.BigDec) (osmomath.BigDec, error) {
+func calculateMarketValue(tokenQuantity float64, unitPrice osmomath.BigDec) (osmomath.BigDec, error) {
 	tokenQuantityDec, err := osmomath.NewBigDecFromStr(fmt.Sprintf("%f", tokenQuantity))
 	if err != nil {
 		return osmomath.ZeroBigDec(), fmt.Errorf("failed to convert gas price to decimal: %w", err)
@@ -369,7 +280,7 @@ func calculateMarketValue(_ context.Context, tokenQuantity float64, unitPrice os
 }
 
 // calculateTokenQuantity calculates the token quantity for a given amount and unit price.
-func calculateTokenQuantity(_ context.Context, amount osmomath.BigDec, unitPrice osmomath.BigDec) osmomath.BigDec {
+func calculateTokenQuantity(amount osmomath.BigDec, unitPrice osmomath.BigDec) osmomath.BigDec {
 	if unitPrice.IsZero() {
 		return osmomath.ZeroBigDec()
 	}
