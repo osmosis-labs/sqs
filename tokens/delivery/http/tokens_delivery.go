@@ -30,6 +30,9 @@ type TokensHandler struct {
 	defaultQuoteChainDenom string
 	defaultCoingeckoDenom  string
 
+	// usdPeg reports the default quote denom's peg against US dollars. Nil when disabled.
+	usdPeg *domain.QuoteUSDPegChecker
+
 	logger log.Logger
 }
 
@@ -41,6 +44,10 @@ const (
 	// after its response can no longer be written. It is below that write timeout, so the error
 	// response still reaches the client.
 	pricesRequestTimeout = 50 * time.Second
+
+	// maxDenomsParam bounds the number of comma-separated denoms accepted on /tokens/* endpoints
+	// to prevent CPU and memory amplification from oversized or repeated query lists.
+	maxDenomsParam = 500
 )
 
 func formatTokensResource(resource string) string {
@@ -49,7 +56,7 @@ func formatTokensResource(resource string) string {
 
 // NewTokensHandler will initialize the pools/ resources endpoint
 // The POST /tokens/store-state endpoint is registered only if debugEndpointsEnabled is set.
-func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, debugEndpointsEnabled bool, logger log.Logger) (err error) {
+func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.TokensUsecase, ru mvc.RouterUsecase, debugEndpointsEnabled bool, usdPeg *domain.QuoteUSDPegChecker, logger log.Logger) (err error) {
 	defaultQuoteChainDenom, err := ts.GetChainDenom(pricingConfig.DefaultQuoteHumanDenom)
 	if err != nil {
 		return err
@@ -63,13 +70,14 @@ func NewTokensHandler(e *echo.Echo, pricingConfig domain.PricingConfig, ts mvc.T
 		// Coingecko prices are in USD, which SQS serves under the default quote denom.
 		defaultCoingeckoDenom: defaultQuoteChainDenom,
 
+		usdPeg: usdPeg,
+
 		logger: logger,
 	}
 
 	e.GET(formatTokensResource("/metadata"), handler.GetMetadata)
 	e.GET(formatTokensResource("/pool-metadata"), handler.GetPoolDenomMetadata)
 	e.GET(formatTokensResource("/prices"), handler.GetPrices)
-	e.GET(formatTokensResource("/usd-price-test"), handler.GetUSDPriceTest)
 	if debugEndpointsEnabled {
 		e.POST(formatTokensResource("/store-state"), handler.StoreTokensStateInFiles)
 	}
@@ -96,20 +104,14 @@ func (a *TokensHandler) GetMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusOK, tokenMetadata)
 	}
 
-	denoms := strings.Split(denomsStr, ",")
+	denoms, err := validateDenomsParam(denomsStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
 
 	tokenMetadataResult := make(map[string]domain.Token, len(denoms))
 
 	for _, denom := range denoms {
-		denom, err := url.PathUnescape(denom)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-		}
-
-		if err := sdk.ValidateDenom(denom); err != nil {
-			return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
-		}
-
 		tokenMetadata, err := a.TUsecase.GetMetadataByChainDenom(denom)
 		if err == nil {
 			tokenMetadataResult[denom] = tokenMetadata
@@ -151,14 +153,18 @@ func (a *TokensHandler) GetPoolDenomMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusOK, result)
 	}
 
-	denoms := strings.Split(denomsStr, ",")
+	if strings.Count(denomsStr, ",") >= maxDenomsParam {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("too many denoms, max: %d", maxDenomsParam)})
+	}
+
+	denoms := deduplicateStrings(strings.Split(denomsStr, ","))
 	// Validate denom parameters and convert to chain denoms if necessary.
 	chainDenoms, err := mvc.ValidateChainDenomsQueryParam(c, a.TUsecase, denoms)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
 
-	result := a.TUsecase.GetPoolDenomsMetadata(chainDenoms)
+	result := a.TUsecase.GetPoolDenomsMetadata(deduplicateStrings(chainDenoms))
 	return c.JSON(http.StatusOK, result)
 }
 
@@ -194,6 +200,7 @@ type GetPricesDebugResponse map[string]map[string]PriceDebug
 // @Param   humanDenoms   query     bool    false "Specify true if input denominations are in human-readable format; defaults to false"
 // @Param	pricingSource query     int     false "Specify the pricing source. Values can be 0 (chain) or 1 (coingecko); default to 0 (chain)"
 // @Param   debug         query     bool    false "Specify true to include the routes used in the selection of the quote for price calculation; defaults to false"
+// @Param   includeQuoteUsdPeg query bool false "Specify true to wrap the response as {\"prices\": ..., \"quote_usd_peg\": ...}, where quote_usd_peg is the quote denom's peg against US dollars (omitted if the check is disabled); defaults to false"
 // @Success 200 {object} map[string]map[string]string "A map where each key is a base denomination (on-chain format), containing another map with a key as the quote denomination (on-chain format) and the value as the spot price."
 // @Router /tokens/prices [get]
 func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
@@ -201,6 +208,11 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 	defer cancel()
 
 	debug, err := deliveryhttp.ParseBooleanQueryParam(c, "debug")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+	}
+
+	includePeg, err := deliveryhttp.ParseBooleanQueryParam(c, "includeQuoteUsdPeg")
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
 	}
@@ -248,7 +260,7 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 				result[baseDenom][quoteDenom] = price.Price
 			}
 		}
-		return c.JSON(http.StatusOK, result)
+		return a.respondPrices(c, result, includePeg)
 	}
 
 	// If we are in debug mode, we return the prices with routes
@@ -276,7 +288,25 @@ func (a *TokensHandler) GetPrices(c echo.Context) (err error) {
 		}
 	}
 
-	return c.JSON(http.StatusOK, result)
+	return a.respondPrices(c, result, includePeg)
+}
+
+// GetPricesWithPegResponse is the /tokens/prices response when includeQuoteUsdPeg is set. The prices keep
+// their usual shape under Prices, so that clients that do not ask for the peg are unaffected.
+type GetPricesWithPegResponse struct {
+	Prices      any                 `json:"prices"`
+	QuoteUSDPeg *domain.QuoteUSDPeg `json:"quote_usd_peg,omitempty"`
+}
+
+// respondPrices writes the prices, wrapped with the quote denom's USD peg if the client asked for it.
+func (a *TokensHandler) respondPrices(c echo.Context, prices any, includePeg bool) error {
+	if !includePeg {
+		return c.JSON(http.StatusOK, prices)
+	}
+	return c.JSON(http.StatusOK, GetPricesWithPegResponse{
+		Prices:      prices,
+		QuoteUSDPeg: a.usdPeg.Check(c.Request().Context()),
+	})
 }
 
 // getPricingSource retrieves the pricing sources.
@@ -321,6 +351,7 @@ func (a TokensHandler) getQuoteDenom(pricingSourceType domain.PricingSourceType)
 // If any of the denoms are invalid return an error
 func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms bool) ([]string, error) {
 	valid := make([]string, 0, len(baseDenoms))
+	seen := make(map[string]struct{}, len(baseDenoms))
 	var firstErr error
 	for _, baseDenom := range baseDenoms {
 		// If human, convert to chain format
@@ -342,6 +373,10 @@ func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms
 			continue
 		}
 
+		if _, dup := seen[baseDenom]; dup {
+			continue
+		}
+		seen[baseDenom] = struct{}{}
 		valid = append(valid, baseDenom)
 	}
 
@@ -352,16 +387,22 @@ func (a TokensHandler) validateBaseDenoms(baseDenoms []string, isHumanBaseDenoms
 	return valid, nil
 }
 
-// validateDenomsParam validates the denoms param string
-// returns a denom slice if validation passes. Error otherwise
+// validateDenomsParam validates the denoms param string and deduplicates entries while preserving order.
+// Returns a denom slice if validation passes. Error otherwise.
 func validateDenomsParam(denomsStr string) ([]string, error) {
 	if len(denomsStr) == 0 {
 		return nil, errors.New("denoms input must be non-empty")
 	}
 
-	denoms := strings.Split(denomsStr, ",")
+	if strings.Count(denomsStr, ",") >= maxDenomsParam {
+		return nil, fmt.Errorf("too many denoms, max: %d", maxDenomsParam)
+	}
 
-	for i, denom := range denoms {
+	rawDenoms := strings.Split(denomsStr, ",")
+	denoms := make([]string, 0, len(rawDenoms))
+	seen := make(map[string]struct{}, len(rawDenoms))
+
+	for _, denom := range rawDenoms {
 		denom, err := url.PathUnescape(denom)
 		if err != nil {
 			return nil, err
@@ -371,37 +412,32 @@ func validateDenomsParam(denomsStr string) ([]string, error) {
 			return nil, err
 		}
 
+		if _, dup := seen[denom]; dup {
+			continue
+		}
+		seen[denom] = struct{}{}
+
 		// Return the denom that was validated, not the escaped form it was given in.
-		denoms[i] = denom
+		denoms = append(denoms, denom)
 	}
 
 	return denoms, nil
 }
 
-// This mock endpoint is exposed for a data-pipelines hiring assignment.
-// It is not meant for use in production.
-func (a *TokensHandler) GetUSDPriceTest(c echo.Context) (err error) {
-	denomsStr := c.QueryParam("denoms")
-	denoms, err := validateDenomsParam(denomsStr)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: err.Error()})
+func deduplicateStrings(items []string) []string {
+	if len(items) <= 1 {
+		return items
 	}
-
-	prices := map[string]osmomath.Dec{}
-
-	for _, denom := range denoms {
-		// TiA
-		if denom == "ibc/D79E7D83AB399BFFF93433E54FAA480C191248FC556924A2A8351AE2638B3877" {
-			prices[denom] = osmomath.MustNewDecFromStr("13.5")
-			// milkTIA
-		} else if denom == "factory/osmo1f5vfcph2dvfeqcqkhetwv75fda69z7e5c2dldm3kvgj23crkv6wqcn47a0/umilkTIA" {
-			prices[denom] = osmomath.MustNewDecFromStr("13.7")
-		} else {
-			return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: fmt.Errorf("unsupported denom (%s)", denom).Error()})
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if _, dup := seen[item]; dup {
+			continue
 		}
+		seen[item] = struct{}{}
+		out = append(out, item)
 	}
-
-	return c.JSON(http.StatusOK, prices)
+	return out
 }
 
 func (a *TokensHandler) StoreTokensStateInFiles(c echo.Context) error {

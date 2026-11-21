@@ -188,3 +188,52 @@ func TestCache_SweepIsBounded(t *testing.T) {
 	// Every examined item is expired, so exactly one batch is removed and one item is added.
 	require.Equal(t, numExpired-cache.SweepBatchSize+1, c.Len())
 }
+
+// Validates that the cache never grows beyond its configured maxEntries, that updating an
+// existing key at capacity does not evict other entries, and that eviction prefers the
+// soonest-expiring entry over longer-lived and non-expiring entries.
+func TestCache_RespectsMaxEntries(t *testing.T) {
+	t.Run("hard cap on distinct unexpired keys", func(t *testing.T) {
+		const maxEntries = 10
+		c := cache.NewWithMaxEntries(maxEntries)
+
+		for i := range maxEntries * 5 {
+			c.Set(fmt.Sprintf("k-%d", i), i, time.Hour)
+			require.LessOrEqual(t, c.Len(), maxEntries)
+		}
+		require.Equal(t, maxEntries, c.Len())
+	})
+
+	t.Run("updating an existing key at capacity does not evict", func(t *testing.T) {
+		c := cache.NewWithMaxEntries(3)
+		c.Set("a", 1, time.Hour)
+		c.Set("b", 2, time.Hour)
+		c.Set("c", 3, time.Hour)
+
+		c.Set("b", 20, time.Hour)
+		require.Equal(t, 3, c.Len())
+
+		for key, want := range map[string]int{"a": 1, "b": 20, "c": 3} {
+			got, ok := c.Get(key)
+			require.True(t, ok, key)
+			require.Equal(t, want, got)
+		}
+	})
+
+	t.Run("evicts soonest-expiring entry when cache fits within sample size", func(t *testing.T) {
+		c := cache.NewWithMaxEntries(3)
+		c.Set("permanent", 1, cache.NoExpirationTTL)
+		c.Set("long", 2, time.Hour)
+		c.Set("short", 3, time.Minute)
+
+		c.Set("new", 4, time.Hour)
+		require.Equal(t, 3, c.Len())
+
+		_, found := c.Get("short")
+		require.False(t, found)
+		for _, key := range []string{"permanent", "long", "new"} {
+			_, found := c.Get(key)
+			require.True(t, found, key)
+		}
+	})
+}

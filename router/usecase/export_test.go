@@ -130,3 +130,12 @@ func (r *routerUseCaseImpl) SetRankedRouteCacheToMock(method domain.TokenSwapMet
 		}}, 0)
 
 }
+
+func GetBestSplitQuoteInGivenOut(ctx context.Context, rankedRoutes []route.RouteImpl, tokenOut sdk.Coin, maxSplitRoutes int) (domain.Quote, error) {
+	return getBestSplitQuoteInGivenOut(ctx, rankedRoutes, tokenOut, maxSplitRoutes)
+}
+
+// SetCandidateRouteSearcher replaces the candidate route searcher of the router.
+func (r *routerUseCaseImpl) SetCandidateRouteSearcher(searcher domain.CandidateRouteSearcher) {
+	r.candidateRouteSearcher = searcher
+}

@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
-	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 
 	ingesttypes "github.com/osmosis-labs/osmosis/v31/ingest/types"
@@ -71,15 +71,15 @@ type PoolI interface {
 var _ PoolI = &PoolWrapper{}
 
 type PoolWrapper struct {
-	chainModel atomic.CopyOnWrite[poolmanagertypes.PoolI]
-	sqsModel   atomic.CopyOnWrite[SQSPool]
+	chainModel atomic.Pointer[poolmanagertypes.PoolI]
+	sqsModel   atomic.Pointer[SQSPool]
 	// sqsModelMu serialises the writers of sqsModel. The liquidity cap setters read the model,
 	// change one field and store it back, from both the ingest and the pricing goroutines:
 	// unserialised, one of two concurrent updates is lost. Readers do not take it.
 	sqsModelMu sync.Mutex
-	aprData    atomic.CopyOnWrite[passthroughdomain.PoolAPRDataStatusWrap]
-	feesData   atomic.CopyOnWrite[passthroughdomain.PoolFeesDataStatusWrap]
-	tickModel  atomic.CopyOnWrite[*TickModel]
+	aprData    atomic.Pointer[passthroughdomain.PoolAPRDataStatusWrap]
+	feesData   atomic.Pointer[passthroughdomain.PoolFeesDataStatusWrap]
+	tickModel  atomic.Pointer[TickModel]
 }
 
 func NewPool(chainModel poolmanagertypes.PoolI, sqsModel SQSPool) *PoolWrapper {
@@ -115,27 +115,33 @@ func (p *PoolWrapper) GetPoolDenoms() []string {
 	return denoms
 }
 
-// GetUnderlyingPool implements PoolI.
+// SetUnderlyingPool implements PoolI.
 func (p *PoolWrapper) SetUnderlyingPool(model poolmanagertypes.PoolI) {
-	p.chainModel.Store(model)
+	p.chainModel.Store(&model)
 }
 
 // GetUnderlyingPool implements PoolI.
 func (p *PoolWrapper) GetUnderlyingPool() poolmanagertypes.PoolI {
-	return p.chainModel.Load()
+	if model := p.chainModel.Load(); model != nil {
+		return *model
+	}
+	return nil
 }
 
-// GetSQSPoolModel implements PoolI.
+// SetSQSPoolModel implements PoolI.
 func (p *PoolWrapper) SetSQSPoolModel(model SQSPool) {
 	p.sqsModelMu.Lock()
 	defer p.sqsModelMu.Unlock()
 
-	p.sqsModel.Store(model)
+	p.sqsModel.Store(&model)
 }
 
 // GetSQSPoolModel implements PoolI.
 func (p *PoolWrapper) GetSQSPoolModel() SQSPool {
-	return p.sqsModel.Load()
+	if model := p.sqsModel.Load(); model != nil {
+		return *model
+	}
+	return SQSPool{}
 }
 
 // GetTickModel implements PoolI.
@@ -215,7 +221,7 @@ func (p *PoolWrapper) SetLiquidityCap(liquidityCap math.Int) {
 	sqsModel := p.GetSQSPoolModel()
 	sqsModel.PoolLiquidityCap = liquidityCap
 
-	p.sqsModel.Store(sqsModel)
+	p.sqsModel.Store(&sqsModel)
 }
 
 // GetLiquidityCapError implements PoolI.
@@ -231,25 +237,31 @@ func (p *PoolWrapper) SetLiquidityCapError(liquidityCapError string) {
 	sqsModel := p.GetSQSPoolModel()
 	sqsModel.PoolLiquidityCapError = liquidityCapError
 
-	p.sqsModel.Store(sqsModel)
+	p.sqsModel.Store(&sqsModel)
 }
 
 // SetAPRData implements PoolI.
 func (p *PoolWrapper) SetAPRData(aprData passthroughdomain.PoolAPRDataStatusWrap) {
-	p.aprData.Store(aprData)
+	p.aprData.Store(&aprData)
 }
 
 // GetAPRData implements PoolI.
 func (p *PoolWrapper) GetAPRData() passthroughdomain.PoolAPRDataStatusWrap {
-	return p.aprData.Load()
+	if aprData := p.aprData.Load(); aprData != nil {
+		return *aprData
+	}
+	return passthroughdomain.PoolAPRDataStatusWrap{}
 }
 
 // SetFeesData implements PoolI.
 func (p *PoolWrapper) SetFeesData(feesData passthroughdomain.PoolFeesDataStatusWrap) {
-	p.feesData.Store(feesData)
+	p.feesData.Store(&feesData)
 }
 
 // GetFeesData implements PoolI.
 func (p *PoolWrapper) GetFeesData() passthroughdomain.PoolFeesDataStatusWrap {
-	return p.feesData.Load()
+	if feesData := p.feesData.Load(); feesData != nil {
+		return *feesData
+	}
+	return passthroughdomain.PoolFeesDataStatusWrap{}
 }

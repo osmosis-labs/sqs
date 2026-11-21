@@ -5,7 +5,6 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
-	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
 	"go.uber.org/zap"
 
 	clmath "github.com/osmosis-labs/osmosis/v31/x/concentrated-liquidity/math"
@@ -35,7 +34,7 @@ var one = osmomath.MustNewDecFromStr("1")
 // - Fails to get market price for base and quote denoms
 // - Fails to compute the current tick from the markat price
 // - Fails to compute either of the fillable amounts.
-func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, canonicalOrderbookResult domain.CanonicalOrderBooksResult) (osmomath.Int, osmomath.Int, error) {
+func (o *orderbookFillerIngestPlugin) getFillableOrders(blockCtx *blockContext, canonicalOrderbookResult domain.CanonicalOrderBooksResult) (osmomath.Int, osmomath.Int, error) {
 	// Get orders for the given order book.
 	ordersData, ok := o.orderMapByPoolID.Load(canonicalOrderbookResult.PoolID)
 	if !ok {
@@ -75,9 +74,7 @@ func (o *orderbookFillerIngestPlugin) getFillableOrders(ctx blockctx.BlockCtxI, 
 
 	totalFee := spreadFactor.Add(takerFee[0].TakerFee)
 
-	blockPrices := ctx.GetPrices()
-
-	baseQuoteMarketPrice := blockPrices.GetPriceForDenom(orderBookState.BaseDenom, orderBookState.QuoteDenom)
+	baseQuoteMarketPrice := blockCtx.prices.GetPriceForDenom(orderBookState.BaseDenom, orderBookState.QuoteDenom)
 	if baseQuoteMarketPrice.IsZero() {
 		return osmomath.Int{}, osmomath.Int{}, fmt.Errorf("zero price for order book (%d) with base (%s), quote (%s)", canonicalOrderbookResult.PoolID, orderBookState.BaseDenom, orderBookState.QuoteDenom)
 	}

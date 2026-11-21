@@ -937,6 +937,19 @@ func (s *RouterTestSuite) TestGetCustomQuote_GetCustomDirectQuoteInGivenOut_Main
 	quote, err := routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
 	s.Require().NoError(err)
 	s.validateExpectedPoolIDOneRouteOneHopQuote(quote, expectedPoolID)
+
+	// A pinned pool on the exclusion list is rejected on both exact-out paths, while another pool still quotes.
+	config.ExcludedPoolIDs = []uint64{expectedPoolID}
+	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	_, err = routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	s.Require().ErrorIs(err, routertypes.ErrValidationFailed)
+	_, err = routerUsecase.GetCustomDirectQuoteMultiPoolInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), []string{UION}, []uint64{expectedPoolID})
+	s.Require().ErrorIs(err, routertypes.ErrValidationFailed)
+
+	config.ExcludedPoolIDs = []uint64{uint64(1110)}
+	routerUsecase = routerusecase.NewRouterUsecase(tokensRepositoryMock, poolsUsecase, candidateRouteFinderMock, tokenMetaDataHolderMock, config, emptyCosmWasmPoolsRouterConfig, &log.NoOpLogger{}, cache.New(), cache.New())
+	_, err = routerUsecase.GetCustomDirectQuoteInGivenOut(context.Background(), sdk.NewCoin(UOSMO, amountIn), UION, expectedPoolID)
+	s.Require().NoError(err)
 }
 
 // Validates that the logic skips errors from individual routes
@@ -1363,4 +1376,37 @@ func (s *RouterTestSuite) validateExpectedPoolIDsMultiHopRoute(actualPools []dom
 	}
 
 	s.Require().Equal(expectedPoolID, pools)
+}
+
+type recordingCandidateSearcher struct {
+	domain.CandidateRouteSearcher
+	inGivenOutOptions []domain.CandidateRouteSearchOptions
+}
+
+func (r *recordingCandidateSearcher) FindCandidateRoutesInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
+	r.inGivenOutOptions = append(r.inGivenOutOptions, options)
+	return r.CandidateRouteSearcher.FindCandidateRoutesInGivenOut(ctx, tokenOut, tokenInDenom, options)
+}
+
+// TestGetOptimalQuoteInGivenOut_CandidateSearchIgnoresSingleRoute checks that a single route exact-out request searches
+// candidates with the configured split count, so that the cached candidates it leaves hold the pools a later split request needs.
+func (s *RouterTestSuite) TestGetOptimalQuoteInGivenOut_CandidateSearchIgnoresSingleRoute() {
+	mainnetState := s.SetupMainnetState()
+	useCases := s.SetupRouterAndPoolsUsecase(mainnetState)
+	routerUseCase, ok := useCases.Router.(*routerusecase.RouterUseCaseImpl)
+	s.Require().True(ok)
+
+	recorder := &recordingCandidateSearcher{CandidateRouteSearcher: useCases.CandidateRouteSearcher}
+	routerUseCase.SetCandidateRouteSearcher(recorder)
+
+	ctx := context.Background()
+	_, _ = routerUseCase.GetOptimalQuoteInGivenOut(ctx, sdk.NewCoin(UOSMO, osmomath.NewInt(1_000_000)), USDC, domain.WithDisableSplitRoutes(), domain.WithDisableCache())
+	_, _ = routerUseCase.GetOptimalQuoteInGivenOut(ctx, sdk.NewCoin(UOSMO, osmomath.NewInt(1_000_000)), USDC, domain.WithDisableCache())
+
+	// Each request runs a reference-sized and an amount-sized search.
+	s.Require().Len(recorder.inGivenOutOptions, 4)
+	s.Require().Greater(routerUseCase.GetConfig().MaxSplitRoutes, 1)
+	for _, options := range recorder.inGivenOutOptions {
+		s.Require().Equal(routerUseCase.GetConfig().MaxSplitRoutes, options.MaxSplitRoutes)
+	}
 }

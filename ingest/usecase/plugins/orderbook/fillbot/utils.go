@@ -6,7 +6,6 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
-	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
 	"go.uber.org/zap"
 )
 
@@ -52,13 +51,10 @@ func (o *orderbookFillerIngestPlugin) shouldSkipLowBalance(baseDenom string, bas
 // validateUserBalances validates the user balances meeting the minimum configured theshold in quote denom terms.
 // Returns error if fails to validate or if balance is low.
 // Returns nil on success.
-func (o *orderbookFillerIngestPlugin) validateUserBalances(ctx blockctx.BlockCtxI, baseDenom, quoteDenom string) error {
-	userBlockBalances := ctx.GetUserBalances()
-	blockPrices := ctx.GetPrices()
-
+func (o *orderbookFillerIngestPlugin) validateUserBalances(blockCtx *blockContext, baseDenom, quoteDenom string) error {
 	// Validate base denom balance
-	baseAmountBalance := userBlockBalances.AmountOf(baseDenom)
-	isBaseLowBalance, err := o.shouldSkipLowBalance(baseDenom, baseAmountBalance, blockPrices)
+	baseAmountBalance := blockCtx.userBalances.AmountOf(baseDenom)
+	isBaseLowBalance, err := o.shouldSkipLowBalance(baseDenom, baseAmountBalance, blockCtx.prices)
 	if err != nil {
 		return err
 	}
@@ -68,8 +64,8 @@ func (o *orderbookFillerIngestPlugin) validateUserBalances(ctx blockctx.BlockCtx
 	}
 
 	// Validate quote denom balance.
-	quoteAmountBalance := userBlockBalances.AmountOf(quoteDenom)
-	isQuoteLowBalance, err := o.shouldSkipLowBalance(quoteDenom, quoteAmountBalance, blockPrices)
+	quoteAmountBalance := blockCtx.userBalances.AmountOf(quoteDenom)
+	isQuoteLowBalance, err := o.shouldSkipLowBalance(quoteDenom, quoteAmountBalance, blockCtx.prices)
 	if err != nil {
 		return err
 	}

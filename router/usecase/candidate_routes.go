@@ -76,6 +76,28 @@ var visitedPools = sync.Pool{
 	},
 }
 
+const (
+	// initialSearchNodesCap is the capacity of a new search's nodes slice.
+	initialSearchNodesCap = 256
+
+	// maxPooledSearchNodesCap is the largest nodes slice, about 1.3 MB, that goes back to
+	// searchNodesPool. A search that reaches maxCandidateRouteSearchPaths grows its slice to
+	// about 8 MB; keeping one such slice per concurrent search would hold that memory for
+	// the many small searches that need a fraction of it.
+	maxPooledSearchNodesCap = 16_384
+)
+
+// searchNodesPool reuses the nodes slices of finished searches. A search that queues many paths
+// grows its slice to hold them all; without reuse, every repricing of every token allocates and
+// discards that slice again, which made it most of the memory allocated while pricing.
+// Slices are cleared before reuse so that they do not keep pool denoms alive.
+var searchNodesPool = sync.Pool{
+	New: func() any {
+		nodes := make([]candidateRouteNode, 0, initialSearchNodesCap)
+		return &nodes
+	},
+}
+
 type candidateRouteFinder struct {
 	candidateRouteDataHolder mvc.CandidateRouteSearchDataHolder
 	// excludedPools are skipped by every search regardless of the per-call options,
@@ -131,11 +153,23 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 		visitedPools.Put(visitedPtr)
 	}()
 
-	// The queue holds indexes into nodes, starting with the empty path (-1).
-	// TODO: choose the best initial size for the queue.
-	nodes := make([]candidateRouteNode, 0, 100)
-	queue := make([]int, 0, 100)
-	queue = append(queue, -1)
+	// nodes holds the queued paths in the order they were queued, which is the breadth-first
+	// order they are expanded in. Expansion starts at the empty path (-1), then visits nodes[0],
+	// nodes[1] and so on.
+	nodesPtr, ok := searchNodesPool.Get().(*[]candidateRouteNode)
+	if !ok {
+		nodes := make([]candidateRouteNode, 0, initialSearchNodesCap)
+		nodesPtr = &nodes
+	}
+	nodes := (*nodesPtr)[:0]
+	defer func() {
+		if cap(nodes) > maxPooledSearchNodesCap {
+			return
+		}
+		clear(nodes)
+		*nodesPtr = nodes[:0]
+		searchNodesPool.Put(nodesPtr)
+	}()
 
 	denomData, err := c.candidateRouteDataHolder.GetDenomData(tokenIn.Denom)
 	if err != nil {
@@ -173,14 +207,12 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 		}
 	}
 
-	for head := 0; head < len(queue) && len(routes) < options.MaxRoutes; head++ {
-		if head%ctxCheckInterval == 0 {
+	for currentNode := -1; currentNode < len(nodes) && len(routes) < options.MaxRoutes; currentNode++ {
+		if (currentNode+1)%ctxCheckInterval == 0 {
 			if err := ctx.Err(); err != nil {
 				return nil, 0, false, err
 			}
 		}
-
-		currentNode := queue[head]
 
 		currentRouteLen := 0
 		lastPoolID := uint64(0)
@@ -258,7 +290,18 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 				// HACK: alloyed LP share is not contained in balances.
 				// TODO: remove the hack and ingest the LP share balance on the Osmosis side.
 				// https://linear.app/osmosis/issue/DATA-236/bug-alloyed-lp-share-is-not-present-in-balances
-				if currentTokenInAmount.LT(tokenIn.Amount) && !pool.IsAlloyTransmuter {
+				minFirstPoolAmount := tokenIn.Amount
+				// Exact-out: a pool that holds only a split share of the token out can still fill that share.
+				if options.ExactOut && options.MaxSplitRoutes > 1 {
+					if share := tokenIn.Amount.QuoRaw(int64(options.MaxSplitRoutes)); share.IsPositive() {
+						minFirstPoolAmount = share
+					}
+				}
+
+				// Exact-out searches from the token out, which a transmuter pays out of its balance unless it is the
+				// alloyed LP share. Exact-in keeps the bypass for every alloy transmuter, as does a transmuter without alloyed denom data.
+				bypassBalanceCheck := pool.IsAlloyTransmuter && (!options.ExactOut || pool.AlloyedDenom == "" || currenTokenInDenom == pool.AlloyedDenom)
+				if currentTokenInAmount.LT(minFirstPoolAmount) && !bypassBalanceCheck {
 					visited[pool.ID] = true
 					// Not enough tokenIn to swap.
 					continue
@@ -290,7 +333,6 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 							break
 						} else if len(nodes) < maxQueuedPaths {
 							nodes = append(nodes, candidateRouteNode{pool: nextPool, parent: currentNode, length: currentRouteLen + 1})
-							queue = append(queue, len(nodes)-1)
 						} else {
 							capped = true
 						}
@@ -311,6 +353,7 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 func (c candidateRouteFinder) FindCandidateRoutesInGivenOut(ctx context.Context, tokenOut sdk.Coin, tokenInDenom string, options domain.CandidateRouteSearchOptions) (ingesttypes.CandidateRoutes, error) {
 	// Fetching the candidate routes as for the exact amount of token in swap method
 	// That will be the same as the exact amount out swap method with inverted token denominations
+	options.ExactOut = true
 	routes, err := c.FindCandidateRoutesOutGivenIn(ctx, tokenOut, tokenInDenom, options)
 	if err != nil {
 		return ingesttypes.CandidateRoutes{}, err

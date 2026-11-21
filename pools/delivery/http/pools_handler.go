@@ -6,7 +6,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/labstack/echo/v4"
-	"github.com/sirupsen/logrus"
 
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
@@ -101,7 +100,7 @@ func (a *PoolsHandler) GetPools(c echo.Context) error {
 		filters...,
 	)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
 	// Convert pools to the appropriate format
@@ -119,7 +118,7 @@ func (a *PoolsHandler) GetConcentratedPoolTicks(c echo.Context) error {
 
 	pools, err := a.PUsecase.GetTickModelMap([]uint64{poolID})
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
 	tickModel, ok := pools[poolID]
@@ -128,24 +127,6 @@ func (a *PoolsHandler) GetConcentratedPoolTicks(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, tickModel)
-}
-
-func getStatusCode(err error) int {
-	if err == nil {
-		return http.StatusOK
-	}
-
-	logrus.Error(err)
-	switch err {
-	case domain.ErrInternalServerError:
-		return http.StatusInternalServerError
-	case domain.ErrNotFound:
-		return http.StatusNotFound
-	case domain.ErrConflict:
-		return http.StatusConflict
-	default:
-		return http.StatusInternalServerError
-	}
 }
 
 // @Summary Get canonical orderbook pool ID for the given base and quote.
@@ -170,7 +151,7 @@ func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 
 	poolID, contractAddres, err := a.PUsecase.GetCanonicalOrderbookPool(base, quote)
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, domain.CanonicalOrderBooksResult{
@@ -189,7 +170,7 @@ func (a *PoolsHandler) GetCanonicalOrderbook(c echo.Context) error {
 func (a *PoolsHandler) GetCanonicalOrderbooks(c echo.Context) error {
 	orderbookData, err := a.PUsecase.GetAllCanonicalOrderbookPoolIDs()
 	if err != nil {
-		return c.JSON(getStatusCode(err), ResponseError{Message: err.Error()})
+		return c.JSON(domain.GetStatusCode(err), ResponseError{Message: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, orderbookData)

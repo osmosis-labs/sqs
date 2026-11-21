@@ -4,19 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
-	sdkmath "math"
-
 	"cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	sqsosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
-	"github.com/osmosis-labs/sqs/domain/pipeline"
 	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
@@ -28,7 +26,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
-	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 
 	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v31/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
@@ -191,16 +188,16 @@ func (p *poolsUseCase) GetRoutesFromCandidatesInGivenOut(candidateRoutes ingestt
 // takerFeeDenoms returns the (token in, token out) denom pair used to look up the taker fee
 // of the hop at hopIndex in candidateRoute.
 func (p *poolsUseCase) getRoutesFromCandidates(candidateRoutes ingesttypes.CandidateRoutes, takerFeeDenoms func(candidateRoute ingesttypes.CandidateRoute, hopIndex int) (string, string)) ([]route.RouteImpl, error) {
-	// We track whether a route contains a generalized cosmwasm pool
-	// so that we can exclude it from split quote logic.
-	// The reason for this is that making network requests to chain is expensive.
-	// As a result, we want to minimize the number of requests we make.
-	containsGeneralizedCosmWasmPool := false
-
 	// Convert each candidate route into the actual route with all pool data
 	routes := make([]route.RouteImpl, 0, len(candidateRoutes.Routes))
 	for _, candidateRoute := range candidateRoutes.Routes {
 		routablePools := make([]domain.RoutablePool, 0, len(candidateRoute.Pools))
+
+		// We track whether this route contains a generalized cosmwasm pool
+		// so that we can exclude it from split quote logic.
+		// The reason for this is that making network requests to chain is expensive.
+		// As a result, we want to minimize the number of requests we make.
+		containsGeneralizedCosmWasmPool := false
 
 		// For fault tolerance, instead of bubbling up the error and skipping an entire
 		// request, we should detect the error and skip the route.
@@ -429,38 +426,51 @@ func feesDataField(field func(sqspassthroughdomain.PoolFee) float64) func(ingest
 	}
 }
 
-// poolFilters is a map of available filters for getPools function.
-var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]){
-	"poolId": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
-		if f != nil && len(f.PoolId) > 0 {
-			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return slices.Contains(f.PoolId, pool.GetId()) // TODO: with keys method to avoid O(n)
-			})
+func uint64Set(ids []uint64) map[uint64]struct{} {
+	set := make(map[uint64]struct{}, len(ids))
+	for _, id := range ids {
+		set[id] = struct{}{}
+	}
+	return set
+}
+
+func filterPools(pools []ingesttypes.PoolI, keep func(ingesttypes.PoolI) bool) []ingesttypes.PoolI {
+	filtered := make([]ingesttypes.PoolI, 0, len(pools))
+	for _, pool := range pools {
+		if keep(pool) {
+			filtered = append(filtered, pool)
 		}
-	},
-	"poolIdNotIn": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
-		if f != nil && len(f.PoolIdNotIn) > 0 {
-			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return !slices.Contains(f.PoolIdNotIn, pool.GetId())
-			})
+	}
+	return filtered
+}
+
+func paginatePools(pools []ingesttypes.PoolI, p *v1beta1.PaginationRequest) []ingesttypes.PoolI {
+	if p == nil {
+		return pools
+	}
+	n := uint64(len(pools))
+	if p.Limit == 0 || n == 0 {
+		return []ingesttypes.PoolI{}
+	}
+
+	var offset uint64
+	if p.Strategy == v1beta1.PaginationStrategy_PAGE {
+		if p.Page > n/p.Limit {
+			return []ingesttypes.PoolI{}
 		}
-	},
-	"type": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
-		if f != nil && len(f.Type) > 0 {
-			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return slices.Contains(f.Type, uint64(pool.GetType()))
-			})
-		}
-	},
-	"minLiquidityCap": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
-		if f != nil && f.MinLiquidityCap > 0 {
-			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				// A pool with no capitalization yet counts as zero, and one above the uint64
-				// range as the largest value; Uint64 panics on both.
-				return sqsosmomath.SafeUint64(pool.GetLiquidityCap()) >= f.MinLiquidityCap
-			})
-		}
-	},
+		offset = p.Page * p.Limit
+	} else {
+		offset = p.Cursor
+	}
+	if offset >= n {
+		return []ingesttypes.PoolI{}
+	}
+
+	end := n
+	if p.Limit < n-offset {
+		end = offset + p.Limit
+	}
+	return pools[offset:end]
 }
 
 // filterExactMatchSearch filters pools by exact match search.
@@ -566,72 +576,91 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 		return pools, uint64(len(pools)), nil
 	}
 
-	transformer := pipeline.NewSyncMapTransformer(p.pools)
-
-	// Apply filters
-	for _, applyFilter := range poolFilters {
-		applyFilter(options.Filter, transformer)
+	poolMap, err := p.pools.Load()
+	var pools []ingesttypes.PoolI
+	if err == nil {
+		pools = make([]ingesttypes.PoolI, 0, len(poolMap))
+		for _, pool := range poolMap {
+			pools = append(pools, pool)
+		}
 	}
 
-	// Denom filter filters pools by pool denoms.
-	// Given list of denoms in the filter, it will return pools that have at least one denom in the list.
-	// Order of denoms in the filter list is not important.
-	if f := options.Filter; f != nil && len(f.Denom) > 0 {
-		transformer.Filter(func(pool ingesttypes.PoolI) bool {
-			poolDenoms := pool.GetPoolDenoms()
-
-			// Check if any denom in f.Denom exists in poolDenoms
-			for _, denom := range f.Denom {
-				denom = strings.ToLower(denom)
-				for _, poolDenom := range poolDenoms {
-					token, err := p.tokenMetadataHolder.GetMetadataByChainDenom(poolDenom)
-					if err != nil {
-						continue
-					}
-
-					if denom == strings.ToLower(token.HumanDenom) || denom == strings.ToLower(token.CoinMinimalDenom) {
-						return true
+	if f := options.Filter; f != nil {
+		if len(f.PoolId) > 0 {
+			allowed := uint64Set(f.PoolId)
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				_, ok := allowed[pool.GetId()]
+				return ok
+			})
+		}
+		if len(f.PoolIdNotIn) > 0 {
+			excluded := uint64Set(f.PoolIdNotIn)
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				_, ok := excluded[pool.GetId()]
+				return !ok
+			})
+		}
+		if len(f.Type) > 0 {
+			allowedTypes := uint64Set(f.Type)
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				_, ok := allowedTypes[uint64(pool.GetType())]
+				return ok
+			})
+		}
+		if f.MinLiquidityCap > 0 {
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				// A pool with no capitalization yet counts as zero, and one above the uint64
+				// range as the largest value; Uint64 panics on both.
+				return sqsosmomath.SafeUint64(pool.GetLiquidityCap()) >= f.MinLiquidityCap
+			})
+		}
+		if len(f.Denom) > 0 {
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				poolDenoms := pool.GetPoolDenoms()
+				for _, denom := range f.Denom {
+					denom = strings.ToLower(denom)
+					for _, poolDenom := range poolDenoms {
+						token, err := p.tokenMetadataHolder.GetMetadataByChainDenom(poolDenom)
+						if err != nil {
+							continue
+						}
+						if denom == strings.ToLower(token.HumanDenom) || denom == strings.ToLower(token.CoinMinimalDenom) {
+							return true
+						}
 					}
 				}
-			}
-			return false
-		})
+				return false
+			})
+		}
 	}
 
-	// Set fetch APR and fees data if configured used by some sort opts below
-	transformer.Range(func(key uint64, value ingesttypes.PoolI) bool {
-		p.setPoolAPRAndFeeDataIfConfigured(value, options)
-		return true
-	})
+	// Set APR and fees data if configured (used by incentive filter and sort options below).
+	for _, pool := range pools {
+		p.setPoolAPRAndFeeDataIfConfigured(pool, options)
+	}
 
 	// Filter by pool incentive type.
 	// This filter is intentionally placed after setting APR and fee data
 	// to ensure that the APR and fee data is set required for this filter.
 	if f := options.Filter; f != nil && len(f.Incentive) > 0 {
-		transformer.Filter(func(pool ingesttypes.PoolI) bool {
+		pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
 			return slices.Contains(f.Incentive, pool.Incentive())
 		})
 	}
 
-	// TODO: pool denoms seems needs to be reversed?
-	// which one is base and which one is quote?
-	// we need to sort in format: quote/base
 	if f := options.Filter; f != nil && len(f.Search) > 0 {
-		exactSearch := transformer.Clone()
-		exactSearch.Filter(filterExactMatchSearch(p.tokenMetadataHolder, f.Search))
-		if exactSearch.Count() > 0 {
-			transformer = exactSearch // exact search found
+		if exact := filterPools(pools, filterExactMatchSearch(p.tokenMetadataHolder, f.Search)); len(exact) > 0 {
+			pools = exact
 		} else {
-			transformer.Filter(filterPartialMatchSearch(p.tokenMetadataHolder, f.Search))
+			pools = filterPools(pools, filterPartialMatchSearch(p.tokenMetadataHolder, f.Search))
 		}
 	}
 
 	// Sorting options for pool results
 	var sortopts []func(ingesttypes.PoolI, ingesttypes.PoolI) bool
-	if sort := options.Sort; sort != nil {
-		for _, v := range sort.Fields {
+	if sortReq := options.Sort; sortReq != nil {
+		for _, v := range sortReq.Fields {
 			if sortFunc, ok := getPoolsSortFuncs[v.Field]; ok {
-				// Pass direction as a parameter to avoid duplication
 				desc := v.Direction == v1beta1.SortDirection_DESCENDING
 				sortopts = append(sortopts, func(a, b ingesttypes.PoolI) bool {
 					return sortFunc(a, b, desc)
@@ -639,7 +668,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 			}
 		}
 	}
-	// Pages are cut from the key order, which starts as map iteration order and so differs
+	// Pages are cut from the slice order, which starts as map iteration order and so differs
 	// between requests. Pool ID breaks every tie left by the requested sort, so that
 	// consecutive pages neither repeat nor skip pools.
 	if options.Pagination != nil {
@@ -647,18 +676,22 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 			return a.GetId() < b.GetId()
 		})
 	}
-	transformer.Sort(sortopts...) // apply sort options
-
-	var pools []ingesttypes.PoolI
-	if pagination := options.Pagination; pagination == nil {
-		pools = transformer.Data()
-	} else {
-		iterator := pipeline.NewSyncMapIterator(p.pools, transformer.Keys())
-		paginator := pipeline.NewPaginator[uint64](iterator, pagination)
-		pools = paginator.GetPage()
+	if len(sortopts) > 0 {
+		sort.Slice(pools, func(i, j int) bool {
+			for _, criterion := range sortopts {
+				if criterion(pools[i], pools[j]) {
+					return true
+				}
+				if criterion(pools[j], pools[i]) {
+					return false
+				}
+			}
+			return false
+		})
 	}
 
-	return pools, transformer.Count(), nil
+	totalCount := uint64(len(pools))
+	return paginatePools(pools, options.Pagination), totalCount, nil
 }
 
 // StorePools implements mvc.PoolsUsecase.
@@ -826,7 +859,7 @@ func (p *poolsUseCase) TakeCanonicalOrderbookChangedDenoms() []string {
 	p.canonicalOrderbookMu.Lock()
 	defer p.canonicalOrderbookMu.Unlock()
 
-	denoms := domain.KeysFromMap(p.canonicalOrderbookChangedDenoms)
+	denoms := slices.Collect(maps.Keys(p.canonicalOrderbookChangedDenoms))
 	p.canonicalOrderbookChangedDenoms = nil
 
 	return denoms
@@ -1035,44 +1068,28 @@ func (p *poolsUseCase) CalcExitCFMMPool(poolID uint64, exitingSharesIn osmomath.
 }
 
 // errMsgFormatSharesLargerThanMax is the error message format for when the exiting shares are larger than the max allowed.
-const errMsgFormatSharesLargerThanMax = "cannot exit all shares in a pool. Attempted to exit %f shares, max allowed is %f"
+const errMsgFormatSharesLargerThanMax = "cannot exit all shares in a pool. Attempted to exit %s shares, max allowed is %s"
 
 // calcExitPool is a helper function to calculate the exit pool.
-// It is a direct port of the CalcExitPool function from the Gamm module with some modifications
-// to optimize the calculation for performance.
+// It is a direct port of the CalcExitPool function from the Gamm module, using exact
+// integer and decimal maths so that amounts above the int64 range are not corrupted.
 // @link https://github.com/osmosis-labs/osmosis/blob/fde1776476d9c2f849dcbfb30ca3ec64d0e12863/x/gamm/pool-models/internal/cfmm_common/lp.go#L18
 func calcExitPool(ctx sdk.Context, pool gammtypes.CFMMPoolI, exitingSharesIn osmomath.Int, exitFee osmomath.Dec) (sdk.Coins, error) {
-	totalShares, err := strconv.ParseFloat(pool.GetTotalShares().String(), 64)
-	if err != nil {
-		return sdk.Coins{}, err
-	}
-
-	exitingShares, err := strconv.ParseFloat(exitingSharesIn.String(), 64)
-	if err != nil {
-		return sdk.Coins{}, err
-	}
-
-	if exitingShares >= totalShares {
-		return sdk.Coins{}, errorsmod.Wrapf(gammtypes.ErrLimitMaxAmount, errMsgFormatSharesLargerThanMax, exitingShares, totalShares-float64(osmomath.OneInt().Int64()))
+	totalShares := pool.GetTotalShares()
+	if exitingSharesIn.GTE(totalShares) {
+		return sdk.Coins{}, errorsmod.Wrapf(gammtypes.ErrLimitMaxAmount, errMsgFormatSharesLargerThanMax, exitingSharesIn, totalShares.Sub(osmomath.OneInt()))
 	}
 
 	// refundedShares = exitingShares * (1 - exit fee)
 	// with 0 exit fee optimization
-	var refundedShares float64
+	var refundedShares osmomath.Dec
 	if !exitFee.IsZero() {
-		f, err := exitFee.Float64()
-		if err != nil {
-			return sdk.Coins{}, err
-		}
-
-		// exitingShares * (1 - exit fee)
-		oneSubExitFee := 1.0 - f
-		refundedShares = exitingShares * oneSubExitFee
+		refundedShares = osmomath.OneDec().Sub(exitFee).MulInt(exitingSharesIn)
 	} else {
-		refundedShares = exitingShares
+		refundedShares = exitingSharesIn.ToLegacyDec()
 	}
 
-	shareOutRatio := refundedShares / totalShares
+	shareOutRatio := refundedShares.QuoInt(totalShares)
 
 	// exitedCoins = shareOutRatio * pool liquidity
 	poolLiquidity := pool.GetTotalPoolLiquidity(ctx)
@@ -1080,28 +1097,18 @@ func calcExitPool(ctx sdk.Context, pool gammtypes.CFMMPoolI, exitingSharesIn osm
 
 	for _, asset := range poolLiquidity {
 		// round down here, due to not wanting to over-exit
-		amount, err := strconv.ParseFloat(asset.Amount.String(), 64)
-		if err != nil {
-			return sdk.Coins{}, err
-		}
-
-		exitAmt := shareOutRatio * amount
-		if exitAmt <= 0 {
+		exitAmt := shareOutRatio.MulInt(asset.Amount).TruncateInt()
+		if !exitAmt.IsPositive() {
 			continue
 		}
 
-		if exitAmt >= amount {
+		if exitAmt.GTE(asset.Amount) {
 			return sdk.Coins{}, errors.New("too many shares out")
-		}
-
-		// If the exit amount is within 1e-9 of an integer, round it to the nearest integer
-		if sdkmath.Abs(exitAmt-sdkmath.Round(exitAmt)) < 1e-9 {
-			exitAmt = (sdkmath.Round(exitAmt))
 		}
 
 		exitedCoins = append(exitedCoins, sdk.Coin{
 			Denom:  asset.Denom,
-			Amount: math.NewInt(int64(exitAmt)),
+			Amount: exitAmt,
 		})
 	}
 

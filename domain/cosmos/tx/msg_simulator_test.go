@@ -4,9 +4,11 @@ import (
 	"context"
 	"testing"
 
+	txclient "github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	gogogrpc "github.com/cosmos/gogoproto/grpc"
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cosmos/tx"
@@ -14,6 +16,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -80,6 +83,7 @@ func TestSimulateMsgs(t *testing.T) {
 			gasCalculator := tx.NewMsgSimulator(nil, calculateGasFnMock, routerRepository)
 
 			result, gas, err := gasCalculator.SimulateMsgs(
+				context.Background(),
 				encodingConfig.TxConfig,
 				tt.account,
 				tt.chainID,
@@ -96,6 +100,38 @@ func TestSimulateMsgs(t *testing.T) {
 			}
 		})
 	}
+}
+
+type recordingClientConn struct {
+	gotCtx context.Context
+}
+
+func (r *recordingClientConn) Invoke(ctx context.Context, _ string, _, _ any, _ ...grpc.CallOption) error {
+	r.gotCtx = ctx
+	return ctx.Err()
+}
+
+func (r *recordingClientConn) NewStream(ctx context.Context, _ *grpc.StreamDesc, _ string, _ ...grpc.CallOption) (grpc.ClientStream, error) {
+	r.gotCtx = ctx
+	return nil, ctx.Err()
+}
+
+func TestSimulateMsgs_PropagatesContext(t *testing.T) {
+	reqCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	conn := &recordingClientConn{}
+	calculateGas := func(clientCtx gogogrpc.ClientConn, _ txclient.Factory, _ ...sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {
+		// Mirror Cosmos SDK's txclient.CalculateGas, which passes context.Background() to Invoke.
+		err := clientCtx.Invoke(context.Background(), "/cosmos.tx.v1beta1.Service/Simulate", nil, nil)
+		return nil, 0, err
+	}
+
+	sim := tx.NewMsgSimulator(conn, calculateGas, routerrepo.New(&log.NoOpLogger{}))
+	_, _, err := sim.SimulateMsgs(reqCtx, encodingConfig.TxConfig, testAccount, testChainID, []sdk.Msg{testMsg})
+
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, reqCtx, conn.gotCtx)
 }
 
 func TestBuildTx(t *testing.T) {
