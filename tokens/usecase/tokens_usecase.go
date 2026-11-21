@@ -135,7 +135,12 @@ func (t *TokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.T
 		t.chainDenoms.Store(chainDenom, struct{}{})
 	}
 
-	canonicalCoingeckoDenoms := canonicalDenomsByCoingeckoID(tokenMetadataByChainDenom)
+	canonicalCoingeckoDenoms, unresolvedCoingeckoIDs := canonicalDenomsByCoingeckoID(tokenMetadataByChainDenom)
+	if t.logger != nil {
+		for _, id := range sortedKeys(unresolvedCoingeckoIDs) {
+			t.logger.Warn("coingecko id is shared by several denoms and has no canonical holder, so none of them is priced from it", zap.String("coingecko_id", id), zap.Strings("chain_denoms", unresolvedCoingeckoIDs[id]))
+		}
+	}
 	for _, chainDenom := range chainDenoms {
 		// A denom that shares its Coingecko id with others and is not the canonical holder has no
 		// Coingecko id here, so that it is not priced as the coin the id belongs to.
@@ -160,12 +165,14 @@ func (t *TokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.T
 }
 
 // canonicalDenomsByCoingeckoID returns, for every Coingecko id held by more than one denom, the
-// denom that is the canonical holder of the id, or "" if there is none. Dead and bridged variants
-// of a coin are listed under the coin's id, as USDC.noble is under usd-coin, and take the
-// symbol of the coin with a suffix for where they come from. So the canonical holder is the one
-// denom whose symbol has no such suffix; if that is not exactly one denom, no denom is canonical
-// and the id is not used to price any of them.
-func canonicalDenomsByCoingeckoID(tokens map[string]domain.Token) map[string]string {
+// denom that is the canonical holder of the id, or "" if there is none, and for the ids without a
+// canonical holder the sorted denoms that hold them. Dead and bridged variants of a coin are listed
+// under the coin's id, as USDC.noble is under usd-coin, and take the symbol of the coin with a
+// suffix for where they come from. So the canonical holder is the one denom whose symbol has no
+// such suffix. If several denoms have none, the one that is listed (not a preview token) is, when
+// exactly one is: a preview token added with the same id must not take the id from the real token.
+// Otherwise no denom is canonical and the id is not used to price any of them.
+func canonicalDenomsByCoingeckoID(tokens map[string]domain.Token) (canonical map[string]string, unresolved map[string][]string) {
 	holders := make(map[string][]string)
 	for chainDenom, token := range tokens {
 		if id := strings.TrimSpace(token.CoingeckoID); id != "" {
@@ -173,23 +180,47 @@ func canonicalDenomsByCoingeckoID(tokens map[string]domain.Token) map[string]str
 		}
 	}
 
-	canonical := make(map[string]string)
+	canonical = make(map[string]string)
+	unresolved = make(map[string][]string)
 	for id, denoms := range holders {
 		if len(denoms) < 2 {
 			continue
 		}
-		canonical[id] = ""
-		var plain []string
+		sort.Strings(denoms)
+
+		var plain, plainListed []string
 		for _, chainDenom := range denoms {
-			if !strings.Contains(tokens[chainDenom].HumanDenom, ".") {
-				plain = append(plain, chainDenom)
+			token := tokens[chainDenom]
+			if strings.Contains(token.HumanDenom, ".") {
+				continue
+			}
+			plain = append(plain, chainDenom)
+			if !token.IsUnlisted {
+				plainListed = append(plainListed, chainDenom)
 			}
 		}
-		if len(plain) == 1 {
+
+		switch {
+		case len(plain) == 1:
 			canonical[id] = plain[0]
+		case len(plain) > 1 && len(plainListed) == 1:
+			canonical[id] = plainListed[0]
+		default:
+			canonical[id] = ""
+			unresolved[id] = denoms
 		}
 	}
-	return canonical
+	return canonical, unresolved
+}
+
+// sortedKeys returns the keys of m in sorted order.
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // setHumanDenomWinner records chainDenom as the resolution for humanDenom unless an already recorded
