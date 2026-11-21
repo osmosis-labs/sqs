@@ -174,6 +174,9 @@ func getSplitQuote(ctx context.Context, routes []route.RouteImpl, tokenIn sdk.Co
 	}
 
 	// Legs sharing a transmuter are only checked against it one at a time above; check the sum.
+	// A leg that does not fit takes its route out of the re-split entirely instead of having its
+	// share reduced, so a split that would fit with a smaller share on that route is not found.
+	// Splitting over routes that share pools in finer increments is MTN-413.
 	if remaining, dropped, err := routesWithoutOverdrawnLegs(ctx, routes, resultRoutes, resultRouteIdx, tokenIn.Denom, true); err != nil {
 		return nil, err
 	} else if dropped {
@@ -207,23 +210,13 @@ type transmuterHop struct {
 // variants draw on the same balance of the denom they withdraw. An entry with deposit set has no
 // token out denom: legs depositing the same denom raise its share of the pool together, whatever
 // they withdraw, so their deposits are checked against its static limit together.
+// An entry with neither set is one direction through the pool and has both denoms.
 type transmuterHopKey struct {
 	poolID        uint64
 	tokenInDenom  string
 	tokenOutDenom string
 	balance       bool
 	deposit       bool
-}
-
-// rank orders the checks for one pool: per direction, then deposits, then balances.
-func (k transmuterHopKey) rank() int {
-	switch {
-	case k.deposit:
-		return 1
-	case k.balance:
-		return 2
-	}
-	return 0
 }
 
 // legTransmuterHops walks a leg hop by hop, as the route calculation does, and returns the
@@ -323,6 +316,12 @@ func routesWithoutOverdrawnLegs(ctx context.Context, routes []route.RouteImpl, l
 			keys = append(keys, key)
 		}
 	}
+	// The checks run in a fixed order, so that the same split always drops the same legs. Which
+	// legs are dropped depends on it, since a leg dropped by one check is left out of the next.
+	// Per pool, the balance checks come first, as their key has no token in denom. Then, per
+	// token in denom, comes its deposit check, whose key has no token out denom, followed by its
+	// per direction checks. Two keys of one pool never have both denoms equal, so the denoms
+	// order them fully.
 	sort.Slice(keys, func(a, b int) bool {
 		if keys[a].poolID != keys[b].poolID {
 			return keys[a].poolID < keys[b].poolID
@@ -330,10 +329,7 @@ func routesWithoutOverdrawnLegs(ctx context.Context, routes []route.RouteImpl, l
 		if keys[a].tokenInDenom != keys[b].tokenInDenom {
 			return keys[a].tokenInDenom < keys[b].tokenInDenom
 		}
-		if keys[a].tokenOutDenom != keys[b].tokenOutDenom {
-			return keys[a].tokenOutDenom < keys[b].tokenOutDenom
-		}
-		return keys[a].rank() < keys[b].rank()
+		return keys[a].tokenOutDenom < keys[b].tokenOutDenom
 	})
 
 	dropped := make(map[int]struct{})
@@ -405,6 +401,13 @@ func routesWithoutOverdrawnLegs(ctx context.Context, routes []route.RouteImpl, l
 // pool's normalized total, so it never understates the new share, while a swap that mints the
 // alloyed denom grows the total and would. A routable pool carries its token out denom, so each
 // leg's own pool is used.
+//
+// When tokenInDenom is the alloyed denom, the legs burn it and nothing is deposited. The pool then
+// checks every variant but the one withdrawn, at the weight it has once the whole amount is
+// burned. For a variant that another of the legs withdraws that weight is too high, so a leg that
+// fits can be dropped. The check is kept as it is on purpose: it holds whichever order the legs
+// execute in, and it is the only check of the variants that no leg withdraws, whose weight the
+// burns raise together while each leg alone stays within the limit.
 func depositOverLimit(ctx context.Context, tokenInDenom string, amount osmomath.Int, legHops []map[transmuterHopKey]transmuterHop, legs []int, key transmuterHopKey) error {
 	tried := make(map[string]struct{}, len(legs))
 	for _, i := range legs {
