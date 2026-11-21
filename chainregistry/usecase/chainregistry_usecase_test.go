@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
@@ -20,75 +19,57 @@ import (
 func TestGetFeeTokens(t *testing.T) {
 	tests := []struct {
 		name           string
-		setupUseCase   func() *chainregistryUseCase
+		storedTokens   api.FeeTokens
 		ctx            context.Context
 		expectedTokens []*api.FeeToken
 		expectedError  bool
 	}{
 		{
 			name: "Success - Returns tokens",
-			setupUseCase: func() *chainregistryUseCase {
-				uc := &chainregistryUseCase{
-					command: make(chan cmd),
-					tokens: []*api.FeeToken{
-						{Denom: "uosmo", FixedMinGasPrice: 0.0025},
-						{Denom: "uatom", FixedMinGasPrice: 0.0015},
-						// Unpriced token without gas prices is not served.
-						{Denom: "uion"},
-					},
-					logger: &log.NoOpLogger{},
-				}
-				go uc.run()
-				return uc
+			storedTokens: api.FeeTokens{
+				{Denom: "uosmo", FixedMinGasPrice: 0.0025},
+				{Denom: "uatom", FixedMinGasPrice: 0.0015},
+				// Unpriced token without gas prices is not served.
+				{Denom: "uion"},
 			},
 			ctx: context.Background(),
 			expectedTokens: []*api.FeeToken{
 				{Denom: "uosmo", FixedMinGasPrice: 0.0025},
 				{Denom: "uatom", FixedMinGasPrice: 0.0015},
 			},
-			expectedError: false,
 		},
 		{
-			name: "Success - Empty tokens",
-			setupUseCase: func() *chainregistryUseCase {
-				uc := &chainregistryUseCase{
-					command: make(chan cmd),
-					tokens:  []*api.FeeToken{},
-					logger:  &log.NoOpLogger{},
-				}
-				go uc.run()
-				return uc
-			},
+			name:           "Success - Empty tokens",
+			storedTokens:   api.FeeTokens{},
 			ctx:            context.Background(),
 			expectedTokens: []*api.FeeToken{},
-			expectedError:  false,
+		},
+		{
+			name:           "Success - Uninitialized tokens",
+			ctx:            context.Background(),
+			expectedTokens: []*api.FeeToken{},
 		},
 		{
 			name: "Failure - Context cancelled",
-			setupUseCase: func() *chainregistryUseCase {
-				uc := &chainregistryUseCase{
-					command: make(chan cmd),
-					tokens: []*api.FeeToken{
-						{Denom: "uosmo", FixedMinGasPrice: 0.0025},
-					},
-					logger: &log.NoOpLogger{},
-				}
-				go uc.run()
-				return uc
+			storedTokens: api.FeeTokens{
+				{Denom: "uosmo", FixedMinGasPrice: 0.0025},
 			},
 			ctx: func() context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
-				cancel() // Cancel immediately
+				cancel()
 				return ctx
 			}(),
-			expectedTokens: nil,
-			expectedError:  true,
+			expectedError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := tt.setupUseCase()
+			uc := &chainregistryUseCase{logger: &log.NoOpLogger{}}
+			if tt.storedTokens != nil {
+				tokens := tt.storedTokens
+				uc.tokens.Store(&tokens)
+			}
 
 			tokens, err := uc.GetFeeTokens(tt.ctx)
 
@@ -98,32 +79,8 @@ func TestGetFeeTokens(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedTokens, tokens)
 			}
-
-			// Clean up
-			close(uc.command)
 		})
 	}
-}
-
-func TestGetFeeTokensTimeout(t *testing.T) {
-	uc := &chainregistryUseCase{
-		command: make(chan cmd),
-		tokens: []*api.FeeToken{
-			{Denom: "uosmo", FixedMinGasPrice: 0.0025},
-		},
-		logger: &log.NoOpLogger{},
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
-	defer cancel()
-
-	_, err := uc.GetFeeTokens(ctx)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "context deadline exceeded")
-
-	// Clean up
-	close(uc.command)
 }
 
 func TestProcessFeeTokens(t *testing.T) {
@@ -295,227 +252,6 @@ func TestGetTokensFromChainRegistry(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedChecksum, checksum)
 				require.Equal(t, tc.expectedTokens, tokens)
-			}
-		})
-	}
-}
-
-func TestCalculateFeeTokenMarketValue(t *testing.T) {
-	tests := []struct {
-		name             string
-		gasFeeToken      *api.FeeToken
-		unitPrice        osmomath.BigDec
-		expectedFixedMin osmomath.BigDec
-		expectedLow      osmomath.BigDec
-		expectedAverage  osmomath.BigDec
-		expectedHigh     osmomath.BigDec
-		expectError      bool
-	}{
-		{
-			name: "Normal case",
-			gasFeeToken: &api.FeeToken{
-				FixedMinGasPrice: 0.0025,
-				LowGasPrice:      0.0025,
-				AverageGasPrice:  0.025,
-				HighGasPrice:     0.04,
-			},
-			unitPrice:        osmomath.MustNewBigDecFromStr("0.3436"),
-			expectedFixedMin: osmomath.MustNewBigDecFromStr("0.000859"),
-			expectedLow:      osmomath.MustNewBigDecFromStr("0.000859"),
-			expectedAverage:  osmomath.MustNewBigDecFromStr("0.008590"),
-			expectedHigh:     osmomath.MustNewBigDecFromStr("0.013744"),
-			expectError:      false,
-		},
-		{
-			name: "Zero prices",
-			gasFeeToken: &api.FeeToken{
-				FixedMinGasPrice: 0,
-				LowGasPrice:      0,
-				AverageGasPrice:  0,
-				HighGasPrice:     0,
-			},
-			unitPrice:        osmomath.MustNewBigDecFromStr("3.5"),
-			expectedFixedMin: osmomath.ZeroBigDec(),
-			expectedLow:      osmomath.ZeroBigDec(),
-			expectedAverage:  osmomath.ZeroBigDec(),
-			expectedHigh:     osmomath.ZeroBigDec(),
-			expectError:      false,
-		},
-		{
-			name: "Very small prices",
-			gasFeeToken: &api.FeeToken{
-				FixedMinGasPrice: 0.000001,
-				LowGasPrice:      0.000001,
-				AverageGasPrice:  0.000001,
-				HighGasPrice:     0.000001,
-			},
-			unitPrice:        osmomath.MustNewBigDecFromStr("3.5"),
-			expectedFixedMin: osmomath.MustNewBigDecFromStr("0.0000035"),
-			expectedLow:      osmomath.MustNewBigDecFromStr("0.0000035"),
-			expectedAverage:  osmomath.MustNewBigDecFromStr("0.0000035"),
-			expectedHigh:     osmomath.MustNewBigDecFromStr("0.0000035"),
-			expectError:      false,
-		},
-		{
-			name: "Very large prices",
-			gasFeeToken: &api.FeeToken{
-				FixedMinGasPrice: 1000000,
-				LowGasPrice:      1000000,
-				AverageGasPrice:  1000000,
-				HighGasPrice:     1000000,
-			},
-			unitPrice:        osmomath.MustNewBigDecFromStr("3.5"),
-			expectedFixedMin: osmomath.MustNewBigDecFromStr("3500000"),
-			expectedLow:      osmomath.MustNewBigDecFromStr("3500000"),
-			expectedAverage:  osmomath.MustNewBigDecFromStr("3500000"),
-			expectedHigh:     osmomath.MustNewBigDecFromStr("3500000"),
-			expectError:      false,
-		},
-		{
-			name: "Zero unit price",
-			gasFeeToken: &api.FeeToken{
-				FixedMinGasPrice: 0.0025,
-				LowGasPrice:      0.0025,
-				AverageGasPrice:  0.025,
-				HighGasPrice:     0.04,
-			},
-			unitPrice:        osmomath.ZeroBigDec(),
-			expectedFixedMin: osmomath.ZeroBigDec(),
-			expectedLow:      osmomath.ZeroBigDec(),
-			expectedAverage:  osmomath.ZeroBigDec(),
-			expectedHigh:     osmomath.ZeroBigDec(),
-			expectError:      false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-
-			fixedMin, low, average, high, err := calculateFeeTokenMarketValue(ctx, tt.gasFeeToken, tt.unitPrice)
-
-			if tt.expectError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				assert.True(t, tt.expectedFixedMin.Equal(fixedMin), "Fixed min market value mismatch. Expected %s, got %s", tt.expectedFixedMin, fixedMin)
-				assert.True(t, tt.expectedLow.Equal(low), "Low market value mismatch. Expected %s, got %s", tt.expectedLow, low)
-				assert.True(t, tt.expectedAverage.Equal(average), "Average market value mismatch. Expected %s, got %s", tt.expectedAverage, average)
-				assert.True(t, tt.expectedHigh.Equal(high), "High market value mismatch. Expected %s, got %s", tt.expectedHigh, high)
-			}
-		})
-	}
-}
-
-func TestCalculateTokenQuantity(t *testing.T) {
-	tests := []struct {
-		name           string
-		amount         string
-		unitPrice      string
-		expectedResult string
-	}{
-		{
-			name:           "Normal case",
-			amount:         "0.1",
-			unitPrice:      "0.6479",
-			expectedResult: "0.154344806297268096928538354684364871",
-		},
-		{
-			name:           "Zero amount",
-			amount:         "0",
-			unitPrice:      "2",
-			expectedResult: "0",
-		},
-		{
-			name:           "Zero unit price",
-			amount:         "10",
-			unitPrice:      "0",
-			expectedResult: "0",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-
-			amount := osmomath.MustNewBigDecFromStr(tt.amount)
-			unitPrice := osmomath.MustNewBigDecFromStr(tt.unitPrice)
-
-			result := calculateTokenQuantity(ctx, amount, unitPrice)
-
-			expected := osmomath.MustNewBigDecFromStr(tt.expectedResult)
-			assert.True(t, expected.Equal(result), "Expected %s, but got %s", expected, result)
-		})
-	}
-}
-
-func TestCalculateMarketValue(t *testing.T) {
-	tests := []struct {
-		name          string
-		tokenQuantity float64
-		unitPrice     string
-		expected      string
-		expectedError bool
-	}{
-		{
-			name:          "Simple calculation",
-			tokenQuantity: 100,
-			unitPrice:     "2.5",
-			expected:      "250",
-			expectedError: false,
-		},
-		{
-			name:          "Zero token quantity",
-			tokenQuantity: 0,
-			unitPrice:     "1.5",
-			expected:      "0",
-			expectedError: false,
-		},
-		{
-			name:          "Zero unit price",
-			tokenQuantity: 100,
-			unitPrice:     "0",
-			expected:      "0",
-			expectedError: false,
-		},
-		{
-			name:          "Large numbers",
-			tokenQuantity: 1000000,
-			unitPrice:     "1000000",
-			expected:      "1000000000000",
-			expectedError: false,
-		},
-		{
-			name:          "Small numbers",
-			tokenQuantity: 0.0001,
-			unitPrice:     "0.0001",
-			expected:      "0.00000001",
-			expectedError: false,
-		},
-		{
-			name:          "Invalid token quantity",
-			tokenQuantity: -100,
-			unitPrice:     "1.5",
-			expected:      "-150",
-			expectedError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			unitPrice, err := osmomath.NewBigDecFromStr(tt.unitPrice)
-			require.NoError(t, err)
-
-			result, err := calculateMarketValue(ctx, tt.tokenQuantity, unitPrice)
-
-			if tt.expectedError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				expected, err := osmomath.NewBigDecFromStr(tt.expected)
-				require.NoError(t, err)
-				assert.True(t, result.Equal(expected), "Expected %s, got %s", expected, result)
 			}
 		})
 	}

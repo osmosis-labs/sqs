@@ -67,6 +67,16 @@ func (m *MockQuote) SetQuotePriceInfo(info *domain.TxFeeInfo) {
 	panic("unimplemented")
 }
 
+// SetDeviationFromReference implements domain.Quote.
+func (m *MockQuote) SetDeviationFromReference(deviation math.LegacyDec, warning bool, source string) {
+	panic("unimplemented")
+}
+
+// SetQuoteUSDPeg implements domain.Quote.
+func (m *MockQuote) SetQuoteUSDPeg(peg *domain.QuoteUSDPeg) {
+	panic("unimplemented")
+}
+
 // String implements domain.Quote.
 func (m *MockQuote) String() string {
 	panic("unimplemented")

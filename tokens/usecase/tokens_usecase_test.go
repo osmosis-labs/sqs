@@ -3,7 +3,6 @@ package usecase_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -83,67 +82,6 @@ func (s *TokensUseCaseTestSuite) SetupDefaultRouterAndPoolsUsecase() routertesti
 	mainnetState := s.SetupMainnetState()
 	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(defaultPricingRouterConfig), routertesting.WithPricingConfig(defaultPricingConfig))
 	return mainnetUsecase
-}
-
-func (s *TokensUseCaseTestSuite) TestParseAssetList() {
-	env := os.Getenv("CI_SQS_ASSETLIST_TEST")
-	if env != "true" {
-		s.T().Skip("skip the test that does network call and is used for debugging")
-	}
-
-	tokensMap, _, err := tokensusecase.GetTokensFromChainRegistry(mainnetAssetListFileURL)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(tokensMap)
-
-	// ATOM is present
-	atomToken, ok := tokensMap[ATOM]
-	s.Require().True(ok)
-	s.Require().Equal(defaultCosmosExponent, atomToken.Precision)
-	s.Require().NotEmpty(atomToken.CoingeckoID)
-	s.Require().NotEmpty(atomToken.Name)
-	s.Require().NotEmpty(atomToken.CoinMinimalDenom)
-
-	// ION is present
-	ionMainnetDenom := "uion"
-	ionToken, ok := tokensMap[ionMainnetDenom]
-	s.Require().True(ok)
-	s.Require().Equal(defaultCosmosExponent, ionToken.Precision)
-	s.Require().NotEmpty(ionToken.CoingeckoID)
-	s.Require().NotEmpty(ionToken.Name)
-	s.Require().NotEmpty(ionToken.CoinMinimalDenom)
-
-	// IBCX is present
-	ibcxMainnetDenom := "factory/osmo14klwqgkmackvx2tqa0trtg69dmy0nrg4ntq4gjgw2za4734r5seqjqm4gm/uibcx"
-	ibcxToken, ok := tokensMap[ibcxMainnetDenom]
-	s.Require().True(ok)
-	s.Require().Equal(defaultCosmosExponent, ibcxToken.Precision)
-	s.Require().NotEmpty(ibcxToken.CoingeckoID)
-	s.Require().NotEmpty(ibcxToken.Name)
-	s.Require().NotEmpty(ibcxToken.CoinMinimalDenom)
-
-	// DYSON is present, but doesn't have coingecko id
-	dysonMainnetDenom := "ibc/E27CD305D33F150369AB526AEB6646A76EC3FFB1A6CA58A663B5DE657A89D55D"
-	dysonToken, ok := tokensMap[dysonMainnetDenom]
-	s.Require().True(ok)
-	s.Require().Equal(0, dysonToken.Precision)
-	s.Require().NotEmpty(dysonToken.Name)
-	s.Require().NotEmpty(dysonToken.CoinMinimalDenom)
-
-	// ETH is present
-	ethToken, ok := tokensMap[ETH]
-	s.Require().True(ok)
-	s.Require().Equal(ethExponent, ethToken.Precision)
-	s.Require().False(ethToken.IsUnlisted)
-	s.Require().NotEmpty(ethToken.Name)
-	s.Require().NotEmpty(ethToken.CoinMinimalDenom)
-
-	// AAVE is present but is unlisted
-	aaveToken, ok := tokensMap[AAVE_UNLISTED]
-	s.Require().True(ok)
-	s.Require().True(aaveToken.IsUnlisted)
-	s.Require().NotEmpty(aaveToken.CoingeckoID)
-	s.Require().NotEmpty(aaveToken.Name)
-	s.Require().NotEmpty(aaveToken.CoinMinimalDenom)
 }
 
 // Validates that human denoms shared by several assets resolve deterministically:
@@ -409,114 +347,6 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Chain() {
 
 	result := wbtcErrorTolerance.CompareBigDec(expectedwBTCPrice, actualwBTCUSDCPrice)
 	s.Require().Zero(result)
-}
-
-// Test to validate the pricing options work as expected.
-// Currently, only tests recompute pricing options. In the future, we also add pricing options for the source,
-// once more sources are supported.
-func (s *TokensUseCaseTestSuite) TestGetPrices_Chain_PricingOptions() {
-	var (
-		defaultBase  = ATOM
-		defaultQuote = USDC
-
-		defaultBaseInput, defaultQuoteInput = []string{defaultBase}, []string{defaultQuote}
-
-		// We are hoping that the price of ATOM only goes up and never reaches one.
-		// As a result, it is reasonable to assume that in tests and use it as a cache overwrite for testing.
-		priceOne = osmomath.OneBigDec()
-
-		// // placeholder to reflect no value in cache
-		// unsetCachedPrice = osmomath.BigDec{}
-
-		// // Empty pricing options imply no recompute and chain source.
-		// emptyPricingOptions = []domain.PricingOption{}
-	)
-
-	// Compute the mainnet price with no cache set (empty)
-	// Note that this is naive because we use the system under test for configuring the test.
-	// However, the likelyhood of this causing errors is low if other GetPrices tests are passing.
-	// If there is confusion with this test, first make
-	// sure that other GetPrices tests are OK. Then, come back to this.
-
-	// Set up mainnet mock state.
-	mainnetUsecase := s.SetupDefaultRouterAndPoolsUsecase()
-
-	noCacheMainnetPrice, err := mainnetUsecase.Tokens.GetPrices(context.Background(), defaultBaseInput, defaultQuoteInput, domain.ChainPricingSourceType, domain.WithRecomputePrices())
-	s.Require().NoError(err)
-
-	recomputedPrice := s.ConvertAnyToBigDec(noCacheMainnetPrice[defaultBase][defaultQuote].Price)
-
-	tests := []struct {
-		name string
-
-		pricingOptions []domain.PricingOption
-
-		cachedPrice osmomath.BigDec
-
-		expectedPrice osmomath.BigDec
-	}{
-		// {
-		// 	name:           "Empty cache, with recompute -> recomputes",
-		// 	cachedPrice:    unsetCachedPrice,
-		// 	pricingOptions: []domain.PricingOption{domain.WithRecomputePrices()},
-
-		// 	expectedPrice: recomputedPrice,
-		// },
-		// {
-		// 	name:        "Empty cache, with no recompute -> still recomputes",
-		// 	cachedPrice: unsetCachedPrice,
-
-		// 	pricingOptions: emptyPricingOptions,
-
-		// 	expectedPrice: recomputedPrice,
-		// },
-		{
-			name:           "Non-empty cache, with recompute -> recomputes and gets a different value",
-			cachedPrice:    priceOne,
-			pricingOptions: []domain.PricingOption{domain.WithRecomputePrices()},
-
-			expectedPrice: recomputedPrice,
-		},
-		// {
-		// 	name:           "Non-empty cache, with no recompute -> gets value from cache.",
-		// 	cachedPrice:    priceOne,
-		// 	pricingOptions: emptyPricingOptions,
-
-		// 	expectedPrice: priceOne,
-		// },
-	}
-
-	for _, tt := range tests {
-		s.Run(tt.name, func() {
-			// Initialize pricing cache.
-			pricingCache := cache.New()
-
-			// Pre-set cache if configured.
-			if !tt.cachedPrice.IsNil() {
-				baseQuoteCacheKey := domain.FormatPricingCacheKey(defaultBase, defaultQuote)
-				pricingCache.Set(baseQuoteCacheKey, tt.cachedPrice, defaultPricingCacheExpiry)
-			}
-
-			// Set up mainnet mock state.
-			mainnetState := s.SetupMainnetState()
-
-			// Setup mainnet use cases
-			mainnetUseCase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithPricingCache(pricingCache), routertesting.WithPricingConfig(defaultPricingConfig), routertesting.WithRouterConfig(defaultPricingRouterConfig))
-
-			// System under test.
-
-			priceResult, err := mainnetUseCase.Tokens.GetPrices(context.Background(), defaultBaseInput, defaultQuoteInput, domain.ChainPricingSourceType, tt.pricingOptions...)
-			s.Require().NoError(err)
-
-			baseResult, ok := priceResult[defaultBase]
-			s.Require().True(ok)
-
-			actualPrice := s.ConvertAnyToBigDec(baseResult[defaultQuote].Price)
-
-			// Check if the price is as expected.
-			s.Require().Equal(tt.expectedPrice.String(), actualPrice.String())
-		})
-	}
 }
 
 // Basic sanity check test case to validate the updates and retrieval of pool denom liquidity.

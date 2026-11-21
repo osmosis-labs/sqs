@@ -56,6 +56,18 @@ var (
 	// * height - the height of the block being processed
 	SQSIngestUsecaseProcessBlockErrorMetricName = "sqs_ingest_usecase_process_block_error_total"
 
+	// sqs_ingest_handler_coalesced_blocks_total
+	//
+	// counter that measures the number of blocks merged into the newest queued block
+	// because the ingest queue was full
+	SQSIngestHandlerCoalescedBlocksMetricName = "sqs_ingest_handler_coalesced_blocks_total"
+
+	// sqs_pricing_worker_coalesced_updates_total
+	//
+	// counter that measures the number of block price updates merged into the
+	// update already waiting, because a pricing run was still in progress
+	SQSPricingWorkerCoalescedUpdatesMetricName = "sqs_pricing_worker_coalesced_updates_total"
+
 	// sqs_ingest_usecase_parse_pool_error_total
 	//
 	// counter that measures the number of errors that occur during pool parsing in ingest usecase
@@ -218,6 +230,20 @@ var (
 	// counter that measures the number of candidate route searches that reached the queued path bound
 	SQSCandidateRouteSearchCappedMetricName = "sqs_candidate_route_search_capped_total"
 
+	// sqs_quote_reference_check_total
+	//
+	// counter that measures the outcomes of checking user quotes against the reference price
+	//
+	// Has the following labels:
+	// * outcome - one of ok, warned, refused_dust, skipped_no_price
+	SQSQuoteReferenceCheckMetricName = "sqs_quote_reference_check_total"
+
+	// sqs_quote_reference_coingecko_disagreement_total
+	//
+	// counter that measures how often a denom's chain reference price differed from its cached
+	// CoinGecko price by more than the configured margin, so the chain price was not trusted
+	SQSQuoteReferenceCoingeckoDisagreementMetricName = "sqs_quote_reference_coingecko_disagreement_total"
+
 	SQSIngestHandlerProcessBlockHeightGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseProcessBlockHeightMetricName,
@@ -236,6 +262,20 @@ var (
 		prometheus.CounterOpts{
 			Name: SQSIngestUsecaseProcessBlockErrorMetricName,
 			Help: "counter that measures the number of errors that occur during processing a block in ingest usecase",
+		},
+	)
+
+	SQSIngestHandlerCoalescedBlocksCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSIngestHandlerCoalescedBlocksMetricName,
+			Help: "counter that measures the number of blocks merged into a queued block because the ingest queue was full",
+		},
+	)
+
+	SQSPricingWorkerCoalescedUpdatesCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingWorkerCoalescedUpdatesMetricName,
+			Help: "counter that measures the number of block price updates merged into the waiting update because a pricing run was in progress",
 		},
 	)
 
@@ -437,12 +477,29 @@ var (
 			Help: "Total number of candidate route searches that reached the queued path bound",
 		},
 	)
+
+	SQSQuoteReferenceCheckCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSQuoteReferenceCheckMetricName,
+			Help: "Total number of user quotes checked against the reference price, by outcome",
+		},
+		[]string{"outcome"},
+	)
+
+	SQSQuoteReferenceCoingeckoDisagreementCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSQuoteReferenceCoingeckoDisagreementMetricName,
+			Help: "Total number of reference prices where the chain price disagreed with the cached CoinGecko price beyond the margin",
+		},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockHeightGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockErrorCounter)
+	prometheus.MustRegister(SQSIngestHandlerCoalescedBlocksCounter)
+	prometheus.MustRegister(SQSPricingWorkerCoalescedUpdatesCounter)
 	prometheus.MustRegister(SQSIngestHandlerProcessOrderbookPoolErrorCounter)
 	prometheus.MustRegister(SQSIngestUsecaseOrderbooksWithoutTicksGauge)
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
@@ -471,4 +528,6 @@ func init() {
 	prometheus.MustRegister(SQSPricingCoingeckoIdleGauge)
 	prometheus.MustRegister(SQSCandidateRoutesComputeDurationGauge)
 	prometheus.MustRegister(SQSCandidateRouteSearchCappedCounter)
+	prometheus.MustRegister(SQSQuoteReferenceCheckCounter)
+	prometheus.MustRegister(SQSQuoteReferenceCoingeckoDisagreementCounter)
 }

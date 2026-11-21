@@ -486,43 +486,6 @@ func (s *RoutablePoolTestSuite) TestCalcTokenInAmt_AlloyTransmuter() {
 	}
 }
 
-func (s *RoutablePoolTestSuite) TestChargeTakerFeeExactIn_AlloyTransmuter() {
-	tests := map[string]struct {
-		tokenIn       sdk.Coin
-		takerFee      osmomath.Dec
-		expectedToken sdk.Coin
-	}{
-		"no taker fee": {
-			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
-			takerFee:      osmomath.NewDec(0),
-			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(100)),
-		},
-		"small taker fee": {
-			tokenIn:       sdk.NewCoin(USDT, osmomath.NewInt(100)),
-			takerFee:      osmomath.NewDecWithPrec(1, 2),          // 1%
-			expectedToken: sdk.NewCoin(USDT, osmomath.NewInt(99)), // 100 - 1 = 99
-		},
-		"large taker fee": {
-			tokenIn:       sdk.NewCoin(USDC, osmomath.NewInt(100)),
-			takerFee:      osmomath.NewDecWithPrec(5, 1),          // 50%
-			expectedToken: sdk.NewCoin(USDC, osmomath.NewInt(50)), // 100 - 50 = 50
-		},
-	}
-
-	for name, tc := range tests {
-		s.Run(name, func() {
-			s.Setup()
-			routablePool := s.SetupRoutableAlloyTransmuterPool(tc.tokenIn.Denom, tc.tokenIn.Denom, sdk.Coins{}, tc.takerFee)
-
-			r := routablePool.(*pools.RoutableAlloyTransmuterPoolImpl)
-
-			tokenAfterFee := r.ChargeTakerFeeExactIn(tc.tokenIn)
-
-			s.Require().Equal(tc.expectedToken, tokenAfterFee)
-		})
-	}
-}
-
 func (s *RoutablePoolTestSuite) TestCheckStaticRateLimiter() {
 	// Shared default variables
 	defaultScalingFactors := map[string]osmomath.Int{

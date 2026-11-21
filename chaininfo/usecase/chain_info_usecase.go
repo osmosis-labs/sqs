@@ -137,7 +137,8 @@ func (p *chainInfoUseCase) StoreLatestHeight(height uint64) {
 func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height uint64, blockMetadata domain.BlockPoolMetadata, pricesBaseQuoteDenomMap domain.PricesResult, quoteDenom string) error {
 	p.priceUpdateHeightMx.Lock()
 	defer p.priceUpdateHeightMx.Unlock()
-	p.latestPricesUpdateHeight = height
+	// Keep the latest height: an update for an older height can finish last.
+	p.latestPricesUpdateHeight = max(p.latestPricesUpdateHeight, height)
 
 	return nil
 }
@@ -146,7 +147,8 @@ func (p *chainInfoUseCase) OnPricingUpdate(ctx context.Context, height uint64, b
 func (p *chainInfoUseCase) OnPoolLiquidityCompute(ctx context.Context, height uint64, blockPoolMetaData domain.BlockPoolMetadata) error {
 	p.poolLiquidityUpdateHeightMx.Lock()
 	defer p.poolLiquidityUpdateHeightMx.Unlock()
-	p.latestPoolLiquidityUpdateHeight = height
+	// Keep the latest height: an update for an older height can finish last.
+	p.latestPoolLiquidityUpdateHeight = max(p.latestPoolLiquidityUpdateHeight, height)
 
 	return nil
 }

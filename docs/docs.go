@@ -126,6 +126,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsResult"
                         }
                     },
+                    "400": {
+                        "description": "Empty or invalid bech32 address",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ResponseError"
+                        }
+                    },
                     "500": {
                         "description": "Response error",
                         "schema": {
@@ -274,13 +280,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default.",
+                        "description": "Boolean flag indicating whether the given denoms are human readable. Only the denoms are converted to chain denoms, amounts are never scaled and must always be given in the smallest unit (for example 1000000uosmo). Prefer chain denoms. False by default.",
                         "name": "humanDenoms",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
-                        "description": "Boolean flag indicating whether to apply exponents to the spot price. False by default.",
+                        "description": "Currently has no effect on the response. False by default.",
                         "name": "applyExponents",
                         "in": "query"
                     }
@@ -338,13 +344,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default.",
+                        "description": "Boolean flag indicating whether the given denoms are human readable. Only the denoms are converted to chain denoms, amounts are never scaled and must always be given in the smallest unit (for example 1000000uosmo). Prefer chain denoms. False by default.",
                         "name": "humanDenoms",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
-                        "description": "Boolean flag indicating whether to apply exponents to the spot price. False by default.",
+                        "description": "Currently has no effect on the response. False by default.",
                         "name": "applyExponents",
                         "in": "query"
                     },

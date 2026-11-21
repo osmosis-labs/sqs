@@ -31,7 +31,12 @@ type RouterHandler struct {
 	RUsecase       mvc.RouterUsecase
 	TUsecase       mvc.TokensUsecase
 	QuoteSimulator domain.QuoteSimulator
-	logger         log.Logger
+	// ReferenceCheck sanity-checks /router/quote responses against reference prices.
+	// Nil disables the check.
+	ReferenceCheck *QuoteReferenceChecker
+	// USDPeg adds the quote denom's peg against US dollars to /router/quote responses. Nil disables it.
+	USDPeg *domain.QuoteUSDPegChecker
+	logger log.Logger
 }
 
 const routerResource = "/router"
@@ -51,6 +56,13 @@ type Config struct {
 
 	// DebugEndpointsEnabled registers POST /router/store-state and GET /router/state.
 	DebugEndpointsEnabled bool
+
+	// QuoteReferenceChecker checks /router/quote responses against reference prices.
+	// Nil disables the check.
+	QuoteReferenceChecker *QuoteReferenceChecker
+
+	// QuoteUSDPegChecker adds the quote denom's USD peg to /router/quote responses. Nil disables it.
+	QuoteUSDPegChecker *domain.QuoteUSDPegChecker
 }
 
 // NewRouterHandler will initialize the pools/ resources endpoint
@@ -67,6 +79,8 @@ func NewRouterHandler(
 		RUsecase:       us,
 		TUsecase:       tu,
 		QuoteSimulator: qs,
+		ReferenceCheck: config.QuoteReferenceChecker,
+		USDPeg:         config.QuoteUSDPegChecker,
 		logger:         logger,
 	}
 
@@ -74,7 +88,7 @@ func NewRouterHandler(
 	e.GET(formatRouterResource("/routes"), handler.GetCandidateRoutes)
 	e.GET(formatRouterResource("/cached-routes"), handler.GetCachedCandidateRoutes)
 	e.GET(formatRouterResource("/spot-price-pool/:id"), handler.GetSpotPriceForPool)
-	e.GET(formatRouterResource("/custom-direct-quote"), handler.GetDirectCustomQuote)
+	e.GET(formatRouterResource("/custom-direct-quote"), handler.GetDirectCustomQuote, middleware.QuoteChainStateValidatorMiddleware(chainUsecase, !config.ServeFromState))
 	e.GET(formatRouterResource("/taker-fee-pool/:id"), handler.GetTakerFee)
 	if config.DebugEndpointsEnabled {
 		e.POST(formatRouterResource("/store-state"), handler.StoreRouterStateInFiles)
@@ -97,8 +111,8 @@ func NewRouterHandler(
 // @Param  tokenOut        query  string  false  "String representation of the sdk.Coin denoting the output token for the exact amount out swap method."   example(2353uion)
 // @Param  tokenInDenom    query  string  false  "String representing the denomination of the input token for the exact amount out swap method."           example(uosmo)
 // @Param  singleRoute     query  bool    false  "Boolean flag indicating whether to return single routes (no splits). False (splits enabled) by default."
-// @Param  humanDenoms     query  bool    false "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default."
-// @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
+// @Param  humanDenoms     query  bool    false "Boolean flag indicating whether the given denoms are human readable. Only the denoms are converted to chain denoms, amounts are never scaled and must always be given in the smallest unit (for example 1000000uosmo). Prefer chain denoms. False by default."
+// @Param  applyExponents  query  bool    false  "Currently has no effect on the response. False by default."
 // @Param  simulatorAddress query string false "Address of the simulator to simulate the quote. If provided, the quote will be simulated."
 // @Param  simulationSlippageTolerance query string false "Slippage tolerance multiplier for the simulation. If simulatorAddress is provided, this must be provided."
 // @Param  appendBaseFee query bool false "Boolean flag indicating whether to append the base fee to the quote. False by default."
@@ -161,12 +175,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	scalingFactor := oneDec
-	if req.ApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
-	}
-
-	_, _, err = quote.PrepareResult(ctx, scalingFactor, a.TUsecase, a.TUsecase, a.logger)
+	_, _, err = quote.PrepareResult(ctx, oneDec, a.TUsecase, a.TUsecase, a.logger)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -174,22 +183,60 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 	span.SetAttributes(attribute.Stringer("token_out", quote.GetAmountOut()))
 	span.SetAttributes(attribute.Stringer("price_impact", quote.GetPriceImpact()))
 
+	// Sanity-check the quote against reference prices, if enabled. This runs on the user
+	// quote endpoint only, so internal callers of the router (pricing, custom direct
+	// quotes) are unaffected.
+	if a.ReferenceCheck != nil {
+		var (
+			tokenInDenom, outDenom string
+			amountIn, amountOut    osmomath.Int
+		)
+		if req.SwapMethod() == domain.TokenSwapMethodExactIn {
+			tokenInDenom, amountIn = tokenIn.Denom, tokenIn.Amount
+			outDenom, amountOut = tokenOutDenom, quote.GetAmountOut().Amount
+		} else {
+			// For exact-out, tokenIn holds the desired output and tokenOutDenom the input denom.
+			tokenInDenom, outDenom, amountOut = tokenOutDenom, tokenIn.Denom, tokenIn.Amount
+			// Only use the quoted input if it is in the requested input denom.
+			if quotedIn := quote.GetAmountIn(); quotedIn.Denom == tokenInDenom {
+				amountIn = quotedIn.Amount
+			}
+		}
+
+		// A refused quote is a well-formed request that cannot be filled at an acceptable
+		// price, so it is reported as 422 rather than as a bad request or a server error.
+		if err := a.ReferenceCheck.Check(quote, tokenInDenom, amountIn, outDenom, amountOut); err != nil {
+			return c.JSON(http.StatusUnprocessableEntity, domain.ResponseError{Message: err.Error()})
+		}
+	}
+
+	// Report the peg of the pricing quote denom against US dollars, if enabled. Unknown when no
+	// fresh reference price exists. It never changes the quote.
+	if a.USDPeg != nil {
+		quote.SetQuoteUSDPeg(a.USDPeg.Check(ctx))
+	}
+
 	// Simulate quote if applicable.
 	// Note: only single routes (non-splits) are supported for simulation.
 	// Additionally, the functionality is triggerred by the user providing a simulator address.
 	// Only "out given in" swap method is supported for simulation. Thus, we also check for tokenOutDenom being set.
 	simulatorAddress := req.SimulatorAddress
+	var priceInfo *domain.TxFeeInfo
 	if req.SingleRoute && simulatorAddress != "" && req.SwapMethod() == domain.TokenSwapMethodExactIn {
-		priceInfo := a.QuoteSimulator.SimulateQuoteOutGivenIn(ctx, quote, req.SlippageToleranceMultiplier, simulatorAddress)
-
-		// Set the quote price info.
-		quote.SetQuotePriceInfo(&priceInfo)
+		simulated := a.QuoteSimulator.SimulateQuoteOutGivenIn(ctx, quote, req.SlippageToleranceMultiplier, simulatorAddress)
+		priceInfo = &simulated
 	}
 
+	// Append the base fee to the simulation result, if any, so that the gas estimate is kept.
 	if req.AppendBaseFee {
-		quote.SetQuotePriceInfo(&domain.TxFeeInfo{
-			BaseFee: a.RUsecase.GetBaseFee().CurrentFee,
-		})
+		if priceInfo == nil {
+			priceInfo = &domain.TxFeeInfo{}
+		}
+		priceInfo.BaseFee = a.RUsecase.GetBaseFee().CurrentFee
+	}
+
+	if priceInfo != nil {
+		quote.SetQuotePriceInfo(priceInfo)
 	}
 
 	return c.JSON(http.StatusOK, quote)
@@ -210,8 +257,8 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 // @Param  tokenOut        query  string  false  "String representation of the sdk.Coin denoting the output token for the exact amount out swap method."                     example(2353uion)
 // @Param  tokenInDenom    query  string  false  "String representing the list of the input token denominations separated by comma for the exact amount out swap method."    example(uosmo)
 // @Param  poolID          query  string  true   "String representing list of the pool ID."                                                                                  example(1100)
-// @Param  humanDenoms     query  bool    false   "Boolean flag indicating whether the given denoms are human readable or not. Human denoms get converted to chain internally. False by default."
-// @Param  applyExponents  query  bool    false  "Boolean flag indicating whether to apply exponents to the spot price. False by default."
+// @Param  humanDenoms     query  bool    false   "Boolean flag indicating whether the given denoms are human readable. Only the denoms are converted to chain denoms, amounts are never scaled and must always be given in the smallest unit (for example 1000000uosmo). Prefer chain denoms. False by default."
+// @Param  applyExponents  query  bool    false  "Currently has no effect on the response. False by default."
 // @Success 200  {object}  domain.Quote  "The computed best route quote"
 // @Router /router/custom-direct-quote [get]
 func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
@@ -268,12 +315,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 		return c.JSON(statusCode, domain.ResponseError{Message: err.Error()})
 	}
 
-	scalingFactor := oneDec
-	if req.ApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom[len(tokenOutDenom)-1])
-	}
-
-	_, _, err = quote.PrepareResult(ctx, scalingFactor, a.TUsecase, a.TUsecase, a.logger)
+	_, _, err = quote.PrepareResult(ctx, oneDec, a.TUsecase, a.TUsecase, a.logger)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -394,18 +436,6 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, spotPrice)
-}
-
-// getSpotPriceScalingFactor returns the spot price scaling factor for a given tokenIn and tokenOutDenom.
-func (a *RouterHandler) getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom string) osmomath.Dec {
-	scalingFactor, err := a.TUsecase.GetSpotPriceScalingFactorByDenom(tokenOutDenom, tokenInDenom)
-	if err != nil {
-		// Note that we do not fail the quote if scaling factor fetching fails.
-		// Instead, we simply set it to zero to validate future calculations downstream.
-		scalingFactor = osmomath.ZeroDec()
-	}
-
-	return scalingFactor
 }
 
 func getValidTokenInStr(c echo.Context) (string, error) {
