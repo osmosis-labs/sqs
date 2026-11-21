@@ -228,7 +228,7 @@ func (p *chainInfoUseCase) SetOrderbooksWithoutTicks(withoutTicks, total int) {
 	}
 
 	if p.orderbookTicksMissingSince.IsZero() {
-		p.orderbookTicksMissingSince = time.Now()
+		p.orderbookTicksMissingSince = p.now()
 	}
 	p.orderbookTicksWithoutTicks, p.orderbookTicksTotal = withoutTicks, total
 }
@@ -238,7 +238,7 @@ func (p *chainInfoUseCase) ValidateOrderbookTicks() error {
 	p.orderbookTicksMx.Lock()
 	defer p.orderbookTicksMx.Unlock()
 
-	if p.orderbookTicksMissingSince.IsZero() || time.Since(p.orderbookTicksMissingSince) <= orderbookTicksGracePeriod {
+	if p.orderbookTicksMissingSince.IsZero() || p.now().Sub(p.orderbookTicksMissingSince) <= orderbookTicksGracePeriod {
 		return nil
 	}
 

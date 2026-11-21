@@ -39,3 +39,33 @@ func TestGetLatestHeightStale(t *testing.T) {
 	_, err = uc.GetLatestHeight()
 	require.NoError(t, err)
 }
+
+// TestValidateOrderbookTicksGracePeriod checks that orderbooks missing ticks fail validation only once
+// the grace period has passed, and that recovering clears it, using the injected clock.
+func TestValidateOrderbookTicksGracePeriod(t *testing.T) {
+	uc := NewChainInfoUsecase(chaininforepo.New(), nil)
+
+	clock := time.Unix(1_000_000, 0)
+	uc.now = func() time.Time { return clock }
+
+	require.NoError(t, uc.ValidateOrderbookTicks())
+
+	// More than the allowed share of orderbooks without ticks starts the grace period.
+	uc.SetOrderbooksWithoutTicks(10, 10)
+	require.NoError(t, uc.ValidateOrderbookTicks())
+
+	clock = clock.Add(orderbookTicksGracePeriod)
+	require.NoError(t, uc.ValidateOrderbookTicks())
+
+	// A later report does not restart the period.
+	uc.SetOrderbooksWithoutTicks(9, 10)
+	clock = clock.Add(time.Second)
+	require.Error(t, uc.ValidateOrderbookTicks())
+
+	// Recovery clears it, and a new failure gets a new grace period.
+	uc.SetOrderbooksWithoutTicks(0, 10)
+	require.NoError(t, uc.ValidateOrderbookTicks())
+	uc.SetOrderbooksWithoutTicks(10, 10)
+	clock = clock.Add(orderbookTicksGracePeriod)
+	require.NoError(t, uc.ValidateOrderbookTicks())
+}
