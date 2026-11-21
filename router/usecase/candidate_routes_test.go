@@ -353,7 +353,7 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_InactiveTransmuter() {
 	// OSMO/ATOM pool. The status is keyed by pool ID, so any pool stands in for a transmuter.
 	const pausedPoolID = uint64(1)
 
-	routerRepository := repository.New(&log.NoOpLogger{})
+	routerRepository := routerrepo.New(&log.NoOpLogger{})
 	routerRepository.SetCandidateRouteSearchData(mainnetState.CandidateRouteSearchData)
 
 	statuses := domain.NewTransmuterStatuses()
@@ -439,7 +439,7 @@ func (s *RouterTestSuite) TestCandidateRouteSearcherInGivenOut_FirstPoolCapacity
 	tokenOut := sdk.NewCoin(out, osmomath.NewInt(100))
 
 	find := func(pools map[string][]domain.CandidatePoolWrapper, maxSplitRoutes int) [][]uint64 {
-		holder := repository.New(noOpLogger)
+		holder := routerrepo.New(noOpLogger)
 		data := map[string]*domain.CandidateRouteDenomData{}
 		for denom, p := range pools {
 			data[denom] = &domain.CandidateRouteDenomData{SortedPools: p}
