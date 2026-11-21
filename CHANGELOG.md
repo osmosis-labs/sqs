@@ -37,6 +37,35 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+## v32.2.0
+
+### Features
+
+- #737 | Check `/router/quote` responses against the chain pricer's reference price, with CoinGecko as a second opinion: a quote that deviates more than the threshold carries `deviation_warning`, and dust quotes can be refused. Configured under `router.quote-reference-check`, off by default
+- #743 | `/trades` and `/trades/aggregates` report `coverage_since`, the oldest block ingested since start-up, so clients can tell when a window is partial, along with priced trade counts
+
+### Improvements
+
+- #747 | Encode and decode JSON with `encoding/json/v2` and stream numeric values in HTTP responses; `/pools` keeps its previous bytes
+- #748 | Audit fixes: panics in background goroutines are contained and logged, the cache sweeps expired entries, cached orders are indexed by owner, the spot price error metric is exported, and dead code, tests and make targets are removed
+
+### Bug Fixes
+
+- #746 | Request errors (unknown pool, no route, a swap the pools cannot fill) return 4xx instead of 500, the gas estimate is kept when the base fee is included, and the `/tokens/usd-price-test` endpoint is removed
+- #744 | Generalized CosmWasm routes are marked per route, and exact out quotes through them are refused
+- #748 | Ingest no longer stalls after a first block fails, `/pools` filters and sorts no longer panic on pools without a liquidity cap, multi-field sorting and unsorted pagination are stable, each direction of a pricing pair has its own cache key, and `logger-level` takes effect
+- #739 | When the ingest queue is full, a new block is merged into the newest queued block instead of being dropped
+- #742 | Exact gamm exit maths in passthrough, and unlocking shares are no longer counted twice
+- #734 | Exact out custom direct quotes check excluded pools
+
+## v32.1.1
+
+### Bug Fixes
+
+- #731 | Reload orderbooks whose ticks or orders failed to load
+
+## v32.1.0
+
 ### Improvements
 
 - #726 | Coingecko fallback prices are refreshed in bulk every `pricing.coingecko-refresh-interval-ms` (default 5 minutes) instead of one id per request each minute, and ids Coingecko has no price for are not re-requested for 10 minutes; a price is never served more than the interval plus 20% after it was fetched
