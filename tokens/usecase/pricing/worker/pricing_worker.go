@@ -26,12 +26,15 @@ type pricingWorker struct {
 	// background runs never price at the same time.
 	computeMu sync.Mutex
 
-	// pendingMu guards pending and draining.
+	// pendingMu guards pending, failed and draining.
 	pendingMu sync.Mutex
 	// pending is the update waiting for the background run, nil if there is none.
 	// Updates that arrive while a run is in progress are merged into it, so at most
 	// one run is in progress and one waits, however fast blocks arrive.
 	pending *pendingPriceUpdate
+	// failed is the update of a background run that failed while nothing was pending. It is
+	// retried with the next block rather than at once, so that a failing run does not loop.
+	failed *pendingPriceUpdate
 	// draining is true while a goroutine runs pending updates.
 	draining bool
 }
@@ -41,10 +44,17 @@ type pendingPriceUpdate struct {
 	ctx      context.Context
 	height   uint64
 	metadata domain.BlockPoolMetadata
+	// attempts is the number of runs of this update, or of updates merged into it, that failed.
+	attempts int
 }
 
 const (
 	priceUpdateTimeout = time.Minute * 2
+
+	// maxPricingAttempts is the number of failed runs after which the work of an update is
+	// dropped instead of retried, so that a denom that always fails is not retried forever.
+	// A later block that updates the same denoms or pools prices them again.
+	maxPricingAttempts = 3
 )
 
 func New(tokensUseCase mvc.TokensUsecase, quoteDenom string, minLiquidityCap uint64, logger log.Logger) domain.PricingWorker {
@@ -76,6 +86,12 @@ func (p *pricingWorker) UpdatePricesAsync(ctx context.Context, height uint64, un
 		domain.SQSPricingWorkerCoalescedUpdatesCounter.Inc()
 	}
 
+	// Retry the work of a failed run together with this block.
+	if p.failed != nil {
+		p.pending.mergeFailed(p.failed)
+		p.failed = nil
+	}
+
 	if p.draining {
 		return
 	}
@@ -97,8 +113,39 @@ func (p *pricingWorker) drainPending() {
 		}
 		p.pendingMu.Unlock()
 
-		p.UpdatePricesSync(update.ctx, update.height, update.metadata)
+		if p.runExclusive(update.ctx, update.height, update.metadata) {
+			continue
+		}
+
+		p.retryLater(update)
 	}
+}
+
+// retryLater keeps the work of a failed update so that no block's denoms or pools are lost:
+// it is merged into the pending update if there is one, or else into the next block's update.
+// After maxPricingAttempts failures the work is dropped.
+func (p *pricingWorker) retryLater(update *pendingPriceUpdate) {
+	update.attempts++
+	if update.attempts >= maxPricingAttempts {
+		p.logger.Error("dropping pricing update after repeated failures", zap.Uint64("height", update.height), zap.Int("attempts", update.attempts), zap.Int("num_base_denoms", len(update.metadata.UpdatedDenoms)), zap.Int("num_pools", len(update.metadata.PoolIDs)))
+		return
+	}
+
+	p.pendingMu.Lock()
+	defer p.pendingMu.Unlock()
+
+	if p.pending != nil {
+		p.pending.mergeFailed(update)
+		return
+	}
+	p.failed = update
+}
+
+// mergeFailed adds the work of an update whose run failed. The failed update may be older or
+// newer than this one: the newer height and liquidity snapshot win either way.
+func (u *pendingPriceUpdate) mergeFailed(failed *pendingPriceUpdate) {
+	u.merge(failed.ctx, failed.height, failed.metadata)
+	u.attempts = max(u.attempts, failed.attempts)
 }
 
 // merge adds a later update to the pending one.
@@ -136,12 +183,19 @@ func cloneBlockPoolMetadata(metadata domain.BlockPoolMetadata) domain.BlockPoolM
 // UpdatePricesSync implements PricingWorker.
 // It waits for any run in progress, so runs never overlap.
 func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) {
+	p.runExclusive(ctx, height, uniqueBlockPoolMetaData)
+}
+
+// runExclusive prices the update's denoms and notifies listeners, after any run in progress.
+// It reports whether prices were computed and listeners notified.
+func (p *pricingWorker) runExclusive(ctx context.Context, height uint64, uniqueBlockPoolMetaData domain.BlockPoolMetadata) (succeeded bool) {
 	p.computeMu.Lock()
 	defer p.computeMu.Unlock()
 
-	// Nothing above this recovers a panic: UpdatePricesAsync runs it in its own goroutine, and
-	// ingest calls it directly for the first block. Without this, a panic in pricing or in a
-	// listener would take the whole process down. The update is counted as failed instead.
+	// Nothing above this recovers a panic: runs happen in the drain goroutine, and ingest calls
+	// UpdatePricesSync directly for the first block. Without this, a panic in pricing or in a
+	// listener would take the whole process down. The update is counted as failed instead,
+	// and succeeded stays false.
 	defer recovery.Log(p.logger, "recovered panic in pricing pre-computation", domain.SQSPricingWorkerComputeErrorCounter, zap.Uint64("height", height))
 
 	baseDenoms := domain.KeysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
@@ -168,7 +222,7 @@ func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uni
 
 		// Do not notify listeners so that the price update height stays behind
 		// and the healthcheck reports stale prices.
-		return
+		return false
 	}
 
 	// Update listeners
@@ -179,6 +233,8 @@ func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uni
 
 	// Measure duration
 	domain.SQSPricingWorkerComputeDurationGauge.Set(float64(time.Since(start).Milliseconds()))
+
+	return true
 }
 
 // RegisterListener implements PricingWorker.

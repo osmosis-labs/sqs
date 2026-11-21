@@ -2,11 +2,13 @@ package worker_test
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -15,101 +17,169 @@ import (
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 )
 
-// recordingPricingListener records the height and denoms of every pricing update.
+const testWait = 5 * time.Second
+
+// errPanic tells the controlled tokens usecase to panic instead of returning.
+var errPanic = errors.New("panic")
+
+// recordingPricingListener records the height of every pricing update.
 type recordingPricingListener struct {
 	mu      sync.Mutex
 	heights []uint64
-	denoms  map[string]struct{}
 	poolIDs map[uint64]struct{}
-	updates chan struct{}
 }
 
 func newRecordingPricingListener() *recordingPricingListener {
-	return &recordingPricingListener{
-		denoms:  map[string]struct{}{},
-		poolIDs: map[uint64]struct{}{},
-		updates: make(chan struct{}, 1000),
-	}
+	return &recordingPricingListener{poolIDs: map[uint64]struct{}{}}
 }
 
 func (l *recordingPricingListener) OnPricingUpdate(ctx context.Context, height uint64, metadata domain.BlockPoolMetadata, prices domain.PricesResult, quoteDenom string) error {
 	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.heights = append(l.heights, height)
-	for denom := range metadata.UpdatedDenoms {
-		l.denoms[denom] = struct{}{}
-	}
 	for id := range metadata.PoolIDs {
 		l.poolIDs[id] = struct{}{}
 	}
-	l.mu.Unlock()
-	l.updates <- struct{}{}
 	return nil
 }
 
-func (l *recordingPricingListener) waitForUpdate(t *testing.T) {
-	t.Helper()
-	select {
-	case <-l.updates:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for a pricing update")
-	}
+func (l *recordingPricingListener) snapshot() ([]uint64, int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]uint64(nil), l.heights...), len(l.poolIDs)
 }
 
-// blockingTokensUsecase returns a tokens usecase whose GetPrices waits on release
-// and reports how many calls run at once.
-func blockingTokensUsecase(release <-chan struct{}, started chan<- []string, maxConcurrent *int, mu *sync.Mutex) *mocks.TokensUsecaseMock {
-	running := 0
+// controlledPricing is a tokens usecase whose GetPrices reports the denoms it was called with,
+// then waits for the result to return: nil to succeed, an error to fail, errPanic to panic.
+type controlledPricing struct {
+	t        *testing.T
+	started  chan []string
+	results  chan error
+	mu       sync.Mutex
+	running  int
+	maxConcu int
+}
+
+func newControlledPricing(t *testing.T) *controlledPricing {
+	return &controlledPricing{t: t, started: make(chan []string, 100), results: make(chan error)}
+}
+
+func (c *controlledPricing) usecase() *mocks.TokensUsecaseMock {
 	return &mocks.TokensUsecaseMock{
 		GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
-			mu.Lock()
-			running++
-			if running > *maxConcurrent {
-				*maxConcurrent = running
-			}
-			mu.Unlock()
+			c.mu.Lock()
+			c.running++
+			c.maxConcu = max(c.maxConcu, c.running)
+			c.mu.Unlock()
+			defer func() {
+				c.mu.Lock()
+				c.running--
+				c.mu.Unlock()
+			}()
 
 			sorted := append([]string(nil), baseDenoms...)
 			sort.Strings(sorted)
-			started <- sorted
-			<-release
+			c.started <- sorted
 
-			mu.Lock()
-			running--
-			mu.Unlock()
+			err := <-c.results
+			if errors.Is(err, errPanic) {
+				panic("pricing panicked")
+			}
+			if err != nil {
+				return nil, err
+			}
 			return domain.PricesResult{}, nil
 		},
 	}
 }
 
-// TestUpdatePricesAsync_CoalescesWhileRunning checks that blocks arriving while a
-// pricing run is in progress are merged into one waiting run: runs never overlap,
-// every denom and pool is still priced, and the heights reported only increase.
-func TestUpdatePricesAsync_CoalescesWhileRunning(t *testing.T) {
-	release := make(chan struct{})
-	started := make(chan []string, 100)
-	var mu sync.Mutex
-	maxConcurrent := 0
+// expectRun waits for the next run to start and checks the denoms it prices.
+func (c *controlledPricing) expectRun(denoms ...string) {
+	c.t.Helper()
+	select {
+	case got := <-c.started:
+		require.Equal(c.t, denoms, got)
+	case <-time.After(testWait):
+		c.t.Fatalf("timed out waiting for a pricing run for %v", denoms)
+	}
+}
 
-	pricingWorker := worker.New(blockingTokensUsecase(release, started, &maxConcurrent, &mu), USDC, 0, &log.NoOpLogger{})
+// finish ends the run in progress with err.
+func (c *controlledPricing) finish(err error) {
+	c.t.Helper()
+	select {
+	case c.results <- err:
+	case <-time.After(testWait):
+		c.t.Fatal("timed out finishing a pricing run")
+	}
+}
+
+// expectNoRun checks that no run starts for a while.
+func (c *controlledPricing) expectNoRun() {
+	c.t.Helper()
+	select {
+	case got := <-c.started:
+		c.t.Fatalf("unexpected pricing run for %v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func (c *controlledPricing) maxConcurrent() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.maxConcu
+}
+
+// eventually waits until the listener has seen the given heights.
+func eventuallyHeights(t *testing.T, listener *recordingPricingListener, want []uint64) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		got, _ := listener.snapshot()
+		return len(got) == len(want)
+	}, testWait, time.Millisecond)
+	got, _ := listener.snapshot()
+	require.Equal(t, want, got)
+}
+
+func denomsMetadata(denoms ...string) domain.BlockPoolMetadata {
+	metadata := domain.BlockPoolMetadata{UpdatedDenoms: map[string]struct{}{}}
+	for _, denom := range denoms {
+		metadata.UpdatedDenoms[denom] = struct{}{}
+	}
+	return metadata
+}
+
+func newTestWorker(t *testing.T) (domain.PricingWorker, *controlledPricing, *recordingPricingListener) {
+	pricing := newControlledPricing(t)
+	pricingWorker := worker.New(pricing.usecase(), USDC, 0, &log.NoOpLogger{})
 	listener := newRecordingPricingListener()
 	pricingWorker.RegisterListener(listener)
+	return pricingWorker, pricing, listener
+}
 
-	// Block 1 starts a run that does not finish until released.
+// TestUpdatePricesAsync_CoalescesWhileRunning checks that blocks arriving while a pricing run
+// is in progress are merged into one waiting run: runs never overlap, every denom and pool is
+// still priced, and the heights reported only increase.
+func TestUpdatePricesAsync_CoalescesWhileRunning(t *testing.T) {
+	pricingWorker, pricing, listener := newTestWorker(t)
+
+	// Block 1 starts a run that does not finish until told to.
 	pricingWorker.UpdatePricesAsync(context.Background(), 1, domain.BlockPoolMetadata{
 		UpdatedDenoms: map[string]struct{}{"a": {}},
 		PoolIDs:       map[uint64]struct{}{1: {}},
 	})
-	require.Equal(t, []string{"a"}, <-started)
+	pricing.expectRun("a")
+
+	coalescedBefore := testutil.ToFloat64(domain.SQSPricingWorkerCoalescedUpdatesCounter)
 
 	// Blocks 2 to 50 arrive while block 1 is being priced.
 	callerMetadata := make([]domain.BlockPoolMetadata, 0, 49)
 	for height := uint64(2); height <= 50; height++ {
 		metadata := domain.BlockPoolMetadata{
-			UpdatedDenoms: map[string]struct{}{},
+			UpdatedDenoms: map[string]struct{}{"b": {}},
 			PoolIDs:       map[uint64]struct{}{height: {}},
 		}
 		// Overlapping and disjoint denoms.
-		metadata.UpdatedDenoms["b"] = struct{}{}
 		if height%10 == 0 {
 			metadata.UpdatedDenoms[string(rune('a'+height/10+1))] = struct{}{}
 		}
@@ -117,26 +187,19 @@ func TestUpdatePricesAsync_CoalescesWhileRunning(t *testing.T) {
 		pricingWorker.UpdatePricesAsync(context.Background(), height, metadata)
 	}
 
-	// Release block 1. Exactly one more run follows, for all the merged blocks.
-	release <- struct{}{}
-	listener.waitForUpdate(t)
+	// The first of blocks 2 to 50 creates the waiting update and the other 48 merge into it.
+	require.Equal(t, float64(48), testutil.ToFloat64(domain.SQSPricingWorkerCoalescedUpdatesCounter)-coalescedBefore)
 
-	merged := <-started
-	require.Equal(t, []string{"b", "c", "d", "e", "f", "g"}, merged)
-	release <- struct{}{}
-	listener.waitForUpdate(t)
+	// Finish block 1. Exactly one more run follows, for all the merged blocks.
+	pricing.finish(nil)
+	pricing.expectRun("b", "c", "d", "e", "f", "g")
+	pricing.finish(nil)
+	pricing.expectNoRun()
 
-	select {
-	case denoms := <-started:
-		t.Fatalf("unexpected extra pricing run for %v", denoms)
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	listener.mu.Lock()
-	defer listener.mu.Unlock()
-	require.Equal(t, []uint64{1, 50}, listener.heights)
-	require.Len(t, listener.poolIDs, 50)
-	require.Equal(t, 1, maxConcurrent)
+	eventuallyHeights(t, listener, []uint64{1, 50})
+	_, numPools := listener.snapshot()
+	require.Equal(t, 50, numPools)
+	require.Equal(t, 1, pricing.maxConcurrent())
 
 	// Merging never changes the metadata the caller passed in.
 	for i, metadata := range callerMetadata {
@@ -144,37 +207,158 @@ func TestUpdatePricesAsync_CoalescesWhileRunning(t *testing.T) {
 	}
 }
 
-// TestUpdatePricesSync_WaitsForRunningUpdate checks that the synchronous run
-// does not overlap a background run.
+// TestUpdatePricesAsync_RetriesFailedRunWithNextBlock checks that the denoms and pools of a
+// failed run are priced with the next block instead of being lost, and that the failure does
+// not start a run of its own.
+func TestUpdatePricesAsync_RetriesFailedRunWithNextBlock(t *testing.T) {
+	pricingWorker, pricing, listener := newTestWorker(t)
+
+	pricingWorker.UpdatePricesAsync(context.Background(), 1, domain.BlockPoolMetadata{
+		UpdatedDenoms: map[string]struct{}{"a": {}},
+		PoolIDs:       map[uint64]struct{}{1: {}},
+	})
+	pricing.expectRun("a")
+	pricing.finish(errors.New("deadline exceeded"))
+
+	// The failure is not retried on its own, which would loop on a run that keeps failing.
+	pricing.expectNoRun()
+
+	// Block 2 updates a different denom and pool; its run also prices block 1's.
+	pricingWorker.UpdatePricesAsync(context.Background(), 2, domain.BlockPoolMetadata{
+		UpdatedDenoms: map[string]struct{}{"b": {}},
+		PoolIDs:       map[uint64]struct{}{2: {}},
+	})
+	pricing.expectRun("a", "b")
+	pricing.finish(nil)
+
+	eventuallyHeights(t, listener, []uint64{2})
+	_, numPools := listener.snapshot()
+	require.Equal(t, 2, numPools)
+}
+
+// TestUpdatePricesAsync_RetriesFailedRunWithWaitingUpdate checks that a run that fails while
+// another update waits is merged into the waiting one.
+func TestUpdatePricesAsync_RetriesFailedRunWithWaitingUpdate(t *testing.T) {
+	pricingWorker, pricing, listener := newTestWorker(t)
+
+	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
+	pricing.expectRun("a")
+
+	pricingWorker.UpdatePricesAsync(context.Background(), 2, denomsMetadata("b"))
+	pricing.finish(errors.New("failed"))
+
+	pricing.expectRun("a", "b")
+	pricing.finish(nil)
+	pricing.expectNoRun()
+
+	eventuallyHeights(t, listener, []uint64{2})
+}
+
+// TestUpdatePricesAsync_DropsWorkAfterMaxAttempts checks that work that keeps failing is
+// dropped after three failed runs rather than retried forever.
+func TestUpdatePricesAsync_DropsWorkAfterMaxAttempts(t *testing.T) {
+	pricingWorker, pricing, listener := newTestWorker(t)
+
+	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
+	pricing.expectRun("a")
+	pricing.finish(errors.New("failed"))
+	pricing.expectNoRun()
+
+	pricingWorker.UpdatePricesAsync(context.Background(), 2, denomsMetadata("b"))
+	pricing.expectRun("a", "b")
+	pricing.finish(errors.New("failed"))
+	pricing.expectNoRun()
+
+	pricingWorker.UpdatePricesAsync(context.Background(), 3, denomsMetadata("c"))
+	pricing.expectRun("a", "b", "c")
+	pricing.finish(errors.New("failed"))
+	pricing.expectNoRun()
+
+	// The third failure dropped a, b and c.
+	pricingWorker.UpdatePricesAsync(context.Background(), 4, denomsMetadata("d"))
+	pricing.expectRun("d")
+	pricing.finish(nil)
+
+	eventuallyHeights(t, listener, []uint64{4})
+}
+
+// TestUpdatePricesAsync_ContinuesAfterPanic checks that a panic in a run is recovered, counted
+// as a failure and retried, and that later blocks are still priced.
+func TestUpdatePricesAsync_ContinuesAfterPanic(t *testing.T) {
+	pricingWorker, pricing, listener := newTestWorker(t)
+
+	errorsBefore := testutil.ToFloat64(domain.SQSPricingWorkerComputeErrorCounter)
+
+	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
+	pricing.expectRun("a")
+	pricing.finish(errPanic)
+	pricing.expectNoRun()
+	require.Equal(t, float64(1), testutil.ToFloat64(domain.SQSPricingWorkerComputeErrorCounter)-errorsBefore)
+
+	pricingWorker.UpdatePricesAsync(context.Background(), 2, denomsMetadata("b"))
+	pricing.expectRun("a", "b")
+	pricing.finish(nil)
+
+	eventuallyHeights(t, listener, []uint64{2})
+}
+
+// TestUpdatePricesAsync_MergesOlderHeightAndNilSets checks the merge with an update whose
+// denom and pool sets are nil, and with an update for an older height arriving later: the
+// sets are still merged, and the newer height is kept.
+func TestUpdatePricesAsync_MergesOlderHeightAndNilSets(t *testing.T) {
+	pricingWorker, pricing, listener := newTestWorker(t)
+
+	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
+	pricing.expectRun("a")
+
+	// The waiting update starts with nil sets.
+	pricingWorker.UpdatePricesAsync(context.Background(), 5, domain.BlockPoolMetadata{})
+	pricingWorker.UpdatePricesAsync(context.Background(), 3, domain.BlockPoolMetadata{
+		UpdatedDenoms: map[string]struct{}{"b": {}},
+		PoolIDs:       map[uint64]struct{}{3: {}},
+	})
+
+	pricing.finish(nil)
+	pricing.expectRun("b")
+	pricing.finish(nil)
+
+	eventuallyHeights(t, listener, []uint64{1, 5})
+	_, numPools := listener.snapshot()
+	require.Equal(t, 1, numPools)
+}
+
+// TestUpdatePricesSync_WaitsForRunningUpdate checks that the synchronous run does not overlap a
+// background run, and that the first block's synchronous run followed by its background run
+// still prices twice.
 func TestUpdatePricesSync_WaitsForRunningUpdate(t *testing.T) {
-	release := make(chan struct{})
-	started := make(chan []string, 10)
-	var mu sync.Mutex
-	maxConcurrent := 0
+	pricingWorker, pricing, listener := newTestWorker(t)
 
-	pricingWorker := worker.New(blockingTokensUsecase(release, started, &maxConcurrent, &mu), USDC, 0, &log.NoOpLogger{})
-	listener := newRecordingPricingListener()
-	pricingWorker.RegisterListener(listener)
-
-	pricingWorker.UpdatePricesAsync(context.Background(), 1, domain.BlockPoolMetadata{UpdatedDenoms: map[string]struct{}{"a": {}}})
-	<-started
+	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
+	pricing.expectRun("a")
 
 	syncDone := make(chan struct{})
 	go func() {
-		pricingWorker.UpdatePricesSync(context.Background(), 2, domain.BlockPoolMetadata{UpdatedDenoms: map[string]struct{}{"b": {}}})
+		pricingWorker.UpdatePricesSync(context.Background(), 2, denomsMetadata("b"))
 		close(syncDone)
 	}()
 
+	// The synchronous run waits for the background run.
+	pricing.expectNoRun()
+	pricing.finish(nil)
+	pricing.expectRun("b")
+	pricing.finish(nil)
+
 	select {
-	case <-started:
-		t.Fatal("synchronous run started while a background run was in progress")
-	case <-time.After(100 * time.Millisecond):
+	case <-syncDone:
+	case <-time.After(testWait):
+		t.Fatal("timed out waiting for the synchronous run")
 	}
 
-	release <- struct{}{}
-	require.Equal(t, []string{"b"}, <-started)
-	release <- struct{}{}
-	<-syncDone
+	// The first block runs synchronously, then again in the background.
+	pricingWorker.UpdatePricesAsync(context.Background(), 2, denomsMetadata("b"))
+	pricing.expectRun("b")
+	pricing.finish(nil)
 
-	require.Equal(t, 1, maxConcurrent)
+	eventuallyHeights(t, listener, []uint64{1, 2, 2})
+	require.Equal(t, 1, pricing.maxConcurrent())
 }
