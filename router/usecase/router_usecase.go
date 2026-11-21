@@ -252,7 +252,7 @@ func (r *routerUseCaseImpl) GetOptimalQuoteInGivenOut(ctx context.Context, token
 	}
 
 	// Compute the split-route quote that minimises the required input for the desired output.
-	topSplitQuote, err := getSplitQuoteInGivenOut(ctx, rankedRoutes, desiredOut)
+	topSplitQuote, err := getBestSplitQuoteInGivenOut(ctx, rankedRoutes, desiredOut, options.MaxSplitRoutes)
 	if err != nil {
 		// If the split computation fails, fall back to the single best route rather than
 		// failing the quote.
@@ -542,10 +542,12 @@ func (r *routerUseCaseImpl) rankRoutesByDirectQuoteInGivenOut(ctx context.Contex
 	}
 
 	// Update ranked routes with filtered ranked routes
+	allRoutes := routes
 	routes = filterAndConvertDuplicatePoolIDRankedRoutes(routesWithAmtOut)
 
-	// Cut routes for splits
+	// Cut routes for splits, then add the routes that rank best at a split share.
 	routes = cutRoutesForSplits(maxSplitRoutes, routes)
+	routes = appendMissingRoutes(routes, rankRoutesAtSplitShareInGivenOut(ctx, allRoutes, tokenOut, maxSplitRoutes))
 
 	return topQuote, routes, nil
 }
@@ -637,6 +639,10 @@ func (r *routerUseCaseImpl) computeAndRankRoutesByDirectQuoteInGivenOut(ctx cont
 	}
 
 	// If top routes are not present in cache, retrieve unranked candidate
+	// The candidate routes are cached per pair and amount, shared by quotes with and without splits (a single route
+	// request disables them). So the search always keeps the pools a split can use: it is sized by the configured
+	// split count, not the request's.
+	candidateRouteSearchOptions.MaxSplitRoutes = r.defaultConfig.MaxSplitRoutes
 	candidateRoutes, err := r.handleCandidateRoutesInGivenOut(ctx, tokenOut, tokenInDenom, candidateRouteSearchOptions)
 	if err != nil {
 		r.logger.Error("error handling routes", zap.Error(err))

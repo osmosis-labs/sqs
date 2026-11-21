@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase"
@@ -271,4 +272,72 @@ func (s *RouterTestSuite) setupSplitsMainnetTestCase(displayDenomIn string, amou
 	s.Require().NoError(err)
 
 	return tokenIn, rankedRoutes
+}
+
+// TestGetBestSplitQuoteInGivenOut_PartialCapacityRoute checks that a route that cannot pay out the whole amount
+// but is cheaper takes part in the split and lowers the input, and that the split never fills the target partially.
+func (s *RouterTestSuite) TestGetBestSplitQuoteInGivenOut_PartialCapacityRoute() {
+	const (
+		inDenom  = "uin"
+		outDenom = "uout"
+		capacity = 6_000
+	)
+	deepPool := &mocks.MockRoutablePool{
+		ID: 1, TokenOutDenom: outDenom, TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+		CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+			return sdk.NewCoin(inDenom, tokenOut.Amount.MulRaw(2)), nil
+		},
+	}
+	partialPool := &mocks.MockRoutablePool{
+		ID: 2, TokenOutDenom: outDenom, TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+		CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+			if tokenOut.Amount.GT(osmomath.NewInt(capacity)) {
+				return sdk.Coin{}, errors.New("not enough liquidity")
+			}
+			return sdk.NewCoin(inDenom, tokenOut.Amount), nil
+		},
+	}
+	deep := route.RouteImpl{Pools: []domain.RoutablePool{deepPool}}
+	partial := route.RouteImpl{Pools: []domain.RoutablePool{partialPool}}
+	tokenOut := sdk.NewCoin(outDenom, osmomath.NewInt(10_000))
+
+	quote, err := usecase.GetBestSplitQuoteInGivenOut(context.TODO(), []route.RouteImpl{deep, partial}, tokenOut, 2)
+	s.Require().NoError(err)
+	// 6000 through the partial route at 1:1 and 4000 through the deep route at 2:1, against 20000 through the deep route alone.
+	s.Require().Equal("14000", quote.GetAmountIn().Amount.String())
+	s.Require().Equal(tokenOut.Amount.String(), quote.GetAmountOut().Amount.String())
+
+	// A route that fills only part of the target cannot fill it alone.
+	_, err = usecase.GetBestSplitQuoteInGivenOut(context.TODO(), []route.RouteImpl{partial}, tokenOut, 2)
+	s.Require().Error(err)
+}
+
+// TestGetBestSplitQuoteInGivenOut_NoCosmWasmInputSplitLeg checks that a split of several legs has no leg whose input
+// side pool is a CosmWasm pool, because the chain sends every split leg the maximum integer as its input limit.
+func (s *RouterTestSuite) TestGetBestSplitQuoteInGivenOut_NoCosmWasmInputSplitLeg() {
+	const (
+		inDenom  = "uin"
+		outDenom = "uout"
+	)
+	newPool := func(id uint64, poolType poolmanagertypes.PoolType, rate, capacity int64) *mocks.MockRoutablePool {
+		return &mocks.MockRoutablePool{
+			ID: id, PoolType: poolType, TokenOutDenom: outDenom, TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+			CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+				if tokenOut.Amount.GT(osmomath.NewInt(capacity)) {
+					return sdk.Coin{}, errors.New("not enough liquidity")
+				}
+				return sdk.NewCoin(inDenom, tokenOut.Amount.MulRaw(rate)), nil
+			},
+		}
+	}
+	// The CosmWasm route is cheaper per unit and would take 6000 of the 10000 in a split, but must stay out of it.
+	cosmWasm := route.RouteImpl{Pools: []domain.RoutablePool{newPool(1, poolmanagertypes.CosmWasm, 1, 6_000)}}
+	balancer := route.RouteImpl{Pools: []domain.RoutablePool{newPool(2, poolmanagertypes.Balancer, 2, 1_000_000)}}
+	tokenOut := sdk.NewCoin(outDenom, osmomath.NewInt(10_000))
+
+	quote, err := usecase.GetBestSplitQuoteInGivenOut(context.TODO(), []route.RouteImpl{cosmWasm, balancer}, tokenOut, 2)
+	s.Require().NoError(err)
+	s.Require().Len(quote.GetRoute(), 1)
+	s.Require().Equal(uint64(2), quote.GetRoute()[0].GetPools()[0].GetId())
+	s.Require().Equal("20000", quote.GetAmountIn().Amount.String())
 }
