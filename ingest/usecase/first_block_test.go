@@ -57,6 +57,7 @@ func TestProcessBlockData_FirstBlockFailureDoesNotBlockLaterBlocks(t *testing.T)
 		&mocks.PricingWorkerMock{},
 		&mocks.CandidateRouteSearchDataWorkerMock{},
 		nil,
+		nil, // transmuter status tracker
 		&log.NoOpLogger{},
 	)
 	require.NoError(t, err)

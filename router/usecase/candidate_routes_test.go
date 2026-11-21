@@ -10,6 +10,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
+	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 )
@@ -569,6 +570,40 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_ExcludedPoolIDs() {
 	s.Require().NoError(err)
 	s.Require().NotEmpty(candidateRoutes.Routes)
 	s.Require().False(foundExpectedPoolID(excludedPoolID, candidateRoutes.Routes))
+}
+
+// Validates that a transmuter reported as paused by its contract is never returned by the candidate route search,
+// and is a candidate again once the contract reports it active.
+func (s *RouterTestSuite) TestCandidateRouteSearcher_InactiveTransmuter() {
+	mainnetState := s.SetupMainnetState()
+
+	// OSMO/ATOM pool. The status is keyed by pool ID, so any pool stands in for a transmuter.
+	const pausedPoolID = uint64(1)
+
+	routerRepository := routerrepo.New(&log.NoOpLogger{})
+	routerRepository.SetCandidateRouteSearchData(mainnetState.CandidateRouteSearchData)
+
+	statuses := domain.NewTransmuterStatuses()
+	finder := usecase.NewCandidateRouteFinder(routerRepository, nil, &log.NoOpLogger{}).WithTransmuterStatuses(statuses)
+
+	candidateRouteOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           routertesting.DefaultRouterConfig.MaxRoutes,
+		MaxPoolsPerRoute:    routertesting.DefaultRouterConfig.MaxPoolsPerRoute,
+		MinPoolLiquidityCap: routertesting.DefaultRouterConfig.MinPoolLiquidityCap,
+	}
+	oneOSMO := sdk.NewCoin(UOSMO, defaultAmount)
+
+	statuses.SetActive(pausedPoolID, true)
+	candidateRoutes, err := finder.FindCandidateRoutesOutGivenIn(context.Background(), oneOSMO, ATOM, candidateRouteOptions)
+	s.Require().NoError(err)
+	s.Require().True(foundExpectedPoolID(pausedPoolID, candidateRoutes.Routes))
+
+	// System under test.
+	statuses.SetActive(pausedPoolID, false)
+	candidateRoutes, err = finder.FindCandidateRoutesOutGivenIn(context.Background(), oneOSMO, ATOM, candidateRouteOptions)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(candidateRoutes.Routes)
+	s.Require().False(foundExpectedPoolID(pausedPoolID, candidateRoutes.Routes))
 }
 
 // Validates that a search for a token that no pool holds, which would otherwise queue every path up to max

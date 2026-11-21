@@ -67,6 +67,9 @@ type ingestUseCase struct {
 	orderbookTickLoadsPending int
 	orderbookTickLoadsMu      sync.Mutex
 
+	// transmuterStatusTracker keeps the paused and corrupted state of transmuters current. May be nil.
+	transmuterStatusTracker TransmuterStatusTracker
+
 	// The first height observed after start-up
 	// See firstBlockPoolCountThreshold for details.
 	firstHeightAfterStartUp atomic.Uint64
@@ -101,9 +104,19 @@ var tracer = otel.Tracer(tracerName)
 
 var _ mvc.IngestUsecase = &ingestUseCase{}
 
+// TransmuterStatusTracker reads the paused and corrupted state of transmuter pools without blocking the caller.
+type TransmuterStatusTracker interface {
+	// Observe refreshes the status of the pool if it is a transmuter.
+	Observe(ctx context.Context, height uint64, pool sqsingesttypes.PoolI)
+	// Maintain starts the retries and periodic refreshes that are due at the height.
+	Maintain(ctx context.Context, height uint64)
+}
+
 // NewIngestUsecase will create a new pools use case object
-func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, orderBookUseCase mvc.OrderBookUsecase, logger log.Logger) (mvc.IngestUsecase, error) {
+func NewIngestUsecase(poolsUseCase mvc.PoolsUsecase, routerUseCase mvc.RouterUsecase, pricingRouterUsecase mvc.RouterUsecase, tokensUseCase mvc.TokensUsecase, chainInfoUseCase mvc.ChainInfoUsecase, codec codec.Codec, quotePriceUpdateWorker domain.PricingWorker, candidateRouteSearchWorker domain.CandidateRouteSearchDataWorker, orderBookUseCase mvc.OrderBookUsecase, transmuterStatusTracker TransmuterStatusTracker, logger log.Logger) (mvc.IngestUsecase, error) {
 	return &ingestUseCase{
+		transmuterStatusTracker: transmuterStatusTracker,
+
 		codec: codec,
 
 		chainInfoUseCase:     chainInfoUseCase,
@@ -183,6 +196,11 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 
 	// Reload orderbooks whose ticks failed to load in an earlier block.
 	p.retryOrderbooksWithoutTicks(ctx, height)
+
+	// Retry and periodically refresh transmuter statuses, in the background.
+	if p.transmuterStatusTracker != nil {
+		p.transmuterStatusTracker.Maintain(ctx, height)
+	}
 
 	// A canonical orderbook change affects the candidate routes of both denoms of its pair,
 	// even when only one of them is in this block's balances. This also picks up changes made
@@ -348,6 +366,11 @@ func (p *ingestUseCase) parsePoolData(ctx context.Context, height uint64, poolDa
 				// Process the orderbook pool asynchronously as to avoid blocking the main ingest goroutine
 				// and to avoid potential deadlock.
 				p.startOrderbookTickLoad(ctx, height, poolResult.pool, false)
+			}
+
+			// Read the transmuter's paused and corrupted state in the background.
+			if p.transmuterStatusTracker != nil {
+				p.transmuterStatusTracker.Observe(ctx, height, poolResult.pool)
 			}
 
 			// Update unique pools.
