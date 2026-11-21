@@ -84,7 +84,9 @@ func (s *PricingWorkerTestSuite) TestPricingCostHarness() {
 	runtime.ReadMemStats(&after)
 	capped := testutil.ToFloat64(domain.SQSCandidateRouteSearchCappedCounter) - cappedBefore
 
-	// The worker prices all denoms in one call, which runs them concurrently.
+	// The worker prices all denoms in one call, which runs them concurrently. This runs after
+	// the sequential pass, so it is timed with warm caches and is not comparable to it; the
+	// allocation and GC figures cover the sequential pass only.
 	start = time.Now()
 	_, err = mainnetUsecase.Tokens.GetPrices(context.Background(), denoms, []string{quoteDenom}, domain.ChainPricingSourceType, opts...)
 	s.Require().NoError(err)
@@ -95,7 +97,7 @@ func (s *PricingWorkerTestSuite) TestPricingCostHarness() {
 	s.Require().NoError(os.WriteFile(out, bz, 0o644))
 
 	sort.Slice(results, func(i, j int) bool { return results[i].Duration > results[j].Duration })
-	fmt.Printf("HARNESS denoms=%d priced=%d sequential=%s batched=%s alloc_mb=%d mallocs=%d gcs=%d capped_searches=%.0f\n",
+	fmt.Printf("HARNESS denoms=%d priced=%d sequential=%s batched=%s sequential_alloc_mb=%d sequential_mallocs=%d sequential_gcs=%d capped_searches=%.0f\n",
 		len(denoms), priced, sequential, batched, (after.TotalAlloc-before.TotalAlloc)>>20, after.Mallocs-before.Mallocs, after.NumGC-before.NumGC, capped)
 	for _, r := range results[:min(15, len(results))] {
 		fmt.Printf("HARNESS slow %-70s %10s price=%s\n", r.Denom, r.Duration, r.Price)

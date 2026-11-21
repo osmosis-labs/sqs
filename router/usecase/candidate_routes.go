@@ -76,8 +76,16 @@ var visitedPools = sync.Pool{
 	},
 }
 
-// initialSearchNodesCap is the capacity of a new search's nodes slice.
-const initialSearchNodesCap = 1024
+const (
+	// initialSearchNodesCap is the capacity of a new search's nodes slice.
+	initialSearchNodesCap = 256
+
+	// maxPooledSearchNodesCap is the largest nodes slice, about 1.3 MB, that goes back to
+	// searchNodesPool. A search that reaches maxCandidateRouteSearchPaths grows its slice to
+	// about 8 MB; keeping one such slice per concurrent search would hold that memory for
+	// the many small searches that need a fraction of it.
+	maxPooledSearchNodesCap = 16_384
+)
 
 // searchNodesPool reuses the nodes slices of finished searches. A search that queues many paths
 // grows its slice to hold them all; without reuse, every repricing of every token allocates and
@@ -155,6 +163,9 @@ func (c candidateRouteFinder) findCandidateRoutesOutGivenIn(ctx context.Context,
 	}
 	nodes := (*nodesPtr)[:0]
 	defer func() {
+		if cap(nodes) > maxPooledSearchNodesCap {
+			return
+		}
 		clear(nodes)
 		*nodesPtr = nodes[:0]
 		searchNodesPool.Put(nodesPtr)

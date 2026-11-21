@@ -2,7 +2,9 @@ package usecase_test
 
 import (
 	"context"
+	"reflect"
 	"slices"
+	"sync"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -614,4 +616,65 @@ func (s *RouterTestSuite) TestCandidateRouteSearcher_QueuedPathBound() {
 		s.Require().NoError(err)
 		s.Require().Equal(unbounded[denom], candidateRoutes, denom)
 	}
+}
+
+// TestCandidateRouteSearcher_ReusedNodes checks that searches reusing the nodes slice of earlier
+// searches, including a large one and searches running concurrently, find the same routes as
+// the first search for each token.
+func (s *RouterTestSuite) TestCandidateRouteSearcher_ReusedNodes() {
+	mainnetState := s.SetupMainnetState()
+	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState)
+
+	candidateRouteOptions := domain.CandidateRouteSearchOptions{
+		MaxRoutes:           20,
+		MaxPoolsPerRoute:    4,
+		MinPoolLiquidityCap: 0,
+		PoolFiltersAnyOf:    []domain.CandidateRoutePoolFiltrerCb{domain.ShouldSkipOrderbookPool},
+	}
+	tenUSDC := sdk.NewCoin(USDC, osmomath.NewInt(10_000_000))
+
+	search := func(denom string) (ingesttypes.CandidateRoutes, error) {
+		return mainnetUsecase.CandidateRouteSearcher.FindCandidateRoutesOutGivenIn(context.Background(), tenUSDC, denom, candidateRouteOptions)
+	}
+
+	expected := map[string]ingesttypes.CandidateRoutes{}
+	for _, denom := range routertesting.MainnetDenoms {
+		candidateRoutes, err := search(denom)
+		s.Require().NoError(err)
+		expected[denom] = candidateRoutes
+	}
+
+	// A large search grows a nodes slice that small searches then reuse.
+	_, queuedPaths, _, err := usecase.FindCandidateRoutesOutGivenInWithBound(context.Background(), mainnetUsecase.CandidateRouteSearcher, tenUSDC, "unroutable", candidateRouteOptions, 10_000)
+	s.Require().NoError(err)
+	s.Require().Equal(10_000, queuedPaths)
+
+	for _, denom := range routertesting.MainnetDenoms {
+		candidateRoutes, err := search(denom)
+		s.Require().NoError(err)
+		s.Require().Equal(expected[denom], candidateRoutes, denom)
+	}
+
+	// Concurrent searches each take their own slice from the pool.
+	const goroutines = 8
+	var wg sync.WaitGroup
+	mismatches := make(chan string, goroutines*len(routertesting.MainnetDenoms))
+	for range goroutines {
+		wg.Go(func() {
+			for _, denom := range routertesting.MainnetDenoms {
+				candidateRoutes, err := search(denom)
+				if err != nil || !reflect.DeepEqual(expected[denom], candidateRoutes) {
+					mismatches <- denom
+				}
+			}
+		})
+	}
+	wg.Wait()
+	close(mismatches)
+
+	var mismatched []string
+	for denom := range mismatches {
+		mismatched = append(mismatched, denom)
+	}
+	s.Require().Empty(mismatched)
 }
