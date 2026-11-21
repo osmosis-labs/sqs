@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
+	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	"github.com/osmosis-labs/sqs/router/usecase"
@@ -85,6 +86,153 @@ func (s *RouterTestSuite) TestGetSplitQuote_RouteErrorHandling() {
 	// Since the error route returns zero, all traffic should go through the good route
 	s.Require().True(splitQuote.GetAmountOut().Amount.GT(osmomath.ZeroInt()),
 		"Expected positive output from good route, got zero")
+}
+
+// TestGetSplitQuote_SharedTransmuter checks that a split may use one transmuter from several
+// legs only when the combined amount fits: each leg alone fits the transmuter's per-call
+// capacity, the sum may not. The transmuter is the last hop of the exact-in legs and,
+// because exact-out routes list pools from token out, the first of the exact-out legs.
+// When the sum does not fit, only the leg that does not fit is dropped.
+func (s *RouterTestSuite) TestGetSplitQuote_SharedTransmuter() {
+	const denom = "uusdc"
+
+	for name, tc := range map[string]struct {
+		exactIn       bool
+		transmuterCap int64
+		expectLegs    int
+	}{
+		"exact in, combined amount fits: both legs keep the transmuter":  {exactIn: true, transmuterCap: 800, expectLegs: 2},
+		"exact in, combined amount does not fit: one leg":                {exactIn: true, transmuterCap: 500, expectLegs: 1},
+		"exact out, combined amount fits: both legs keep the transmuter": {exactIn: false, transmuterCap: 800, expectLegs: 2},
+		"exact out, combined amount does not fit: one leg":               {exactIn: false, transmuterCap: 500, expectLegs: 1},
+	} {
+		s.Run(name, func() {
+			capacity := osmomath.NewInt(tc.transmuterCap)
+			checkCap := func(amt osmomath.Int) error {
+				if amt.GT(capacity) {
+					return errors.New("insufficient balance")
+				}
+				return nil
+			}
+
+			newPool := func(id uint64, sqsType domain.SQSPoolType) *mocks.MockRoutablePool {
+				return &mocks.MockRoutablePool{
+					ID:            id,
+					SQSPoolType:   sqsType,
+					TokenInDenom:  denom,
+					TokenOutDenom: denom,
+					TakerFee:      osmomath.ZeroDec(),
+					SpreadFactor:  osmomath.ZeroDec(),
+				}
+			}
+
+			transmuter := newPool(10, domain.TransmuterV1)
+			transmuter.CalculateTokenOutByTokenInFunc = func(_ context.Context, in sdk.Coin) (sdk.Coin, error) {
+				return in, checkCap(in.Amount)
+			}
+			transmuter.CalculateTokenInByTokenOutFunc = func(_ context.Context, out sdk.Coin) (sdk.Coin, error) {
+				return out, checkCap(out.Amount)
+			}
+
+			// Slippage so that splitting across routes is attractive.
+			slippy := func(id uint64) *mocks.MockRoutablePool {
+				p := newPool(id, domain.Balancer)
+				p.CalculateTokenOutByTokenInFunc = func(_ context.Context, in sdk.Coin) (sdk.Coin, error) {
+					return sdk.NewCoin(denom, in.Amount.Sub(in.Amount.Mul(in.Amount).QuoRaw(2000))), nil
+				}
+				p.CalculateTokenInByTokenOutFunc = func(_ context.Context, out sdk.Coin) (sdk.Coin, error) {
+					return sdk.NewCoin(denom, out.Amount.Add(out.Amount.Mul(out.Amount).QuoRaw(2000))), nil
+				}
+				return p
+			}
+
+			withTransmuter := func(p domain.RoutablePool) route.RouteImpl {
+				if tc.exactIn {
+					return route.RouteImpl{Pools: []domain.RoutablePool{p, transmuter}}
+				}
+				return route.RouteImpl{Pools: []domain.RoutablePool{transmuter, p}}
+			}
+			routes := []route.RouteImpl{
+				withTransmuter(slippy(1)),
+				withTransmuter(slippy(2)),
+				{Pools: []domain.RoutablePool{slippy(3)}},
+			}
+
+			coin := sdk.NewCoin(denom, osmomath.NewInt(1000))
+
+			var (
+				quote domain.Quote
+				err   error
+			)
+			if tc.exactIn {
+				quote, err = usecase.GetSplitQuote(context.TODO(), routes, coin)
+			} else {
+				quote, err = usecase.GetSplitQuoteInGivenOut(context.TODO(), routes, coin)
+			}
+			s.Require().NoError(err)
+
+			transmuterLegs := 0
+			for _, leg := range quote.GetRoute() {
+				for _, pool := range leg.GetPools() {
+					if pool.GetId() == transmuter.ID {
+						transmuterLegs++
+					}
+				}
+			}
+			s.Require().Equal(tc.expectLegs, transmuterLegs)
+			// The route that does not use the transmuter is kept either way.
+			s.Require().Len(quote.GetRoute(), tc.expectLegs+1)
+		})
+	}
+}
+
+// TestGetSplitQuote_SharedTransmuterDeposit checks two legs that deposit the same denom into one
+// alloy transmuter and withdraw different variants. Each deposit fits the static limit alone; the
+// two together do not, so one leg is dropped even though the legs share no direction or withdrawn
+// denom.
+func (s *RouterTestSuite) TestGetSplitQuote_SharedTransmuterDeposit() {
+	const in, final = "uaaa", "uxxx"
+	limit := osmomath.NewInt(500)
+
+	transmuterTo := func(out string) *mocks.MockRoutablePool {
+		return &mocks.MockRoutablePool{
+			ID: 10, SQSPoolType: domain.AlloyedTransmuter, TokenInDenom: in, TokenOutDenom: out,
+			TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+			CalculateTokenOutByTokenInFunc: func(_ context.Context, c sdk.Coin) (sdk.Coin, error) {
+				if c.Amount.GT(limit) {
+					return sdk.Coin{}, domain.StaticRateLimiterInvalidUpperLimitError{UpperLimit: "0.5", Denom: in}
+				}
+				return sdk.NewCoin(out, c.Amount), nil
+			},
+		}
+	}
+	slippy := func(id uint64, from string) *mocks.MockRoutablePool {
+		return &mocks.MockRoutablePool{
+			ID: id, SQSPoolType: domain.Balancer, TokenInDenom: from, TokenOutDenom: final,
+			TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+			CalculateTokenOutByTokenInFunc: func(_ context.Context, c sdk.Coin) (sdk.Coin, error) {
+				return sdk.NewCoin(final, c.Amount.Sub(c.Amount.Mul(c.Amount).QuoRaw(2000))), nil
+			},
+		}
+	}
+	routes := []route.RouteImpl{
+		{Pools: []domain.RoutablePool{transmuterTo("ubbb"), slippy(1, "ubbb")}},
+		{Pools: []domain.RoutablePool{transmuterTo("uccc"), slippy(2, "uccc")}},
+		{Pools: []domain.RoutablePool{slippy(3, in)}},
+	}
+
+	quote, err := usecase.GetSplitQuote(context.TODO(), routes, sdk.NewCoin(in, osmomath.NewInt(1000)))
+	s.Require().NoError(err)
+
+	transmuterLegs, deposited := 0, osmomath.ZeroInt()
+	for _, leg := range quote.GetRoute() {
+		if leg.GetPools()[0].GetId() == 10 {
+			transmuterLegs++
+			deposited = deposited.Add(leg.GetAmountIn())
+		}
+	}
+	s.Require().Equal(1, transmuterLegs)
+	s.Require().True(deposited.LTE(limit), "deposits into the transmuter %s exceed its limit %s", deposited, limit)
 }
 
 // Sanity check that the exact-out (in-given-out) split optimizer returns a non-nil quote
@@ -271,4 +419,72 @@ func (s *RouterTestSuite) setupSplitsMainnetTestCase(displayDenomIn string, amou
 	s.Require().NoError(err)
 
 	return tokenIn, rankedRoutes
+}
+
+// TestGetBestSplitQuoteInGivenOut_PartialCapacityRoute checks that a route that cannot pay out the whole amount
+// but is cheaper takes part in the split and lowers the input, and that the split never fills the target partially.
+func (s *RouterTestSuite) TestGetBestSplitQuoteInGivenOut_PartialCapacityRoute() {
+	const (
+		inDenom  = "uin"
+		outDenom = "uout"
+		capacity = 6_000
+	)
+	deepPool := &mocks.MockRoutablePool{
+		ID: 1, TokenOutDenom: outDenom, TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+		CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+			return sdk.NewCoin(inDenom, tokenOut.Amount.MulRaw(2)), nil
+		},
+	}
+	partialPool := &mocks.MockRoutablePool{
+		ID: 2, TokenOutDenom: outDenom, TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+		CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+			if tokenOut.Amount.GT(osmomath.NewInt(capacity)) {
+				return sdk.Coin{}, errors.New("not enough liquidity")
+			}
+			return sdk.NewCoin(inDenom, tokenOut.Amount), nil
+		},
+	}
+	deep := route.RouteImpl{Pools: []domain.RoutablePool{deepPool}}
+	partial := route.RouteImpl{Pools: []domain.RoutablePool{partialPool}}
+	tokenOut := sdk.NewCoin(outDenom, osmomath.NewInt(10_000))
+
+	quote, err := usecase.GetBestSplitQuoteInGivenOut(context.TODO(), []route.RouteImpl{deep, partial}, tokenOut, 2)
+	s.Require().NoError(err)
+	// 6000 through the partial route at 1:1 and 4000 through the deep route at 2:1, against 20000 through the deep route alone.
+	s.Require().Equal("14000", quote.GetAmountIn().Amount.String())
+	s.Require().Equal(tokenOut.Amount.String(), quote.GetAmountOut().Amount.String())
+
+	// A route that fills only part of the target cannot fill it alone.
+	_, err = usecase.GetBestSplitQuoteInGivenOut(context.TODO(), []route.RouteImpl{partial}, tokenOut, 2)
+	s.Require().Error(err)
+}
+
+// TestGetBestSplitQuoteInGivenOut_NoCosmWasmInputSplitLeg checks that a split of several legs has no leg whose input
+// side pool is a CosmWasm pool, because the chain sends every split leg the maximum integer as its input limit.
+func (s *RouterTestSuite) TestGetBestSplitQuoteInGivenOut_NoCosmWasmInputSplitLeg() {
+	const (
+		inDenom  = "uin"
+		outDenom = "uout"
+	)
+	newPool := func(id uint64, poolType poolmanagertypes.PoolType, rate, capacity int64) *mocks.MockRoutablePool {
+		return &mocks.MockRoutablePool{
+			ID: id, PoolType: poolType, TokenOutDenom: outDenom, TakerFee: osmomath.ZeroDec(), SpreadFactor: osmomath.ZeroDec(),
+			CalculateTokenInByTokenOutFunc: func(ctx context.Context, tokenOut sdk.Coin) (sdk.Coin, error) {
+				if tokenOut.Amount.GT(osmomath.NewInt(capacity)) {
+					return sdk.Coin{}, errors.New("not enough liquidity")
+				}
+				return sdk.NewCoin(inDenom, tokenOut.Amount.MulRaw(rate)), nil
+			},
+		}
+	}
+	// The CosmWasm route is cheaper per unit and would take 6000 of the 10000 in a split, but must stay out of it.
+	cosmWasm := route.RouteImpl{Pools: []domain.RoutablePool{newPool(1, poolmanagertypes.CosmWasm, 1, 6_000)}}
+	balancer := route.RouteImpl{Pools: []domain.RoutablePool{newPool(2, poolmanagertypes.Balancer, 2, 1_000_000)}}
+	tokenOut := sdk.NewCoin(outDenom, osmomath.NewInt(10_000))
+
+	quote, err := usecase.GetBestSplitQuoteInGivenOut(context.TODO(), []route.RouteImpl{cosmWasm, balancer}, tokenOut, 2)
+	s.Require().NoError(err)
+	s.Require().Len(quote.GetRoute(), 1)
+	s.Require().Equal(uint64(2), quote.GetRoute()[0].GetPools()[0].GetId())
+	s.Require().Equal("20000", quote.GetAmountIn().Amount.String())
 }

@@ -9,12 +9,9 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/encoding"
 )
 
-type OsmomathCodec struct {
-	parentCodec encoding.Codec
-}
+type OsmomathCodec struct{}
 
 func (c OsmomathCodec) Marshal(v any) ([]byte, error) {
 	protoMsg, ok := v.(proto.Message)
@@ -46,12 +43,10 @@ type Client struct {
 
 // NewClient creates a new gRPC client connection to the specified endpoint.
 func NewClient(grpcEndpoint string) (*Client, error) {
-	customCodec := &OsmomathCodec{parentCodec: encoding.GetCodec("proto")}
-
 	grpcOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
-		grpc.WithDefaultCallOptions(grpc.ForceCodec(customCodec)),
+		grpc.WithDefaultCallOptions(grpc.ForceCodec(&OsmomathCodec{})),
 	}
 
 	grpcConn, err := grpc.NewClient(

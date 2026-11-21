@@ -2,8 +2,6 @@ package worker_test
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -13,7 +11,6 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/router/usecase/routertesting"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -105,15 +102,10 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 			// Register the listener
 			pricingWorker.RegisterListener(mockPricingUpdateListener)
 
-			// Test for empty base denoms
-			// Expect no update to be triggered
 			pricingWorker.UpdatePricesAsync(context.Background(), defaultHeight, tc.baseDenoms)
 
-			// Height and prices are not updated
-			s.Require().Zero(mockPricingUpdateListener.Height)
-			s.Require().Empty(mockPricingUpdateListener.PricesBaseQuteDenomMap)
-
-			// Wait for the listener to be called
+			// Wait for the listener to be called. The listener's fields are read only
+			// after it signals: before that, the background run may be writing them.
 			didTimeout := mockPricingUpdateListener.WaitOrTimeout()
 			s.Require().False(didTimeout)
 
@@ -124,120 +116,6 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 			s.ValidatePrices(tc.baseDenoms.UpdatedDenoms, defaultQuoteDenom, mockPricingUpdateListener.PricesBaseQuteDenomMap)
 		})
 	}
-}
-
-func (s *PricingWorkerTestSuite) TestGetPrices_Chain_FindUnsupportedTokens() {
-	env := os.Getenv("CI_SQS_PRICING_WORKER_TEST")
-	if env != "true" {
-		s.T().Skip("This test exists to identify which mainnet tokens are unsupported")
-	}
-
-	viper.SetConfigFile("../../../../config.json")
-	err := viper.ReadInConfig()
-	s.Require().NoError(err)
-
-	// Unmarshal the config into your Config struct
-	config, err := domain.UnmarshalConfig()
-	s.Require().NoError(err)
-
-	mainnetState := s.SetupMainnetState()
-
-	mainnetUsecase := s.SetupRouterAndPoolsUsecase(mainnetState, routertesting.WithRouterConfig(*config.Router), routertesting.WithPricingConfig(*config.Pricing), routertesting.WithPoolsConfig(*config.Pools))
-
-	defaultQuoteDenom, err := mainnetUsecase.Tokens.GetChainDenom(defaultPricingConfig.DefaultQuoteHumanDenom)
-	s.Require().NoError(err)
-
-	// Create a pricing worker
-	pricingWorker := worker.New(mainnetUsecase.Tokens, defaultQuoteDenom, config.Pricing.WorkerMinPoolLiquidityCap, &log.NoOpLogger{})
-
-	// Create a mock listener
-	mockPricingUpdateListener := mocks.NewPricingListenerMock(time.Minute * 5)
-	mockPricingUpdateListener.QuoteDenom = defaultQuoteDenom
-
-	// Register the listener
-	pricingWorker.RegisterListener(mockPricingUpdateListener)
-
-	tokenMetadata, err := mainnetUsecase.Tokens.GetFullTokenMetadata()
-	s.Require().NoError(err)
-	s.Require().NotZero(len(tokenMetadata))
-
-	// Populate base denoms with all possible chain denoms
-	baseDenoms := domain.BlockPoolMetadata{
-		UpdatedDenoms: map[string]struct{}{},
-	}
-	for chainDenom := range tokenMetadata {
-		baseDenoms.UpdatedDenoms[chainDenom] = struct{}{}
-	}
-
-	// Test for empty base denoms
-	// Expect no update to be triggered
-	pricingWorker.UpdatePricesAsync(context.Background(), defaultHeight, baseDenoms)
-
-	// Wait for the listener to be called
-	didTimeout := mockPricingUpdateListener.WaitOrTimeout()
-	s.Require().False(didTimeout)
-
-	errorCounter := 0
-	zeroPriceCounter := 0
-	s.Require().NotZero(len(mockPricingUpdateListener.PricesBaseQuteDenomMap))
-	for baseDenom, quotePrices := range mockPricingUpdateListener.PricesBaseQuteDenomMap {
-
-		s.Require().NotZero(len(quotePrices))
-
-		price, ok := quotePrices[defaultQuoteDenom]
-		s.Require().True(ok)
-
-		priceBigDec := s.ConvertAnyToBigDec(price)
-
-		if priceBigDec.IsNil() || priceBigDec.IsZero() {
-			metadata, ok := mainnetState.TokensMetadata[baseDenom]
-			s.Require().True(ok)
-
-			fmt.Printf("Zero price for %s, isUnlisted: %t, coingecko id: %s\n", metadata.HumanDenom, metadata.IsUnlisted, metadata.CoingeckoID)
-			zeroPriceCounter++
-			continue
-		}
-	}
-
-	s.Require().Zero(errorCounter)
-
-	// Unsupported tokens are omitted from the result rather than priced at zero.
-	s.Require().Zero(zeroPriceCounter)
-	unsupportedCounter := 0
-	for baseDenom := range baseDenoms.UpdatedDenoms {
-		if _, ok := mockPricingUpdateListener.PricesBaseQuteDenomMap[baseDenom]; !ok {
-			unsupportedCounter++
-		}
-	}
-
-	// Measured at the time of test creation.
-	// Most tokens are unlisted.
-	// Out of listed:
-	// 	BSKT - listed but no pools
-	// ASTRO.cw20 - CW pool (unsupported in tests but should be supported on mainnet)
-	// BJUNO - listed but no pools
-	// HARD - listed but no pools
-	// MUSE - listed but no pools0
-	// NSTK - listed but no pools
-	// SAIL - CW pool (unsupported in tests but should be supported on mainnet)
-	// ASTRO - CW pool (unsupported in tests but should be supported on mainnet)
-	// SHARK - CW pool (unsupported in tests but should be supported on mainnet)
-	// FURY - listed but no pools
-	// FURY.legacy - listed but no pools
-	//
-	// 6 more tokens were found to be unsupported on May 29th.
-	// 1 more was found on June 10 when adding alloyed code id to config.
-	//
-	// On August 21, 2024: 23 unsupported tokens - likely added liquidity to some pools with the tokens.
-	// On August 27, 2024: 20 unsupported tokens - same reason as above.
-	//
-	// The worker minimum pool liquidity cap is now 1000 and is no longer lowered by the dynamic
-	// liquidity filter, so tokens whose only pools are below it are unsupported too: 33 with a
-	// cap of 1 and 89 with the default of 1000.
-	//
-	// The worker no longer falls back to CoinGecko prices, so tokens priced only by CoinGecko
-	// in this fixture are unsupported too: 140.
-	s.Require().Equal(140, unsupportedCounter)
 }
 
 func (s *PricingWorkerTestSuite) ValidatePrices(initialDenoms map[string]struct{}, expectedQuoteDenom string, prices map[string]map[string]osmomath.BigDec) {

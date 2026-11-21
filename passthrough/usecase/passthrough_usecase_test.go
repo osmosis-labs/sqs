@@ -135,6 +135,8 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 	// Initialize GRPC client mock
 	grpcClientMock := mocks.PassthroughGRPCClientMock{
 		MockAllBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			_, hasDeadline := ctx.Deadline()
+			s.Require().True(hasDeadline, "GetPortfolioAssets must bound gRPC calls with a context deadline")
 			// Return coins and no error.
 			return sdk.NewCoins(osmoCoin), nil
 		},
@@ -410,15 +412,15 @@ func (s *PassthroughUseCaseTestSuite) TestGetCoinsFromLocks() {
 			expectedCoins: dafultResult,
 		},
 		{
-			name: "happy path with unlocking",
+			name: "unlocking coins are not counted twice",
 
 			address: defaultAddress,
 
 			mockAccountLockedCoinsIfDefaultAddress:    defaultBalances,
 			mockAccountUnlockingCoinsIfDefaultAddress: defaultBalances,
 
-			// 2x for locked and unlocking.
-			expectedCoins: dafultResult.Add(dafultResult...),
+			// AccountLockedCoins already includes unlocking coins.
+			expectedCoins: dafultResult,
 		},
 		{
 			name: "concentrated shares are skipped",

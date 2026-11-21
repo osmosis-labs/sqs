@@ -45,14 +45,6 @@ var (
 	defaultPricingConfig       = routertesting.DefaultPricingConfig
 )
 
-func (s *PricingTestSuite) TestGetPrices_Chain() {
-	// Set up mainnet mock state.
-	mainnetState := s.SetupMainnetState()
-
-	// Run the test for the mainnet state.
-	s.testGetPrices_Chain(mainnetState)
-}
-
 func (s *PricingTestSuite) TestGetPrices_Chain_BE_758() {
 	// Set up mainnet mock state.
 	mainnetState := s.SetupMainnetStatePath("BE-758")

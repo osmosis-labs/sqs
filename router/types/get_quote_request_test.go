@@ -3,6 +3,7 @@ package types_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -309,7 +310,8 @@ func TestValidateSimulationParams(t *testing.T) {
 		slippageToleranceStr string
 		want                 osmomath.Dec
 
-		expectedError bool
+		expectedError       bool
+		expectedErrContains string
 	}{
 		{
 			name:                 "valid simulation params",
@@ -349,6 +351,50 @@ func TestValidateSimulationParams(t *testing.T) {
 			expectedError:        true,
 		},
 		{
+			name:                 "zero slippage tolerance",
+			swapMethod:           domain.TokenSwapMethodExactIn,
+			simulatorAddress:     "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+			slippageToleranceStr: "0",
+			expectedError:        true,
+		},
+		{
+			name:                 "slippage tolerance at upper bound",
+			swapMethod:           domain.TokenSwapMethodExactIn,
+			simulatorAddress:     "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+			slippageToleranceStr: "2",
+			want:                 osmomath.NewDec(2),
+		},
+		{
+			name:                 "slippage tolerance above upper bound",
+			swapMethod:           domain.TokenSwapMethodExactIn,
+			simulatorAddress:     "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+			slippageToleranceStr: "2.01",
+			expectedError:        true,
+		},
+		{
+			name:                 "slippage tolerance at max encoded length",
+			swapMethod:           domain.TokenSwapMethodExactIn,
+			simulatorAddress:     "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+			slippageToleranceStr: strings.Repeat("0", types.MaxSimulationSlippageToleranceLen-1) + "1",
+			want:                 osmomath.OneDec(),
+		},
+		{
+			name:                 "slippage tolerance one character over max encoded length",
+			swapMethod:           domain.TokenSwapMethodExactIn,
+			simulatorAddress:     "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+			slippageToleranceStr: strings.Repeat("0", types.MaxSimulationSlippageToleranceLen) + "1",
+			expectedError:        true,
+			expectedErrContains:  "characters",
+		},
+		{
+			name:                 "huge integer slippage tolerance rejected before parsing",
+			swapMethod:           domain.TokenSwapMethodExactIn,
+			simulatorAddress:     "osmo13t8prr8hu7hkuksnfrd25vpvvnrfxr223k59ph",
+			slippageToleranceStr: strings.Repeat("9", 100_000),
+			expectedError:        true,
+			expectedErrContains:  "characters",
+		},
+		{
 			name:                 "exact out with no simulator address or slippage tolerance",
 			swapMethod:           domain.TokenSwapMethodExactOut,
 			simulatorAddress:     "",
@@ -370,6 +416,9 @@ func TestValidateSimulationParams(t *testing.T) {
 			got, err := types.ValidateSimulationParams(tt.swapMethod, tt.simulatorAddress, tt.slippageToleranceStr)
 			if tt.expectedError {
 				assert.Error(t, err)
+				if tt.expectedErrContains != "" {
+					assert.ErrorContains(t, err, tt.expectedErrContains)
+				}
 				return
 			}
 

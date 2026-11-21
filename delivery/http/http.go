@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/osmosis-labs/sqs/validator"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
@@ -59,9 +58,9 @@ func ParseRequest(c echo.Context, req RequestUnmarshaler) error {
 		return err
 	}
 
-	v, ok := req.(validator.Validator)
+	v, ok := req.(interface{ Validate() error })
 	if !ok {
 		return nil
 	}
-	return validator.Validate(v)
+	return v.Validate()
 }

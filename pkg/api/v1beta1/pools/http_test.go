@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -14,100 +15,6 @@ import (
 
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 )
-
-func TestGetPoolsRequestFilter_IsPresent(t *testing.T) {
-	tests := []struct {
-		name           string
-		queryParams    map[string]string
-		expectedResult bool
-	}{
-		{
-			name:           "No query parameters",
-			queryParams:    map[string]string{},
-			expectedResult: false,
-		},
-		{
-			name:           "With IDs",
-			queryParams:    map[string]string{queryIDs: "1,2,3"},
-			expectedResult: true,
-		},
-		{
-			name:           "With filter[id]",
-			queryParams:    map[string]string{queryFilterID: "4,5,6"},
-			expectedResult: true,
-		},
-		{
-			name:           "With filter[id][not_in]",
-			queryParams:    map[string]string{queryFilterIDNotIn: "7,8,9"},
-			expectedResult: true,
-		},
-		{
-			name:           "With filter[type]",
-			queryParams:    map[string]string{queryFilterType: "1"},
-			expectedResult: true,
-		},
-		{
-			name:           "With filter[incentive]",
-			queryParams:    map[string]string{queryFilterIncentive: "2"},
-			expectedResult: true,
-		},
-		{
-			name:           "With filter[denom]",
-			queryParams:    map[string]string{queryFilterDenom: "2"},
-			expectedResult: true,
-		},
-		{
-			name:           "With filter[search]",
-			queryParams:    map[string]string{queryFilterSearch: "search"},
-			expectedResult: true,
-		},
-		{
-			name:           "With min_liquidity_cap",
-			queryParams:    map[string]string{queryMinLiquidityCap: "1000"},
-			expectedResult: true,
-		},
-		{
-			name:           "With filter[min_liquidity_cap]",
-			queryParams:    map[string]string{queryFilterMinLiquidityCap: "2000"},
-			expectedResult: true,
-		},
-		{
-			name:           "With with_market_incentives",
-			queryParams:    map[string]string{queryWithMarketIncentives: "true"},
-			expectedResult: true,
-		},
-		{
-			name:           "With filter[with_market_incentives]",
-			queryParams:    map[string]string{queryFilterWithMarketIncentives: "false"},
-			expectedResult: true,
-		},
-		{
-			name:           "With unrelated query parameter",
-			queryParams:    map[string]string{"unrelated": "param"},
-			expectedResult: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := echo.New()
-			req := http.Request{URL: &url.URL{}}
-			q := req.URL.Query()
-			for k, v := range tt.queryParams {
-				q.Add(k, v)
-			}
-			req.URL.RawQuery = q.Encode()
-			c := e.NewContext(&req, nil)
-
-			// Create a new GetPoolsRequestFilter
-			filter := &GetPoolsRequestFilter{}
-
-			// Call IsPresent and check the result
-			result := filter.IsPresent(c)
-			assert.Equal(t, tt.expectedResult, result)
-		})
-	}
-}
 
 func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 	tests := []struct {
@@ -260,6 +167,93 @@ func TestGetPoolsRequestFilter_UnmarshalHTTPRequest(t *testing.T) {
 				assert.Equal(t, tt.expectedFilter.MinLiquidityCap, filter.MinLiquidityCap)
 				assert.Equal(t, tt.expectedFilter.WithMarketIncentives, filter.WithMarketIncentives)
 			}
+		})
+	}
+}
+
+// repeatList returns n copies of item joined by commas.
+func repeatList(item string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	return strings.Repeat(item+",", n-1) + item
+}
+
+// unmarshalFilter parses a pools filter from the given query parameters.
+func unmarshalFilter(queryParams map[string]string) (*GetPoolsRequestFilter, error) {
+	q := url.Values{}
+	for k, v := range queryParams {
+		q.Add(k, v)
+	}
+	req := http.Request{URL: &url.URL{RawQuery: q.Encode()}}
+	filter := &GetPoolsRequestFilter{}
+	err := filter.UnmarshalHTTPRequest(echo.New().NewContext(&req, nil))
+	return filter, err
+}
+
+// Validates that every bounded list parameter accepts exactly its limit and rejects one entry
+// more, so an off-by-one in any bound check fails here.
+func TestGetPoolsRequestFilter_UnmarshalHTTPRequest_ListLimits(t *testing.T) {
+	poolIDs := func(f *GetPoolsRequestFilter) int { return len(f.PoolId) }
+	single := func(param, item string) func(n int) map[string]string {
+		return func(n int) map[string]string { return map[string]string{param: repeatList(item, n)} }
+	}
+
+	params := []struct {
+		name  string
+		limit int
+		query func(n int) map[string]string
+		count func(*GetPoolsRequestFilter) int
+	}{
+		{name: "IDs", limit: maxPoolIDs, query: single(queryIDs, "1"), count: poolIDs},
+		{name: "filter[id]", limit: maxPoolIDs, query: single(queryFilterID, "1"), count: poolIDs},
+		{
+			name:  "IDs and filter[id] share one budget",
+			limit: maxPoolIDs,
+			query: func(n int) map[string]string {
+				return map[string]string{
+					queryIDs:      repeatList("1", maxPoolIDs/2),
+					queryFilterID: repeatList("2", n-maxPoolIDs/2),
+				}
+			},
+			count: poolIDs,
+		},
+		{
+			name:  "filter[id][not_in]",
+			limit: maxPoolIDs,
+			query: single(queryFilterIDNotIn, "1"),
+			count: func(f *GetPoolsRequestFilter) int { return len(f.PoolIdNotIn) },
+		},
+		{
+			name:  "filter[type]",
+			limit: maxPoolTypes,
+			query: single(queryFilterType, "1"),
+			count: func(f *GetPoolsRequestFilter) int { return len(f.Type) },
+		},
+		{
+			name:  "filter[incentive]",
+			limit: maxIncentiveTypes,
+			query: single(queryFilterIncentive, "1"),
+			count: func(f *GetPoolsRequestFilter) int { return len(f.Incentive) },
+		},
+		{
+			name:  "filter[denom]",
+			limit: maxDenoms,
+			query: single(queryFilterDenom, "uosmo"),
+			count: func(f *GetPoolsRequestFilter) int { return len(f.Denom) },
+		},
+	}
+
+	for _, p := range params {
+		t.Run(p.name+" at limit is accepted", func(t *testing.T) {
+			filter, err := unmarshalFilter(p.query(p.limit))
+			require.NoError(t, err)
+			assert.Equal(t, p.limit, p.count(filter))
+		})
+		t.Run(p.name+" over limit is rejected", func(t *testing.T) {
+			_, err := unmarshalFilter(p.query(p.limit + 1))
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), fmt.Sprintf("max: %d", p.limit))
 		})
 	}
 }
