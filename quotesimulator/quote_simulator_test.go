@@ -88,6 +88,8 @@ func TestSimulateQuote(t *testing.T) {
 					chainID string,
 					msg ...sdk.Msg,
 				) domain.TxFeeInfo {
+					_, hasDeadline := ctx.Deadline()
+					assert.True(t, hasDeadline, "PriceMsgs must receive a bounded deadline")
 					return domain.TxFeeInfo{
 						AdjustedGasUsed: tt.expectedGasAdjusted,
 						FeeCoin:         tt.expectedFeeCoin,
@@ -97,6 +99,8 @@ func TestSimulateQuote(t *testing.T) {
 			}
 			accountQueryClient := &mocks.AuthQueryClientMock{
 				GetAccountFunc: func(ctx context.Context, address string) (*authtypes.BaseAccount, error) {
+					_, hasDeadline := ctx.Deadline()
+					assert.True(t, hasDeadline, "GetAccount must receive a bounded deadline")
 					return &authtypes.BaseAccount{
 						AccountNumber: 1,
 					}, nil

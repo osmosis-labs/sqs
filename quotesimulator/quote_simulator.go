@@ -3,6 +3,7 @@ package quotesimulator
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cosmos/auth/types"
@@ -12,6 +13,10 @@ import (
 	"github.com/osmosis-labs/osmosis/v31/app/params"
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 )
+
+// quoteSimulationTimeout bounds the chain gRPC calls (GetAccount + Simulate) made for a
+// single quote simulation so a stalled node cannot hold request goroutines open indefinitely.
+const quoteSimulationTimeout = 5 * time.Second
 
 // quoteSimulator simulates a quote and returns the gas adjusted amount and the fee coin.
 type quoteSimulator struct {
@@ -32,6 +37,9 @@ func NewQuoteSimulator(msgSimulator tx.MsgSimulator, encodingConfig params.Encod
 
 // SimulateQuoteOutGivenIn implements domain.QuoteSimulator
 func (q *quoteSimulator) SimulateQuoteOutGivenIn(ctx context.Context, quote domain.Quote, slippageToleranceMultiplier osmomath.Dec, simulatorAddress string) domain.TxFeeInfo {
+	ctx, cancel := context.WithTimeout(ctx, quoteSimulationTimeout)
+	defer cancel()
+
 	route := quote.GetRoute()
 	if len(route) != 1 {
 		return domain.TxFeeInfo{Err: fmt.Sprintf("route length must be 1, got %d", len(route))}

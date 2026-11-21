@@ -13,6 +13,7 @@ var (
 	ErrTokenInNotSpecified             = errors.New("tokenIn is required")
 	ErrSwapMethodNotValid              = errors.New("swap method is invalid - must be either swap exact amount in or swap exact amount out")
 	ErrPoolIDNotValid                  = errors.New("pool ID must be integer")
+	ErrTooManyPools                    = errors.New("too many pools specified")
 	ErrNumOfTokenOutDenomPoolsMismatch = errors.New("number of tokenOutDenom must be equal to number of pool IDs")
 	ErrNumOfTokenInDenomPoolsMismatch  = errors.New("number of tokenInDenom must be equal to number of pool IDs")
 	ErrInvalidRouteType                = errors.New("invalid route type")
