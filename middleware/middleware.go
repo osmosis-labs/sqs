@@ -3,8 +3,11 @@ package middleware
 import (
 	"bytes"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"time"
 
@@ -120,56 +123,58 @@ func (m *GoMiddleware) InstrumentMiddleware(next echo.HandlerFunc) echo.HandlerF
 	}
 }
 
-// maxSpanQueryParamValLen caps the length of any single query parameter value attached to an
-// OpenTelemetry span so oversized request parameters cannot bloat trace payloads.
+// maxSpanQueryParamValLen caps the byte length of any single query parameter value attached to
+// an OpenTelemetry span so oversized request parameters cannot bloat trace payloads.
 const maxSpanQueryParamValLen = 256
 
 // allowedSpanQueryParams is the set of known SQS query parameters attached to OTEL spans.
 // Using an explicit allowlist prevents unbounded span attribute cardinality from arbitrary
-// client-supplied keys and avoids recording unexpected or sensitive parameters.
-var allowedSpanQueryParams = map[string]struct{}{
-	"tokenIn":                        {},
-	"tokenOut":                       {},
-	"tokenInDenom":                   {},
-	"tokenOutDenom":                  {},
-	"singleRoute":                    {},
-	"applyExponents":                 {},
-	"simulatorAddress":               {},
-	"simulationSlippageTolerance":    {},
-	"appendBaseFee":                  {},
-	"poolID":                         {},
-	"poolId":                         {},
-	"humanDenoms":                    {},
-	"quoteAsset":                     {},
-	"baseAsset":                      {},
-	"base":                           {},
-	"quote":                          {},
-	"denoms":                         {},
-	"debug":                          {},
-	"pricingSource":                  {},
-	"IDs":                            {},
-	"min_liquidity_cap":              {},
-	"with_market_incentives":         {},
-	"filter[id]":                     {},
-	"filter[id][not_in]":             {},
-	"filter[type]":                   {},
-	"filter[incentive]":              {},
-	"filter[denom]":                  {},
-	"filter[min_liquidity_cap]":      {},
-	"filter[with_market_incentives]": {},
-	"filter[search]":                 {},
-	"page[number]":                   {},
-	"page[size]":                     {},
-	"page[cursor]":                   {},
-	"sort":                           {},
-	"userOsmoAddress":                {},
-	"sse":                            {},
-	"coinMinimalDenom":               {},
-	"wallet":                         {},
-	"limit":                          {},
-	"cursor":                         {},
-	"windows":                        {},
-	"pretty":                         {},
+// client-supplied keys and avoids recording unexpected or sensitive parameters. The middleware
+// iterates this list, so span attribute keys are always these static strings and never memory
+// derived from the request.
+var allowedSpanQueryParams = [...]attribute.Key{
+	"tokenIn",
+	"tokenOut",
+	"tokenInDenom",
+	"tokenOutDenom",
+	"singleRoute",
+	"applyExponents",
+	"simulatorAddress",
+	"simulationSlippageTolerance",
+	"appendBaseFee",
+	"poolID",
+	"poolId",
+	"humanDenoms",
+	"quoteAsset",
+	"baseAsset",
+	"base",
+	"quote",
+	"denoms",
+	"debug",
+	"pricingSource",
+	"IDs",
+	"min_liquidity_cap",
+	"with_market_incentives",
+	"filter[id]",
+	"filter[id][not_in]",
+	"filter[type]",
+	"filter[incentive]",
+	"filter[denom]",
+	"filter[min_liquidity_cap]",
+	"filter[with_market_incentives]",
+	"filter[search]",
+	"page[number]",
+	"page[size]",
+	"page[cursor]",
+	"sort",
+	"userOsmoAddress",
+	"sse",
+	"coinMinimalDenom",
+	"wallet",
+	"limit",
+	"cursor",
+	"windows",
+	"pretty",
 }
 
 // Middleware to capture request parameters
@@ -179,20 +184,48 @@ func (m *GoMiddleware) TraceWithParamsMiddleware() echo.MiddlewareFunc {
 			// Get span from context (it is initialized by the preceding echo OTEL middleware)
 			span := trace.SpanFromContext(c.Request().Context())
 			if span.IsRecording() {
-				for key, values := range c.QueryParams() {
-					if _, ok := allowedSpanQueryParams[key]; !ok || len(values) == 0 {
-						continue
-					}
-					val := values[0]
-					if len(val) > maxSpanQueryParamValLen {
-						val = val[:maxSpanQueryParamValLen]
-					}
-					span.SetAttributes(attribute.String(key, val))
-				}
+				setQueryParamSpanAttributes(span, c.QueryParams())
 			}
 
 			// Proceed with the request handling
 			return next(c)
 		}
 	}
+}
+
+// setQueryParamSpanAttributes attaches the first value of each allowlisted query parameter
+// present in params to span. Only the first value of a repeated parameter is recorded.
+func setQueryParamSpanAttributes(span trace.Span, params url.Values) {
+	for _, key := range allowedSpanQueryParams {
+		values := params[string(key)]
+		if len(values) == 0 {
+			continue
+		}
+		span.SetAttributes(key.String(spanAttributeValue(values[0])))
+	}
+}
+
+// spanAttributeValue returns a freshly allocated copy of val that is valid UTF-8 and at most
+// maxSpanQueryParamValLen bytes long.
+//
+// OTLP serializes attribute values as protobuf strings, and proto.Marshal rejects invalid
+// UTF-8, failing the export of the whole span batch. Each invalid byte is therefore replaced
+// with utf8.RuneError (U+FFFD), and the value is truncated before the first rune that would
+// overflow the byte limit, so a multibyte rune is never split. Sanitizing and truncating in one
+// pass keeps the limit exact: replacing first could grow the value up to 3x, while truncating
+// first could split a rune. The copy ensures the span never retains the request's query buffer.
+func spanAttributeValue(val string) string {
+	var b strings.Builder
+	b.Grow(min(len(val), maxSpanQueryParamValLen))
+	// Each iteration consumes at least one input byte and appends at least one output byte,
+	// so the loop runs at most min(len(val), maxSpanQueryParamValLen) times.
+	for i := 0; i < len(val); {
+		r, size := utf8.DecodeRuneInString(val[i:])
+		if b.Len()+utf8.RuneLen(r) > maxSpanQueryParamValLen {
+			break
+		}
+		b.WriteRune(r)
+		i += size
+	}
+	return b.String()
 }

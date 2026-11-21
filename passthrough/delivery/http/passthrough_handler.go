@@ -85,6 +85,7 @@ func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase, ou mvc.Orde
 //
 // @Produce  json
 // @Success 200  {object}  passthroughdomain.PortfolioAssetsResult  "Portfolio assets by-category and capitalization of the entire account value"
+// @Failure 400  {object}  domain.ResponseError  "Empty or invalid bech32 address"
 // @Failure 500  {object}  domain.ResponseError  "Response error"
 // @Param address path string true "Wallet Address"
 // @Router /passthrough/portfolio-assets/{address} [get]

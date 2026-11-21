@@ -126,6 +126,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_osmosis-labs_sqs_domain_passthrough.PortfolioAssetsResult"
                         }
                     },
+                    "400": {
+                        "description": "Empty or invalid bech32 address",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ResponseError"
+                        }
+                    },
                     "500": {
                         "description": "Response error",
                         "schema": {

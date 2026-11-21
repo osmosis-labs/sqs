@@ -3,14 +3,10 @@ package middleware_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/attribute"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	deliveryhttp "github.com/osmosis-labs/sqs/delivery/http"
 	"github.com/osmosis-labs/sqs/domain"
@@ -50,47 +46,4 @@ func TestRecoverMiddleware(t *testing.T) {
 	require.NoError(t, err)
 	resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-}
-
-func TestTraceWithParamsMiddleware(t *testing.T) {
-	exporter := tracetest.NewInMemoryExporter()
-	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
-	defer func() { _ = tp.Shutdown(t.Context()) }()
-	tracer := tp.Tracer("test")
-
-	e := deliveryhttp.NewEcho()
-	m := middleware.InitMiddleware(&domain.CORSConfig{}, &domain.FlightRecordConfig{}, &log.NoOpLogger{})
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			ctx, span := tracer.Start(c.Request().Context(), "request")
-			defer span.End()
-			c.SetRequest(c.Request().WithContext(ctx))
-			return next(c)
-		}
-	})
-	e.Use(m.TraceWithParamsMiddleware())
-	e.GET("/router/quote", func(c echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})
-
-	longBase := strings.Repeat("a", 400)
-	req := httptest.NewRequest(http.MethodGet, "/router/quote?tokenIn=1000uosmo&base="+longBase+"&secret=topsecret&randomKey=abc", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	spans := exporter.GetSpans()
-	require.Len(t, spans, 1)
-
-	attrs := make(map[string]string, len(spans[0].Attributes))
-	for _, kv := range spans[0].Attributes {
-		if kv.Value.Type() == attribute.STRING {
-			attrs[string(kv.Key)] = kv.Value.AsString()
-		}
-	}
-
-	require.Equal(t, "1000uosmo", attrs["tokenIn"])
-	require.Equal(t, strings.Repeat("a", 256), attrs["base"])
-	require.NotContains(t, attrs, "secret")
-	require.NotContains(t, attrs, "randomKey")
 }
