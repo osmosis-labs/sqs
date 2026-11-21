@@ -89,6 +89,13 @@ type Quote interface {
 	// SetQuotePriceInfo sets the quote price info.
 	SetQuotePriceInfo(info *TxFeeInfo)
 
+	// SetDeviationFromReference sets the quote's deviation from the reference price
+	// and whether it is beyond the warning threshold.
+	SetDeviationFromReference(deviation osmomath.Dec, warning bool, source string)
+
+	// SetQuoteUSDPeg sets the peg of the pricing quote denom against US dollars. Nil leaves it out.
+	SetQuoteUSDPeg(peg *QuoteUSDPeg)
+
 	String() string
 }
 
@@ -130,6 +137,10 @@ type RouterConfig struct {
 
 	// DynamicMinLiquidityCapFiltersAsc is a list of dynamic min liquidity cap filters in descending order.
 	DynamicMinLiquidityCapFiltersDesc []DynamicMinLiquidityCapFilterEntry `mapstructure:"dynamic-min-liquidity-cap-filters-desc"`
+
+	// QuoteReferenceCheck configures the sanity check of /router/quote responses against
+	// the chain pricer's cached prices. Off by default.
+	QuoteReferenceCheck QuoteReferenceCheckConfig `mapstructure:"quote-reference-check"`
 }
 
 type PoolsConfig struct {

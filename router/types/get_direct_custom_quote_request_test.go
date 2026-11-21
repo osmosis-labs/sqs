@@ -2,6 +2,7 @@ package types_test
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -95,6 +96,49 @@ func TestGetDirectCustomQuoteRequestUnmarshal(t *testing.T) {
 			queryParams: map[string]string{
 				"tokenOut":     "0usdc",
 				"tokenInDenom": "ust",
+				"poolID":       "1",
+			},
+			expectedError: true,
+		},
+		{
+			name: "missing poolID param",
+			queryParams: map[string]string{
+				"tokenIn":       "1000ust",
+				"tokenOutDenom": "usdc",
+			},
+			expectedError: true,
+		},
+		{
+			name: "max allowed pools accepted",
+			queryParams: map[string]string{
+				"tokenIn":       "1000ust",
+				"tokenOutDenom": strings.Repeat("usdc,", types.MaxCustomDirectQuotePools-1) + "usdc",
+				"poolID":        strings.Repeat("1,", types.MaxCustomDirectQuotePools-1) + "1",
+			},
+		},
+		{
+			name: "too many pool IDs rejected",
+			queryParams: map[string]string{
+				"tokenIn":       "1000ust",
+				"tokenOutDenom": "usdc",
+				"poolID":        strings.Repeat("1,", types.MaxCustomDirectQuotePools) + "1",
+			},
+			expectedError: true,
+		},
+		{
+			name: "too many tokenOutDenom rejected",
+			queryParams: map[string]string{
+				"tokenIn":       "1000ust",
+				"tokenOutDenom": strings.Repeat("usdc,", types.MaxCustomDirectQuotePools) + "usdc",
+				"poolID":        "1",
+			},
+			expectedError: true,
+		},
+		{
+			name: "too many tokenInDenom rejected",
+			queryParams: map[string]string{
+				"tokenOut":     "1000usdc",
+				"tokenInDenom": strings.Repeat("ust,", types.MaxCustomDirectQuotePools) + "ust",
 				"poolID":       "1",
 			},
 			expectedError: true,

@@ -2,6 +2,8 @@ package worker
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/osmosis-labs/sqs/domain"
@@ -88,7 +90,7 @@ func (c *candidateRouteSearchDataWorker) compute(blockPoolMetaData domain.BlockP
 				return
 			}
 
-			denomPoolsIDs := domain.KeysFromMap(denomLiquidityData.Pools)
+			denomPoolsIDs := slices.Collect(maps.Keys(denomLiquidityData.Pools))
 
 			unsortedDenomPools, _, err := c.poolsHandler.GetPools(
 				domain.WithPoolIDFilter(denomPoolsIDs),

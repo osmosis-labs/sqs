@@ -25,6 +25,7 @@ import (
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
+	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 	"github.com/osmosis-labs/sqs/pools/usecase"
 	routerrepo "github.com/osmosis-labs/sqs/router/repository"
 	"github.com/osmosis-labs/sqs/router/usecase/pools"
@@ -269,202 +270,6 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidatesOutGivenIn() {
 	}
 }
 
-// Validates that candidate routes are correctly converted into routes with all the pool data.
-// Check that:
-// - pool data is correctly set on routable pools.
-// - taker fee is correctly set.
-// - token out denom is correctly set.
-func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidatesInGivenOut() {
-
-	s.Setup()
-
-	// Setup default chain pool
-	poolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoin(denomOne, defaultAmt0), sdk.NewCoin(denomTwo, defaultAmt1))
-	balancerPool, err := s.App.GAMMKeeper.GetPool(s.Ctx, poolID)
-	s.Require().NoError(err)
-
-	defaultPool := &mocks.MockRoutablePool{
-		ChainPoolModel: balancerPool,
-		ID:             defaultPoolID,
-	}
-
-	validPools := []ingesttypes.PoolI{
-		defaultPool,
-	}
-
-	// We break the pool by changing the pool type
-	// to the wrong type. Note that the default is balancer.
-	brokenChainPool := *defaultPool
-	brokenChainPool.PoolType = poolmanagertypes.CosmWasm
-
-	cosmWasmPoolsParams := cosmwasmdomain.CosmWasmPoolsParams{
-		ScalingFactorGetterCb: domain.UnsetScalingFactorGetterCb,
-	}
-	_, err = pools.NewRoutablePool(&brokenChainPool, denomOne, denomTwo, defaultTakerFee, cosmWasmPoolsParams)
-	// Validate that it is indeed broken.
-	s.Require().Error(err)
-
-	validCandidateRoutes := ingesttypes.CandidateRoutes{
-		Routes: []ingesttypes.CandidateRoute{
-			{
-				Pools: []ingesttypes.CandidatePool{
-					{
-						ID:            defaultPoolID,
-						TokenInDenom:  denomOne,
-						TokenOutDenom: denomTwo,
-					},
-				},
-			},
-		},
-	}
-
-	validTakerFeeMap := ingesttypes.TakerFeeMap{
-		ingesttypes.DenomPair{
-			Denom0: denomOne,
-			Denom1: denomTwo,
-		}: defaultTakerFee,
-	}
-
-	tests := []struct {
-		name string
-
-		pools           []ingesttypes.PoolI
-		candidateRoutes ingesttypes.CandidateRoutes
-		takerFeeMap     ingesttypes.TakerFeeMap
-		tokenInDenom    string
-		tokenOutDenom   string
-
-		expectedError error
-
-		expectedRoutes []route.RouteImpl
-	}{
-		{
-			name:  "valid conversion of single route",
-			pools: validPools,
-
-			candidateRoutes: validCandidateRoutes,
-			takerFeeMap:     validTakerFeeMap,
-
-			tokenInDenom:  denomOne,
-			tokenOutDenom: denomTwo,
-
-			expectedRoutes: []route.RouteImpl{
-				{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomOne, denomTwo, defaultTakerFee),
-					},
-				},
-			},
-		},
-		{
-			name:  "no taker fee - use default",
-			pools: validPools,
-
-			candidateRoutes: validCandidateRoutes,
-
-			// empty map
-			takerFeeMap: ingesttypes.TakerFeeMap{},
-
-			tokenInDenom:  denomOne,
-			tokenOutDenom: denomTwo,
-
-			expectedRoutes: []route.RouteImpl{
-				{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomOne, denomTwo, ingesttypes.DefaultTakerFee),
-					},
-				},
-			},
-		},
-		{
-			name:  "error: no pool in state",
-			pools: []ingesttypes.PoolI{},
-
-			candidateRoutes: validCandidateRoutes,
-
-			// empty map
-			takerFeeMap: validTakerFeeMap,
-
-			tokenInDenom:  denomOne,
-			tokenOutDenom: denomTwo,
-
-			expectedError: domain.PoolNotFoundError{
-				PoolID: defaultPoolID,
-			},
-		},
-		{
-			name:  "broken chain pool is skipped without failing the whole conversion",
-			pools: []ingesttypes.PoolI{&brokenChainPool, defaultPool},
-
-			candidateRoutes: validCandidateRoutes,
-			takerFeeMap:     validTakerFeeMap,
-
-			tokenInDenom:  denomOne,
-			tokenOutDenom: denomTwo,
-
-			expectedRoutes: []route.RouteImpl{
-				{
-					Pools: []domain.RoutablePool{
-						s.newRoutablePool(defaultPool, denomOne, denomTwo, defaultTakerFee),
-					},
-				},
-			},
-		},
-
-		// TODO:
-		// Valid conversion of single multi-hop route
-		// Valid conversion of two routes where one is multi hop
-	}
-
-	for _, tc := range tests {
-		tc := tc
-		s.Run(tc.name, func() {
-			logger := &log.NoOpLogger{}
-			// Create router repository
-			routerRepo := routerrepo.New(&log.NoOpLogger{})
-			routerRepo.SetTakerFees(tc.takerFeeMap)
-
-			// Create pools use case
-			poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{}, "node-uri-placeholder", routerRepo, domain.UnsetScalingFactorGetterCb, nil, logger)
-			s.Require().NoError(err)
-
-			poolsUsecase.StorePools(tc.pools)
-
-			// System under test
-			actualRoutes, err := poolsUsecase.GetRoutesFromCandidates(tc.candidateRoutes, tc.tokenInDenom, tc.tokenOutDenom)
-
-			if tc.expectedError != nil {
-				s.Require().Error(err)
-				s.Require().Equal(tc.expectedError, err)
-				return
-			}
-
-			s.Require().NoError(err)
-
-			// Validate routes
-			s.Require().Equal(len(tc.expectedRoutes), len(actualRoutes))
-			for i, actualRoute := range actualRoutes {
-				expectedRoute := tc.expectedRoutes[i]
-
-				// Note: this is only done to be able to use the ValidateRoutePools
-				// helper method for validation.
-				// Note token in is chosen arbitrarily since it is irrelevant for this test
-				tokenOut := sdk.NewCoin(tc.tokenOutDenom, osmomath.NewInt(100))
-				actualPools, _, _, err := actualRoute.PrepareResultPoolsInGivenOut(context.TODO(), tokenOut, logger)
-				s.Require().NoError(err)
-				expectedPools, _, _, err := expectedRoute.PrepareResultPoolsInGivenOut(context.TODO(), tokenOut, logger)
-				s.Require().NoError(err)
-
-				// Validates:
-				// 1. Correct pool data
-				// 2. Correct taker fee
-				// 3. Correct token out denom
-				s.ValidateRoutePools(expectedPools, actualPools)
-			}
-		})
-	}
-}
-
 // Validates that GetRoutesFromCandidatesInGivenOut assigns each hop the directional taker fee of
 // its own (token in, token out) pair.
 //
@@ -588,6 +393,38 @@ func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidatesOutGivenIn_Directiona
 
 	s.Require().Equal(poolTwoID, routePools[1].GetId())
 	s.Require().Equal(twoToThreeFee.String(), routePools[1].GetTakerFee().String())
+}
+
+// Validates that the generalized CosmWasm flag is set per route: a route that follows one through
+// a generalized CosmWasm pool must not inherit the flag, or it is dropped from split quotes.
+func (s *PoolsUsecaseTestSuite) TestGetRoutesFromCandidates_GeneralizedCosmWasmFlagPerRoute() {
+	s.Setup()
+
+	balancerPoolID := s.PrepareBalancerPoolWithCoins(sdk.NewCoin(denomOne, defaultAmt0), sdk.NewCoin(denomTwo, defaultAmt1))
+	balancerPool, err := s.App.GAMMKeeper.GetPool(s.Ctx, balancerPoolID)
+	s.Require().NoError(err)
+
+	cwPool := s.PrepareCustomTransmuterPoolCustomProject(s.TestAccs[0], []string{denomOne, denomTwo}, "sqs", "scripts")
+
+	poolsUsecase, err := usecase.NewPoolsUsecase(&domain.PoolsConfig{GeneralCosmWasmCodeIDs: []uint64{cwPool.GetCodeId()}}, "node-uri-placeholder", routerrepo.New(&log.NoOpLogger{}), domain.UnsetScalingFactorGetterCb, nil, &log.NoOpLogger{})
+	s.Require().NoError(err)
+	poolsUsecase.StorePools([]ingesttypes.PoolI{
+		&mocks.MockRoutablePool{ChainPoolModel: balancerPool, ID: balancerPoolID},
+		&mocks.MockRoutablePool{ChainPoolModel: cwPool.AsSerializablePool(), PoolType: poolmanagertypes.CosmWasm, ID: cwPool.GetId()},
+	})
+
+	// Candidate order: generalized CosmWasm route first, balancer route second.
+	routes, err := poolsUsecase.GetRoutesFromCandidates(ingesttypes.CandidateRoutes{
+		Routes: []ingesttypes.CandidateRoute{
+			{Pools: []ingesttypes.CandidatePool{{ID: cwPool.GetId(), TokenOutDenom: denomTwo}}},
+			{Pools: []ingesttypes.CandidatePool{{ID: balancerPoolID, TokenOutDenom: denomTwo}}},
+		},
+	}, denomOne, denomTwo)
+	s.Require().NoError(err)
+	s.Require().Len(routes, 2)
+
+	s.Require().True(routes[0].HasGeneralizedCosmWasmPool)
+	s.Require().False(routes[1].HasGeneralizedCosmWasmPool)
 }
 
 func (s *PoolsUsecaseTestSuite) TestProcessOrderbookPoolIDForBaseQuote() {
@@ -1282,6 +1119,96 @@ func (s *PoolsUsecaseTestSuite) TestGetPools() {
 			if tt.validateFunc != nil {
 				tt.validateFunc(s, pools)
 			}
+		})
+	}
+}
+
+// TestGetPools_PoolIDNotInAndTypeFilters verifies the set-based pool ID exclusion and pool type
+// filters of GetPools: matching pools are kept, the rest dropped, duplicate filter entries change
+// nothing, and the surviving pools come back in the requested order.
+func (s *PoolsUsecaseTestSuite) TestGetPools_PoolIDNotInAndTypeFilters() {
+	var (
+		balancer     = poolmanagertypes.Balancer
+		stableswap   = poolmanagertypes.Stableswap
+		concentrated = poolmanagertypes.Concentrated
+	)
+
+	// Pool i+1 has type poolTypes[i].
+	poolTypes := []poolmanagertypes.PoolType{balancer, stableswap, concentrated, balancer, stableswap, concentrated}
+	storedPools := make([]ingesttypes.PoolI, 0, len(poolTypes))
+	for i, poolType := range poolTypes {
+		id := uint64(i + 1)
+		storedPools = append(storedPools, &mocks.MockRoutablePool{
+			ChainPoolModel: &mocks.ChainPoolMock{ID: id, Type: poolType},
+			ID:             id,
+			PoolType:       poolType,
+		})
+	}
+
+	poolsUsecase := s.newDefaultPoolsUseCase()
+	s.Require().NoError(poolsUsecase.StorePools(storedPools))
+
+	// Pools are read from a map, so only a requested sort gives the result a fixed order.
+	byIDDescending := domain.WithSort(&v1beta1.SortRequest{
+		Fields: []*v1beta1.SortField{{Field: "id", Direction: v1beta1.SortDirection_DESCENDING}},
+	})
+
+	tests := []struct {
+		name   string
+		filter api.GetPoolsRequestFilter
+		expIDs []uint64
+	}{
+		{
+			name:   "not_in excludes the listed pools",
+			filter: api.GetPoolsRequestFilter{PoolIdNotIn: []uint64{2, 5}},
+			expIDs: []uint64{6, 4, 3, 1},
+		},
+		{
+			name:   "not_in with duplicates excludes each listed pool once",
+			filter: api.GetPoolsRequestFilter{PoolIdNotIn: []uint64{2, 5, 2, 5, 2}},
+			expIDs: []uint64{6, 4, 3, 1},
+		},
+		{
+			name:   "not_in with unknown IDs excludes nothing",
+			filter: api.GetPoolsRequestFilter{PoolIdNotIn: []uint64{99, 100}},
+			expIDs: []uint64{6, 5, 4, 3, 2, 1},
+		},
+		{
+			name:   "type keeps only pools of that type",
+			filter: api.GetPoolsRequestFilter{Type: []uint64{uint64(stableswap)}},
+			expIDs: []uint64{5, 2},
+		},
+		{
+			name:   "type with several types and duplicates keeps pools of any listed type",
+			filter: api.GetPoolsRequestFilter{Type: []uint64{uint64(balancer), uint64(concentrated), uint64(balancer)}},
+			expIDs: []uint64{6, 4, 3, 1},
+		},
+		{
+			name:   "type matching no pool returns none",
+			filter: api.GetPoolsRequestFilter{Type: []uint64{uint64(poolmanagertypes.CosmWasm)}},
+			expIDs: []uint64{},
+		},
+		{
+			name: "type and not_in combine",
+			filter: api.GetPoolsRequestFilter{
+				Type:        []uint64{uint64(balancer), uint64(concentrated)},
+				PoolIdNotIn: []uint64{3, 4},
+			},
+			expIDs: []uint64{6, 1},
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			pools, total, err := poolsUsecase.GetPools(domain.WithFilter(&tt.filter), byIDDescending)
+			s.Require().NoError(err)
+
+			ids := make([]uint64, 0, len(pools))
+			for _, pool := range pools {
+				ids = append(ids, pool.GetId())
+			}
+			s.Require().Equal(tt.expIDs, ids)
+			s.Require().Equal(uint64(len(tt.expIDs)), total)
 		})
 	}
 }

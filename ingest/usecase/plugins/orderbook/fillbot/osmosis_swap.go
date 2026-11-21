@@ -19,8 +19,6 @@ import (
 	poolmanagertypes "github.com/osmosis-labs/osmosis/v31/x/poolmanager/types"
 	"github.com/osmosis-labs/sqs/domain"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
-	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
-	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/msg"
 )
 
 const (
@@ -31,23 +29,15 @@ var (
 	chainID = "osmosis-1"
 
 	RPC   = "http://127.0.0.1:26657"
-	LCD   = "http://127.0.0.1:1317"
 	Denom = "uosmo"
 
 	encodingConfig = app.MakeEncodingConfig()
 )
 
-// init overrides LCD and RPC endpoints
-// from environment variables if those are set.
+// init overrides the RPC endpoint from environment variables if set.
 func init() {
-	osmosisRPCOverwrite := os.Getenv("OSMOSIS_RPC_ENDPOINT")
-	if len(osmosisRPCOverwrite) > 0 {
+	if osmosisRPCOverwrite := os.Getenv("OSMOSIS_RPC_ENDPOINT"); len(osmosisRPCOverwrite) > 0 {
 		RPC = osmosisRPCOverwrite
-	}
-
-	osmosisLCDOverwrite := os.Getenv("OSMOSIS_LCD_ENDPOINT")
-	if len(osmosisLCDOverwrite) > 0 {
-		LCD = osmosisLCDOverwrite
 	}
 }
 
@@ -55,7 +45,7 @@ func init() {
 // It returns the response, the transaction body and an error if any.
 // It waits for 5 seconds before returning.
 // It returns an error and avoids executing the transaction if the tx fee capitalization is greater than the max allowed.
-func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
+func (o *orderbookFillerIngestPlugin) executeTx(blockCtx *blockContext, txCtx *txContext) (response *coretypes.ResultBroadcastTx, txbody string, err error) {
 	// Create a new TxBuilder.
 	txBuilder := encodingConfig.TxConfig.NewTxBuilder()
 
@@ -64,29 +54,26 @@ func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (re
 		return nil, "", err
 	}
 
-	blockGasPrice := blockCtx.GetGasPrice()
-	txCtx := blockCtx.GetTxCtx()
-	adjustedTxGasUsedTotal := txCtx.GetAdjustedGasUsedTotal()
+	adjustedTxGasUsedTotal := txCtx.adjustedGasUsedTotal
 
-	txFeeCap := osmomath.NewBigIntFromUint64(adjustedTxGasUsedTotal).ToDec().MulMut(blockGasPrice.GasPriceDefaultQuoteDenom).QuoMut(osmomath.BigDecFromDec(quoteScalingFactor))
+	txFeeCap := osmomath.NewBigIntFromUint64(adjustedTxGasUsedTotal).ToDec().MulMut(blockCtx.gasPrice.gasPriceDefaultQuoteDenom).QuoMut(osmomath.BigDecFromDec(quoteScalingFactor))
 
 	// We skip the fee check for every noTxFeeCheckHeightInterval blocks
 	// Every 40 blocks (roughly 1 minute), batch all off-market orders and execute them
 	// potentially at a loss. This is roughly 4 cents per minute assumming 3 swap messages at 0.1 uosmo per gas.
 	// Which is only $57 per day
-	if blockCtx.GetBlockHeight()%noTxFeeCheckHeightInterval != 0 {
-		maxTxFeeCap := txCtx.GetMaxTxFeeCap()
-		if txFeeCap.Dec().GT(maxTxFeeCap) {
-			return nil, "", fmt.Errorf("tx fee capitalization %s, is greater than max allowed %s", txFeeCap, maxTxFeeCap)
+	if blockCtx.blockHeight%noTxFeeCheckHeightInterval != 0 {
+		if txFeeCap.Dec().GT(txCtx.maxTxFeeCap) {
+			return nil, "", fmt.Errorf("tx fee capitalization %s, is greater than max allowed %s", txFeeCap, txCtx.maxTxFeeCap)
 		}
 	} else {
-		o.logger.Info("skipping tx fee check", zap.String("tx_fee_cap", txFeeCap.String()), zap.String("max_txf_fee_cap", txCtx.GetMaxTxFeeCap().String()), zap.Uint64("block_height", blockCtx.GetBlockHeight()))
+		o.logger.Info("skipping tx fee check", zap.String("tx_fee_cap", txFeeCap.String()), zap.String("max_txf_fee_cap", txCtx.maxTxFeeCap.String()), zap.Uint64("block_height", blockCtx.blockHeight))
 	}
 
-	txFeeUosmo := blockGasPrice.GasPrice.Mul(osmomath.NewIntFromUint64(adjustedTxGasUsedTotal).ToLegacyDec()).Ceil().TruncateInt()
+	txFeeUosmo := blockCtx.gasPrice.gasPrice.Mul(osmomath.NewIntFromUint64(adjustedTxGasUsedTotal).ToLegacyDec()).Ceil().TruncateInt()
 	feecoin := sdk.NewCoin(Denom, txFeeUosmo)
 
-	err = txBuilder.SetMsgs(txCtx.GetSDKMsgs()...)
+	err = txBuilder.SetMsgs(txCtx.sdkMsgs()...)
 	if err != nil {
 		return nil, "", err
 	}
@@ -97,12 +84,12 @@ func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (re
 
 	// First round: we gather all the signer infos. We use the "set empty
 	// signature" hack to do that.
-	nonceResponse, err := o.signer.GetNonceTracker().ForceRefetch(blockCtx.AsGoCtx())
+	nonceResponse, err := o.signer.GetNonceTracker().ForceRefetch(blockCtx.ctx)
 	if err != nil {
 		return nil, "", err
 	}
 
-	err = o.signer.SignTransaction(blockCtx.AsGoCtx(), txBuilder, encodingConfig.TxConfig, nonceResponse.Nonce, nonceResponse.Accnum)
+	err = o.signer.SignTransaction(blockCtx.ctx, txBuilder, encodingConfig.TxConfig, nonceResponse.Nonce, nonceResponse.Accnum)
 	if err != nil {
 		return nil, "", err
 	}
@@ -119,7 +106,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (re
 		time.Sleep(5 * time.Second)
 	}()
 
-	resp, err := broadcastTransaction(blockCtx.AsGoCtx(), txJSONBytes, RPC)
+	resp, err := broadcastTransaction(blockCtx.ctx, txJSONBytes, RPC)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
@@ -133,7 +120,7 @@ func (o *orderbookFillerIngestPlugin) executeTx(blockCtx blockctx.BlockCtxI) (re
 	return resp, string(txJSONBytes), nil
 }
 
-func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.BlockCtxI, tokenIn sdk.Coin, route []domain.RoutablePool) (msgctx.MsgContextI, error) {
+func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(blockCtx *blockContext, tokenIn sdk.Coin, route []domain.RoutablePool) (msgContext, error) {
 	poolManagerRoute := make([]poolmanagertypes.SwapAmountInRoute, len(route))
 	for i, r := range route {
 		poolManagerRoute[i] = poolmanagertypes.SwapAmountInRoute{
@@ -157,26 +144,25 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 	}
 
 	// Estimate transaction
-	gasResult, adjustedGasUsed, err := o.simulateMsgs(ctx.AsGoCtx(), []sdk.Msg{swapMsg})
+	gasResult, adjustedGasUsed, err := o.simulateMsgs(blockCtx.ctx, []sdk.Msg{swapMsg})
 	if err != nil {
-		return nil, err
+		return msgContext{}, err
 	}
 
 	msgSwapExactAmountInResponse := poolmanagertypes.MsgSwapExactAmountInResponse{}
 
 	if err := msgSwapExactAmountInResponse.Unmarshal(gasResult.Result.MsgResponses[0].Value); err != nil {
-		return nil, err
+		return msgContext{}, err
 	}
 
 	if msgSwapExactAmountInResponse.TokenOutAmount.IsNil() {
-		return nil, fmt.Errorf("token out amount is nil")
+		return msgContext{}, fmt.Errorf("token out amount is nil")
 	}
 
 	// Base denom price
-	blockPrices := ctx.GetPrices()
-	price := blockPrices.GetPriceForDenom(tokenIn.Denom, o.defaultQuoteDenom)
+	price := blockCtx.prices.GetPriceForDenom(tokenIn.Denom, o.defaultQuoteDenom)
 	if price.IsZero() {
-		return nil, fmt.Errorf("price for %s is zero", tokenIn.Denom)
+		return msgContext{}, fmt.Errorf("price for %s is zero", tokenIn.Denom)
 	}
 
 	// For small unprofitable fills, we allow for a small loss.
@@ -186,16 +172,18 @@ func (o *orderbookFillerIngestPlugin) simulateSwapExactAmountIn(ctx blockctx.Blo
 		// Ensure that it is profitable without accounting for tx fees
 		diff := msgSwapExactAmountInResponse.TokenOutAmount.Sub(tokenIn.Amount)
 		if diff.IsNegative() {
-			return nil, fmt.Errorf("token out amount is less than or equal to token in amount")
+			return msgContext{}, fmt.Errorf("token out amount is less than or equal to token in amount")
 		}
 
 		// Compute capitalization
 		diffCap = o.liquidityPricer.PriceCoin(sdk.Coin{Denom: orderbookplugindomain.BaseDenom, Amount: diff}, price)
 	}
 
-	msgCtx := msgctx.New(diffCap, adjustedGasUsed, swapMsg)
-
-	return msgCtx, nil
+	return msgContext{
+		maxFeeCap:       diffCap,
+		adjustedGasUsed: adjustedGasUsed,
+		sdkMsg:          swapMsg,
+	}, nil
 }
 
 func (o *orderbookFillerIngestPlugin) simulateMsgs(ctx context.Context, msgs []sdk.Msg) (*txtypes.SimulateResponse, uint64, error) {

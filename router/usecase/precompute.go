@@ -56,20 +56,20 @@ func init() {
 // GetPrecomputeOrderOfMagnitude returns the order of magnitude of the given amount.
 // Uses look up table for precomputed order of magnitudes.
 func GetPrecomputeOrderOfMagnitude(amount osmomath.Int) int {
-	bitLen := amount.BigIntMut().BitLen()
-	if bitLen >= len(bitLenToOrderOfMagnitude) {
-		a := amount.Quo(maxLookupValue)
-		return maxLookupPowTen + GetPrecomputeOrderOfMagnitude(a)
+	order := 0
+	for amount.BigIntMut().BitLen() >= len(bitLenToOrderOfMagnitude) {
+		amount = amount.Quo(maxLookupValue)
+		order += maxLookupPowTen
 	}
 
 	// Lookup the result based on the bit length
 	// If the cmpValue is not nil, then compare the amount with cmpValue.
-	val := bitLenToOrderOfMagnitude[bitLen]
+	val := bitLenToOrderOfMagnitude[amount.BigIntMut().BitLen()]
 	if val.cmpValue == nil {
-		return val.orderOfMagnitude
+		return order + val.orderOfMagnitude
 	}
 	if amount.LT(*val.cmpValue) {
-		return val.orderOfMagnitude - 1
+		return order + val.orderOfMagnitude - 1
 	}
-	return val.orderOfMagnitude
+	return order + val.orderOfMagnitude
 }

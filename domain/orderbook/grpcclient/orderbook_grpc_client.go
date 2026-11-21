@@ -3,10 +3,10 @@ package orderbookgrpcclientdomain
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
-	"github.com/osmosis-labs/sqs/domain/slices"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -89,7 +89,7 @@ func (o *orderbookClientImpl) GetTickUnrealizedCancels(ctx context.Context, cont
 func (o *orderbookClientImpl) FetchTickUnrealizedCancels(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]UnrealizedTickCancels, error) {
 	allUnrealizedCancels := make([]UnrealizedTickCancels, 0, len(tickIDs))
 
-	for _, chunk := range slices.Split(tickIDs, chunkSize) {
+	for chunk := range slices.Chunk(tickIDs, chunkSize) {
 		unrealizedCancels, err := o.GetTickUnrealizedCancels(ctx, contractAddress, chunk)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch unrealized cancels for ticks %v: %w", chunk, err)
@@ -117,7 +117,7 @@ func (o *orderbookClientImpl) QueryTicks(ctx context.Context, contractAddress st
 func (o *orderbookClientImpl) FetchTicks(ctx context.Context, chunkSize int, contractAddress string, tickIDs []int64) ([]orderbookdomain.Tick, error) {
 	finalTickStates := make([]orderbookdomain.Tick, 0, len(tickIDs))
 
-	for _, chunk := range slices.Split(tickIDs, chunkSize) {
+	for chunk := range slices.Chunk(tickIDs, chunkSize) {
 		tickStates, err := o.QueryTicks(ctx, contractAddress, chunk)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch ticks for pool %s: %w", contractAddress, err)

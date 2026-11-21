@@ -5,7 +5,6 @@ import (
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
-	"github.com/osmosis-labs/sqs/log"
 	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/chainregistry"
 
 	"github.com/labstack/echo/v4"
@@ -13,23 +12,17 @@ import (
 
 const chainregistryResource = "/chainregistry"
 
-func formatRouterResource(resource string) string {
-	return chainregistryResource + resource
-}
-
-// RouterHandler  represent the httphandler for the router
+// ChainregistryHandler represents the HTTP handler for the chain registry.
 type ChainregistryHandler struct {
 	usecase mvc.ChainregistryUsecase
-	logger  log.Logger
 }
 
-// NewRouterHandler will initialize the pools/ resources endpoint
-func NewChainregistryHandler(e *echo.Echo, chainregistryUseCase mvc.ChainregistryUsecase, logger log.Logger) {
+// NewChainregistryHandler initializes the chainregistry HTTP endpoints.
+func NewChainregistryHandler(e *echo.Echo, chainregistryUseCase mvc.ChainregistryUsecase) {
 	handler := &ChainregistryHandler{
 		usecase: chainregistryUseCase,
-		logger:  logger,
 	}
-	e.GET(formatRouterResource("/fee_tokens"), handler.GetFeeTokens)
+	e.GET(chainregistryResource+"/fee_tokens", handler.GetFeeTokens)
 }
 
 func (a *ChainregistryHandler) GetFeeTokens(c echo.Context) (err error) {

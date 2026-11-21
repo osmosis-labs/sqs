@@ -135,6 +135,8 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 	// Initialize GRPC client mock
 	grpcClientMock := mocks.PassthroughGRPCClientMock{
 		MockAllBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			_, hasDeadline := ctx.Deadline()
+			s.Require().True(hasDeadline, "GetPortfolioAssets must bound gRPC calls with a context deadline")
 			// Return coins and no error.
 			return sdk.NewCoins(osmoCoin), nil
 		},

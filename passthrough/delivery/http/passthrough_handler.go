@@ -15,6 +15,7 @@ import (
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/orderbook/types"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/labstack/echo/v4"
 
 	"go.uber.org/zap"
@@ -84,6 +85,7 @@ func NewPassthroughHandler(e *echo.Echo, ptu mvc.PassthroughUsecase, ou mvc.Orde
 //
 // @Produce  json
 // @Success 200  {object}  passthroughdomain.PortfolioAssetsResult  "Portfolio assets by-category and capitalization of the entire account value"
+// @Failure 400  {object}  domain.ResponseError  "Empty or invalid bech32 address"
 // @Failure 500  {object}  domain.ResponseError  "Response error"
 // @Param address path string true "Wallet Address"
 // @Router /passthrough/portfolio-assets/{address} [get]
@@ -91,7 +93,11 @@ func (a *PassthroughHandler) GetPortfolioAssetsByAddress(c echo.Context) error {
 	address := c.Param("address")
 
 	if address == "" {
-		return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: "invalid address: cannot be empty"})
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: "invalid address: cannot be empty"})
+	}
+
+	if _, err := sdk.AccAddressFromBech32(address); err != nil {
+		return c.JSON(http.StatusBadRequest, domain.ResponseError{Message: fmt.Sprintf("invalid address: %v", err)})
 	}
 
 	portfolioAssetsResult, err := a.PUsecase.GetPortfolioAssets(c.Request().Context(), address)

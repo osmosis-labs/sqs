@@ -330,6 +330,7 @@ func (i *Ingester) processHeight(ctx context.Context, height int64, priced bool)
 		return err
 	}
 
+	i.repo.RecordBlock(block.Height, block.Time)
 	i.repo.StoreTrades(trades, i.now())
 	return nil
 }

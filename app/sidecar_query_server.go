@@ -337,12 +337,29 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	orderBookRepository := orderbookrepository.New()
 	orderBookUseCase := orderbookusecase.New(orderBookRepository, orderBookAPIClient, poolsUseCase, tokensUseCase, logger)
 
+	// The quote denom's peg against US dollars is read from the cached CoinGecko prices.
+	var quoteUSDPegChecker *domain.QuoteUSDPegChecker
+	if config.Pricing.QuoteUSDPeg.Enabled {
+		quoteDenomChain, err := tokensUseCase.GetChainDenom(config.Pricing.DefaultQuoteHumanDenom)
+		if err != nil {
+			return nil, err
+		}
+		quoteUSDPegChecker, err = domain.NewQuoteUSDPegChecker(config.Pricing.QuoteUSDPeg, quoteDenomChain, coingeckoPricingSource)
+		if err != nil {
+			return nil, err
+		}
+		logger.Info("quote usd peg check enabled",
+			zap.Float64("warn_deviation", config.Pricing.QuoteUSDPeg.WarnDeviation),
+			zap.Float64("severe_deviation", config.Pricing.QuoteUSDPeg.SevereDeviation),
+		)
+	}
+
 	// HTTP handlers
 	poolsHttpDelivery.NewPoolsHandler(e, poolsUseCase)
 	passthroughHttpDelivery.NewPassthroughHandler(e, passthroughUseCase, orderBookUseCase, poolsUseCase, logger)
-	chainregistryHttpDelivery.NewChainregistryHandler(e, chainregistryUseCase, logger)
+	chainregistryHttpDelivery.NewChainregistryHandler(e, chainregistryUseCase)
 	systemhttpdelivery.NewSystemHandler(e, config, logger, chainInfoUseCase)
-	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, config.DebugEndpointsEnabled, logger); err != nil {
+	if err := tokenshttpdelivery.NewTokensHandler(e, *config.Pricing, tokensUseCase, pricingSimpleRouterUsecase, config.DebugEndpointsEnabled, quoteUSDPegChecker, logger); err != nil {
 		return nil, err
 	}
 
@@ -354,7 +371,21 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		types.NewQueryClient(grpcClient),
 		config.ChainID,
 	)
-	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState, DebugEndpointsEnabled: config.DebugEndpointsEnabled}, logger)
+	var quoteReferenceChecker *routerHttpDelivery.QuoteReferenceChecker
+	if config.Router.QuoteReferenceCheck.Enabled {
+		quoteReferenceChecker, err = routerHttpDelivery.NewQuoteReferenceChecker(config.Router.QuoteReferenceCheck, tokensUseCase, logger)
+		if err != nil {
+			return nil, err
+		}
+		quoteReferenceChecker.WithCoingecko(coingeckoPricingSource)
+		logger.Info("quote reference check enabled",
+			zap.Float64("warn_deviation", config.Router.QuoteReferenceCheck.WarnDeviation),
+			zap.Bool("refuse_dust_quotes", config.Router.QuoteReferenceCheck.RefuseDustQuotes),
+			zap.Float64("dust_threshold", config.Router.QuoteReferenceCheck.DustThreshold),
+			zap.Float64("coingecko_margin", config.Router.QuoteReferenceCheck.CoingeckoMargin),
+		)
+	}
+	routerHttpDelivery.NewRouterHandler(e, routerUsecase, tokensUseCase, quoteSimulator, chainInfoUseCase, &routerHttpDelivery.Config{ServeFromState: config.ServeFromState, DebugEndpointsEnabled: config.DebugEndpointsEnabled, QuoteReferenceChecker: quoteReferenceChecker, QuoteUSDPegChecker: quoteUSDPegChecker}, logger)
 
 	// Create a Numia HTTP client
 	passthroughConfig := config.Passthrough

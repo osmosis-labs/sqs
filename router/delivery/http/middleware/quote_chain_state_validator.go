@@ -22,11 +22,11 @@ func QuoteChainStateValidatorMiddleware(chainUsecase mvc.ChainInfoUsecase, enabl
 
 			_, err := chainUsecase.GetLatestHeight()
 			if err != nil {
-				return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: "no candidate routes found"})
+				return c.JSON(http.StatusServiceUnavailable, domain.ResponseError{Message: "no candidate routes found"})
 			}
 			err = chainUsecase.ValidateCandidateRouteSearchDataUpdates()
 			if err != nil {
-				return c.JSON(http.StatusInternalServerError, domain.ResponseError{Message: "no candidate routes found"})
+				return c.JSON(http.StatusServiceUnavailable, domain.ResponseError{Message: "no candidate routes found"})
 			}
 			return next(c)
 		}

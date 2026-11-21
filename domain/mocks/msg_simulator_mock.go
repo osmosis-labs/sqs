@@ -24,6 +24,7 @@ type MsgSimulatorMock struct {
 	) (client.TxBuilder, error)
 
 	SimulateMsgsFn func(
+		ctx context.Context,
 		encodingConfig client.TxConfig,
 		account *authtypes.BaseAccount,
 		chainID string,
@@ -55,13 +56,14 @@ func (m *MsgSimulatorMock) BuildTx(ctx context.Context,
 }
 
 func (m *MsgSimulatorMock) SimulateMsgs(
+	ctx context.Context,
 	encodingConfig client.TxConfig,
 	account *authtypes.BaseAccount,
 	chainID string,
 	msgs []sdk.Msg,
 ) (*txtypes.SimulateResponse, uint64, error) {
 	if m.SimulateMsgsFn != nil {
-		return m.SimulateMsgsFn(encodingConfig, account, chainID, msgs)
+		return m.SimulateMsgsFn(ctx, encodingConfig, account, chainID, msgs)
 	}
 	panic("SimulateMsgsFn not implemented")
 }
