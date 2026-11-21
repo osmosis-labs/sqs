@@ -100,10 +100,14 @@ func (s *TransmuterStatuses) IsInactive(poolID uint64) bool {
 //   - swapping healthy denoms for each other, or a healthy denom for the alloyed asset, never raises a
 //     corrupted asset's weight, so it is allowed;
 //   - an alloyed asset swapped in burns shares and removes the token out, which raises the weight of every
-//     corrupted asset that still holds a balance other than the token out. So it is allowed only when the
-//     token out is corrupted and either no other corrupted asset holds a balance, or the swap withdraws the
-//     token out's entire pool balance (the contract's forced redemption of a corrupted asset, which skips
-//     the check; it compares the raw amount against the pool asset's raw amount).
+//     corrupted asset that still holds a balance other than the token out. So it is rejected if and only if
+//     some corrupted denom other than the token out has a positive balance. A corrupted asset with a zero
+//     balance has weight zero before and after, so it does not block the swap; this matters because balances
+//     are updated synchronously by ingest while the corrupted list is refreshed asynchronously, so the list
+//     can still name a denom that has already been drained. The exception is the contract's forced
+//     redemption of a corrupted token out, which skips the check: a swap that withdraws the token out's
+//     entire pool balance (raw amount against the pool asset's raw amount) is always allowed. That exception
+//     never applies to a healthy token out.
 func (s *TransmuterStatuses) CheckSwap(poolID uint64, tokenInDenom, tokenOutDenom, alloyedDenom string, tokenOutAmount math.Int, balances sdk.Coins) error {
 	if s == nil {
 		return nil
@@ -126,12 +130,10 @@ func (s *TransmuterStatuses) CheckSwap(poolID uint64, tokenInDenom, tokenOutDeno
 		return nil
 	}
 
-	if !slices.Contains(status.corruptedDenoms, tokenOutDenom) {
-		return TransmuterCorruptedDenomError{PoolID: poolID, Denom: status.corruptedDenoms[0]}
-	}
+	tokenOutCorrupted := slices.Contains(status.corruptedDenoms, tokenOutDenom)
 
 	// A full withdrawal of the corrupted token out is the contract's forced redemption.
-	if !tokenOutAmount.IsNil() && tokenOutAmount.Equal(balances.AmountOf(tokenOutDenom)) {
+	if tokenOutCorrupted && !tokenOutAmount.IsNil() && tokenOutAmount.Equal(balances.AmountOf(tokenOutDenom)) {
 		return nil
 	}
 

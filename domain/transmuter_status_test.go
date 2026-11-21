@@ -23,6 +23,7 @@ func TestTransmuterStatuses_CheckSwapCorruptedDirection(t *testing.T) {
 		alloyed    = "factory/alloy"
 	)
 
+	drainedA := sdk.NewCoins(sdk.NewInt64Coin(healthy, 100))
 	balances := sdk.NewCoins(sdk.NewInt64Coin(corruptedA, 100), sdk.NewInt64Coin(corruptedB, 100), sdk.NewInt64Coin(healthy, 100))
 	emptyB := sdk.NewCoins(sdk.NewInt64Coin(corruptedA, 100), sdk.NewInt64Coin(healthy, 100))
 
@@ -34,17 +35,19 @@ func TestTransmuterStatuses_CheckSwapCorruptedDirection(t *testing.T) {
 		balances          sdk.Coins
 		wantErr           bool
 	}{
-		"corrupted in is blocked":                        {corrupted: []string{corruptedA}, tokenIn: corruptedA, tokenOut: healthy, balances: balances, wantErr: true},
-		"corrupted out is allowed":                       {corrupted: []string{corruptedA}, tokenIn: healthy, tokenOut: corruptedA, balances: balances},
-		"healthy pair is allowed":                        {corrupted: []string{corruptedA}, tokenIn: healthy, tokenOut: "ibc/OTHER", balances: balances},
-		"alloyed in to healthy out is blocked":           {corrupted: []string{corruptedA}, tokenIn: alloyed, tokenOut: healthy, alloyedDenom: alloyed, outAmount: 10, balances: balances, wantErr: true},
-		"alloyed in to only corrupted out is allowed":    {corrupted: []string{corruptedA}, tokenIn: alloyed, tokenOut: corruptedA, alloyedDenom: alloyed, outAmount: 10, balances: balances},
-		"healthy in to alloyed out is allowed":           {corrupted: []string{corruptedA, corruptedB}, tokenIn: healthy, tokenOut: alloyed, alloyedDenom: alloyed, balances: balances},
-		"healthy in to one of two corrupted is allowed":  {corrupted: []string{corruptedA, corruptedB}, tokenIn: healthy, tokenOut: corruptedA, balances: balances},
-		"v1 pool never treats a denom as the alloyed":    {corrupted: []string{corruptedA}, tokenIn: alloyed, tokenOut: healthy, balances: balances},
-		"alloyed in to one of two corrupted is blocked":  {corrupted: []string{corruptedA, corruptedB}, tokenIn: alloyed, tokenOut: corruptedA, alloyedDenom: alloyed, outAmount: 10, balances: balances, wantErr: true},
-		"two corrupted, full balance redemption allowed": {corrupted: []string{corruptedA, corruptedB}, tokenIn: alloyed, tokenOut: corruptedA, alloyedDenom: alloyed, outAmount: 100, balances: balances},
-		"two corrupted, other one drained is allowed":    {corrupted: []string{corruptedA, corruptedB}, tokenIn: alloyed, tokenOut: corruptedA, alloyedDenom: alloyed, outAmount: 10, balances: emptyB},
+		"corrupted in is blocked":                                                                     {corrupted: []string{corruptedA}, tokenIn: corruptedA, tokenOut: healthy, balances: balances, wantErr: true},
+		"corrupted out is allowed":                                                                    {corrupted: []string{corruptedA}, tokenIn: healthy, tokenOut: corruptedA, balances: balances},
+		"healthy pair is allowed":                                                                     {corrupted: []string{corruptedA}, tokenIn: healthy, tokenOut: "ibc/OTHER", balances: balances},
+		"alloyed in to healthy out is blocked":                                                        {corrupted: []string{corruptedA}, tokenIn: alloyed, tokenOut: healthy, alloyedDenom: alloyed, outAmount: 10, balances: balances, wantErr: true},
+		"alloyed in to only corrupted out is allowed":                                                 {corrupted: []string{corruptedA}, tokenIn: alloyed, tokenOut: corruptedA, alloyedDenom: alloyed, outAmount: 10, balances: balances},
+		"healthy in to alloyed out is allowed":                                                        {corrupted: []string{corruptedA, corruptedB}, tokenIn: healthy, tokenOut: alloyed, alloyedDenom: alloyed, balances: balances},
+		"healthy in to one of two corrupted is allowed":                                               {corrupted: []string{corruptedA, corruptedB}, tokenIn: healthy, tokenOut: corruptedA, balances: balances},
+		"v1 pool never treats a denom as the alloyed":                                                 {corrupted: []string{corruptedA}, tokenIn: alloyed, tokenOut: healthy, balances: balances},
+		"alloyed in to one of two corrupted is blocked":                                               {corrupted: []string{corruptedA, corruptedB}, tokenIn: alloyed, tokenOut: corruptedA, alloyedDenom: alloyed, outAmount: 10, balances: balances, wantErr: true},
+		"two corrupted, full balance redemption allowed":                                              {corrupted: []string{corruptedA, corruptedB}, tokenIn: alloyed, tokenOut: corruptedA, alloyedDenom: alloyed, outAmount: 100, balances: balances},
+		"two corrupted, other one drained is allowed":                                                 {corrupted: []string{corruptedA, corruptedB}, tokenIn: alloyed, tokenOut: corruptedA, alloyedDenom: alloyed, outAmount: 10, balances: emptyB},
+		"alloyed in to healthy out is allowed when the corrupted denom is drained":                    {corrupted: []string{corruptedA}, tokenIn: alloyed, tokenOut: healthy, alloyedDenom: alloyed, outAmount: 10, balances: drainedA},
+		"alloyed in to healthy out, full healthy balance, is blocked while corrupted holds a balance": {corrupted: []string{corruptedA}, tokenIn: alloyed, tokenOut: healthy, alloyedDenom: alloyed, outAmount: 100, balances: balances, wantErr: true},
 	}
 
 	for name, tc := range tests {
