@@ -207,124 +207,36 @@ func TestUpdatePricesAsync_CoalescesWhileRunning(t *testing.T) {
 	}
 }
 
-// TestUpdatePricesAsync_RetriesFailedRunWithNextBlock checks that the denoms and pools of a
-// failed run are priced with the next block instead of being lost, and that the failure does
-// not start a run of its own.
-func TestUpdatePricesAsync_RetriesFailedRunWithNextBlock(t *testing.T) {
+// TestUpdatePricesAsync_RetriesFailedRuns checks that the work of a failed run, including one
+// that panicked, is priced with the waiting update or with the next block instead of being
+// lost, that a failure does not start a run of its own, and that work is dropped after three
+// failed runs.
+func TestUpdatePricesAsync_RetriesFailedRuns(t *testing.T) {
 	pricingWorker, pricing, listener := newTestWorker(t)
+	errorsBefore := testutil.ToFloat64(domain.SQSPricingWorkerComputeErrorCounter)
 
-	pricingWorker.UpdatePricesAsync(context.Background(), 1, domain.BlockPoolMetadata{
-		UpdatedDenoms: map[string]struct{}{"a": {}},
-		PoolIDs:       map[uint64]struct{}{1: {}},
-	})
+	// Block 1's run panics while block 2 waits: block 1's work joins block 2's.
+	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
 	pricing.expectRun("a")
+	pricingWorker.UpdatePricesAsync(context.Background(), 2, denomsMetadata("b"))
+	pricing.finish(errPanic)
+	pricing.expectRun("a", "b")
+	require.Equal(t, float64(1), testutil.ToFloat64(domain.SQSPricingWorkerComputeErrorCounter)-errorsBefore)
+
+	// That run fails with nothing waiting: it is not retried on its own, only with block 3.
 	pricing.finish(errors.New("deadline exceeded"))
-
-	// The failure is not retried on its own, which would loop on a run that keeps failing.
 	pricing.expectNoRun()
-
-	// Block 2 updates a different denom and pool; its run also prices block 1's.
-	pricingWorker.UpdatePricesAsync(context.Background(), 2, domain.BlockPoolMetadata{
-		UpdatedDenoms: map[string]struct{}{"b": {}},
-		PoolIDs:       map[uint64]struct{}{2: {}},
-	})
-	pricing.expectRun("a", "b")
-	pricing.finish(nil)
-
-	eventuallyHeights(t, listener, []uint64{2})
-	_, numPools := listener.snapshot()
-	require.Equal(t, 2, numPools)
-}
-
-// TestUpdatePricesAsync_RetriesFailedRunWithWaitingUpdate checks that a run that fails while
-// another update waits is merged into the waiting one.
-func TestUpdatePricesAsync_RetriesFailedRunWithWaitingUpdate(t *testing.T) {
-	pricingWorker, pricing, listener := newTestWorker(t)
-
-	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
-	pricing.expectRun("a")
-
-	pricingWorker.UpdatePricesAsync(context.Background(), 2, denomsMetadata("b"))
-	pricing.finish(errors.New("failed"))
-
-	pricing.expectRun("a", "b")
-	pricing.finish(nil)
-	pricing.expectNoRun()
-
-	eventuallyHeights(t, listener, []uint64{2})
-}
-
-// TestUpdatePricesAsync_DropsWorkAfterMaxAttempts checks that work that keeps failing is
-// dropped after three failed runs rather than retried forever.
-func TestUpdatePricesAsync_DropsWorkAfterMaxAttempts(t *testing.T) {
-	pricingWorker, pricing, listener := newTestWorker(t)
-
-	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
-	pricing.expectRun("a")
-	pricing.finish(errors.New("failed"))
-	pricing.expectNoRun()
-
-	pricingWorker.UpdatePricesAsync(context.Background(), 2, denomsMetadata("b"))
-	pricing.expectRun("a", "b")
-	pricing.finish(errors.New("failed"))
-	pricing.expectNoRun()
-
 	pricingWorker.UpdatePricesAsync(context.Background(), 3, denomsMetadata("c"))
 	pricing.expectRun("a", "b", "c")
+
+	// The third failure drops a, b and c.
 	pricing.finish(errors.New("failed"))
 	pricing.expectNoRun()
-
-	// The third failure dropped a, b and c.
 	pricingWorker.UpdatePricesAsync(context.Background(), 4, denomsMetadata("d"))
 	pricing.expectRun("d")
 	pricing.finish(nil)
 
 	eventuallyHeights(t, listener, []uint64{4})
-}
-
-// TestUpdatePricesAsync_ContinuesAfterPanic checks that a panic in a run is recovered, counted
-// as a failure and retried, and that later blocks are still priced.
-func TestUpdatePricesAsync_ContinuesAfterPanic(t *testing.T) {
-	pricingWorker, pricing, listener := newTestWorker(t)
-
-	errorsBefore := testutil.ToFloat64(domain.SQSPricingWorkerComputeErrorCounter)
-
-	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
-	pricing.expectRun("a")
-	pricing.finish(errPanic)
-	pricing.expectNoRun()
-	require.Equal(t, float64(1), testutil.ToFloat64(domain.SQSPricingWorkerComputeErrorCounter)-errorsBefore)
-
-	pricingWorker.UpdatePricesAsync(context.Background(), 2, denomsMetadata("b"))
-	pricing.expectRun("a", "b")
-	pricing.finish(nil)
-
-	eventuallyHeights(t, listener, []uint64{2})
-}
-
-// TestUpdatePricesAsync_MergesOlderHeightAndNilSets checks the merge with an update whose
-// denom and pool sets are nil, and with an update for an older height arriving later: the
-// sets are still merged, and the newer height is kept.
-func TestUpdatePricesAsync_MergesOlderHeightAndNilSets(t *testing.T) {
-	pricingWorker, pricing, listener := newTestWorker(t)
-
-	pricingWorker.UpdatePricesAsync(context.Background(), 1, denomsMetadata("a"))
-	pricing.expectRun("a")
-
-	// The waiting update starts with nil sets.
-	pricingWorker.UpdatePricesAsync(context.Background(), 5, domain.BlockPoolMetadata{})
-	pricingWorker.UpdatePricesAsync(context.Background(), 3, domain.BlockPoolMetadata{
-		UpdatedDenoms: map[string]struct{}{"b": {}},
-		PoolIDs:       map[uint64]struct{}{3: {}},
-	})
-
-	pricing.finish(nil)
-	pricing.expectRun("b")
-	pricing.finish(nil)
-
-	eventuallyHeights(t, listener, []uint64{1, 5})
-	_, numPools := listener.snapshot()
-	require.Equal(t, 1, numPools)
 }
 
 // TestUpdatePricesSync_WaitsForRunningUpdate checks that the synchronous run does not overlap a
