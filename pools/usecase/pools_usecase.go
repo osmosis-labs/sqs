@@ -57,9 +57,9 @@ type poolsUseCase struct {
 	routerRepository    routerrepo.RouterRepository
 	tokenMetadataHolder TokenMetadataHolder
 
-	// canonicalOrderbookMu serialises canonical orderbook updates. StorePools is
-	// called from both the ingest and the pool liquidity pricing paths, and an
-	// update is a read-compare-write over the two maps below.
+	// canonicalOrderbookMu serialises canonical orderbook updates. They run from both
+	// the ingest path (StorePools) and the pool liquidity pricing path
+	// (UpdateCanonicalOrderbooks), and an update is a read-compare-write over the two maps below.
 	canonicalOrderbookMu                sync.Mutex
 	canonicalOrderBookForBaseQuoteDenom sync.Map
 	canonicalOrderbookPoolIDs           sync.Map
