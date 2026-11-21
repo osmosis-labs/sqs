@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -137,7 +139,7 @@ func (t *TokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.T
 
 	canonicalCoingeckoDenoms, unresolvedCoingeckoIDs := canonicalDenomsByCoingeckoID(tokenMetadataByChainDenom)
 	if t.logger != nil {
-		for _, id := range sortedKeys(unresolvedCoingeckoIDs) {
+		for _, id := range slices.Sorted(maps.Keys(unresolvedCoingeckoIDs)) {
 			t.logger.Warn("coingecko id is shared by several denoms and has no canonical holder, so none of them is priced from it", zap.String("coingecko_id", id), zap.Strings("chain_denoms", unresolvedCoingeckoIDs[id]))
 		}
 	}
@@ -211,16 +213,6 @@ func canonicalDenomsByCoingeckoID(tokens map[string]domain.Token) (canonical map
 		}
 	}
 	return canonical, unresolved
-}
-
-// sortedKeys returns the keys of m in sorted order.
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // setHumanDenomWinner records chainDenom as the resolution for humanDenom unless an already recorded
