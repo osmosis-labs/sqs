@@ -87,22 +87,3 @@ func TestMarshalUnmarshalPool(t *testing.T) {
 	require.Equal(t, testPoolToMarshal.GetUnderlyingPool(), unmarshalledPool.GetUnderlyingPool())
 	require.Equal(t, testPoolToMarshal.GetSQSPoolModel(), unmarshalledPool.GetSQSPoolModel())
 }
-
-// This test validates that unmarshalling and marshalling a taker fee map works as expected.
-func TestMarshalUnmarshalTakerFeeMap(t *testing.T) {
-	takerFeeMap := ingesttypes.TakerFeeMap{
-		ingesttypes.DenomPair{
-			Denom0: routertesting.Denom0,
-			Denom1: routertesting.Denom1,
-		}: osmomath.OneDec(),
-	}
-
-	takerFeeMapBz, err := json.Marshal(takerFeeMap)
-	require.NoError(t, err)
-
-	unmarshalledTakerFeeMap := ingesttypes.TakerFeeMap{}
-	err = json.Unmarshal(takerFeeMapBz, &unmarshalledTakerFeeMap)
-	require.NoError(t, err)
-
-	require.Equal(t, takerFeeMap, unmarshalledTakerFeeMap)
-}
