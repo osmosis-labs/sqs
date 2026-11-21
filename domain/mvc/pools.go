@@ -68,6 +68,11 @@ type PoolHandler interface {
 	// StorePools stores the given pools in the usecase
 	StorePools(pools []ingesttypes.PoolI) error
 
+	// UpdateCanonicalOrderbooks re-elects the canonical orderbooks for the given pools using their
+	// current liquidity capitalization, without writing the pool map. A pool that is no longer the
+	// stored object for its ID is skipped.
+	UpdateCanonicalOrderbooks(pools []ingesttypes.PoolI)
+
 	// CalcExitCFMMPool estimates the coins returned from redeeming CFMM pool shares given a pool ID and the GAMM shares to convert
 	// poolID must be a CFMM pool. Returns error if not.
 	CalcExitCFMMPool(poolID uint64, exitingShares osmomath.Int) (sdk.Coins, error)

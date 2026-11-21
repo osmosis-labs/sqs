@@ -727,6 +727,99 @@ func (s *PoolsUsecaseTestSuite) TestStorePools_DrainedCanonicalOrderbookReplaced
 	s.Require().Equal(uint64(deeperPoolID), canonicalPoolID)
 }
 
+// newTestOrderbookPool returns an orderbook pool of the denomOne/denomTwo pair with the given liquidity cap.
+func newTestOrderbookPool(poolID uint64, contractAddress string, liquidityCap int64) *mocks.MockRoutablePool {
+	return &mocks.MockRoutablePool{
+		ChainPoolModel: &cosmwasmpoolmodel.CosmWasmPool{
+			PoolId:          poolID,
+			ContractAddress: contractAddress,
+		},
+		ID: poolID,
+		CosmWasmPoolModel: &cosmwasmpool.CosmWasmPoolModel{
+			ContractInfo: cosmwasmpool.ContractInfo{
+				Contract: cosmwasmpool.ORDERBOOK_CONTRACT_NAME,
+				Version:  cosmwasmpool.ORDERBOOK_MIN_CONTRACT_VERSION,
+			},
+			Data: cosmwasmpool.CosmWasmPoolData{
+				Orderbook: &cosmwasmpool.OrderbookData{
+					BaseDenom:  denomOne,
+					QuoteDenom: denomTwo,
+				},
+			},
+		},
+		PoolLiquidityCap: osmomath.NewInt(liquidityCap),
+	}
+}
+
+// Validates that UpdateCanonicalOrderbooks re-elects the canonical orderbook from the updated liquidity cap of
+// a pool that is still the stored one, without writing the pool map.
+func (s *PoolsUsecaseTestSuite) TestUpdateCanonicalOrderbooks_ReElectsWithUpdatedCap() {
+	const (
+		firstPoolID  = defaultPoolID + 1
+		secondPoolID = defaultPoolID + 2
+	)
+
+	poolsUsecase := s.newDefaultPoolsUseCase()
+
+	first := newTestOrderbookPool(firstPoolID, "first-address", 1_000)
+	second := newTestOrderbookPool(secondPoolID, "second-address", 500)
+	s.Require().NoError(poolsUsecase.StorePools([]ingesttypes.PoolI{first, second}))
+	s.Require().ElementsMatch([]string{denomOne, denomTwo}, poolsUsecase.TakeCanonicalOrderbookChangedDenoms())
+
+	canonicalPoolID, _, err := poolsUsecase.GetCanonicalOrderbookPool(denomOne, denomTwo)
+	s.Require().NoError(err)
+	s.Require().Equal(uint64(firstPoolID), canonicalPoolID)
+
+	// The pricer sets the new cap on the stored object, then asks for the election.
+	first.SetLiquidityCap(osmomath.NewInt(10))
+	poolsUsecase.UpdateCanonicalOrderbooks([]ingesttypes.PoolI{first})
+
+	canonicalPoolID, contractAddress, err := poolsUsecase.GetCanonicalOrderbookPool(denomOne, denomTwo)
+	s.Require().NoError(err)
+	s.Require().Equal(uint64(secondPoolID), canonicalPoolID)
+	s.Require().Equal("second-address", contractAddress)
+	s.Require().ElementsMatch([]string{denomOne, denomTwo}, poolsUsecase.TakeCanonicalOrderbookChangedDenoms())
+
+	// The pool map is untouched.
+	storedFirst, err := poolsUsecase.GetPool(firstPoolID)
+	s.Require().NoError(err)
+	s.Require().Same(first, storedFirst)
+}
+
+// Validates that UpdateCanonicalOrderbooks ignores a pool object that was replaced in the store, as its
+// liquidity cap is stale, and that it never stores it back.
+func (s *PoolsUsecaseTestSuite) TestUpdateCanonicalOrderbooks_IgnoresReplacedPool() {
+	const (
+		firstPoolID  = defaultPoolID + 1
+		secondPoolID = defaultPoolID + 2
+	)
+
+	poolsUsecase := s.newDefaultPoolsUseCase()
+
+	older := newTestOrderbookPool(firstPoolID, "first-address", 1_000)
+	second := newTestOrderbookPool(secondPoolID, "second-address", 500)
+	s.Require().NoError(poolsUsecase.StorePools([]ingesttypes.PoolI{older, second}))
+	s.Require().ElementsMatch([]string{denomOne, denomTwo}, poolsUsecase.TakeCanonicalOrderbookChangedDenoms())
+
+	// A later block stores a newer version of the first pool.
+	newer := newTestOrderbookPool(firstPoolID, "first-address", 1_000)
+	s.Require().NoError(poolsUsecase.StorePools([]ingesttypes.PoolI{newer}))
+	s.Require().Empty(poolsUsecase.TakeCanonicalOrderbookChangedDenoms())
+
+	// The older version, priced meanwhile, would demote the first pool if it were elected.
+	older.SetLiquidityCap(osmomath.NewInt(10))
+	poolsUsecase.UpdateCanonicalOrderbooks([]ingesttypes.PoolI{older})
+
+	canonicalPoolID, _, err := poolsUsecase.GetCanonicalOrderbookPool(denomOne, denomTwo)
+	s.Require().NoError(err)
+	s.Require().Equal(uint64(firstPoolID), canonicalPoolID)
+	s.Require().Empty(poolsUsecase.TakeCanonicalOrderbookChangedDenoms())
+
+	stored, err := poolsUsecase.GetPool(firstPoolID)
+	s.Require().NoError(err)
+	s.Require().Same(newer, stored)
+}
+
 // This test validates that the canonical orderbook pool IDs are returned as intended
 // if they are correctly set. The correctness of setting them is ensured
 // by the StorePools and ProcessOrderbookPoolIDForBaseQuote tests.

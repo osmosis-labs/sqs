@@ -16,7 +16,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	stdosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
 	"github.com/osmosis-labs/sqs/domain/recovery"
-	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
 	"go.uber.org/zap"
 )
@@ -324,27 +323,14 @@ func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]s
 		pools[i].SetLiquidityCapError(poolLiquidityCapError)
 	}
 
-	// Pricing runs alongside ingest, so a later block may have stored a newer version of a pool
-	// while it was being priced. Storing the version read above would put its older balances back.
-	// Such a pool is skipped: the later block reprices it.
-	current, _, err := p.poolHandler.GetPools(domain.WithPoolIDFilter(blockPoolIDs))
-	if err != nil {
-		return err
-	}
-	currentByID := make(map[uint64]ingesttypes.PoolI, len(current))
-	for _, pool := range current {
-		currentByID[pool.GetId()] = pool
-	}
-	unchanged := pools[:0]
-	for _, pool := range pools {
-		if currentByID[pool.GetId()] == pool {
-			unchanged = append(unchanged, pool)
-		}
-	}
-
-	if err := p.poolHandler.StorePools(unchanged); err != nil {
-		return err
-	}
+	// The pricer never writes the pool map. Pricing runs alongside ingest, so a later block may
+	// have stored a newer version of a pool while it was being priced, and storing the version
+	// read above would put its older balances back. SetLiquidityCap and SetLiquidityCapError
+	// above already mutate the pool object that is stored, so for a pool that is still current
+	// there is nothing to write. The one thing left to do is the canonical orderbook election,
+	// which uses the new liquidity caps; it skips a pool that was replaced meanwhile, as the
+	// block that replaced it reprices it.
+	p.poolHandler.UpdateCanonicalOrderbooks(pools)
 
 	return nil
 }
