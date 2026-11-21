@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
@@ -39,67 +40,12 @@ const (
 	totalAssetsCategoryName            string = "total-assets"
 )
 
-// fetchBalancesPortfolioAssetsJob represents a job to fetch balances for a given category
-// in a portfolio assets query.
-type fetchBalancesPortfolioAssetsJob struct {
-	// name of the category
-	name string
-	// whether to breakdown the capitalization of the category
-	shouldBreakdownCapitalization bool
-	// fetchFn is the function to fetch the balances for the category
-	fetchFn passthroughdomain.PassthroughFetchFn
-}
-
-// coinsResult represents the result of fetching coins
-type coinsResult struct {
-	// coins fetched
-	coins sdk.Coins
-	// error encountered during fetching
-	err error
-}
-
-// totalAssetsCompositionPortfolioAssetsJob represents a job to compose the total portfolio assets
-// from the fetched balances.
-// Total assets = user balances + staked + unstaking + (pooled - in-locks) + unclaimed-rewards
-type totalAssetsCompositionPortfolioAssetsJob struct {
-	// name of the category
-	name string
-	// coins fetched
-	coins sdk.Coins
-	// any error encountered during the pipiline for any of the categories.
-	err error
-}
-
-// finalResultPortfolioAssetsJob represents a job to finalize the portfolio assets categories.
-type finalResultPortfolioAssetsJob struct {
-	// name of the category
-	name string
-	// result of the category
-	result passthroughdomain.PortfolioAssetsCategoryResult
-	// any error encountered during the pipiline for constructing the category.
-	err error
-}
-
 var _ mvc.PassthroughUsecase = &passthroughUseCase{}
 
 const (
 	gammSharePrefix         = "gamm"
 	concentratedSharePrefix = "cl"
 	denomShareSeparatorByte = '/'
-
-	numFinalResultJobs = 7
-
-	totalAssetCompositionNumJobs = 6
-
-	// Number of pooled balance jobs to fetch concurrently.
-	// 1. Gamm shares from user balances
-	// 2. Concentrated positions
-	pooledBalancedNumJobs = 2
-
-	// Number of unclaimed rewards jobs to fetch concurrently.
-	// 1. Unclaimed rewards from concentrated positions
-	// 2. Unclaimed rewards from staking rewards
-	unclaimedRewardsNumJobs = 2
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
@@ -117,313 +63,159 @@ func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGR
 	}
 }
 
-// GetPortfolioBalances implements mvc.PassthroughUsecase.
+// GetPortfolioAssets implements mvc.PassthroughUsecase.
 func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address string) (passthroughdomain.PortfolioAssetsResult, error) {
-	// Channel to fetch bank balances concurrently.
-	bankBalancesChan := make(chan coinsResult)
-	defer close(bankBalancesChan)
+	var (
+		bankCoins, gammShareCoins          sdk.Coins
+		bankErr                            error
+		positionCoins, positionRewardCoins sdk.Coins
+		positionErr                        error
+		stakingRewardCoins                 sdk.Coins
+		stakingRewardErr                   error
+		unstakingCoins                     sdk.Coins
+		unstakingErr                       error
+		stakedCoins                        sdk.Coins
+		stakedErr                          error
+		inLocksCoins                       sdk.Coins
+		inLocksErr                         error
+	)
 
-	// Channel to fetch pooled balances concurrently.
-	// Pool balances arrive from gamm shares and concentrated positions.
-	pooledBalancesChan := make(chan coinsResult, pooledBalancedNumJobs)
-	defer close(pooledBalancesChan)
-
-	// Channel to fetch unclaimed rewards concurrently.
-	unclaimedRewardsChan := make(chan coinsResult, unclaimedRewardsNumJobs)
-	defer close(unclaimedRewardsChan)
-
+	// Phase 1: fetch all independent chain queries concurrently.
+	var wg sync.WaitGroup
+	wg.Add(6)
 	go func() {
-		// Fetch bank balances and gamm shares concurrently
-		bankBalances, gammShareCoins, err := recoverCoinsPair(func() (sdk.Coins, sdk.Coins, error) {
+		defer wg.Done()
+		bankCoins, gammShareCoins, bankErr = recoverCoinsPair(func() (sdk.Coins, sdk.Coins, error) {
 			return p.getBankBalances(ctx, address)
 		})
-
-		// Send the results to the user balances channel
-		bankBalancesChan <- coinsResult{
-			coins: bankBalances,
-			err:   err,
-		}
-
-		// Send gamm shares to the pooled balances channel
-		pooledBalancesChan <- coinsResult{
-			coins: gammShareCoins,
-			err:   err,
-		}
 	}()
-
 	go func() {
-		// Fetch concentrated positions and unclaimed rewards concurrently
-		positionBalances, unclaimedRewads, err := recoverCoinsPair(func() (sdk.Coins, sdk.Coins, error) {
+		defer wg.Done()
+		positionCoins, positionRewardCoins, positionErr = recoverCoinsPair(func() (sdk.Coins, sdk.Coins, error) {
 			return p.passthroughGRPCClient.UserPositionsBalances(ctx, address)
 		})
-
-		// Send the position balances to the pooled balances channel
-		pooledBalancesChan <- coinsResult{
-			coins: positionBalances,
-			err:   err,
-		}
-
-		// Send unclaimed rewards to the unclaimed rewards channel
-		unclaimedRewardsChan <- coinsResult{
-			coins: unclaimedRewads,
-			err:   err,
-		}
 	}()
-
 	go func() {
-		// Fetch unclaimed staking rewards concurrently
-		unclaimedStakingRewards, err := recoverCoins(func() (sdk.Coins, error) {
+		defer wg.Done()
+		stakingRewardCoins, stakingRewardErr = recoverCoins(func() (sdk.Coins, error) {
 			return p.passthroughGRPCClient.DelegationRewards(ctx, address)
 		})
-
-		// Send unclaimed rewards to the unclaimed rewards channel
-		unclaimedRewardsChan <- coinsResult{
-			coins: unclaimedStakingRewards,
-			err:   err,
-		}
 	}()
+	go func() {
+		defer wg.Done()
+		unstakingCoins, unstakingErr = recoverCoins(func() (sdk.Coins, error) {
+			return p.passthroughGRPCClient.DelegatorUnbondingDelegations(ctx, address)
+		})
+	}()
+	go func() {
+		defer wg.Done()
+		stakedCoins, stakedErr = recoverCoins(func() (sdk.Coins, error) {
+			return p.passthroughGRPCClient.DelegatorDelegations(ctx, address)
+		})
+	}()
+	go func() {
+		defer wg.Done()
+		inLocksCoins, inLocksErr = recoverCoins(func() (sdk.Coins, error) {
+			return p.getCoinsFromLocks(ctx, address)
+		})
+	}()
+	wg.Wait()
 
-	// Aggregate poold coins callback
-	getPooledCoins := func(ctx context.Context, address string) (sdk.Coins, error) {
-		pooledCoins := sdk.Coins{}
+	// Phase 2: combine categories, compute total coins, and price everything in one GetPrices call.
+	pooledCoins, pooledErr := mergeCoins(gammShareCoins, bankErr, positionCoins, positionErr)
+	unclaimedCoins, unclaimedErr := mergeCoins(positionRewardCoins, positionErr, stakingRewardCoins, stakingRewardErr)
 
-		var finalErr error
-		for range pooledBalancedNumJobs {
-			pooledCoinsResult := <-pooledBalancesChan
-			if pooledCoinsResult.err != nil {
-				// Rather than returning the error, log it and continue
-				finalErr = pooledCoinsResult.err
+	type categoryCoins struct {
+		name      string
+		coins     sdk.Coins
+		err       error
+		breakdown bool
+	}
 
-				// Ensure that coins are valid to be added and avoid panic.
-				if len(pooledCoinsResult.coins) > 0 && !pooledCoinsResult.coins.IsAnyNil() {
-					pooledCoins = pooledCoins.Add(pooledCoinsResult.coins...)
-				}
+	categories := []categoryCoins{
+		{name: userBalancesAssetsCategoryName, coins: bankCoins, err: bankErr, breakdown: true},
+		{name: unstakingAssetsCategoryName, coins: unstakingCoins, err: unstakingErr},
+		{name: stakedAssetsCategoryName, coins: stakedCoins, err: stakedErr},
+		{name: inLocksAssetsCategoryName, coins: inLocksCoins, err: inLocksErr},
+		{name: unclaimedRewardsAssetsCategoryName, coins: unclaimedCoins, err: unclaimedErr},
+		{name: pooledAssetsCategoryName, coins: pooledCoins, err: pooledErr},
+	}
 
-				continue
-			}
-
-			pooledCoins = pooledCoins.Add(pooledCoinsResult.coins...)
+	totalCoins := sdk.Coins{}
+	var totalErr error
+	for _, cat := range categories {
+		if cat.err != nil {
+			p.logger.Error("error fetching balances for category", zap.Error(cat.err), zap.String("category", cat.name), zap.String("address", address))
+			totalErr = errors.Join(totalErr, cat.err)
 		}
-
-		// Return error and best-effort result
-		return pooledCoins, finalErr
-	}
-
-	// Callback to fetch bank balances concurrently.
-	getBankBalances := func(ctx context.Context, address string) (sdk.Coins, error) {
-		bankBalancesResult := <-bankBalancesChan
-		return bankBalancesResult.coins, bankBalancesResult.err
-	}
-
-	// Callback to fetch unclaimed rewards concurrently.
-	getUnclaimedRewards := func(ctx context.Context, address string) (sdk.Coins, error) {
-		unclaimedCoins := sdk.Coins{}
-
-		var finalErr error
-		for range unclaimedRewardsNumJobs {
-			unclaimedRewardsResult := <-unclaimedRewardsChan
-
-			if unclaimedRewardsResult.err != nil {
-				// Rather than returning the error, log it and continue
-				finalErr = unclaimedRewardsResult.err
-
-				// Ensure that coins are valid to be added and avoid panic.
-				if len(unclaimedRewardsResult.coins) > 0 && !unclaimedRewardsResult.coins.IsAnyNil() {
-					unclaimedCoins = unclaimedCoins.Add(unclaimedRewardsResult.coins...)
-				}
-
-				continue
-			}
-
-			unclaimedCoins = unclaimedCoins.Add(unclaimedRewardsResult.coins...)
+		if len(cat.coins) > 0 && !cat.coins.IsAnyNil() {
+			var addErr error
+			totalCoins, addErr = addCoins(totalCoins, cat.coins)
+			totalErr = errors.Join(totalErr, addErr)
 		}
-
-		// Return error and best-effort result
-		return unclaimedCoins, finalErr
 	}
 
-	// Fetch jobs to fetch the portfolio assets concurrently in separate gorooutines.
-	fetchJobs := []fetchBalancesPortfolioAssetsJob{
-		{
-			name: userBalancesAssetsCategoryName,
-			// User balances should be broken down by asset capitalization for each
-			// individual coin.
-			shouldBreakdownCapitalization: true,
-			fetchFn:                       getBankBalances,
-		},
-		{
-			name:    unstakingAssetsCategoryName,
-			fetchFn: p.passthroughGRPCClient.DelegatorUnbondingDelegations,
-		},
-		{
-			name:    stakedAssetsCategoryName,
-			fetchFn: p.passthroughGRPCClient.DelegatorDelegations,
-		},
-		{
-			name:    inLocksAssetsCategoryName,
-			fetchFn: p.getCoinsFromLocks,
-		},
-		{
-			name:    unclaimedRewardsAssetsCategoryName,
-			fetchFn: getUnclaimedRewards,
-		},
-		{
-			name:    pooledAssetsCategoryName,
-			fetchFn: getPooledCoins,
-		},
-	}
+	categories = append(categories, categoryCoins{
+		name:      totalAssetsCategoryName,
+		coins:     totalCoins,
+		err:       totalErr,
+		breakdown: true,
+	})
 
-	totalAssetsCompositionJobs := make(chan totalAssetsCompositionPortfolioAssetsJob, totalAssetCompositionNumJobs)
-
-	finalResultsJobs := make(chan finalResultPortfolioAssetsJob, numFinalResultJobs)
-	defer close(finalResultsJobs)
+	// Collect all unique valid denoms once and fetch prices in a single batched call.
+	priceResult, priceErr := p.fetchPricesForCoins(ctx, bankCoins, unstakingCoins, stakedCoins, inLocksCoins, unclaimedCoins, pooledCoins)
 
 	finalResult := passthroughdomain.PortfolioAssetsResult{
-		Categories: make(map[string]passthroughdomain.PortfolioAssetsCategoryResult, numFinalResultJobs),
+		Categories: make(map[string]passthroughdomain.PortfolioAssetsCategoryResult, len(categories)),
 	}
-
-	for _, fetchJob := range fetchJobs {
-		go func(job fetchBalancesPortfolioAssetsJob) {
-			// Fetch the balances for the category
-			result, finalErr := recoverCoins(func() (sdk.Coins, error) {
-				return job.fetchFn(ctx, address)
-			})
-
-			if finalErr != nil {
-				p.logger.Error("error fetching balances for category", zap.Error(finalErr), zap.String("category", job.name), zap.String("address", address))
-			}
-
-			// Send the result to the total assets composition channel
-			totalAssetsCompositionJobs <- totalAssetsCompositionPortfolioAssetsJob{
-				name:  job.name,
-				coins: result,
-				err:   finalErr,
-			}
-
-			// Skip the category if it is excluded from the final result.
-			byAssetCapBreakdown, totalCap, err := p.computeCapitalizationForCoins(ctx, result)
-			// Rather than returning the error, persist it and propagate in the pipeline
-			// to compute final result.
-			if err != nil {
-				finalErr = fmt.Errorf("%v, %v", finalErr, err)
-
-				p.logger.Error("error computing capitalization for category", zap.Error(err), zap.String("category", job.name), zap.String("address", address))
-			}
-
-			finalJob := finalResultPortfolioAssetsJob{
-				name: job.name,
-				result: passthroughdomain.PortfolioAssetsCategoryResult{
-					Capitalization: totalCap,
-					IsBestEffort:   finalErr != nil,
-				},
-				err: finalErr,
-			}
-
-			// Breakdown the capitalization of the category by asset.
-			if job.shouldBreakdownCapitalization {
-				finalJob.result.AccountCoinsResult = byAssetCapBreakdown
-			}
-
-			// Send the final result to the final results channel
-			finalResultsJobs <- finalJob
-		}(fetchJob)
-	}
-
-	go func() {
-		totalAssetsCompositionCoins := sdk.Coins{}
-		var finalErr error
-		for range totalAssetCompositionNumJobs {
-			job := <-totalAssetsCompositionJobs
-			if job.err != nil {
-				// Attempt to add the coins to the total assets composition
-				// even if an error occurred.
-				if len(job.coins) > 0 && !job.coins.IsAnyNil() {
-					// The job's own error is already persisted below.
-					totalAssetsCompositionCoins, _ = addCoins(totalAssetsCompositionCoins, job.coins)
-				}
-
-				// Rather than returning the error, persist it
-				if finalErr == nil {
-					finalErr = job.err
-				} else {
-					finalErr = fmt.Errorf("%v, %v", finalErr, job.err)
-				}
-				continue
-			}
-
-			var addErr error
-			totalAssetsCompositionCoins, addErr = addCoins(totalAssetsCompositionCoins, job.coins)
-			if addErr != nil {
-				finalErr = errors.Join(finalErr, addErr)
-			}
+	for _, cat := range categories {
+		breakdown, totalCap, capErr := p.priceCoins(cat.coins, priceResult, priceErr)
+		if capErr != nil {
+			p.logger.Error("error computing capitalization for category", zap.Error(capErr), zap.String("category", cat.name), zap.String("address", address))
 		}
 
-		totalAssetsResult, totalAssetsCap, err := p.computeCapitalizationForCoins(ctx, totalAssetsCompositionCoins)
-		if err != nil {
-			// Rather than returning the error, persist it
-			finalErr = fmt.Errorf("%v, %v", finalErr, err)
-
-			p.logger.Error("error computing total assets capitalization for total assets composition", zap.Error(err), zap.String("address", address))
+		res := passthroughdomain.PortfolioAssetsCategoryResult{
+			Capitalization: totalCap,
+			IsBestEffort:   cat.err != nil || capErr != nil,
 		}
-
-		finalResultsJobs <- finalResultPortfolioAssetsJob{
-			name: totalAssetsCategoryName,
-			result: passthroughdomain.PortfolioAssetsCategoryResult{
-				Capitalization:     totalAssetsCap,
-				AccountCoinsResult: totalAssetsResult,
-				IsBestEffort:       finalErr != nil,
-			},
-			err: finalErr,
+		if cat.breakdown {
+			res.AccountCoinsResult = breakdown
 		}
-	}()
-
-	// Aggregate all results
-	// 1. User balances (available) - broken down by asset capitalization
-	// 2. Total assets - broken down by asset capitalization
-	// 3. Unstaking
-	// 4. Staked
-	// 5. Unclaimed rewards
-	// 6. Pooled
-	// 7. In-locks
-	for range numFinalResultJobs {
-		job := <-finalResultsJobs
-		isBestEffort := job.err != nil
-		finalResult.Categories[job.name] = passthroughdomain.PortfolioAssetsCategoryResult{
-			IsBestEffort:       isBestEffort,
-			AccountCoinsResult: job.result.AccountCoinsResult,
-			Capitalization:     job.result.Capitalization,
-		}
+		finalResult.Categories[cat.name] = res
 	}
 
 	return finalResult, nil
 }
 
-// computeCapitalizationForCoins instruments the coins with their liquiditiy capitalization values.
-// Returns a slice of entries containing each coin and their capialization values. Additionally, returns the capitalization total.
-// If coin is not valid, it is skipped from pricing and its capitalization is set to zero.
-// Returns error if fails to get prices for the coins. However, a best-effort account coins result is returned even if prices fail to be computed.
-func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) (_ []passthroughdomain.AccountCoinsResult, _ osmomath.Dec, err error) {
-	// Runs in the goroutines of GetPortfolioAssets, outside the HTTP recover middleware.
-	defer recovery.ToErrorf(&err, "computing capitalization")
-
-	coinDenomsToPrice := make([]string, 0, len(coins))
-	for _, coin := range coins {
-		if p.tokensUseCase.IsValidChainDenom(coin.Denom) {
-			coinDenomsToPrice = append(coinDenomsToPrice, coin.Denom)
-		} else {
-			p.logger.Debug("denom is not valid & skipped from pricing in portfolio", zap.String("denom", coin.Denom))
+// fetchPricesForCoins deduplicates valid denoms across coinSets and fetches their prices in one call.
+func (p *passthroughUseCase) fetchPricesForCoins(ctx context.Context, coinSets ...sdk.Coins) (domain.PricesResult, error) {
+	seenDenoms := make(map[string]struct{})
+	var denomsToPrice []string
+	for _, coins := range coinSets {
+		for _, coin := range coins {
+			if _, ok := seenDenoms[coin.Denom]; ok {
+				continue
+			}
+			seenDenoms[coin.Denom] = struct{}{}
+			if p.tokensUseCase.IsValidChainDenom(coin.Denom) {
+				denomsToPrice = append(denomsToPrice, coin.Denom)
+			} else {
+				p.logger.Debug("denom is not valid & skipped from pricing in portfolio", zap.String("denom", coin.Denom))
+			}
 		}
 	}
 
-	// Compute prices for the final coins
-	priceResult, err := p.tokensUseCase.GetPrices(ctx, coinDenomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
+	priceResult, err := p.tokensUseCase.GetPrices(ctx, denomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
 	if err != nil {
-		// Instead of returning an error, attempt to return a best-effort result
-		// where all prices are zero.
-		priceResult = domain.PricesResult{}
+		return domain.PricesResult{}, err
 	}
+	return priceResult, nil
+}
 
-	// Instrument coins with prices
+func (p *passthroughUseCase) priceCoins(coins sdk.Coins, priceResult domain.PricesResult, priceErr error) (_ []passthroughdomain.AccountCoinsResult, _ osmomath.Dec, err error) {
+	defer recovery.ToErrorf(&err, "computing capitalization")
+
+	err = priceErr
 	coinsWithPrices := make([]passthroughdomain.AccountCoinsResult, 0, len(coins))
 	capitalizationTotal := osmomath.ZeroDec()
 
@@ -437,9 +229,7 @@ func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, 
 		}
 
 		coinCapitalization := p.liquidityPricer.PriceCoin(coin, price)
-
 		capitalizationTotal = capitalizationTotal.AddMut(coinCapitalization)
-
 		coinsWithPrices = append(coinsWithPrices, passthroughdomain.AccountCoinsResult{
 			Coin:                coin,
 			CapitalizationValue: coinCapitalization,
@@ -450,52 +240,28 @@ func (p *passthroughUseCase) computeCapitalizationForCoins(ctx context.Context, 
 		err = fmt.Errorf("no price for denoms: %s", strings.Join(unpricedDenoms, ", "))
 	}
 
-	// Note that it is possible to have a valid coinsWithPrices result.
-	// Zero capitalizationTotal and non-nil error.
 	return coinsWithPrices, capitalizationTotal, err
 }
 
-// getLockedCoins returns the user's locked coins
-// If encountering GAMM shares, it will convert them to underlying coins
-// If encountering concentrated shares, it will skip them
-// For every coin, adds the underlying coins to the total coins.
-// Returns error if fails to get locked coins.
-func (p *passthroughUseCase) getLockedCoins(ctx context.Context, address string, fetchLocksFn passthroughdomain.PassthroughFetchFn) (sdk.Coins, error) {
-	// User locked/unlocking assets including GAMM shares
-	lockedCoins, err := fetchLocksFn(ctx, address)
+// getCoinsFromLocks returns the user's locked coins (which already include unlocking coins).
+// GAMM shares are converted to underlying coins and concentrated shares are skipped.
+func (p *passthroughUseCase) getCoinsFromLocks(ctx context.Context, address string) (sdk.Coins, error) {
+	// AccountLockedCoins already includes locks that are unlocking, so no separate unlocking query.
+	lockedCoins, err := p.passthroughGRPCClient.AccountLockedCoins(ctx, address)
 	if err != nil {
-		return nil, err
+		return sdk.Coins{}, err
 	}
 
 	coins := sdk.Coins{}
-
 	for _, lockedCoin := range lockedCoins {
-		// calc underlying coins from GAMM shares, only expect gamm shares
 		accumulated, err := p.tryAccumulateGammShares(&coins, lockedCoin)
 		if accumulated || err != nil {
 			continue
 		}
 		// Concentrated value is retrieved from positions.
-		// As a result, we skip them here.
 		if !strings.HasPrefix(lockedCoin.Denom, concentratedSharePrefix) {
 			coins = coins.Add(lockedCoin)
 		}
-	}
-
-	return coins, nil
-}
-
-// getCoinsFromLocks returns the user's coins from locks
-// Returns locked coins, which already include unlocking coins.
-// If encountering GAMM shares, it will convert them to underlying coins
-// If encountering concentrated shares, it will skip them
-// For every coin, adds the underlying coins to the total coins.
-// Returns error if fails to get locked coins but the best-effort result is returned still
-func (p *passthroughUseCase) getCoinsFromLocks(ctx context.Context, address string) (sdk.Coins, error) {
-	// AccountLockedCoins already includes locks that are unlocking, so no separate unlocking query.
-	coins, err := p.getLockedCoins(ctx, address, p.passthroughGRPCClient.AccountLockedCoins)
-	if err != nil {
-		return sdk.Coins{}, err
 	}
 
 	return coins, nil
@@ -594,4 +360,19 @@ func addCoins(total, coins sdk.Coins) (sum sdk.Coins, err error) {
 	defer recovery.ToErrorf(&err, "adding coins (%s)", coins)
 
 	return total.Add(coins...), nil
+}
+
+// mergeCoins combines two best-effort coin fetch results into one.
+func mergeCoins(first sdk.Coins, firstErr error, second sdk.Coins, secondErr error) (sdk.Coins, error) {
+	merged := sdk.Coins{}
+	err := errors.Join(firstErr, secondErr)
+	for _, coins := range []sdk.Coins{first, second} {
+		if len(coins) == 0 || coins.IsAnyNil() {
+			continue
+		}
+		var addErr error
+		merged, addErr = addCoins(merged, coins)
+		err = errors.Join(err, addErr)
+	}
+	return merged, err
 }
