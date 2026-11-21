@@ -12,9 +12,6 @@ import (
 	"github.com/osmosis-labs/sqs/domain/mvc"
 	orderbookplugindomain "github.com/osmosis-labs/sqs/domain/orderbook/plugin"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
-	blockctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/block"
-	msgctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/msg"
-	txctx "github.com/osmosis-labs/sqs/ingest/usecase/plugins/orderbook/fillbot/context/tx"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/tokens/usecase/pricing/worker"
 	"go.opentelemetry.io/otel"
@@ -129,10 +126,7 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 	}
 
 	// Configure block context
-	blockCtx, err := blockctx.New(ctx, o.passthroughGRPCClient.GetChainGRPCClient(), uniqueOrderBookDenoms, orderBookDenomPrices, balances, o.defaultQuoteDenom, blockHeight)
-	if err != nil {
-		return err
-	}
+	blockCtx := newBlockContext(ctx, orderBookDenomPrices, balances, o.defaultQuoteDenom, blockHeight)
 
 	resultChan := make(chan orderBookProcessResult, len(canonicalOrderbooks))
 	defer close(resultChan)
@@ -159,33 +153,28 @@ func (o *orderbookFillerIngestPlugin) ProcessEndBlock(ctx context.Context, block
 			if result.err != nil {
 				o.logger.Error("failed to process orderbook", zap.Error(result.err))
 			}
-		case <-blockCtx.Done():
+		case <-blockCtx.ctx.Done():
 			o.logger.Debug("context cancelled processing orderbook")
 		case <-time.After(100 * time.Second):
 			o.logger.Debug("timeout processing orderbook")
 		}
 	}
 
-	originalMsgs := blockCtx.GetTxCtx().GetMsgs()
-	if err := o.tryFill(blockCtx); err != nil {
+	originalMsgs := blockCtx.tx.msgs
+	if err := o.tryFill(blockCtx, blockCtx.tx); err != nil {
 		if len(originalMsgs) == 1 {
 			o.logger.Error("failed to fill", zap.Error(err))
 			return err
-		} else {
-			o.logger.Error("failed to fill batch of arbs as one tx - falling back to executing each message as separate tx", zap.Error(err))
+		}
+		o.logger.Error("failed to fill batch of arbs as one tx - falling back to executing each message as separate tx", zap.Error(err))
 
-			// Try to fill each message indivdually
-			for _, msg := range originalMsgs {
-				// Create a new transaction context for each message
-				curTxCtx := txctx.New()
+		// Try to fill each message individually
+		for _, msg := range originalMsgs {
+			curTx := newTxContext()
+			curTx.addMsg(msg)
 
-				// Add the message to the transaction context
-				curTxCtx.AddMsg(msg)
-
-				// Try to fill the message
-				if err := o.tryFill(blockCtx); err != nil {
-					o.logger.Error("failed to fill individual msg tx", zap.Error(err))
-				}
+			if err := o.tryFill(blockCtx, curTx); err != nil {
+				o.logger.Error("failed to fill individual msg tx", zap.Error(err))
 			}
 		}
 	}
@@ -223,48 +212,48 @@ func (*orderbookFillerIngestPlugin) getUniqueOrderbookDenoms(canonicalOrderbooks
 // - Returns error if any of the steps fail.
 //
 // If validation/simulation passes, the message is added to the transaction context to be execute in batch at the end of the block.
-func (o *orderbookFillerIngestPlugin) processOrderBook(ctx blockctx.BlockCtxI, canonicalOrderbookResult domain.CanonicalOrderBooksResult) error {
+func (o *orderbookFillerIngestPlugin) processOrderBook(blockCtx *blockContext, canonicalOrderbookResult domain.CanonicalOrderBooksResult) error {
 	baseDenom := canonicalOrderbookResult.Base
 	quoteDenom := canonicalOrderbookResult.Quote
-	_, span := tracer.Start(ctx.AsGoCtx(), "orderbookFillerIngestPlugin.processOrderBook")
+	_, span := tracer.Start(blockCtx.ctx, "orderbookFillerIngestPlugin.processOrderBook")
 	defer span.End()
 
 	span.SetAttributes(attribute.Int64("orderbook_id", int64(canonicalOrderbookResult.PoolID)))
 
 	// Validate user balances meeting minimum threshold.
-	if err := o.validateUserBalances(ctx, baseDenom, quoteDenom); err != nil {
+	if err := o.validateUserBalances(blockCtx, baseDenom, quoteDenom); err != nil {
 		return err
 	}
 
 	// Compute fillable amounts for the order book.
-	fillableAskAmountQuoteDenom, fillableBidAmountBaseDenom, err := o.getFillableOrders(ctx, canonicalOrderbookResult)
+	fillableAskAmountQuoteDenom, fillableBidAmountBaseDenom, err := o.getFillableOrders(blockCtx, canonicalOrderbookResult)
 	if err != nil {
 		return err
 	}
 
 	// Choose max value between fillable amount and user balance
 	// This is so that we can at least partially fill if the user balance is less than the fillable amount.
-	userBalanceQuoteDenom := ctx.GetUserBalances().AmountOf(quoteDenom)
+	userBalanceQuoteDenom := blockCtx.userBalances.AmountOf(quoteDenom)
 	if userBalanceQuoteDenom.LT(fillableAskAmountQuoteDenom) {
 		fillableAskAmountQuoteDenom = userBalanceQuoteDenom
 		o.logger.Warn("user balance less than fillable ask amount", zap.String("quote_denom", quoteDenom), zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID))
 	}
 
-	userBalanceBaseDenom := ctx.GetUserBalances().AmountOf(baseDenom)
+	userBalanceBaseDenom := blockCtx.userBalances.AmountOf(baseDenom)
 	if userBalanceBaseDenom.LT(fillableBidAmountBaseDenom) {
 		fillableBidAmountBaseDenom = userBalanceBaseDenom
 		o.logger.Warn("user balance less than fillable bid amount", zap.String("base_denom", baseDenom), zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID))
 	}
 
 	// Validate arb trying to fill ask liquidity.
-	if _, err := o.computePerfectArbAmountIfExists(ctx, fillableAskAmountQuoteDenom, canonicalOrderbookResult.Quote, canonicalOrderbookResult.Base, canonicalOrderbookResult.PoolID); err != nil {
+	if _, err := o.computePerfectArbAmountIfExists(blockCtx, fillableAskAmountQuoteDenom, canonicalOrderbookResult.Quote, canonicalOrderbookResult.Base, canonicalOrderbookResult.PoolID); err != nil {
 		o.logger.Error("failed to fill asks", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID), zap.Error(err))
 	} else {
 		o.logger.Info("passed orderbook asks", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID))
 	}
 
-	// Validae arb trying to fill bid liquidity
-	if _, err := o.computePerfectArbAmountIfExists(ctx, fillableBidAmountBaseDenom, canonicalOrderbookResult.Base, canonicalOrderbookResult.Quote, canonicalOrderbookResult.PoolID); err != nil {
+	// Validate arb trying to fill bid liquidity
+	if _, err := o.computePerfectArbAmountIfExists(blockCtx, fillableBidAmountBaseDenom, canonicalOrderbookResult.Base, canonicalOrderbookResult.Quote, canonicalOrderbookResult.PoolID); err != nil {
 		o.logger.Error("failed to fill bids", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID), zap.Error(err))
 	} else {
 		o.logger.Info("passed orderbook bids", zap.Uint64("orderbook_id", canonicalOrderbookResult.PoolID))
@@ -285,9 +274,9 @@ var (
 // computePerfectArbAmountIfExists computes the perfect arb amount if it exists by performing binary search.
 // It tries to prefer a higher amount if it exists in order to fill all orders in-full while maximizing profit.
 // nolint: unparam
-func (o *orderbookFillerIngestPlugin) computePerfectArbAmountIfExists(ctx blockctx.BlockCtxI, proposedAmountIn osmomath.Int, denomIn, denomOut string, orderBookID uint64) (osmomath.Int, error) {
+func (o *orderbookFillerIngestPlugin) computePerfectArbAmountIfExists(blockCtx *blockContext, proposedAmountIn osmomath.Int, denomIn, denomOut string, orderBookID uint64) (osmomath.Int, error) {
 	// If the initial proposed amount in is not valid, return error.
-	msgCtx, err := o.validateArb(ctx, proposedAmountIn, denomIn, denomOut, orderBookID)
+	msgCtx, err := o.validateArb(blockCtx, proposedAmountIn, denomIn, denomOut, orderBookID)
 	if err != nil {
 		return osmomath.Int{}, err
 	}
@@ -295,19 +284,18 @@ func (o *orderbookFillerIngestPlugin) computePerfectArbAmountIfExists(ctx blockc
 	// Otherwise, try to find a higher amount such that it fills all orders in-full and is profitable.
 	amountInHigh := proposedAmountIn.ToLegacyDec().MulMut(multiplier).TruncateInt()
 
-	msgCtx, result, err := o.tryValidate(ctx, proposedAmountIn, amountInHigh, denomIn, denomOut, orderBookID, msgCtx, maxRecursionAttemptsArbSearch)
+	msgCtx, result, err := o.tryValidate(blockCtx, proposedAmountIn, amountInHigh, denomIn, denomOut, orderBookID, msgCtx, maxRecursionAttemptsArbSearch)
 	if err != nil {
 		return proposedAmountIn, nil
 	}
 
-	// If profitable, execute add the message to the transaction context
-	txCtx := ctx.GetTxCtx()
-	txCtx.AddMsg(msgCtx)
+	// If profitable, add the message to the transaction context
+	blockCtx.tx.addMsg(msgCtx)
 
 	return result, nil
 }
 
-func (o *orderbookFillerIngestPlugin) tryValidate(ctx blockctx.BlockCtxI, amountInLow osmomath.Int, amountInHigh osmomath.Int, denomIn, denomOut string, orderBookID uint64, lowMsgCtx msgctx.MsgContextI, attemptsRemaining int) (msgctx.MsgContextI, osmomath.Int, error) {
+func (o *orderbookFillerIngestPlugin) tryValidate(blockCtx *blockContext, amountInLow osmomath.Int, amountInHigh osmomath.Int, denomIn, denomOut string, orderBookID uint64, lowMsgCtx msgContext, attemptsRemaining int) (msgContext, osmomath.Int, error) {
 	if attemptsRemaining == 0 {
 		return lowMsgCtx, amountInLow, nil
 	}
@@ -315,14 +303,14 @@ func (o *orderbookFillerIngestPlugin) tryValidate(ctx blockctx.BlockCtxI, amount
 	mid := amountInLow.ToLegacyDec().Add(amountInHigh.ToLegacyDec()).QuoRoundupMut(two).Ceil().TruncateInt()
 
 	// Case 1: mid arb works => recurse into (mid, high)
-	midMsgCtx, err := o.validateArb(ctx, mid, denomIn, denomOut, orderBookID)
-	if err == nil && midMsgCtx.GetMaxFeeCap().GTE(lowMsgCtx.GetMaxFeeCap()) {
-		return o.tryValidate(ctx, mid, amountInHigh, denomIn, denomOut, orderBookID, midMsgCtx, attemptsRemaining-1)
+	midMsgCtx, err := o.validateArb(blockCtx, mid, denomIn, denomOut, orderBookID)
+	if err == nil && midMsgCtx.maxFeeCap.GTE(lowMsgCtx.maxFeeCap) {
+		return o.tryValidate(blockCtx, mid, amountInHigh, denomIn, denomOut, orderBookID, midMsgCtx, attemptsRemaining-1)
 	}
 
 	// Case 2: mid arb doesn't work => recurse into (low, mid)
-	topMsgCtx, topAmount, err := o.tryValidate(ctx, amountInLow, mid, denomIn, denomOut, orderBookID, lowMsgCtx, attemptsRemaining-1)
-	if err == nil && topMsgCtx.GetMaxFeeCap().GTE(lowMsgCtx.GetMaxFeeCap()) {
+	topMsgCtx, topAmount, err := o.tryValidate(blockCtx, amountInLow, mid, denomIn, denomOut, orderBookID, lowMsgCtx, attemptsRemaining-1)
+	if err == nil && topMsgCtx.maxFeeCap.GTE(lowMsgCtx.maxFeeCap) {
 		return topMsgCtx, topAmount, nil
 	}
 
@@ -332,32 +320,24 @@ func (o *orderbookFillerIngestPlugin) tryValidate(ctx blockctx.BlockCtxI, amount
 
 // tryFill tries to fill the orderbook by executing the transaction.
 // It ranks and filters the pools, simulates the transaction messages, and executes the swap if the simulation passes.
-func (o *orderbookFillerIngestPlugin) tryFill(ctx blockctx.BlockCtxI) error {
-	txCtx := ctx.GetTxCtx()
-	msgs := txCtx.GetSDKMsgs()
-
-	if len(msgs) == 0 {
+func (o *orderbookFillerIngestPlugin) tryFill(blockCtx *blockContext, txCtx *txContext) error {
+	if len(txCtx.msgs) == 0 {
 		return nil
 	}
 
 	// Rank and filter pools
-	txCtx.RankAndFilterMsgs()
+	txCtx.rankAndFilterMsgs()
 
 	// Simulate transaction messages
-	sdkMsgs := txCtx.GetSDKMsgs()
-	_, adjustedGasAmount, err := o.simulateMsgs(ctx.AsGoCtx(), sdkMsgs)
+	_, adjustedGasAmount, err := o.simulateMsgs(blockCtx.ctx, txCtx.sdkMsgs())
 	if err != nil {
 		return err
 	}
 
 	// Update adjusted gas amount upon resimulating the transaction.
-	txCtx.UpdateAdjustedGasTotal(adjustedGasAmount)
+	txCtx.adjustedGasUsedTotal = adjustedGasAmount
 
 	// Execute the swap
-	_, _, err = o.executeTx(ctx)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, _, err = o.executeTx(blockCtx, txCtx)
+	return err
 }
