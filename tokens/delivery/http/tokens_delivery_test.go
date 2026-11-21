@@ -3,6 +3,7 @@ package http_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -278,18 +279,6 @@ func (s *TokensHandlerSuite) TestGetPrices() {
 			expectedResponse:   `{"uosmo":{"usdc":"1.250000000000000000000000000000000000"},"uatom":{"usdc":"10.500000000000000000000000000000000000"}}`,
 		},
 		{
-			name: "too many base denoms rejected",
-			queryParams: map[string]string{
-				"base": strings.Repeat("uosmo,", 500) + "uosmo",
-			},
-			handler: &tokensdelivery.TokensHandler{
-				TUsecase: &mocks.TokensUsecaseMock{},
-			},
-			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse:   `{"message":"too many denoms, max: 500"}`,
-			expectedError:      true,
-		},
-		{
 			name: "invalid debug parameter",
 			queryParams: map[string]string{
 				"base":  "uosmo",
@@ -372,25 +361,75 @@ func (s *TokensHandlerSuite) TestGetPrices() {
 	}
 }
 
-func (s *TokensHandlerSuite) TestDenomsParamLimitOnMetadataEndpoints() {
-	tooManyDenoms := strings.Repeat("uosmo,", 500) + "uosmo"
+// denomList returns n distinct valid chain denoms joined by commas.
+func denomList(n int) string {
+	denoms := make([]string, 0, n)
+	for i := range n {
+		denoms = append(denoms, fmt.Sprintf("denom%d", i))
+	}
+	return strings.Join(denoms, ",")
+}
+
+// TestDenomsParamLimit verifies that every /tokens endpoint taking a denom list accepts exactly the
+// maximum number of distinct denoms, passing each one to the usecase, and rejects one more before
+// the usecase is reached, so an off-by-one in any bound check fails here.
+func (s *TokensHandlerSuite) TestDenomsParamLimit() {
+	const maxDenoms = 500
+
+	// received counts the denoms that reached the usecase in the current subtest.
+	var received int
 	handler := &tokensdelivery.TokensHandler{
-		TUsecase: &mocks.TokensUsecaseMock{},
+		TUsecase: &mocks.TokensUsecaseMock{
+			IsValidChainDenomFunc: func(string) bool { return true },
+			GetMetadataByChainDenomFunc: func(string) (domain.Token, error) {
+				received++
+				return domain.Token{}, nil
+			},
+			GetPoolDenomsMetadataFunc: func(chainDenoms []string) domain.PoolDenomMetaDataMap {
+				received += len(chainDenoms)
+				return domain.PoolDenomMetaDataMap{}
+			},
+			GetPricesFunc: func(_ context.Context, baseDenoms []string, _ []string, _ domain.PricingSourceType, _ ...domain.PricingOption) (domain.PricesResult, error) {
+				received += len(baseDenoms)
+				return domain.PricesResult{}, nil
+			},
+		},
 	}
 
-	for name, call := range map[string]func(echo.Context) error{
-		"GetMetadata":          handler.GetMetadata,
-		"GetPoolDenomMetadata": handler.GetPoolDenomMetadata,
-	} {
-		s.Run(name, func() {
-			e := deliveryhttp.NewEcho()
-			req := httptest.NewRequest(echo.GET, "/?denoms="+tooManyDenoms, nil)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
+	endpoints := []struct {
+		name  string
+		param string
+		call  func(echo.Context) error
+	}{
+		{name: "GetMetadata", param: "denoms", call: handler.GetMetadata},
+		{name: "GetPoolDenomMetadata", param: "denoms", call: handler.GetPoolDenomMetadata},
+		{name: "GetPrices", param: "base", call: handler.GetPrices},
+	}
 
-			s.Require().NoError(call(c))
-			s.Assert().Equal(http.StatusBadRequest, rec.Code)
-			s.Assert().JSONEq(`{"message":"too many denoms, max: 500"}`, rec.Body.String())
-		})
+	cases := []struct {
+		name        string
+		count       int
+		expCode     int
+		expReceived int
+	}{
+		{name: "at limit is accepted", count: maxDenoms, expCode: http.StatusOK, expReceived: maxDenoms},
+		{name: "over limit is rejected", count: maxDenoms + 1, expCode: http.StatusBadRequest, expReceived: 0},
+	}
+
+	for _, ep := range endpoints {
+		for _, tc := range cases {
+			s.Run(ep.name+" "+tc.name, func() {
+				received = 0
+				req := httptest.NewRequest(echo.GET, "/?"+ep.param+"="+denomList(tc.count), nil)
+				rec := httptest.NewRecorder()
+
+				s.Require().NoError(ep.call(deliveryhttp.NewEcho().NewContext(req, rec)))
+				s.Require().Equal(tc.expCode, rec.Code, rec.Body.String())
+				s.Require().Equal(tc.expReceived, received)
+				if tc.expCode == http.StatusBadRequest {
+					s.Require().JSONEq(`{"message":"too many denoms, max: 500"}`, rec.Body.String())
+				}
+			})
+		}
 	}
 }

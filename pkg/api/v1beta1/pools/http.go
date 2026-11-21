@@ -191,10 +191,11 @@ func (r *GetPoolsRequestFilter) UnmarshalHTTPRequest(c echo.Context) error {
 	}
 
 	if denoms := c.QueryParam(queryFilterDenom); len(denoms) > 0 {
-		r.Denom = strings.Split(denoms, ",")
-		if len(r.Denom) > maxDenoms {
+		// Reject before splitting so an oversized list costs no allocation per entry.
+		if strings.Count(denoms, ",") >= maxDenoms {
 			return fmt.Errorf("too many denoms, max: %d", maxDenoms)
 		}
+		r.Denom = strings.Split(denoms, ",")
 	}
 
 	// Deprecated: use filter[min_liquidity_cap]
