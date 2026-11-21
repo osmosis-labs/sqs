@@ -913,6 +913,40 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 	}
 }
 
+// replacingPoolHandler stores newer, the next block's version of a pool, right after the
+// pricer first reads the pools, as ingest can while pricing runs.
+type replacingPoolHandler struct {
+	*mocks.PoolHandlerMock
+	newer    ingesttypes.PoolI
+	replaced bool
+}
+
+func (h *replacingPoolHandler) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI, uint64, error) {
+	pools, n, err := h.PoolHandlerMock.GetPools(opts...)
+	if !h.replaced {
+		h.replaced = true
+		h.Pools = []ingesttypes.PoolI{h.newer}
+	}
+	return pools, n, err
+}
+
+// TestRepricePoolLiquidityCap_KeepsNewerPool checks that repricing doesn't put an older
+// version of a pool back over one a later block stored while it was being priced.
+func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap_KeepsNewerPool() {
+	older := &mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}
+	newer := &mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance.AddAmount(defaultLiquidity))}
+	handler := &replacingPoolHandler{PoolHandlerMock: &mocks.PoolHandlerMock{Pools: []ingesttypes.PoolI{older}}, newer: newer}
+
+	liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
+	pricerWorker := worker.NewPoolLiquidityWorker(nil, nil, handler, liquidityPricer, &log.NoOpLogger{})
+
+	err := pricerWorker.RepricePoolLiquidityCap(map[uint64]struct{}{defaultPoolID: {}}, defaultBlockPriceUpdates)
+	s.Require().NoError(err)
+
+	s.Require().Len(handler.Pools, 1)
+	s.Require().Same(newer, handler.Pools[0])
+}
+
 // validatePoolDenomMetadata validates the pool denom metadata map.
 func (s *PoolLiquidityComputeWorkerSuite) validatePoolDenomMetadata(expected domain.PoolDenomMetaDataMap, actual domain.PoolDenomMetaDataMap) {
 	s.Require().Equal(len(expected), len(actual))
