@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -198,7 +199,7 @@ func (p *pricingWorker) runExclusive(ctx context.Context, height uint64, uniqueB
 	// and succeeded stays false.
 	defer recovery.Log(p.logger, "recovered panic in pricing pre-computation", domain.SQSPricingWorkerComputeErrorCounter, zap.Uint64("height", height))
 
-	baseDenoms := domain.KeysFromMap(uniqueBlockPoolMetaData.UpdatedDenoms)
+	baseDenoms := slices.Collect(maps.Keys(uniqueBlockPoolMetaData.UpdatedDenoms))
 
 	ctx, cancel := context.WithTimeout(ctx, priceUpdateTimeout)
 	start := time.Now()

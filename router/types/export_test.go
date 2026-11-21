@@ -8,3 +8,5 @@ import (
 func ValidateSimulationParams(swapMethod domain.TokenSwapMethod, simulatorAddress string, slippageToleranceStr string) (osmomath.Dec, error) {
 	return validateSimulationParams(swapMethod, simulatorAddress, slippageToleranceStr)
 }
+
+const MaxSimulationSlippageToleranceLen = maxSimulationSlippageToleranceLen

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -14,7 +15,6 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cosmwasmdomain "github.com/osmosis-labs/sqs/domain/cosmwasm"
 	sqsosmomath "github.com/osmosis-labs/sqs/domain/osmomath"
-	"github.com/osmosis-labs/sqs/domain/pipeline"
 	"github.com/osmosis-labs/sqs/domain/sync/atomic"
 	ingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 	"github.com/osmosis-labs/sqs/log"
@@ -26,7 +26,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	v1beta1 "github.com/osmosis-labs/sqs/pkg/api/v1beta1"
-	api "github.com/osmosis-labs/sqs/pkg/api/v1beta1/pools"
 
 	sqspassthroughdomain "github.com/osmosis-labs/osmosis/v31/ingest/types/passthroughdomain"
 	"github.com/osmosis-labs/sqs/domain"
@@ -427,38 +426,51 @@ func feesDataField(field func(sqspassthroughdomain.PoolFee) float64) func(ingest
 	}
 }
 
-// poolFilters is a map of available filters for getPools function.
-var poolFilters = map[string]func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]){
-	"poolId": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
-		if f != nil && len(f.PoolId) > 0 {
-			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return slices.Contains(f.PoolId, pool.GetId()) // TODO: with keys method to avoid O(n)
-			})
+func uint64Set(ids []uint64) map[uint64]struct{} {
+	set := make(map[uint64]struct{}, len(ids))
+	for _, id := range ids {
+		set[id] = struct{}{}
+	}
+	return set
+}
+
+func filterPools(pools []ingesttypes.PoolI, keep func(ingesttypes.PoolI) bool) []ingesttypes.PoolI {
+	filtered := make([]ingesttypes.PoolI, 0, len(pools))
+	for _, pool := range pools {
+		if keep(pool) {
+			filtered = append(filtered, pool)
 		}
-	},
-	"poolIdNotIn": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
-		if f != nil && len(f.PoolIdNotIn) > 0 {
-			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return !slices.Contains(f.PoolIdNotIn, pool.GetId())
-			})
+	}
+	return filtered
+}
+
+func paginatePools(pools []ingesttypes.PoolI, p *v1beta1.PaginationRequest) []ingesttypes.PoolI {
+	if p == nil {
+		return pools
+	}
+	n := uint64(len(pools))
+	if p.Limit == 0 || n == 0 {
+		return []ingesttypes.PoolI{}
+	}
+
+	var offset uint64
+	if p.Strategy == v1beta1.PaginationStrategy_PAGE {
+		if p.Page > n/p.Limit {
+			return []ingesttypes.PoolI{}
 		}
-	},
-	"type": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
-		if f != nil && len(f.Type) > 0 {
-			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				return slices.Contains(f.Type, uint64(pool.GetType()))
-			})
-		}
-	},
-	"minLiquidityCap": func(f *api.GetPoolsRequestFilter, transformer *pipeline.SyncMapTransformer[uint64, ingesttypes.PoolI]) {
-		if f != nil && f.MinLiquidityCap > 0 {
-			transformer.Filter(func(pool ingesttypes.PoolI) bool {
-				// A pool with no capitalization yet counts as zero, and one above the uint64
-				// range as the largest value; Uint64 panics on both.
-				return sqsosmomath.SafeUint64(pool.GetLiquidityCap()) >= f.MinLiquidityCap
-			})
-		}
-	},
+		offset = p.Page * p.Limit
+	} else {
+		offset = p.Cursor
+	}
+	if offset >= n {
+		return []ingesttypes.PoolI{}
+	}
+
+	end := n
+	if p.Limit < n-offset {
+		end = offset + p.Limit
+	}
+	return pools[offset:end]
 }
 
 // filterExactMatchSearch filters pools by exact match search.
@@ -564,72 +576,91 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 		return pools, uint64(len(pools)), nil
 	}
 
-	transformer := pipeline.NewSyncMapTransformer(p.pools)
-
-	// Apply filters
-	for _, applyFilter := range poolFilters {
-		applyFilter(options.Filter, transformer)
+	poolMap, err := p.pools.Load()
+	var pools []ingesttypes.PoolI
+	if err == nil {
+		pools = make([]ingesttypes.PoolI, 0, len(poolMap))
+		for _, pool := range poolMap {
+			pools = append(pools, pool)
+		}
 	}
 
-	// Denom filter filters pools by pool denoms.
-	// Given list of denoms in the filter, it will return pools that have at least one denom in the list.
-	// Order of denoms in the filter list is not important.
-	if f := options.Filter; f != nil && len(f.Denom) > 0 {
-		transformer.Filter(func(pool ingesttypes.PoolI) bool {
-			poolDenoms := pool.GetPoolDenoms()
-
-			// Check if any denom in f.Denom exists in poolDenoms
-			for _, denom := range f.Denom {
-				denom = strings.ToLower(denom)
-				for _, poolDenom := range poolDenoms {
-					token, err := p.tokenMetadataHolder.GetMetadataByChainDenom(poolDenom)
-					if err != nil {
-						continue
-					}
-
-					if denom == strings.ToLower(token.HumanDenom) || denom == strings.ToLower(token.CoinMinimalDenom) {
-						return true
+	if f := options.Filter; f != nil {
+		if len(f.PoolId) > 0 {
+			allowed := uint64Set(f.PoolId)
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				_, ok := allowed[pool.GetId()]
+				return ok
+			})
+		}
+		if len(f.PoolIdNotIn) > 0 {
+			excluded := uint64Set(f.PoolIdNotIn)
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				_, ok := excluded[pool.GetId()]
+				return !ok
+			})
+		}
+		if len(f.Type) > 0 {
+			allowedTypes := uint64Set(f.Type)
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				_, ok := allowedTypes[uint64(pool.GetType())]
+				return ok
+			})
+		}
+		if f.MinLiquidityCap > 0 {
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				// A pool with no capitalization yet counts as zero, and one above the uint64
+				// range as the largest value; Uint64 panics on both.
+				return sqsosmomath.SafeUint64(pool.GetLiquidityCap()) >= f.MinLiquidityCap
+			})
+		}
+		if len(f.Denom) > 0 {
+			pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
+				poolDenoms := pool.GetPoolDenoms()
+				for _, denom := range f.Denom {
+					denom = strings.ToLower(denom)
+					for _, poolDenom := range poolDenoms {
+						token, err := p.tokenMetadataHolder.GetMetadataByChainDenom(poolDenom)
+						if err != nil {
+							continue
+						}
+						if denom == strings.ToLower(token.HumanDenom) || denom == strings.ToLower(token.CoinMinimalDenom) {
+							return true
+						}
 					}
 				}
-			}
-			return false
-		})
+				return false
+			})
+		}
 	}
 
-	// Set fetch APR and fees data if configured used by some sort opts below
-	transformer.Range(func(key uint64, value ingesttypes.PoolI) bool {
-		p.setPoolAPRAndFeeDataIfConfigured(value, options)
-		return true
-	})
+	// Set APR and fees data if configured (used by incentive filter and sort options below).
+	for _, pool := range pools {
+		p.setPoolAPRAndFeeDataIfConfigured(pool, options)
+	}
 
 	// Filter by pool incentive type.
 	// This filter is intentionally placed after setting APR and fee data
 	// to ensure that the APR and fee data is set required for this filter.
 	if f := options.Filter; f != nil && len(f.Incentive) > 0 {
-		transformer.Filter(func(pool ingesttypes.PoolI) bool {
+		pools = filterPools(pools, func(pool ingesttypes.PoolI) bool {
 			return slices.Contains(f.Incentive, pool.Incentive())
 		})
 	}
 
-	// TODO: pool denoms seems needs to be reversed?
-	// which one is base and which one is quote?
-	// we need to sort in format: quote/base
 	if f := options.Filter; f != nil && len(f.Search) > 0 {
-		exactSearch := transformer.Clone()
-		exactSearch.Filter(filterExactMatchSearch(p.tokenMetadataHolder, f.Search))
-		if exactSearch.Count() > 0 {
-			transformer = exactSearch // exact search found
+		if exact := filterPools(pools, filterExactMatchSearch(p.tokenMetadataHolder, f.Search)); len(exact) > 0 {
+			pools = exact
 		} else {
-			transformer.Filter(filterPartialMatchSearch(p.tokenMetadataHolder, f.Search))
+			pools = filterPools(pools, filterPartialMatchSearch(p.tokenMetadataHolder, f.Search))
 		}
 	}
 
 	// Sorting options for pool results
 	var sortopts []func(ingesttypes.PoolI, ingesttypes.PoolI) bool
-	if sort := options.Sort; sort != nil {
-		for _, v := range sort.Fields {
+	if sortReq := options.Sort; sortReq != nil {
+		for _, v := range sortReq.Fields {
 			if sortFunc, ok := getPoolsSortFuncs[v.Field]; ok {
-				// Pass direction as a parameter to avoid duplication
 				desc := v.Direction == v1beta1.SortDirection_DESCENDING
 				sortopts = append(sortopts, func(a, b ingesttypes.PoolI) bool {
 					return sortFunc(a, b, desc)
@@ -637,7 +668,7 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 			}
 		}
 	}
-	// Pages are cut from the key order, which starts as map iteration order and so differs
+	// Pages are cut from the slice order, which starts as map iteration order and so differs
 	// between requests. Pool ID breaks every tie left by the requested sort, so that
 	// consecutive pages neither repeat nor skip pools.
 	if options.Pagination != nil {
@@ -645,18 +676,22 @@ func (p *poolsUseCase) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI
 			return a.GetId() < b.GetId()
 		})
 	}
-	transformer.Sort(sortopts...) // apply sort options
-
-	var pools []ingesttypes.PoolI
-	if pagination := options.Pagination; pagination == nil {
-		pools = transformer.Data()
-	} else {
-		iterator := pipeline.NewSyncMapIterator(p.pools, transformer.Keys())
-		paginator := pipeline.NewPaginator[uint64](iterator, pagination)
-		pools = paginator.GetPage()
+	if len(sortopts) > 0 {
+		sort.Slice(pools, func(i, j int) bool {
+			for _, criterion := range sortopts {
+				if criterion(pools[i], pools[j]) {
+					return true
+				}
+				if criterion(pools[j], pools[i]) {
+					return false
+				}
+			}
+			return false
+		})
 	}
 
-	return pools, transformer.Count(), nil
+	totalCount := uint64(len(pools))
+	return paginatePools(pools, options.Pagination), totalCount, nil
 }
 
 // StorePools implements mvc.PoolsUsecase.
@@ -824,7 +859,7 @@ func (p *poolsUseCase) TakeCanonicalOrderbookChangedDenoms() []string {
 	p.canonicalOrderbookMu.Lock()
 	defer p.canonicalOrderbookMu.Unlock()
 
-	denoms := domain.KeysFromMap(p.canonicalOrderbookChangedDenoms)
+	denoms := slices.Collect(maps.Keys(p.canonicalOrderbookChangedDenoms))
 	p.canonicalOrderbookChangedDenoms = nil
 
 	return denoms

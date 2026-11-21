@@ -238,14 +238,3 @@ func (s *IngestUseCaseTestSuite) TestComputeNormalizationScalingFactors() {
 		})
 	}
 }
-
-func (s *IngestUseCaseTestSuite) TestLcm() {
-	a := osmomath.NewInt(10).ToLegacyDec().Power(18).TruncateInt()
-	b := osmomath.NewInt(10).ToLegacyDec().Power(12).TruncateInt()
-
-	lcm := usecase.Lcm(a.BigInt(), b.BigInt())
-
-	lcmInt := osmomath.NewIntFromBigInt(lcm)
-
-	s.Require().Equal(osmomath.NewInt(10).ToLegacyDec().Power(18).TruncateInt(), lcmInt)
-}

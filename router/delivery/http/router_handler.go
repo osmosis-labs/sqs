@@ -34,7 +34,9 @@ type RouterHandler struct {
 	// ReferenceCheck sanity-checks /router/quote responses against reference prices.
 	// Nil disables the check.
 	ReferenceCheck *QuoteReferenceChecker
-	logger         log.Logger
+	// USDPeg adds the quote denom's peg against US dollars to /router/quote responses. Nil disables it.
+	USDPeg *domain.QuoteUSDPegChecker
+	logger log.Logger
 }
 
 const routerResource = "/router"
@@ -58,6 +60,9 @@ type Config struct {
 	// QuoteReferenceChecker checks /router/quote responses against reference prices.
 	// Nil disables the check.
 	QuoteReferenceChecker *QuoteReferenceChecker
+
+	// QuoteUSDPegChecker adds the quote denom's USD peg to /router/quote responses. Nil disables it.
+	QuoteUSDPegChecker *domain.QuoteUSDPegChecker
 }
 
 // NewRouterHandler will initialize the pools/ resources endpoint
@@ -75,6 +80,7 @@ func NewRouterHandler(
 		TUsecase:       tu,
 		QuoteSimulator: qs,
 		ReferenceCheck: config.QuoteReferenceChecker,
+		USDPeg:         config.QuoteUSDPegChecker,
 		logger:         logger,
 	}
 
@@ -169,12 +175,7 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
 
-	scalingFactor := oneDec
-	if req.ApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom)
-	}
-
-	_, _, err = quote.PrepareResult(ctx, scalingFactor, a.TUsecase, a.TUsecase, a.logger)
+	_, _, err = quote.PrepareResult(ctx, oneDec, a.TUsecase, a.TUsecase, a.logger)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -207,6 +208,12 @@ func (a *RouterHandler) GetOptimalQuote(c echo.Context) (err error) {
 		if err := a.ReferenceCheck.Check(quote, tokenInDenom, amountIn, outDenom, amountOut); err != nil {
 			return c.JSON(http.StatusUnprocessableEntity, domain.ResponseError{Message: err.Error()})
 		}
+	}
+
+	// Report the peg of the pricing quote denom against US dollars, if enabled. Unknown when no
+	// fresh reference price exists. It never changes the quote.
+	if a.USDPeg != nil {
+		quote.SetQuoteUSDPeg(a.USDPeg.Check(ctx))
 	}
 
 	// Simulate quote if applicable.
@@ -308,12 +315,7 @@ func (a *RouterHandler) GetDirectCustomQuote(c echo.Context) (err error) {
 		return c.JSON(statusCode, domain.ResponseError{Message: err.Error()})
 	}
 
-	scalingFactor := oneDec
-	if req.ApplyExponents {
-		scalingFactor = a.getSpotPriceScalingFactor(tokenIn.Denom, tokenOutDenom[len(tokenOutDenom)-1])
-	}
-
-	_, _, err = quote.PrepareResult(ctx, scalingFactor, a.TUsecase, a.TUsecase, a.logger)
+	_, _, err = quote.PrepareResult(ctx, oneDec, a.TUsecase, a.TUsecase, a.logger)
 	if err != nil {
 		return c.JSON(domain.GetStatusCode(err), domain.ResponseError{Message: err.Error()})
 	}
@@ -434,18 +436,6 @@ func (a *RouterHandler) GetSpotPriceForPool(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, spotPrice)
-}
-
-// getSpotPriceScalingFactor returns the spot price scaling factor for a given tokenIn and tokenOutDenom.
-func (a *RouterHandler) getSpotPriceScalingFactor(tokenInDenom, tokenOutDenom string) osmomath.Dec {
-	scalingFactor, err := a.TUsecase.GetSpotPriceScalingFactorByDenom(tokenOutDenom, tokenInDenom)
-	if err != nil {
-		// Note that we do not fail the quote if scaling factor fetching fails.
-		// Instead, we simply set it to zero to validate future calculations downstream.
-		scalingFactor = osmomath.ZeroDec()
-	}
-
-	return scalingFactor
 }
 
 func getValidTokenInStr(c echo.Context) (string, error) {
