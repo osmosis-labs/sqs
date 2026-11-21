@@ -62,6 +62,12 @@ var (
 	// because the ingest queue was full
 	SQSIngestHandlerCoalescedBlocksMetricName = "sqs_ingest_handler_coalesced_blocks_total"
 
+	// sqs_pricing_worker_coalesced_updates_total
+	//
+	// counter that measures the number of block price updates merged into the
+	// update already waiting, because a pricing run was still in progress
+	SQSPricingWorkerCoalescedUpdatesMetricName = "sqs_pricing_worker_coalesced_updates_total"
+
 	// sqs_ingest_usecase_parse_pool_error_total
 	//
 	// counter that measures the number of errors that occur during pool parsing in ingest usecase
@@ -255,6 +261,13 @@ var (
 		prometheus.CounterOpts{
 			Name: SQSIngestHandlerCoalescedBlocksMetricName,
 			Help: "counter that measures the number of blocks merged into a queued block because the ingest queue was full",
+		},
+	)
+
+	SQSPricingWorkerCoalescedUpdatesCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: SQSPricingWorkerCoalescedUpdatesMetricName,
+			Help: "counter that measures the number of block price updates merged into the waiting update because a pricing run was in progress",
 		},
 	)
 
@@ -470,6 +483,7 @@ func init() {
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockDurationGauge)
 	prometheus.MustRegister(SQSIngestHandlerProcessBlockErrorCounter)
 	prometheus.MustRegister(SQSIngestHandlerCoalescedBlocksCounter)
+	prometheus.MustRegister(SQSPricingWorkerCoalescedUpdatesCounter)
 	prometheus.MustRegister(SQSIngestHandlerProcessOrderbookPoolErrorCounter)
 	prometheus.MustRegister(SQSIngestUsecaseOrderbooksWithoutTicksGauge)
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)

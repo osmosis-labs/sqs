@@ -210,7 +210,10 @@ func (p *ingestUseCase) ProcessBlockData(ctx context.Context, height uint64, tak
 		// Set the first block flag.
 		uniqueBlockPoolMetadata.IsFirstBlock = true
 
-		// Pre-compute the prices for all tokens
+		// Pre-compute the prices for all tokens.
+		// This waits for any background pricing run in progress, which can exist if smaller
+		// blocks were ingested before this one, so it can block ingest for up to the pricing
+		// timeout. Blocks arriving meanwhile are merged by the ingest handler's queue.
 		p.defaultQuotePriceUpdateWorker.UpdatePricesSync(ctx, height, uniqueBlockPoolMetadata)
 
 		// Completely reprice the pool liquidity for the first block asyncronously

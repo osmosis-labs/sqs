@@ -105,15 +105,10 @@ func (s *PricingWorkerTestSuite) TestUpdatePricesAsync() {
 			// Register the listener
 			pricingWorker.RegisterListener(mockPricingUpdateListener)
 
-			// Test for empty base denoms
-			// Expect no update to be triggered
 			pricingWorker.UpdatePricesAsync(context.Background(), defaultHeight, tc.baseDenoms)
 
-			// Height and prices are not updated
-			s.Require().Zero(mockPricingUpdateListener.Height)
-			s.Require().Empty(mockPricingUpdateListener.PricesBaseQuteDenomMap)
-
-			// Wait for the listener to be called
+			// Wait for the listener to be called. The listener's fields are read only
+			// after it signals: before that, the background run may be writing them.
 			didTimeout := mockPricingUpdateListener.WaitOrTimeout()
 			s.Require().False(didTimeout)
 
