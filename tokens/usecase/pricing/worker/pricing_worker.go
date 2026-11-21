@@ -62,8 +62,10 @@ func (p *pricingWorker) UpdatePricesSync(ctx context.Context, height uint64, uni
 
 	// Note that we recompute prices entirely.
 	// The worker's min liquidity floor decides which pools can set the served default-quote prices,
-	// so it should match the pricing floor. Tokens whose only pools fall below it fall back to CoinGecko.
-	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.minLiquidityCap))
+	// so it should match the pricing floor. These prices feed pool liquidity caps, so they come from
+	// pools only: a token without one is left unpriced here, and its served price may still come from
+	// CoinGecko at request time.
+	prices, err := p.tokensUseCase.GetPrices(ctx, baseDenoms, []string{p.quoteDenom}, domain.ChainPricingSourceType, domain.WithRecomputePrices(), domain.WithMinPricingPoolLiquidityCap(p.minLiquidityCap), domain.WithNoFallback())
 	if err != nil {
 		// Increase error counter
 		p.logger.Error(domain.SQSPricingWorkerComputeDurationMetricName, zap.Error(err), zap.Uint64("height", height))

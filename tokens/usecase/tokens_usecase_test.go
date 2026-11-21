@@ -264,6 +264,51 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_CountsNoPriceApartFromErrors() {
 	s.Require().Equal(errorsBefore+1, s.counterValue(domain.SQSPricingErrorCounterMetricName))
 }
 
+// Validates that WithNoFallback leaves a token without a chain price unpriced instead of using the fallback.
+func (s *TokensUseCaseTestSuite) TestGetPrices_NoFallbackOption() {
+	const quoteDenom = "uquote"
+	usecase := tokensusecase.NewTokensUsecase(map[string]domain.Token{
+		"utoken":   {HumanDenom: "token", Precision: 6},
+		quoteDenom: {HumanDenom: "quote", Precision: 6},
+	}, 0, noOpLogger)
+	usecase.RegisterPricingStrategy(domain.ChainPricingSourceType, stubPricingSource{
+		noPrice:  map[string]bool{"utoken": true},
+		fallback: domain.CoinGeckoPricingSourceType,
+	})
+	usecase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, stubPricingSource{prices: map[string]osmomath.BigDec{"utoken": osmomath.NewBigDec(3)}})
+
+	prices, err := usecase.GetPrices(context.Background(), []string{"utoken"}, []string{quoteDenom}, domain.ChainPricingSourceType)
+	s.Require().NoError(err)
+	s.Require().Equal(osmomath.NewBigDec(3), prices["utoken"][quoteDenom].Price)
+
+	prices, err = usecase.GetPrices(context.Background(), []string{"utoken"}, []string{quoteDenom}, domain.ChainPricingSourceType, domain.WithNoFallback())
+	s.Require().NoError(err)
+	s.Require().Empty(prices["utoken"])
+}
+
+// Validates that of the denoms sharing a Coingecko id only the canonical holder keeps it, and a
+// shared id with no canonical holder is kept by none.
+func (s *TokensUseCaseTestSuite) TestLoadTokens_SharedCoingeckoIdKeptByCanonicalDenomOnly() {
+	usecase := tokensusecase.NewTokensUsecase(map[string]domain.Token{
+		"uusdc":     {HumanDenom: "USDC", CoingeckoID: "usd-coin"},
+		"ibc/noble": {HumanDenom: "USDC.noble", CoingeckoID: "usd-coin"},
+		"ibc/inj":   {HumanDenom: "USDC.inj", CoingeckoID: " usd-coin "},
+		"ibc/atom":  {HumanDenom: "ATOM", CoingeckoID: "cosmos"},
+		"ibc/solo":  {HumanDenom: "SOLO.bridge", CoingeckoID: "solo"},
+		"ibc/a":     {HumanDenom: "AAA.x", CoingeckoID: "dup"},
+		"ibc/b":     {HumanDenom: "AAA.y", CoingeckoID: "dup"},
+	}, 0, noOpLogger)
+
+	expected := map[string]string{
+		"uusdc": "usd-coin", "ibc/noble": "", "ibc/inj": "", "ibc/atom": "cosmos", "ibc/solo": "solo", "ibc/a": "", "ibc/b": "",
+	}
+	for denom, id := range expected {
+		got, err := usecase.GetCoingeckoIdByChainDenom(denom)
+		s.Require().NoError(err)
+		s.Require().Equal(id, got, denom)
+	}
+}
+
 // cancellingPricingSource cancels the request while it is being asked for a price, as when a
 // client disconnects while the fallback source is waited on.
 type cancellingPricingSource struct {
@@ -341,8 +386,14 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Coingecko() {
 	prices, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC}, domain.CoinGeckoPricingSourceType)
 	s.Require().NoError(err)
 	s.Require().Len(prices, len(routertesting.MainnetDenoms))
-	for _, baseAssetPrices := range prices {
-		s.Require().Len(baseAssetPrices, 1)
+	for baseDenom, baseAssetPrices := range prices {
+		// USDT here is Kava USDT, a variant that shares a Coingecko id with another listed denom,
+		// so it is not priced from Coingecko.
+		if baseDenom == USDT {
+			s.Require().Empty(baseAssetPrices, baseDenom)
+			continue
+		}
+		s.Require().Len(baseAssetPrices, 1, baseDenom)
 		usdcQuoteAny, ok := baseAssetPrices[USDC]
 		s.Require().True(ok)
 		usdcQuote := s.ConvertAnyToBigDec(usdcQuoteAny.Price)

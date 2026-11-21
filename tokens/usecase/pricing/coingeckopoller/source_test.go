@@ -23,15 +23,17 @@ const testInterval = time.Minute
 // err fails every call; failCalls fails the calls with those 1-based numbers.
 // onFetch, when set, runs at the start of every call.
 type fakeFetch struct {
-	mu        sync.Mutex
-	prices    map[string]osmomath.BigDec
+	mu     sync.Mutex
+	prices map[string]osmomath.BigDec
+	// updatedAt is the last_updated_at reported per id; ids without one report none.
+	updatedAt map[string]time.Time
 	calls     [][]string
 	err       error
 	failCalls map[int]error
 	onFetch   func()
 }
 
-func (f *fakeFetch) fetch(_ context.Context, ids []string) (map[string]osmomath.BigDec, error) {
+func (f *fakeFetch) fetch(_ context.Context, ids []string) (map[string]fetchedPrice, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.onFetch != nil {
@@ -44,10 +46,10 @@ func (f *fakeFetch) fetch(_ context.Context, ids []string) (map[string]osmomath.
 	if f.err != nil {
 		return nil, f.err
 	}
-	result := make(map[string]osmomath.BigDec, len(ids))
+	result := make(map[string]fetchedPrice, len(ids))
 	for _, id := range ids {
 		if price, ok := f.prices[id]; ok {
-			result[id] = price.Clone()
+			result[id] = fetchedPrice{price: price.Clone(), updatedAt: f.updatedAt[id]}
 		}
 	}
 	return result, nil
@@ -263,6 +265,23 @@ func TestRefresh_IdAnsweredWithoutPriceExpiresAsNoPrice(t *testing.T) {
 	require.True(t, domain.IsNoPrice(err), err)
 }
 
+func TestRefresh_PriceIsAgedByCoingeckosTimestamp(t *testing.T) {
+	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(5)})
+	// Coingecko answers now, but with a price it computed a day ago, as an edge cache can hold it.
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-24 * time.Hour)}
+	require.NoError(t, ts.refresh())
+
+	// Not served as current, and not reported as unavailable either: Coingecko did answer.
+	_, err := ts.getPrice("uatom")
+	require.True(t, domain.IsNoPrice(err), err)
+
+	// A timestamp after the request started is not believed.
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(time.Hour)}
+	require.NoError(t, ts.refresh())
+	_, err = ts.getPrice("uatom")
+	require.NoError(t, err)
+}
+
 func TestRefresh_NewerPriceReplacesOlder(t *testing.T) {
 	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(5)})
 	require.NoError(t, ts.refresh())
@@ -272,6 +291,16 @@ func TestRefresh_NewerPriceReplacesOlder(t *testing.T) {
 	require.NoError(t, ts.refresh())
 
 	price, err := ts.getPrice("uatom")
+	require.NoError(t, err)
+	require.Equal(t, osmomath.NewBigDec(6), price)
+
+	// A later answer that an edge cache computed before the stored price does not replace it.
+	ts.advance(testInterval)
+	ts.fetch.prices = map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(7)}
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-2 * testInterval)}
+	require.NoError(t, ts.refresh())
+
+	price, err = ts.getPrice("uatom")
 	require.NoError(t, err)
 	require.Equal(t, osmomath.NewBigDec(6), price)
 }

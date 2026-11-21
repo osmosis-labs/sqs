@@ -49,6 +49,7 @@ func (s *CoingeckoPricingTestSuite) TestGetPrices_Coingecko_FindUnsupportedToken
 
 	fmt.Println("Total unsupported tokens: ", unsupportedCounter)
 
-	// Total unsupported tokens as of July 18 2024
-	s.Require().Equal(165, unsupportedCounter)
+	// Total unsupported tokens as of July 18 2024 (165), plus the variants that share a
+	// CoinGecko id with their main coin and no longer inherit it: 173.
+	s.Require().Equal(173, unsupportedCounter)
 }
