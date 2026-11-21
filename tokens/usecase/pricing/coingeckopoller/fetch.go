@@ -23,6 +23,8 @@ import (
 const maxResponseBytes = 1 << 20
 
 // fetchedPrice is one price from Coingecko with the time Coingecko says it was last updated.
+// The time does not age the price: it is only used to reject answers that are stale upstream and to
+// keep a newer stored price over an older answer (see Source.publish).
 type fetchedPrice struct {
 	price osmomath.BigDec
 	// updatedAt is zero when the answer has no usable last_updated_at.
@@ -66,8 +68,9 @@ func newHTTPFetch(rawURL, quoteCurrency string, client *http.Client) (fetchFunc,
 		// Escaped, so an id with a reserved character cannot cut off the ids after it.
 		query.Set("ids", strings.Join(ids, ","))
 		query.Set("vs_currencies", quoteCurrency)
-		// Asks for the time of each price, so that a price served from an edge cache is aged by
-		// when Coingecko computed it rather than by when it was requested.
+		// Asks for the time of each price, so that an answer that an edge cache or an upstream outage
+		// kept for long can be rejected, and an older answer does not replace a newer stored price.
+		// A price is still served for maxAge from the request, not from this time.
 		query.Set("include_last_updated_at", "true")
 		requestURL.RawQuery = query.Encode()
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)

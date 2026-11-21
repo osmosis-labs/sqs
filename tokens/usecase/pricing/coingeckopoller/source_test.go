@@ -265,8 +265,16 @@ func TestRefresh_IdAnsweredWithoutPriceExpiresAsNoPrice(t *testing.T) {
 	require.True(t, domain.IsNoPrice(err), err)
 }
 
-func TestRefresh_PriceIsAgedByCoingeckosTimestamp(t *testing.T) {
+// withInterval replaces the source with one that refreshes every interval, on the same fake clock.
+func (ts *testSource) withInterval(interval time.Duration) {
+	ts.Source = newSource(ts.tokens.mock(), ts.fetch.fetch, interval, &log.NoOpLogger{})
+	ts.Source.now = ts.clock
+}
+
+func TestRefresh_UpstreamStalePriceIsNotServed(t *testing.T) {
 	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(5)})
+	require.Equal(t, 15*time.Minute, ts.maxUpstreamAge)
+
 	// Coingecko answers now, but with a price it computed a day ago, as an edge cache can hold it.
 	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-24 * time.Hour)}
 	require.NoError(t, ts.refresh())
@@ -275,34 +283,98 @@ func TestRefresh_PriceIsAgedByCoingeckosTimestamp(t *testing.T) {
 	_, err := ts.getPrice("uatom")
 	require.True(t, domain.IsNoPrice(err), err)
 
+	// Just inside the bound it is accepted.
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-ts.maxUpstreamAge)}
+	require.NoError(t, ts.refresh())
+	_, err = ts.getPrice("uatom")
+	require.NoError(t, err)
+
 	// A timestamp after the request started is not believed.
+	ts = newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(5)})
 	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(time.Hour)}
 	require.NoError(t, ts.refresh())
 	_, err = ts.getPrice("uatom")
 	require.NoError(t, err)
 }
 
+func TestRefresh_UpstreamStaleAnswerLeavesStoredPriceToExpire(t *testing.T) {
+	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(5)})
+	require.NoError(t, ts.refresh())
+
+	// The next answer is stale upstream: it is ignored, the stored price keeps its own expiry.
+	ts.advance(testInterval)
+	ts.fetch.prices = map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(6)}
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-time.Hour)}
+	require.NoError(t, ts.refresh())
+
+	price, err := ts.getPrice("uatom")
+	require.NoError(t, err)
+	require.Equal(t, osmomath.NewBigDec(5), price)
+
+	ts.advance(ts.maxAge - testInterval + time.Nanosecond)
+	_, err = ts.getPrice("uatom")
+	require.True(t, domain.IsNoPrice(err), err)
+}
+
+// A price whose upstream timestamp is a couple of minutes old at every fetch is normal. It must be
+// served without a gap: its age is counted from the request, and the refresh comes every interval.
+func TestRefresh_UpstreamOldPriceIsServedWithoutGap(t *testing.T) {
+	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(5)})
+	ts.withInterval(defaultInterval)
+	require.Equal(t, 6*time.Minute, ts.maxAge)
+
+	for cycle := 0; cycle < 6; cycle++ {
+		ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-2 * time.Minute)}
+		require.NoError(t, ts.refresh())
+
+		// Served right after the refresh and until the next one starts, and for the whole maxAge.
+		_, err := ts.getPrice("uatom")
+		require.NoError(t, err, "cycle %d", cycle)
+		ts.advance(defaultInterval)
+		_, err = ts.getPrice("uatom")
+		require.NoError(t, err, "cycle %d just before the next refresh", cycle)
+	}
+}
+
 func TestRefresh_NewerPriceReplacesOlder(t *testing.T) {
 	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(5)})
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-3 * time.Minute)}
 	require.NoError(t, ts.refresh())
 
 	ts.advance(testInterval)
 	ts.fetch.prices = map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(6)}
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-2 * time.Minute)}
+	require.NoError(t, ts.refresh())
+
+	price, err := ts.getPrice("uatom")
+	require.NoError(t, err)
+	require.Equal(t, osmomath.NewBigDec(6), price)
+}
+
+// An answer that an edge cache computed before the stored price does not replace it, and as the
+// request still found the stored price recent upstream, it keeps being served from that request.
+func TestRefresh_OlderTimestampKeepsNewerPriceServed(t *testing.T) {
+	ts := newTestSource(t, map[string]string{"uatom": "cosmos"}, map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(6)})
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-time.Minute)}
+	require.NoError(t, ts.refresh())
+
+	ts.advance(testInterval)
+	ts.fetch.prices = map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(7)}
+	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-3 * time.Minute)}
 	require.NoError(t, ts.refresh())
 
 	price, err := ts.getPrice("uatom")
 	require.NoError(t, err)
 	require.Equal(t, osmomath.NewBigDec(6), price)
 
-	// A later answer that an edge cache computed before the stored price does not replace it.
-	ts.advance(testInterval)
-	ts.fetch.prices = map[string]osmomath.BigDec{"cosmos": osmomath.NewBigDec(7)}
-	ts.fetch.updatedAt = map[string]time.Time{"cosmos": ts.clock().Add(-2 * testInterval)}
-	require.NoError(t, ts.refresh())
-
+	// Confirmed by the second request, so it is served for maxAge from it, not from the first.
+	ts.advance(ts.maxAge)
 	price, err = ts.getPrice("uatom")
 	require.NoError(t, err)
 	require.Equal(t, osmomath.NewBigDec(6), price)
+	ts.advance(time.Nanosecond)
+	_, err = ts.getPrice("uatom")
+	requireUnavailable(t, err)
 }
 
 func TestRefresh_ChunksUniqueIdsInStableOrder(t *testing.T) {
