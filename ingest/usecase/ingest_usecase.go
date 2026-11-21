@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -570,11 +571,25 @@ func copyDenomPoolLiquidityData(data domain.DenomPoolLiquidityData) domain.Denom
 // tick models are plain JSON written by the Osmosis node's ingester (jsoniter, standard-library
 // compatible) and are decoded with encoding/json/v2 and sqsosmomath.JSONUnmarshalOptions.
 // The Osmosis models use exact JSON field names and string-encoded integers and decimals.
-func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, error) {
+//
+// A panic while parsing is recovered and returned as an error, so one malformed pool
+// is skipped like any other parse error instead of crashing SQS. Nothing is stored
+// by this function, so a skipped pool keeps its previously stored state.
+func (p *ingestUseCase) parsePool(pool *types.PoolData) (_ sqsingesttypes.PoolI, err error) {
+	var poolID uint64
+	defer func() {
+		if r := recover(); r != nil {
+			domain.SQSIngestUsecasePanicRecoveredCounter.WithLabelValues("parse_pool").Inc()
+			p.logger.Error("recovered panic while parsing pool", zap.Uint64("pool_id", poolID), zap.Any("panic", r), zap.ByteString("stack", debug.Stack()))
+			err = fmt.Errorf("panic while parsing pool %d: %v", poolID, r)
+		}
+	}()
+
 	var chainModel poolmanagertypes.PoolI
 	if err := p.codec.UnmarshalInterfaceJSON(pool.ChainModel, &chainModel); err != nil {
 		return nil, err
 	}
+	poolID = chainModel.GetId()
 
 	var sqsModel ingesttypes.SQSPool
 	if err := json.Unmarshal(pool.SqsModel, &sqsModel, sqsosmomath.JSONUnmarshalOptions); err != nil {
@@ -603,9 +618,22 @@ func (p *ingestUseCase) parsePool(pool *types.PoolData) (sqsingesttypes.PoolI, e
 // executeEndBlockProcessPlugins executes the end block process plugins.
 func (p *ingestUseCase) executeEndBlockProcessPlugins(ctx context.Context, blockHeight uint64, metadata domain.BlockPoolMetadata) {
 	for _, plugin := range p.endBlockProcessPlugins {
-		if err := plugin.ProcessEndBlock(ctx, blockHeight, metadata); err != nil {
-			p.logger.Error("error executing end block process plugin", zap.Error(err), zap.Uint64("block_height", blockHeight))
+		p.executeEndBlockProcessPlugin(ctx, plugin, blockHeight, metadata)
+	}
+}
+
+// executeEndBlockProcessPlugin runs one plugin. A panic in the plugin is recovered, so it
+// neither crashes SQS nor stops the plugins after it.
+func (p *ingestUseCase) executeEndBlockProcessPlugin(ctx context.Context, plugin domain.EndBlockProcessPlugin, blockHeight uint64, metadata domain.BlockPoolMetadata) {
+	defer func() {
+		if r := recover(); r != nil {
+			domain.SQSIngestUsecasePanicRecoveredCounter.WithLabelValues("end_block_plugin").Inc()
+			p.logger.Error("recovered panic in end block process plugin", zap.String("plugin", fmt.Sprintf("%T", plugin)), zap.Uint64("block_height", blockHeight), zap.Any("panic", r), zap.ByteString("stack", debug.Stack()))
 		}
+	}()
+
+	if err := plugin.ProcessEndBlock(ctx, blockHeight, metadata); err != nil {
+		p.logger.Error("error executing end block process plugin", zap.Error(err), zap.Uint64("block_height", blockHeight))
 	}
 }
 

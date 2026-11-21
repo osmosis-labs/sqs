@@ -41,6 +41,21 @@ type ChainInfoUsecaseMock struct {
 	ValidatePoolLiquidityUpdatesFunc            func() error
 	ValidateCandidateRouteSearchDataUpdatesFunc func() error
 	GetClientFunc                               func() chaininfoclient.Client
+	ValidateOrderbookTicksFunc                  func() error
+	SetOrderbooksWithoutTicksFunc               func(withoutTicks, total int)
+}
+
+func (m *ChainInfoUsecaseMock) SetOrderbooksWithoutTicks(withoutTicks, total int) {
+	if m.SetOrderbooksWithoutTicksFunc != nil {
+		m.SetOrderbooksWithoutTicksFunc(withoutTicks, total)
+	}
+}
+
+func (m *ChainInfoUsecaseMock) ValidateOrderbookTicks() error {
+	if m.ValidateOrderbookTicksFunc != nil {
+		return m.ValidateOrderbookTicksFunc()
+	}
+	return nil
 }
 
 func (m *ChainInfoUsecaseMock) GetLatestHeight() (uint64, error) {
