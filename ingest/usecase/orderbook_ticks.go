@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/osmosis-labs/sqs/domain"
+	"github.com/osmosis-labs/sqs/domain/recovery"
 	sqsingesttypes "github.com/osmosis-labs/sqs/ingest/types"
 )
 
@@ -20,9 +21,9 @@ const (
 
 	// orderbookTickRetryIntervalBlocks is the minimum number of blocks between two reloads of
 	// the same orderbook, so that a book that keeps failing is not retried on every block.
-	// Candidates are taken in pool ID order, so while more than about
-	// maxOrderbookTickRetriesPerBlock * orderbookTickRetryIntervalBlocks books keep failing,
-	// the higher IDs wait until the lower ones recover.
+	// Candidates are taken canonical orderbooks first, then the others, each in pool ID order,
+	// so while more than about maxOrderbookTickRetriesPerBlock * orderbookTickRetryIntervalBlocks
+	// books of a group keep failing, the higher IDs of that group wait until the lower ones recover.
 	orderbookTickRetryIntervalBlocks = 10
 )
 
@@ -72,6 +73,10 @@ func (p *ingestUseCase) startOrderbookTickLoad(ctx context.Context, height uint6
 		p.orderbookTickLoadSem <- struct{}{}
 		defer func() { <-p.orderbookTickLoadSem }()
 
+		// ProcessPool stores a pool's ticks only once all of them are loaded, so a recovered
+		// panic leaves the pool's previous ticks in place.
+		defer recovery.Log(p.logger, "recovered panic while loading orderbook ticks", domain.SQSIngestUsecasePanicRecoveredCounter.WithLabelValues("orderbook_ticks"), zap.Uint64("pool_id", poolID))
+
 		if err := p.orderBookUseCase.ProcessPool(ctx, height, pool); err != nil {
 			domain.SQSIngestHandlerProcessOrderbookPoolErrorCounter.Inc()
 			p.logger.Error(domain.SQSIngestUsecaseProcessOrderbookPoolErrorMetricName, zap.Error(err), zap.Uint64("pool_id", poolID), zap.Bool("retry", isRetry))
@@ -94,20 +99,41 @@ func (p *ingestUseCase) retryOrderbooksWithoutTicks(ctx context.Context, height 
 		return
 	}
 
-	withoutTicks, started := 0, 0
+	// Retries cover every orderbook, but the health share counts canonical orderbooks only,
+	// as those are the books quotes and the app use. So the books without ticks are split
+	// into canonical and other ones, and the canonical ones are retried first: otherwise
+	// enough persistently failing non-canonical books with lower pool IDs would use up the
+	// per-block retry budget and keep canonical books from ever being retried.
+	var canonicalRetry, otherRetry []uint64
+	withoutTicks := 0
+	canonicalWithoutTicks, canonicalTotal := 0, 0
 	for _, orderbook := range orderbooks {
+		isCanonical := p.poolsUseCase.IsCanonicalOrderbookPool(orderbook.PoolID)
+		if isCanonical {
+			canonicalTotal++
+		}
+
 		if _, ok := p.orderBookUseCase.GetAllTicks(orderbook.PoolID); ok {
 			continue
 		}
 		withoutTicks++
+		if isCanonical {
+			canonicalWithoutTicks++
+			canonicalRetry = append(canonicalRetry, orderbook.PoolID)
+		} else {
+			otherRetry = append(otherRetry, orderbook.PoolID)
+		}
+	}
 
+	started := 0
+	for _, poolID := range append(canonicalRetry, otherRetry...) {
 		if started >= maxOrderbookTickRetriesPerBlock {
-			continue
+			break
 		}
 
-		pool, err := p.poolsUseCase.GetPool(orderbook.PoolID)
+		pool, err := p.poolsUseCase.GetPool(poolID)
 		if err != nil {
-			p.logger.Error("failed to get orderbook pool for tick retry", zap.Error(err), zap.Uint64("pool_id", orderbook.PoolID))
+			p.logger.Error("failed to get orderbook pool for tick retry", zap.Error(err), zap.Uint64("pool_id", poolID))
 			continue
 		}
 
@@ -117,4 +143,5 @@ func (p *ingestUseCase) retryOrderbooksWithoutTicks(ctx context.Context, height 
 	}
 
 	domain.SQSIngestUsecaseOrderbooksWithoutTicksGauge.Set(float64(withoutTicks))
+	p.chainInfoUseCase.SetOrderbooksWithoutTicks(canonicalWithoutTicks, canonicalTotal)
 }

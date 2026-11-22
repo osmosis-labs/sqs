@@ -76,6 +76,14 @@ var (
 	// * err - the error message occurred
 	SQSIngestUsecaseParsePoolErrorMetricName = "sqs_ingest_usecase_parse_pool_error_total"
 
+	// sqs_ingest_usecase_panic_recovered_total
+	//
+	// counter that measures the panics recovered during ingest instead of crashing the process
+	//
+	// Has the following labels:
+	// * stage - where the panic was recovered: parse_pool, orderbook_ticks or end_block_plugin
+	SQSIngestUsecasePanicRecoveredMetricName = "sqs_ingest_usecase_panic_recovered_total"
+
 	// sqs_pricing_worker_compute_error_counter
 	//
 	// counter that measures the number of errors that occur during pricing worker computation
@@ -292,6 +300,14 @@ var (
 		},
 	)
 
+	SQSIngestUsecasePanicRecoveredCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: SQSIngestUsecasePanicRecoveredMetricName,
+			Help: "counter that measures the panics recovered during ingest",
+		},
+		[]string{"stage"},
+	)
+
 	SQSIngestHandlerPoolParseErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: SQSIngestUsecaseParsePoolErrorMetricName,
@@ -495,6 +511,7 @@ func init() {
 	prometheus.MustRegister(SQSTransmuterStatusQueryErrorCounter)
 	prometheus.MustRegister(SQSIngestUsecaseOrderbooksWithoutTicksGauge)
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
+	prometheus.MustRegister(SQSIngestUsecasePanicRecoveredCounter)
 	prometheus.MustRegister(SQSPricingWorkerComputeDurationGauge)
 	prometheus.MustRegister(SQSPricingWorkerComputeErrorCounter)
 	prometheus.MustRegister(SQSPoolLiquidityPricingWorkerComputeDurationGauge)
