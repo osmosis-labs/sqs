@@ -114,6 +114,7 @@ func newRoutableCosmWasmPool(pool ingesttypes.PoolI, tokenInDenom string, tokenO
 			TakerFee:      takerFee,
 			SpreadFactor:  spreadFactor,
 			LiquidityCap:  liquidityCap,
+			Statuses:      cosmWasmPoolsParams.TransmuterStatuses,
 		}, nil
 	}
 
@@ -171,6 +172,7 @@ func newRoutableCosmWasmPoolWithCustomModel(
 				TakerFee:            takerFee,
 				SpreadFactor:        spreadFactor,
 				LiquidityCap:        liquidityCap,
+				Statuses:            cosmWasmPoolsParams.TransmuterStatuses,
 			}, nil
 		}
 

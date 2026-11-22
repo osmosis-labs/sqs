@@ -323,9 +323,14 @@ func (p *poolLiquidityPricerWorker) repricePoolLiquidityCap(poolIDs map[uint64]s
 		pools[i].SetLiquidityCapError(poolLiquidityCapError)
 	}
 
-	if err := p.poolHandler.StorePools(pools); err != nil {
-		return err
-	}
+	// The pricer never writes the pool map. Pricing runs alongside ingest, so a later block may
+	// have stored a newer version of a pool while it was being priced, and storing the version
+	// read above would put its older balances back. SetLiquidityCap and SetLiquidityCapError
+	// above already mutate the pool object that is stored, so for a pool that is still current
+	// there is nothing to write. The one thing left to do is the canonical orderbook election,
+	// which uses the new liquidity caps; it skips a pool that was replaced meanwhile, as the
+	// block that replaced it reprices it.
+	p.poolHandler.UpdateCanonicalOrderbooks(pools)
 
 	return nil
 }

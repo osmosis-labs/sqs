@@ -25,6 +25,8 @@ type routableTransmuterPoolImpl struct {
 	TakerFee      osmomath.Dec              `json:"taker_fee"`
 	SpreadFactor  osmomath.Dec              `json:"spread_factor"`
 	LiquidityCap  osmomath.Int              `json:"liquidity_cap"`
+	// Statuses reports whether the contract is paused or has corrupted denoms. May be nil.
+	Statuses *domain.TransmuterStatuses `json:"-"`
 }
 
 // GetId implements domain.RoutablePool.
@@ -68,6 +70,10 @@ func (r *routableTransmuterPoolImpl) CalculateTokenOutByTokenIn(ctx context.Cont
 		return sdk.Coin{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
 	}
 
+	if err := r.Statuses.CheckSwap(r.GetId(), tokenIn.Denom, r.TokenOutDenom, "", osmomath.Int{}, nil); err != nil {
+		return sdk.Coin{}, err
+	}
+
 	balances := r.Balances
 
 	// Validate token out balance
@@ -93,6 +99,10 @@ func (r *routableTransmuterPoolImpl) CalculateTokenInByTokenOut(ctx context.Cont
 	// Ensure that the pool is concentrated
 	if poolType != poolmanagertypes.CosmWasm {
 		return sdk.Coin{}, domain.InvalidPoolTypeError{PoolType: int32(poolType)}
+	}
+
+	if err := r.Statuses.CheckSwap(r.GetId(), r.TokenInDenom, tokenOut.Denom, "", osmomath.Int{}, nil); err != nil {
+		return sdk.Coin{}, err
 	}
 
 	balances := r.Balances

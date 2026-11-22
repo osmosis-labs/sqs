@@ -9,9 +9,12 @@ import (
 )
 
 type PoolHandlerMock struct {
-	Pools                []ingesttypes.PoolI
-	ForceGetPoolsError   error
-	ForceStorePoolsError error
+	Pools []ingesttypes.PoolI
+	// CanonicalOrderbookUpdates records, per UpdateCanonicalOrderbooks call, the pools that were
+	// elected, which are the given pools that are still the stored object for their ID.
+	CanonicalOrderbookUpdates [][]ingesttypes.PoolI
+	ForceGetPoolsError        error
+	ForceStorePoolsError      error
 }
 
 var _ mvc.PoolHandler = &PoolHandlerMock{}
@@ -47,6 +50,20 @@ func (p *PoolHandlerMock) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.Po
 	}
 
 	return result, uint64(len(result)), nil
+}
+
+// UpdateCanonicalOrderbooks implements mvc.PoolHandler. It never writes Pools.
+func (p *PoolHandlerMock) UpdateCanonicalOrderbooks(pools []ingesttypes.PoolI) {
+	current := make([]ingesttypes.PoolI, 0, len(pools))
+	for _, pool := range pools {
+		for _, stored := range p.Pools {
+			if stored.GetId() == pool.GetId() && stored == pool {
+				current = append(current, pool)
+				break
+			}
+		}
+	}
+	p.CanonicalOrderbookUpdates = append(p.CanonicalOrderbookUpdates, current)
 }
 
 // StorePools implements mvc.PoolHandler.

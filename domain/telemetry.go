@@ -286,6 +286,13 @@ var (
 		},
 	)
 
+	SQSTransmuterStatusQueryErrorCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "sqs_transmuter_status_query_error_total",
+			Help: "counter that measures the number of failed is_active and get_corrupted_denoms queries to transmuter contracts",
+		},
+	)
+
 	SQSIngestUsecaseOrderbooksWithoutTicksGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: SQSIngestUsecaseOrderbooksWithoutTicksMetricName,
@@ -501,6 +508,7 @@ func init() {
 	prometheus.MustRegister(SQSIngestHandlerCoalescedBlocksCounter)
 	prometheus.MustRegister(SQSPricingWorkerCoalescedUpdatesCounter)
 	prometheus.MustRegister(SQSIngestHandlerProcessOrderbookPoolErrorCounter)
+	prometheus.MustRegister(SQSTransmuterStatusQueryErrorCounter)
 	prometheus.MustRegister(SQSIngestUsecaseOrderbooksWithoutTicksGauge)
 	prometheus.MustRegister(SQSIngestHandlerPoolParseErrorCounter)
 	prometheus.MustRegister(SQSIngestUsecasePanicRecoveredCounter)

@@ -50,7 +50,9 @@ type chainInfoUseCase struct {
 const (
 	// The stored height must increase within this window. It is 5 minutes so that a stuck
 	// node is taken out of rotation within minutes, while brief block delays do not flap health.
-	// A planned upgrade halt longer than this makes SQS unhealthy.
+	// A chain halt longer than this also fails the healthcheck and the quote endpoints: a halted
+	// chain and a stuck node look the same from here (same height, node not catching up), and
+	// serving a stuck node's state is the worse failure. Both recover on the next stored block.
 	MaxAllowedHeightUpdateTimeDeltaSecs = 300
 
 	// Number of heights of buffer between the latest state height and the latest price/pool liquidity update height

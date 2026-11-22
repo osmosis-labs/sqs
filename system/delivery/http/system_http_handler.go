@@ -142,7 +142,7 @@ func (h *SystemHandler) GetHealthStatus(c echo.Context) error {
 	latestChainHeight := uint64(statusResponse.SyncInfo.LatestBlockHeight)
 
 	// Check the latest height from chain info use case
-	// Errors if the height has not beein updated for more than 30 seconds
+	// Errors if the height has not increased for more than MaxAllowedHeightUpdateTimeDeltaSecs
 	latestStoreHeight, err := h.CIUsecase.GetLatestHeight()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to get latest height from sqs store: %s", err))
