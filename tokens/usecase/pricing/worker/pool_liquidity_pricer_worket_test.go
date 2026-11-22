@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -707,6 +708,68 @@ func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap() {
 			s.validateLiquidityCapPools(tt.expectedLiquidityResultByID, actualPools)
 		})
 	}
+}
+
+// replacingPoolHandler stores newer, the next block's version of a pool, right after the
+// pricer first reads the pools, as ingest can while pricing runs.
+type replacingPoolHandler struct {
+	*mocks.PoolHandlerMock
+	newer    ingesttypes.PoolI
+	replaced bool
+}
+
+func (h *replacingPoolHandler) GetPools(opts ...domain.PoolsOption) ([]ingesttypes.PoolI, uint64, error) {
+	pools, n, err := h.PoolHandlerMock.GetPools(opts...)
+	if !h.replaced {
+		h.replaced = true
+		h.Pools = []ingesttypes.PoolI{h.newer}
+	}
+	return pools, n, err
+}
+
+// TestRepricePoolLiquidityCap_KeepsNewerPool checks that repricing doesn't put an older
+// version of a pool back over one a later block stored while it was being priced.
+func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap_KeepsNewerPool() {
+	older := &mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}
+	newer := &mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance.AddAmount(defaultLiquidity))}
+	handler := &replacingPoolHandler{PoolHandlerMock: &mocks.PoolHandlerMock{Pools: []ingesttypes.PoolI{older}}, newer: newer}
+
+	liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
+	pricerWorker := worker.NewPoolLiquidityWorker(nil, nil, handler, liquidityPricer, &log.NoOpLogger{})
+
+	err := pricerWorker.RepricePoolLiquidityCap(map[uint64]struct{}{defaultPoolID: {}}, defaultBlockPriceUpdates)
+	s.Require().NoError(err)
+
+	s.Require().Len(handler.Pools, 1)
+	s.Require().Same(newer, handler.Pools[0])
+
+	// The replaced pool is not elected from either.
+	s.Require().Equal([][]ingesttypes.PoolI{{}}, handler.CanonicalOrderbookUpdates)
+}
+
+// TestRepricePoolLiquidityCap_UpdatesCanonicalOrderbooksWithoutStoring checks that repricing sets the
+// liquidity cap on the stored pool, hands it to the canonical orderbook election, and does not write
+// the pool map.
+func (s *PoolLiquidityComputeWorkerSuite) TestRepricePoolLiquidityCap_UpdatesCanonicalOrderbooksWithoutStoring() {
+	pool := &mocks.MockRoutablePool{ID: defaultPoolID, Balances: sdk.NewCoins(defaultUOSMOBalance)}
+	handler := &mocks.PoolHandlerMock{
+		Pools: []ingesttypes.PoolI{pool},
+		// A failing store must not matter: the pricer does not store.
+		ForceStorePoolsError: errors.New("store must not be called"),
+	}
+
+	liquidityPricer := worker.NewLiquidityPricer(USDC, mocks.SetupMockScalingFactorCbFromMap(defaultScalingFactorMap))
+	pricerWorker := worker.NewPoolLiquidityWorker(nil, nil, handler, liquidityPricer, &log.NoOpLogger{})
+
+	s.Require().NoError(pricerWorker.RepricePoolLiquidityCap(map[uint64]struct{}{defaultPoolID: {}}, defaultBlockPriceUpdates))
+
+	s.Require().Len(handler.Pools, 1)
+	s.Require().Same(pool, handler.Pools[0])
+	s.Require().True(pool.GetLiquidityCap().IsPositive())
+
+	s.Require().Len(handler.CanonicalOrderbookUpdates, 1)
+	s.Require().Len(handler.CanonicalOrderbookUpdates[0], 1)
+	s.Require().Same(pool, handler.CanonicalOrderbookUpdates[0][0])
 }
 
 // validatePoolDenomMetadata validates the pool denom metadata map.

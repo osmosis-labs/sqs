@@ -57,9 +57,9 @@ type poolsUseCase struct {
 	routerRepository    routerrepo.RouterRepository
 	tokenMetadataHolder TokenMetadataHolder
 
-	// canonicalOrderbookMu serialises canonical orderbook updates. StorePools is
-	// called from both the ingest and the pool liquidity pricing paths, and an
-	// update is a read-compare-write over the two maps below.
+	// canonicalOrderbookMu serialises canonical orderbook updates. They run from both
+	// the ingest path (StorePools) and the pool liquidity pricing path
+	// (UpdateCanonicalOrderbooks), and an update is a read-compare-write over the two maps below.
 	canonicalOrderbookMu                sync.Mutex
 	canonicalOrderBookForBaseQuoteDenom sync.Map
 	canonicalOrderbookPoolIDs           sync.Map
@@ -725,6 +725,32 @@ func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 
 	// The orderbooks are processed once every pool is stored, so that electing a canonical
 	// orderbook reads the current state of all of them.
+	p.updateCanonicalOrderbooks(pools)
+	return nil
+}
+
+// UpdateCanonicalOrderbooks implements mvc.PoolHandler.
+//
+// It runs the canonical orderbook election for the given pools with their current liquidity caps,
+// without writing the pool map. A pool that is no longer the stored object for its ID, because a
+// later block stored a newer version, is skipped: its capitalization is stale and the newer
+// version is elected when it is priced.
+func (p *poolsUseCase) UpdateCanonicalOrderbooks(pools []ingesttypes.PoolI) {
+	current := make([]ingesttypes.PoolI, 0, len(pools))
+	for _, pool := range pools {
+		stored, err := p.GetPool(pool.GetId())
+		if err != nil || stored != pool {
+			continue
+		}
+		current = append(current, pool)
+	}
+
+	p.updateCanonicalOrderbooks(current)
+}
+
+// updateCanonicalOrderbooks elects the canonical orderbook for the base and quote denoms of every
+// orderbook pool in the given pools, and records the orderbooks.
+func (p *poolsUseCase) updateCanonicalOrderbooks(pools []ingesttypes.PoolI) {
 	for _, pool := range pools {
 		poolID := pool.GetId()
 
@@ -761,7 +787,6 @@ func (p *poolsUseCase) StorePools(pools []ingesttypes.PoolI) error {
 			}
 		}
 	}
-	return nil
 }
 
 // processOrderbookPoolIDForBaseQuote processes the orderbook pool ID for the base and quote denom and pool liquidity

@@ -22,6 +22,7 @@ type PoolsUsecaseMock struct {
 	GetAllPoolsFunc                     func() ([]ingesttypes.PoolI, error)
 	GetPoolsFunc                        func(opts ...domain.PoolsOption) ([]ingesttypes.PoolI, uint64, error)
 	StorePoolsFunc                      func(pools []ingesttypes.PoolI) error
+	UpdateCanonicalOrderbooksFunc       func(pools []ingesttypes.PoolI)
 	GetRoutesFromCandidatesFunc         func(candidateRoutes ingesttypes.CandidateRoutes, tokenInDenom, tokenOutDenom string) ([]route.RouteImpl, error)
 	GetTickModelMapFunc                 func(poolIDs []uint64) (map[uint64]*ingesttypes.TickModel, error)
 	GetPoolFunc                         func(poolID uint64) (ingesttypes.PoolI, error)
@@ -99,6 +100,13 @@ func (pm *PoolsUsecaseMock) StorePools(pools []ingesttypes.PoolI) error {
 		return pm.StorePoolsFunc(pools)
 	}
 	panic("unimplemented")
+}
+
+// UpdateCanonicalOrderbooks implements mvc.PoolsUsecase.
+func (pm *PoolsUsecaseMock) UpdateCanonicalOrderbooks(pools []ingesttypes.PoolI) {
+	if pm.UpdateCanonicalOrderbooksFunc != nil {
+		pm.UpdateCanonicalOrderbooksFunc(pools)
+	}
 }
 
 // GetCosmWasmPoolConfig implements mvc.PoolsUsecase.
