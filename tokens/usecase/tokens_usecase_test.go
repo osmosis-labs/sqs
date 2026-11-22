@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/cache"
@@ -202,6 +203,125 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_CountsNoPriceApartFromErrors() {
 	s.Require().Equal(errorsBefore+1, s.counterValue(domain.SQSPricingErrorCounterMetricName))
 }
 
+// Validates that WithNoFallback leaves a token without a chain price unpriced instead of using the fallback.
+func (s *TokensUseCaseTestSuite) TestGetPrices_NoFallbackOption() {
+	const quoteDenom = "uquote"
+	usecase := tokensusecase.NewTokensUsecase(map[string]domain.Token{
+		"utoken":   {HumanDenom: "token", Precision: 6},
+		quoteDenom: {HumanDenom: "quote", Precision: 6},
+	}, 0, noOpLogger)
+	usecase.RegisterPricingStrategy(domain.ChainPricingSourceType, stubPricingSource{
+		noPrice:  map[string]bool{"utoken": true},
+		fallback: domain.CoinGeckoPricingSourceType,
+	})
+	usecase.RegisterPricingStrategy(domain.CoinGeckoPricingSourceType, stubPricingSource{prices: map[string]osmomath.BigDec{"utoken": osmomath.NewBigDec(3)}})
+
+	prices, err := usecase.GetPrices(context.Background(), []string{"utoken"}, []string{quoteDenom}, domain.ChainPricingSourceType)
+	s.Require().NoError(err)
+	s.Require().Equal(osmomath.NewBigDec(3), prices["utoken"][quoteDenom].Price)
+
+	prices, err = usecase.GetPrices(context.Background(), []string{"utoken"}, []string{quoteDenom}, domain.ChainPricingSourceType, domain.WithNoFallback())
+	s.Require().NoError(err)
+	s.Require().Empty(prices["utoken"])
+}
+
+// Validates that of the denoms sharing a Coingecko id only the canonical holder keeps it, and a
+// shared id with no canonical holder is kept by none.
+func (s *TokensUseCaseTestSuite) TestLoadTokens_SharedCoingeckoIdKeptByCanonicalDenomOnly() {
+	usecase := tokensusecase.NewTokensUsecase(map[string]domain.Token{
+		"uusdc":     {HumanDenom: "USDC", CoingeckoID: "usd-coin"},
+		"ibc/noble": {HumanDenom: "USDC.noble", CoingeckoID: "usd-coin"},
+		"ibc/inj":   {HumanDenom: "USDC.inj", CoingeckoID: " usd-coin "},
+		"ibc/atom":  {HumanDenom: "ATOM", CoingeckoID: "cosmos"},
+		"ibc/solo":  {HumanDenom: "SOLO.bridge", CoingeckoID: "solo"},
+		"ibc/a":     {HumanDenom: "AAA.x", CoingeckoID: "dup"},
+		"ibc/b":     {HumanDenom: "AAA.y", CoingeckoID: "dup"},
+	}, 0, noOpLogger)
+
+	expected := map[string]string{
+		"uusdc": "usd-coin", "ibc/noble": "", "ibc/inj": "", "ibc/atom": "cosmos", "ibc/solo": "solo", "ibc/a": "", "ibc/b": "",
+	}
+	for denom, id := range expected {
+		got, err := usecase.GetCoingeckoIdByChainDenom(denom)
+		s.Require().NoError(err)
+		s.Require().Equal(id, got, denom)
+	}
+}
+
+// Validates that a preview token with a dot-free symbol and the same Coingecko id does not take the id
+// from the listed token, that several listed (or several preview) dot-free holders leave the id with
+// none, and that an id left with no canonical holder is logged.
+func (s *TokensUseCaseTestSuite) TestLoadTokens_SharedCoingeckoIdPrefersListedDotFreeHolder() {
+	logger := &sharedIDWarnLogger{}
+	usecase := tokensusecase.NewTokensUsecase(map[string]domain.Token{
+		// One listed dot-free holder and one preview dot-free holder: the listed one is canonical.
+		"uwell":        {HumanDenom: "WELL", CoingeckoID: "well"},
+		"ibc/previewa": {HumanDenom: "WELL2", CoingeckoID: "well", IsUnlisted: true},
+		"ibc/dotted":   {HumanDenom: "WELL.axl", CoingeckoID: "well"},
+		// Two listed dot-free holders: none is canonical.
+		"ibc/l1": {HumanDenom: "TWO1", CoingeckoID: "two"},
+		"ibc/l2": {HumanDenom: "TWO2", CoingeckoID: "two"},
+		// Two preview dot-free holders: none is canonical.
+		"ibc/p1": {HumanDenom: "PRE1", CoingeckoID: "pre", IsUnlisted: true},
+		"ibc/p2": {HumanDenom: "PRE2", CoingeckoID: "pre", IsUnlisted: true},
+		// A single dot-free holder stays canonical whether or not it is listed.
+		"ibc/only":  {HumanDenom: "ONLY", CoingeckoID: "only", IsUnlisted: true},
+		"ibc/onlyb": {HumanDenom: "ONLY.b", CoingeckoID: "only"},
+	}, 0, logger)
+
+	expected := map[string]string{
+		"uwell": "well", "ibc/previewa": "", "ibc/dotted": "",
+		"ibc/l1": "", "ibc/l2": "",
+		"ibc/p1": "", "ibc/p2": "",
+		"ibc/only": "only", "ibc/onlyb": "",
+	}
+	for denom, id := range expected {
+		got, err := usecase.GetCoingeckoIdByChainDenom(denom)
+		s.Require().NoError(err)
+		s.Require().Equal(id, got, denom)
+	}
+
+	// Only the ids that end up with no canonical holder are logged, with the ids and the denoms.
+	s.Require().Equal(map[string][]string{
+		"two": {"ibc/l1", "ibc/l2"},
+		"pre": {"ibc/p1", "ibc/p2"},
+	}, logger.unresolved)
+}
+
+// sharedIDWarnLogger records the Coingecko ids logged as having no canonical holder.
+type sharedIDWarnLogger struct {
+	log.NoOpLogger
+	unresolved map[string][]string
+}
+
+func (l *sharedIDWarnLogger) Warn(msg string, fields ...zap.Field) {
+	var id string
+	var denoms []string
+	enc := zapcore.NewMapObjectEncoder()
+	for _, field := range fields {
+		field.AddTo(enc)
+	}
+	if v, ok := enc.Fields["coingecko_id"].(string); ok {
+		id = v
+	}
+	if v, ok := enc.Fields["chain_denoms"].([]interface{}); ok {
+		for _, d := range v {
+			denoms = append(denoms, d.(string))
+		}
+	}
+	if id == "" {
+		return
+	}
+	if l.unresolved == nil {
+		l.unresolved = map[string][]string{}
+	}
+	l.unresolved[id] = denoms
+}
+
+func (l *sharedIDWarnLogger) Named(string) log.Logger {
+	return l
+}
+
 // cancellingPricingSource cancels the request while it is being asked for a price, as when a
 // client disconnects while the fallback source is waited on.
 type cancellingPricingSource struct {
@@ -279,8 +399,14 @@ func (s *TokensUseCaseTestSuite) TestGetPrices_Coingecko() {
 	prices, err := mainnetUsecase.Tokens.GetPrices(context.Background(), routertesting.MainnetDenoms, []string{USDC}, domain.CoinGeckoPricingSourceType)
 	s.Require().NoError(err)
 	s.Require().Len(prices, len(routertesting.MainnetDenoms))
-	for _, baseAssetPrices := range prices {
-		s.Require().Len(baseAssetPrices, 1)
+	for baseDenom, baseAssetPrices := range prices {
+		// USDT here is Kava USDT, a variant that shares a Coingecko id with another listed denom,
+		// so it is not priced from Coingecko.
+		if baseDenom == USDT {
+			s.Require().Empty(baseAssetPrices, baseDenom)
+			continue
+		}
+		s.Require().Len(baseAssetPrices, 1, baseDenom)
 		usdcQuoteAny, ok := baseAssetPrices[USDC]
 		s.Require().True(ok)
 		usdcQuote := s.ConvertAnyToBigDec(usdcQuoteAny.Price)

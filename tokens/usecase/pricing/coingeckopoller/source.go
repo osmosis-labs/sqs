@@ -67,9 +67,14 @@ var (
 // entry is what Coingecko last said about one id.
 type entry struct {
 	price osmomath.BigDec
-	// pricedAt is when the request that returned price started, the earliest the price could be
-	// from; zero if Coingecko has not returned a price for the id.
+	// pricedAt is when the request that last returned or confirmed price started: price is served
+	// for maxAge after it. Zero if Coingecko has not returned a price for the id.
 	pricedAt time.Time
+	// upstreamAt is the time Coingecko reports for price (last_updated_at), zero if it reported none.
+	// It is not used to serve the price, only to keep a price that an edge cache answered with an
+	// older age than the stored one from replacing it, and to see whether a stored price is still
+	// recent upstream.
+	upstreamAt time.Time
 	// answeredAt is when the last request answered for the id started, with or without a price.
 	answeredAt time.Time
 }
@@ -89,8 +94,10 @@ type Source struct {
 	defaultQuoteDenom string
 	interval          time.Duration
 	maxAge            time.Duration
-	now               func() time.Time
-	sleep             func(ctx context.Context, d time.Duration) bool
+	// maxUpstreamAge is the oldest last_updated_at an answer may carry, see maxUpstreamAge.
+	maxUpstreamAge time.Duration
+	now            func() time.Time
+	sleep          func(ctx context.Context, d time.Duration) bool
 
 	snap    atomic.Pointer[snapshot]
 	running atomic.Bool
@@ -126,14 +133,15 @@ func newSource(tokens mvc.TokensUsecase, fetch fetchFunc, interval time.Duration
 		panic(fmt.Sprintf("coingeckopoller: non-positive refresh interval %s", interval))
 	}
 	s := &Source{
-		tokens:   tokens,
-		logger:   logger,
-		fetch:    fetch,
-		interval: interval,
-		maxAge:   maxAge(interval),
-		now:      time.Now,
-		sleep:    sleep,
-		wake:     make(chan struct{}, 1),
+		tokens:         tokens,
+		logger:         logger,
+		fetch:          fetch,
+		interval:       interval,
+		maxAge:         maxAge(interval),
+		maxUpstreamAge: maxUpstreamAge(interval),
+		now:            time.Now,
+		sleep:          sleep,
+		wake:           make(chan struct{}, 1),
 	}
 	s.snap.Store(&snapshot{entries: map[string]entry{}})
 	return s
@@ -158,6 +166,17 @@ func refreshInterval(ms int) time.Duration {
 // one retried after a few seconds of backoff, lands before the answers it replaces expire.
 func maxAge(interval time.Duration) time.Duration {
 	return interval + max(interval/5, minMaxAgeGrace)
+}
+
+// maxUpstreamAge returns how old the last_updated_at of an answer may be, relative to the start of
+// its request, for the answer to be accepted: the larger of three intervals and 15 minutes. Coingecko
+// refreshes its prices every few minutes, so an older timestamp means an edge cache or an upstream
+// outage is serving a price that is no longer current. It only rejects answers; a price that is
+// accepted is served for maxAge from the request, as the refresh runs every interval whatever the
+// timestamp says. It is far above maxAge on purpose: a price that is a few minutes old upstream
+// is normal and is still served for a full maxAge after each refresh.
+func maxUpstreamAge(interval time.Duration) time.Duration {
+	return max(3*interval, 15*time.Minute)
 }
 
 // GetPrice implements domain.PricingSource. Coingecko prices are in USD, which is served for a
@@ -313,7 +332,18 @@ func (s *Source) refresh(ctx context.Context) error {
 
 // publish stores the answer to a request for chunk that started at answeredAt. The snapshot keeps
 // only ids, the current ids from the token metadata.
-func (s *Source) publish(ids, chunk []string, prices map[string]osmomath.BigDec, answeredAt time.Time) {
+//
+// A price is served for maxAge from the start of the request that returned it, so pricedAt is
+// answeredAt. Coingecko's last_updated_at (upstreamAt) only decides whether to believe an answer:
+//   - an answer whose last_updated_at is older than maxUpstreamAge is treated like an id answered
+//     without a price: answeredAt is updated and the stored price is left alone to expire on its own;
+//   - an answer whose last_updated_at is older than the stored price's, as edge caches can answer
+//     successive requests with different ages, keeps the stored price and its upstreamAt. The request
+//     still confirmed that price, so its pricedAt moves to answeredAt, provided its upstreamAt is
+//     itself within maxUpstreamAge;
+//   - a missing last_updated_at is accepted; one after the request started is not believed and is
+//     taken as the request start.
+func (s *Source) publish(ids, chunk []string, prices map[string]fetchedPrice, answeredAt time.Time) {
 	prev := s.snap.Load()
 	next := make(map[string]entry, len(ids))
 	for _, id := range ids {
@@ -325,13 +355,38 @@ func (s *Source) publish(ids, chunk []string, prices map[string]osmomath.BigDec,
 		e := next[id]
 		e.answeredAt = answeredAt
 		// An id answered without a price keeps its previous price, which expires on its own.
-		if price, ok := prices[id]; ok {
-			e.price, e.pricedAt = price, answeredAt
+		if fetched, ok := prices[id]; ok {
+			e = s.applyFetched(e, fetched, answeredAt)
 		}
 		next[id] = e
 	}
 	s.snap.Store(&snapshot{entries: next})
 	domain.SQSPricingCoingeckoOldestAnswerGauge.Set(oldestAnswer(ids, next))
+}
+
+// applyFetched returns e updated with a price answered by a request that started at answeredAt.
+func (s *Source) applyFetched(e entry, fetched fetchedPrice, answeredAt time.Time) entry {
+	upstreamAt := fetched.updatedAt
+	if upstreamAt.After(answeredAt) {
+		upstreamAt = answeredAt
+	}
+
+	// Upstream stale: not a price, as if Coingecko had answered without one.
+	if !upstreamAt.IsZero() && answeredAt.Sub(upstreamAt) > s.maxUpstreamAge {
+		return e
+	}
+
+	// An older answer than the stored price keeps the stored price, which this request confirmed
+	// if it is itself recent upstream.
+	if !e.pricedAt.IsZero() && !upstreamAt.IsZero() && !e.upstreamAt.IsZero() && upstreamAt.Before(e.upstreamAt) {
+		if answeredAt.Sub(e.upstreamAt) <= s.maxUpstreamAge {
+			e.pricedAt = answeredAt
+		}
+		return e
+	}
+
+	e.price, e.pricedAt, e.upstreamAt = fetched.price, answeredAt, upstreamAt
+	return e
 }
 
 // oldestAnswer returns the unix time of the oldest answer among ids, or 0 if any id has none.

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -133,8 +135,22 @@ func (t *TokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.T
 		t.tokenMetadataByChainDenom.Store(chainDenom, tokenMetadata)
 
 		t.chainDenoms.Store(chainDenom, struct{}{})
+	}
 
-		t.coingeckoIds.Store(chainDenom, tokenMetadata.CoingeckoID)
+	canonicalCoingeckoDenoms, unresolvedCoingeckoIDs := canonicalDenomsByCoingeckoID(tokenMetadataByChainDenom)
+	if t.logger != nil {
+		for _, id := range slices.Sorted(maps.Keys(unresolvedCoingeckoIDs)) {
+			t.logger.Warn("coingecko id is shared by several denoms and has no canonical holder, so none of them is priced from it", zap.String("coingecko_id", id), zap.Strings("chain_denoms", unresolvedCoingeckoIDs[id]))
+		}
+	}
+	for _, chainDenom := range chainDenoms {
+		// A denom that shares its Coingecko id with others and is not the canonical holder has no
+		// Coingecko id here, so that it is not priced as the coin the id belongs to.
+		coingeckoID := tokenMetadataByChainDenom[chainDenom].CoingeckoID
+		if holder, shared := canonicalCoingeckoDenoms[strings.TrimSpace(coingeckoID)]; shared && holder != chainDenom {
+			coingeckoID = ""
+		}
+		t.coingeckoIds.Store(chainDenom, coingeckoID)
 	}
 
 	for humanDenom, chainDenom := range exactWinners {
@@ -148,6 +164,55 @@ func (t *TokensUseCase) LoadTokens(tokenMetadataByChainDenom map[string]domain.T
 			t.logger.Warn("human denom resolves to multiple chain denoms", zap.String("human_denom", lowerCaseHumanDenom), zap.Strings("chain_denoms", candidates), zap.String("resolved_case_insensitive", chainDenom))
 		}
 	}
+}
+
+// canonicalDenomsByCoingeckoID returns, for every Coingecko id held by more than one denom, the
+// denom that is the canonical holder of the id, or "" if there is none, and for the ids without a
+// canonical holder the sorted denoms that hold them. Dead and bridged variants of a coin are listed
+// under the coin's id, as USDC.noble is under usd-coin, and take the symbol of the coin with a
+// suffix for where they come from. So the canonical holder is the one denom whose symbol has no
+// such suffix. If several denoms have none, the one that is listed (not a preview token) is, when
+// exactly one is: a preview token added with the same id must not take the id from the real token.
+// Otherwise no denom is canonical and the id is not used to price any of them.
+func canonicalDenomsByCoingeckoID(tokens map[string]domain.Token) (canonical map[string]string, unresolved map[string][]string) {
+	holders := make(map[string][]string)
+	for chainDenom, token := range tokens {
+		if id := strings.TrimSpace(token.CoingeckoID); id != "" {
+			holders[id] = append(holders[id], chainDenom)
+		}
+	}
+
+	canonical = make(map[string]string)
+	unresolved = make(map[string][]string)
+	for id, denoms := range holders {
+		if len(denoms) < 2 {
+			continue
+		}
+		sort.Strings(denoms)
+
+		var plain, plainListed []string
+		for _, chainDenom := range denoms {
+			token := tokens[chainDenom]
+			if strings.Contains(token.HumanDenom, ".") {
+				continue
+			}
+			plain = append(plain, chainDenom)
+			if !token.IsUnlisted {
+				plainListed = append(plainListed, chainDenom)
+			}
+		}
+
+		switch {
+		case len(plain) == 1:
+			canonical[id] = plain[0]
+		case len(plain) > 1 && len(plainListed) == 1:
+			canonical[id] = plainListed[0]
+		default:
+			canonical[id] = ""
+			unresolved[id] = denoms
+		}
+	}
+	return canonical, unresolved
 }
 
 // setHumanDenomWinner records chainDenom as the resolution for humanDenom unless an already recorded
@@ -439,6 +504,11 @@ func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 		}
 	}()
 
+	var options domain.PricingOptions
+	for _, opt := range pricingOptions {
+		opt(&options)
+	}
+
 	for _, quoteDenom := range quoteDenoms {
 		price, routes, err := pricingStrategy.GetPrice(ctx, baseDenom, quoteDenom, pricingOptions...)
 		if err == nil {
@@ -453,7 +523,7 @@ func (t *TokensUseCase) getPricesForBaseDenom(ctx context.Context, baseDenom str
 		// that a fallback's "no price" does not hide a failure of the primary source.
 		noPrice := domain.IsNoPrice(err)
 		primaryErr, fellBack := err, false
-		if err != nil { // Check if we should fallback to another pricing source
+		if err != nil && !options.NoFallback { // Check if we should fallback to another pricing source
 			fallbackSourceType := pricingStrategy.GetFallbackStrategy(quoteDenom)
 			if fallbackSourceType != domain.NoneSourceType {
 				t.logger.Info(domain.SQSPricingFallbackCounterMetricName, zap.String("baseDenom", baseDenom), zap.String("quoteDenom", quoteDenom))
