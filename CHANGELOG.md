@@ -50,7 +50,7 @@ Requests that exceed the new bounds are rejected with 400. Response shapes are u
 ### Features
 
 - #740 | Report the quote denom's peg against US dollars: `/router/quote` carries an optional `quote_usd_peg`, and `/tokens/prices?includeQuoteUsdPeg=true` wraps the response as `{"prices": ..., "quote_usd_peg": ...}`. Configured under `pricing.quote-usd-peg`, off by default; enabling it requires `coingecko-quote-currency` `usd`
-- #735 | The router skips paused transmuters and refuses swaps that a transmuter's corrupted denoms would block
+- #735 | The router skips paused transmuters and refuses swaps that a transmuter's corrupted denoms would block. A quote refused by a transmuter (paused, or a corrupted denom) returns 422 rather than 500
 
 ### Improvements
 
