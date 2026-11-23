@@ -171,7 +171,7 @@ var DefaultConfig = Config{
 		MaxPoolsPerRoute:           4,
 		MaxRoutes:                  20,
 		MinPoolLiquidityCap:        1000,
-		CoingeckoUrl:               "https://prices.osmosis.zone/api/v3/simple/price",
+		CoingeckoUrl:               "https://api.coingecko.com/api/v3/simple/price",
 		CoingeckoQuoteCurrency:     "usd",
 		CoingeckoRefreshIntervalMs: 5 * 60 * 1000,
 		WorkerMinPoolLiquidityCap:  1000,
