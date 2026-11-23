@@ -54,7 +54,7 @@ var (
 )
 
 // GetStatusCode returns the HTTP status code for an error. Errors caused by the request
-// (unknown pool, no route, a swap the pools cannot fill) map to 4xx; anything else is a 500.
+// (unknown pool, no route, a swap the pools cannot fill or a transmuter refuses) map to 4xx; anything else is a 500.
 // Wrapped errors are matched too, so the response message can carry extra context.
 func GetStatusCode(err error) int {
 	if err == nil {
@@ -66,6 +66,8 @@ func GetStatusCode(err error) int {
 		concentratedNoLiq      ConcentratedNotEnoughLiquidityToCompleteSwapError
 		orderbookNoLiq         OrderbookNotEnoughLiquidityToCompleteSwapError
 		transmuterInsufficient TransmuterInsufficientBalanceError
+		transmuterInactive     TransmuterInactiveError
+		transmuterCorrupted    TransmuterCorruptedDenomError
 	)
 
 	switch {
@@ -78,7 +80,8 @@ func GetStatusCode(err error) int {
 	case errors.Is(err, ErrNoTokensOut):
 		return http.StatusBadRequest
 	case errors.Is(err, ErrDesiredOutputNotProducible), errors.Is(err, ErrAmountOutZero),
-		errors.As(err, &concentratedNoLiq), errors.As(err, &orderbookNoLiq), errors.As(err, &transmuterInsufficient):
+		errors.As(err, &concentratedNoLiq), errors.As(err, &orderbookNoLiq), errors.As(err, &transmuterInsufficient),
+		errors.As(err, &transmuterInactive), errors.As(err, &transmuterCorrupted):
 		return http.StatusUnprocessableEntity
 	default:
 		return http.StatusInternalServerError

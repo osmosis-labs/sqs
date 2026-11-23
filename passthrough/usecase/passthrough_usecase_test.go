@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -766,4 +767,66 @@ func (s *PassthroughUseCaseTestSuite) TestGetPortfolioAssets_FetchPanicIsContain
 	}
 	// Staked, in locks, unclaimed rewards, pooled and the total built from them.
 	s.Require().Equal(5, bestEffort)
+}
+
+// Validates that a denom whose pricing fails marks only the categories holding it as best effort.
+// GetPrices fails a whole batch for one failing denom, so the portfolio falls back to pricing
+// denoms one by one rather than leaving every category unpriced.
+func (s *PassthroughUseCaseTestSuite) TestGetPortfolioAssets_PricingFailureIsIsolated() {
+	tokensUsecaseMock := mocks.TokensUsecaseMock{
+		GetPricesFunc: func(ctx context.Context, baseDenoms []string, quoteDenoms []string, pricingSourceType domain.PricingSourceType, opts ...domain.PricingOption) (domain.PricesResult, error) {
+			if slices.Contains(baseDenoms, WBTC) {
+				return nil, errors.New("pricing failed")
+			}
+			result := make(domain.PricesResult, len(baseDenoms))
+			for _, denom := range baseDenoms {
+				result[denom] = defaultPriceResult[denom]
+			}
+			return result, nil
+		},
+
+		IsValidChainDenomFunc: isValidChainDenomFuncMock,
+	}
+
+	noCoins := func(ctx context.Context, address string) (sdk.Coins, error) {
+		return sdk.Coins{}, nil
+	}
+
+	grpcClientMock := mocks.PassthroughGRPCClientMock{
+		MockAllBalancesCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			return sdk.NewCoins(osmoCoin), nil
+		},
+		MockAccountLockedCoinsCb:    noCoins,
+		MockAccountUnlockingCoinsCb: noCoins,
+		MockDelegatorDelegationsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			return sdk.NewCoins(wbtcCoin), nil
+		},
+		MockDelegatorUnbondingDelegationsCb: func(ctx context.Context, address string) (sdk.Coins, error) {
+			return sdk.NewCoins(atomCoin), nil
+		},
+		MockUserPositionsBalancesCb: func(ctx context.Context, address string) (sdk.Coins, sdk.Coins, error) {
+			return sdk.Coins{}, sdk.Coins{}, nil
+		},
+		MockDelegationRewardsCb: noCoins,
+	}
+
+	pu := usecase.NewPassThroughUsecase(&grpcClientMock, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+
+	// System under test
+	actualPortfolioAssets, err := pu.GetPortfolioAssets(context.TODO(), defaultAddress)
+	s.Require().NoError(err)
+
+	categories := actualPortfolioAssets.Categories
+
+	// The categories without the failing denom are priced in full.
+	s.Require().False(categories[usecase.UserBalancesAssetsCategoryName].IsBestEffort)
+	s.Require().Equal(osmoCapitalization, categories[usecase.UserBalancesAssetsCategoryName].Capitalization)
+	s.Require().False(categories[usecase.UnstakingAssetsCategoryName].IsBestEffort)
+	s.Require().Equal(atomCapitalization, categories[usecase.UnstakingAssetsCategoryName].Capitalization)
+	s.Require().False(categories[usecase.InLocksAssetsCategoryName].IsBestEffort)
+
+	// The categories holding the failing denom are best effort, with the other denoms still priced.
+	s.Require().True(categories[usecase.StakedAssetsCategoryName].IsBestEffort)
+	s.Require().True(categories[usecase.TotalAssetsCategoryName].IsBestEffort)
+	s.Require().Equal(osmoCapitalization.Add(atomCapitalization), categories[usecase.TotalAssetsCategoryName].Capitalization)
 }

@@ -11,6 +11,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
@@ -52,6 +53,10 @@ const (
 	// /passthrough/portfolio-assets request. It stays below the HTTP server write timeout
 	// so stalled gRPC calls cannot leak goroutines after the socket deadline expires.
 	portfolioAssetsRequestTimeout = 30 * time.Second
+
+	// portfolioPricingFallbackWorkers bounds the concurrent per-denom GetPrices calls made when
+	// the batched portfolio pricing call fails.
+	portfolioPricingFallbackWorkers = 8
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
@@ -172,13 +177,13 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	})
 
 	// Collect all unique valid denoms once and fetch prices in a single batched call.
-	priceResult, priceErr := p.fetchPricesForCoins(ctx, bankCoins, unstakingCoins, stakedCoins, inLocksCoins, unclaimedCoins, pooledCoins)
+	priceResult := p.fetchPricesForCoins(ctx, bankCoins, unstakingCoins, stakedCoins, inLocksCoins, unclaimedCoins, pooledCoins)
 
 	finalResult := passthroughdomain.PortfolioAssetsResult{
 		Categories: make(map[string]passthroughdomain.PortfolioAssetsCategoryResult, len(categories)),
 	}
 	for _, cat := range categories {
-		breakdown, totalCap, capErr := p.priceCoins(cat.coins, priceResult, priceErr)
+		breakdown, totalCap, capErr := p.priceCoins(cat.coins, priceResult)
 		if capErr != nil {
 			p.logger.Error("error computing capitalization for category", zap.Error(capErr), zap.String("category", cat.name), zap.String("address", address))
 		}
@@ -197,7 +202,8 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 }
 
 // fetchPricesForCoins deduplicates valid denoms across coinSets and fetches their prices in one call.
-func (p *passthroughUseCase) fetchPricesForCoins(ctx context.Context, coinSets ...sdk.Coins) (domain.PricesResult, error) {
+// A denom that cannot be priced is left out of the result.
+func (p *passthroughUseCase) fetchPricesForCoins(ctx context.Context, coinSets ...sdk.Coins) domain.PricesResult {
 	seenDenoms := make(map[string]struct{})
 	var denomsToPrice []string
 	for _, coins := range coinSets {
@@ -214,17 +220,55 @@ func (p *passthroughUseCase) fetchPricesForCoins(ctx context.Context, coinSets .
 		}
 	}
 
-	priceResult, err := p.tokensUseCase.GetPrices(ctx, denomsToPrice, []string{p.defaultQuoteDenom}, domain.ChainPricingSourceType)
-	if err != nil {
-		return domain.PricesResult{}, err
+	quoteDenoms := []string{p.defaultQuoteDenom}
+	priceResult, err := p.tokensUseCase.GetPrices(ctx, denomsToPrice, quoteDenoms, domain.ChainPricingSourceType)
+	if err == nil {
+		return priceResult
 	}
-	return priceResult, nil
+
+	// GetPrices fails the whole batch when any one denom fails. Price the denoms one by one so
+	// that a failing denom is left out only of the categories that hold it, as each category
+	// was priced on its own before the batching. Unpriced denoms mark their categories best-effort.
+	p.logger.Error("batched portfolio pricing failed, pricing denoms individually", zap.Error(err), zap.Int("num_denoms", len(denomsToPrice)))
+	if ctx.Err() != nil {
+		return domain.PricesResult{}
+	}
+	return p.fetchPricesIndividually(ctx, denomsToPrice, quoteDenoms)
 }
 
-func (p *passthroughUseCase) priceCoins(coins sdk.Coins, priceResult domain.PricesResult, priceErr error) (_ []passthroughdomain.AccountCoinsResult, _ osmomath.Dec, err error) {
+// fetchPricesIndividually prices each denom with its own GetPrices call, at most
+// portfolioPricingFallbackWorkers at a time, and returns the prices of the denoms that succeeded.
+func (p *passthroughUseCase) fetchPricesIndividually(ctx context.Context, denoms []string, quoteDenoms []string) domain.PricesResult {
+	result := make(domain.PricesResult, len(denoms))
+	var resultMu sync.Mutex
+
+	var workers errgroup.Group
+	workers.SetLimit(portfolioPricingFallbackWorkers)
+	for _, denom := range denoms {
+		workers.Go(func() error {
+			prices, err := p.tokensUseCase.GetPrices(ctx, []string{denom}, quoteDenoms, domain.ChainPricingSourceType)
+			if err != nil {
+				p.logger.Error("failed to price denom in portfolio", zap.String("denom", denom), zap.Error(err))
+				return nil
+			}
+
+			resultMu.Lock()
+			defer resultMu.Unlock()
+			if byQuote, ok := prices[denom]; ok {
+				result[denom] = byQuote
+			}
+			return nil
+		})
+	}
+	// The workers never return an error: a failed denom is only left out of the result.
+	_ = workers.Wait()
+
+	return result
+}
+
+func (p *passthroughUseCase) priceCoins(coins sdk.Coins, priceResult domain.PricesResult) (_ []passthroughdomain.AccountCoinsResult, _ osmomath.Dec, err error) {
 	defer recovery.ToErrorf(&err, "computing capitalization")
 
-	err = priceErr
 	coinsWithPrices := make([]passthroughdomain.AccountCoinsResult, 0, len(coins))
 	capitalizationTotal := osmomath.ZeroDec()
 
@@ -233,7 +277,7 @@ func (p *passthroughUseCase) priceCoins(coins sdk.Coins, priceResult domain.Pric
 		price := priceResult.GetPriceForDenom(coin.Denom, p.defaultQuoteDenom)
 
 		// A valid denom without a price contributes zero, so the total is only best-effort.
-		if _, ok := priceResult[coin.Denom][p.defaultQuoteDenom]; !ok && err == nil && p.tokensUseCase.IsValidChainDenom(coin.Denom) {
+		if _, ok := priceResult[coin.Denom][p.defaultQuoteDenom]; !ok && p.tokensUseCase.IsValidChainDenom(coin.Denom) {
 			unpricedDenoms = append(unpricedDenoms, coin.Denom)
 		}
 

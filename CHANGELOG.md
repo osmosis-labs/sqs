@@ -37,6 +37,39 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+## v32.3.0
+
+### Client Breaking
+
+Requests that exceed the new bounds are rejected with 400. Response shapes are unchanged.
+
+- #756 | `/pools` accepts at most 500 pool IDs across `IDs` and `filter[ID]`, 500 in `filter[ID][not_in]`, 16 pool types and 16 incentive types. `/tokens/metadata`, `/tokens/prices` and `/tokens/pool-metadata` accept at most 500 denoms, and repeated denoms are deduplicated
+- #755 | `/router/custom-direct-quote` accepts at most 16 hops. `simulationSlippageTolerance` on `/router/quote` must be at most 2 and at most 32 characters long
+- #757 | `/passthrough/portfolio-assets/{address}` returns 400 for an empty or invalid bech32 address (an empty address returned 500 before), and the request is bounded to 30s
+
+### Features
+
+- #740 | Report the quote denom's peg against US dollars: `/router/quote` carries an optional `quote_usd_peg`, and `/tokens/prices?includeQuoteUsdPeg=true` wraps the response as `{"prices": ..., "quote_usd_peg": ...}`. Configured under `pricing.quote-usd-peg`, off by default; enabling it requires `coingecko-quote-currency` `usd`
+- #735 | The router skips paused transmuters and refuses swaps that a transmuter's corrupted denoms would block. A quote refused by a transmuter (paused, or a corrupted denom) returns 422 rather than 500
+
+### Improvements
+
+- #763 | Portfolio assets fetch the chain queries concurrently and price all categories with one batched call. If the batch fails, the denoms are priced one by one, so a denom that cannot be priced marks only the categories holding it as best effort
+- #752 | Candidate route search reuses its nodes slice and drops a redundant queue
+- #758, #759, #761, #762 | Remove `domain/pipeline`, stdlib wrappers, the chain registry actor loop and the fillbot context subpackages
+- #760 | Remove dead, skipped and duplicate tests
+
+### Bug Fixes
+
+- #741 | Pricing no longer trusts the CoinGecko fallback for token variants, liquidity caps and fee tokens, a refresh no longer replaces a newer CoinGecko price with an older one, and a preview token no longer takes a shared CoinGecko id from the listed token
+- #751 | One pricing update runs at a time, and blocks that arrive meanwhile are merged into the next one
+- #738 | Pricing no longer stores an older pool over one a later block stored meanwhile
+- #732 | Splits drop only the legs that overdraw a shared transmuter
+- #733 | Exact out splits keep partial-capacity routes
+- #736 | The healthcheck fails while the initial orderbook ticks are not loaded, no longer reports a lag when the store is ahead of the status node, and ingest panics are recovered
+- #754 | Cache entries are bounded and the order-of-magnitude computation is iterative
+- #757 | OTEL spans carry only allowlisted query parameters
+
 ## v32.2.0
 
 ### Features

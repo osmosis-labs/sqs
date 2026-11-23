@@ -36,6 +36,6 @@ func (p *passthroughUseCase) HandleGammShares(balance sdk.Coin) (sdk.Coins, erro
 }
 
 func (p *passthroughUseCase) ComputeCapitalizationForCoins(ctx context.Context, coins sdk.Coins) ([]passthroughdomain.AccountCoinsResult, osmomath.Dec, error) {
-	priceResult, priceErr := p.fetchPricesForCoins(ctx, coins)
-	return p.priceCoins(coins, priceResult, priceErr)
+	priceResult := p.fetchPricesForCoins(ctx, coins)
+	return p.priceCoins(coins, priceResult)
 }
