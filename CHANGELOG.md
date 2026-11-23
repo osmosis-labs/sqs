@@ -61,6 +61,7 @@ Requests that exceed the new bounds are rejected with 400. Response shapes are u
 
 ### Bug Fixes
 
+- #764 | `pricing.coingecko-url` defaults to the public CoinGecko API (`api.coingecko.com`) instead of the Osmosis proxy, which now only answers Osmosis infrastructure. Deployments that set the URL explicitly are unaffected
 - #741 | Pricing no longer trusts the CoinGecko fallback for token variants, liquidity caps and fee tokens, a refresh no longer replaces a newer CoinGecko price with an older one, and a preview token no longer takes a shared CoinGecko id from the listed token
 - #751 | One pricing update runs at a time, and blocks that arrive meanwhile are merged into the next one
 - #738 | Pricing no longer stores an older pool over one a later block stored meanwhile
