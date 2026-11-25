@@ -15,10 +15,13 @@ const (
 	InLocksAssetsCategoryName          = inLocksAssetsCategoryName
 	PooledAssetsCategoryName           = pooledAssetsCategoryName
 	UnclaimedRewardsAssetsCategoryName = unclaimedRewardsAssetsCategoryName
+	InOrdersAssetsCategoryName         = inOrdersAssetsCategoryName
 	TotalAssetsCategoryName            = totalAssetsCategoryName
 )
 
 var (
+	LimitOrderCoins = limitOrderCoins
+
 	GammSharePrefix         = gammSharePrefix
 	ConcentratedSharePrefix = concentratedSharePrefix
 )

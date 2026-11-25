@@ -11,6 +11,7 @@ import (
 	"github.com/osmosis-labs/osmosis/osmomath"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mocks"
+	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/log"
 	"github.com/osmosis-labs/sqs/passthrough/usecase"
@@ -104,6 +105,12 @@ var (
 		},
 	}
 
+	noOrdersUseCaseMock = mocks.OrderbookUsecaseMock{
+		GetActiveOrdersFunc: func(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
+			return nil, false, nil
+		},
+	}
+
 	isValidChainDenomFuncMock = func(denom string) bool {
 		// Treat only UOSMO, ATOM and WBTC as valid for test purposes
 		return denom == UOSMO || denom == ATOM || denom == WBTC
@@ -177,7 +184,14 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 		},
 	}
 
-	pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+	// An open bid holding ATOM.
+	orderbookUseCaseMock := mocks.OrderbookUsecaseMock{
+		GetActiveOrdersFunc: func(ctx context.Context, address string) ([]orderbookdomain.LimitOrder, bool, error) {
+			return []orderbookdomain.LimitOrder{newLimitOrder("bid", 2_000_000, 2_000_000, 0)}, false, nil
+		},
+	}
+
+	pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, &orderbookUseCaseMock, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
 
 	// System under test
 	actualPortfolioAssets, err := pu.GetPortfolioAssets(context.TODO(), defaultAddress)
@@ -209,6 +223,15 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 				Capitalization: zero,
 				IsBestEffort:   true,
 			},
+			usecase.InOrdersAssetsCategoryName: {
+				Capitalization: atomCapitalization,
+				AccountCoinsResult: []passthroughdomain.AccountCoinsResult{
+					{
+						Coin:                atomCoin,
+						CapitalizationValue: atomCapitalization,
+					},
+				},
+			},
 			usecase.PooledAssetsCategoryName: {
 				Capitalization: wbtcCapitalization,
 				IsBestEffort:   true,
@@ -218,11 +241,11 @@ func (s *PassthroughUseCaseTestSuite) TestGetPotrfolioAssets_HappyPath() {
 				IsBestEffort:   true,
 			},
 			usecase.TotalAssetsCategoryName: {
-				Capitalization: osmoCapitalization.Add(osmoCapitalization).Add(osmoCapitalization).Add(atomCapitalization).Add(wbtcCapitalization).Add(osmoCapitalization),
+				Capitalization: osmoCapitalization.Add(osmoCapitalization).Add(osmoCapitalization).Add(atomCapitalization).Add(atomCapitalization).Add(wbtcCapitalization).Add(osmoCapitalization),
 				AccountCoinsResult: []passthroughdomain.AccountCoinsResult{
 					{
-						Coin:                atomCoin,
-						CapitalizationValue: atomCapitalization,
+						Coin:                atomCoin.Add(atomCoin),
+						CapitalizationValue: atomCapitalization.Add(atomCapitalization),
 					},
 					{
 						Coin:                wbtcCoin,
@@ -367,7 +390,7 @@ func (s *PassthroughUseCaseTestSuite) TestComputeCapitalizationForCoins() {
 				IsValidChainDenomFunc: isValidChainDenomFuncMock,
 			}
 
-			pu := usecase.NewPassThroughUsecase(nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(nil, nil, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
 
 			// System under test
 			accountCoinsResult, totalCapitalization, err := pu.ComputeCapitalizationForCoins(context.TODO(), tt.coins)
@@ -496,7 +519,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetCoinsFromLocks() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.GetCoinsFromLocks(context.TODO(), tt.address)
@@ -581,7 +604,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetAllBalances() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, gammShareBalances, err := pu.GetBankBalances(context.TODO(), tt.address)
@@ -676,7 +699,7 @@ func (s *PassthroughUseCaseTestSuite) TestHandleGammShares() {
 				},
 			}
 
-			pu := usecase.NewPassThroughUsecase(nil, &poolsUseCaseMock, nil, nil, USDC, &log.NoOpLogger{})
+			pu := usecase.NewPassThroughUsecase(nil, &poolsUseCaseMock, nil, nil, nil, USDC, &log.NoOpLogger{})
 
 			// System under test
 			actualBalances, err := pu.HandleGammShares(tt.coinIn)
@@ -753,7 +776,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetPortfolioAssets_FetchPanicIsContain
 		},
 	}
 
-	pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+	pu := usecase.NewPassThroughUsecase(&grpcClientMock, &poolsUseCaseMock, &noOrdersUseCaseMock, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
 
 	// System under test
 	actualPortfolioAssets, err := pu.GetPortfolioAssets(context.TODO(), defaultAddress)
@@ -810,7 +833,7 @@ func (s *PassthroughUseCaseTestSuite) TestGetPortfolioAssets_PricingFailureIsIso
 		MockDelegationRewardsCb: noCoins,
 	}
 
-	pu := usecase.NewPassThroughUsecase(&grpcClientMock, nil, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
+	pu := usecase.NewPassThroughUsecase(&grpcClientMock, nil, &noOrdersUseCaseMock, &tokensUsecaseMock, liquidityPricerMock, USDC, &log.NoOpLogger{})
 
 	// System under test
 	actualPortfolioAssets, err := pu.GetPortfolioAssets(context.TODO(), defaultAddress)
@@ -829,4 +852,79 @@ func (s *PassthroughUseCaseTestSuite) TestGetPortfolioAssets_PricingFailureIsIso
 	s.Require().True(categories[usecase.StakedAssetsCategoryName].IsBestEffort)
 	s.Require().True(categories[usecase.TotalAssetsCategoryName].IsBestEffort)
 	s.Require().Equal(osmoCapitalization.Add(atomCapitalization), categories[usecase.TotalAssetsCategoryName].Capitalization)
+}
+
+// newLimitOrder returns a limit order at price 2 (tick 1,000,000) on a WBTC/ATOM orderbook, so
+// bids hold ATOM and fill into WBTC, and asks the reverse.
+func newLimitOrder(direction string, placed, quantity, totalFilled int64) orderbookdomain.LimitOrder {
+	return orderbookdomain.LimitOrder{
+		TickId:         1_000_000,
+		OrderDirection: direction,
+		PlacedQuantity: osmomath.NewDec(placed),
+		Quantity:       osmomath.NewDec(quantity),
+		TotalFilled:    osmomath.NewDec(totalFilled),
+		BaseAsset:      orderbookdomain.Asset{Symbol: WBTC},
+		QuoteAsset:     orderbookdomain.Asset{Symbol: ATOM},
+	}
+}
+
+// Validates the funds held in a limit order: the unfilled part in the asset it was placed with and
+// the filled but unclaimed part in the asset it fills into.
+func (s *PassthroughUseCaseTestSuite) TestLimitOrderCoins() {
+	tests := []struct {
+		name          string
+		order         orderbookdomain.LimitOrder
+		expectedCoins sdk.Coins
+		expectedError bool
+	}{
+		{
+			name:          "open bid holds its quote asset",
+			order:         newLimitOrder("bid", 1000, 1000, 0),
+			expectedCoins: sdk.NewCoins(sdk.NewInt64Coin(ATOM, 1000)),
+		},
+		{
+			name:          "open ask holds its base asset",
+			order:         newLimitOrder("ask", 1000, 1000, 0),
+			expectedCoins: sdk.NewCoins(sdk.NewInt64Coin(WBTC, 1000)),
+		},
+		{
+			// 300 claimed, 201 filled since: 499 ATOM unfilled and floor(201 / 2) WBTC to claim.
+			name:          "partially filled and partly claimed bid",
+			order:         newLimitOrder("bid", 1000, 700, 501),
+			expectedCoins: sdk.NewCoins(sdk.NewInt64Coin(ATOM, 499), sdk.NewInt64Coin(WBTC, 100)),
+		},
+		{
+			name:          "partially filled ask",
+			order:         newLimitOrder("ask", 1000, 1000, 401),
+			expectedCoins: sdk.NewCoins(sdk.NewInt64Coin(WBTC, 599), sdk.NewInt64Coin(ATOM, 802)),
+		},
+		{
+			// Fills past the order's quantity are capped at the quantity left.
+			name:          "filled and unclaimed bid",
+			order:         newLimitOrder("bid", 1000, 1000, 1200),
+			expectedCoins: sdk.NewCoins(sdk.NewInt64Coin(WBTC, 500)),
+		},
+		{
+			name:          "fully claimed order holds nothing",
+			order:         newLimitOrder("ask", 1000, 0, 1000),
+			expectedCoins: sdk.Coins{},
+		},
+		{
+			name:          "unknown direction",
+			order:         newLimitOrder("sideways", 1000, 1000, 0),
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			actualCoins, err := usecase.LimitOrderCoins(tt.order)
+			if tt.expectedError {
+				s.Require().Error(err)
+				return
+			}
+			s.Require().NoError(err)
+			s.Require().Equal(tt.expectedCoins, actualCoins)
+		})
+	}
 }

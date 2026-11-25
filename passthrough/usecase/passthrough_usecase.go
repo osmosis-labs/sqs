@@ -14,15 +14,18 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/osmosis-labs/osmosis/osmomath"
+	clmath "github.com/osmosis-labs/osmosis/v31/x/concentrated-liquidity/math"
 	"github.com/osmosis-labs/sqs/domain"
 	"github.com/osmosis-labs/sqs/domain/mvc"
+	orderbookdomain "github.com/osmosis-labs/sqs/domain/orderbook"
 	passthroughdomain "github.com/osmosis-labs/sqs/domain/passthrough"
 	"github.com/osmosis-labs/sqs/domain/recovery"
 	"github.com/osmosis-labs/sqs/log"
 )
 
 type passthroughUseCase struct {
-	poolsUseCase mvc.PoolsUsecase
+	poolsUseCase     mvc.PoolsUsecase
+	orderbookUseCase mvc.OrderBookUsecase
 
 	tokensUseCase         mvc.TokensUsecase
 	defaultQuoteDenom     string
@@ -39,6 +42,7 @@ const (
 	inLocksAssetsCategoryName          string = "in-locks"
 	pooledAssetsCategoryName           string = "pooled"
 	unclaimedRewardsAssetsCategoryName string = "unclaimed-rewards"
+	inOrdersAssetsCategoryName         string = "in-orders"
 	totalAssetsCategoryName            string = "total-assets"
 )
 
@@ -60,9 +64,10 @@ const (
 )
 
 // NewPassThroughUsecase Creates a passthrough use case
-func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, tokensUseCase mvc.TokensUsecase, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string, logger log.Logger) *passthroughUseCase {
+func NewPassThroughUsecase(passthroughGRPCClient passthroughdomain.PassthroughGRPCClient, puc mvc.PoolsUsecase, orderbookUseCase mvc.OrderBookUsecase, tokensUseCase mvc.TokensUsecase, liquidityPricer domain.LiquidityPricer, defaultQuoteDenom string, logger log.Logger) *passthroughUseCase {
 	return &passthroughUseCase{
-		poolsUseCase: puc,
+		poolsUseCase:     puc,
+		orderbookUseCase: orderbookUseCase,
 
 		passthroughGRPCClient: passthroughGRPCClient,
 
@@ -92,11 +97,13 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		stakedErr                          error
 		inLocksCoins                       sdk.Coins
 		inLocksErr                         error
+		inOrdersCoins                      sdk.Coins
+		inOrdersErr                        error
 	)
 
 	// Phase 1: fetch all independent chain queries concurrently.
 	var wg sync.WaitGroup
-	wg.Add(6)
+	wg.Add(7)
 	go func() {
 		defer wg.Done()
 		bankCoins, gammShareCoins, bankErr = recoverCoinsPair(func() (sdk.Coins, sdk.Coins, error) {
@@ -133,6 +140,12 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 			return p.getCoinsFromLocks(ctx, address)
 		})
 	}()
+	go func() {
+		defer wg.Done()
+		inOrdersCoins, inOrdersErr = recoverCoins(func() (sdk.Coins, error) {
+			return p.getCoinsFromOrders(ctx, address)
+		})
+	}()
 	wg.Wait()
 
 	// Phase 2: combine categories, compute total coins, and price everything in one GetPrices call.
@@ -151,6 +164,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 		{name: unstakingAssetsCategoryName, coins: unstakingCoins, err: unstakingErr},
 		{name: stakedAssetsCategoryName, coins: stakedCoins, err: stakedErr},
 		{name: inLocksAssetsCategoryName, coins: inLocksCoins, err: inLocksErr},
+		{name: inOrdersAssetsCategoryName, coins: inOrdersCoins, err: inOrdersErr, breakdown: true},
 		{name: unclaimedRewardsAssetsCategoryName, coins: unclaimedCoins, err: unclaimedErr},
 		{name: pooledAssetsCategoryName, coins: pooledCoins, err: pooledErr},
 	}
@@ -177,7 +191,7 @@ func (p *passthroughUseCase) GetPortfolioAssets(ctx context.Context, address str
 	})
 
 	// Collect all unique valid denoms once and fetch prices in a single batched call.
-	priceResult := p.fetchPricesForCoins(ctx, bankCoins, unstakingCoins, stakedCoins, inLocksCoins, unclaimedCoins, pooledCoins)
+	priceResult := p.fetchPricesForCoins(ctx, bankCoins, unstakingCoins, stakedCoins, inLocksCoins, inOrdersCoins, unclaimedCoins, pooledCoins)
 
 	finalResult := passthroughdomain.PortfolioAssetsResult{
 		Categories: make(map[string]passthroughdomain.PortfolioAssetsCategoryResult, len(categories)),
@@ -314,6 +328,96 @@ func (p *passthroughUseCase) getCoinsFromLocks(ctx context.Context, address stri
 		// Concentrated value is retrieved from positions.
 		if !strings.HasPrefix(lockedCoin.Denom, concentratedSharePrefix) {
 			coins = coins.Add(lockedCoin)
+		}
+	}
+
+	return coins, nil
+}
+
+// errActiveOrdersBestEffort marks the orders category as best effort when the orderbook use
+// case could not read every orderbook or order of the address.
+var errActiveOrdersBestEffort = errors.New("active orders are best effort")
+
+// getCoinsFromOrders returns the funds held in the user's orderbook limit orders: the unfilled part
+// of each order in the asset it was placed with, plus the filled but unclaimed part in the asset it
+// fills into. Orders that are fully claimed are removed by the contract, so they hold nothing.
+func (p *passthroughUseCase) getCoinsFromOrders(ctx context.Context, address string) (sdk.Coins, error) {
+	orders, isBestEffort, err := p.orderbookUseCase.GetActiveOrders(ctx, address)
+	if err != nil {
+		return sdk.Coins{}, err
+	}
+
+	var ordersErr error
+	if isBestEffort {
+		ordersErr = errActiveOrdersBestEffort
+	}
+
+	coins := sdk.Coins{}
+	for _, order := range orders {
+		orderCoins, err := limitOrderCoins(order)
+		if err != nil {
+			ordersErr = errors.Join(ordersErr, fmt.Errorf("order %d on tick %d of %s: %w", order.OrderId, order.TickId, order.OrderbookAddress, err))
+			continue
+		}
+		coins = coins.Add(orderCoins...)
+	}
+
+	return coins, ordersErr
+}
+
+// limitOrderCoins returns the funds a limit order holds for its owner, in minimal denom amounts.
+//
+// A claim takes the filled amount off the order's quantity, so the part filled since the last claim
+// is the total filled less what was already claimed, capped at the quantity left. The contract
+// floors that amount and its output when claiming, and so does this. The output is before the
+// claim bounty and the maker fee, which the contract deducts at claim time.
+func limitOrderCoins(order orderbookdomain.LimitOrder) (sdk.Coins, error) {
+	var inDenom, outDenom string
+	switch order.OrderDirection {
+	case "bid":
+		inDenom, outDenom = order.QuoteAsset.Symbol, order.BaseAsset.Symbol
+	case "ask":
+		inDenom, outDenom = order.BaseAsset.Symbol, order.QuoteAsset.Symbol
+	default:
+		return nil, fmt.Errorf("unknown order direction %q", order.OrderDirection)
+	}
+
+	if order.Quantity.IsNil() || order.PlacedQuantity.IsNil() || order.TotalFilled.IsNil() {
+		return nil, errors.New("order amounts are not set")
+	}
+	if order.Quantity.IsNegative() {
+		return nil, fmt.Errorf("negative order quantity %s", order.Quantity)
+	}
+
+	claimed := order.PlacedQuantity.Sub(order.Quantity)
+	filledUnclaimedDec := osmomath.MinDec(osmomath.MaxDec(order.TotalFilled.Sub(claimed), osmomath.ZeroDec()), order.Quantity)
+
+	quantity := order.Quantity.TruncateInt()
+	filledUnclaimed := filledUnclaimedDec.TruncateInt()
+	unfilled := quantity.Sub(filledUnclaimed)
+
+	coins := sdk.Coins{}
+	if unfilled.IsPositive() {
+		coins = coins.Add(sdk.Coin{Denom: inDenom, Amount: unfilled})
+	}
+
+	if filledUnclaimed.IsPositive() {
+		price, err := clmath.TickToPrice(order.TickId)
+		if err != nil {
+			return nil, fmt.Errorf("converting tick %d to price: %w", order.TickId, err)
+		}
+
+		// Tick prices are quote per base in minimal denom amounts.
+		filled := osmomath.BigDecFromSDKInt(filledUnclaimed)
+		var output osmomath.Int
+		if order.OrderDirection == "bid" {
+			output = filled.QuoMut(price).Dec().TruncateInt()
+		} else {
+			output = filled.MulMut(price).Dec().TruncateInt()
+		}
+
+		if output.IsPositive() {
+			coins = coins.Add(sdk.Coin{Denom: outDenom, Amount: output})
 		}
 	}
 

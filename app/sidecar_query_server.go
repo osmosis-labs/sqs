@@ -311,9 +311,6 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 		return nil, err
 	}
 
-	// Initialize passthrough query use case
-	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, tokensUseCase, liquidityPricer, defaultQuoteDenom, logger)
-
 	// Initialize chain registry use case
 	chainregistryUseCase, err := chainregistryUseCase.NewChainregistryUseCase(ctx, config.ChainRegistryTokenFeesFileURL, tokensUseCase, defaultQuoteDenom, logger)
 	if err != nil {
@@ -336,6 +333,9 @@ func NewSideCarQueryServer(ctx context.Context, appCodec codec.Codec, config dom
 	orderBookAPIClient := orderbookgrpcclientdomain.New(wasmQueryClient)
 	orderBookRepository := orderbookrepository.New()
 	orderBookUseCase := orderbookusecase.New(orderBookRepository, orderBookAPIClient, poolsUseCase, tokensUseCase, logger)
+
+	// Initialize passthrough query use case
+	passthroughUseCase := passthroughUseCase.NewPassThroughUsecase(passthroughGRPCClient, poolsUseCase, orderBookUseCase, tokensUseCase, liquidityPricer, defaultQuoteDenom, logger)
 
 	// The quote denom's peg against US dollars is read from the cached CoinGecko prices.
 	var quoteUSDPegChecker *domain.QuoteUSDPegChecker
